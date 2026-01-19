@@ -1,0 +1,8 @@
+# backend
+statco-backend/dist/
+
+# frontend
+statco-frontend/dist/
+
+node_modules/
+.env
