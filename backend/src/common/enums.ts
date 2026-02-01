@@ -1,0 +1,36 @@
+export enum BranchType {
+  HO = 'HO',
+  ZONAL = 'ZONAL',
+  SALES = 'SALES',
+  ESTABLISHMENT = 'ESTABLISHMENT',
+  FACTORY = 'FACTORY',
+}
+
+export enum Frequency {
+  MONTHLY = 'MONTHLY',
+  QUARTERLY = 'QUARTERLY',
+  HALF_YEARLY = 'HALF_YEARLY',
+  YEARLY = 'YEARLY',
+  EVENT = 'EVENT',
+}
+
+export enum OwnerRole {
+  CRM = 'CRM',
+  AUDITOR = 'AUDITOR',
+}
+
+export enum ChecklistStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  OVERDUE = 'OVERDUE',
+}
+
+export enum AuditType {
+  CONTRACTOR = 'CONTRACTOR',
+  FACTORY = 'FACTORY',
+  SHOPS_ESTABLISHMENT = 'SHOPS_ESTABLISHMENT',
+  LABOUR_EMPLOYMENT = 'LABOUR_EMPLOYMENT',
+  FSSAI = 'FSSAI',
+  HR = 'HR',
+  PAYROLL = 'PAYROLL',
+}
