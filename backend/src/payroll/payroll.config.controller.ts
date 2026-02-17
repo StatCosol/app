@@ -1,10 +1,18 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollService } from './payroll.service';
 
-@Controller('api/payroll/clients')
+@Controller({ path: 'payroll/clients', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('PAYROLL', 'ADMIN')
 export class PayrollConfigController {
@@ -18,7 +26,11 @@ export class PayrollConfigController {
 
   // Save overrides
   @Post(':clientId/component-overrides')
-  saveOverrides(@Req() req: any, @Param('clientId') clientId: string, @Body() dto: any) {
+  saveOverrides(
+    @Req() req: any,
+    @Param('clientId') clientId: string,
+    @Body() dto: any,
+  ) {
     return this.svc.saveClientComponentOverrides(req.user, clientId, dto);
   }
 
@@ -29,7 +41,11 @@ export class PayrollConfigController {
   }
 
   @Post(':clientId/payslip-layout')
-  saveLayout(@Req() req: any, @Param('clientId') clientId: string, @Body() dto: any) {
+  saveLayout(
+    @Req() req: any,
+    @Param('clientId') clientId: string,
+    @Body() dto: any,
+  ) {
     return this.svc.saveClientPayslipLayout(req.user, clientId, dto);
   }
 }

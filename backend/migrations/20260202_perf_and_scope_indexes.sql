@@ -5,26 +5,38 @@
 -- ASSIGNMENTS
 -- ------------------
 
-CREATE INDEX IF NOT EXISTS idx_client_assignments_crm
-  ON client_assignments(crm_user_id);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'client_assignments' AND column_name = 'crm_user_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_client_assignments_crm
+      ON client_assignments(crm_user_id);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_client_assignments_auditor
-  ON client_assignments(auditor_user_id);
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'client_assignments' AND column_name = 'auditor_user_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_client_assignments_auditor
+      ON client_assignments(auditor_user_id);
+  END IF;
+END
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_client_assignments_status
   ON client_assignments(status);
 
-CREATE INDEX IF NOT EXISTS idx_client_assignment_current_crm
-  ON client_assignment_current(crm_user_id);
+-- client_assignment_current table is named client_assignments_current and uses assigned_to_user_id + assignment_type
+CREATE INDEX IF NOT EXISTS idx_client_assignments_current_user
+  ON client_assignments_current(assigned_to_user_id);
 
-CREATE INDEX IF NOT EXISTS idx_client_assignment_current_auditor
-  ON client_assignment_current(auditor_user_id);
+CREATE INDEX IF NOT EXISTS idx_client_assignments_current_type
+  ON client_assignments_current(assignment_type);
 
-CREATE INDEX IF NOT EXISTS idx_client_assignment_current_status
-  ON client_assignment_current(status);
-
-CREATE INDEX IF NOT EXISTS idx_client_assignment_history_client_created
-  ON client_assignment_history(client_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_client_assignments_history_client_created
+  ON client_assignments_history(client_id, created_at);
 
 -- ------------------
 -- COMPLIANCE TASKS
@@ -52,8 +64,9 @@ CREATE INDEX IF NOT EXISTS idx_compliance_evidence_task_created
 -- AUDITS
 -- ------------------
 
+-- auditor_user_id does not exist; use assigned_auditor_id
 CREATE INDEX IF NOT EXISTS idx_audits_auditor
-  ON audits(auditor_user_id);
+  ON audits(assigned_auditor_id);
 
 CREATE INDEX IF NOT EXISTS idx_audits_status
   ON audits(status);
@@ -61,8 +74,9 @@ CREATE INDEX IF NOT EXISTS idx_audits_status
 CREATE INDEX IF NOT EXISTS idx_audits_client_status
   ON audits(client_id, status);
 
+-- start_date/end_date not present; use due_date and period_year for scoping
 CREATE INDEX IF NOT EXISTS idx_audits_dates
-  ON audits(start_date, end_date);
+  ON audits(due_date, period_year);
 
 -- ------------------
 -- NOTIFICATIONS

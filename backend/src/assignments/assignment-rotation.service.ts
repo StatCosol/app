@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 
@@ -6,12 +6,12 @@ type AssignmentType = 'CRM' | 'AUDITOR';
 
 @Injectable()
 export class AssignmentRotationService {
-    // Run both CRM and AUDITOR rotations manually
-    async run() {
-      const crm = await this.rotateNow('CRM');
-      const auditor = await this.rotateNow('AUDITOR');
-      return { crm, auditor };
-    }
+  // Run both CRM and AUDITOR rotations manually
+  async run() {
+    const crm = await this.rotateNow('CRM');
+    const auditor = await this.rotateNow('AUDITOR');
+    return { crm, auditor };
+  }
   private readonly logger = new Logger(AssignmentRotationService.name);
 
   constructor(private readonly ds: DataSource) {}
@@ -162,7 +162,8 @@ export class AssignmentRotationService {
     pool: string[],
     currentAssigneeId: string | null,
   ): string {
-    if (!pool.length) throw new Error('No assignee pool available');
+    if (!pool.length)
+      throw new BadRequestException('No assignee pool available');
     if (pool.length === 1) return pool[0];
     const idx = currentAssigneeId ? pool.indexOf(currentAssigneeId) : -1;
     if (idx === -1) return pool[0];

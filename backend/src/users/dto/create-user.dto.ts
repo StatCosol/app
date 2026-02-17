@@ -5,6 +5,8 @@ import {
   IsUUID,
   MinLength,
   IsNotEmpty,
+  IsIn,
+  IsArray,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 export class CreateUserDto {
@@ -36,4 +38,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsUUID()
   ownerCcoId?: string;
+
+  // For CLIENT users: MASTER or BRANCH
+  @IsOptional()
+  @IsIn(['MASTER', 'BRANCH'])
+  userType?: 'MASTER' | 'BRANCH';
+
+  // For BRANCH CLIENT users: branch IDs to assign
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  branchIds?: string[];
 }

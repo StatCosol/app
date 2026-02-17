@@ -1,0 +1,165 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Page Header -->
+  <ui-page-header
+    title="Client Assignments"
+    description="Assign CRMs and Auditors to clients"
+    icon="clipboard">
+  </ui-page-header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- LEFT: ASSIGN FORM -->
+    <div class="card">
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">Assign Client</h3>
+
+      <div *ngIf="isEditMode" class="alert alert-info mb-4">
+        Editing client assignment. Update CRM/Auditor then click Update, or Cancel to exit.
+      </div>
+
+      <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+
+      <div class="space-y-4">
+        <ui-form-select
+          label="Client"
+          [(ngModel)]="form.clientId"
+          [options]="clientSelectOptions"
+          [disabled]="loading || isEditMode">
+        </ui-form-select>
+
+        <ui-form-select
+          label="CRM"
+          [(ngModel)]="form.crmId"
+          [options]="crmSelectOptions"
+          [disabled]="loading">
+        </ui-form-select>
+
+        <ui-form-select
+          label="Auditor"
+          [(ngModel)]="form.auditorId"
+          [options]="auditorSelectOptions"
+          [disabled]="loading">
+        </ui-form-select>
+
+        <div class="flex gap-3">
+          <ui-button
+            variant="primary"
+            (click)="assign()"
+            [disabled]="loading"
+            class="flex-grow">
+            {{ loading ? 'Processing...' : (isEditMode ? 'Update' : 'Assign') }}
+          </ui-button>
+          <ui-button
+            *ngIf="isEditMode"
+            variant="secondary"
+            (click)="resetForm()"
+            [disabled]="loading">
+            Cancel
+          </ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: ASSIGNMENTS TABLE -->
+    <div class="card">
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">Current Assignments</h3>
+
+      <div *ngIf="loading && currentAssignments.length === 0" class="flex items-center justify-center py-8">
+        <svg class="animate-spin h-8 w-8 text-statco-blue-light mr-3" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-gray-600">Loading assignments...</span>
+      </div>
+
+      <ui-data-table
+        [columns]="currentAssignmentsColumns"
+        [data]="currentAssignments"
+        [loading]="loading && currentAssignments.length === 0">
+        
+        <!-- Client Name -->
+        <ng-template uiTableCell="clientName" let-row>
+          <span class="font-medium text-gray-900">{{ clientNameById[row.clientId] || 'Unknown Client' }}</span>
+        </ng-template>
+        
+        <!-- CRM Name -->
+        <ng-template uiTableCell="crmName" let-row>
+          <span class="text-sm text-gray-600">{{ getUserName(row.crmId) }}</span>
+        </ng-template>
+        
+        <!-- Auditor Name -->
+        <ng-template uiTableCell="auditorName" let-row>
+          <span class="text-sm text-gray-600">{{ getUserName(row.auditorId) }}</span>
+        </ng-template>
+        
+        <!-- Start Date -->
+        <ng-template uiTableCell="startDate" let-row>
+          <span class="text-sm text-gray-600">{{ row.startDate | date: 'yyyy-MM-dd' }}</span>
+        </ng-template>
+        
+        <!-- Status -->
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [variant]="getStatus(row) === 'ASSIGNED' ? 'success' : 'gray'">
+            {{ getStatus(row) }}
+          </ui-status-badge>
+        </ng-template>
+        
+        <!-- Actions -->
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex justify-end gap-2">
+            <ui-button variant="secondary" size="sm" (click)="openEdit(row)">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (click)="remove(row)" [disabled]="removingClientId === row.clientId">{{ removingClientId === row.clientId ? 'Removing...' : 'Delete' }}</ui-button>
+          </div>
+        </ng-template>
+        
+        <!-- Empty State -->
+        <ng-template #emptyState>
+          <ui-empty-state
+            icon="clipboard"
+            title="No active assignments"
+            description="No assignments have been created yet">
+          </ui-empty-state>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+
+  <!-- HISTORY SECTION -->
+  <div class="card mt-6" *ngIf="assignmentHistory.length > 0">
+    <h3 class="text-xl font-semibold text-gray-900 mb-6">Assignment History</h3>
+    
+    <ui-data-table
+      [columns]="historyColumns"
+      [data]="assignmentHistory"
+      [loading]="historyLoading">
+      
+      <!-- Client Name -->
+      <ng-template uiTableCell="clientName" let-row>
+          <span class="font-medium text-gray-900">{{ clientNameById[row.clientId] || 'Unknown Client' }}</span>
+        </ng-template>
+        
+        <!-- CRM Name -->
+        <ng-template uiTableCell="crmName" let-row>
+          <span class="text-sm text-gray-600">{{ getUserName(row.crmId) }}</span>
+        </ng-template>
+        
+        <!-- Auditor Name -->
+        <ng-template uiTableCell="auditorName" let-row>
+          <span class="text-sm text-gray-600">{{ getUserName(row.auditorId) }}</span>
+        </ng-template>
+      
+      <!-- Start Date -->
+      <ng-template uiTableCell="startDate" let-row>
+        <span class="text-sm text-gray-600">{{ row.startDate | date: 'yyyy-MM-dd' }}</span>
+      </ng-template>
+      
+      <!-- End Date -->
+      <ng-template uiTableCell="endDate" let-row>
+        <span class="text-sm text-gray-600">{{ row.endDate ? (row.endDate | date: 'yyyy-MM-dd') : '—' }}</span>
+      </ng-template>
+      
+      <!-- Status -->
+      <ng-template uiTableCell="status" let-row>
+        <span class="text-sm text-gray-600">{{ getStatus(row) }}</span>
+      </ng-template>
+    </ui-data-table>
+  </div>
+</div>

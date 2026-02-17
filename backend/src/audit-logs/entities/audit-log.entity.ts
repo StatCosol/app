@@ -21,7 +21,9 @@ export type AuditAction =
   | 'RESTORE'
   | 'ASSIGN'
   | 'UNASSIGN'
-  | 'ROTATE';
+  | 'ROTATE'
+  | 'DELETE_REQUEST'
+  | 'DELETE_REJECT';
 
 @Entity('audit_logs')
 @Index(['entityType', 'entityId'])

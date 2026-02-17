@@ -15,11 +15,11 @@ type JwtPayload = {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-    private maskId(id?: string) {
-      if (!id) return '';
-      // show only first 4 + last 4
-      return id.length > 10 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id;
-    }
+  private maskId(id?: string) {
+    if (!id) return '';
+    // show only first 4 + last 4
+    return id.length > 10 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id;
+  }
   constructor(
     private readonly usersService: UsersService,
     private readonly config: ConfigService,
@@ -57,10 +57,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     if ((user as any).deletedAt != null) {
-      Logger.warn(
-        `JwtStrategy: rejecting token - deleted user`,
-        'JwtStrategy',
-      );
+      Logger.warn(`JwtStrategy: rejecting token - deleted user`, 'JwtStrategy');
       throw new UnauthorizedException('User is deleted');
     }
 
@@ -71,6 +68,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email ?? user.email,
       roleCode,
       clientId: payload.clientId ?? user.clientId ?? null,
+      userType: (user as any).userType ?? null,
     } as const;
 
     Logger.log(

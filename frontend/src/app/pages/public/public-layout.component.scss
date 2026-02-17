@@ -1,0 +1,23 @@
+.public-content {
+  min-height: 80vh;
+  padding: 2rem 0;
+}
+
+.top-header .company-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 6px;
+  text-align: left;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contact-icon {
+  display: block;
+  flex-shrink: 0;
+}

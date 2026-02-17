@@ -1,0 +1,43 @@
+@use '../../shared/dashboard.scss' as dashboard;
+
+.stat-card {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.15);
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.25);
+  }
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+  }
+
+  input,
+  select {
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+
+  button {
+    padding: 0.4rem 0.9rem;
+  }
+}

@@ -23,5 +23,13 @@ CREATE INDEX IF NOT EXISTS idx_notification_reads_user_notification_lastread
 
 
 -- Add/ensure message index (for speed)
-CREATE INDEX IF NOT EXISTS idx_notification_messages_thread_created
-  ON notification_messages(thread_id, created_at);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'notification_messages' AND column_name = 'thread_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_notification_messages_thread_created
+      ON notification_messages(thread_id, created_at);
+  END IF;
+END $$;

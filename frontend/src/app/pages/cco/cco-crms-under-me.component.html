@@ -1,0 +1,60 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="CRMs Under Me" 
+    description="Manage and monitor your CRM team" 
+    icon="user-group">
+  </ui-page-header>
+
+  <div class="card">
+    <!-- Loading State -->
+    <div *ngIf="loading">
+      <ui-loading-spinner></ui-loading-spinner>
+    </div>
+
+    <!-- Error Banner (non-blocking) -->
+    <div *ngIf="!loading && error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
+      <span>{{ error }}</span>
+      <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+    </div>
+
+    <!-- Table -->
+    <div *ngIf="!loading" class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">CRM Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Assigned Clients</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Overdue Count</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Last Login</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr *ngFor="let crm of crms" class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ crm.name }}</td>
+            <td class="px-6 py-4 text-sm">
+              <ui-status-badge [variant]="crm.status === 'Active' ? 'success' : 'gray'">{{ crm.status }}</ui-status-badge>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ crm.clientCount }}</td>
+            <td class="px-6 py-4 text-sm">
+              <ui-status-badge [variant]="crm.overdueCount > 0 ? 'error' : 'success'">{{ crm.overdueCount }}</ui-status-badge>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">{{ crm.lastLogin }}</td>
+            <td class="px-6 py-4 text-sm">
+              <button class="btn-primary-sm" (click)="viewCrm(crm)">View</button>
+            </td>
+          </tr>
+          <tr *ngIf="!crms || crms.length === 0">
+            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+              <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              No CRMs found
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>

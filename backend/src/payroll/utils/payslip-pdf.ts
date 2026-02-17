@@ -27,7 +27,9 @@ function fmtMoney(n: any) {
   return v.toFixed(2);
 }
 
-export async function generatePayslipPdfBuffer(input: PayslipPdfInput): Promise<Buffer> {
+export async function generatePayslipPdfBuffer(
+  input: PayslipPdfInput,
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -42,11 +44,16 @@ export async function generatePayslipPdfBuffer(input: PayslipPdfInput): Promise<
 
       // Header
       doc.fontSize(11);
-      doc.text(`Period: ${String(input.header.periodMonth).padStart(2, '0')}/${input.header.periodYear}`);
-      if (input.header.clientName) doc.text(`Client: ${input.header.clientName}`);
-      if (input.header.employeeName) doc.text(`Employee: ${input.header.employeeName}`);
+      doc.text(
+        `Period: ${String(input.header.periodMonth).padStart(2, '0')}/${input.header.periodYear}`,
+      );
+      if (input.header.clientName)
+        doc.text(`Client: ${input.header.clientName}`);
+      if (input.header.employeeName)
+        doc.text(`Employee: ${input.header.employeeName}`);
       if (input.header.empCode) doc.text(`Emp Code: ${input.header.empCode}`);
-      if (input.header.designation) doc.text(`Designation: ${input.header.designation}`);
+      if (input.header.designation)
+        doc.text(`Designation: ${input.header.designation}`);
       if (input.header.uan) doc.text(`UAN: ${input.header.uan}`);
       if (input.header.esic) doc.text(`ESIC: ${input.header.esic}`);
 
@@ -65,7 +72,9 @@ export async function generatePayslipPdfBuffer(input: PayslipPdfInput): Promise<
         const col2 = 450;
 
         doc.fontSize(10).text('Component', col1, doc.y);
-        doc.fontSize(10).text('Amount', col2, doc.y, { width: 100, align: 'right' });
+        doc
+          .fontSize(10)
+          .text('Amount', col2, doc.y, { width: 100, align: 'right' });
         doc.moveDown(0.3);
         doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
         doc.moveDown(0.3);
@@ -74,11 +83,17 @@ export async function generatePayslipPdfBuffer(input: PayslipPdfInput): Promise<
         for (const r of rows) {
           if (r.type === 'COMPONENT') {
             doc.fontSize(10).text(r.label ?? r.code, col1, doc.y);
-            doc.fontSize(10).text(fmtMoney(r.amount), col2, doc.y, { width: 100, align: 'right' });
+            doc.fontSize(10).text(fmtMoney(r.amount), col2, doc.y, {
+              width: 100,
+              align: 'right',
+            });
             doc.moveDown(0.25);
           } else if (r.type === 'TOTAL') {
             doc.fontSize(10).text(r.label ?? r.key, col1, doc.y);
-            doc.fontSize(10).text(fmtMoney(r.amount), col2, doc.y, { width: 100, align: 'right' });
+            doc.fontSize(10).text(fmtMoney(r.amount), col2, doc.y, {
+              width: 100,
+              align: 'right',
+            });
             doc.moveDown(0.25);
           }
         }
@@ -91,7 +106,10 @@ export async function generatePayslipPdfBuffer(input: PayslipPdfInput): Promise<
           doc.moveDown(0.2);
           for (const t of totals) {
             doc.fontSize(10).text(t.label ?? t.key, col1, doc.y);
-            doc.fontSize(10).text(fmtMoney(t.amount), col2, doc.y, { width: 100, align: 'right' });
+            doc.fontSize(10).text(fmtMoney(t.amount), col2, doc.y, {
+              width: 100,
+              align: 'right',
+            });
             doc.moveDown(0.25);
           }
         }
@@ -108,17 +126,25 @@ export async function generatePayslipPdfBuffer(input: PayslipPdfInput): Promise<
       doc.fontSize(12).text('Summary', { underline: true });
       doc.moveDown(0.4);
 
-      const summaryOrder = ['GROSS_EARNINGS', 'TOTAL_DEDUCTIONS', 'NET_PAY', 'CTC'];
+      const summaryOrder = [
+        'GROSS_EARNINGS',
+        'TOTAL_DEDUCTIONS',
+        'NET_PAY',
+        'CTC',
+      ];
       for (const k of summaryOrder) {
         if (input.payslip.totals?.[k] == null) continue;
         doc.fontSize(10).text(k.replace(/_/g, ' '), 40, doc.y);
-        doc.fontSize(10).text(fmtMoney(input.payslip.totals[k]), 450, doc.y, { width: 100, align: 'right' });
+        doc.fontSize(10).text(fmtMoney(input.payslip.totals[k]), 450, doc.y, {
+          width: 100,
+          align: 'right',
+        });
         doc.moveDown(0.25);
       }
 
       doc.end();
     } catch (e) {
-      reject(e);
+      reject(e instanceof Error ? e : new Error(String(e)));
     }
   });
 }

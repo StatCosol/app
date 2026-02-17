@@ -1,0 +1,17 @@
+.client-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.client-content {
+  min-height: calc(100vh - 56px);
+  padding: 1.5rem 0.5rem;
+
+  @media (min-width: 640px) {
+    padding: 1.5rem 1rem;
+  }
+
+  @media (min-width: 1024px) {
+    padding: 2rem 1.5rem;
+  }
+}

@@ -27,9 +27,12 @@ export class NotificationReadEntity {
   @Column({ name: 'notification_id', type: 'uuid' })
   notificationId: string;
 
-  @ManyToOne(() => NotificationEntity, (t) => t.reads, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => NotificationEntity, (n) => n.reads, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'notification_id' })
-  thread?: NotificationEntity;
+  notification?: NotificationEntity;
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;

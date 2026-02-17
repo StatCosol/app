@@ -33,6 +33,19 @@ export class ComplianceTask {
   @Column({ name: 'compliance_id', type: 'uuid' })
   complianceId: string;
 
+  @Column({ type: 'varchar', length: 255 })
+  title: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'ONE_TIME'],
+    enumName: 'frequency_enum',
+  })
+  frequency: string;
+
   @ManyToOne(() => ComplianceMasterEntity, { eager: false })
   @JoinColumn({ name: 'compliance_id' })
   compliance?: ComplianceMasterEntity;

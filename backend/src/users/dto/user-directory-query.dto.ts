@@ -14,17 +14,21 @@ export class UserDirectoryQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1) page?: number;
+  @Min(1)
+  page?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1) @Max(200) limit?: number;
+  @Min(1)
+  @Max(200)
+  limit?: number;
 
   // Query param comes as string: "true"/"false"
   @IsOptional()
   @IsString()
-  @IsBooleanString() groupByClient?: string; // "true" | "false"
+  @IsBooleanString()
+  groupByClient?: string; // "true" | "false"
 
   @IsOptional()
   @IsString()
@@ -39,8 +43,10 @@ export class UserDirectoryQueryDto {
   status?: 'all' | 'ACTIVE' | 'INACTIVE';
 
   @IsOptional()
-  @IsUUID() clientId?: string;
+  @IsUUID()
+  clientId?: string;
 
   @IsOptional()
-  @IsUUID() branchId?: string;
+  @IsUUID()
+  branchId?: string;
 }

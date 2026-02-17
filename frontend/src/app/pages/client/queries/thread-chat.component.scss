@@ -1,0 +1,19 @@
+.page{padding:16px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:12px}
+.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.title{font-weight:900;font-size:16px}
+.sub{color:#6b7280;font-size:13px;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+.dot{opacity:.6}
+.btn{border:0;border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:900;background:#111827;color:#fff}
+.btn.primary{background:#2563eb}
+
+.chat{margin-top:12px;border:1px solid #e5e7eb;border-radius:14px;padding:10px;max-height:55vh;overflow:auto;background:#f9fafb}
+.msg{display:flex;justify-content:flex-start;margin:8px 0}
+.msg.me{justify-content:flex-end}
+.bubble{max-width:78%}
+.text{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:10px;font-size:14px}
+.msg.me .text{background:#eff6ff;border-color:#bfdbfe}
+.meta{font-size:11px;color:#6b7280;margin-top:4px}
+
+.composer{display:flex;gap:10px;margin-top:12px}
+.composer input{flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:12px}

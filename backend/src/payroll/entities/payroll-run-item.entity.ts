@@ -1,4 +1,10 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity({ name: 'payroll_run_items' })
 @Index(['runEmployeeId', 'componentCode'], { unique: true })
@@ -18,13 +24,31 @@ export class PayrollRunItemEntity {
   @Column({ name: 'component_code', type: 'varchar', length: 60 })
   componentCode: string;
 
-  @Column({ name: 'amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   amount: string;
 
-  @Column({ name: 'units', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'units',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   units: string | null;
 
-  @Column({ name: 'rate', type: 'numeric', precision: 14, scale: 4, nullable: true })
+  @Column({
+    name: 'rate',
+    type: 'numeric',
+    precision: 14,
+    scale: 4,
+    nullable: true,
+  })
   rate: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

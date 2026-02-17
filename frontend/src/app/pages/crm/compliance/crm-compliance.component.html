@@ -1,0 +1,143 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Compliance Workbench (CRM)" 
+    description="Manage and approve compliance tasks" 
+    icon="clipboard-check">
+  </ui-page-header>
+
+  <!-- Filters -->
+  <div class="card mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.clientId" (change)="onClientChange()">
+          <option value="">All Clients</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.branchId">
+          <option value="">All Branches</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status">
+          <option value="">All Status</option>
+          <option>PENDING</option>
+          <option>IN_PROGRESS</option>
+          <option>SUBMITTED</option>
+          <option>APPROVED</option>
+          <option>REJECTED</option>
+          <option>OVERDUE</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
+        <input placeholder="Year" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.year" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Month</label>
+        <input placeholder="Month" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.month" />
+      </div>
+      <div class="flex">
+        <button type="button" class="btn-primary w-full" (click)="load()">Search</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Tasks List -->
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Tasks</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Compliance</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Due</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Assignee</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr
+              *ngFor="let t of tasks"
+              (click)="open(t)"
+              [class.bg-statco-blue-light]="selectedTask?.id === t.id"
+              [class.text-white]="selectedTask?.id === t.id"
+              class="hover:bg-gray-50 cursor-pointer"
+            >
+              <td class="px-4 py-3 text-xs">{{ t.compliance?.complianceName || '-' }}</td>
+              <td class="px-4 py-3 text-xs">{{ t.branch?.branchName || '-' }}</td>
+              <td class="px-4 py-3 text-xs">{{ t.dueDate }}</td>
+              <td class="px-4 py-3 text-xs"><span class="badge-warning">{{ t.status }}</span></td>
+              <td class="px-4 py-3 text-xs">{{ t.assignedTo?.name || '-' }}</td>
+              <td class="px-4 py-3 text-right text-xs">
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  (click)="$event.stopPropagation(); open(t)"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="tasks.length === 0">
+              <td colspan="6" class="px-4 py-8 text-center text-gray-500 text-sm">No tasks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Task Detail -->
+    <div class="card" *ngIf="detail">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Task Detail</h3>
+      <div class="space-y-3 mb-4">
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Status:</span> <span class="badge-warning">{{ detail.task?.status }}</span></div>
+        <div><span class="font-medium text-gray-700">Remarks:</span> {{ detail.task?.remarks || '-' }}</div>
+        <div *ngIf="detail.auditReport">
+          <span class="font-medium text-gray-700">Audit Report:</span>
+          <span class="badge-success ml-2">Available from Auditor</span>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mb-4" *ngIf="detail.task?.status === 'SUBMITTED'">
+        <button type="button" class="btn-primary" [disabled]="actionInProgress" (click)="approve()">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          {{ actionInProgress ? 'Processing...' : 'Approve' }}
+        </button>
+        <button type="button" class="btn-secondary text-red-600 hover:text-red-700 hover:bg-red-50" [disabled]="actionInProgress" (click)="reject()">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Reject
+        </button>
+      </div>
+
+      <h4 class="text-md font-semibold text-gray-900 mb-2">Evidence</h4>
+      <ul class="space-y-2 mb-4 list-disc list-inside text-sm text-gray-700">
+        <li *ngFor="let e of detail.evidence">
+          <a [href]="('/' + e.filePath)" target="_blank" class="text-statco-blue-light hover:underline">{{ e.fileName }}</a>
+          <span class="text-gray-500 ml-2">({{ e.createdAt | date: 'short' }})</span>
+        </li>
+        <li *ngIf="detail.evidence?.length === 0" class="text-gray-500">No evidence</li>
+      </ul>
+
+      <h4 class="text-md font-semibold text-gray-900 mb-2">Comments</h4>
+      <ul class="space-y-2 list-disc list-inside text-sm text-gray-700">
+        <li *ngFor="let c of detail.comments">
+          <span class="font-medium">{{ c.userName || c.user?.name || 'Unknown' }}:</span> {{ c.message }}
+        </li>
+        <li *ngIf="detail.comments?.length === 0" class="text-gray-500">No comments</li>
+      </ul>
+    </div>
+  </div>
+</main>

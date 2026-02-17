@@ -1,0 +1,96 @@
+@use '../../shared/dashboard.scss' as dashboard;
+
+/* KPI tiles now use shared ui-stat-card; keep minimal alignment helpers */
+/* Keep KPI tiles aligned */
+.grid .block {
+  height: 100%;
+}
+
+/* Force dark background + white text for dashboard KPI cards (ui-stat-card) */
+:host ::ng-deep .dashboard-kpi ui-stat-card > div {
+  background: #0a2250 !important;
+  border-color: #0a2250 !important;
+  color: #fff !important;
+}
+
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-sm,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-3xl,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-gray-500,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-gray-900,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-info-600,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-success-600,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-warning-600,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-error-600,
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-gray-600 {
+  color: #fff !important;
+}
+
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-white\/90 {
+  color: #fff !important;
+}
+
+:host ::ng-deep .dashboard-kpi ui-stat-card > div .p-3 {
+  background: rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+}
+.banner {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #eef2f7;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 13px;
+
+  &.error {
+    border-color: rgba(239,68,68,.25);
+    color: #991b1b;
+  }
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+
+  label {
+    font-size: 12px;
+    color: #475569;
+  }
+
+  select,
+  input[type='date'] {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #dce3ec;
+    background: #f8fafc;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row-link {
+  cursor: pointer;
+}
+
+.row-link:hover {
+  background: #f8fafc;
+}

@@ -1,0 +1,140 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Audit Status"
+    description="View and track audits scheduled for your company"
+    icon="clipboard-check">
+    <button
+      (click)="loadAudits()"
+      class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      Refresh
+    </button>
+  </ui-page-header>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="client-kpi client-kpi--blue">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500">Total</p>
+          <p class="text-2xl font-bold text-gray-900">{{ auditCounts.total }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="client-kpi client-kpi--blue">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500">Planned</p>
+          <p class="text-2xl font-bold text-blue-600">{{ auditCounts.planned }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="client-kpi client-kpi--amber">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500">In Progress</p>
+          <p class="text-2xl font-bold text-amber-600">{{ auditCounts.inProgress }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="client-kpi client-kpi--green">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-500">Completed</p>
+          <p class="text-2xl font-bold text-green-600">{{ auditCounts.completed }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+    <div class="flex items-center gap-2 mb-4">
+      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+      </svg>
+      <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Filters</h3>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <ui-form-select
+        id="year"
+        label="Year"
+        [(ngModel)]="filters.year"
+        (ngModelChange)="loadAudits()"
+        [options]="[
+          { value: 2024, label: '2024' },
+          { value: 2025, label: '2025' },
+          { value: 2026, label: '2026' },
+          { value: 2027, label: '2027' }
+        ]">
+      </ui-form-select>
+
+      <ui-form-select
+        id="status"
+        label="Status"
+        [(ngModel)]="filters.status"
+        (ngModelChange)="loadAudits()"
+        [options]="[
+          { value: '', label: 'All Statuses' },
+          { value: 'PLANNED', label: 'Planned' },
+          { value: 'IN_PROGRESS', label: 'In Progress' },
+          { value: 'COMPLETED', label: 'Completed' },
+          { value: 'CANCELLED', label: 'Cancelled' }
+        ]">
+      </ui-form-select>
+
+      <ui-form-select
+        id="frequency"
+        label="Frequency"
+        [(ngModel)]="filters.frequency"
+        (ngModelChange)="loadAudits()"
+        [options]="[
+          { value: '', label: 'All Frequencies' },
+          { value: 'MONTHLY', label: 'Monthly' },
+          { value: 'QUARTERLY', label: 'Quarterly' },
+          { value: 'HALF_YEARLY', label: 'Half Yearly' },
+          { value: 'YEARLY', label: 'Yearly' }
+        ]">
+      </ui-form-select>
+    </div>
+  </div>
+
+  <!-- Audits Table -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <ui-data-table
+      [columns]="columns"
+      [data]="audits"
+      [loading]="loading"
+      emptyMessage="No audits found for the selected filters.">
+      <ng-template uiTableCell="frequency" let-value>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{{ value }}</span>
+      </ng-template>
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge [status]="row.status"></ui-status-badge>
+      </ng-template>
+    </ui-data-table>
+  </div>
+</div>

@@ -1,0 +1,10 @@
+.contractor-shell {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fb 100%);
+}
+
+.contractor-content {
+  flex: 1;
+  padding: 24px 24px 48px;
+}

@@ -1,0 +1,69 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="CCO Dashboard"
+    description="Compliance oversight and team performance"
+    icon="view-grid">
+  </ui-page-header>
+
+  <!-- Loading State -->
+  <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
+
+  <ng-container *ngIf="!loading">
+  <!-- KPI Grid -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <ui-stat-card
+      [value]="data.pendingApprovals"
+      label="Pending Approvals"
+      color="warning">
+    </ui-stat-card>
+    <ui-stat-card
+      [value]="data.totalCrms"
+      label="Total CRMs"
+      color="info">
+    </ui-stat-card>
+    <ui-stat-card
+      [value]="data.overdueTasks"
+      label="Overdue Tasks"
+      color="error">
+    </ui-stat-card>
+    <ui-stat-card
+      [value]="data.escalations"
+      label="Escalations"
+      color="primary">
+    </ui-stat-card>
+  </div>
+
+  <!-- Data Tables -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="card">
+      <h3 class="card-title mb-4">Top Overdue Clients/Branches</h3>
+      <ui-data-table
+        [columns]="overdueColumns"
+        [data]="data.topOverdue"
+        emptyMessage="No overdue items">
+        <ng-template uiTableCell="count" let-row>
+          <ui-status-badge variant="error">{{ row.count }}</ui-status-badge>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title mb-4">CRMs with Most Overdue</h3>
+      <ui-data-table
+        [columns]="crmOverdueColumns"
+        [data]="data.crmsMostOverdue"
+        emptyMessage="No data available">
+        <ng-template uiTableCell="overdue" let-row>
+          <ui-status-badge variant="error">{{ row.overdue }}</ui-status-badge>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex flex-wrap gap-3">
+    <ui-button variant="primary">Go to Approvals</ui-button>
+    <ui-button variant="secondary">Go to Overdue List</ui-button>
+  </div>
+  </ng-container>
+</div>

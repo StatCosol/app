@@ -1,0 +1,61 @@
+.content {
+  padding: 1.5rem;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 4px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.btn.primary {
+  margin-top: 0.5rem;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.success {
+  margin-top: 1rem;
+  color: #0a7a20;
+}
+
+.error {
+  margin-top: 1rem;
+  color: #b00020;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -6,6 +6,13 @@ import {
   CrmContractorsController,
 } from './contractor.controller';
 import { ClientContractorsController } from './client-contractors.controller';
+import { CrmContractorRegistrationController } from './crm-contractor-registration.controller';
+import { CrmContractorRegistrationService } from './crm-contractor-registration.service';
+import {
+  CrmContractorRequiredDocumentsController,
+  ClientContractorRequiredDocumentsController,
+} from './contractor-required-documents.controller';
+import { ContractorRequiredDocumentsService } from './contractor-required-documents.service';
 import { BranchesModule } from '../branches/branches.module';
 import { ContractorService } from './contractor.service';
 import {
@@ -19,11 +26,15 @@ import { BranchComplianceEntity } from '../checklists/entities/branch-compliance
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { RoleEntity } from '../users/entities/role.entity';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
+import { ContractorRequiredDocumentEntity } from './entities/contractor-required-document.entity';
+import { ContractorDashboardService } from './contractor-dashboard.service';
 import { UsersModule } from '../users/users.module';
 import { AssignmentsModule } from '../assignments/assignments.module';
 import { AuditEntity } from '../audits/entities/audit.entity';
 import { AuditsModule } from '../audits/audits.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -34,9 +45,12 @@ import { AuditsModule } from '../audits/audits.module';
       ComplianceMasterEntity,
       ClientEntity,
       UserEntity,
+      RoleEntity,
       ContractorDocumentEntity,
+      ContractorRequiredDocumentEntity,
       AuditEntity,
     ]),
+    AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,
     AssignmentsModule,
     AuditsModule,
@@ -46,10 +60,19 @@ import { AuditsModule } from '../audits/audits.module';
     ContractorController,
     AdminContractorsController,
     CrmContractorsController,
-    ClientContractorsController, // ✅ was missing
+    CrmContractorRegistrationController,
+    ClientContractorsController,
     ContractorDocumentsController,
     CrmContractorDocumentsController,
+    CrmContractorRequiredDocumentsController,
+    ClientContractorRequiredDocumentsController,
   ],
-  providers: [ContractorService, ContractorDocumentsService],
+  providers: [
+    ContractorService,
+    ContractorDocumentsService,
+    CrmContractorRegistrationService,
+    ContractorDashboardService,
+    ContractorRequiredDocumentsService,
+  ],
 })
 export class ContractorModule {}

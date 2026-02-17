@@ -1,7 +1,8 @@
 import { CcoModule } from './cco/cco.module';
 import { CeoModule } from './ceo/ceo.module';
+import { CrmModule } from './crm/crm.module';
+import { AuditorModule } from './auditor/auditor.module';
 import { Module } from '@nestjs/common';
-import { AdminDashboardController } from './dashboard/admin-dashboard.controller';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -29,9 +30,12 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { AdminModule } from './admin/admin.module';
 
+import { LegitxModule } from './legitx/legitx.module';
+
 import { PayrollModule } from './payroll/payroll.module';
 import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { FilesModule } from './files/files.module';
+import { ReturnsModule } from './returns/returns.module';
 
 @Module({
   imports: [
@@ -78,12 +82,16 @@ import { FilesModule } from './files/files.module';
     HealthModule,
     CcoModule,
     CeoModule,
+    CrmModule,
+    AuditorModule,
     AdminModule,
     PayrollModule,
     HelpdeskModule,
     FilesModule,
+    LegitxModule,
+    ReturnsModule,
   ],
-  controllers: [AdminDashboardController],
+  controllers: [],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

@@ -14,7 +14,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollService } from './payroll.service';
 
-@Controller('api/admin/payroll-assignments')
+@Controller({ path: 'admin/payroll-assignments', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class PayrollAssignmentsAdminController {

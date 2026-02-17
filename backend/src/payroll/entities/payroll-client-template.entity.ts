@@ -16,5 +16,5 @@ export class PayrollClientTemplate {
   effective_from: Date;
 
   @Column({ type: 'date', nullable: true })
-  effective_to: Date;
+  effective_to: Date | null;
 }

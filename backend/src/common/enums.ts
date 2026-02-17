@@ -33,4 +33,5 @@ export enum AuditType {
   FSSAI = 'FSSAI',
   HR = 'HR',
   PAYROLL = 'PAYROLL',
+  GAP = 'GAP',
 }

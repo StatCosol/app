@@ -1,0 +1,207 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Masters Management" 
+    description="Manage compliance and audit master data"
+    icon="database">
+  </ui-page-header>
+
+  <!-- Tabs -->
+  <div class="border-b border-gray-200 mb-6">
+    <nav class="-mb-px flex space-x-8">
+      <button 
+        [class]="activeTab === 'compliance' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="activeTab = 'compliance'; loadData()">
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Compliance Masters
+      </button>
+      <button 
+        [class]="activeTab === 'audit' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="activeTab = 'audit'; loadData()">
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+        </svg>
+        Audit Categories
+      </button>
+    </nav>
+  </div>
+
+  <!-- Loading State -->
+  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+
+  <!-- COMPLIANCE MASTERS TAB -->
+  <div *ngIf="activeTab === 'compliance' && !loading">
+    <div class="card mb-6">
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">{{ editingComplianceId ? 'Edit' : 'Add New' }} Compliance Master</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <ui-form-input 
+          label="Compliance Name *" 
+          [(ngModel)]="complianceForm.complianceName">
+        </ui-form-input>
+        <ui-form-input 
+          label="Law Name *" 
+          [(ngModel)]="complianceForm.lawName">
+        </ui-form-input>
+        <ui-form-input 
+          label="Law Family" 
+          [(ngModel)]="complianceForm.lawFamily"
+          placeholder="e.g., FACTORY_ACT">
+        </ui-form-input>
+        <ui-form-input 
+          label="State Scope" 
+          [(ngModel)]="complianceForm.stateScope"
+          placeholder="e.g., TS,KA or ALL">
+        </ui-form-input>
+        <ui-form-input 
+          label="Min Headcount" 
+          type="number"
+          [(ngModel)]="complianceForm.minHeadcount">
+        </ui-form-input>
+        <ui-form-input 
+          label="Max Headcount" 
+          type="number"
+          [(ngModel)]="complianceForm.maxHeadcount">
+        </ui-form-input>
+        <ui-form-select 
+          label="Frequency *" 
+          [(ngModel)]="complianceForm.frequency"
+          [options]="frequencySelectOptions">
+        </ui-form-select>
+        <ui-form-select 
+          label="Status" 
+          [(ngModel)]="complianceForm.isActive"
+          [options]="statusSelectOptions">
+        </ui-form-select>
+      </div>
+      <div class="form-group mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+        <textarea [(ngModel)]="complianceForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
+      </div>
+      <div class="flex gap-3">
+        <ui-button variant="primary" (click)="saveCompliance()" [disabled]="saving">
+          {{ saving ? 'Saving...' : (editingComplianceId ? 'Update' : 'Create') }}
+        </ui-button>
+        <ui-button variant="secondary" *ngIf="editingComplianceId" (click)="cancelComplianceEdit()">Cancel</ui-button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">Existing Compliance Masters <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">{{ complianceMasters.length }}</span></h3>
+      
+      <ui-data-table
+        [columns]="complianceColumns"
+        [data]="complianceMasters"
+        [loading]="loading">
+        
+        <ng-template uiTableCell="complianceName" let-row>
+          <span class="font-medium text-gray-900">{{ row.complianceName }}</span>
+        </ng-template>
+        
+        <ng-template uiTableCell="lawName" let-row>
+          {{ row.lawName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="lawFamily" let-row>
+          {{ row.lawFamily || '—' }}
+        </ng-template>
+        
+        <ng-template uiTableCell="frequency" let-row>
+          {{ row.frequency }}
+        </ng-template>
+        
+        <ng-template uiTableCell="stateScope" let-row>
+          {{ row.stateScope || 'ALL' }}
+        </ng-template>
+        
+        <ng-template uiTableCell="headcount" let-row>
+          {{ row.minHeadcount || 0 }} - {{ row.maxHeadcount || '∞' }}
+        </ng-template>
+        
+        <ng-template uiTableCell="isActive" let-row>
+          <ui-status-badge [variant]="row.isActive ? 'success' : 'gray'">
+            {{ row.isActive ? 'Active' : 'Inactive' }}
+          </ui-status-badge>
+        </ng-template>
+        
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex gap-2">
+            <ui-button variant="secondary" size="sm" (click)="editCompliance(row)">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (click)="deleteCompliance(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+      
+      <ui-empty-state
+        *ngIf="complianceMasters.length === 0"
+        [title]="'No compliance masters found. Add one above.'"
+        icon="database">
+      </ui-empty-state>
+    </div>
+  </div>
+
+  <!-- AUDIT CATEGORIES TAB -->
+  <div *ngIf="activeTab === 'audit' && !loading">
+    <!-- Add/Edit Form -->
+    <div class="card mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ editingAuditCategoryId ? 'Edit' : 'Add New' }} Audit Observation Category</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <ui-form-input 
+          label="Category Name *" 
+          [(ngModel)]="auditCategoryForm.name">
+        </ui-form-input>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <textarea [(ngModel)]="auditCategoryForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <ui-button variant="primary" (click)="saveAuditCategory()" [disabled]="saving">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          {{ saving ? 'Saving...' : (editingAuditCategoryId ? 'Update' : 'Create') }}
+        </ui-button>
+        <ui-button variant="secondary" *ngIf="editingAuditCategoryId" (click)="cancelAuditCategoryEdit()">Cancel</ui-button>
+      </div>
+    </div>
+
+    <!-- Audit Categories Table -->
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Existing Audit Categories ({{ auditCategories.length }})</h3>
+      
+      <ui-data-table
+        [columns]="auditCategoryColumns"
+        [data]="auditCategories"
+        [loading]="loading">
+        
+        <ng-template uiTableCell="name" let-row>
+          <span class="font-medium text-gray-900">{{ row.name }}</span>
+        </ng-template>
+        
+        <ng-template uiTableCell="description" let-row>
+          {{ row.description || '—' }}
+        </ng-template>
+        
+        <ng-template uiTableCell="createdAt" let-row>
+          {{ row.createdAt | date: 'short' }}
+        </ng-template>
+        
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex gap-2">
+            <ui-button variant="secondary" size="sm" (click)="editAuditCategory(row)">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (click)="deleteAuditCategory(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+      
+      <ui-empty-state
+        *ngIf="auditCategories.length === 0"
+        [title]="'No audit categories found. Add one above.'"
+        icon="clipboard-list">
+      </ui-empty-state>
+    </div>
+  </div>
+</div>

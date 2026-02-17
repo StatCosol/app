@@ -7,7 +7,7 @@ import type { Response } from 'express';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CEO', 'CCO')
-@Controller('api/reports/export')
+@Controller({ path: 'reports/export', version: '1' })
 export class ReportExportController {
   constructor(private readonly svc: ReportExportService) {}
 

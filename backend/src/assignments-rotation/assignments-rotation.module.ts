@@ -5,6 +5,7 @@ import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-as
 import { UserEntity } from '../users/entities/user.entity';
 import { RoleEntity } from '../users/entities/role.entity';
 import { AssignmentsModule } from '../assignments/assignments.module';
+import { AssignmentsRotationController } from './assignments-rotation.controller';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AssignmentsModule } from '../assignments/assignments.module';
     ]),
     AssignmentsModule,
   ],
+  controllers: [AssignmentsRotationController],
   providers: [AssignmentsRotationService],
 })
 export class AssignmentsRotationModule {}

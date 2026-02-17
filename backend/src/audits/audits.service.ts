@@ -49,6 +49,28 @@ export class AuditsService {
     return t;
   }
 
+  /**
+   * Generate a human-readable audit code: AUD-YYYY-NNN
+   * e.g. AUD-2026-001, AUD-2026-002
+   */
+  private async generateAuditCode(year: number): Promise<string> {
+    const prefix = `AUD-${year}-`;
+    const latest = await this.repo
+      .createQueryBuilder('a')
+      .select('a.auditCode', 'auditCode')
+      .where('a.auditCode LIKE :p', { p: `${prefix}%` })
+      .orderBy('a.auditCode', 'DESC')
+      .limit(1)
+      .getRawOne<{ auditCode: string }>();
+
+    let seq = 1;
+    if (latest?.auditCode) {
+      const num = parseInt(latest.auditCode.replace(prefix, ''), 10);
+      if (!isNaN(num)) seq = num + 1;
+    }
+    return `${prefix}${String(seq).padStart(3, '0')}`;
+  }
+
   async createForCrm(user: any, dto: CreateAuditDto) {
     this.assertCrm(user);
 
@@ -107,7 +129,10 @@ export class AuditsService {
       throw new ForbiddenException('Client not assigned to this CRM');
     }
 
+    const auditCode = await this.generateAuditCode(Number(dto.periodYear));
+
     const entity = this.repo.create({
+      auditCode,
       clientId: dto.clientId,
       contractorUserId,
       frequency,
@@ -122,7 +147,7 @@ export class AuditsService {
     });
 
     const saved = await this.repo.save(entity);
-    return { id: saved.id };
+    return { id: saved.id, auditCode: saved.auditCode };
   }
 
   async listForAuditor(user: any, q: any) {
@@ -153,10 +178,12 @@ export class AuditsService {
       qb.andWhere('a.contractorUserId = :kid', { kid: q.contractorUserId });
     }
 
-    qb.orderBy(
+    qb.addSelect(
       "CASE WHEN a.status IN ('PLANNED','IN_PROGRESS') THEN 0 ELSE 1 END",
-      'ASC',
-    ).addOrderBy('a.createdAt', 'DESC');
+      'status_rank',
+    )
+      .orderBy('status_rank', 'ASC')
+      .addOrderBy('a.createdAt', 'DESC');
 
     const [rows, total] = await qb
       .skip((page - 1) * pageSize)
@@ -174,5 +201,68 @@ export class AuditsService {
       throw new ForbiddenException('Not your audit');
     }
     return audit;
+  }
+
+  async listForClient(user: any, q: any) {
+    if (!user || user.roleCode !== 'CLIENT') {
+      throw new ForbiddenException('CLIENT access only');
+    }
+    if (!user.clientId) {
+      throw new ForbiddenException('Client missing clientId');
+    }
+
+    const qb = this.repo
+      .createQueryBuilder('a')
+      .leftJoinAndSelect('a.contractorUser', 'contractor')
+      .leftJoinAndSelect('a.assignedAuditor', 'auditor')
+      .where('a.clientId = :clientId', { clientId: user.clientId });
+
+    if (q.frequency) {
+      qb.andWhere('a.frequency = :freq', { freq: q.frequency });
+    }
+    if (q.status) {
+      qb.andWhere('a.status = :st', { st: q.status });
+    }
+    if (q.year) {
+      qb.andWhere('a.periodYear = :yy', { yy: Number(q.year) });
+    }
+
+    qb.orderBy('a.periodYear', 'DESC').addOrderBy('a.createdAt', 'DESC');
+
+    const rows = await qb.getMany();
+    return rows;
+  }
+
+  async getSummaryForClient(user: any) {
+    if (!user || user.roleCode !== 'CLIENT') {
+      throw new ForbiddenException('CLIENT access only');
+    }
+    if (!user.clientId) {
+      throw new ForbiddenException('Client missing clientId');
+    }
+
+    const rows = await this.repo
+      .createQueryBuilder('a')
+      .select('a.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('a.clientId = :clientId', { clientId: user.clientId })
+      .groupBy('a.status')
+      .getRawMany();
+
+    let total = 0;
+    let completed = 0;
+    let inProgress = 0;
+    let planned = 0;
+
+    for (const r of rows) {
+      const status = String(r.status);
+      const count = Number(r.count);
+      total += count;
+      if (status === 'COMPLETED') completed += count;
+      if (status === 'IN_PROGRESS') inProgress += count;
+      if (status === 'PLANNED') planned += count;
+    }
+
+    return { total, completed, inProgress, planned };
   }
 }

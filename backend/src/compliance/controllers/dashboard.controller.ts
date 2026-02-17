@@ -4,10 +4,10 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { ComplianceService } from '../compliance.service';
 
-@Controller('api/crm/dashboard')
+@Controller({ path: 'crm/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
-export class CrmDashboardController {
+export class ComplianceCrmDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
   @Get()
@@ -17,7 +17,7 @@ export class CrmDashboardController {
 }
 
 // ✅ Avoid conflict with ContractorController GET /api/contractor/dashboard
-@Controller('api/contractor/dashboard')
+@Controller({ path: 'contractor/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorDashboardController {
@@ -29,7 +29,7 @@ export class ContractorDashboardController {
   }
 }
 
-@Controller('api/client/dashboard')
+@Controller({ path: 'client/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class ClientDashboardController {
@@ -41,7 +41,7 @@ export class ClientDashboardController {
   }
 }
 
-@Controller('api/admin/role-dashboard')
+@Controller({ path: 'admin/role-dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminRoleDashboardController {
@@ -53,10 +53,11 @@ export class AdminRoleDashboardController {
   }
 }
 
-@Controller('api/auditor/dashboard')
+@Controller({ path: 'audi tor/dashboard', version: '1' })
+@Controller({ path: 'auditor/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('AUDITOR')
-export class AuditorDashboardController {
+export class ComplianceAuditorDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
   @Get()

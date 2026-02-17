@@ -1,0 +1,129 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Compliance Workbench" 
+    description="Manage and submit your compliance tasks" 
+    icon="clipboard-check">
+  </ui-page-header>
+
+  <!-- Tabs -->
+  <div class="border-b border-gray-200 mb-6">
+    <nav class="-mb-px flex space-x-8">
+      <button
+        [class]="viewTab === 'MY' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="setTab('MY')"
+      >
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        My Tasks
+      </button>
+      <button
+        [class]="viewTab === 'SUBMITTED' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="setTab('SUBMITTED')"
+      >
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Submitted
+      </button>
+      <button
+        [class]="viewTab === 'OVERDUE' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="setTab('OVERDUE')"
+      >
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Overdue
+      </button>
+    </nav>
+  </div>
+
+  <!-- Filters using FormSelectComponent and FormInputComponent -->
+  <div class="card mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <ui-form-select 
+        label="Status" 
+        [(ngModel)]="filters.status"
+        [options]="statusOptions">
+      </ui-form-select>
+      <ui-form-input 
+        label="Year" 
+        placeholder="Year" 
+        [(ngModel)]="filters.year">
+      </ui-form-input>
+      <ui-form-input 
+        label="Month" 
+        placeholder="Month" 
+        [(ngModel)]="filters.month">
+      </ui-form-input>
+      <div class="flex items-end">
+        <ui-button 
+          variant="primary" 
+          size="md" 
+          [fullWidth]="true"
+          (clicked)="load()">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          Search
+        </ui-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tasks Table using DataTableComponent -->
+  <div class="card">
+    <ui-data-table
+      [columns]="taskColumns"
+      [data]="tasks"
+      [loading]="loading"
+      emptyMessage="No tasks found">
+      
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge [status]="row.status"></ui-status-badge>
+      </ng-template>
+
+      <ng-template uiTableCell="evidence" let-row>
+        <div class="flex items-center gap-2">
+          <input
+            type="file"
+            (change)="pickFile($event, row.id)"
+            [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
+            class="text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-statco-blue-light file:text-white hover:file:bg-statco-blue file:cursor-pointer disabled:opacity-50"
+          />
+          <ui-button
+            variant="primary"
+            size="sm"
+            [disabled]="selectedId !== row.id || row.status === 'APPROVED' || row.status === 'SUBMITTED'"
+            (clicked)="upload(row.id)">
+            Upload
+          </ui-button>
+        </div>
+      </ng-template>
+
+      <ng-template uiTableCell="actions" let-row>
+        <div class="flex items-center gap-2 justify-end">
+          <ui-button
+            variant="secondary"
+            size="sm"
+            [disabled]="row.status !== 'PENDING' && row.status !== 'REJECTED' && row.status !== 'OVERDUE'"
+            title="You can start tasks that are Pending, Rejected, or Overdue"
+            (clicked)="start(row.id)">
+            Start
+          </ui-button>
+          <ui-button
+            variant="primary"
+            size="sm"
+            [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
+            title="Submit after uploading evidence"
+            (clicked)="submit(row.id)">
+            Submit
+          </ui-button>
+        </div>
+      </ng-template>
+    </ui-data-table>
+  </div>
+</main>

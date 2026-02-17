@@ -1,0 +1,355 @@
+<div class="page">
+  <!-- Loading State -->
+  <ui-loading-spinner *ngIf="loading" text="Loading dashboard..." size="lg"></ui-loading-spinner>
+
+  <!-- Main Content -->
+  <ng-container *ngIf="!loading">
+    <!-- Error Banner (non-blocking) -->
+    <div *ngIf="errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+      <span>{{ errorMsg }}</span>
+      <button (click)="errorMsg = null; loadAllData()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+    </div>
+
+    <ui-page-header 
+      title="Auditor Dashboard" 
+      description="Audit execution, observation tracking, and reporting" 
+      icon="clipboard-check">
+    </ui-page-header>
+
+    <!-- Filters -->
+    <div class="card mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <ui-form-select
+          label="Client (Assigned)"
+          [(ngModel)]="filter.clientId"
+          [options]="clientOptions">
+        </ui-form-select>
+        <ui-form-select
+          label="Audit Type"
+          [(ngModel)]="filter.auditType"
+          [options]="auditTypeOptions">
+        </ui-form-select>
+        <ui-form-input
+          label="From"
+          type="text"
+          [(ngModel)]="filter.fromDate"
+          placeholder="YYYY-MM-DD">
+        </ui-form-input>
+        <ui-form-input
+          label="To"
+          type="text"
+          [(ngModel)]="filter.toDate"
+          placeholder="YYYY-MM-DD">
+        </ui-form-input>
+        <div class="flex gap-2">
+          <ui-button variant="primary" (clicked)="applyFilters()" [fullWidth]="true">Apply</ui-button>
+          <ui-button variant="secondary" (clicked)="resetFilters()">Reset</ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div (click)="drillAssignedAudits()" class="cursor-pointer">
+        <ui-stat-card
+          label="Assigned Audits"
+          [value]="summary.assignedAuditsCount"
+          color="info">
+        </ui-stat-card>
+      </div>
+      <div (click)="drillOverdueAudits()" class="cursor-pointer">
+        <ui-stat-card
+          label="Overdue 🔴"
+          [value]="summary.overdueAuditsCount"
+          color="error">
+        </ui-stat-card>
+      </div>
+      <div (click)="drillDueSoon()" class="cursor-pointer">
+        <ui-stat-card
+          label="Due Soon 🟡"
+          [value]="summary.dueSoonAuditsCount"
+          color="warning">
+        </ui-stat-card>
+      </div>
+      <div (click)="drillObservationsOpen()" class="cursor-pointer">
+        <ui-stat-card
+          label="Observations Open"
+          [value]="summary.observationsOpenCount"
+          color="info">
+        </ui-stat-card>
+      </div>
+      <div (click)="drillHighRiskOpen()" class="cursor-pointer">
+        <ui-stat-card
+          label="High-Risk Open 🔥"
+          [value]="summary.highRiskOpenCount"
+          color="warning">
+        </ui-stat-card>
+      </div>
+      <div (click)="drillReportsPending()" class="cursor-pointer">
+        <ui-stat-card
+          label="Reports Pending 📄"
+          [value]="summary.reportsPendingCount"
+          color="primary">
+        </ui-stat-card>
+      </div>
+    </div>
+
+    <!-- Block 1: My Audits (Primary table) -->
+    <div class="card mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="card-title">My Audits</h3>
+        <div class="flex gap-2">
+          <ui-button
+            [variant]="auditTab === 'ACTIVE' ? 'primary' : 'secondary'"
+            size="sm"
+            (clicked)="setAuditTab('ACTIVE')">
+            Active
+          </ui-button>
+          <ui-button
+            [variant]="auditTab === 'OVERDUE' ? 'primary' : 'secondary'"
+            size="sm"
+            (clicked)="setAuditTab('OVERDUE')">
+            Overdue
+          </ui-button>
+          <ui-button
+            [variant]="auditTab === 'DUE_SOON' ? 'primary' : 'secondary'"
+            size="sm"
+            (clicked)="setAuditTab('DUE_SOON')">
+            Due Soon
+          </ui-button>
+          <ui-button
+            [variant]="auditTab === 'COMPLETED' ? 'primary' : 'secondary'"
+            size="sm"
+            (clicked)="setAuditTab('COMPLETED')">
+            Completed
+          </ui-button>
+        </div>
+      </div>
+      
+      <ui-data-table
+        *ngIf="myAudits.length > 0"
+        [columns]="auditColumns"
+        [data]="myAudits">
+        
+        <ng-template uiTableCell="clientName" let-row>
+          {{ row.clientName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="branchName" let-row>
+          {{ row.branchName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="auditName" let-row>
+          <span class="font-medium">{{ row.auditName }}</span>
+        </ng-template>
+        
+        <ng-template uiTableCell="dueDate" let-row>
+          {{ row.dueDate }}
+        </ng-template>
+        
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        
+        <ng-template uiTableCell="progressPct" let-row>
+          <div class="flex items-center justify-center gap-2">
+            <div class="w-24 bg-gray-200 rounded-full h-2">
+              <div
+                class="h-2 rounded-full"
+                [ngClass]="{
+                  'bg-blue-500': row.progressPct < 100,
+                  'bg-green-500': row.progressPct === 100
+                }"
+                [style.width.%]="row.progressPct">
+              </div>
+            </div>
+            <span class="text-sm text-gray-600">{{ row.progressPct }}%</span>
+          </div>
+        </ng-template>
+        
+        <ng-template uiTableCell="actions" let-row>
+          <ui-button
+            variant="primary"
+            size="sm"
+            [disabled]="row.status === 'SUBMITTED'"
+            (clicked)="openAudit(row)">
+            {{ row.status === 'NOT_STARTED' ? 'Start' : row.status === 'COMPLETED' ? 'Submit' : 'Continue' }}
+          </ui-button>
+        </ng-template>
+      </ui-data-table>
+      
+      <ui-empty-state
+        *ngIf="myAudits.length === 0"
+        title="No audits in this category"
+        description="No audits found for the selected filter">
+      </ui-empty-state>
+    </div>
+
+    <!-- Block 2: Observations Pending Closure -->
+    <div class="card mb-6">
+      <h3 class="card-title mb-4">Observations Pending Closure</h3>
+      
+      <ui-data-table
+        *ngIf="observations.length > 0"
+        [columns]="observationColumns"
+        [data]="observations">
+        
+        <ng-template uiTableCell="clientName" let-row>
+          {{ row.clientName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="branchName" let-row>
+          {{ row.branchName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="title" let-row>
+          <span class="font-medium">{{ row.title }}</span>
+        </ng-template>
+        
+        <ng-template uiTableCell="risk" let-row>
+          <ui-status-badge [status]="row.risk"></ui-status-badge>
+        </ng-template>
+        
+        <ng-template uiTableCell="ageingDays" let-row>
+          <span
+            class="badge"
+            [ngClass]="{
+              'badge-danger': row.ageingDays > 10,
+              'badge-warning': row.ageingDays > 5 && row.ageingDays <= 10,
+              'badge-info': row.ageingDays <= 5
+            }">
+            {{ row.ageingDays }}d
+          </span>
+        </ng-template>
+        
+        <ng-template uiTableCell="owner" let-row>
+          <div class="font-medium">{{ row.ownerName || row.ownerRole }}</div>
+          <div class="text-xs text-gray-500">{{ row.ownerRole }}</div>
+        </ng-template>
+        
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex gap-2 justify-center">
+            <ui-button variant="secondary" size="sm" (clicked)="followUpObservation(row)">Follow-up</ui-button>
+            <ui-button variant="primary" size="sm" (clicked)="updateObservation(row)">Update</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="closeObservation(row)">Close</ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+      
+      <ui-empty-state
+        *ngIf="observations.length === 0"
+        title="No pending observations"
+        description="All observations have been addressed">
+      </ui-empty-state>
+    </div>
+
+    <!-- Block 3: Evidence & Documents Pending -->
+    <div class="card mb-6">
+      <h3 class="card-title mb-4">Evidence & Documents Pending</h3>
+      
+      <ui-data-table
+        *ngIf="evidence.length > 0"
+        [columns]="evidenceColumns"
+        [data]="evidence">
+        
+        <ng-template uiTableCell="clientName" let-row>
+          {{ row.clientName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="branchName" let-row>
+          {{ row.branchName }}
+        </ng-template>
+        
+        <ng-template uiTableCell="evidenceName" let-row>
+          <span class="font-medium">{{ row.evidenceName }}</span>
+        </ng-template>
+        
+        <ng-template uiTableCell="requestedOn" let-row>
+          {{ row.requestedOn }}
+        </ng-template>
+        
+        <ng-template uiTableCell="pendingDays" let-row>
+          <span
+            class="badge"
+            [ngClass]="{
+              'badge-danger': row.pendingDays > 7,
+              'badge-warning': row.pendingDays > 3 && row.pendingDays <= 7,
+              'badge-info': row.pendingDays <= 3
+            }">
+            {{ row.pendingDays }}d
+          </span>
+        </ng-template>
+        
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex gap-2 justify-center">
+            <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)">Remind</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="markNotRequired(row)">Not Required</ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+      
+      <ui-empty-state
+        *ngIf="evidence.length === 0"
+        title="No pending evidence"
+        description="All required evidence has been received">
+      </ui-empty-state>
+    </div>
+
+    <!-- Block 4: Recent Activity Timeline (Optional) -->
+    <div class="card mb-6">
+      <h3 class="card-title mb-4">Recent Activity</h3>
+      <div class="space-y-4" *ngIf="recentActivities.length > 0">
+        <div *ngFor="let activity of recentActivities" class="flex gap-4 border-l-2 border-gray-300 pl-4 pb-4">
+          <div class="flex-shrink-0">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs"
+              [ngClass]="{
+                'bg-blue-500': activity.activityType === 'AUDIT_STARTED',
+                'bg-purple-500': activity.activityType === 'OBSERVATION_ADDED',
+                'bg-green-500': activity.activityType === 'EVIDENCE_RECEIVED',
+                'bg-indigo-500': activity.activityType === 'REPORT_SUBMITTED',
+                'bg-gray-500': activity.activityType === 'OTHER'
+              }"
+            >
+              <svg *ngIf="activity.activityType === 'AUDIT_STARTED'" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" />
+              </svg>
+              <svg *ngIf="activity.activityType === 'OBSERVATION_ADDED'" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+              </svg>
+              <svg *ngIf="activity.activityType === 'EVIDENCE_RECEIVED'" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <svg *ngIf="activity.activityType === 'REPORT_SUBMITTED'" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+              </svg>
+              <span *ngIf="activity.activityType === 'OTHER'">•</span>
+            </div>
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-gray-900">{{ activity.description }}</p>
+            <div class="flex gap-3 text-xs text-gray-500 mt-1">
+              <span *ngIf="activity.clientName">{{ activity.clientName }}</span>
+              <span *ngIf="activity.auditName">{{ activity.auditName }}</span>
+              <span>{{ activity.timestamp | date:'short' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <ui-empty-state
+        *ngIf="recentActivities.length === 0"
+        title="No recent activity"
+        description="Activity will appear here as you work on audits">
+      </ui-empty-state>
+    </div>
+  </ng-container>
+</div>

@@ -10,5 +10,4 @@ export class RoleEntity {
 
   @Column()
   name: string;
-
 }

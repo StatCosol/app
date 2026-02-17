@@ -1,0 +1,167 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="My Audits" 
+    description="Manage client and contractor audits" 
+    icon="clipboard-check">
+  </ui-page-header>
+
+  <!-- Filters -->
+  <div class="card mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+      <ui-form-select
+        label="Frequency"
+        [(ngModel)]="filters.frequency"
+        [options]="frequencyOptions">
+      </ui-form-select>
+      <ui-form-select
+        label="Status"
+        [(ngModel)]="filters.status"
+        [options]="statusOptions">
+      </ui-form-select>
+      <ui-form-input
+        label="Year"
+        placeholder="Year"
+        [(ngModel)]="filters.year">
+      </ui-form-input>
+      <ui-form-select
+        label="Client"
+        [(ngModel)]="filters.clientId"
+        [options]="clientFilterOptions">
+      </ui-form-select>
+      <ui-form-input
+        label="Contractor"
+        placeholder="Contractor name"
+        [(ngModel)]="filters.contractorUserId">
+      </ui-form-input>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <ui-button variant="primary" (clicked)="load()">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        Search
+      </ui-button>
+      <ui-button variant="secondary" (clicked)="clear()">Clear</ui-button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Audits Lists -->
+    <div class="space-y-6">
+      <!-- Client Audits -->
+      <div class="card">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Client Audits</h3>
+        
+        <ui-data-table
+          *ngIf="clientAudits.length > 0"
+          [columns]="clientAuditColumns"
+          [data]="clientAudits">
+          
+          <ng-template uiTableCell="clientName" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.clientName }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="frequency" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.frequency }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="auditType" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.auditType }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="periodCode" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.periodCode }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="row.status"></ui-status-badge>
+          </ng-template>
+          
+          <ng-template uiTableCell="dueDate" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.dueDate || '-' }}</span>
+          </ng-template>
+        </ui-data-table>
+        
+        <ui-empty-state
+          *ngIf="clientAudits.length === 0"
+          title="No client audits assigned"
+          description="Client audits will appear here when assigned">
+        </ui-empty-state>
+      </div>
+
+      <!-- Contractor Audits -->
+      <div class="card">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Contractor Audits</h3>
+        
+        <ui-data-table
+          *ngIf="contractorAudits.length > 0"
+          [columns]="contractorAuditColumns"
+          [data]="contractorAudits">
+          
+          <ng-template uiTableCell="clientName" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.clientName }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="contractorName" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.contractorName }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="frequency" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.frequency }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="auditType" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.auditType }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="periodCode" let-row>
+            <span [class.text-white]="selectedAudit?.id === row.id">{{ row.periodCode }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="row.status"></ui-status-badge>
+          </ng-template>
+        </ui-data-table>
+        
+        <ui-empty-state
+          *ngIf="contractorAudits.length === 0"
+          title="No contractor audits assigned"
+          description="Contractor audits will appear here when assigned">
+        </ui-empty-state>
+      </div>
+    </div>
+
+    <!-- Audit Detail -->
+    <div class="card" *ngIf="selectedAudit">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Audit Detail</h3>
+      <div class="space-y-3 mb-6">
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Client:</span> <span class="text-gray-900">{{ selectedAudit.clientName }}</span></div>
+        <div class="flex gap-2" *ngIf="selectedAudit.contractorName && selectedAudit.contractorName !== '-'"><span class="font-medium text-gray-700">Contractor:</span> <span class="text-gray-900">{{ selectedAudit.contractorName }}</span></div>
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Frequency:</span> <span class="text-gray-900">{{ selectedAudit.frequency }}</span></div>
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Audit Type:</span> <span class="text-gray-900">{{ selectedAudit.auditType }}</span></div>
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Period:</span> <span class="text-gray-900">{{ selectedAudit.periodYear }} / {{ selectedAudit.periodCode }}</span></div>
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Status:</span> <ui-status-badge [status]="selectedAudit.status"></ui-status-badge></div>
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Due Date:</span> <span class="text-gray-900">{{ selectedAudit.dueDate || '—' }}</span></div>
+        <div><span class="font-medium text-gray-700">Notes:</span> <p class="text-gray-900 mt-1">{{ selectedAudit.notes || '—' }}</p></div>
+      </div>
+
+      <ui-button variant="primary" [fullWidth]="true" (clicked)="openComplianceForSelected()">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        Open Compliance for this Audit
+      </ui-button>
+
+      <p class="text-sm text-gray-500 italic mt-3">
+        This will open the Compliance view pre-filtered for this client's audits.
+      </p>
+    </div>
+
+    <div *ngIf="!selectedAudit && !loading">
+      <ui-empty-state
+        title="No Audit Selected"
+        description="Select an audit from the list to view details">
+      </ui-empty-state>
+    </div>
+  </div>
+</main>

@@ -6,13 +6,15 @@ import {
   UpdateDateColumn,
   Index,
   ManyToMany,
+  ManyToOne,
+  JoinColumn,
   JoinTable,
 } from 'typeorm';
 import { BranchEntity } from '../../branches/entities/branch.entity';
+import { ClientEntity } from '../../clients/entities/client.entity';
 
 @Entity('users')
 export class UserEntity {
-
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -22,6 +24,10 @@ export class UserEntity {
 
   @Column({ name: 'user_code', type: 'varchar', length: 30 })
   userCode: string;
+
+  // Legacy denormalized role code column (not nullable in DB); keep in sync with Role entity
+  @Column({ name: 'role', type: 'varchar', length: 50, default: '' })
+  role: string;
 
   @Column()
   name: string;
@@ -40,9 +46,16 @@ export class UserEntity {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'user_type', type: 'varchar', length: 10, nullable: true })
+  userType: string | null; // 'MASTER' | 'BRANCH' | null (non-CLIENT users)
+
   @Index('IDX_USERS_CLIENTID')
   @Column({ type: 'uuid', nullable: true, name: 'client_id' })
   clientId: string | null;
+
+  @ManyToOne(() => ClientEntity)
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
 
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date | null;

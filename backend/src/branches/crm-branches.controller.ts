@@ -17,8 +17,12 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { CompliancesService } from '../compliances/compliances.service';
+import {
+  ClientScoped,
+  CrmAssignmentGuard,
+} from '../assignments/crm-assignment.guard';
 
-@Controller('api/crm')
+@Controller({ path: 'crm', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmBranchesController {
@@ -57,21 +61,23 @@ export class CrmBranchesController {
   }
 
   @Get('clients/:clientId/branches')
+  @ClientScoped('clientId')
+  @UseGuards(CrmAssignmentGuard)
   async listByClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Request() req,
   ) {
-    await this.ensureClientAssigned(clientId, req.user.userId);
     return this.branchesService.findByClient(clientId);
   }
 
   @Post('clients/:clientId/branches')
+  @ClientScoped('clientId')
+  @UseGuards(CrmAssignmentGuard)
   async createBranch(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Body() dto: any,
     @Request() req,
   ) {
-    await this.ensureClientAssigned(clientId, req.user.userId);
     return this.branchesService.create(
       clientId,
       dto,
@@ -88,7 +94,22 @@ export class CrmBranchesController {
     @Request() req,
   ) {
     await this.ensureBranchAssigned(id, req.user.userId);
-    return this.compliancesService.getBranchComplianceSummaries(id);
+    return this.compliancesService.getBranchCompliances(id);
+  }
+
+  @Post('branches/:id/compliances')
+  async saveCompliances(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { complianceIds: string[] },
+    @Request() req,
+  ) {
+    const branch = await this.ensureBranchAssigned(id, req.user.userId);
+    return this.compliancesService.saveBranchCompliances(
+      id,
+      branch.clientId,
+      body.complianceIds ?? [],
+      req.user.userId,
+    );
   }
 
   // ---- Branch edit/delete ----

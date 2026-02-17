@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayrollInputFileEntity } from '../payroll/entities/payroll-input-file.entity';
@@ -10,11 +14,16 @@ import { PayrollClientAssignmentEntity } from '../payroll/entities/payroll-clien
 @Injectable()
 export class FilesService {
   constructor(
-    @InjectRepository(PayrollInputFileEntity) private pifRepo: Repository<PayrollInputFileEntity>,
-    @InjectRepository(RegistersRecordEntity) private rrRepo: Repository<RegistersRecordEntity>,
-    @InjectRepository(HelpdeskMessageFileEntity) private hmfRepo: Repository<HelpdeskMessageFileEntity>,
-    @InjectRepository(ContractorDocumentEntity) private cdRepo: Repository<ContractorDocumentEntity>,
-    @InjectRepository(PayrollClientAssignmentEntity) private assignRepo: Repository<PayrollClientAssignmentEntity>,
+    @InjectRepository(PayrollInputFileEntity)
+    private pifRepo: Repository<PayrollInputFileEntity>,
+    @InjectRepository(RegistersRecordEntity)
+    private rrRepo: Repository<RegistersRecordEntity>,
+    @InjectRepository(HelpdeskMessageFileEntity)
+    private hmfRepo: Repository<HelpdeskMessageFileEntity>,
+    @InjectRepository(ContractorDocumentEntity)
+    private cdRepo: Repository<ContractorDocumentEntity>,
+    @InjectRepository(PayrollClientAssignmentEntity)
+    private assignRepo: Repository<PayrollClientAssignmentEntity>,
   ) {}
 
   // Determine if user can access a filePath (by checking known tables)
@@ -22,8 +31,10 @@ export class FilesService {
     // 1) contractor_documents
     const cd = await this.cdRepo.findOne({ where: { filePath } });
     if (cd) {
-      if (user.roleCode === 'CONTRACTOR' && user.id !== cd.contractorId) throw new ForbiddenException();
-      if (user.roleCode === 'CLIENT' && user.clientId !== cd.clientId) throw new ForbiddenException();
+      if (user.roleCode === 'CONTRACTOR' && user.id !== cd.contractorId)
+        throw new ForbiddenException();
+      if (user.roleCode === 'CLIENT' && user.clientId !== cd.clientId)
+        throw new ForbiddenException();
       return;
     }
 
@@ -45,7 +56,12 @@ export class FilesService {
       }
       if (user.roleCode === 'PAYROLL') {
         const ok = await this.assignRepo.findOne({
-          where: { payrollUserId: user.id, clientId: rr.clientId, status: 'ACTIVE', endDate: null as any },
+          where: {
+            payrollUserId: user.id,
+            clientId: rr.clientId,
+            status: 'ACTIVE',
+            endDate: null as any,
+          },
         });
         if (!ok) throw new ForbiddenException();
         return;
@@ -57,7 +73,7 @@ export class FilesService {
     const hmf = await this.hmfRepo.findOne({ where: { filePath } });
     if (hmf) {
       // simplest: allow PF_TEAM/CLIENT/ADMIN; for strict, join via ticket->clientId
-      if (["PF_TEAM", "CLIENT", "ADMIN"].includes(user.roleCode)) return;
+      if (['PF_TEAM', 'CLIENT', 'ADMIN'].includes(user.roleCode)) return;
       throw new ForbiddenException();
     }
 

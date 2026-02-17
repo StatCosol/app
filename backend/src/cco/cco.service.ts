@@ -12,9 +12,9 @@ export class CcoService {
       .getRepository('roles')
       .findOne({ where: { code: 'CRM' } });
     if (!crmRole) return [];
-    // Find all CRM users where ownerCcoId = user.userId
+    // Find all CRM users where ownerCcoId = user.userId (exclude deleted)
     const crms = await this.dataSource.getRepository('users').find({
-      where: { ownerCcoId: user.userId, roleId: crmRole.id },
+      where: { ownerCcoId: user.userId, roleId: crmRole.id, deletedAt: null },
       select: ['id', 'name', 'isActive', 'email'],
       order: { name: 'ASC' },
     });
@@ -67,6 +67,29 @@ export class CcoService {
   async rejectRequest(user: any, id: number, remarks: string) {
     // TODO: Reject CRM deletion request with remarks
     return { success: true };
+  }
+
+  /**
+   * Return escalated compliance tasks visible to this CCO.
+   * Joins client + branch names so the frontend can display human-readable info.
+   */
+  async getOversight(_user: any) {
+    const rows = await this.dataSource.query(`
+      SELECT
+        ct.id,
+        c.client_name  AS "client",
+        b.branch_name  AS "branch",
+        ct.due_date    AS "dueDate",
+        ct.status,
+        ct.escalated_at AS "escalatedAt"
+      FROM compliance_tasks ct
+      LEFT JOIN clients  c ON c.id = ct.client_id
+      LEFT JOIN branches b ON b.id = ct.branch_id
+      WHERE ct.escalated_at IS NOT NULL
+      ORDER BY ct.escalated_at DESC
+      LIMIT 200
+    `);
+    return rows;
   }
 
   async getDashboard(user: any) {

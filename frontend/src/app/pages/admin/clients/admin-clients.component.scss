@@ -1,0 +1,208 @@
+﻿.clients-page { padding: 20px; }
+.alert { padding: 12px 20px; margin-bottom: 20px; border-radius: 4px; }
+.alert.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+.alert.error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+.back-btn { margin-bottom: 20px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+.tabs button { padding: 10px 20px; background: none; border: none; cursor: pointer; transition: all 0.15s ease; }
+.tabs button.active { color: #2563eb; border-bottom: 3px solid #2563eb; font-weight: 600; }
+.tabs .tab-link { 
+  padding: 10px 20px; 
+  background: none; 
+  border: none; 
+  cursor: pointer; 
+  text-decoration: none; 
+  color: #374151; 
+  display: inline-block; 
+  transition: all 0.15s ease;
+  border-bottom: 3px solid transparent;
+}
+.tabs .tab-link:hover:not(.disabled):not(.active) { 
+  background: #f9fafb;
+  color: #1f2937;
+}
+.tabs .tab-link.active { 
+  color: #2563eb; 
+  border-bottom-color: #2563eb; 
+  font-weight: 600;
+  background: #eff6ff;
+}
+.tabs .tab-link.disabled { 
+  opacity: 0.5; 
+  pointer-events: none; 
+  cursor: not-allowed; 
+}
+.tabs .tab-link:active:not(.disabled) {
+  transform: translateY(1px);
+}
+.card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+form label { display: block; margin-bottom: 5px; font-weight: 500; }
+form input, form select, form textarea {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.form-actions { display: flex; gap: 10px; margin-top: 20px; }
+button.primary { background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
+button.primary:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); }
+button.primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+button.secondary { background: #6b7280; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
+button.secondary:hover:not(:disabled) { background: #4b5563; transform: translateY(-1px); }
+button.secondary:active:not(:disabled) { transform: translateY(0); }
+button.btn-sm { padding: 5px 10px; font-size: 12px; margin-right: 5px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
+button.btn-sm:hover:not(:disabled) { background: #1d4ed8; }
+button.btn-sm:active:not(:disabled) { transform: scale(0.95); }
+button.btn-sm.danger { background: #dc2626; }
+button.btn-sm.danger:hover:not(:disabled) { background: #b91c1c; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; table-layout: fixed; }
+table thead { background: #f9fafb; }
+table th, table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Column sizing for All Clients list */
+
+/* Company Name column: allow more width, no truncation */
+.card table thead th:nth-child(1),
+.card table tbody td:nth-child(1) {
+  width: 220px;
+  max-width: 320px;
+  white-space: normal;
+  text-overflow: unset;
+  overflow: visible;
+}
+.card table thead th:nth-child(2),
+.card table tbody td:nth-child(2) {
+  width: 110px;
+  text-align: left;
+}
+.card table thead th:nth-child(3),
+.card table tbody td:nth-child(3) {
+  width: 100px;
+  text-align: center;
+}
+.card table thead th:nth-child(4),
+.card table tbody td:nth-child(4),
+.card table thead th:nth-child(5),
+.card table tbody td:nth-child(5) {
+  width: 110px;
+  text-align: center;
+}
+.card table thead th:nth-child(6),
+.card table tbody td:nth-child(6) {
+  width: 160px;
+  text-align: center;
+}
+
+.card table tbody td:last-child {
+  text-align: center;
+}
+/* Center action buttons in Actions column */
+.card table tbody td:last-child {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+/* Ensure Manage/Delete buttons are same height and centered */
+.card table tbody td:last-child button {
+  margin: 0;
+  min-width: 70px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.compliance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin: 20px 0; }
+.compliance-item { display: flex; padding: 12px; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; }
+.compliance-item:hover { background: #f9fafb; border-color: #2563eb; }
+.selected-count { margin-top: 15px; padding: 10px; background: #eff6ff; border-left: 3px solid #2563eb; color: #1e40af; font-weight: 500; }
+
+/* Loading overlay - doesn't block clicks */
+.loading-overlay {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: rgba(37, 99, 235, 0.95);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Instant visual feedback for interactive elements */
+.card:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.compliance-item {
+  transition: all 0.15s ease;
+}
+
+.compliance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.compliance-header .label {
+  font-weight: 600;
+  color: #111827;
+}
+
+.compliance-header .hint {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+}

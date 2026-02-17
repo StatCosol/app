@@ -1,4 +1,13 @@
-import { Controller, Get, Query, Req, Res, UseGuards, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -7,7 +16,7 @@ import * as fs from 'fs';
 import type { Response } from 'express';
 import { FilesService } from './files.service';
 
-@Controller('api/files')
+@Controller({ path: 'files', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CLIENT', 'PAYROLL', 'PF_TEAM', 'CRM', 'AUDITOR', 'CONTRACTOR')
 export class FilesController {

@@ -16,7 +16,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 
-@Controller('api/admin')
+@Controller({ path: 'admin', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminClientsController {

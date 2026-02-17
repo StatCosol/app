@@ -1,0 +1,238 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="flex flex-wrap gap-3 items-center">
+      <label class="filter-group">
+        <span class="filter-label">Month</span>
+        <select class="filter-select" [(ngModel)]="filters.month" (change)="load()">
+          <option *ngFor="let m of months" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+      <label class="filter-group">
+        <span class="filter-label">Year</span>
+        <select class="filter-select" [(ngModel)]="filters.year" (change)="load()">
+          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+        </select>
+      </label>
+      <label class="filter-group">
+        <span class="filter-label">Branch</span>
+        <select class="filter-select" [(ngModel)]="filters.branchId" (change)="onBranchChange()">
+          <option value="ALL">All branches</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+        </select>
+      </label>
+      <label class="filter-group">
+        <span class="filter-label">Contractor</span>
+        <select class="filter-select" [(ngModel)]="filters.contractorId" [disabled]="filters.branchId === 'ALL'" (change)="onContractorChange()">
+          <option value="ALL">All contractors</option>
+          <option *ngFor="let c of filteredContractors()" [value]="c.id">{{ c.name }}</option>
+        </select>
+      </label>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="toggle-chip" [class.toggle-chip--active]="filters.toggle === 'ALL'" (click)="onToggleChange('ALL')">All</button>
+      <button class="toggle-chip toggle-chip--critical" [class.toggle-chip--active]="filters.toggle === 'CRITICAL'" (click)="onToggleChange('CRITICAL')">Critical</button>
+      <button class="toggle-chip toggle-chip--pending" [class.toggle-chip--active]="filters.toggle === 'PENDING'" (click)="onToggleChange('PENDING')">Pending</button>
+      <button class="ghost-btn" (click)="load()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="flex items-center justify-center py-20">
+    <ui-loading-spinner></ui-loading-spinner>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <div *ngIf="errorMsg" class="alert-error">{{ errorMsg }}</div>
+
+    <ng-container *ngIf="!errorMsg && data as d; else clientFallback">
+      <!-- KPI strip -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--blue">Employees</div>
+          <div class="kpi-value">{{ d.kpis.employees.active || 0 }}</div>
+          <div class="kpi-sub">Active of {{ d.kpis.employees.total || 0 }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--blue">Contractors</div>
+          <div class="kpi-value">{{ d.kpis.contractors.total || 0 }}</div>
+          <div class="kpi-sub">M {{ d.kpis.contractors.male || 0 }} / F {{ d.kpis.contractors.female || 0 }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--amber">Payroll Pending</div>
+          <div class="kpi-value">{{ d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees }}</div>
+          <div class="kpi-sub">Queries, inputs, PF/ESI</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--green">Branches Live</div>
+          <div class="kpi-value">{{ d.kpis.branches.live || 0 }}</div>
+          <div class="kpi-sub">of {{ d.kpis.branches.total || 0 }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--blue">Compliance %</div>
+          <div class="kpi-value">{{ d.kpis.compliance.overallPercent || 0 }}%</div>
+          <div class="kpi-sub">Branch avg {{ d.kpis.compliance.branchAvgPercent || 0 }}%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--blue">Audit Score</div>
+          <div class="kpi-value">{{ d.kpis.audits.overallAuditScore || 0 }}%</div>
+          <div class="kpi-sub">Completed {{ d.kpis.audits.completed || 0 }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--red">Critical</div>
+          <div class="kpi-value">{{ d.queues.critical.length || 0 }}</div>
+          <div class="kpi-sub">Risk items</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-pill kpi-pill--amber">Pending</div>
+          <div class="kpi-value">{{ d.queues.pending.length || 0 }}</div>
+          <div class="kpi-sub">Operational</div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1 -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <div class="panel xl:col-span-2">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Compliance</p>
+              <h3 class="panel-title">Trend (6 months)</h3>
+            </div>
+          </div>
+          <div class="panel-body h-64">
+            <canvas #complianceTrendChart></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Audits</p>
+              <h3 class="panel-title">Completion</h3>
+            </div>
+            <div class="score-chip">{{ d.charts.auditCompletion.overallScore || 0 }}%</div>
+          </div>
+          <div class="panel-body h-64 flex items-center justify-center">
+            <canvas #auditDonutChart class="w-full h-full"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 2 -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Compliance Ops</p>
+              <h3 class="panel-title">MCD / Returns / Renewals / Amendments</h3>
+            </div>
+          </div>
+          <div class="panel-body h-64">
+            <canvas #complianceOpsChart></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Payroll</p>
+              <h3 class="panel-title">Exceptions</h3>
+            </div>
+          </div>
+          <div class="panel-body h-64 flex items-center justify-center">
+            <canvas #payrollDonutChart class="w-full h-full"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 3 -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Branches</p>
+              <h3 class="panel-title">Compliance ranking</h3>
+            </div>
+          </div>
+          <div class="panel-body h-64">
+            <canvas #branchRankChart></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Docs upload buckets</h3>
+            </div>
+          </div>
+          <div class="panel-body h-64">
+            <canvas #docsBucketChart></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 4 -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Employees</p>
+              <h3 class="panel-title">Status by month</h3>
+            </div>
+          </div>
+          <div class="panel-body h-64">
+            <canvas #employeeStatusChart></canvas>
+          </div>
+        </div>
+        <div class="panel xl:col-span-1">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Critical & Pending</p>
+              <h3 class="panel-title">Risk Queue</h3>
+            </div>
+          </div>
+          <div class="panel-body space-y-4">
+            <div class="queue-tabs">
+              <div class="queue-tab">Critical ({{ d.queues.critical.length || 0 }})</div>
+              <div class="queue-list" *ngIf="d.queues.critical.length; else noCritical">
+                <div *ngFor="let item of d.queues.critical" class="queue-row">
+                  <div>
+                    <div class="queue-title">{{ item.label }}</div>
+                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
+                  </div>
+                  <div class="queue-meta">Age {{ item.ageDays }}d</div>
+                  <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
+                </div>
+              </div>
+              <ng-template #noCritical><p class="queue-empty">No critical items</p></ng-template>
+            </div>
+            <div class="queue-tabs">
+              <div class="queue-tab queue-tab--pending">Pending ({{ d.queues.pending.length || 0 }})</div>
+              <div class="queue-list" *ngIf="d.queues.pending.length; else noPending">
+                <div *ngFor="let item of d.queues.pending" class="queue-row">
+                  <div>
+                    <div class="queue-title">{{ item.label }}</div>
+                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
+                  </div>
+                  <div class="queue-meta">Age {{ item.ageDays }}d</div>
+                  <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
+                </div>
+              </div>
+              <ng-template #noPending><p class="queue-empty">No pending items</p></ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-template #clientFallback>
+      <div class="card text-center text-gray-600 py-10">
+        <div class="flex items-center justify-center mb-3 text-red-500">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span class="ml-2 font-semibold">Live LegitX dashboard data unavailable</span>
+        </div>
+        <p class="text-sm">Refresh or check the API before retrying.</p>
+      </div>
+    </ng-template>
+  </ng-container>
+</div>

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   Req,
@@ -18,7 +19,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ContractorDocumentsService } from './contractor-documents.service';
-import type { ContractorDocumentCreateDto } from './contractor-documents.service';
+import type {
+  ContractorDocumentCreateDto,
+  ContractorDocumentReuploadDto,
+  ContractorDocumentReviewDto,
+} from './contractor-documents.service';
+import {
+  ClientScoped,
+  CrmAssignmentGuard,
+} from '../assignments/crm-assignment.guard';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -55,7 +64,7 @@ const fileUploadOptions = {
   limits: { fileSize: MAX_MB * 1024 * 1024 },
 };
 
-@Controller('api/contractor/documents')
+@Controller({ path: 'contractor/documents', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorDocumentsController {
@@ -75,17 +84,37 @@ export class ContractorDocumentsController {
   ) {
     return this.svc.contractorUpload(req.user, dto, file);
   }
+
+  @Post('reupload/:id')
+  @UseInterceptors(FileInterceptor('file', fileUploadOptions))
+  reupload(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: ContractorDocumentReuploadDto,
+    @UploadedFile() file: any,
+  ) {
+    return this.svc.contractorReupload(req.user, id, dto, file);
+  }
 }
 
-@Controller('api/crm/contractor-documents')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller({ path: 'crm/contractor-documents', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard, CrmAssignmentGuard)
 @Roles('CRM', 'ADMIN', 'CCO', 'CEO', 'AUDITOR')
 export class CrmContractorDocumentsController {
   constructor(private readonly svc: ContractorDocumentsService) {}
 
   @Get()
+  @ClientScoped('clientId')
   list(@Req() req: any, @Query() q: any) {
-    // NOTE: clientId is required; authorization checks can be tightened later
     return this.svc.listByClient(req.user, q);
+  }
+
+  @Post(':id/review')
+  review(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: ContractorDocumentReviewDto,
+  ) {
+    return this.svc.reviewDocument(req.user, id, dto);
   }
 }

@@ -1,0 +1,32 @@
+/* Compliance Status Dashboard - minimal overrides (Tailwind handles most styling) */
+
+:host {
+  display: block;
+}
+
+/* Risk badge animations */
+.risk-critical { animation: pulse-risk 1.5s ease-in-out infinite; }
+
+@keyframes pulse-risk {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Compliance % bar in branch table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+th, td {
+  white-space: nowrap;
+}
+
+/* Line clamp for observation text */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

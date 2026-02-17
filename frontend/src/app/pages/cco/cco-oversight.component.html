@@ -1,0 +1,70 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Compliance Oversight" 
+    description="Monitor escalated tasks and compliance status"
+    icon="clipboard-check">
+  </ui-page-header>
+
+  <!-- Filters Card -->
+  <div class="card mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="form-group">
+        <input placeholder="Date Range" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+      </div>
+      <div class="form-group">
+        <input placeholder="Client" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+      </div>
+      <div class="form-group">
+        <input placeholder="Branch" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+      </div>
+      <div class="form-group">
+        <input placeholder="CRM" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+      </div>
+      <div class="flex items-end">
+        <button class="btn-primary w-full">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          Search
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Oversight Table -->
+  <div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task ID</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignee</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escalated At</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">[taskId]</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">[client]</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">[branch]</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">[due]</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">[assignee]</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="badge badge-warning">[status]</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">[escalatedAt]</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+              <button class="btn-primary-sm">View</button>
+              <button class="btn-secondary">Open Notification</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>

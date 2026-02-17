@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('api/reports/compliance')
+@Controller({ path: 'reports/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ComplianceReportController {
   constructor(private readonly ds: DataSource) {}

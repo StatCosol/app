@@ -1,5 +1,9 @@
 // ...existing code...
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { HelpdeskTicketEntity } from './entities/helpdesk-ticket.entity';
@@ -21,11 +25,21 @@ export type AssignTicketDto = { assignedToUserId: string | null };
 
 export type UpdateTicketStatusDto = { status: string };
 
-export const HELP_DESK_STATUS = ['OPEN','IN_PROGRESS','AWAITING_CLIENT','RESOLVED','CLOSED'] as const;
-export const HELP_DESK_PRIORITY = ['LOW','NORMAL','HIGH','CRITICAL'] as const;
+export const HELP_DESK_STATUS = [
+  'OPEN',
+  'IN_PROGRESS',
+  'AWAITING_CLIENT',
+  'RESOLVED',
+  'CLOSED',
+] as const;
+export const HELP_DESK_PRIORITY = [
+  'LOW',
+  'NORMAL',
+  'HIGH',
+  'CRITICAL',
+] as const;
 
 @Injectable()
-
 export class HelpdeskService {
   constructor(
     @InjectRepository(HelpdeskTicketEntity)
@@ -36,8 +50,6 @@ export class HelpdeskService {
     private readonly fileRepo: Repository<HelpdeskMessageFileEntity>,
     private readonly dataSource: DataSource,
   ) {}
-
-
 
   // --- STUBS for controller compatibility ---
   async listTickets(user: any, q: any) {
@@ -78,8 +90,20 @@ export class HelpdeskService {
       },
 
       // fallback options if needed later
-      { table: 'client_assignment_current', crmCol: 'assigned_to_user_id', clientCol: 'client_id', assignmentTypeCol: 'assignment_type', assignmentTypeValue: 'CRM' },
-      { table: 'client_assignments', crmCol: 'assigned_to_user_id', clientCol: 'client_id', assignmentTypeCol: 'assignment_type', assignmentTypeValue: 'CRM' },
+      {
+        table: 'client_assignment_current',
+        crmCol: 'assigned_to_user_id',
+        clientCol: 'client_id',
+        assignmentTypeCol: 'assignment_type',
+        assignmentTypeValue: 'CRM',
+      },
+      {
+        table: 'client_assignments',
+        crmCol: 'assigned_to_user_id',
+        clientCol: 'client_id',
+        assignmentTypeCol: 'assignment_type',
+        assignmentTypeValue: 'CRM',
+      },
     ];
 
     for (const c of candidates) {
@@ -101,7 +125,9 @@ export class HelpdeskService {
           table: c.table,
           crmCol: c.crmCol,
           clientCol: c.clientCol,
-          assignmentTypeCol: set.has(c.assignmentTypeCol ?? '') ? c.assignmentTypeCol : undefined,
+          assignmentTypeCol: set.has(c.assignmentTypeCol ?? '')
+            ? c.assignmentTypeCol
+            : undefined,
           assignmentTypeValue: c.assignmentTypeValue,
         };
       }
@@ -136,7 +162,9 @@ export class HelpdeskService {
     if (!user?.id) throw new BadRequestException('Invalid user');
     const clientIds = await this.crmAssignedClientIds(user.id);
     if (clientIds.length === 0) return [];
-    const qb = this.ticketRepo.createQueryBuilder('t').where('t.client_id IN (:...ids)', { ids: clientIds });
+    const qb = this.ticketRepo
+      .createQueryBuilder('t')
+      .where('t.client_id IN (:...ids)', { ids: clientIds });
     if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
     if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
     if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
@@ -152,7 +180,8 @@ export class HelpdeskService {
     }
     if (user?.roleCode === 'CRM') {
       const clientIds = await this.crmAssignedClientIds(user.id);
-      if (!clientIds.includes(t.clientId)) throw new ForbiddenException('Not assigned to this client');
+      if (!clientIds.includes(t.clientId))
+        throw new ForbiddenException('Not assigned to this client');
     }
     return t;
   }
@@ -160,9 +189,13 @@ export class HelpdeskService {
   async clientCreateTicket(user: any, dto: CreateTicketDto) {
     const now = new Date();
     const hours =
-      (dto.priority ?? 'NORMAL') === 'CRITICAL' ? 24 :
-      (dto.priority ?? 'NORMAL') === 'HIGH' ? 48 :
-      (dto.priority ?? 'NORMAL') === 'LOW' ? 120 : 72; // NORMAL = 72h
+      (dto.priority ?? 'NORMAL') === 'CRITICAL'
+        ? 24
+        : (dto.priority ?? 'NORMAL') === 'HIGH'
+          ? 48
+          : (dto.priority ?? 'NORMAL') === 'LOW'
+            ? 120
+            : 72; // NORMAL = 72h
     const slaDue = new Date(now.getTime() + hours * 60 * 60 * 1000);
     const ticket = this.ticketRepo.create({
       ...dto,
@@ -175,8 +208,13 @@ export class HelpdeskService {
     return this.ticketRepo.save(ticket);
   }
 
-  async pfTeamUpdateStatus(user: any, ticketId: string, dto: UpdateTicketStatusDto) {
-    if (!HELP_DESK_STATUS.includes(dto.status as any)) throw new BadRequestException('Invalid status');
+  async pfTeamUpdateStatus(
+    user: any,
+    ticketId: string,
+    dto: UpdateTicketStatusDto,
+  ) {
+    if (!HELP_DESK_STATUS.includes(dto.status as any))
+      throw new BadRequestException('Invalid status');
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
 
@@ -187,14 +225,19 @@ export class HelpdeskService {
     return this.ticketRepo.save(t);
   }
 
-  async updateTicketStatusScoped(user: any, ticketId: string, dto: UpdateTicketStatusDto) {
+  async updateTicketStatusScoped(
+    user: any,
+    ticketId: string,
+    dto: UpdateTicketStatusDto,
+  ) {
     if (!dto?.status) throw new BadRequestException('status required');
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
     // Scope rules:
     if (user.roleCode === 'CRM') {
       const ids = await this.crmAssignedClientIds(user.id);
-      if (!ids.includes(t.clientId)) throw new ForbiddenException('Not assigned to this client');
+      if (!ids.includes(t.clientId))
+        throw new ForbiddenException('Not assigned to this client');
     }
     // PF_TEAM / ADMIN allowed
     t.status = dto.status;
@@ -209,9 +252,12 @@ export class HelpdeskService {
     }
     if (user?.roleCode === 'CRM') {
       const clientIds = await this.crmAssignedClientIds(user.id);
-      if (!clientIds.includes(t.clientId)) throw new ForbiddenException('Not assigned to this client');
+      if (!clientIds.includes(t.clientId))
+        throw new ForbiddenException('Not assigned to this client');
     }
-    const qb = this.msgRepo.createQueryBuilder('m').where('m.ticket_id = :id', { id: ticketId });
+    const qb = this.msgRepo
+      .createQueryBuilder('m')
+      .where('m.ticket_id = :id', { id: ticketId });
     qb.orderBy('m.created_at', 'DESC');
     return qb.getMany();
   }
@@ -224,7 +270,8 @@ export class HelpdeskService {
     }
     if (user?.roleCode === 'CRM') {
       const clientIds = await this.crmAssignedClientIds(user.id);
-      if (!clientIds.includes(t.clientId)) throw new ForbiddenException('Not assigned to this client');
+      if (!clientIds.includes(t.clientId))
+        throw new ForbiddenException('Not assigned to this client');
     }
     const message = this.msgRepo.create({
       message: dto.message,

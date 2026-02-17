@@ -9,7 +9,7 @@ import {
 } from './branch-compliance-override.service';
 import { AccessPolicyService } from '../auth/policies/access-policy.service';
 
-@Controller('api/branch-compliances')
+@Controller({ path: 'branch-compliances', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BranchComplianceOverrideController {
   constructor(

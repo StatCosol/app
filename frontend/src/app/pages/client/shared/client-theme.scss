@@ -1,0 +1,267 @@
+// ─── Client Module Premium Theme ──────────────────────────────────────
+
+// Enhanced card with depth and glass effect
+.client-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+  border-radius: 1rem;
+  border: 1px solid rgba(10, 38, 86, 0.06);
+  padding: 1.5rem;
+  box-shadow:
+    0 1px 3px rgba(10, 38, 86, 0.04),
+    0 4px 12px rgba(10, 38, 86, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow:
+      0 4px 12px rgba(10, 38, 86, 0.08),
+      0 8px 24px rgba(10, 38, 86, 0.04);
+    border-color: rgba(10, 38, 86, 0.12);
+    transform: translateY(-1px);
+  }
+}
+
+// KPI card with tinted gradient backgrounds
+.client-kpi {
+  border-radius: 1rem;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(10, 38, 86, 0.08);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    0 8px 20px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Remove old left-border
+  &::before { display: none; }
+
+  // Decorative glow circle in top-right
+  &::after {
+    content: '';
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    opacity: 0.1;
+    pointer-events: none;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.06),
+      0 12px 28px rgba(0, 0, 0, 0.04);
+  }
+
+  &--blue {
+    background: linear-gradient(135deg, #eef4ff 0%, #f0f7ff 50%, #ffffff 100%);
+    &::after { background: radial-gradient(circle, #0a2656, transparent); }
+  }
+  &--green {
+    background: linear-gradient(135deg, #edfdf5 0%, #f0fdf4 50%, #ffffff 100%);
+    &::after { background: radial-gradient(circle, #16a34a, transparent); }
+  }
+  &--amber {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef9ee 50%, #ffffff 100%);
+    &::after { background: radial-gradient(circle, #d97706, transparent); }
+  }
+  &--red {
+    background: linear-gradient(135deg, #fef2f2 0%, #fef6f6 50%, #ffffff 100%);
+    &::after { background: radial-gradient(circle, #dc2626, transparent); }
+  }
+  &--purple {
+    background: linear-gradient(135deg, #faf5ff 0%, #faf8ff 50%, #ffffff 100%);
+    &::after { background: radial-gradient(circle, #9333ea, transparent); }
+  }
+}
+
+// Circular progress ring
+.progress-ring {
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 2px 4px rgba(10, 38, 86, 0.15));
+
+  &__circle {
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    stroke-linecap: round;
+  }
+}
+
+// Vertical timeline
+.timeline-item {
+  @apply relative pl-8 pb-6;
+
+  &::before {
+    content: '';
+    @apply absolute left-3 top-3 bottom-0 w-px bg-gray-200;
+  }
+
+  &:last-child::before {
+    @apply hidden;
+  }
+
+  &__dot {
+    @apply absolute left-1 top-1 w-5 h-5 rounded-full border-2 border-white shadow-sm;
+  }
+}
+
+// Chip/pill filter
+.chip-filter {
+  @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+         border transition-all duration-150 cursor-pointer select-none;
+
+  &--inactive {
+    @apply bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100;
+  }
+
+  &--active {
+    @apply bg-statco-blue/10 border-statco-blue/30 text-statco-blue;
+  }
+}
+
+// Section header with subtle underline
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #f1f5f9;
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  &__action {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0a2656;
+    transition: color 0.2s;
+    cursor: pointer;
+
+    &:hover {
+      color: #1eb6f7;
+    }
+  }
+}
+
+// Status dot indicator
+.status-dot {
+  @apply w-2 h-2 rounded-full inline-block mr-2;
+
+  &--green { @apply bg-green-500; }
+  &--red { @apply bg-red-500; }
+  &--amber { @apply bg-amber-500; }
+  &--blue { @apply bg-blue-500; }
+  &--gray { @apply bg-gray-400; }
+}
+
+// Welcome banner — rich gradient with mesh overlay
+.welcome-banner {
+  background: linear-gradient(135deg, #051734 0%, #0a2656 35%, #0e3a7a 65%, #1eb6f7 100%);
+  border-radius: 1rem;
+  padding: 2rem 2.5rem;
+  color: white;
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 4px 16px rgba(10, 38, 86, 0.25),
+    0 8px 32px rgba(5, 23, 52, 0.15);
+
+  // Mesh-like pattern overlay
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 80%, rgba(30, 182, 247, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 60% 60%, rgba(30, 182, 247, 0.1) 0%, transparent 35%);
+    pointer-events: none;
+  }
+
+  // Decorative circles
+  &::after {
+    content: '';
+    position: absolute;
+    right: -40px;
+    top: -40px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    opacity: 0.12;
+    background: radial-gradient(circle, white 0%, transparent 70%);
+    pointer-events: none;
+  }
+}
+
+// Quick action card — gradient icon, hover lift
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+  border-radius: 1rem;
+  border: 1px solid rgba(10, 38, 86, 0.06);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(10, 38, 86, 0.04);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 8px 24px rgba(10, 38, 86, 0.1),
+      0 0 0 1px rgba(30, 182, 247, 0.15);
+    border-color: rgba(30, 182, 247, 0.3);
+  }
+
+  &__icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a2656 0%, #1eb6f7 100%);
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(10, 38, 86, 0.2);
+  }
+
+  &:hover &__icon {
+    transform: scale(1.08);
+    box-shadow: 0 6px 16px rgba(10, 38, 86, 0.3);
+  }
+
+  &__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1e293b;
+    transition: color 0.2s;
+  }
+
+  &:hover &__label {
+    color: #0a2656;
+  }
+}
+
+// Stacked bar chart (pure CSS)
+.stacked-bar {
+  display: flex;
+  height: 0.5rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #f1f5f9;
+
+  &__segment {
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 2px;
+  }
+}

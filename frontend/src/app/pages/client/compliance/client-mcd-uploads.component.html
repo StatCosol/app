@@ -1,0 +1,59 @@
+<ui-page-header title="MCD Uploads" subtitle="Upload monthly compliance documents for CRM review"></ui-page-header>
+
+<div class="filters">
+  <label *ngIf="!singleBranch">
+    Branch
+    <select [(ngModel)]="filters.branchId" (change)="loadTasks()">
+      <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+    </select>
+  </label>
+  <span *ngIf="singleBranch" class="text-sm text-gray-600">Branch: {{ branches[0]?.branchName || branches[0]?.name || '' }}</span>
+  <label>
+    Month
+    <select [(ngModel)]="filters.month" (change)="loadTasks()">
+      <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+    </select>
+  </label>
+  <label>
+    Year
+    <select [(ngModel)]="filters.year" (change)="loadTasks()">
+      <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+    </select>
+  </label>
+</div>
+
+<section class="content" *ngIf="!loading && tasks.length; else emptyOrLoading">
+  <div class="task-card" *ngFor="let task of tasks">
+    <div class="task-head">
+      <div>
+        <div class="title">{{ task.complianceTitle }}</div>
+        <div class="meta">{{ task.branchName }} • {{ periodLabel(task) }}</div>
+      </div>
+      <div class="status" [class.out-window]="!task.canUpload">{{ windowStatusText(task) || 'Not scheduled' }}</div>
+    </div>
+    <div class="body">
+      <div>Due: {{ task.dueDate || '-' }}</div>
+      <div *ngIf="task.window">Window: {{ task.window.start }} → {{ task.window.end }}</div>
+      <div *ngIf="task.lastUploadedAt">Last uploaded: {{ task.lastUploadedAt | date:'medium' }}</div>
+    </div>
+    <div class="badge-row">
+      <ui-status-badge [status]="task.status"></ui-status-badge>
+      <span class="files">Evidence: {{ task.evidenceCount || 0 }} file(s)</span>
+    </div>
+    <div class="actions" *ngIf="!isMasterUser && task.canUpload; else locked">
+      <input #fileInput type="file" hidden accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(task, $event)" />
+      <button type="button" (click)="fileInput.click()" [disabled]="uploading[task.id]">{{ uploading[task.id] ? 'Uploading...' : 'Upload file' }}</button>
+    </div>
+    <ng-template #locked>
+      <div class="locked" *ngIf="isMasterUser; else windowLocked">Only branch users can upload MCD documents.</div>
+      <ng-template #windowLocked>
+        <div class="locked">Uploads allowed from 20th to 25th of the following month.</div>
+      </ng-template>
+    </ng-template>
+  </div>
+</section>
+
+<ng-template #emptyOrLoading>
+  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+  <ui-empty-state *ngIf="!loading" message="No compliance tasks found for the selected period." icon="folder-open"></ui-empty-state>
+</ng-template>

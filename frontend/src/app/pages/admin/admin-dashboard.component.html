@@ -1,0 +1,299 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Page Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+      <p class="text-sm text-gray-500 mt-1">System governance, SLA control, and escalation management.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="inline-flex rounded-lg border border-gray-200 p-1 bg-white">
+        <button 
+          type="button" 
+          class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+          [class.bg-statco-blue]="dateRange==='7d'"
+          [class.text-white]="dateRange==='7d'"
+          [class.text-gray-700]="dateRange!=='7d'"
+          (click)="setRange('7d')"
+        >
+          7 Days
+        </button>
+        <button 
+          type="button" 
+          class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+          [class.bg-statco-blue]="dateRange==='30d'"
+          [class.text-white]="dateRange==='30d'"
+          [class.text-gray-700]="dateRange!=='30d'"
+          (click)="setRange('30d')"
+        >
+          30 Days
+        </button>
+        <button 
+          type="button" 
+          class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+          [class.bg-statco-blue]="dateRange==='90d'"
+          [class.text-white]="dateRange==='90d'"
+          [class.text-gray-700]="dateRange!=='90d'"
+          (click)="setRange('90d')"
+        >
+          90 Days
+        </button>
+      </div>
+      <button type="button" class="btn-primary" [routerLink]="['/admin/notifications']">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        Notifications
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading & Error States -->
+  <div *ngIf="loading" class="alert info">Loading dashboard…</div>
+  <div *ngIf="!loading && errorMsg" class="alert error">{{ errorMsg }}</div>
+
+  <!-- Filters -->
+  <div class="card mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="form-group">
+        <label for="client">Client</label>
+        <select id="client" [(ngModel)]="clientId" class="w-full">
+          <option [ngValue]="null">All Clients</option>
+          <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="state">State</label>
+        <select id="state" [(ngModel)]="stateCode" class="w-full">
+          <option [ngValue]="null">All States</option>
+          <option *ngFor="let s of states" [ngValue]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="from">From Date</label>
+        <input id="from" type="date" [(ngModel)]="from" class="w-full" />
+      </div>
+      <div class="form-group">
+        <label for="to">To Date</label>
+        <input id="to" type="date" [(ngModel)]="to" class="w-full" />
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="btn-primary" (click)="applyFilters()">Apply Filters</button>
+      <button type="button" class="btn-secondary" (click)="resetFilters()">Reset</button>
+      <button type="button" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium" (click)="sendDigestNow()" [disabled]="sendingDigest">{{ sendingDigest ? 'Sending...' : 'Send Weekly Digest' }}</button>
+      <button type="button" class="btn-danger" (click)="sendCriticalAlertsNow()" [disabled]="sendingAlerts">{{ sendingAlerts ? 'Sending...' : 'Send Critical Alerts' }}</button>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!loading && !errorMsg && summary && stats && taskStatus; else adminFallback">
+
+    <!-- KPI Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6 dashboard-kpi">
+      <a class="block" [routerLink]="['/admin/clients']">
+        <ui-stat-card
+          label="Clients"
+          [value]="summary.clients"
+          description="Total active"
+          color="primary"
+          class="h-full">
+        </ui-stat-card>
+      </a>
+
+      <a class="block" [routerLink]="['/admin/clients']">
+        <ui-stat-card
+          label="Branches"
+          [value]="summary.branches"
+          description="System coverage"
+          color="success"
+          class="h-full">
+        </ui-stat-card>
+      </a>
+
+      <ui-stat-card
+        label="SLA Health"
+        [value]="summary.slaHealth.scorePct + '%'"
+        [description]="summary.slaHealth.status === 'GREEN' ? '✓ On track' : summary.slaHealth.status === 'AMBER' ? '⚠ At risk' : '✗ Breached'"
+        [color]="summary.slaHealth.status === 'GREEN' ? 'success' : summary.slaHealth.status === 'AMBER' ? 'warning' : 'error'"
+        class="h-full">
+      </ui-stat-card>
+
+      <a class="block" [routerLink]="['/admin/audits']">
+        <ui-stat-card
+          label="Overdue"
+          [value]="summary.overdueAudits"
+          description="Escalation trigger"
+          color="error"
+          class="h-full">
+        </ui-stat-card>
+      </a>
+
+      <a class="block" [routerLink]="['/admin/assignments']">
+        <ui-stat-card
+          label="Due Soon"
+          [value]="summary.dueSoon"
+          description="Early warning"
+          color="warning"
+          class="h-full">
+        </ui-stat-card>
+      </a>
+
+      <a class="block" [routerLink]="['/admin/notifications']">
+        <ui-stat-card
+          label="Unread"
+          [value]="summary.unreadNotifications"
+          description="Admin inbox"
+          color="primary"
+          class="h-full">
+        </ui-stat-card>
+      </a>
+    </div>
+
+    <!-- Data Tables -->
+    <div class="space-y-6">
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="card-title">Escalations Queue</h3>
+        <span class="badge badge-danger" *ngIf="summary.escalations && summary.escalations.length > 0">
+          {{summary.escalations.length}} items need intervention
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr>
+              <th>Client</th><th>Issue Type</th><th>Reason</th><th>Owner Role</th><th>Owner</th><th>Days Delayed</th><th>Last Updated</th><th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let esc of summary.escalations" class="cursor-pointer hover:bg-gray-50">
+              <td>{{ esc.clientName }}</td>
+              <td><span class="badge badge-info">{{ esc.issueType }}</span></td>
+              <td>{{ esc.reason }}</td>
+              <td>{{ esc.ownerRole }}</td>
+              <td>{{ esc.ownerName || 'Unassigned' }}</td>
+              <td><span class="badge badge-danger">{{ esc.daysDelayed }} days</span></td>
+              <td>{{ esc.lastUpdated | date:'short' }}</td>
+              <td class="text-right">
+                <button class="btn-primary-sm mr-2">Notify</button>
+                <button class="btn-secondary">View</button>
+              </td>
+            </tr>
+            <tr *ngIf="!summary.escalations || summary.escalations.length === 0">
+              <td colspan="8" class="text-center py-8 text-gray-500">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                No escalations requiring intervention
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title mb-4">Assignments Needing Attention</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr>
+              <th>Client</th><th>Role</th><th>Assigned To</th><th>Assigned On</th><th>Rotation Due</th><th>Status</th><th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let asg of summary.assignmentsAttention" (click)="openAssignment(asg)" class="cursor-pointer hover:bg-gray-50">
+              <td>{{ asg.clientName }}</td>
+              <td><span class="badge badge-secondary">{{ asg.assignmentType }}</span></td>
+              <td>{{ asg.assignedTo }}</td>
+              <td>{{ asg.assignedOn | date:'yyyy-MM-dd' }}</td>
+              <td>{{ asg.rotationDueOn | date:'yyyy-MM-dd' }}</td>
+              <td>
+                <span *ngIf="asg.status === 'ACTIVE'" class="badge badge-success">Active</span>
+                <span *ngIf="asg.status === 'OVERDUE_ROTATION'" class="badge badge-warning">Overdue Rotation</span>
+                <span *ngIf="asg.status === 'MISSING'" class="badge badge-danger">Missing</span>
+              </td>
+              <td class="text-right">
+                <button class="btn-primary-sm">Rotate</button>
+              </td>
+            </tr>
+            <tr *ngIf="!summary.assignmentsAttention || summary.assignmentsAttention.length === 0">
+              <td colspan="7" class="text-center py-8 text-gray-500">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                All assignments are current
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title mb-4">System Health</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="stat-card border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="stat-value text-gray-900">{{ summary.systemHealth.inactiveUsers15d }}</div>
+              <div class="text-sm text-gray-600 mt-1">Inactive Users</div>
+              <div class="text-xs text-gray-500 mt-1">&gt; 15 days</div>
+            </div>
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="stat-value text-gray-900">{{ summary.systemHealth.unassignedClients }}</div>
+              <div class="text-sm text-gray-600 mt-1">Unassigned Clients</div>
+              <div class="text-xs text-gray-500 mt-1">Missing CRM/Auditor</div>
+            </div>
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="stat-value text-gray-900">{{ summary.systemHealth.failedNotifications7d }}</div>
+              <div class="text-sm text-gray-600 mt-1">Failed Notifications</div>
+              <div class="text-xs text-gray-500 mt-1">Last 7 days</div>
+            </div>
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-card border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="stat-value text-gray-900">{{ summary.systemHealth.failedJobs24h }}</div>
+              <div class="text-sm text-gray-600 mt-1">Failed Jobs</div>
+              <div class="text-xs text-gray-500 mt-1">Last 24 hours</div>
+            </div>
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </ng-container>
+
+  <ng-template #adminFallback>
+    <div class="card text-center text-gray-600 py-10">
+      <div class="flex items-center justify-center mb-3 text-red-500">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span class="ml-2 font-semibold">Live dashboard data unavailable</span>
+      </div>
+      <p class="text-sm">Refresh or check the API before retrying.</p>
+    </div>
+  </ng-template>
+</div>

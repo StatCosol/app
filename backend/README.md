@@ -40,6 +40,12 @@ npm run migration:run
 npm run seed:baseline
 ```
 
+Apply all SQL migrations (ordered) via PowerShell helper:
+
+```bash
+pwsh scripts/apply-all-migrations.ps1 -DbHost localhost -DbPort 5432 -Database statco_dev -User postgres -IncludeSeeds
+```
+
 ## Database Migration Strategy
 
 This project follows a **SQL-only migration strategy**.

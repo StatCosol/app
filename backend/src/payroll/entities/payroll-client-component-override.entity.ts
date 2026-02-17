@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ name: 'payroll_client_component_overrides' })
 @Index(['clientId', 'componentId'], { unique: true })
@@ -23,7 +30,12 @@ export class PayrollClientComponentOverrideEntity {
   @Column({ name: 'show_on_payslip', type: 'boolean', nullable: true })
   showOnPayslip: boolean | null;
 
-  @Column({ name: 'label_override', type: 'varchar', length: 200, nullable: true })
+  @Column({
+    name: 'label_override',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
   labelOverride: string | null;
 
   @Column({ name: 'formula_override', type: 'text', nullable: true })

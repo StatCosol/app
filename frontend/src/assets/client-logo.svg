@@ -1,0 +1,25 @@
+<svg width="360" height="120" viewBox="0 0 360 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VEDHA - Expertise to rely on">
+  <!-- Banner background -->
+  <rect x="0" y="0" width="360" height="70" fill="#e5e5e3" />
+
+  <!-- Left emblem box -->
+  <rect x="10" y="10" width="70" height="50" fill="#e5e5e3" />
+  <g transform="translate(18,12)">
+    <path d="M0 0 L18 0 L36 18 L18 18 Z" fill="#f5821f" />
+    <path d="M18 0 L36 0 L54 18 L36 18 Z" fill="#0b63a8" />
+    <path d="M0 20 L18 20 L36 38 L18 38 Z" fill="#0b63a8" />
+    <path d="M18 20 L36 20 L54 38 L36 38 Z" fill="#f5821f" />
+    <path d="M10 6 L22 6 L32 18 L20 18 Z" fill="#0b63a8" />
+    <path d="M10 22 L22 22 L32 34 L20 34 Z" fill="#f5821f" />
+  </g>
+
+  <!-- Brand name -->
+  <text x="100" y="46" font-family="'Segoe UI', Arial, sans-serif" font-size="40" font-weight="800" fill="#0b63a8" letter-spacing="1">
+    VEDHA
+  </text>
+
+  <!-- Tagline -->
+  <text x="14" y="104" font-family="'Georgia', 'Times New Roman', serif" font-size="28" font-weight="700" fill="#f5821f">
+    Expertise to rely on
+  </text>
+</svg>

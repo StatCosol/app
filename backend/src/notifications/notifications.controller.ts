@@ -1,17 +1,28 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { ReplyNotificationDto } from './dto/reply-notification.dto';
+import { RaiseNotificationDto } from './dto/raise-notification.dto';
 
-@Controller('api/notifications')
+@Controller({ path: 'notifications', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NotificationsController {
-  constructor(
-    private readonly svc: NotificationsService,
-  ) {}
+  constructor(private readonly svc: NotificationsService) {}
+
+  // -------------------------
+  // Thread-based notification system (existing)
+  // -------------------------
 
   @Post()
   create(@CurrentUser() user: any, @Body() dto: CreateNotificationDto) {
@@ -34,7 +45,11 @@ export class NotificationsController {
   }
 
   @Post('threads/:threadId/reply')
-  reply(@CurrentUser() user: any, @Param('threadId') threadId: string, @Body() dto: ReplyNotificationDto) {
+  threadReply(
+    @CurrentUser() user: any,
+    @Param('threadId') threadId: string,
+    @Body() dto: ReplyNotificationDto,
+  ) {
     return this.svc.replyAsUser(user, threadId, dto);
   }
 
@@ -51,5 +66,66 @@ export class NotificationsController {
   @Post('threads/:threadId/read')
   markRead(@CurrentUser() user: any, @Param('threadId') threadId: string) {
     return this.svc.markRead(threadId, user.id);
+  }
+
+  // -------------------------
+  // Simple notification system (new - direct routing)
+  // -------------------------
+
+  /**
+   * POST /api/notifications/raise
+   *
+   * Raise a notification with automatic recipient routing
+   * Any logged-in user can raise queries
+   *
+   * Routing:
+   * - TECHNICAL → ADMIN
+   * - COMPLIANCE → CRM (fallback: ADMIN)
+   * - AUDIT → AUDITOR (fallback: ADMIN)
+   *
+   * Body:
+   * - queryType: 'TECHNICAL' | 'COMPLIANCE' | 'AUDIT'
+   * - subject: string
+   * - message: string
+   * - clientId (optional): UUID (required for COMPLIANCE/AUDIT)
+   * - branchId (optional): UUID
+   * - contextType (optional): 'AUDIT' | 'ASSIGNMENT' | 'COMPLIANCE' | 'SYSTEM'
+   * - contextRefId (optional): string
+   *
+   * Returns:
+   * - status: 'SENT'
+   * - notificationId: UUID
+   * - routedToRole: string (ADMIN/CRM/AUDITOR)
+   * - routedToUserId: UUID
+   */
+  @Post('raise')
+  raise(@CurrentUser() user: any, @Body() dto: RaiseNotificationDto) {
+    return this.svc.raise(user, dto);
+  }
+
+  /**
+   * POST /api/notifications/:id/reply
+   *
+   * Reply to a notification
+   * Creates a new notification that goes back to the original sender
+   * Marks parent as READ
+   *
+   * Params:
+   * - id: Parent notification UUID
+   *
+   * Body:
+   * - message: string
+   *
+   * Returns:
+   * - status: 'SENT'
+   * - notificationId: UUID of reply
+   */
+  @Post(':id/reply')
+  reply(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { message: string },
+  ) {
+    return this.svc.reply(user, id, body.message);
   }
 }

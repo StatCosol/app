@@ -15,7 +15,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 import { AssignClientDto } from './dto/assign-client.dto';
 
-@Controller('api/cco/clients')
+@Controller({ path: 'cco/clients', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CCO', 'ADMIN')
 export class CcoClientsController {

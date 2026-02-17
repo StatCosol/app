@@ -16,46 +16,28 @@ import { NotificationMessageEntity } from './notification-message.entity';
 import { NotificationReadEntity } from './notification-read.entity';
 
 /**
- * Maps to legacy DB table used by StatCo schema: notification_threads
- *
- * We keep API responses in the newer "notifications" shape via the service layer.
+ * Maps to DB table: notifications
  */
-@Entity({ name: 'notification_threads' })
-@Index('idx_notification_threads_to', ['toUserId'])
-@Index('idx_notification_threads_status', ['status'])
-@Index('idx_notification_threads_query_type', ['queryType'])
+@Entity({ name: 'notifications' })
 export class NotificationEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // In schema: title is required
-  @Column({ name: 'title', type: 'varchar', length: 255 })
-  title: string;
+  @Column({ name: 'created_by_user_id', type: 'uuid' })
+  createdByUserId: string;
 
-  @Column({ name: 'query_type', type: 'varchar', length: 50 })
+  @ManyToOne(() => UserEntity, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'created_by_user_id' })
+  createdByUser?: UserEntity;
+
+  @Column({ name: 'created_by_role', type: 'varchar', length: 30 })
+  createdByRole: string;
+
+  @Column({ name: 'query_type', type: 'varchar', length: 30 })
   queryType: string;
 
-  @Column({ name: 'priority', type: 'varchar', length: 20, default: 'NORMAL' })
-  priority: string;
-
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'OPEN' })
-  status: string;
-
-  // Creator (from_user_id)
-  @Column({ name: 'from_user_id', type: 'uuid' })
-  fromUserId: string;
-
-  @ManyToOne(() => UserEntity, { nullable: false, onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'from_user_id' })
-  fromUser?: UserEntity;
-
-  // Assignee (to_user_id)
-  @Column({ name: 'to_user_id', type: 'uuid' })
-  toUserId: string;
-
-  @ManyToOne(() => UserEntity, { nullable: false, onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'to_user_id' })
-  toUser?: UserEntity;
+  @Column({ name: 'subject', type: 'text' })
+  subject: string;
 
   @Column({ name: 'client_id', type: 'uuid', nullable: true })
   clientId: string | null;
@@ -71,15 +53,45 @@ export class NotificationEntity {
   @JoinColumn({ name: 'branch_id' })
   branch?: BranchEntity | null;
 
+  @Column({ name: 'status', type: 'varchar', length: 30, default: 'OPEN' })
+  status: string;
+
+  @Column({ name: 'priority', type: 'smallint', default: 2 })
+  priority: number;
+
+  @Column({ name: 'assigned_to_user_id', type: 'uuid', nullable: true })
+  assignedToUserId: string | null;
+
+  @Column({
+    name: 'assigned_to_role',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  assignedToRole: string | null;
+
+  @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'assigned_to_user_id' })
+  assignedToUser?: UserEntity | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
-  @OneToMany(() => NotificationMessageEntity, (m) => m.thread)
+  @Column({ name: 'closed_at', type: 'timestamptz', nullable: true })
+  closedAt: Date | null;
+
+  @Column({ name: 'read_at', type: 'timestamptz', nullable: true })
+  readAt: Date | null;
+
+  @Column({ name: 'is_archived', type: 'boolean', default: false })
+  isArchived: boolean;
+
+  @OneToMany(() => NotificationMessageEntity, (m) => m.notification)
   messages?: NotificationMessageEntity[];
 
-  @OneToMany(() => NotificationReadEntity, (r) => r.thread)
+  @OneToMany(() => NotificationReadEntity, (r) => r.notification)
   reads?: NotificationReadEntity[];
 }

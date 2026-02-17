@@ -1,0 +1,292 @@
+/* Create User form controls should fill the card width */
+.card input,
+.card select,
+.card textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Optional: prevent layout weirdness inside grid */
+.card {
+  overflow: hidden;
+}
+
+/* Optional: nicer for long role names */
+.card select {
+  min-width: 0;
+}
+// Global loading overlay for users admin page
+.global-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(255,255,255,0.8);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.global-loading-overlay .spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #3498db;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.global-loading-overlay .loading-text {
+  font-size: 1.2em;
+  color: #333;
+}
+.page.users-page.blurred {
+  filter: blur(2px);
+  pointer-events: none;
+  user-select: none;
+}
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* Layout only (global styles for card/button/table come from styles.scss) */
+
+.page,
+.users-page,
+.admin-page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+.grid,
+.users-grid,
+.content-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 16px;
+  align-items: start;
+  max-width: 100%;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+label {
+  display: block;
+  margin-top: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* Filters row */
+.filters {
+  display: grid;
+  /* Search, Role, Sort, Clear, Count, Group */
+  grid-template-columns: 2fr 1.2fr 1.2fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 14px;
+}
+
+.filters .count {
+  justify-self: end;
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+/* users-page width is controlled above; no fixed max-width here */
+
+/* Table layout tweaks for better readability */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+thead th {
+  background: #f9fafb;
+}
+
+/* Users table specific sizing and overflow handling */
+.users-table {
+  width: 100%;
+  table-layout: fixed; /* makes columns predictable */
+}
+
+.users-table th,
+.users-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Columns: Code, Role, Email, Mobile, Name (flex), Status, Action */
+.users-table th:nth-child(1),
+.users-table td:nth-child(1) { width: 110px; }  /* Code */
+
+.users-table th:nth-child(2),
+.users-table td:nth-child(2) { width: 150px; }  /* Role */
+
+.users-table th:nth-child(3),
+.users-table td:nth-child(3) { width: 220px; }  /* Email */
+
+.users-table th:nth-child(4),
+.users-table td:nth-child(4) { width: 130px; }  /* Mobile */
+
+.users-table th:nth-child(6),
+.users-table td:nth-child(6) { width: 110px; }  /* Status */
+
+.users-table th.action-col,
+.users-table td.action-col { width: 240px; }     /* Action */
+
+th.action-col,
+td.action-col {
+  text-align: right;
+  overflow: visible;
+  text-overflow: clip;
+  padding-right: 12px;
+  white-space: nowrap;
+}
+
+/* IMPORTANT: prevent parent containers from clipping the table */
+.card,
+.users-card,
+.table-card {
+  overflow: visible !important;
+}
+
+/* Table wrapper should allow table to fully render */
+.table-wrap,
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-right: 18px; /* give space so rightmost buttons are not clipped */
+}
+
+/* Force Action column to be wide enough */
+.action-col {
+  min-width: 240px; /* slightly wider so Activate + Delete fit comfortably */
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Table action buttons spacing */
+td button + button {
+  margin-left: 8px;
+}
+
+/* Optional: slightly tighter buttons in Action column */
+.action-col button {
+  margin-left: 8px;
+}
+
+/* Make Action column sticky so buttons stay visible on horizontal scroll */
+.users-table th.action-col,
+.users-table td.action-col {
+  position: sticky;
+  right: 0;
+  background: #ffffff;
+  z-index: 2;
+  box-shadow: -10px 0 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Compact action buttons so both fit nicely */
+button.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+/* Ensure Delete button is clearly red (danger style) */
+button.btn-sm.danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.pagination .left,
+.pagination .center,
+.pagination .right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-input {
+  width: 72px;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .filters .count {
+    justify-self: start;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pagination .left,
+  .pagination .center,
+  .pagination .right {
+    justify-content: center;
+  }
+}
+
+/* Hide global header/logo elements when viewing this page */
+/* shared header is provided by AdminShellComponent now; no per-page hiding needed */
+
+/* Ensure native selects sit above overlays */
+select {
+  position: relative;
+  z-index: 2;
+}

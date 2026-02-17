@@ -1,0 +1,6 @@
+/* Status chip styles now handled by Tailwind */
+/* See global styles.scss for badge classes */
+
+:host {
+  display: inline-block;
+}

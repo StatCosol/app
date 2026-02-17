@@ -40,4 +40,39 @@ export class AuditLogsService {
     });
     return this.repo.save(entity);
   }
+
+  async list(params?: {
+    entityType?: AuditEntityType;
+    action?: AuditAction;
+    performedBy?: string;
+    entityId?: string;
+    limit?: number;
+    offset?: number;
+    from?: Date;
+    to?: Date;
+  }) {
+    const qb = this.repo
+      .createQueryBuilder('log')
+      .orderBy('log.createdAt', 'DESC')
+      .take(Math.min(params?.limit ?? 50, 200))
+      .skip(params?.offset ?? 0);
+
+    if (params?.entityType)
+      qb.andWhere('log.entityType = :entityType', {
+        entityType: params.entityType,
+      });
+    if (params?.action)
+      qb.andWhere('log.action = :action', { action: params.action });
+    if (params?.performedBy)
+      qb.andWhere('log.performedBy = :performedBy', {
+        performedBy: params.performedBy,
+      });
+    if (params?.entityId)
+      qb.andWhere('log.entityId = :entityId', { entityId: params.entityId });
+    if (params?.from)
+      qb.andWhere('log.createdAt >= :from', { from: params.from });
+    if (params?.to) qb.andWhere('log.createdAt <= :to', { to: params.to });
+
+    return qb.getMany();
+  }
 }

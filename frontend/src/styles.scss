@@ -1,0 +1,412 @@
+/* =========================
+   Tailwind CSS Directives
+   ========================= */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   Global Layout & Typography
+   ========================= */
+/* =========================
+   StatCo Solutions Brand Colors
+   ========================= */
+:root {
+  --statco-light-blue: #1eb6f7;
+  --statco-dark-blue: #0a2656;
+  --statco-primary: var(--statco-dark-blue);
+  --statco-accent: var(--statco-light-blue);
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow-x: hidden; /* stop horizontal scroll */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  letter-spacing: -0.01em;
+  background: #f8fafc;
+  color: var(--statco-primary);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =========================
+   Modern Minimal Design System
+   ========================= */
+@layer components {
+  /* App Header (Logo Image) */
+  .app-header {
+    @apply bg-white border-b border-gray-200 shadow-sm;
+  }
+
+  .app-header-inner {
+    @apply flex items-center justify-center py-3 px-4;
+  }
+
+  .brand-logo {
+    @apply h-14 w-auto;
+  }
+
+  /* Page Layout */
+  .page {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-hidden;
+  }
+
+  /* Page Top Header (Title + Menu) */
+  .page-header {
+    @apply flex justify-between items-center gap-4 mb-6;
+  }
+
+  .page-header .title h2 {
+    @apply text-2xl font-semibold text-gray-900 m-0;
+  }
+
+  .page-header .subtitle {
+    @apply text-sm text-gray-500 mt-1;
+  }
+
+  .nav-actions {
+    @apply flex flex-wrap gap-3 items-center;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+
+  .card-header {
+    @apply flex justify-between items-center mb-4 pb-4 border-b border-gray-100;
+  }
+
+  .card-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  /* Tables */
+  table {
+    @apply w-full border-collapse;
+  }
+
+  td,
+  th {
+    @apply py-3 px-4 border-b border-gray-200 text-left text-sm;
+  }
+
+  thead th {
+    @apply bg-gray-50 font-semibold text-gray-700 text-xs uppercase tracking-wider;
+  }
+
+  tbody tr {
+    @apply hover:bg-gray-50 transition-colors duration-150;
+  }
+
+  /* Forms */
+  input,
+  select,
+  textarea {
+    @apply border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all duration-200;
+  }
+
+  /* Dropdown text color */
+  select {
+    @apply text-gray-800;
+  }
+
+  select option {
+    color: #0f172a;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-400;
+  }
+
+  label {
+    @apply block mb-2 text-sm font-medium text-gray-700;
+  }
+
+  /* Buttons */
+  button, .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  button:not(.btn-secondary):not(.btn-danger):not(.btn-outline), .btn-primary {
+    @apply bg-statco-blue text-white hover:bg-statco-blue/90 focus:ring-statco-blue shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm;
+  }
+
+  .btn-outline {
+    @apply bg-transparent border-2 border-statco-blue text-statco-blue hover:bg-statco-blue hover:text-white focus:ring-statco-blue;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* Alerts */
+  .alert {
+    @apply rounded-lg p-4 mb-4 border;
+  }
+
+  .alert.success {
+    @apply bg-green-50 border-green-200 text-green-800;
+  }
+
+  .alert.error {
+    @apply bg-red-50 border-red-200 text-red-800;
+  }
+
+  .alert.warning {
+    @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+  }
+
+  .alert.info {
+    @apply bg-blue-50 border-blue-200 text-blue-800;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-statco-blue/10 text-statco-blue;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800;
+  }
+
+  /* Form Groups */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-row {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+  }
+
+  /* Stats Cards */
+  .stat-card {
+    @apply bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+
+  .stat-label {
+    @apply text-sm font-medium text-gray-500 uppercase tracking-wide;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold text-gray-900 mt-2;
+  }
+
+  .stat-change {
+    @apply text-sm font-medium mt-2;
+  }
+
+  .stat-change.positive {
+    @apply text-green-600;
+  }
+
+  .stat-change.negative {
+    @apply text-red-600;
+  }
+
+  /* Additional Badge Variants */
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  .badge-secondary {
+    @apply bg-gray-100 text-gray-700;
+  }
+
+  /* Small Button Variants */
+  .btn-primary-sm {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-statco-blue text-white hover:bg-statco-blue/90 transition-colors;
+  }
+
+  .btn-secondary-sm {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors;
+  }
+
+  .btn-outline-sm {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors;
+  }
+
+  .btn-danger-sm {
+    @apply inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors;
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    @apply bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-500;
+  }
+
+  /* Icon Button */
+  .btn-icon {
+    @apply p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors;
+  }
+
+  /* Section Headers */
+  .section-header {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-gray-500 mt-0.5;
+  }
+
+  /* Empty States */
+  .empty-state {
+    @apply text-center py-12 px-4;
+  }
+
+  .empty-state-icon {
+    @apply mx-auto h-12 w-12 text-gray-400 mb-4;
+  }
+
+  .empty-state-title {
+    @apply text-lg font-medium text-gray-900 mb-1;
+  }
+
+  .empty-state-description {
+    @apply text-sm text-gray-500 max-w-sm mx-auto;
+  }
+
+  /* Loading States */
+  .loading-overlay {
+    @apply absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10;
+  }
+
+  .loading-spinner {
+    @apply animate-spin h-8 w-8 text-statco-blue;
+  }
+
+  /* Data Grid Layout */
+  .data-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+  }
+
+  .data-grid-2 {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+  }
+
+  .data-grid-3 {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+  }
+
+  /* KPI Grid */
+  .kpi-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6;
+  }
+
+  /* Action Bar */
+  .action-bar {
+    @apply flex flex-wrap items-center gap-3 mb-6;
+  }
+
+  /* Filter Bar */
+  .filter-bar {
+    @apply bg-white border border-gray-200 rounded-xl p-4 mb-6;
+  }
+
+  .filter-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4;
+  }
+
+  /* Divider */
+  .divider {
+    @apply border-t border-gray-200 my-6;
+  }
+
+  /* Status Dot */
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .status-dot-success {
+    @apply bg-green-500;
+  }
+
+  .status-dot-warning {
+    @apply bg-yellow-500;
+  }
+
+  .status-dot-danger {
+    @apply bg-red-500;
+  }
+
+  .status-dot-info {
+    @apply bg-blue-500;
+  }
+
+  .status-dot-gray {
+    @apply bg-gray-400;
+  }
+}
+
+/* Global media elements should never force horizontal scroll */
+img,
+svg,
+table {
+  max-width: 100%;
+}
+
+/* Custom Utility Classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+

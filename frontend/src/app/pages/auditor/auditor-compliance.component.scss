@@ -1,0 +1,81 @@
+.content {
+  padding: 1.5rem;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filters input,
+.filters select {
+  padding: 0.4rem 0.6rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 4px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.table-wrap {
+  max-height: 480px;
+  overflow: auto;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tbl th,
+.tbl td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+.tbl tr.active {
+  background: #f0f6ff;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.actions {
+  margin-bottom: 0.75rem;
+}
+
+.actions .btn {
+  margin-right: 0.5rem;
+}
+
+.muted {
+  color: #777;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

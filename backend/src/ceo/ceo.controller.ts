@@ -16,7 +16,7 @@ import { Repository } from 'typeorm';
 import { ApprovalEntity } from '../users/entities/approval.entity';
 import { UsersService } from '../users/users.service';
 
-@Controller('api/ceo')
+@Controller({ path: 'ceo', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CEO')
 export class CeoController {

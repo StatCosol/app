@@ -1,0 +1,164 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900">Branch Contractors</h1>
+      <p class="text-sm text-gray-500">Branch: {{ branchName || branchId }}</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <label class="text-sm text-gray-600 flex items-center gap-2">
+        <span class="font-medium text-gray-700">Month</span>
+        <input type="month" [(ngModel)]="month" (change)="onMonthChange()" class="form-input" />
+      </label>
+      <button (click)="router.navigate(['/client/contractors'])" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm" *ngIf="branchView">
+    <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
+      <div>
+        <p class="text-sm font-semibold text-gray-900">Branch Overview</p>
+        <p class="text-xs text-gray-500">Month: {{ month }}</p>
+      </div>
+    </div>
+    <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-gray-50 rounded-xl p-4">
+        <p class="text-xs uppercase text-gray-500">Branch Score</p>
+        <p class="text-2xl font-semibold text-gray-900 mt-1">{{ branchView?.branchScore ?? 0 }}</p>
+      </div>
+      <div class="bg-gray-50 rounded-xl p-4">
+        <p class="text-xs uppercase text-gray-500">Branch Upload %</p>
+        <p class="text-2xl font-semibold text-gray-900 mt-1">{{ uploadPercentDisplay(branchView?.branchUploadPercent) }}</p>
+      </div>
+      <div class="bg-gray-50 rounded-xl p-4">
+        <p class="text-xs uppercase text-gray-500">Contractors in Branch</p>
+        <p class="text-2xl font-semibold text-gray-900 mt-1">{{ contractors.length }}</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+      <div class="border border-gray-100 rounded-xl">
+        <div class="px-4 py-2 border-b border-gray-100 text-sm font-semibold text-gray-900">Top 10 (Branch)</div>
+        <div class="divide-y divide-gray-100">
+          <div *ngFor="let c of branchView?.top10HighestInBranch" class="px-4 py-3 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
+              <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+            </div>
+            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">{{ c.score }}</span>
+          </div>
+          <div *ngIf="!branchView?.top10HighestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+        </div>
+      </div>
+      <div class="border border-gray-100 rounded-xl">
+        <div class="px-4 py-2 border-b border-gray-100 text-sm font-semibold text-gray-900">Bottom 10 (Branch)</div>
+        <div class="divide-y divide-gray-100">
+          <div *ngFor="let c of branchView?.top10LowestInBranch" class="px-4 py-3 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
+              <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+            </div>
+            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{{ c.score }}</span>
+          </div>
+          <div *ngIf="!branchView?.top10LowestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
+    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <div>
+        <p class="text-sm font-semibold text-gray-900">Contractors (Branch)</p>
+        <p class="text-xs text-gray-500">Month: {{ month }}</p>
+      </div>
+    </div>
+    <div *ngIf="loadingContractors" class="flex items-center justify-center py-10">
+      <div class="animate-spin h-8 w-8 border-2 border-statco-blue border-t-transparent rounded-full"></div>
+    </div>
+    <div *ngIf="!loadingContractors" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+      <div
+        *ngFor="let c of contractors"
+        (click)="selectContractor(c)"
+        class="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md hover:border-statco-blue/20 transition-all duration-200 cursor-pointer group"
+      >
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-statco-blue to-statco-blue-light flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+            {{ c.name?.slice(0, 2)?.toUpperCase() || '?' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-semibold text-gray-900 truncate group-hover:text-statco-blue transition-colors">{{ c.name }}</h3>
+            <p class="text-sm text-gray-500 truncate">{{ c.email || 'No email' }}</p>
+          </div>
+          <ui-status-badge [status]="c.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
+        </div>
+
+        <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div class="flex flex-wrap items-center gap-2 text-xs text-gray-700">
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700">{{ docCount(c) }} docs</span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-700" *ngIf="approvedCount(c) > 0">✔ {{ approvedCount(c) }} approved</span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700" *ngIf="pendingCount(c) > 0">⏳ {{ pendingCount(c) }} pending</span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 text-rose-700" *ngIf="rejectedCount(c) > 0">✖ {{ rejectedCount(c) }} rejected</span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">NC: {{ ncPoints(c) }}</span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-700">Audit risk: {{ auditRiskPoints(c) }}</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-300 group-hover:text-statco-blue group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="!loadingContractors && contractors.length === 0" class="text-center py-10 text-sm text-gray-500">No contractors for this branch.</div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
+    <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
+      <div>
+        <p class="text-sm font-semibold text-gray-900">Contractor Trend</p>
+        <p class="text-xs text-gray-500">Score, NC points, upload % by month</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <label class="text-sm text-gray-600 flex items-center gap-2">
+          <span class="font-medium text-gray-700">Contractor</span>
+          <select class="form-select" [(ngModel)]="contractorId" (change)="loadTrend()" [disabled]="loadingContractors">
+            <option value="" disabled [selected]="true">Select</option>
+            <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </label>
+        <label class="text-sm text-gray-600 flex items-center gap-2">
+          <span class="font-medium text-gray-700">From</span>
+          <input type="month" class="form-input" [(ngModel)]="fromMonth" (change)="loadTrend()" />
+        </label>
+        <label class="text-sm text-gray-600 flex items-center gap-2">
+          <span class="font-medium text-gray-700">To</span>
+          <input type="month" class="form-input" [(ngModel)]="toMonth" (change)="loadTrend()" />
+        </label>
+      </div>
+    </div>
+    <div *ngIf="trend.length" class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+          <tr>
+            <th class="px-4 py-2 text-left">Month</th>
+            <th class="px-4 py-2 text-left">Score</th>
+            <th class="px-4 py-2 text-left">Upload %</th>
+            <th class="px-4 py-2 text-left">Rejected</th>
+            <th class="px-4 py-2 text-left">Missing</th>
+            <th class="px-4 py-2 text-left">Audit Risk</th>
+            <th class="px-4 py-2 text-left">NC Points</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr *ngFor="let row of trend">
+            <td class="px-4 py-3 text-gray-900">{{ row.month }}</td>
+            <td class="px-4 py-3 text-gray-900 font-semibold">{{ row.score }}</td>
+            <td class="px-4 py-3 text-gray-700">{{ uploadPercentDisplay(row.uploadedPercent) }}</td>
+            <td class="px-4 py-3 text-gray-700">{{ row.rejectedCount }}</td>
+            <td class="px-4 py-3 text-gray-700">{{ row.missingCount }}</td>
+            <td class="px-4 py-3 text-gray-700">{{ row.auditRiskPoints || 0 }}</td>
+            <td class="px-4 py-3 text-gray-700">{{ row.ncPoints }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div *ngIf="!trend.length" class="p-6 text-sm text-gray-500">Select a contractor to see the monthly trend.</div>
+  </div>
+</div>

@@ -60,7 +60,9 @@ export class ComplianceCronService {
       const clientId = t.clientId;
       const branchId = t.branchId;
       if (t.assignedByUserId) {
-        const crm = await this.users.findOne({ where: { id: t.assignedByUserId } });
+        const crm = await this.users.findOne({
+          where: { id: t.assignedByUserId },
+        });
         if (crm?.email) {
           await this.email.send(
             crm.email,
@@ -71,7 +73,9 @@ export class ComplianceCronService {
         }
       }
       if (t.assignedToUserId) {
-        const contractor = await this.users.findOne({ where: { id: t.assignedToUserId } });
+        const contractor = await this.users.findOne({
+          where: { id: t.assignedToUserId },
+        });
         if (contractor?.email) {
           await this.email.send(
             contractor.email,

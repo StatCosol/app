@@ -12,8 +12,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import * as XLSX from 'xlsx';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
@@ -21,8 +24,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 
-
-@Controller('api/admin')
+@Controller({ path: 'admin', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class UsersController {
@@ -30,10 +32,10 @@ export class UsersController {
 
   constructor(private readonly service: UsersService) {}
 
-    @Get('users/cco')
-    listCcoUsers() {
-      return this.service.listActiveUsersByRoleCode('CCO');
-    }
+  @Get('users/cco')
+  listCcoUsers() {
+    return this.service.listActiveUsersByRoleCode('CCO');
+  }
 
   @Get('users/active-by-role/:role')
   getActiveUsersByRole(@Param('role') role: string) {
@@ -54,10 +56,10 @@ export class UsersController {
     return this.service.listRoles();
   }
 
-    @Get('roles/:id')
-    async getRoleById(@Param('id') id: string) {
-      return await this.service.getRoleById(id);
-    }
+  @Get('roles/:id')
+  async getRoleById(@Param('id') id: string) {
+    return await this.service.getRoleById(id);
+  }
 
   @Get('auditors')
   listAuditors(
@@ -118,9 +120,45 @@ export class UsersController {
     return this.service.listUsersWithRoleCode();
   }
 
+  @Get('users/export')
+  async exportUsers(@Res() res: Response) {
+    const users = await this.service.listUsersWithRoleCode();
+
+    // Transform data for Excel export
+    const data = users.map((u) => ({
+      'User Code': u.userCode || 'N/A',
+      Name: u.name,
+      Email: u.email,
+      Role: u.roleCode || 'N/A',
+      Status: u.isActive ? 'Active' : 'Inactive',
+      'Created At': u.createdAt
+        ? new Date(u.createdAt).toLocaleDateString()
+        : 'N/A',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', 'attachment; filename=users.xlsx');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.send(buffer);
+  }
+
   @Get('client-users')
   listClientUsers() {
     return this.service.listActiveUsersByRoleCode('CLIENT');
+  }
+
+  // TEMP diagnostic: dump raw DB state for all users
+  @Get('users/debug-deleted')
+  async debugDeleted() {
+    const rows = await this.service.debugGetAllUsersRaw();
+    return rows;
   }
 
   // Advanced directory: global search + filters + pagination + optional grouping by client

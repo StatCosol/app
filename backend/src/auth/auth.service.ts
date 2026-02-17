@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +10,9 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -19,27 +26,21 @@ export class AuthService {
   async login(dto: LoginDto) {
     const email = (dto.email || '').trim().toLowerCase();
 
-    console.log('LOGIN EMAIL:', dto.email);
-    console.log('NORMALIZED EMAIL:', email);
-
     const user = await this.usersRepo
       .createQueryBuilder('u')
+      .leftJoinAndSelect('u.client', 'c')
       .where('LOWER(u.email) = LOWER(:email)', { email })
       .addSelect('u.passwordHash')
       .getOne();
 
-    console.log('USER FOUND:', !!user);
-    console.log('HASH IN DB:', user?.passwordHash);
-
-    if (!user?.passwordHash) {
-      console.log('WARN: passwordHash missing from query result');
-    }
-
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    // Block login for inactive or soft-deleted users
+    if (!user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    console.log('BCRYPT MATCH:', isMatch);
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
@@ -47,17 +48,11 @@ export class AuthService {
 
     const role = await this.usersService.getRoleById(user.roleId);
 
-    const accessToken = await this.jwt.signAsync({
-      sub: user.id,
-      roleId: user.roleId,
-      roleCode: role.code,
-      email: user.email,
-      name: user.name,
-      clientId: user.clientId ?? null,
-    });
+    const tokens = await this.issueTokens(user.id, role.code, user);
 
     return {
-      accessToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: {
         id: user.id,
         userId: user.id,
@@ -66,8 +61,108 @@ export class AuthService {
         fullName: (user as any).fullName ?? user.name ?? null,
         name: user.name,
         clientId: user.clientId ?? null,
+        clientName: user.client?.clientName ?? null,
         crmId: (user as any).crmId ?? null,
+        userType: user.userType ?? null,
       },
     };
+  }
+
+  async refreshToken(dto: RefreshTokenDto) {
+    if (!dto.refreshToken) {
+      throw new BadRequestException('Refresh token is required');
+    }
+
+    const payload = await this.verifyToken(dto.refreshToken, 'refresh');
+    const user = await this.usersRepo.findOne({ where: { id: payload.sub } });
+    if (!user || !user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const roleCode = await this.usersService.getUserRoleCode(user.id);
+    const tokens = await this.issueTokens(user.id, roleCode, user);
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+  }
+
+  async requestPasswordReset(dto: RequestPasswordResetDto) {
+    const email = (dto.email || '').trim().toLowerCase();
+    const user = await this.usersRepo.findOne({ where: { email } });
+
+    // Do not leak existence of the user; still return ok.
+    if (!user) {
+      return { ok: true };
+    }
+
+    const resetToken = await this.jwt.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+        type: 'reset',
+      },
+      { expiresIn: '1h' },
+    );
+
+    // TODO: integrate email service; for now return token for dev usage.
+    return { resetToken };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    if (!dto.token || !dto.newPassword) {
+      throw new BadRequestException('Token and newPassword are required');
+    }
+
+    const payload = await this.verifyToken(dto.token, 'reset');
+    const user = await this.usersRepo.findOne({ where: { id: payload.sub } });
+    if (!user || !user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Invalid reset token');
+    }
+
+    const hashed = await bcrypt.hash(dto.newPassword, 10);
+    await this.usersRepo.update({ id: user.id }, { passwordHash: hashed });
+    return { ok: true };
+  }
+
+  private async issueTokens(
+    userId: string,
+    roleCode: string,
+    user?: UserEntity,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const basePayload = {
+      sub: userId,
+      roleCode,
+      email: user?.email,
+      name: user?.name,
+      clientId: user?.clientId ?? null,
+    } as const;
+
+    const accessToken = await this.jwt.signAsync({
+      ...basePayload,
+      type: 'access',
+    });
+
+    const refreshToken = await this.jwt.signAsync(
+      {
+        ...basePayload,
+        type: 'refresh',
+      },
+      { expiresIn: '30d' },
+    );
+
+    return { accessToken, refreshToken };
+  }
+
+  private async verifyToken(token: string, type: 'refresh' | 'reset') {
+    try {
+      const payload = await this.jwt.verifyAsync<any>(token);
+      if (payload?.type !== type) {
+        throw new UnauthorizedException('Invalid token type');
+      }
+      return payload;
+    } catch (err) {
+      throw new UnauthorizedException('Invalid token');
+    }
   }
 }

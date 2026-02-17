@@ -21,7 +21,7 @@ export class BranchComplianceOverrideService {
 
     return this.ds.transaction(async (manager) => {
       const rows = await manager.query(
-        `SELECT * FROM branch_compliances WHERE "branchId"=$1 AND "complianceId"=$2 FOR UPDATE`,
+        `SELECT * FROM branch_compliances WHERE branch_id=$1 AND compliance_id=$2 FOR UPDATE`,
         [branchId, complianceId],
       );
       if (!rows.length) {
@@ -36,21 +36,21 @@ export class BranchComplianceOverrideService {
           ? true
           : mode === 'MANUAL_NOT_APPLICABLE'
             ? false
-            : prev.isApplicable;
+            : prev.is_applicable;
 
       await manager.query(
         `
         UPDATE branch_compliances
         SET
-          "overrideMode"=$3,
-          "isApplicable"=$4,
-          "source"=CASE WHEN $3='AUTO' THEN "source" ELSE 'MANUAL' END,
-          "reason"=CASE WHEN $3='AUTO' THEN "reason" ELSE COALESCE($5,'Manual override') END,
-          "overriddenBy"=CASE WHEN $3='AUTO' THEN NULL ELSE $6 END,
-          "overriddenAt"=CASE WHEN $3='AUTO' THEN NULL ELSE now() END,
-          "overrideReason"=CASE WHEN $3='AUTO' THEN NULL ELSE $5 END,
-          "lastUpdated"=now()
-        WHERE "branchId"=$1 AND "complianceId"=$2
+          override_mode=$3,
+          is_applicable=$4,
+          source=CASE WHEN $3='AUTO' THEN source ELSE 'MANUAL' END,
+          reason=CASE WHEN $3='AUTO' THEN reason ELSE COALESCE($5,'Manual override') END,
+          overridden_by=CASE WHEN $3='AUTO' THEN NULL ELSE $6 END,
+          overridden_at=CASE WHEN $3='AUTO' THEN NULL ELSE now() END,
+          override_reason=CASE WHEN $3='AUTO' THEN NULL ELSE $5 END,
+          last_updated=now()
+        WHERE branch_id=$1 AND compliance_id=$2
         `,
         [branchId, complianceId, mode, newIsApplicable, reason ?? null, userId],
       );
@@ -58,15 +58,15 @@ export class BranchComplianceOverrideService {
       await manager.query(
         `
         INSERT INTO branch_compliance_overrides_audit
-        ("branchId","complianceId","oldOverrideMode","newOverrideMode","oldIsApplicable","newIsApplicable","reason","changedBy")
+        (branch_id, compliance_id, old_override_mode, new_override_mode, old_is_applicable, new_is_applicable, reason, changed_by)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
         `,
         [
           branchId,
           complianceId,
-          prev.overrideMode ?? 'AUTO',
+          prev.override_mode ?? 'AUTO',
           mode,
-          prev.isApplicable,
+          prev.is_applicable,
           newIsApplicable,
           reason ?? null,
           userId,

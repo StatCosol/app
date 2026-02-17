@@ -5,7 +5,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CcoService } from './cco.service';
 import { Body, Param, Post } from '@nestjs/common';
 
-@Controller('api/cco')
+@Controller({ path: 'cco', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CcoController {
   constructor(private readonly svc: CcoService) {}
@@ -38,5 +38,11 @@ export class CcoController {
   @Roles('CCO')
   getCrmsUnderMe(@Req() req: any) {
     return this.svc.getCrmsUnderMe(req.user);
+  }
+
+  @Get('oversight')
+  @Roles('CCO')
+  getOversight(@Req() req: any) {
+    return this.svc.getOversight(req.user);
   }
 }

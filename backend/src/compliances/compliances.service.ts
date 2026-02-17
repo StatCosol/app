@@ -86,7 +86,10 @@ export class CompliancesService {
       order: { complianceName: 'ASC' },
     });
 
-    const isFactory = branch.branchType === BranchType.FACTORY;
+    const branchType = String(
+      branch.branchType || '',
+    ).toUpperCase() as BranchType;
+    const isFactory = branchType === BranchType.FACTORY;
     const state = (branch.stateCode || '').toUpperCase();
     const derivedHeadcount =
       (Number(branch.employeeCount) || 0) +

@@ -1,4 +1,10 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity({ name: 'payroll_payslip_archives' })
 @Index(['runId', 'employeeCode'], { unique: true })
@@ -30,7 +36,12 @@ export class PayrollPayslipArchiveEntity {
   @Column({ name: 'file_name', type: 'varchar', length: 255 })
   fileName: string;
 
-  @Column({ name: 'file_type', type: 'varchar', length: 100, default: 'application/pdf' })
+  @Column({
+    name: 'file_type',
+    type: 'varchar',
+    length: 100,
+    default: 'application/pdf',
+  })
   fileType: string;
 
   @Column({ name: 'file_size', type: 'bigint' })

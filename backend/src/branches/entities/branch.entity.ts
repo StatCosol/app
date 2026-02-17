@@ -25,8 +25,27 @@ export class BranchEntity {
   @Column({ name: 'branchtype', type: 'character varying' })
   branchType: string;
 
-  @Column({ name: 'statecode', type: 'character varying', length: 10, nullable: true })
+  @Column({
+    name: 'statecode',
+    type: 'character varying',
+    length: 10,
+    nullable: true,
+  })
   stateCode: string | null;
+
+  @Column({
+    name: 'establishment_type',
+    type: 'character varying',
+    length: 30,
+    default: 'BRANCH',
+  })
+  establishmentType: string;
+
+  @Column({ name: 'city', type: 'character varying', nullable: true })
+  city: string | null;
+
+  @Column({ name: 'pincode', type: 'character varying', nullable: true })
+  pincode: string | null;
 
   @Column({ name: 'headcount', type: 'int', default: 0 })
   headcount: number;

@@ -1,0 +1,166 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <ui-page-header
+    title="Returns / Filings"
+    description="Track branch-wise returns, upload proofs, and submit for CRM review"
+    icon="document-text"
+  ></ui-page-header>
+
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div class="w-full sm:w-52">
+        <label class="form-label">Branch</label>
+        <select class="form-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadFilings()" [disabled]="singleBranch">
+          <option value="">All branches</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+        </select>
+      </div>
+      <div class="w-36">
+        <label class="form-label">Status</label>
+        <select class="form-select" [(ngModel)]="filters.status" (ngModelChange)="loadFilings()">
+          <option value="">All</option>
+          <option value="PENDING">Pending</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+      <div class="w-28">
+        <label class="form-label">Month</label>
+        <select class="form-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="loadFilings()">
+          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </div>
+      <div class="w-28">
+        <label class="form-label">Year</label>
+        <select class="form-select" [(ngModel)]="filters.periodYear" (ngModelChange)="loadFilings()">
+          <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary ml-auto" (click)="loadFilings()" [disabled]="loading">Refresh</button>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-3">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div class="w-full sm:w-52">
+        <label class="form-label">Branch (upload)</label>
+        <select class="form-select" [(ngModel)]="newFiling.branchId" [disabled]="isMasterUser || singleBranch">
+          <option value="" disabled>Select branch</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
+        </select>
+      </div>
+      <div class="w-full sm:w-48">
+        <label class="form-label">Return type</label>
+        <select class="form-select" [(ngModel)]="newFiling.returnType">
+          <option value="" disabled>Select</option>
+          <option *ngFor="let t of types" [value]="t.code">{{ t.label }}</option>
+        </select>
+      </div>
+      <div class="w-28">
+        <label class="form-label">Month</label>
+        <select class="form-select" [(ngModel)]="newFiling.periodMonth">
+          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </div>
+      <div class="w-28">
+        <label class="form-label">Year</label>
+        <select class="form-select" [(ngModel)]="newFiling.periodYear">
+          <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" (click)="create()" [disabled]="isMasterUser || creating">Create filing</button>
+    </div>
+    <p class="text-xs text-slate-600" *ngIf="isMasterUser">Uploads are allowed only for branch users. Master users can view and track.</p>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
+    <div class="border-b px-5 py-3 flex items-center justify-between">
+      <div>
+        <p class="text-sm font-semibold text-gray-800">Filings</p>
+        <p class="text-xs text-gray-500">Branch-scoped returns with acknowledgements and challans</p>
+      </div>
+      <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+    </div>
+
+    <div class="p-5" *ngIf="!filings.length && !loading">
+      <ui-empty-state
+        icon="document-text"
+        title="No returns yet"
+        description="Create a filing above and upload acknowledgement / challan to submit."
+      ></ui-empty-state>
+    </div>
+
+    <div class="overflow-x-auto" *ngIf="filings.length">
+      <table class="min-w-full">
+        <thead>
+          <tr class="text-left text-xs uppercase text-slate-500">
+            <th class="px-5 py-3">Branch</th>
+            <th class="px-5 py-3">Return</th>
+            <th class="px-5 py-3">Period</th>
+            <th class="px-5 py-3">Due</th>
+            <th class="px-5 py-3">Status</th>
+            <th class="px-5 py-3">Proofs</th>
+            <th class="px-5 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of filings" class="border-t border-gray-100 text-sm">
+            <td class="px-5 py-3">{{ branchName(f) }}</td>
+            <td class="px-5 py-3 space-y-0.5">
+              <div class="font-semibold text-gray-800">{{ f.returnType }}</div>
+              <div class="text-xs text-gray-500">{{ f.lawType }}</div>
+            </td>
+            <td class="px-5 py-3">{{ periodText(f) }}</td>
+            <td class="px-5 py-3 text-gray-700">{{ f.dueDate || '—' }}</td>
+            <td class="px-5 py-3">
+              <ui-status-badge [status]="f.status" size="sm"></ui-status-badge>
+            </td>
+            <td class="px-5 py-3">
+              <div class="flex flex-col gap-2 text-xs text-slate-700">
+                <div class="flex items-center gap-2">
+                  <span class="w-20 text-slate-500">Ack</span>
+                  <ng-container *ngIf="f.ackFilePath; else ackUpload">
+                    <a [href]="f.ackFilePath" target="_blank" class="link">View</a>
+                  </ng-container>
+                  <ng-template #ackUpload>
+                    <label class="btn btn-ghost btn-xs" *ngIf="canUpload()">
+                      <input type="file" class="hidden" (change)="upload('ack', f, $event)" />
+                      <span *ngIf="!(uploading[f.id]?.ack)">Upload</span>
+                      <span *ngIf="uploading[f.id]?.ack">Uploading…</span>
+                    </label>
+                    <span *ngIf="!canUpload()" class="text-slate-400">Branch only</span>
+                  </ng-template>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="w-20 text-slate-500">Challan</span>
+                  <ng-container *ngIf="f.challanFilePath; else challanUpload">
+                    <a [href]="f.challanFilePath" target="_blank" class="link">View</a>
+                  </ng-container>
+                  <ng-template #challanUpload>
+                    <label class="btn btn-ghost btn-xs" *ngIf="canUpload()">
+                      <input type="file" class="hidden" (change)="upload('challan', f, $event)" />
+                      <span *ngIf="!(uploading[f.id]?.challan)">Upload</span>
+                      <span *ngIf="uploading[f.id]?.challan">Uploading…</span>
+                    </label>
+                    <span *ngIf="!canUpload()" class="text-slate-400">Branch only</span>
+                  </ng-template>
+                </div>
+              </div>
+            </td>
+            <td class="px-5 py-3">
+              <button
+                class="btn btn-primary btn-xs"
+                (click)="submit(f)"
+                [disabled]="!canUpload() || submitting[f.id] || f.status === 'SUBMITTED' || f.status === 'APPROVED'"
+              >
+                <span *ngIf="!submitting[f.id]">Submit</span>
+                <span *ngIf="submitting[f.id]">Submitting…</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

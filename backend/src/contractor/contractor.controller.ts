@@ -14,7 +14,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ContractorService } from './contractor.service';
 
-@Controller('api/contractor')
+@Controller({ path: 'contractor', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorController {
@@ -27,7 +27,7 @@ export class ContractorController {
   }
 }
 
-@Controller('api/admin/contractors')
+@Controller({ path: 'admin/contractors', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminContractorsController {
@@ -39,7 +39,7 @@ export class AdminContractorsController {
   }
 }
 
-@Controller('api/crm/contractors')
+@Controller({ path: 'crm/contractors', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmContractorsController {

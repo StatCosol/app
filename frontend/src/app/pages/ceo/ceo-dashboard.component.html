@@ -1,0 +1,68 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="CEO Dashboard"
+    description="Executive approvals and escalations overview"
+    icon="chart-bar">
+  </ui-page-header>
+
+  <!-- Loading State -->
+  <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
+
+  <!-- Error Banner -->
+  <div *ngIf="!loading && errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+    <span>{{ errorMsg }}</span>
+    <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <!-- KPI Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <ui-stat-card
+      [value]="pendingApprovals"
+      label="Pending Approvals"
+      color="primary"
+      (click)="goToApprovals()"
+      class="cursor-pointer">
+    </ui-stat-card>
+
+    <ui-stat-card
+      [value]="escalations"
+      label="Escalations"
+      color="error"
+      (click)="goToEscalations()"
+      class="cursor-pointer">
+    </ui-stat-card>
+
+    <ui-stat-card
+      [value]="compliancePending"
+      label="Compliance Pending"
+      color="warning">
+    </ui-stat-card>
+
+    <ui-stat-card
+      [value]="overdue"
+      label="Overdue Items"
+      color="info">
+    </ui-stat-card>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card">
+    <h3 class="card-title mb-4">Quick Actions</h3>
+    <div class="flex flex-wrap gap-3">
+      <ui-button variant="primary" (click)="goToApprovals()">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Review Approvals
+      </ui-button>
+      <ui-button variant="secondary" (click)="goToEscalations()">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        Manage Escalations
+      </ui-button>
+    </div>
+  </div>
+  </ng-container>
+</div>

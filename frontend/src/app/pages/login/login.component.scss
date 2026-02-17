@@ -1,0 +1,33 @@
+// Modern minimal login styles using Tailwind
+// Most styles are now handled by Tailwind utility classes
+// Keep only component-specific styles here
+
+:host {
+  display: block;
+}
+
+// Additional custom animations if needed
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Optional: Add subtle entrance animation
+:host::ng-deep .bg-white {
+  animation: fadeIn 0.4s ease-out;
+}
+
+// Times New Roman font for brand elements
+.statco-brand-title {
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.statco-caption {
+  font-family: 'Times New Roman', Times, serif;
+}

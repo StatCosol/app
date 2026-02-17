@@ -1,0 +1,134 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Page Header -->
+  <div class="page-header mb-6">
+    <div class="flex items-center gap-3">
+      <svg class="w-8 h-8 text-statco-blue-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+      </svg>
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Support Tickets</h1>
+        <p class="text-gray-600 mt-1">Manage helpdesk support requests</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left: Filters + Ticket list -->
+    <div class="lg:col-span-1">
+      <!-- Filters Card -->
+      <div class="card mb-4">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">Filters</h3>
+        <div class="space-y-3">
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status" (change)="loadTickets()">
+              <option value="OPEN">OPEN</option>
+              <option value="IN_PROGRESS">IN_PROGRESS</option>
+              <option value="RESPONDED">RESPONDED</option>
+              <option value="RESOLVED">RESOLVED</option>
+              <option value="CLOSED">CLOSED</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Query Type</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.queryType" (change)="loadTickets()">
+              <option value="">All</option>
+              <option value="TECHNICAL">TECHNICAL</option>
+              <option value="COMPLIANCE">COMPLIANCE</option>
+              <option value="AUDIT">AUDIT</option>
+              <option value="GENERAL">GENERAL</option>
+            </select>
+          </div>
+          <div class="flex items-center">
+            <input class="rounded border-gray-300 text-statco-blue focus:ring-statco-blue-light" type="checkbox" id="unreadOnly" [(ngModel)]="filters.unreadOnly" (change)="loadTickets()" />
+            <label class="ml-2 text-sm text-gray-700" for="unreadOnly">Unread only</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticket List Card -->
+      <div class="card">
+        <div class="border-b border-gray-200 px-4 py-3">
+          <h3 class="text-sm font-semibold text-gray-900">Tickets ({{ total }})</h3>
+        </div>
+        <div class="divide-y divide-gray-200" style="max-height: 60vh; overflow-y: auto;">
+          <button
+            type="button"
+            class="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+            [class.bg-statco-blue-light]="t.id === selectedId"
+            [class.text-white]="t.id === selectedId"
+            *ngFor="let t of tickets"
+            (click)="openTicket(t.id)"
+          >
+            <div class="font-semibold text-sm" [class.text-white]="t.id === selectedId" [class.text-gray-900]="t.id !== selectedId">{{ t.subject }}</div>
+            <div class="text-xs mt-1" [class.text-blue-100]="t.id === selectedId" [class.text-gray-600]="t.id !== selectedId">Type: {{ t.queryType }} | Status: {{ t.status }}</div>
+            <div class="text-xs mt-1" [class.text-blue-100]="t.id === selectedId" [class.text-gray-500]="t.id !== selectedId">{{ t.updatedAt | date:'short' }}</div>
+          </button>
+          <div *ngIf="tickets.length === 0" class="px-4 py-8 text-center text-gray-500 text-sm">
+            No tickets found
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Detail view -->
+    <div class="lg:col-span-2">
+      <div class="card" *ngIf="selectedTicket; else emptyState">
+        <!-- Header -->
+        <div class="border-b border-gray-200 px-6 py-4">
+          <div class="flex justify-between items-start">
+            <div class="flex-grow">
+              <h3 class="text-lg font-semibold text-gray-900">{{ selectedTicket.subject }}</h3>
+              <div class="flex gap-3 mt-2">
+                <span class="badge-secondary">{{ selectedTicket.queryType }}</span>
+                <span [ngClass]="{
+                  'badge-success': selectedTicket.status === 'RESOLVED',
+                  'badge-warning': selectedTicket.status === 'OPEN' || selectedTicket.status === 'IN_PROGRESS',
+                  'badge-secondary': selectedTicket.status === 'CLOSED'
+                }">{{ selectedTicket.status }}</span>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn-secondary" (click)="setStatus('IN_PROGRESS')">In Progress</button>
+              <button class="btn-primary-sm" (click)="setStatus('RESOLVED')">Resolve</button>
+              <button class="btn-secondary" (click)="setStatus('CLOSED')">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="px-6 py-4 space-y-4" style="max-height: 50vh; overflow-y: auto;">
+          <div *ngFor="let m of messages" class="border-l-4 border-statco-blue-light pl-4">
+            <div class="text-xs text-gray-500 mb-2">
+              {{ m.createdAt | date:'short' }} | Sender: {{ m.senderName || m.senderEmail || 'SYSTEM' }}
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 text-sm text-gray-900">{{ m.message }}</div>
+          </div>
+          <div *ngIf="messages.length === 0" class="text-center text-gray-500 text-sm py-8">
+            No messages yet
+          </div>
+        </div>
+
+        <!-- Reply Footer -->
+        <div class="border-t border-gray-200 px-6 py-4">
+          <textarea class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light mb-3" rows="3" [(ngModel)]="replyText" placeholder="Type your reply..."></textarea>
+          <button class="btn-primary" (click)="sendReply()">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+            Send Reply
+          </button>
+        </div>
+      </div>
+
+      <ng-template #emptyState>
+        <div class="card text-center py-12">
+          <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+          </svg>
+          <p class="text-gray-500">Select a ticket to view details</p>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+</main>

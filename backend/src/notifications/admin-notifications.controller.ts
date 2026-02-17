@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { ReplyNotificationDto } from './dto/reply-notification.dto';
@@ -8,7 +17,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@Controller('api/admin/notifications')
+@Controller({ path: 'admin/notifications', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminNotificationsController {
@@ -30,8 +39,17 @@ export class AdminNotificationsController {
   }
 
   @Post(':id/reply')
-  async reply(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: ReplyNotificationDto) {
-    return this.notificationsService.replyAsAdmin(user.id, user.roleCode, id, dto);
+  async reply(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: ReplyNotificationDto,
+  ) {
+    return this.notificationsService.replyAsAdmin(
+      user.id,
+      user.roleCode,
+      id,
+      dto,
+    );
   }
 
   @Post(':id/read')

@@ -1,0 +1,150 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <div class="flex items-center justify-between mb-6">
+    <ui-page-header 
+      title="Contractor Management" 
+      description="" 
+      icon="user-group">
+    </ui-page-header>
+    <button class="btn-primary" (click)="openRegistrationForm()" *ngIf="!showForm">
+      <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+      </svg>
+      Register New Contractor
+    </button>
+  </div>
+
+  <!-- Registration Form -->
+  <div class="card mb-6" *ngIf="showForm">
+    <h3 class="text-lg font-semibold text-gray-900 mb-6">Register New Contractor</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Contractor Name *</label>
+        <input type="text" [(ngModel)]="form.name" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="Full Name" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+        <input type="email" [(ngModel)]="form.email" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="email@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
+        <input type="tel" [(ngModel)]="form.mobile" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="10-digit mobile" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Client *</label>
+        <select [(ngModel)]="form.clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+          <option value="">Select Client</option>
+          <option *ngFor="let client of myClients" [value]="client.id">
+            {{ client.clientName }}
+          </option>
+        </select>
+      </div>
+      <div class="form-group md:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+        <div class="flex gap-2">
+          <input type="text" [(ngModel)]="form.password" class="flex-grow rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+          <button class="btn-secondary" (click)="form.password = generatePassword()">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Generate
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-6">
+      <button class="btn-primary" (click)="registerContractor()" [disabled]="loading">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ loading ? 'Registering...' : 'Register Contractor' }}
+      </button>
+      <button class="btn-secondary" (click)="cancelForm()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Registration Success Card -->
+  <div class="card mb-6" *ngIf="registrationResult">
+    <div class="alert alert-success mb-6">
+      <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      Contractor Registered Successfully!
+    </div>
+    <h4 class="text-lg font-semibold text-gray-900 mb-4">Contractor Login Credentials</h4>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <span class="block text-sm font-medium text-gray-500 mb-1">User Code</span>
+        <span class="text-base font-semibold text-gray-900">{{ registrationResult.contractor.userCode }}</span>
+      </div>
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <span class="block text-sm font-medium text-gray-500 mb-1">Name</span>
+        <span class="text-base font-semibold text-gray-900">{{ registrationResult.contractor.name }}</span>
+      </div>
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <span class="block text-sm font-medium text-gray-500 mb-1">Email</span>
+        <span class="text-base font-semibold text-gray-900">{{ registrationResult.credentials.email }}</span>
+      </div>
+      <div class="p-4 bg-gray-50 rounded-lg">
+        <span class="block text-sm font-medium text-gray-500 mb-1">Password</span>
+        <span class="text-base font-mono font-semibold text-red-600">{{ registrationResult.credentials.password }}</span>
+      </div>
+    </div>
+    <div class="alert alert-warning mb-4">
+      <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      Please save these credentials and share them with the contractor. Password cannot be retrieved later.
+    </div>
+    <button class="btn-primary" (click)="closeCredentials()">Close</button>
+  </div>
+
+  <!-- Contractors List -->
+  <div class="card" *ngIf="!showForm && !registrationResult">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">My Contractors ({{ contractors.length }})</h3>
+    
+    <!-- Loading State -->
+    <div *ngIf="loading" class="flex items-center justify-center py-12">
+      <svg class="animate-spin h-8 w-8 text-statco-blue-light mr-3" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="text-gray-600">Loading contractors...</span>
+    </div>
+
+    <!-- Table -->
+    <div *ngIf="!loading" class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">User Code</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Mobile</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr *ngFor="let contractor of contractors" class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.userCode }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.name }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.email }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.mobile || '—' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.client?.clientName || '—' }}</td>
+            <td class="px-6 py-4 text-sm">
+              <span [ngClass]="contractor.isActive ? 'badge-success' : 'badge-secondary'">
+                {{ contractor.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="text-center py-12" *ngIf="contractors.length === 0">
+        <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <p class="text-sm text-gray-500">No contractors registered yet. Click "Register New Contractor" to add one.</p>
+      </div>
+    </div>
+  </div>
+</main>

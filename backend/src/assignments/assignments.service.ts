@@ -10,11 +10,13 @@ import {
   AssignmentType,
 } from './entities/client-assignment-current.entity';
 import { ClientAssignmentHistoryEntity } from './entities/client-assignment-history.entity';
+import { BranchAuditorAssignmentEntity } from './entities/branch-auditor-assignment.entity';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { UsersService } from '../users/users.service';
 import { ClientsService } from '../clients/clients.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { BranchEntity } from '../branches/entities/branch.entity';
 
 type ChangeInput = {
   clientId: string;
@@ -33,6 +35,8 @@ export class AssignmentsService {
     private readonly currentRepo: Repository<ClientAssignmentCurrentEntity>,
     @InjectRepository(ClientAssignmentHistoryEntity)
     private readonly historyRepo: Repository<ClientAssignmentHistoryEntity>,
+    @InjectRepository(BranchAuditorAssignmentEntity)
+    private readonly branchAuditorRepo: Repository<BranchAuditorAssignmentEntity>,
     private readonly usersService: UsersService,
     private readonly clientsService: ClientsService,
     private readonly auditLogs: AuditLogsService,
@@ -77,6 +81,7 @@ export class AssignmentsService {
         order: { startDate: 'DESC' },
       });
     } catch (_) {
+      // Audit log is best-effort; ignore failures
       return [];
     }
   }
@@ -353,6 +358,7 @@ export class AssignmentsService {
         order: { startDate: 'DESC' },
       });
     } catch (_) {
+      // Audit log is best-effort; ignore failures
       return [];
     }
   }
@@ -444,5 +450,191 @@ export class AssignmentsService {
       },
     });
     return !!current;
+  }
+
+  async getActiveAssignmentsForCrm(crmUserId: string) {
+    return this.currentRepo.find({
+      where: {
+        assignmentType: 'CRM',
+        assignedToUserId: crmUserId,
+      },
+    });
+  }
+
+  async getActiveAssignmentForClient(clientId: string) {
+    return this.currentRepo.findOne({
+      where: {
+        clientId,
+        assignmentType: 'CRM',
+      },
+    });
+  }
+
+  async isClientAssignedToAuditor(clientId: string, auditorUserId: string) {
+    const current = await this.currentRepo.findOne({
+      where: {
+        clientId,
+        assignmentType: 'AUDITOR',
+        assignedToUserId: auditorUserId,
+      },
+    });
+    return !!current;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Branch-wise Auditor Assignments (Multiple auditors per client)
+  // Rule: One active auditor per branch at a time.
+  // ---------------------------------------------------------------------------
+
+  async listBranchAuditorAssignments(filters?: {
+    clientId?: string;
+    auditorUserId?: string;
+    branchId?: string;
+    activeOnly?: boolean;
+  }) {
+    const where: any = {};
+    if (filters?.clientId) where.clientId = filters.clientId;
+    if (filters?.auditorUserId) where.auditorUserId = filters.auditorUserId;
+    if (filters?.branchId) where.branchId = filters.branchId;
+    if (filters?.activeOnly !== false) where.isActive = true;
+
+    const rows = await this.branchAuditorRepo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      relations: ['branch', 'auditorUser'],
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      clientId: r.clientId,
+      branchId: r.branchId,
+      branchName: (r as any).branch?.branchName ?? null,
+      auditorUserId: r.auditorUserId,
+      auditorName: (r as any).auditorUser?.name ?? null,
+      startDate: r.startDate,
+      endDate: r.endDate,
+      isActive: r.isActive,
+    }));
+  }
+
+  async assignAuditorToBranch(input: {
+    clientId: string;
+    branchId: string;
+    auditorUserId: string;
+    actorUserId?: string | null;
+    actorRole?: string | null;
+  }) {
+    // Validate user role
+    const roleCode = await this.usersService.getUserRoleCode(
+      input.auditorUserId,
+    );
+    if (roleCode !== 'AUDITOR') {
+      throw new BadRequestException('auditorUserId must be an AUDITOR user');
+    }
+
+    // Validate client exists
+    await this.clientsService.getOrFail(input.clientId);
+
+    // Validate branch belongs to client (use BranchEntity mapping to avoid raw alias issues)
+    const branch = await this.dataSource
+      .getRepository(BranchEntity)
+      .findOne({ where: { id: input.branchId }, select: ['id', 'clientId'] });
+
+    if (!branch) throw new BadRequestException('Branch not found');
+    if (String(branch.clientId) !== String(input.clientId)) {
+      throw new BadRequestException('Branch does not belong to client');
+    }
+
+    const now = new Date();
+
+    return this.dataSource.transaction(async (trx) => {
+      const repo = trx.getRepository(BranchAuditorAssignmentEntity);
+
+      // End existing active assignment for this branch (if any)
+      await repo
+        .createQueryBuilder()
+        .update(BranchAuditorAssignmentEntity)
+        .set({ isActive: false, endDate: now })
+        .where('branch_id = :branchId AND is_active = TRUE', {
+          branchId: input.branchId,
+        })
+        .execute();
+
+      // Insert new active assignment
+      const created = repo.create({
+        clientId: input.clientId,
+        branchId: input.branchId,
+        auditorUserId: input.auditorUserId,
+        startDate: now,
+        endDate: null,
+        isActive: true,
+      });
+
+      const saved = await repo.save(created);
+
+      // Audit log (best effort)
+      try {
+        await this.auditLogs.log({
+          actorUserId: input.actorUserId ?? null,
+          actorRole: input.actorRole ?? null,
+          action: 'ASSIGN_AUDITOR_TO_BRANCH',
+          entityType: 'BRANCH',
+          entityId: input.branchId,
+          meta: {
+            clientId: input.clientId,
+            auditorUserId: input.auditorUserId,
+          },
+        } as any);
+      } catch (_) {
+        // Audit log is best-effort; ignore failures
+      }
+
+      return { id: saved.id };
+    });
+  }
+
+  async endBranchAuditorAssignment(
+    id: string,
+    actor?: { actorUserId?: string | null; actorRole?: string | null },
+  ) {
+    const row = await this.branchAuditorRepo.findOne({ where: { id } });
+    if (!row) throw new BadRequestException('Assignment not found');
+
+    if (!row.isActive) return { id, ended: false };
+
+    const now = new Date();
+    row.isActive = false;
+    row.endDate = now;
+    await this.branchAuditorRepo.save(row);
+
+    try {
+      await this.auditLogs.log({
+        actorUserId: actor?.actorUserId ?? null,
+        actorRole: actor?.actorRole ?? null,
+        action: 'END_BRANCH_AUDITOR_ASSIGNMENT',
+        entityType: 'BRANCH',
+        entityId: row.branchId,
+        meta: { assignmentId: id },
+      } as any);
+    } catch (_) {
+      // Audit log is best-effort; ignore failures
+    }
+
+    return { id, ended: true };
+  }
+
+  async getAssignedBranchesForAuditor(auditorUserId: string) {
+    const rows = await this.branchAuditorRepo.find({
+      where: { auditorUserId, isActive: true },
+      relations: ['branch', 'client'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return rows.map((r) => ({
+      clientId: r.clientId,
+      clientName: (r as any).client?.clientName ?? null,
+      branchId: r.branchId,
+      branchName: (r as any).branch?.branchName ?? null,
+    }));
   }
 }

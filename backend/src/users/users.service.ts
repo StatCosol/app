@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, Like, IsNull } from 'typeorm';
+import { Repository, Not, Like, IsNull, DataSource, In } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { RoleEntity } from './entities/role.entity';
 import { UserEntity } from './entities/user.entity';
@@ -38,6 +39,7 @@ export type PagedResult<T> = {
 export type UserListItem = {
   id: string;
   roleId: string;
+  userCode: string | null;
   name: string;
   email: string;
   mobile: string | null;
@@ -50,6 +52,8 @@ export type UserListItemWithRole = UserListItem & { roleCode?: string | null };
 
 @Injectable()
 export class UsersService implements OnModuleInit {
+  private readonly logger = new Logger(UsersService.name);
+
   async resetCeoPassword(dto: { email: string; newPassword: string }) {
     const ceoRole = await this.rolesRepo.findOne({ where: { code: 'CEO' } });
     if (!ceoRole) throw new NotFoundException('CEO role not found');
@@ -76,15 +80,18 @@ export class UsersService implements OnModuleInit {
     const rows = await this.usersRepo.manager.query(
       `
     SELECT
-      bc."branchId" as "branchId",
+      bc."branch_id" as "branchId",
       u.id as "id",
       u.name as "name",
       u.email as "email",
       u.mobile as "mobile",
-      u."isActive" as "isActive"
+      u."is_active" as "isActive"
     FROM branch_contractor bc
-    JOIN users u ON u.id = bc."contractorUserId"
-    WHERE bc."branchId" = ANY($1::uuid[])
+    JOIN users u ON u.id = bc."contractor_user_id"
+    WHERE bc."branch_id" = ANY($1::uuid[])
+      AND u.deleted_at IS NULL
+      AND u.email NOT LIKE '%#deleted#%'
+      AND u.email NOT LIKE '%#branch-deleted#%'
     ORDER BY u.name ASC
     `,
       [branchIds],
@@ -95,6 +102,7 @@ export class UsersService implements OnModuleInit {
       name: r.name,
       email: r.email,
       mobile: r.mobile,
+      isActive: !!r.isActive,
       status: r.isActive ? 'ACTIVE' : 'INACTIVE',
       branchId: r.branchId,
     }));
@@ -106,6 +114,9 @@ export class UsersService implements OnModuleInit {
     private deletionRepo: Repository<DeletionRequestEntity>,
     @InjectRepository(ClientEntity)
     private clientsRepo: Repository<ClientEntity>,
+    @InjectRepository(BranchEntity)
+    private branchesRepo: Repository<BranchEntity>,
+    private dataSource: DataSource,
   ) {}
 
   async onModuleInit() {
@@ -113,6 +124,13 @@ export class UsersService implements OnModuleInit {
     await this.seedRolesIfEmpty();
     // Ensure there is at least one admin user for initial login
     await this.seedAdminIfMissing();
+    // One-time: regenerate all user codes to new format (fire-and-forget, non-blocking)
+    this.regenerateUserCodesOnce().catch((err) => {
+      this.logger.warn(
+        'Failed to regenerate user codes on startup',
+        err instanceof Error ? err.message : String(err),
+      );
+    });
   }
 
   async seedRolesIfEmpty() {
@@ -190,7 +208,7 @@ export class UsersService implements OnModuleInit {
     const passwordHash = await bcrypt.hash(seedPass, 10);
 
     const admin = this.usersRepo.create({
-      userCode: 'SSA', // Statco System Admin
+      userCode: 'SAAD01', // System Admin - AD(min) - 01
       roleId: adminRole.id,
       name: 'System Admin',
       email: adminEmail.toLowerCase(),
@@ -202,6 +220,81 @@ export class UsersService implements OnModuleInit {
     });
 
     await this.usersRepo.save(admin);
+  }
+
+  /**
+   * One-time regeneration of all user codes to the new format:
+   *   <Name Initials><Role 2-char>[<Company Abbrev>]<2-digit seq>
+   *
+   * Detects whether codes have already been migrated by checking if any
+   * code matches the new format (2+ uppercase letters followed by 2 digits).
+   * The old format used patterns like SSA, SCRM1, SA2, CJD which don't end
+   * with a zero-padded 2-digit number.
+   */
+  private async regenerateUserCodesOnce() {
+    try {
+      // Quick check: if at least one user already has the new format, skip.
+      const sample: any[] = await this.usersRepo.manager.query(
+        `SELECT user_code AS "userCode" FROM users WHERE user_code IS NOT NULL LIMIT 50`,
+      );
+
+      const newFormatRegex = /^[A-Z]{2,}\d{2,}$/;
+      const alreadyMigrated = sample.some(
+        (r) => r.userCode && newFormatRegex.test(r.userCode),
+      );
+      if (alreadyMigrated || sample.length === 0) return;
+
+      console.log('[UsersService] Regenerating user codes to new format...');
+
+      // Raw SQL avoids query-builder column-mapping issues
+      const rows: Array<{
+        id: string;
+        name: string;
+        roleCode: string;
+        clientName: string | null;
+      }> = await this.usersRepo.manager.query(`
+        SELECT
+          u.id,
+          u.name,
+          r.code        AS "roleCode",
+          c.client_name AS "clientName"
+        FROM users u
+        JOIN roles r ON r.id = u.role_id
+        LEFT JOIN clients c ON c.id = u.client_id
+        ORDER BY u.created_at ASC
+      `);
+
+      const counters = new Map<string, number>();
+
+      for (const row of rows) {
+        const nameInit = this.initials(row.name) || 'XX';
+        const rolePfx = this.rolePrefix(row.roleCode);
+
+        let companyPart = '';
+        if (
+          (row.roleCode === 'CONTRACTOR' || row.roleCode === 'CLIENT') &&
+          row.clientName
+        ) {
+          companyPart = this.companyAbbrev(row.clientName);
+        }
+
+        const prefix = `${nameInit}${rolePfx}${companyPart}`;
+        const seq = (counters.get(prefix) ?? 0) + 1;
+        counters.set(prefix, seq);
+
+        const newCode = `${prefix}${String(seq).padStart(2, '0')}`;
+
+        await this.usersRepo.manager.query(
+          `UPDATE users SET user_code = $1 WHERE id = $2`,
+          [newCode, row.id],
+        );
+      }
+
+      console.log(`[UsersService] Regenerated ${rows.length} user codes.`);
+    } catch (err) {
+      // Log but never crash the app — code regeneration is non-critical
+      console.error('[UsersService] Failed to regenerate user codes:', err);
+    }
   }
 
   private async enforceLimits(roleCode: string) {
@@ -241,9 +334,8 @@ export class UsersService implements OnModuleInit {
     return this.rolesRepo.find({ order: { id: 'ASC' } });
   }
 
-
-
-  private initials(name: string) {
+  /** Extract first letter of each word from a name */
+  private initials(name: string): string {
     return (name || '')
       .trim()
       .split(/\s+/)
@@ -252,8 +344,51 @@ export class UsersService implements OnModuleInit {
       .join('');
   }
 
-  private async nextSequence(prefix: string): Promise<number> {
-    // Find highest numeric suffix for codes like SCRM1, SA2, SCCO3 etc.
+  /** Words to exclude when abbreviating company/client names */
+  private static readonly COMPANY_SUFFIXES = new Set([
+    'pvt',
+    'ltd',
+    'private',
+    'limited',
+    'inc',
+    'corp',
+    'corporation',
+    'llp',
+    'llc',
+    'co',
+    'company',
+  ]);
+
+  /** First letter of each word in company name, excluding common suffixes */
+  private companyAbbrev(companyName: string): string {
+    return (companyName || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter((w) => !UsersService.COMPANY_SUFFIXES.has(w.toLowerCase()))
+      .map((w) => (w[0] || '').toUpperCase())
+      .join('');
+  }
+
+  /** Role code → 2-character prefix for user codes */
+  private rolePrefix(roleCode: string): string {
+    const map: Record<string, string> = {
+      ADMIN: 'AD',
+      CEO: 'CE',
+      CCO: 'CC',
+      CRM: 'CR',
+      AUDITOR: 'AU',
+      CLIENT: 'CL',
+      CONTRACTOR: 'CO',
+    };
+    return map[roleCode] ?? roleCode.substring(0, 2).toUpperCase();
+  }
+
+  /**
+   * Find the next 2-digit sequence number for a given prefix.
+   * E.g. if MKCR01 and MKCR02 exist, returns 3.
+   */
+  private async nextSequence2(prefix: string): Promise<number> {
     const rows = await this.usersRepo
       .createQueryBuilder('u')
       .select('u.userCode', 'userCode')
@@ -263,68 +398,56 @@ export class UsersService implements OnModuleInit {
     let max = 0;
     for (const r of rows) {
       const code = r.userCode || '';
-      const m = code.match(new RegExp(`^${prefix}(\\d+)$`));
-      if (m?.[1]) max = Math.max(max, Number(m[1]));
+      const suffix = code.substring(prefix.length);
+      const num = parseInt(suffix, 10);
+      if (!isNaN(num) && num > max) max = num;
     }
     return max + 1;
   }
 
-  private async ensureUnique(base: string): Promise<string> {
-    // If base exists, append -2, -3 ...
-    let candidate = base;
-    let i = 2;
-    while (await this.usersRepo.exist({ where: { userCode: candidate } })) {
-      candidate = `${base}-${i}`;
-      i++;
-    }
-    return candidate;
-  }
-
+  /**
+   * Generate a human-readable user code.
+   *
+   * Format: <Name Initials><Role 2-char>[<Company Abbrev>]<2-digit seq>
+   *
+   * Examples:
+   *   Madan Kumar  + CRM                           → MKCR01
+   *   Manoj Kumar  + CRM                           → MKCR02
+   *   Venu Gopal   + CONTRACTOR to Vedha Entech India Pvt Ltd → VGCOVEI01
+   *   Raj Patel    + AUDITOR                       → RPAU01
+   *   Admin User   + ADMIN                         → AUAD01
+   */
   private async generateUserCode(
     roleCode: string,
     name: string,
     clientId: string | null,
   ): Promise<string> {
-    // Based on your required examples:
-    // SSA  = Statco System Admin
-    // SCRM1= Statco CRM 1
-    // SA1  = Statco Auditor 1
-    // Client code = initials
-    // Contractor code = starts with C + initials
+    const nameInit = this.initials(name) || 'XX';
+    const rolePfx = this.rolePrefix(roleCode);
 
-    if (roleCode === 'ADMIN') return this.ensureUnique('SSA');
-    if (roleCode === 'CEO') return this.ensureUnique('SCEO');
-
-    if (roleCode === 'CCO') {
-      const n = await this.nextSequence('SCCO');
-      return this.ensureUnique(`SCCO${n}`);
+    let companyPart = '';
+    // For CONTRACTOR and CLIENT roles, include abbreviated client/company name
+    if ((roleCode === 'CONTRACTOR' || roleCode === 'CLIENT') && clientId) {
+      const client = await this.clientsRepo.findOne({
+        where: { id: clientId },
+        select: ['id', 'clientName'],
+      });
+      if (client?.clientName) {
+        companyPart = this.companyAbbrev(client.clientName);
+      }
     }
 
-    if (roleCode === 'CRM') {
-      const n = await this.nextSequence('SCRM');
-      return this.ensureUnique(`SCRM${n}`);
-    }
-
-    if (roleCode === 'AUDITOR') {
-      const n = await this.nextSequence('SA');
-      return this.ensureUnique(`SA${n}`);
-    }
-
-    if (roleCode === 'CONTRACTOR') {
-      const base = `C${this.initials(name) || 'CON'}`;
-      return this.ensureUnique(base);
-    }
-
-    if (roleCode === 'CLIENT') {
-      const base = this.initials(name) || 'CLIENT';
-      return this.ensureUnique(base);
-    }
-
-    const base = `U${this.initials(name) || 'USER'}`;
-    return this.ensureUnique(base);
+    const prefix = `${nameInit}${rolePfx}${companyPart}`;
+    const seq = await this.nextSequence2(prefix);
+    const code = `${prefix}${String(seq).padStart(2, '0')}`;
+    return code;
   }
 
   async createUser(dto: CreateUserDto) {
+    const email = dto.email.trim().toLowerCase();
+    const name = dto.name.trim();
+    const mobile = dto.mobile ? dto.mobile.trim() : null;
+
     const role = await this.rolesRepo.findOne({ where: { id: dto.roleId } });
     if (!role) throw new BadRequestException('Invalid roleId');
 
@@ -335,8 +458,17 @@ export class UsersService implements OnModuleInit {
       if (!dto.clientId) {
         throw new BadRequestException('clientId is required for this role');
       }
-      // Note: We don't have access to ClientsService here, so validation happens at controller level
-      // or we need to inject ClientsService if needed
+      const client = await this.clientsRepo.findOne({
+        where: {
+          id: dto.clientId,
+          isDeleted: false,
+          deletedAt: IsNull(),
+          isActive: true,
+        },
+      });
+      if (!client) {
+        throw new BadRequestException('Client not found or inactive');
+      }
     }
 
     // For CRM users, enforce ownerCcoId and validate it refers to an active CCO user
@@ -365,28 +497,97 @@ export class UsersService implements OnModuleInit {
     }
 
     const existing = await this.usersRepo.findOne({
-      where: { email: dto.email.toLowerCase() },
+      where: { email },
     });
     if (existing) throw new BadRequestException('Email already exists');
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    const userCode = await this.generateUserCode(role.code, dto.name, dto.clientId ?? null);
+    const userCode = await this.generateUserCode(
+      role.code,
+      name,
+      dto.clientId ?? null,
+    );
+
+    // CLIENT user type: MASTER vs BRANCH
+    let userType: string | null = null;
+    if (role.code === 'CLIENT') {
+      userType = dto.userType || 'MASTER';
+
+      // Enforce: only one MASTER per client
+      if (userType === 'MASTER' && dto.clientId) {
+        const existingMaster = await this.usersRepo.findOne({
+          where: {
+            clientId: dto.clientId,
+            userType: 'MASTER',
+            isActive: true,
+          },
+        });
+        if (existingMaster) {
+          throw new BadRequestException(
+            'A master user already exists for this client. Each client can have only one master user.',
+          );
+        }
+      }
+
+      // BRANCH users must have at least one branchId
+      if (
+        userType === 'BRANCH' &&
+        (!dto.branchIds || dto.branchIds.length === 0)
+      ) {
+        throw new BadRequestException(
+          'Branch users must be assigned to at least one branch',
+        );
+      }
+    }
 
     const user = this.usersRepo.create({
       userCode,
       roleId: dto.roleId,
-      name: dto.name,
-      email: dto.email.toLowerCase(),
-      mobile: dto.mobile ?? null,
+      role: role.code, // legacy column required by DB constraint
+      name,
+      email,
+      mobile,
       passwordHash,
       isActive: true,
       clientId: dto.clientId ?? null,
       ownerCcoId: dto.ownerCcoId ?? null,
+      userType,
     });
 
     const saved = await this.usersRepo.save(user);
-    return { id: saved.id, message: 'User created' };
+
+    // Assign branches for BRANCH CLIENT users via user_branches join table
+    if (
+      role.code === 'CLIENT' &&
+      userType === 'BRANCH' &&
+      dto.branchIds?.length
+    ) {
+      const branchIds = dto.branchIds;
+      const branches = await this.branchesRepo.find({
+        where: {
+          id: In(branchIds),
+          clientId: dto.clientId,
+          isDeleted: false,
+          deletedAt: IsNull(),
+          isActive: true,
+        },
+      });
+
+      if (branches.length !== branchIds.length) {
+        throw new BadRequestException(
+          'One or more branches are invalid or not linked to the client',
+        );
+      }
+
+      await this.usersRepo
+        .createQueryBuilder()
+        .relation(UserEntity, 'branches')
+        .of(saved.id)
+        .add(branchIds);
+    }
+
+    return { id: saved.id, message: 'User created', userType };
   }
 
   // ✅ SAFE: no passwordHash exposure
@@ -399,10 +600,12 @@ export class UsersService implements OnModuleInit {
   async listUsersWithRoleCode(): Promise<
     {
       id: string;
+      userCode: string | null;
       name: string;
       email: string;
       roleCode: string | null;
       isActive: boolean;
+      createdAt: Date;
     }[]
   > {
     const res = await this.listUsersPaged({ page: 1, pageSize: 1000 });
@@ -412,10 +615,12 @@ export class UsersService implements OnModuleInit {
 
     return res.items.map((u) => ({
       id: u.id,
+      userCode: u.userCode,
       name: u.name,
       email: u.email,
       roleCode: roleMap.get(u.roleId) ?? null,
       isActive: u.isActive,
+      createdAt: u.createdAt,
     }));
   }
 
@@ -430,7 +635,8 @@ export class UsersService implements OnModuleInit {
 
     const qb = this.usersRepo.createQueryBuilder('u');
 
-    qb.andWhere('u.deletedAt IS NULL');
+    // Critical: Filter out soft-deleted users
+    qb.andWhere('u.deleted_at IS NULL');
 
     const sortBy = (args.sortBy || 'id').toLowerCase();
     const sortDir: 'ASC' | 'DESC' =
@@ -447,9 +653,12 @@ export class UsersService implements OnModuleInit {
 
     qb.orderBy(sortMap[sortBy] || 'u.id', sortDir);
 
-    // Hide soft-deleted users (email tagged with #deleted#)
+    // Hide soft-deleted users (email tagged with #deleted# or #branch-deleted#)
     qb.andWhere('u.email NOT LIKE :deletedPattern', {
       deletedPattern: '%#deleted#%',
+    });
+    qb.andWhere('u.email NOT LIKE :branchDeletedPattern', {
+      branchDeletedPattern: '%#branch-deleted#%',
     });
 
     if (roleId) {
@@ -470,10 +679,17 @@ export class UsersService implements OnModuleInit {
       );
     }
 
+    // Debug: Log the generated SQL
+    const sqlQuery = qb.getSql();
+    console.log('[listUsersPaged] Generated SQL:', sqlQuery);
+    console.log('[listUsersPaged] Parameters:', qb.getParameters());
+
     const [users, total]: [UserEntity[], number] = await qb
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();
+
+    console.log(`[listUsersPaged] Found ${users.length} users, total: ${total}`);
 
     // include roleCode in items for easier frontend use
     const roles = await this.rolesRepo.find();
@@ -484,6 +700,7 @@ export class UsersService implements OnModuleInit {
       items: users.map((u) => ({
         id: u.id,
         roleId: u.roleId,
+        userCode: u.userCode,
         name: u.name,
         email: u.email,
         mobile: u.mobile,
@@ -594,114 +811,170 @@ export class UsersService implements OnModuleInit {
     }
   }
 
+  // TEMP: Diagnostic method to see raw DB state
+  async debugGetAllUsersRaw(): Promise<any[]> {
+    return this.dataSource.query(`
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.is_active,
+        u.deleted_at,
+        u.user_type,
+        u.client_id,
+        r.code AS role_code,
+        c.client_name,
+        c.is_deleted AS client_is_deleted,
+        c.status AS client_status
+      FROM users u
+      LEFT JOIN roles r ON r.id = u.role_id
+      LEFT JOIN clients c ON c.id = u.client_id
+      ORDER BY u.created_at DESC
+      LIMIT 30
+    `);
+  }
+
   // Advanced directory: global search + filters + pagination + optional grouping by client
   async getUserDirectory(q: UserDirectoryQueryDto): Promise<any> {
     const page = Math.max(1, Number(q.page || 1));
     const limit = Math.min(100, Math.max(1, Number(q.limit || 25)));
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const roleCode = String(q.roleCode ?? '').trim();
+    const roleCode = String(q.roleCode ?? '').trim().toUpperCase();
     const clientId = q.clientId ? String(q.clientId) : undefined;
     const status = String(q.status ?? 'all').toUpperCase();
     const search = String(q.search ?? '').trim();
-    const groupByClient = String(q.groupByClient || '').toLowerCase() === 'true';
+    const groupByClient =
+      String(q.groupByClient || '').toLowerCase() === 'true';
 
-    // Preload role map so we can reliably derive roleCode even if
-    // the raw query alias is missing or null for older data.
-    const roles = await this.rolesRepo.find();
-    const roleCodeById = new Map<string, string>();
-    roles.forEach((r) => roleCodeById.set(r.id, r.code));
+    // Build raw SQL to avoid any TypeORM column-resolution issues
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIdx = 1;
 
-    const qb = this.usersRepo
-      .createQueryBuilder('u')
-      .leftJoin(RoleEntity, 'r', 'r.id = u.roleId')
-      .leftJoin(ClientEntity, 'c_direct', 'c_direct.id = u.clientId')
-      .select('u.id', 'id')
-      .addSelect('u.user_code', 'userCode')
-      .addSelect('u.name', 'name')
-      .addSelect('u.email', 'email')
-      .addSelect('u.mobile', 'mobile')
-      .addSelect('u.isActive', 'isActive')
-      .addSelect('u.createdAt', 'createdAt')
-      .addSelect('r.code', 'roleCode')
-      .addSelect('r.name', 'roleName')
-      .addSelect('COALESCE(c_direct.id, u.clientId)', 'clientId')
-      .addSelect('COALESCE(c_direct.clientName, null)', 'clientName');
+    // CRITICAL: Always exclude soft-deleted users
+    conditions.push('u.deleted_at IS NULL');
+    conditions.push("u.email NOT LIKE '%#deleted#%'");
+    conditions.push("u.email NOT LIKE '%#branch-deleted#%'");
 
-    // Hide soft-deleted users (email tagged with #deleted#)
-    qb.andWhere('u.email NOT LIKE :deletedPattern', {
-      deletedPattern: '%#deleted#%',
-    });
-
-    // Filters
-    if (roleCode && roleCode !== 'all') {
-      qb.andWhere('r.code = :roleCode', { roleCode });
+    // Role filter
+    if (roleCode && roleCode !== 'ALL') {
+      conditions.push(`r.code = $${paramIdx}`);
+      params.push(roleCode);
+      paramIdx++;
     }
 
-    if (status !== 'ALL') {
-      qb.andWhere('u.isActive = :isActive', { isActive: status === 'ACTIVE' });
+    // Status filter
+    if (status === 'ACTIVE') {
+      conditions.push('u.is_active = true');
+    } else if (status === 'INACTIVE') {
+      conditions.push('u.is_active = false');
     }
+    // status 'ALL' = show active + inactive, but never deleted
 
+    // Client filter
     if (clientId) {
-      qb.andWhere('COALESCE(c_direct.id, u.clientId) = :clientId', { clientId });
+      conditions.push(`COALESCE(c.id, u.client_id) = $${paramIdx}`);
+      params.push(clientId);
+      paramIdx++;
     }
 
+    // Search filter
     if (search) {
-      const s = `%${search.toLowerCase()}%`;
-      qb.andWhere(
-        '(LOWER(u.name) LIKE :s OR LOWER(u.email) LIKE :s OR LOWER(COALESCE(u.mobile, \'\')) LIKE :s)',
-        { s }
+      const searchPattern = `%${search.toLowerCase()}%`;
+      conditions.push(
+        `(LOWER(u.name) LIKE $${paramIdx} OR LOWER(u.email) LIKE $${paramIdx} OR LOWER(COALESCE(u.mobile, '')) LIKE $${paramIdx})`,
+      );
+      params.push(searchPattern);
+      paramIdx++;
+    }
+
+    const whereClause =
+      conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // Count query
+    const countSql = `
+      SELECT COUNT(DISTINCT u.id)::int AS total
+      FROM users u
+      LEFT JOIN roles r ON r.id = u.role_id
+      LEFT JOIN clients c ON c.id = u.client_id
+      ${whereClause}
+    `;
+    const countResult = await this.dataSource.query(countSql, params);
+    const total = countResult?.[0]?.total ?? 0;
+
+    if (total === 0) {
+      if (!groupByClient) {
+        return { items: [], page, limit, total: 0 };
+      }
+      return { groups: [], page, limit, total: 0 };
+    }
+
+    // Data query
+    const dataSql = `
+      SELECT
+        u.id,
+        u.user_code   AS "userCode",
+        u.name,
+        u.email,
+        u.mobile,
+        u.is_active   AS "isActive",
+        u.created_at  AS "createdAt",
+        u.deleted_at  AS "deletedAt",
+        r.code        AS "roleCode",
+        r.name        AS "roleName",
+        COALESCE(c.id, u.client_id)          AS "clientId",
+        COALESCE(c.client_name, NULL)         AS "clientName"
+      FROM users u
+      LEFT JOIN roles r ON r.id = u.role_id
+      LEFT JOIN clients c ON c.id = u.client_id
+      ${whereClause}
+      ORDER BY u.id DESC
+      LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+    `;
+    const dataParams = [...params, limit, offset];
+
+    console.log('[getUserDirectory] SQL:', dataSql.replace(/\s+/g, ' ').trim());
+    console.log('[getUserDirectory] Params:', dataParams);
+
+    const dataRows: any[] = await this.dataSource.query(dataSql, dataParams);
+
+    console.log(
+      `[getUserDirectory] DB returned ${dataRows.length} rows, total=${total}`,
+    );
+
+    // Final safety net: filter in JS (should be no-op if SQL is correct)
+    const items = dataRows
+      .filter((r) => {
+        if (r.deletedAt) return false;
+        if (
+          r.email?.includes('#deleted#') ||
+          r.email?.includes('#branch-deleted#')
+        )
+          return false;
+        return true;
+      })
+      .map((r) => ({
+        id: r.id,
+        userCode: r.userCode ?? null,
+        name: r.name,
+        email: r.email,
+        mobile: r.mobile ?? null,
+        isActive: r.isActive,
+        createdAt: r.createdAt,
+        roleCode: r.roleCode ?? null,
+        roleName: r.roleName ?? null,
+        clientId: r.clientId ?? null,
+        clientName: r.clientName ?? null,
+      }));
+
+    if (dataRows.length !== items.length) {
+      console.warn(
+        `[getUserDirectory] JS filter removed ${dataRows.length - items.length} deleted users that SQL missed!`,
       );
     }
-
-    // Page over distinct users because joins can create multiple rows per user
-    const idQb = qb
-      .clone()
-      .select('u.id', 'id')
-      .distinct(true)
-      .orderBy('u.id', 'DESC')
-      .skip(skip)
-      .take(limit);
-
-    const idRows = await idQb.getRawMany();
-    const ids = idRows.map((row: any) => String(row.id));
-
-    const totalQb = qb.clone().select('COUNT(DISTINCT u.id)', 'cnt');
-    const totalRow = await totalQb.getRawOne();
-    const total = Number(totalRow?.cnt || 0);
-
-    if (ids.length === 0) {
-      if (!groupByClient) {
-        return { items: [], page, limit, total };
-      }
-      return { groups: [], page, limit, total };
-    }
-
-    const dataRows = await qb
-      .clone()
-      .andWhere('u.id IN (:...ids)', { ids })
-      .orderBy('u.id', 'DESC')
-      .getRawMany();
-
-    // Shape into user objects
-    const items = dataRows.map((r: any) => ({
-      id: r.id ?? r.u_id ?? r.user_id,
-      userCode: r.userCode ?? null,
-      name: r.name ?? r.u_name,
-      email: r.email ?? r.u_email,
-      mobile: r.mobile ?? r.u_mobile,
-      isActive: r.isActive ?? r.u_is_active,
-      roleCode: r.roleCode ?? r.r_code,
-      roleName: r.roleName ?? r.r_name,
-      clientId: r.clientId ?? r.client_id ?? null,
-      clientName: r.clientName ?? r.client_name ?? null,
-    }));
 
     if (!groupByClient) {
-      console.log(
-        `[getUserDirectory] Returning ${items.length} users`,
-        items.map(u => ({ id: u.id, userCode: u.userCode, name: u.name, email: u.email, roleCode: u.roleCode }))
-      );
       return { items, page, limit, total };
     }
 
@@ -709,7 +982,6 @@ export class UsersService implements OnModuleInit {
     const groupsMap = new Map<string, any>();
 
     for (const u of items) {
-      // Use clientId and clientName for grouping, fallback to unlinked
       const cid: string = u.clientId ?? '__unlinked__';
       const cname: string = u.clientName ?? 'Unlinked';
       if (!groupsMap.has(cid)) {
@@ -731,10 +1003,6 @@ export class UsersService implements OnModuleInit {
     }
 
     const groups = Array.from(groupsMap.values());
-    console.log(
-      `[getUserDirectory] Returning ${groups.length} groups`,
-      groups.map(g => ({ client: g.client, userCount: g.items.length }))
-    );
     return { groups, page, limit, total };
   }
 
@@ -772,7 +1040,12 @@ export class UsersService implements OnModuleInit {
     }));
     console.log(
       `[listActiveUsersByRoleCode] Returning ${result.length} users`,
-      result.map(u => ({ id: u.id, name: u.name, email: u.email, roleCode: u.roleCode }))
+      result.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        roleCode: u.roleCode,
+      })),
     );
     return result;
   }
@@ -789,7 +1062,13 @@ export class UsersService implements OnModuleInit {
 
     const qb = this.usersRepo.createQueryBuilder('u');
     qb.andWhere('u.roleId = :roleId', { roleId });
-    qb.andWhere('u.deletedAt IS NULL');
+    qb.andWhere('u.deleted_at IS NULL');
+    qb.andWhere('u.email NOT LIKE :deletedPattern', {
+      deletedPattern: '%#deleted#%',
+    });
+    qb.andWhere('u.email NOT LIKE :branchDeletedPattern', {
+      branchDeletedPattern: '%#branch-deleted#%',
+    });
 
     if (params.status === 'active') {
       qb.andWhere('u.isActive = :a', { a: true });
@@ -844,13 +1123,19 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException('You cannot delete your own account');
     }
 
-    // Soft-delete user to preserve references (assignments, client links)
-    // but free up the email/mobile for reuse.
+    // Soft-delete user: deactivate, mark deleted_at, free email/mobile, and unlink branches
     const timestamp = Date.now();
     u.isActive = false;
+    u.deletedAt = new Date();
     u.email = `${u.email}#deleted#${timestamp}`;
     u.mobile = null;
     await this.usersRepo.save(u);
+
+    // Remove branch mappings to keep directory and access in sync
+    await this.dataSource.query(
+      `DELETE FROM user_branches WHERE user_id = $1`,
+      [id],
+    );
 
     return { ok: true };
   }
@@ -1002,16 +1287,38 @@ export class UsersService implements OnModuleInit {
     if (!user) throw new NotFoundException('User not found');
 
     const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
+    const roleCode = role?.code ?? null;
+
+    // For CLIENT users, return branch info
+    let branchIds: string[] = [];
+    let userType: string | null = user.userType ?? null;
+    let isMasterUser = false;
+
+    if (roleCode === 'CLIENT') {
+      const rows: { branch_id: string }[] = await this.dataSource.query(
+        `SELECT branch_id FROM user_branches WHERE user_id = $1`,
+        [userId],
+      );
+      branchIds = rows.map((r) => r.branch_id);
+      isMasterUser = branchIds.length === 0;
+      // Ensure userType is consistent
+      if (!userType) {
+        userType = isMasterUser ? 'MASTER' : 'BRANCH';
+      }
+    }
 
     return {
       id: user.id,
       roleId: user.roleId,
-      roleCode: role?.code ?? null,
+      roleCode,
       name: user.name,
       email: user.email,
       mobile: user.mobile ?? null,
       clientId: user.clientId ?? null,
       isActive: user.isActive,
+      userType,
+      branchIds,
+      isMasterUser,
       createdAt: user.createdAt,
     };
   }
@@ -1096,7 +1403,7 @@ export class UsersService implements OnModuleInit {
     }
 
     req.status = 'APPROVED';
-await this.deletionRepo.save(req);
+    await this.deletionRepo.save(req);
 
     return { ok: true };
   }
@@ -1127,7 +1434,7 @@ await this.deletionRepo.save(req);
     }
 
     req.status = 'REJECTED';
-req.remarks = remarks || null;
+    req.remarks = remarks || null;
 
     await this.deletionRepo.save(req);
 

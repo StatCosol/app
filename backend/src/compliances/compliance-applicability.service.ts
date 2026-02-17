@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { ComplianceMasterEntity } from './entities/compliance-master.entity';
@@ -26,7 +26,7 @@ export class ComplianceApplicabilityService {
     const complianceRepo = this.ds.getRepository(ComplianceMasterEntity);
 
     const branch = await branchRepo.findOne({ where: { id: branchId } });
-    if (!branch) throw new Error('Branch not found');
+    if (!branch) throw new NotFoundException('Branch not found');
 
     // Fetch active compliances (ordered by name for deterministic upsert order)
     const compliances = await complianceRepo.find({
@@ -37,40 +37,55 @@ export class ComplianceApplicabilityService {
     let updated = 0;
     for (const c of compliances) {
       const existing = await this.ds.query(
-        `SELECT "overrideMode" FROM branch_compliances WHERE "branchId" = $1 AND "complianceId" = $2`,
+        `SELECT * FROM branch_compliances WHERE branch_id = $1 AND compliance_id = $2`,
         [branch.id, c.id],
       );
 
-      const overrideMode = existing?.[0]?.overrideMode ?? 'AUTO';
+      const overrideMode = existing?.[0]?.override_mode ?? 'AUTO';
       if (overrideMode !== 'AUTO') {
         continue; // preserve manual overrides
       }
 
       const res = await this.evaluateCompliance(branch, c);
 
-      // Upsert into branch_compliances; keep status as PENDING and refresh lastUpdated
-      await this.ds.query(
-        `
-        INSERT INTO branch_compliances
-          ("branchId", "clientId", "complianceId", "isApplicable", "source", "reason", "status", "lastUpdated")
-        VALUES
-          ($1, $2, $3, $4, $5, $6, 'PENDING', now())
-        ON CONFLICT ("branchId", "complianceId")
-        DO UPDATE SET
-          "isApplicable" = EXCLUDED."isApplicable",
-          "source" = EXCLUDED."source",
-          "reason" = EXCLUDED."reason",
-          "lastUpdated" = now()
-        `,
-        [
-          branch.id,
-          branch.clientId,
-          c.id,
-          res.isApplicable,
-          res.source,
-          res.reason,
-        ],
-      );
+      if (existing?.length) {
+        await this.ds.query(
+          `
+          UPDATE branch_compliances
+          SET
+            is_applicable = $4,
+            source = $5,
+            reason = $6,
+            last_updated = now()
+          WHERE branch_id = $1 AND compliance_id = $2
+          `,
+          [
+            branch.id,
+            c.id,
+            branch.clientId,
+            res.isApplicable,
+            res.source,
+            res.reason,
+          ],
+        );
+      } else {
+        await this.ds.query(
+          `
+          INSERT INTO branch_compliances
+            (branch_id, client_id, compliance_id, is_applicable, source, reason, status, last_updated)
+          VALUES
+            ($1, $2, $3, $4, $5, $6, 'PENDING', now())
+          `,
+          [
+            branch.id,
+            branch.clientId,
+            c.id,
+            res.isApplicable,
+            res.source,
+            res.reason,
+          ],
+        );
+      }
 
       updated++;
     }

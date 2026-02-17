@@ -8,7 +8,9 @@ export class PayrollTemplateComponent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => PayrollTemplate, t => t.components, { onDelete: 'CASCADE' })
+  @ManyToOne(() => PayrollTemplate, (t) => t.components, {
+    onDelete: 'CASCADE',
+  })
   template: PayrollTemplate;
 
   @Column()

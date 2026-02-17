@@ -1,0 +1,139 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- LEFT: Inbox list -->
+    <div class="lg:col-span-1">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-900">Inbox</h2>
+          <select class="rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light text-sm" [(ngModel)]="status" (change)="page = 1; loadInbox()">
+            <option value="all">All</option>
+            <option value="OPEN">Open</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="RESPONDED">Responded</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="CLOSED">Closed</option>
+          </select>
+        </div>
+
+        <label class="flex items-center mb-3 text-sm" *ngIf="!adminAll">
+          <input type="checkbox" class="rounded border-gray-300 text-statco-blue focus:ring-statco-blue-light mr-2" [(ngModel)]="unreadOnly" (change)="page = 1; loadInbox()" />
+          Unread only
+        </label>
+
+        <div class="text-sm text-gray-600 mb-3">
+          {{ threads.length }} / {{ total }}
+        </div>
+
+        <div *ngIf="loadingList" class="text-sm text-gray-500 italic py-4">Loading...</div>
+
+        <div class="divide-y divide-gray-200" style="max-height: 65vh; overflow-y: auto;">
+          <button
+            type="button"
+            class="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"
+            [class.bg-statco-blue-light]="t.id === selectedThreadId"
+            [class.text-white]="t.id === selectedThreadId"
+            *ngFor="let t of threads"
+            (click)="openThread(t.id)"
+          >
+            <div class="flex gap-2 mb-2">
+              <span class="badge-secondary text-xs">{{ t.queryType }}</span>
+              <span [ngClass]="{
+                'badge-success': t.status === 'RESOLVED' || t.status === 'CLOSED',
+                'badge-warning': t.status === 'OPEN' || t.status === 'IN_PROGRESS',
+                'badge-info': t.status === 'RESPONDED'
+              }" class="text-xs">{{ t.status }}</span>
+            </div>
+            <div class="font-medium text-sm mb-1" [class.text-white]="t.id === selectedThreadId" [class.text-gray-900]="t.id !== selectedThreadId">{{ t.subject || '(No subject)' }}</div>
+            <div class="text-xs mb-1" [class.text-blue-100]="t.id === selectedThreadId" [class.text-gray-600]="t.id !== selectedThreadId">
+              Client: {{ t.clientName || '-' }} | Branch: {{ t.branchName || '-' }}
+            </div>
+            <div class="text-xs" [class.text-blue-100]="t.id === selectedThreadId" [class.text-gray-500]="t.id !== selectedThreadId">
+              From: {{ t.createdBy?.name || '-' }} ({{ t.createdBy?.roleCode || '-' }})
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Thread -->
+    <div class="lg:col-span-2">
+      <div class="card">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Conversation</h2>
+
+        <div *ngIf="!selectedThreadId" class="text-center py-12">
+          <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+          </svg>
+          <p class="text-gray-500">Select a thread to view messages.</p>
+        </div>
+
+        <div *ngIf="loadingThread" class="flex items-center justify-center py-12">
+          <svg class="animate-spin h-8 w-8 text-statco-blue-light mr-3" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-gray-600">Loading conversation...</span>
+        </div>
+
+        <div *ngIf="thread && !loadingThread">
+          <div class="flex gap-4 mb-6 pb-4 border-b border-gray-200">
+            <div class="text-sm"><span class="font-medium text-gray-700">Type:</span> <span class="badge-secondary ml-2">{{ thread.queryType }}</span></div>
+            <div class="text-sm"><span class="font-medium text-gray-700">Status:</span> <span [ngClass]="{
+              'badge-success': thread.status === 'RESOLVED' || thread.status === 'CLOSED',
+              'badge-warning': thread.status === 'OPEN' || thread.status === 'IN_PROGRESS',
+              'badge-info': thread.status === 'RESPONDED'
+            }" class="ml-2">{{ thread.status }}</span></div>
+          </div>
+
+          <div class="space-y-4 mb-6" style="max-height: 50vh; overflow-y: auto;">
+            <div class="border-l-4 border-statco-blue-light pl-4" *ngFor="let m of messages">
+              <div class="text-xs text-gray-500 mb-2">
+                {{ m.from?.name || m.from?.roleCode || 'Unknown user' }}
+                ({{ m.from?.roleCode || '-' }}) •
+                {{ m.createdAt | date: 'short' }}
+              </div>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm text-gray-900">{{ m.message }}</div>
+            </div>
+          </div>
+
+          <div *ngIf="thread.status !== 'CLOSED'" class="border-t border-gray-200 pt-4">
+            <textarea
+              class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light mb-3"
+              [(ngModel)]="replyText"
+              rows="3"
+              placeholder="Type your reply..."
+            ></textarea>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="btn-primary"
+                (click)="sendReply()"
+                [disabled]="sending"
+              >
+                <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                </svg>
+                {{ sending ? 'Sending...' : 'Send Reply' }}
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                (click)="closeThread()"
+                [disabled]="closing"
+              >
+                {{ closing ? 'Closing...' : 'Close' }}
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="thread.status === 'CLOSED'" class="border-t border-gray-200 pt-4">
+            <p class="text-gray-500 italic mb-3">This thread is closed.</p>
+            <button type="button" class="btn-secondary" (click)="reopenThread()" [disabled]="reopening">
+              {{ reopening ? 'Reopening...' : 'Reopen' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

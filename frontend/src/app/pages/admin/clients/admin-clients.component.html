@@ -1,0 +1,389 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Page Header -->
+  <ui-page-header
+    title="Client Registration"
+    subtitle="Company Master Management">
+  </ui-page-header>
+
+  <!-- Alert Messages -->
+  <div *ngIf="error" class="alert error mb-4">{{ error }}</div>
+  <div *ngIf="success" class="alert success mb-4">{{ success }}</div>
+
+  <!-- Back Button -->
+  <div *ngIf="selectedClient" class="mb-4">
+    <ui-button variant="secondary" (clicked)="goBack()">
+      &larr; Back to Clients List
+    </ui-button>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div *ngIf="selectedClient" class="border-b border-gray-200 mb-6">
+    <nav class="-mb-px flex space-x-8">
+      <a
+        [class]="activeTab === 'company' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
+        [routerLink]="['/admin/clients', selectedClient.id, 'company']">
+        Company Details
+      </a>
+      <a
+        [class]="activeTab === 'branches' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
+        [routerLink]="['/admin/clients', selectedClient.id, 'branches']">
+        Branches <ui-status-badge *ngIf="branches.length" variant="info" size="sm">{{ branches.length }}</ui-status-badge>
+      </a>
+      <a
+        [class]="activeTab === 'compliances' ? (branchForCompliance ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-400 cursor-not-allowed') : (branchForCompliance ? 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' : 'border-transparent text-gray-400 cursor-not-allowed')"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        [routerLink]="branchForCompliance ? ['/admin/clients', selectedClient.id, 'compliances'] : null">
+        Compliance Applicability
+      </a>
+    </nav>
+  </div>
+
+  <!-- TAB 1: COMPANY DETAILS -->
+  <div *ngIf="activeTab === 'company'">
+    <div class="card">
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">
+        {{ selectedClient ? 'Edit' : 'Create' }} Client Company
+      </h3>
+
+      <!-- Create Client Form -->
+      <form (ngSubmit)="createClient()" *ngIf="!selectedClient" class="space-y-6">
+        <ui-form-input
+          label="Company Name"
+          [(ngModel)]="clientForm.clientName"
+          name="clientName"
+          placeholder="Enter company name"
+          [required]="true">
+        </ui-form-input>
+
+        <ui-button variant="primary" type="submit" [disabled]="!clientForm.clientName">
+          Create Client
+        </ui-button>
+      </form>
+
+      <!-- Client Info Display -->
+      <div *ngIf="selectedClient" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-lg p-6">
+        <div>
+          <div class="text-sm text-gray-500 mb-1">Client Code</div>
+          <div class="text-base font-medium text-gray-900">{{ selectedClient.clientCode || '-' }}</div>
+        </div>
+        <div>
+          <div class="text-sm text-gray-500 mb-1">Name</div>
+          <div class="text-base font-medium text-gray-900">{{ selectedClient.clientName }}</div>
+        </div>
+        <div>
+          <div class="text-sm text-gray-500 mb-1">Code</div>
+          <div class="text-base font-medium text-gray-900">{{ selectedClient.clientCode }}</div>
+        </div>
+        <div>
+          <div class="text-sm text-gray-500 mb-1">Status</div>
+          <ui-status-badge [status]="selectedClient.status || 'ACTIVE'"></ui-status-badge>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENT USERS SECTION -->
+    <div class="card mt-6" *ngIf="selectedClient">
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">
+        Client Users for {{ selectedClient.clientName }}
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <ui-form-select
+          label="Select existing Client User"
+          [(ngModel)]="selectedClientUserId"
+          [options]="clientUserSelectOptions"
+          placeholder="Select user"
+          [disabled]="loading || availableClientUsers.length === 0">
+        </ui-form-select>
+
+        <div class="flex items-end">
+          <ui-button variant="primary" [fullWidth]="true" (clicked)="linkClientUser()" [disabled]="loading || !selectedClientUserId">
+            Link User
+          </ui-button>
+        </div>
+      </div>
+
+      <ui-data-table
+        *ngIf="clientUsers.length > 0"
+        [columns]="clientUsersColumns"
+        [data]="clientUsers">
+
+        <ng-template uiTableCell="action" let-row>
+          <ui-button variant="danger" size="sm" (clicked)="unlinkClientUser(row)">Unlink</ui-button>
+        </ng-template>
+      </ui-data-table>
+
+      <ui-empty-state
+        *ngIf="clientUsers.length === 0"
+        title="No client users linked"
+        description="No client users linked to this company yet.">
+      </ui-empty-state>
+    </div>
+
+    <!-- ALL CLIENTS LIST -->
+    <div class="card" *ngIf="!selectedClient">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">All Client Companies</h3>
+
+      <ui-data-table
+        [columns]="allClientsColumns"
+        [data]="clients"
+        [loading]="loading"
+        emptyMessage="No clients found">
+
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status || 'ACTIVE'"></ui-status-badge>
+        </ng-template>
+
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex gap-2">
+            <ui-button variant="primary" size="sm" [routerLink]="['/admin/clients', row.id, 'branches']">Manage</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="deleteClient(row)">Delete</ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+
+  <!-- TAB 2: BRANCHES -->
+  <div *ngIf="activeTab === 'branches' && selectedClient" class="tab-content">
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ editingBranchId ? 'Edit' : 'Add' }} Branch</h3>
+
+      <form (ngSubmit)="createOrUpdateBranch()" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ui-form-input
+            label="Branch Name"
+            [(ngModel)]="branchForm.branchName"
+            name="branchName"
+            placeholder="e.g., Head Office"
+            [required]="true">
+          </ui-form-input>
+
+          <ui-form-select
+            label="Branch Type"
+            [(ngModel)]="branchForm.branchType"
+            name="branchType"
+            [options]="branchTypeOptions">
+          </ui-form-select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ui-form-select
+            label="State Code"
+            [(ngModel)]="branchForm.stateCode"
+            name="stateCode"
+            [options]="stateSelectOptions"
+            placeholder="Select state">
+          </ui-form-select>
+
+          <ui-form-input
+            label="Headcount"
+            type="number"
+            [(ngModel)]="branchForm.headcount"
+            name="headcount"
+            [readonly]="true"
+            hint="Auto-calculated from Employee + Contractor count">
+          </ui-form-input>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Address *</label>
+          <textarea
+            [(ngModel)]="branchForm.address"
+            name="address"
+            rows="3"
+            placeholder="Enter full address"
+            required
+            class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ui-form-input
+            label="Employee Count"
+            type="number"
+            [(ngModel)]="branchForm.employeeCount"
+            name="employeeCount">
+          </ui-form-input>
+
+          <ui-form-input
+            label="Contractor Count"
+            type="number"
+            [(ngModel)]="branchForm.contractorCount"
+            name="contractorCount">
+          </ui-form-input>
+        </div>
+
+        <div class="border-t border-gray-200 pt-4 mt-2">
+          <h4 class="text-sm font-semibold text-gray-800 mb-3">Branch User Login (auto-created on add)</h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ui-form-input
+              label="User Name"
+              [(ngModel)]="branchForm.branchUserName"
+              name="branchUserName"
+              placeholder="e.g., Branch Manager">
+            </ui-form-input>
+
+            <ui-form-input
+              label="Email"
+              type="email"
+              [(ngModel)]="branchForm.branchUserEmail"
+              name="branchUserEmail"
+              placeholder="branch@example.com">
+            </ui-form-input>
+
+            <ui-form-input
+              label="Password"
+              [(ngModel)]="branchForm.branchUserPassword"
+              name="branchUserPassword"
+              placeholder="Leave empty to auto-generate">
+            </ui-form-input>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">If left empty, a secure password is auto-generated. Branch user is created only when adding a new branch.</p>
+        </div>
+
+        <div class="flex gap-3">
+          <ui-button variant="primary" type="submit" [disabled]="isSavingBranch" [loading]="isSavingBranch">
+            {{ editingBranchId ? 'Update' : 'Add' }} Branch
+          </ui-button>
+          <ui-button variant="secondary" *ngIf="editingBranchId" (clicked)="resetBranchForm()">
+            Cancel
+          </ui-button>
+        </div>
+
+        <div class="mt-2 text-green-600" *ngIf="branchSaveMessage">{{ branchSaveMessage }}</div>
+        <div class="mt-2 text-red-600" *ngIf="branchSaveError">{{ branchSaveError }}</div>
+        <div class="mt-2 text-amber-600" *ngIf="branchUserErrorMessage">
+          Branch user was not auto-created: {{ branchUserErrorMessage }}
+        </div>
+      </form>
+    </div>
+
+    <div *ngIf="createdBranchUser" class="card mt-4 bg-green-50 border border-green-200">
+      <div class="flex items-start justify-between">
+        <div>
+          <h4 class="text-sm font-semibold text-green-800 mb-1">Branch User Created</h4>
+          <p class="text-sm text-green-700">
+            <strong>Email:</strong> {{ createdBranchUser.email }}
+            &nbsp;|&nbsp;
+            <strong>Password:</strong> {{ createdBranchUser.password }}
+          </p>
+          <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
+        </div>
+        <button (click)="createdBranchUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+      </div>
+    </div>
+
+    <div class="card mt-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Branches List</h3>
+
+      <ui-data-table
+        [columns]="branchesColumns"
+        [data]="branches"
+        emptyMessage="No branches added yet. Add your first branch above.">
+
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex gap-2 flex-wrap">
+            <ui-button variant="outline" size="sm" (clicked)="editBranch(row)">Edit</ui-button>
+            <ui-button variant="primary" size="sm" (clicked)="selectBranchForCompliance(row)">Compliance</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="selectBranchForContractors(row)">Contractors</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="deleteBranch(row.id)">Delete</ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+
+  <!-- BRANCH CONTRACTORS SECTION -->
+  <div id="branchContractorsCard" class="card mt-6" *ngIf="activeTab === 'branches' && branchForContractors">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Contractors for {{ branchForContractors.branchName }}</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <ui-form-select
+        label="Select Contractor User"
+        [(ngModel)]="selectedContractorUserId"
+        [options]="contractorSelectOptions"
+        placeholder="Select contractor"
+        [disabled]="loading || availableContractors.length === 0">
+      </ui-form-select>
+
+      <div class="flex items-end">
+        <ui-button variant="primary" [fullWidth]="true" (clicked)="linkContractorToBranch()" [disabled]="loading || !selectedContractorUserId">
+          Link Contractor
+        </ui-button>
+      </div>
+    </div>
+
+    <ui-data-table
+      *ngIf="branchContractors.length > 0"
+      [columns]="contractorColumns"
+      [data]="branchContractors">
+
+      <ng-template uiTableCell="action" let-row>
+        <ui-button variant="danger" size="sm" (clicked)="unlinkContractorFromBranch(row)">Unlink</ui-button>
+      </ng-template>
+    </ui-data-table>
+
+    <ui-empty-state
+      *ngIf="branchContractors.length === 0"
+      title="No contractors linked"
+      description="No contractors linked to this branch yet.">
+    </ui-empty-state>
+  </div>
+
+  <!-- TAB 3: COMPLIANCE APPLICABILITY -->
+  <div *ngIf="activeTab === 'compliances' && branchForCompliance" class="tab-content">
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Compliance Applicability for {{ branchForCompliance.branchName }}</h3>
+          <p class="text-sm text-gray-500 mt-1">Auto-applicable items are prefixed and disabled</p>
+        </div>
+        <ui-button variant="secondary" [disabled]="isRecomputing || !branchForCompliance" [loading]="isRecomputing" (clicked)="recomputeApplicability()">
+          Recompute Applicability
+        </ui-button>
+      </div>
+
+      <p class="text-sm text-gray-600 mb-4">
+        Select which compliances apply to this branch:
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+        <label *ngFor="let c of compliances; trackBy: trackById"
+          class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+          [class.bg-primary-50]="selectedComplianceIds.has(c.complianceId)"
+          [class.border-primary-200]="selectedComplianceIds.has(c.complianceId)">
+          <input
+            type="checkbox"
+            [checked]="selectedComplianceIds.has(c.complianceId)"
+            (change)="toggleCompliance(c.complianceId, $any($event.target).checked)"
+            [disabled]="c.autoApplicable || !c.applicable"
+            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-gray-900">
+              <ui-status-badge *ngIf="c.autoApplicable" variant="info" size="sm">AUTO</ui-status-badge>
+              {{ c.complianceName }}
+            </div>
+            <div class="text-xs text-gray-500">{{ c.lawName }} ({{ c.frequency }})</div>
+            <div *ngIf="!c.applicable" class="text-xs text-red-500">({{ c.reason }})</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <ui-button variant="primary" (clicked)="saveBranchCompliances()" [disabled]="isSavingCompliances" [loading]="isSavingCompliances">
+          Save Compliances
+        </ui-button>
+        <ui-button variant="secondary" [routerLink]="['/admin/clients', selectedClient?.id, 'branches']">
+          Back to Branches
+        </ui-button>
+        <span class="text-sm text-gray-600">Selected: {{ selectedCount }} compliance(s)</span>
+      </div>
+
+      <div class="mt-3 text-green-600 text-sm" *ngIf="complianceSaveMessage">{{ complianceSaveMessage }}</div>
+      <div class="mt-3 text-red-600 text-sm" *ngIf="complianceSaveError">{{ complianceSaveError }}</div>
+    </div>
+  </div>
+</div>

@@ -71,6 +71,21 @@ export class ContractorDocumentEntity {
   @JoinColumn({ name: 'uploaded_by_user_id' })
   uploadedBy?: UserEntity;
 
+  @Column({ type: 'varchar', default: 'UPLOADED' })
+  status: string; // UPLOADED, PENDING_REVIEW, APPROVED, REJECTED, EXPIRED
+
+  @Column({ name: 'expiry_date', type: 'date', nullable: true })
+  expiryDate: string | null;
+
+  @Column({ name: 'reviewed_by_user_id', type: 'uuid', nullable: true })
+  reviewedByUserId: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt: Date | null;
+
+  @Column({ name: 'review_notes', type: 'text', nullable: true })
+  reviewNotes: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

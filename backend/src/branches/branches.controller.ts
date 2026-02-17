@@ -17,7 +17,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CompliancesService } from '../compliances/compliances.service';
 
-@Controller('api/admin')
+@Controller({ path: 'admin', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class BranchesController {
@@ -77,6 +77,7 @@ export class BranchesController {
   delete(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string | null,
+    @Query('mode') mode: string | undefined,
     @Req() req: any,
   ) {
     return this.service.delete(
@@ -84,6 +85,7 @@ export class BranchesController {
       req.user?.userId,
       req.user?.roleCode,
       reason ?? null,
+      mode === 'force' ? 'force' : 'request',
     );
   }
 
@@ -117,7 +119,9 @@ export class BranchesController {
 
   // --- Admin: List all applicable compliances for a branch ---
   @Get('branches/:id/applicable-compliances')
-  async listApplicableCompliances(@Param('id', ParseUUIDPipe) branchId: string) {
+  async listApplicableCompliances(
+    @Param('id', ParseUUIDPipe) branchId: string,
+  ) {
     // Return all compliance mappings for this branch
     // (Admin can see all, regardless of CRM assignment)
     return this.service.listApplicableCompliances(branchId);
@@ -130,6 +134,10 @@ export class BranchesController {
     @Body('complianceIds') complianceIds: string[],
     @Req() req: any,
   ) {
-    return this.service.saveApplicableCompliances(branchId, complianceIds, req.user?.userId);
+    return this.service.saveApplicableCompliances(
+      branchId,
+      complianceIds,
+      req.user?.userId,
+    );
   }
 }

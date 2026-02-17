@@ -1,0 +1,270 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <div>
+    <!-- Page Header -->
+    <ui-page-header
+      title="User Management"
+      description="Create and manage system users"
+      icon="users">
+    </ui-page-header>
+
+    <!-- Alert Messages -->
+    <div *ngIf="msg" class="alert alert-success mb-4">{{ msg }}</div>
+    <div *ngIf="err" class="alert alert-error mb-4">{{ err }}</div>
+
+    <!-- Create User — horizontal top bar -->
+    <div class="card mb-6">
+      <div class="flex items-center justify-between mb-4 cursor-pointer" (click)="showCreateForm = !showCreateForm">
+        <h3 class="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+          </svg>
+          Create User
+        </h3>
+        <button class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+          {{ showCreateForm ? 'Hide ▲' : 'Show ▼' }}
+        </button>
+      </div>
+
+      <div *ngIf="showCreateForm">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3 items-end">
+          <ui-form-select
+            label="Role"
+            [(ngModel)]="roleId"
+            (ngModelChange)="onRoleChanged()"
+            [options]="roleOptions"
+            [disabled]="rolesLoading || roles.length === 0">
+          </ui-form-select>
+
+          <ui-form-select
+            *ngIf="isClientRole"
+            label="Company"
+            [(ngModel)]="clientId"
+            [options]="clientOptions"
+            [disabled]="clientsLoading || clients.length === 0">
+          </ui-form-select>
+
+          <ui-form-select
+            *ngIf="showOwnerCcoSelector"
+            label="Assign CCO"
+            [(ngModel)]="ownerCcoId"
+            [options]="ccoOptions"
+            [disabled]="ccoLoading || ccoUsers.length === 0">
+          </ui-form-select>
+
+          <ui-form-input
+            label="Name"
+            [(ngModel)]="name">
+          </ui-form-input>
+
+          <ui-form-input
+            label="Email"
+            type="email"
+            [(ngModel)]="email">
+          </ui-form-input>
+
+          <ui-form-input
+            label="Mobile"
+            [(ngModel)]="mobile">
+          </ui-form-input>
+
+          <ui-form-input
+            label="Password"
+            type="password"
+            [(ngModel)]="password">
+          </ui-form-input>
+
+          <ui-button
+            variant="primary"
+            (click)="create()"
+            [disabled]="isLoading || rolesLoading || clientsLoading"
+            class="w-full">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Create
+          </ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Debug state (temporary) -->
+    <div class="text-xs text-gray-500 mb-3">
+      State: loading={{ isLoading }} | users={{ users.length }} | total={{ totalCount }}
+    </div>
+
+    <!-- Users List — full width -->
+    <div class="card overflow-x-auto">
+        <h3 class="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          Users
+        </h3>
+
+        <!-- Filters -->
+        <div class="mb-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <ui-form-input
+              type="text"
+              [(ngModel)]="searchTerm"
+              (ngModelChange)="onFiltersChanged()"
+              placeholder="Search name"
+              [disabled]="isLoading">
+            </ui-form-input>
+
+            <ui-form-select
+              [(ngModel)]="filterRoleCode"
+              (ngModelChange)="onFiltersChanged()"
+              [options]="roleFilterOptions"
+              [disabled]="isLoading">
+            </ui-form-select>
+
+            <ui-form-select
+              [(ngModel)]="sortBy"
+              (ngModelChange)="onSortChange()"
+              [options]="sortOptions"
+              [disabled]="isLoading">
+            </ui-form-select>
+
+            <div class="flex items-center gap-2">
+              <ui-button
+                variant="secondary"
+                (click)="resetFilters()"
+                [disabled]="isLoading"
+                class="flex-grow">
+                Clear
+              </ui-button>
+              <ui-status-badge variant="info" class="whitespace-nowrap">
+                {{ currentPageCount }} / {{ totalCount }}
+              </ui-status-badge>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <ui-data-table
+          [columns]="usersColumns"
+          [data]="users"
+          [loading]="isLoading">
+          
+          <!-- User Code -->
+          <ng-template uiTableCell="userCode" let-row>
+            <span class="font-medium text-gray-900">{{ row['userCode'] ? row['userCode'] : '-' }}</span>
+          </ng-template>
+          
+          <!-- Role -->
+          <ng-template uiTableCell="role" let-row>
+            <span class="text-sm text-gray-600">{{ getRoleLabelForRow(row) }}</span>
+          </ng-template>
+          
+          <!-- Email -->
+          <ng-template uiTableCell="email" let-row>
+            <span class="text-sm text-gray-600">{{ row.email }}</span>
+          </ng-template>
+          
+          <!-- Mobile -->
+          <ng-template uiTableCell="mobile" let-row>
+            <span class="text-sm text-gray-600">{{ row['mobile'] || '-' }}</span>
+          </ng-template>
+          
+          <!-- Name -->
+          <ng-template uiTableCell="name" let-row>
+            <span class="text-sm text-gray-900">{{ row.name }}</span>
+          </ng-template>
+          
+          <!-- Status -->
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [variant]="row.isActive ? 'success' : 'error'">
+              {{ row.isActive ? 'Active' : 'Inactive' }}
+            </ui-status-badge>
+          </ng-template>
+          
+          <!-- Actions -->
+          <ng-template uiTableCell="actions" let-row>
+            <div class="flex justify-end gap-1 sm:gap-2" *ngIf="!isProtectedRole(row)">
+              <ui-button
+                *ngIf="canModifyUser(row) && !row.isActive"
+                variant="primary"
+                size="sm"
+                (click)="toggle(row)"
+                [disabled]="actionUserId === row.id">
+                {{ actionUserId === row.id ? 'Processing...' : 'Activate' }}
+              </ui-button>
+              <ui-button
+                *ngIf="canModifyUser(row) && row.isActive"
+                variant="secondary"
+                size="sm"
+                class="text-amber-600 border-amber-300 hover:bg-amber-50"
+                (click)="toggle(row)"
+                [disabled]="actionUserId === row.id">
+                {{ actionUserId === row.id ? 'Processing...' : 'Deactivate' }}
+              </ui-button>
+              <ui-button
+                *ngIf="canModifyUser(row)"
+                variant="danger"
+                size="sm"
+                (click)="deleteUser(row)"
+                [disabled]="actionUserId === row.id">
+                {{ actionUserId === row.id ? 'Deleting...' : 'Delete' }}
+              </ui-button>
+            </div>
+          </ng-template>
+          
+          <!-- Empty State -->
+          <ng-template #emptyState>
+            <ui-empty-state
+              icon="users"
+              title="No users found"
+              description="No users match your search criteria">
+            </ui-empty-state>
+          </ng-template>
+        </ui-data-table>
+
+        <!-- Pagination -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 mt-4 border-t border-gray-200">
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-700">Rows per page</label>
+            <ui-form-select
+              [(ngModel)]="pageSize"
+              (ngModelChange)="onPageSizeChange()"
+              [options]="pageSizeSelectOptions"
+              [disabled]="isLoading">
+            </ui-form-select>
+          </div>
+          <div class="flex items-center gap-4">
+            <ui-button
+              variant="secondary"
+              size="sm"
+              (click)="prevPage()"
+              [disabled]="currentPage <= 1 || isLoading">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </ui-button>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-gray-700">Page</span>
+              <input
+                class="w-16 rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light text-center"
+                type="number"
+                [ngModel]="currentPage"
+                (ngModelChange)="goToPage($event)"
+                min="1"
+                [max]="totalPages"
+                [disabled]="isLoading"
+              />
+              <span class="text-sm text-gray-700">of {{ totalPages }}</span>
+            </div>
+            <ui-button
+              variant="secondary"
+              size="sm"
+              (click)="nextPage()"
+              [disabled]="currentPage >= totalPages || isLoading">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </ui-button>
+          </div>
+        </div>
+      </div>
+  </div>
+</div>

@@ -7,6 +7,7 @@ import {
   Req,
   UseGuards,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -18,7 +19,7 @@ import { Roles } from '../auth/roles.decorator';
 import { BranchesService } from './branches.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 
-@Controller('api/crm')
+@Controller({ path: 'crm', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmBranchCompliancesController {
@@ -48,13 +49,14 @@ export class CrmBranchCompliancesController {
     @Req() req: any,
   ) {
     const branch = await this.branchesService.findById(branchId);
-    // Validate CRM assignment
     const isAssigned = await this.assignmentsService.isClientAssignedToCrm(
       branch.clientId,
       req.user.userId,
     );
     if (!isAssigned) {
-      throw new Error('Branch client is not assigned to the current CRM user');
+      throw new ForbiddenException(
+        'Branch client is not assigned to the current CRM user',
+      );
     }
     const mappings = await this.mappingRepo.find({
       where: { branchId, isApplicable: true },
@@ -71,13 +73,14 @@ export class CrmBranchCompliancesController {
     @Req() req: any,
   ) {
     const branch = await this.branchesService.findById(branchId);
-    // Validate CRM assignment
     const isAssigned = await this.assignmentsService.isClientAssignedToCrm(
       branch.clientId,
       req.user.userId,
     );
     if (!isAssigned) {
-      throw new Error('Branch client is not assigned to the current CRM user');
+      throw new ForbiddenException(
+        'Branch client is not assigned to the current CRM user',
+      );
     }
     // Remove old
     await this.mappingRepo.delete({ branchId });

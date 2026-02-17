@@ -15,14 +15,20 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { HelpdeskService, AssignTicketDto, CreateTicketDto, PostMessageDto, UpdateTicketStatusDto } from './helpdesk.service';
+import {
+  HelpdeskService,
+  AssignTicketDto,
+  CreateTicketDto,
+  PostMessageDto,
+  UpdateTicketStatusDto,
+} from './helpdesk.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // ADMIN controller: view all tickets
-@Controller('api/admin/helpdesk')
+@Controller({ path: 'admin/helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminHelpdeskController {
@@ -75,7 +81,7 @@ const uploadOptions = {
 };
 
 // CLIENT controller: create and list own tickets
-@Controller('api/client/helpdesk')
+@Controller({ path: 'client/helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class ClientHelpdeskController {
@@ -87,7 +93,10 @@ export class ClientHelpdeskController {
   }
 
   @Post('tickets')
-  create(@Req() req: any, @Body() dto: import('./helpdesk.service').CreateTicketDto) {
+  create(
+    @Req() req: any,
+    @Body() dto: import('./helpdesk.service').CreateTicketDto,
+  ) {
     return this.svc.createTicket(req.user, dto);
   }
 
@@ -98,7 +107,7 @@ export class ClientHelpdeskController {
 }
 
 // PF_TEAM controller: view and manage assigned tickets
-@Controller('api/pf-team/helpdesk')
+@Controller({ path: 'pf-team/helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('PF_TEAM')
 export class PfTeamHelpdeskController {
@@ -116,14 +125,18 @@ export class PfTeamHelpdeskController {
 }
 
 // Messages controller: post messages, upload files
-@Controller('api/helpdesk/tickets/:ticketId')
+@Controller({ path: 'helpdesk/tickets/:ticketId', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT', 'PF_TEAM', 'ADMIN', 'CRM')
 export class HelpdeskMessagesController {
   constructor(private readonly svc: HelpdeskService) {}
 
   @Post('messages')
-  postMessage(@Req() req: any, @Param('ticketId') ticketId: string, @Body() dto: import('./helpdesk.service').PostMessageDto) {
+  postMessage(
+    @Req() req: any,
+    @Param('ticketId') ticketId: string,
+    @Body() dto: import('./helpdesk.service').PostMessageDto,
+  ) {
     return this.svc.postMessage(req.user, ticketId, dto);
   }
 
@@ -145,7 +158,7 @@ export class HelpdeskMessagesController {
 }
 
 // CRM controller: view all tickets
-@Controller('api/crm/helpdesk')
+@Controller({ path: 'crm/helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmHelpdeskController {
@@ -159,15 +172,18 @@ export class CrmHelpdeskController {
 
 // Update shared controller @Roles to include CRM
 @Roles('CLIENT', 'PF_TEAM', 'ADMIN', 'CRM')
-
-@Controller('api/helpdesk')
+@Controller({ path: 'helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('PF_TEAM', 'ADMIN', 'CRM')
 export class HelpdeskManagementController {
   constructor(private readonly svc: HelpdeskService) {}
 
   @Patch('tickets/:id/status')
-  updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: import('./helpdesk.service').UpdateTicketStatusDto) {
+  updateStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: import('./helpdesk.service').UpdateTicketStatusDto,
+  ) {
     return this.svc.updateTicketStatusScoped(req.user, id, dto);
   }
 }

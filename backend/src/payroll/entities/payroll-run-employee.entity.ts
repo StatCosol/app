@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ name: 'payroll_run_employees' })
 @Index(['runId', 'employeeCode'], { unique: true })
@@ -33,16 +40,40 @@ export class PayrollRunEmployeeEntity {
   @Column({ name: 'esic', type: 'varchar', length: 30, nullable: true })
   esic: string | null;
 
-  @Column({ name: 'gross_earnings', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'gross_earnings',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   grossEarnings: string;
 
-  @Column({ name: 'total_deductions', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'total_deductions',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   totalDeductions: string;
 
-  @Column({ name: 'employer_cost', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'employer_cost',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   employerCost: string;
 
-  @Column({ name: 'net_pay', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'net_pay',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   netPay: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

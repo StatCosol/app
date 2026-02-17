@@ -7,6 +7,8 @@ import { NotificationsService } from './notifications.service';
 import { AdminNotificationsController } from './admin-notifications.controller';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
 import { NotificationsController } from './notifications.controller';
+import { NotificationsInboxController } from './notifications-inbox.controller';
+import { NotificationsInboxService } from './notifications-inbox.service';
 import { AuthModule } from '../auth/auth.module';
 import { AssignmentsModule } from '../assignments/assignments.module';
 
@@ -21,8 +23,12 @@ import { AssignmentsModule } from '../assignments/assignments.module';
     ]),
     AssignmentsModule,
   ],
-  controllers: [AdminNotificationsController, NotificationsController],
-  providers: [NotificationsService],
+  controllers: [
+    AdminNotificationsController,
+    NotificationsController,
+    NotificationsInboxController,
+  ],
+  providers: [NotificationsService, NotificationsInboxService],
   exports: [NotificationsService],
 })
 export class NotificationsModule {}

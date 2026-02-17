@@ -1,0 +1,411 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Compliance Status"
+    description="Company compliance health report - live, auto-calculated"
+    icon="clipboard-check">
+  </ui-page-header>
+
+  <!-- Filters -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <ui-form-select
+        id="month"
+        label="Month"
+        [(ngModel)]="month"
+        (ngModelChange)="onFilterChange()"
+        [options]="monthOptions">
+      </ui-form-select>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+        <input
+          type="number"
+          [min]="2020"
+          [max]="2100"
+          [(ngModel)]="year"
+          (change)="onFilterChange()"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
+
+      <ui-form-select
+        id="branch"
+        label="Branch"
+        [(ngModel)]="selectedBranchId"
+        (ngModelChange)="onFilterChange()"
+        [options]="branchOptions">
+      </ui-form-select>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="flex items-center justify-center py-12">
+    <ui-loading-spinner size="lg"></ui-loading-spinner>
+  </div>
+
+  <!-- 1. KPI Summary Cards -->
+  <div *ngIf="summary && !loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+    <div class="text-center p-4 rounded-xl border-2 shadow-sm"
+         [ngClass]="{
+           'bg-green-50 border-green-300': summary.overallCompliancePct >= 85,
+           'bg-yellow-50 border-yellow-300': summary.overallCompliancePct >= 70 && summary.overallCompliancePct < 85,
+           'bg-red-50 border-red-300': summary.overallCompliancePct < 70
+         }">
+      <div class="text-2xl font-bold"
+           [ngClass]="{
+             'text-green-700': summary.overallCompliancePct >= 85,
+             'text-yellow-700': summary.overallCompliancePct >= 70 && summary.overallCompliancePct < 85,
+             'text-red-700': summary.overallCompliancePct < 70
+           }">
+        {{ summary.overallCompliancePct }}%
+      </div>
+      <div class="text-xs font-medium text-gray-600 mt-1">Overall Compliance</div>
+    </div>
+
+    <div class="text-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div class="text-2xl font-bold text-gray-900">{{ summary.totalBranches }}</div>
+      <div class="text-xs text-gray-500 font-medium mt-1">Total Branches</div>
+    </div>
+
+    <div class="text-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div class="text-2xl font-bold text-gray-900">{{ summary.totalApplicable }}</div>
+      <div class="text-xs text-gray-500 font-medium mt-1">Applicable</div>
+    </div>
+
+    <div class="text-center p-4 bg-amber-50 rounded-xl border border-amber-200">
+      <div class="text-2xl font-bold text-amber-700">{{ summary.pending }}</div>
+      <div class="text-xs text-amber-600 font-medium mt-1">Pending</div>
+    </div>
+
+    <div class="text-center p-4 bg-red-50 rounded-xl border border-red-200">
+      <div class="text-2xl font-bold text-red-700">{{ summary.overdue }}</div>
+      <div class="text-xs text-red-600 font-medium mt-1">Overdue</div>
+    </div>
+
+    <div class="text-center p-4 rounded-xl border-2"
+         [ngClass]="{
+           'bg-red-100 border-red-400': summary.riskLevel === 'CRITICAL',
+           'bg-orange-50 border-orange-300': summary.riskLevel === 'HIGH',
+           'bg-yellow-50 border-yellow-300': summary.riskLevel === 'MEDIUM',
+           'bg-green-50 border-green-300': summary.riskLevel === 'LOW'
+         }">
+      <div class="text-lg font-bold"
+           [ngClass]="{
+             'text-red-700': summary.riskLevel === 'CRITICAL',
+             'text-orange-700': summary.riskLevel === 'HIGH',
+             'text-yellow-700': summary.riskLevel === 'MEDIUM',
+             'text-green-700': summary.riskLevel === 'LOW'
+           }">
+        {{ summary.riskLevel }}
+      </div>
+      <div class="text-xs text-gray-600 font-medium mt-1">Risk Level</div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div *ngIf="!loading" class="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-6 overflow-x-auto">
+    <button
+      *ngFor="let tab of [
+        { key: 'branches', label: 'Branches' },
+        { key: 'tasks', label: 'MCD Tasks' },
+        { key: 'returns', label: 'Returns & Filings' },
+        { key: 'contractors', label: 'Contractors' },
+        { key: 'audit', label: 'Audit Impact' }
+      ]"
+      (click)="onTabChange(tab.key)"
+      [class]="activeTab === tab.key
+        ? 'bg-white shadow-sm text-gray-900 font-semibold'
+        : 'text-gray-500 hover:text-gray-700'"
+      class="px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all">
+      {{ tab.label }}
+    </button>
+  </div>
+
+  <!-- 2. Branch-wise Compliance Table -->
+  <div *ngIf="activeTab === 'branches' && !loading">
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h3 class="text-base font-semibold text-gray-900">Branch-wise Compliance</h3>
+        <p class="text-sm text-gray-500 mt-0.5">Compliance status per branch for the selected period</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Branch</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">State</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Compliance %</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Approved</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Pending</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Overdue</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let b of branchRows" class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-gray-900">{{ b.branchName }}</td>
+              <td class="px-4 py-3 text-gray-600">{{ b.stateCode || '-' }}</td>
+              <td class="px-4 py-3 text-center">
+                <div class="flex items-center justify-center gap-2">
+                  <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all"
+                         [ngClass]="pctBarColor(b.compliancePct)"
+                         [style.width]="pctBarWidth(b.compliancePct)"></div>
+                  </div>
+                  <span class="text-sm font-semibold" [ngClass]="{
+                    'text-green-700': b.compliancePct >= 85,
+                    'text-yellow-700': b.compliancePct >= 70 && b.compliancePct < 85,
+                    'text-red-700': b.compliancePct < 70
+                  }">{{ b.compliancePct }}%</span>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-center text-green-700 font-medium">{{ b.approved }}/{{ b.totalApplicable }}</td>
+              <td class="px-4 py-3 text-center text-amber-700 font-medium">{{ b.pending }}</td>
+              <td class="px-4 py-3 text-center text-red-700 font-medium">{{ b.overdue }}</td>
+              <td class="px-4 py-3 text-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase"
+                      [ngClass]="{
+                        'bg-red-100 text-red-800': b.riskLevel === 'CRITICAL',
+                        'bg-orange-100 text-orange-800': b.riskLevel === 'HIGH',
+                        'bg-yellow-100 text-yellow-800': b.riskLevel === 'MEDIUM',
+                        'bg-green-100 text-green-800': b.riskLevel === 'LOW'
+                      }">
+                  {{ b.riskLevel }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ui-empty-state
+        *ngIf="branchRows.length === 0"
+        icon="building-office"
+        message="No branch compliance data found for this period">
+      </ui-empty-state>
+    </div>
+  </div>
+
+  <!-- 3. MCD Tasks -->
+  <div *ngIf="activeTab === 'tasks' && !loading">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <ui-form-select
+        id="category"
+        label="Category / Law Family"
+        [(ngModel)]="taskCategory"
+        (ngModelChange)="onCategoryChange()"
+        [options]="categoryOptions">
+      </ui-form-select>
+
+      <ui-form-select
+        id="status"
+        label="Status"
+        [(ngModel)]="taskStatus"
+        (ngModelChange)="onTaskStatusChange()"
+        [options]="[
+          { value: '', label: 'All Statuses' },
+          { value: 'PENDING', label: 'Pending' },
+          { value: 'IN_PROGRESS', label: 'In Progress' },
+          { value: 'SUBMITTED', label: 'Submitted' },
+          { value: 'APPROVED', label: 'Approved' },
+          { value: 'REJECTED', label: 'Rejected' },
+          { value: 'OVERDUE', label: 'Overdue' }
+        ]">
+      </ui-form-select>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Max Rows</label>
+        <input
+          type="number"
+          min="0"
+          max="500"
+          [(ngModel)]="taskLimit"
+          (change)="onTaskLimitChange()"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p class="text-xs text-gray-500 mt-1">0-500 (default 100)</p>
+      </div>
+    </div>
+
+    <div *ngIf="error" class="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-2 text-sm">
+      {{ error }}
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <ui-data-table
+        [columns]="taskColumns"
+        [data]="tasks"
+        [loading]="false"
+        emptyMessage="No compliance tasks found for this period.">
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="delayDays" let-value>
+          <span *ngIf="value > 0" class="text-red-600 font-semibold">{{ value }}d</span>
+          <span *ngIf="!value || value === 0" class="text-gray-400">-</span>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+
+  <!-- 4. Returns & Filings -->
+  <div *ngIf="activeTab === 'returns' && !loading">
+    <div *ngIf="returnsData?.summary" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+      <div class="text-center p-3 bg-white rounded-xl border border-gray-200">
+        <div class="text-xl font-bold text-gray-900">{{ returnsData.summary.total }}</div>
+        <div class="text-xs text-gray-500 mt-0.5">Total</div>
+      </div>
+      <div class="text-center p-3 bg-green-50 rounded-xl border border-green-200">
+        <div class="text-xl font-bold text-green-700">{{ returnsData.summary.filed }}</div>
+        <div class="text-xs text-green-600 mt-0.5">Filed</div>
+      </div>
+      <div class="text-center p-3 bg-amber-50 rounded-xl border border-amber-200">
+        <div class="text-xl font-bold text-amber-700">{{ returnsData.summary.pending }}</div>
+        <div class="text-xs text-amber-600 mt-0.5">Pending</div>
+      </div>
+      <div class="text-center p-3 bg-red-50 rounded-xl border border-red-200">
+        <div class="text-xl font-bold text-red-700">{{ returnsData.summary.overdue }}</div>
+        <div class="text-xs text-red-600 mt-0.5">Overdue</div>
+      </div>
+      <div class="text-center p-3 bg-purple-50 rounded-xl border border-purple-200">
+        <div class="text-xl font-bold text-purple-700">{{ returnsData.summary.rejected }}</div>
+        <div class="text-xs text-purple-600 mt-0.5">Rejected</div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <ui-data-table
+        [columns]="returnsColumns"
+        [data]="returnsData?.data || []"
+        [loading]="false"
+        emptyMessage="No returns / filings found for this period.">
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="delay_days" let-value>
+          <span *ngIf="value > 0" class="text-red-600 font-semibold">{{ value }}d</span>
+          <span *ngIf="!value || value === 0" class="text-gray-400">-</span>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+
+  <!-- 5. Contractor Compliance Impact -->
+  <div *ngIf="activeTab === 'contractors' && !loading">
+    <div class="mb-6">
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h3 class="text-base font-semibold text-red-700">Least Compliant Contractors</h3>
+          <p class="text-sm text-gray-500 mt-0.5">Bottom 10 contractors by document compliance</p>
+        </div>
+        <ui-data-table
+          [columns]="contractorColumns"
+          [data]="contractorData?.leastCompliant || []"
+          [loading]="false"
+          emptyMessage="No contractor data available.">
+          <ng-template uiTableCell="compliancePct" let-row>
+            <div class="flex items-center gap-2">
+              <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all"
+                     [ngClass]="pctBarColor(row.compliancePct)"
+                     [style.width]="pctBarWidth(row.compliancePct)"></div>
+              </div>
+              <span class="text-sm font-semibold">{{ row.compliancePct }}%</span>
+            </div>
+          </ng-template>
+        </ui-data-table>
+      </div>
+    </div>
+
+    <div>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h3 class="text-base font-semibold text-green-700">Most Compliant Contractors</h3>
+          <p class="text-sm text-gray-500 mt-0.5">Top 10 contractors by document compliance</p>
+        </div>
+        <ui-data-table
+          [columns]="contractorColumns"
+          [data]="contractorData?.mostCompliant || []"
+          [loading]="false"
+          emptyMessage="No contractor data available.">
+          <ng-template uiTableCell="compliancePct" let-row>
+            <div class="flex items-center gap-2">
+              <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all"
+                     [ngClass]="pctBarColor(row.compliancePct)"
+                     [style.width]="pctBarWidth(row.compliancePct)"></div>
+              </div>
+              <span class="text-sm font-semibold">{{ row.compliancePct }}%</span>
+            </div>
+          </ng-template>
+        </ui-data-table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Audit Impact -->
+  <div *ngIf="activeTab === 'audit' && !loading">
+    <div *ngIf="auditData" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+      <div class="text-center p-3 bg-white rounded-xl border border-gray-200">
+        <div class="text-xl font-bold text-gray-900">{{ auditData.totalAudits }}</div>
+        <div class="text-xs text-gray-500 mt-0.5">Total Audits</div>
+      </div>
+      <div class="text-center p-3 bg-green-50 rounded-xl border border-green-200">
+        <div class="text-xl font-bold text-green-700">{{ auditData.completedAudits }}</div>
+        <div class="text-xs text-green-600 mt-0.5">Completed</div>
+      </div>
+      <div class="text-center p-3 bg-blue-50 rounded-xl border border-blue-200">
+        <div class="text-xl font-bold text-blue-700">{{ auditData.overallAuditScore }}%</div>
+        <div class="text-xs text-blue-600 mt-0.5">Audit Score</div>
+      </div>
+      <div class="text-center p-3 bg-amber-50 rounded-xl border border-amber-200">
+        <div class="text-xl font-bold text-amber-700">{{ auditData.openObservations }}</div>
+        <div class="text-xs text-amber-600 mt-0.5">Open NC</div>
+      </div>
+      <div class="text-center p-3 bg-red-50 rounded-xl border border-red-200">
+        <div class="text-xl font-bold text-red-700">{{ auditData.criticalObservations }}</div>
+        <div class="text-xs text-red-600 mt-0.5">Critical NC</div>
+      </div>
+      <div class="text-center p-3 bg-purple-50 rounded-xl border border-purple-200">
+        <div class="text-xl font-bold text-purple-700">{{ auditData.reverifyPending }}</div>
+        <div class="text-xs text-purple-600 mt-0.5">Re-verify</div>
+      </div>
+    </div>
+
+    <div *ngIf="auditData?.observations?.length" class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h3 class="text-base font-semibold text-gray-900">Open Audit Observations</h3>
+        <p class="text-sm text-gray-500 mt-0.5">Non-compliances impacting your compliance score</p>
+      </div>
+      <div class="divide-y divide-gray-100">
+        <div *ngFor="let obs of auditData.observations" class="px-5 py-4 hover:bg-gray-50">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-900 line-clamp-2">{{ obs.observation }}</p>
+              <p *ngIf="obs.category" class="text-xs text-gray-500 mt-1">{{ obs.category }}</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span *ngIf="obs.risk" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                    [ngClass]="{
+                      'bg-red-100 text-red-800': obs.risk === 'CRITICAL',
+                      'bg-orange-100 text-orange-800': obs.risk === 'HIGH',
+                      'bg-yellow-100 text-yellow-800': obs.risk === 'MEDIUM',
+                      'bg-green-100 text-green-800': obs.risk === 'LOW'
+                    }">
+                {{ obs.risk }}
+              </span>
+              <ui-status-badge [status]="obs.status"></ui-status-badge>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ui-empty-state
+      *ngIf="!auditData || auditData.observations?.length === 0"
+      icon="shield-check"
+      message="No open audit observations for this period">
+    </ui-empty-state>
+  </div>
+</div>

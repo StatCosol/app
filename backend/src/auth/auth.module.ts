@@ -6,6 +6,8 @@ import { UsersModule } from '../users/users.module';
 import { UserEntity } from '../users/entities/user.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AccessPolicyService } from './policies/access-policy.service';
+import { BranchAccessService } from './branch-access.service';
+import { LegitxReadOnlyGuard } from './policies/legitx-readonly.guard';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -26,7 +28,18 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AccessPolicyService],
-  exports: [JwtModule, AccessPolicyService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    AccessPolicyService,
+    BranchAccessService,
+    LegitxReadOnlyGuard,
+  ],
+  exports: [
+    JwtModule,
+    AccessPolicyService,
+    BranchAccessService,
+    LegitxReadOnlyGuard,
+  ],
 })
 export class AuthModule {}

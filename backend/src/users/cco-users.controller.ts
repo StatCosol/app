@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 
-@Controller('api/cco/users')
+@Controller({ path: 'cco/users', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CCO', 'ADMIN')
 export class CcoUsersController {

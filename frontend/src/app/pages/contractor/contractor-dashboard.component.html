@@ -1,0 +1,59 @@
+<!-- Header now handled by layout -->
+
+<main class="content">
+  <div class="page">
+    <ui-page-header 
+      title="Contractor Dashboard" 
+      description="Your task overview and compliance status" 
+      icon="briefcase">
+    </ui-page-header>
+
+    <!-- Loading State -->
+    <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
+
+    <!-- Error Banner -->
+    <div *ngIf="!loading && errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+      <span>{{ errorMsg }}</span>
+      <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+    </div>
+
+    <ng-container *ngIf="!loading && data">
+      <!-- KPI Grid using StatCardComponent -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <ui-stat-card
+          label="Due Today"
+          [value]="data.dueTodayCount"
+          color="info">
+        </ui-stat-card>
+        <ui-stat-card
+          label="Overdue"
+          [value]="data.overdueCount"
+          color="error">
+        </ui-stat-card>
+        <ui-stat-card
+          label="In Progress"
+          [value]="data.inProgressCount"
+          color="warning">
+        </ui-stat-card>
+        <ui-stat-card
+          label="Awaiting Approval"
+          [value]="data.awaitingApprovalCount"
+          color="primary">
+        </ui-stat-card>
+      </div>
+
+      <!-- Overdue Tasks Table using DataTableComponent -->
+      <div class="card">
+        <h3 class="card-title mb-4">Overdue Tasks</h3>
+        <ui-data-table
+          [columns]="overdueColumns"
+          [data]="overdueTableData"
+          emptyMessage="No overdue tasks">
+          <ng-template uiTableCell="dueDate" let-value>
+            <span class="badge badge-danger">{{ value }}</span>
+          </ng-template>
+        </ui-data-table>
+      </div>
+    </ng-container>
+  </div>
+</main>

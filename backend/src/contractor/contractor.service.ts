@@ -143,9 +143,76 @@ export class ContractorService {
       });
     }
 
+    // ── Document score & audit risk for the contractor ──
+    const now = new Date();
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const monthEnd = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+
+    // Required doc count
+    const [reqRow] = await this.branchContractorRepo.manager.query(
+      `SELECT COUNT(*) AS cnt FROM contractor_required_documents
+       WHERE client_id = $1 AND contractor_id = $2 AND is_required = TRUE`,
+      [clientId, userId],
+    );
+    const requiredCount = Number(reqRow?.cnt || 0);
+
+    // Doc stats for this month
+    const [docRow] = await this.contractorDocsRepo.manager.query(
+      `SELECT COUNT(DISTINCT doc_type) AS "uploadedDistinct",
+              SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS "rejectedCount",
+              SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END) AS "expiredCount"
+       FROM contractor_documents
+       WHERE client_id = $1 AND contractor_id = $2
+         AND branch_id = ANY($3)
+         AND created_at >= $4 AND created_at < $5`,
+      [clientId, userId, branchIds, monthStart, monthEnd],
+    );
+    const uploadedDistinct = Number(docRow?.uploadedDistinct || 0);
+    const rejectedCount = Number(docRow?.rejectedCount || 0);
+    const expiredCount = Number(docRow?.expiredCount || 0);
+    const missingCount = Math.max(requiredCount - uploadedDistinct, 0);
+    const penalty = missingCount * 10 + rejectedCount * 15 + expiredCount * 8;
+    const documentScore = Math.max(0, 100 - penalty);
+    const uploadPercent =
+      requiredCount > 0
+        ? Math.round((uploadedDistinct / requiredCount) * 100)
+        : 0;
+
+    // Audit risk points
+    const [riskRow] = await this.contractorDocsRepo.manager.query(
+      `SELECT SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 4
+                       WHEN ao.risk = 'HIGH' THEN 3
+                       WHEN ao.risk = 'MEDIUM' THEN 2
+                       WHEN ao.risk = 'LOW' THEN 1
+                       ELSE 0 END) AS "riskPoints"
+       FROM audit_observations ao
+       JOIN audits a ON a.id = ao.audit_id
+       WHERE a.client_id = $1
+         AND a.contractor_user_id = $2
+         AND ao.created_at >= $3
+         AND ao.created_at < $4`,
+      [clientId, userId, monthStart, monthEnd],
+    );
+    const auditRiskPoints = Number(riskRow?.riskPoints || 0);
+
     return {
       clientId,
       branches: Array.from(branchMap.values()),
+      monthSummary: {
+        month: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`,
+        documentScore,
+        uploadPercent,
+        requiredCount,
+        uploadedDistinct,
+        missingCount,
+        rejectedCount,
+        expiredCount,
+        auditRiskPoints,
+      },
     };
   }
 
@@ -217,7 +284,12 @@ export class ContractorService {
 
   async uploadContractorDocument(
     userId: string,
-    dto: { docType?: string; branchId?: string; auditId?: string; remarks?: string },
+    dto: {
+      docType?: string;
+      branchId?: string;
+      auditId?: string;
+      remarks?: string;
+    },
     file: any,
   ) {
     if (!file) throw new BadRequestException('file required');
@@ -238,20 +310,25 @@ export class ContractorService {
         },
       });
       if (!link) {
-        throw new BadRequestException('Branch is not linked to this contractor');
+        throw new BadRequestException(
+          'Branch is not linked to this contractor',
+        );
       }
     }
 
     // Optional: validate audit belongs to this contractor
     if (dto.auditId) {
       const audit = await this.auditRepo.findOne({
-        where: { id: dto.auditId, contractorUserId: userId, clientId: user.clientId },
+        where: {
+          id: dto.auditId,
+          contractorUserId: userId,
+          clientId: user.clientId,
+        },
       });
       if (!audit) {
         throw new BadRequestException('Audit not found for this contractor');
       }
     }
-
 
     const doc = this.contractorDocsRepo.create({
       clientId: user.clientId,

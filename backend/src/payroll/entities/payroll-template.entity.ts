@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { PayrollTemplateComponent } from './payroll-template-component.entity';
 
 @Entity('payroll_templates')
@@ -15,7 +22,18 @@ export class PayrollTemplate {
   @Column({ default: true })
   is_active: boolean;
 
-  @OneToMany(() => PayrollTemplateComponent, c => c.template, { cascade: true })
+  @Column({ name: 'file_name', type: 'varchar', length: 300 })
+  fileName: string;
+
+  @Column({ name: 'file_path', type: 'text' })
+  filePath: string;
+
+  @Column({ name: 'file_type', type: 'varchar', length: 150, nullable: true })
+  fileType: string | null;
+
+  @OneToMany(() => PayrollTemplateComponent, (c) => c.template, {
+    cascade: true,
+  })
   components: PayrollTemplateComponent[];
 
   @CreateDateColumn()

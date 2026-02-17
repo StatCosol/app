@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import helmet from 'helmet';
 import * as bodyParser from 'body-parser';
 import { UsersService } from './users/users.service';
@@ -28,7 +28,11 @@ async function bootstrap() {
 
   // CORS configuration for Angular dev server
   app.enableCors({
-    origin: ['http://localhost:4200', 'https://statcosol.com'],
+    origin: [
+      'http://localhost:4200',
+      'http://192.168.0.104:4200',
+      'https://statcosol.com',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -38,6 +42,15 @@ async function bootstrap() {
       'Pragma',
       'Expires',
     ],
+  });
+
+  // Global prefix for REST APIs; versioning adds /v1, /v2, ... on top
+  app.setGlobalPrefix('api');
+
+  // Nest versioning (URI based) with default v1; controllers without explicit versions remain accessible
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
   });
 
   app.use((req, res, next) => {
@@ -83,7 +96,7 @@ async function bootstrap() {
     console.warn('[DB CHECK] failed', err);
   }
 
-  await app.listen(3000);
-  console.log(`Server running on http://localhost:3000`);
+  await app.listen(3000, '0.0.0.0');
+  console.log(`Server running on http://0.0.0.0:3000`);
 }
 void bootstrap();

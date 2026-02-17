@@ -1,0 +1,84 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Payroll Assignments" 
+    description="Assign payroll users to clients"
+    icon="currency-dollar">
+  </ui-page-header>
+
+  <!-- Assignment Form -->
+  <div class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Assign Payroll User to Client</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <ui-form-select
+        label="Client"
+        [(ngModel)]="form.clientId"
+          [options]="clientSelectOptions">
+      </ui-form-select>
+      <ui-form-select
+        label="Payroll User"
+        [(ngModel)]="form.payrollUserId"
+          [options]="payrollUserSelectOptions">
+      </ui-form-select>
+      <div class="flex items-end gap-2">
+        <ui-button variant="primary" (click)="assign()" [disabled]="loading || !canAssign()" class="flex-grow">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+          </svg>
+          Assign
+        </ui-button>
+        <ui-button variant="secondary" (click)="loadAll()" [disabled]="loading">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh
+        </ui-button>
+      </div>
+    </div>
+    <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  </div>
+
+  <!-- Current Assignments -->
+  <div class="card">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Current Payroll Assignments</h3>
+    
+    <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+
+    <ui-data-table
+      *ngIf="!loading"
+      [columns]="assignmentsColumns"
+      [data]="assignments"
+      [loading]="loading">
+      
+      <ng-template uiTableCell="clientName" let-row>
+        {{ row.clientName || clientName(row.clientId) }}
+      </ng-template>
+      
+      <ng-template uiTableCell="payrollUserName" let-row>
+        {{ row.payrollUserName || payrollUserName(row.payrollUserId) }}
+      </ng-template>
+      
+      <ng-template uiTableCell="startDate" let-row>
+        {{ row.startDate ? (row.startDate | date:'mediumDate') : '—' }}
+      </ng-template>
+      
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge [variant]="(row.status === 'ACTIVE' || !row.status) ? 'success' : 'gray'">{{ row.status || 'ACTIVE' }}</ui-status-badge>
+      </ng-template>
+      
+      <ng-template uiTableCell="actions" let-row>
+        <ui-button variant="secondary" size="sm" (click)="unassign(row)" [disabled]="loading">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Unassign
+        </ui-button>
+      </ng-template>
+    </ui-data-table>
+    
+    <ui-empty-state
+      *ngIf="!loading && assignments.length === 0"
+      [title]="'No payroll assignments found'"
+      icon="currency-dollar">
+    </ui-empty-state>
+  </div>
+</main>

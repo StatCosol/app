@@ -13,6 +13,16 @@ export type ContractorDocumentCreateDto = {
   observationId?: string | null;
 };
 
+export type ContractorDocumentReviewDto = {
+  status: 'APPROVED' | 'REJECTED';
+  reviewNotes?: string | null;
+  expiryDate?: string | null;
+};
+
+export type ContractorDocumentReuploadDto = {
+  title?: string;
+};
+
 @Injectable()
 export class ContractorDocumentsService {
   constructor(
@@ -22,7 +32,11 @@ export class ContractorDocumentsService {
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
   ) {}
 
-  async contractorUpload(user: any, dto: ContractorDocumentCreateDto, file: any) {
+  async contractorUpload(
+    user: any,
+    dto: ContractorDocumentCreateDto,
+    file: any,
+  ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {
       throw new BadRequestException('Contractor is not linked to a client');
@@ -62,6 +76,7 @@ export class ContractorDocumentsService {
       fileType: file.mimetype ?? null,
       fileSize: file.size != null ? String(file.size) : null,
       uploadedByUserId: user.id,
+      status: 'PENDING_REVIEW',
     });
 
     const saved = await this.repo.save(row);
@@ -94,11 +109,18 @@ export class ContractorDocumentsService {
       .where('d.contractor_id = :contractorId', { contractorId: user.id })
       .andWhere('d.client_id = :clientId', { clientId: user.clientId });
 
-    if (q?.branchId) qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
-    if (q?.auditId) qb.andWhere('d.audit_id = :auditId', { auditId: q.auditId });
+    if (q?.branchId)
+      qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
+    if (q?.branchIds && Array.isArray(q.branchIds) && q.branchIds.length)
+      qb.andWhere('d.branch_id IN (:...branchIds)', { branchIds: q.branchIds });
+    if (q?.auditId)
+      qb.andWhere('d.audit_id = :auditId', { auditId: q.auditId });
     if (q?.observationId)
-      qb.andWhere('d.observation_id = :observationId', { observationId: q.observationId });
-    if (q?.docType) qb.andWhere('d.doc_type = :docType', { docType: q.docType });
+      qb.andWhere('d.observation_id = :observationId', {
+        observationId: q.observationId,
+      });
+    if (q?.docType)
+      qb.andWhere('d.doc_type = :docType', { docType: q.docType });
 
     qb.orderBy('d.created_at', 'DESC');
 
@@ -117,6 +139,11 @@ export class ContractorDocumentsService {
       fileType: r.fileType,
       fileSize: r.fileSize,
       uploadedByUserId: r.uploadedByUserId,
+      status: r.status,
+      expiryDate: r.expiryDate,
+      reviewedAt: r.reviewedAt,
+      reviewedByUserId: r.reviewedByUserId,
+      reviewNotes: r.reviewNotes,
       createdAt: r.createdAt,
     }));
   }
@@ -129,12 +156,22 @@ export class ContractorDocumentsService {
       .createQueryBuilder('d')
       .where('d.client_id = :clientId', { clientId: q.clientId });
 
-    if (q?.contractorId) qb.andWhere('d.contractor_id = :contractorId', { contractorId: q.contractorId });
-    if (q?.branchId) qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
-    if (q?.auditId) qb.andWhere('d.audit_id = :auditId', { auditId: q.auditId });
+    if (q?.contractorId)
+      qb.andWhere('d.contractor_id = :contractorId', {
+        contractorId: q.contractorId,
+      });
+    if (q?.branchId)
+      qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
+    if (q?.branchIds && Array.isArray(q.branchIds) && q.branchIds.length)
+      qb.andWhere('d.branch_id IN (:...branchIds)', { branchIds: q.branchIds });
+    if (q?.auditId)
+      qb.andWhere('d.audit_id = :auditId', { auditId: q.auditId });
     if (q?.observationId)
-      qb.andWhere('d.observation_id = :observationId', { observationId: q.observationId });
-    if (q?.docType) qb.andWhere('d.doc_type = :docType', { docType: q.docType });
+      qb.andWhere('d.observation_id = :observationId', {
+        observationId: q.observationId,
+      });
+    if (q?.docType)
+      qb.andWhere('d.doc_type = :docType', { docType: q.docType });
 
     qb.orderBy('d.created_at', 'DESC');
     const rows = await qb.getMany();
@@ -151,8 +188,103 @@ export class ContractorDocumentsService {
       filePath: r.filePath,
       fileType: r.fileType,
       fileSize: r.fileSize,
+      status: r.status,
+      expiryDate: r.expiryDate,
+      reviewedAt: r.reviewedAt,
+      reviewedByUserId: r.reviewedByUserId,
+      reviewNotes: r.reviewNotes,
       uploadedByUserId: r.uploadedByUserId,
       createdAt: r.createdAt,
     }));
+  }
+
+  async reviewDocument(
+    user: any,
+    id: string,
+    dto: ContractorDocumentReviewDto,
+  ) {
+    if (!id) throw new BadRequestException('id is required');
+    if (!dto?.status) throw new BadRequestException('status is required');
+
+    const doc = await this.repo.findOne({ where: { id } });
+    if (!doc) throw new BadRequestException('Document not found');
+
+    if (!['APPROVED', 'REJECTED'].includes(dto.status)) {
+      throw new BadRequestException('Invalid status');
+    }
+
+    doc.status = dto.status;
+    doc.reviewNotes = dto.reviewNotes ?? null;
+    doc.expiryDate = dto.expiryDate ?? null;
+    doc.reviewedByUserId = user?.id ?? null;
+    doc.reviewedAt = new Date();
+
+    const saved = await this.repo.save(doc);
+    return {
+      id: saved.id,
+      status: saved.status,
+      reviewNotes: saved.reviewNotes,
+      expiryDate: saved.expiryDate,
+      reviewedAt: saved.reviewedAt,
+      reviewedByUserId: saved.reviewedByUserId,
+    };
+  }
+
+  async contractorReupload(
+    user: any,
+    id: string,
+    dto: ContractorDocumentReuploadDto,
+    file: any,
+  ) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    if (!user?.clientId) {
+      throw new BadRequestException('Contractor is not linked to a client');
+    }
+    if (!id) throw new BadRequestException('id is required');
+    if (!file) throw new BadRequestException('file is required');
+
+    const doc = await this.repo.findOne({ where: { id } });
+    if (!doc) throw new BadRequestException('Document not found');
+    if (doc.contractorId !== user.id || doc.clientId !== user.clientId) {
+      throw new BadRequestException('Not authorized to modify this document');
+    }
+
+    const link = await this.branchContractorRepo.findOne({
+      where: {
+        clientId: doc.clientId,
+        branchId: doc.branchId,
+        contractorUserId: user.id,
+      },
+    });
+    if (!link) {
+      throw new BadRequestException('Contractor is not mapped to this branch');
+    }
+
+    doc.fileName = file.originalname;
+    doc.filePath = file.path;
+    doc.fileType = file.mimetype ?? null;
+    doc.fileSize = file.size != null ? String(file.size) : null;
+    doc.title = dto?.title ?? doc.title;
+    doc.status = 'PENDING_REVIEW';
+    doc.reviewedAt = null;
+    doc.reviewedByUserId = null;
+    doc.reviewNotes = null;
+    doc.expiryDate = null;
+
+    const saved = await this.repo.save(doc);
+    return {
+      id: saved.id,
+      contractorId: saved.contractorId,
+      clientId: saved.clientId,
+      branchId: saved.branchId,
+      docType: saved.docType,
+      title: saved.title,
+      status: saved.status,
+      fileName: saved.fileName,
+      filePath: saved.filePath,
+      fileType: saved.fileType,
+      fileSize: saved.fileSize,
+      createdAt: saved.createdAt,
+    };
   }
 }

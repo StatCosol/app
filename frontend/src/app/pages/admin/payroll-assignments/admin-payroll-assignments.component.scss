@@ -1,0 +1,13 @@
+.page { padding: 16px; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
+.field label { display: block; font-size: 12px; opacity: .8; margin-bottom: 6px; }
+select { width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; }
+.actions { display: flex; gap: 10px; }
+button { padding: 10px 14px; border-radius: 10px; border: 1px solid #e5e7eb; background: #111827; color: #fff; cursor: pointer; }
+button[disabled] { opacity: .6; cursor: not-allowed; }
+button.danger { background: #b91c1c; border-color: #b91c1c; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+.muted { opacity: .75; }
+.error { margin-top: 10px; color: #b91c1c; }

@@ -1,0 +1,171 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <ui-page-header
+    title="Monthly Compliance Data (MCD)"
+    description="Upload monthly compliance documents for CRM review"
+    icon="upload"
+  ></ui-page-header>
+
+  <div class="card space-y-4">
+    <div class="flex flex-wrap gap-3 items-center">
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <span class="text-gray-700 font-semibold">Branch</span>
+        <select class="form-select" [(ngModel)]="filters.branchId" (change)="loadTasks()">
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <span class="text-gray-700 font-semibold">Month</span>
+        <select class="form-select" [(ngModel)]="filters.month" (change)="loadTasks()">
+          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <span class="text-gray-700 font-semibold">Year</span>
+        <select class="form-select" [(ngModel)]="filters.year" (change)="loadTasks()">
+          <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900">MCD Checklist</h3>
+      <div class="text-sm text-gray-600">Evidence types allowed: PDF, JPG/PNG, XLSX (max 10MB)</div>
+    </div>
+
+    <div *ngIf="loading" class="py-8">
+      <ui-loading-spinner text="Loading tasks..." size="md"></ui-loading-spinner>
+    </div>
+
+    <div *ngIf="!loading && tasks.length === 0" class="py-8">
+      <ui-empty-state title="No tasks found" description="No monthly compliance tasks for the selected period."></ui-empty-state>
+    </div>
+
+    <div *ngIf="!loading && tasks.length" class="overflow-x-auto -mx-2">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Compliance</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Branch</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Period</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Due</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Upload Window</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Status</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600">Evidence</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 bg-white">
+          <ng-container *ngFor="let t of tasks">
+            <tr>
+              <td class="px-4 py-3">
+                <div class="text-sm font-semibold text-gray-900">{{ t.complianceTitle || t.title }}</div>
+                <div class="text-xs text-gray-500" *ngIf="t.description">{{ t.description }}</div>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-800">{{ t.branchName }}</td>
+              <td class="px-4 py-3 text-sm text-gray-800">{{ periodLabel(t) }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">{{ dueLabel(t) }}</td>
+              <td class="px-4 py-3 text-sm text-gray-700">
+                <div *ngIf="windowDates(t) as win" class="space-y-1">
+                  <div>{{ win.start }} → {{ win.end }}</div>
+                  <div class="text-xs font-semibold" [ngClass]="{
+                    'text-emerald-700': isWindowOpen(t),
+                    'text-amber-700': !isWindowOpen(t)
+                  }">{{ windowStatusText(t) }}</div>
+                </div>
+                <div *ngIf="!windowDates(t)" class="text-xs text-gray-500">Not applicable</div>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <ui-status-badge [status]="t.status"></ui-status-badge>
+                <div *ngIf="t.status === 'REJECTED' && t.remarks" class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">{{ t.remarks }}</div>
+              </td>
+              <td class="px-4 py-3 text-center text-sm text-gray-800">
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full" [ngClass]="{'bg-green-50 text-green-700': t.evidenceCount>0, 'bg-slate-50 text-slate-700': t.evidenceCount===0}">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m4 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {{ t.evidenceCount || 0 }} file(s)
+                </span>
+              </td>
+              <td class="px-4 py-3 text-right text-sm text-gray-800 space-y-2">
+                <div class="flex items-center gap-2 justify-end">
+                  <input type="file" class="hidden" #fileInput accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(t, $event)" />
+                  <button
+                    class="btn-secondary"
+                    [disabled]="statusBlocked(t) || uploading[t.id] || !isWindowOpen(t)"
+                    (click)="fileInput.click()"
+                  >
+                    {{ uploading[t.id] ? 'Uploading...' : 'Upload file' }}
+                  </button>
+                  <input
+                    class="form-input w-40"
+                    placeholder="Notes (optional)"
+                    [(ngModel)]="notes[t.id]"
+                    [disabled]="statusBlocked(t)"
+                  />
+                </div>
+                <button
+                  class="btn-primary w-full"
+                    [disabled]="statusBlocked(t) || t.evidenceCount < 1 || submitting[t.id] || !isWindowOpen(t)"
+                  (click)="submit(t)"
+                >
+                  {{ submitting[t.id] ? 'Submitting...' : 'Submit to CRM' }}
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="7" class="bg-slate-50 px-4 pb-4 pt-0">
+              <div class="text-xs text-gray-600 mb-2">Checklist items</div>
+              <div *ngIf="itemsLoading[t.id]" class="py-3">
+                <ui-loading-spinner text="Loading items..." size="sm"></ui-loading-spinner>
+              </div>
+              <div *ngIf="!itemsLoading[t.id] && !(items[t.id]?.length)" class="text-xs text-gray-500">
+                No checklist items found for this task.
+              </div>
+              <div *ngIf="!itemsLoading[t.id] && (items[t.id]?.length)" class="space-y-2">
+                <div *ngFor="let item of items[t.id]" class="bg-white border border-slate-200 rounded-lg p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div class="flex-1">
+                    <div class="text-sm font-semibold text-gray-900">{{ item.itemLabel || item.item_key }}</div>
+                    <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-1">
+                      <span *ngIf="item.unitType" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{{ item.unitType }}</span>
+                      <span *ngIf="item.stateCode" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">State: {{ item.stateCode }}</span>
+                      <span *ngIf="item.required === false" class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">Optional</span>
+                    </div>
+                    <div *ngIf="item.remarks" class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">{{ item.remarks }}</div>
+                  </div>
+                  <div class="flex items-center gap-3 flex-wrap">
+                    <span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="{
+                      'bg-green-50 text-green-700': (item.status||'').toUpperCase()==='VERIFIED',
+                      'bg-amber-50 text-amber-700': (item.status||'').toUpperCase()==='SUBMITTED',
+                      'bg-rose-50 text-rose-700': (item.status||'').toUpperCase()==='REJECTED',
+                      'bg-slate-100 text-slate-700': true
+                    }">{{ itemStatusLabel(item) }}</span>
+                    <span class="text-xs text-gray-600">{{ item.evidenceCount || 0 }} file(s)</span>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <input type="file" class="hidden" #itemFile accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onItemFileSelected(t, item, $event)" />
+                    <button
+                      class="btn-secondary"
+                      [disabled]="statusBlocked(t) || uploadingItem[t.id + '-' + item.id] || !isWindowOpen(t)"
+                      (click)="itemFile.click()"
+                    >
+                      {{ uploadingItem[t.id + '-' + item.id] ? 'Uploading...' : 'Upload' }}
+                    </button>
+                    <input
+                      class="form-input w-40"
+                      placeholder="Notes (optional)"
+                      [(ngModel)]="itemNotes[t.id + '-' + item.id]"
+                      [disabled]="statusBlocked(t)"
+                    />
+                  </div>
+                </div>
+              </div>
+            </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

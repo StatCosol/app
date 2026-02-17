@@ -1,0 +1,249 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Page Header -->
+  <ui-page-header
+    title="Admin Dashboard"
+    description="System governance, SLA control, and escalation management"
+    icon="chart">
+  </ui-page-header>
+
+  <!-- Filters -->
+  <div class="card mb-6">
+    <div class="flex flex-col gap-4">
+      <h3 class="text-lg font-semibold text-gray-900">System Filters</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <ui-form-select
+          label="Client"
+          [(ngModel)]="filter.client"
+          [options]="clientOptions">
+        </ui-form-select>
+        <ui-form-select
+          label="State"
+          [(ngModel)]="filter.state"
+          [options]="stateOptions"
+          [disabled]="statesLoading">
+        </ui-form-select>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+          <input type="date" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-accent-500 focus:ring-accent-500 text-sm" [(ngModel)]="filter.from" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+          <input type="date" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-accent-500 focus:ring-accent-500 text-sm" [(ngModel)]="filter.to" />
+        </div>
+        <div class="flex items-end gap-2">
+          <ui-button variant="primary" (click)="applyFilters()" class="flex-1">Apply</ui-button>
+          <ui-button variant="secondary" (click)="resetFilters()" class="flex-1">Reset</ui-button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div *ngIf="summary">
+    <h3 class="text-xl font-semibold text-gray-900 mb-4">System Health Indicators</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <ui-stat-card
+        [value]="summary.clients"
+        label="Clients"
+        description="Total active"
+        color="primary">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.branches"
+        label="Branches"
+        description="System coverage"
+        color="info">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.slaHealth.scorePct + '%'"
+        label="SLA Health"
+        [description]="summary.slaHealth.status === 'GREEN' ? '✓ On track' : summary.slaHealth.status === 'AMBER' ? '⚠ At risk' : '✗ Breached'"
+        [color]="summary.slaHealth.status === 'GREEN' ? 'success' : summary.slaHealth.status === 'AMBER' ? 'warning' : 'error'">
+      </ui-stat-card>
+      <div class="cursor-pointer" (click)="drillOverdueAudits()">
+        <ui-stat-card
+          [value]="summary.overdueAudits"
+          label="Overdue"
+          description="Escalation trigger"
+          color="error">
+        </ui-stat-card>
+      </div>
+      <div class="cursor-pointer" (click)="drillDueSoon()">
+        <ui-stat-card
+          [value]="summary.dueSoon"
+          label="Due Soon"
+          description="Early warning"
+          color="warning">
+        </ui-stat-card>
+      </div>
+      <div class="cursor-pointer" (click)="drillUnreadNotifications()">
+        <ui-stat-card
+          [value]="summary.unreadNotifications"
+          label="Unread"
+          description="Admin inbox"
+          color="primary">
+        </ui-stat-card>
+      </div>
+    </div>
+
+    <!-- Escalations Queue -->
+    <div class="card mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Escalations Queue</h3>
+        <ui-status-badge variant="error" *ngIf="summary.escalations && summary.escalations.length > 0">
+          {{summary.escalations.length}} items need intervention
+        </ui-status-badge>
+      </div>
+      
+      <ui-data-table
+        [columns]="escalationsColumns"
+        [data]="summary.escalations || []"
+        [loading]="loading">
+        
+        <!-- Client Name -->
+        <ng-template uiTableCell="clientName" let-row>
+          <div class="font-medium text-gray-900">{{row.clientName}}</div>
+        </ng-template>
+        
+        <!-- Issue Type -->
+        <ng-template uiTableCell="issueType" let-row>
+          <ui-status-badge variant="primary">{{row.issueType}}</ui-status-badge>
+        </ng-template>
+        
+        <!-- Reason -->
+        <ng-template uiTableCell="reason" let-row>
+          <span class="text-sm text-gray-900">{{row.reason}}</span>
+        </ng-template>
+        
+        <!-- Owner Role -->
+        <ng-template uiTableCell="ownerRole" let-row>
+          <span class="text-sm text-gray-600">{{row.ownerRole}}</span>
+        </ng-template>
+        
+        <!-- Owner Name -->
+        <ng-template uiTableCell="ownerName" let-row>
+          <span class="text-sm text-gray-900">{{row.ownerName || 'Unassigned'}}</span>
+        </ng-template>
+        
+        <!-- Days Delayed -->
+        <ng-template uiTableCell="daysDelayed" let-row>
+          <ui-status-badge variant="error">{{row.daysDelayed}} days</ui-status-badge>
+        </ng-template>
+        
+        <!-- Last Updated -->
+        <ng-template uiTableCell="lastUpdated" let-row>
+          <span class="text-sm text-gray-600">{{row.lastUpdated | date:'short'}}</span>
+        </ng-template>
+        
+        <!-- Actions -->
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex justify-end gap-2">
+            <ui-button variant="primary" size="sm">Notify</ui-button>
+            <ui-button variant="secondary" size="sm">View</ui-button>
+          </div>
+        </ng-template>
+        
+        <!-- Empty State -->
+        <ng-template #emptyState>
+          <ui-empty-state
+            icon="check-circle"
+            title="No escalations"
+            description="No escalations requiring intervention">
+          </ui-empty-state>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <!-- Assignments Needing Attention -->
+    <div class="card mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Assignments Needing Attention</h3>
+      
+      <ui-data-table
+        [columns]="assignmentsColumns"
+        [data]="summary.assignmentsAttention || []"
+        [loading]="loading">
+        
+        <!-- Client Name -->
+        <ng-template uiTableCell="clientName" let-row>
+          <div class="font-medium text-gray-900">{{row.clientName}}</div>
+        </ng-template>
+        
+        <!-- Assignment Type -->
+        <ng-template uiTableCell="assignmentType" let-row>
+          <ui-status-badge variant="gray">{{row.assignmentType}}</ui-status-badge>
+        </ng-template>
+        
+        <!-- Assigned To -->
+        <ng-template uiTableCell="assignedTo" let-row>
+          <span class="text-sm text-gray-900">{{row.assignedTo}}</span>
+        </ng-template>
+        
+        <!-- Assigned On -->
+        <ng-template uiTableCell="assignedOn" let-row>
+          <span class="text-sm text-gray-600">{{row.assignedOn | date:'mediumDate'}}</span>
+        </ng-template>
+        
+        <!-- Rotation Due On -->
+        <ng-template uiTableCell="rotationDueOn" let-row>
+          <span class="text-sm text-gray-600">{{row.rotationDueOn | date:'mediumDate'}}</span>
+        </ng-template>
+        
+        <!-- Status -->
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge
+            [variant]="row.status === 'ACTIVE' ? 'success' : row.status === 'OVERDUE_ROTATION' ? 'warning' : 'error'">
+            {{row.status === 'ACTIVE' ? 'Active' : row.status === 'OVERDUE_ROTATION' ? 'Overdue Rotation' : 'Missing'}}
+          </ui-status-badge>
+        </ng-template>
+        
+        <!-- Actions -->
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex justify-end">
+            <ui-button variant="primary" size="sm">Rotate</ui-button>
+          </div>
+        </ng-template>
+        
+        <!-- Empty State -->
+        <ng-template #emptyState>
+          <ui-empty-state
+            icon="check-circle"
+            title="All assignments current"
+            description="All assignments are current">
+          </ui-empty-state>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <!-- System Health -->
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ui-stat-card
+          [value]="summary.systemHealth.inactiveUsers15d"
+          label="Inactive Users"
+          description="> 15 days"
+          color="gray">
+        </ui-stat-card>
+        <ui-stat-card
+          [value]="summary.systemHealth.unassignedClients"
+          label="Unassigned Clients"
+          description="Missing CRM/Auditor"
+          [color]="summary.systemHealth.unassignedClients > 0 ? 'warning' : 'gray'">
+        </ui-stat-card>
+        <ui-stat-card
+          [value]="summary.systemHealth.failedNotifications7d"
+          label="Failed Notifications"
+          description="Last 7 days"
+          [color]="summary.systemHealth.failedNotifications7d > 0 ? 'error' : 'gray'">
+        </ui-stat-card>
+        <ui-stat-card
+          [value]="summary.systemHealth.failedJobs24h"
+          label="Failed Jobs"
+          description="Last 24 hours"
+          [color]="summary.systemHealth.failedJobs24h > 0 ? 'error' : 'gray'">
+        </ui-stat-card>
+      </div>
+    </div>
+  </div>
+</main>

@@ -3,7 +3,7 @@ import { Roles } from '../auth/roles.decorator';
 import { AdminDigestService } from './admin-digest.service';
 
 @Roles('ADMIN')
-@Controller('api/admin/reminders')
+@Controller({ path: 'admin/reminders', version: '1' })
 export class AdminDigestController {
   constructor(private readonly svc: AdminDigestService) {}
 

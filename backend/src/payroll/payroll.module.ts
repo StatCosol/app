@@ -19,6 +19,7 @@ import {
   ClientRegistersRecordsController,
   ClientComponentsEffectiveController,
   ClientPayslipLayoutController,
+  ClientPayrollTemplateController,
 } from './payroll.controller';
 import { PayrollConfigController } from './payroll.config.controller';
 import { PayrollAssignmentsAdminController } from './payroll-assignments.admin.controller';
@@ -57,6 +58,9 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ClientPayrollInputsController,
     PayrollController,
     ClientRegistersRecordsController,
+    ClientComponentsEffectiveController,
+    ClientPayslipLayoutController,
+    ClientPayrollTemplateController,
     PayrollConfigController,
   ],
   providers: [PayrollService],

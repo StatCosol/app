@@ -6,7 +6,7 @@ import { UsersService } from '../users/users.service';
 import { ClientsService } from '../clients/clients.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
-@Controller('api/client')
+@Controller({ path: 'client', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class ClientController {

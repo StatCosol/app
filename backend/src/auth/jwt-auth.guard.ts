@@ -8,7 +8,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const url: string = (req?.url || '').toLowerCase();
     const publicPrefixes = [
       '/api/auth/login',
+      '/api/v1/auth/login',
       '/auth/login',
+
+      '/api/auth/refresh',
+      '/api/v1/auth/refresh',
+
+      '/api/auth/password/request-reset',
+      '/api/v1/auth/password/request-reset',
+
+      '/api/auth/password/reset',
+      '/api/v1/auth/password/reset',
+
       '/health',
       '/api/health',
     ];

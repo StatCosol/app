@@ -1,0 +1,103 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Schedule Audit" 
+    description="Create client and contractor audit schedules" 
+    icon="clipboard-check">
+  </ui-page-header>
+
+  <div class="alert alert-info mb-6">
+    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    Use this form to schedule client and contractor audits.
+  </div>
+
+  <form (ngSubmit)="submit()">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="card">
+        <h3 class="text-lg font-semibold text-gray-900 mb-6">Audit Details</h3>
+        <div class="space-y-4">
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Client *</label>
+            <select [(ngModel)]="model.clientId" name="clientId" required (change)="onClientChange()" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <option value="">-- Select Client --</option>
+              <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Contractor (Optional)</label>
+            <select [(ngModel)]="model.contractorUserId" name="contractorUserId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <option value="">-- None (Client Audit) --</option>
+              <option *ngFor="let ct of contractors" [value]="ct.id">{{ ct.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Assigned Auditor *</label>
+            <select [(ngModel)]="model.assignedAuditorId" name="assignedAuditorId" required class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <option value="">-- Select Auditor --</option>
+              <option *ngFor="let a of auditors" [value]="a.id">{{ a.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+            <select [(ngModel)]="model.frequency" name="frequency" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <option *ngFor="let f of frequencies" [ngValue]="f.value">{{ f.label }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Audit Type</label>
+            <select [(ngModel)]="model.auditType" name="auditType" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <option *ngFor="let t of auditTypes" [ngValue]="t.value">{{ t.label }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="text-lg font-semibold text-gray-900 mb-6">Period & Schedule</h3>
+        <div class="space-y-4">
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Period Year</label>
+            <input type="number" [(ngModel)]="model.periodYear" name="periodYear" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Period Code</label>
+            <input type="text" [(ngModel)]="model.periodCode" name="periodCode" placeholder="e.g. 2025-01, 2025-Q1, 2025-H1, 2025" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Due Date (optional)</label>
+            <input type="date" [(ngModel)]="model.dueDate" name="dueDate" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Notes (optional)</label>
+            <textarea [(ngModel)]="model.notes" name="notes" rows="3" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"></textarea>
+          </div>
+
+          <button type="submit" class="btn-primary w-full" [disabled]="submitting">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            {{ submitting ? 'Creating...' : 'Create Audit' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div *ngIf="message" class="alert alert-success mt-6">{{ message }}</div>
+  <div *ngIf="error" class="alert alert-error mt-6">{{ error }}</div>
+
+  <div class="alert alert-info mt-6">
+    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    Note: Auditors can view their assigned audits in AuditXpert.
+  </div>
+</main>

@@ -1,0 +1,213 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Admin Reports" 
+    description="User management, system access, and administrative insights"
+    icon="chart-bar">
+  </ui-page-header>
+
+  <!-- Filters Card -->
+  <div class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Report Period</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+        <input type="date" [(ngModel)]="filters.from" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+        <input type="date" [(ngModel)]="filters.to" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <ui-button variant="primary" (click)="apply()" [disabled]="loading">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        Apply Filter
+      </ui-button>
+      <ui-button variant="secondary" (click)="reset()" [disabled]="loading">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Reset
+      </ui-button>
+      <div class="border-l border-gray-300 mx-2"></div>
+      <ui-button variant="secondary" (click)="downloadUsersReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export All Users
+      </ui-button>
+      <ui-button variant="secondary" (click)="downloadUserActivityReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export User Activity
+      </ui-button>
+      <ui-button variant="secondary" (click)="downloadSystemAccessLog()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export Access Logs
+      </ui-button>
+      <ui-button variant="secondary" (click)="downloadUserRegistrationsReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export User Registrations
+      </ui-button>
+      <ui-button variant="secondary" (click)="downloadDeletionReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export Deletion History
+      </ui-button>
+      <ui-button variant="secondary" (click)="downloadAssignmentReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export Assignments
+      </ui-button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+
+  <!-- Error State -->
+  <div *ngIf="error" class="alert alert-error mb-6">{{ error }}</div>
+
+  <!-- User Management Summary -->
+  <div *ngIf="summary && !loading" class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <svg class="w-5 h-5 text-statco-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
+      User Statistics Overview
+    </h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <ui-stat-card
+        [value]="summary.totalUsers || 0"
+        label="Total Users"
+        color="primary">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.activeUsers || 0"
+        label="Active Users"
+        color="success">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.inactiveUsers || 0"
+        label="Inactive"
+        color="gray">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.newUsersThisMonth || 0"
+        label="Registered (30d)"
+        color="info">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.deletedThisMonth || 0"
+        label="Deleted (30d)"
+        color="error">
+      </ui-stat-card>
+      <ui-stat-card
+        [value]="summary.assignmentsThisMonth || 0"
+        label="Assignments (30d)"
+        color="warning">
+      </ui-stat-card>
+    </div>
+    <ui-data-table
+      [columns]="roleColumns"
+      [data]="summaryEntries"
+      emptyMessage="No user data available">
+      <ng-template uiTableCell="active" let-row>
+        <span class="text-green-600 font-medium">{{ row.active }}</span>
+      </ng-template>
+      <ng-template uiTableCell="inactive" let-row>
+        <span class="text-gray-500">{{ row.inactive }}</span>
+      </ng-template>
+    </ui-data-table>
+  </div>
+
+  <!-- Recent User Activity -->
+  <div *ngIf="!loading" class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+      </svg>
+      User Registrations (Last 30 Days)
+    </h3>
+    <ui-data-table
+      [columns]="registrationColumns"
+      [data]="overdue"
+      emptyMessage="No recent registrations">
+      <ng-template uiTableCell="userCode" let-row>
+        <span class="font-medium text-gray-900">{{ row.userCode || '-' }}</span>
+      </ng-template>
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge [variant]="row.isActive ? 'success' : 'error'">
+          {{ row.isActive ? 'Active' : 'Inactive' }}
+        </ui-status-badge>
+      </ng-template>
+    </ui-data-table>
+  </div>
+
+  <!-- User Deletions -->
+  <div *ngIf="!loading" class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+      Deleted Users (Last 30 Days)
+    </h3>
+    <ui-data-table
+      [columns]="deletionColumns"
+      [data]="deletions"
+      emptyMessage="No user deletions in this period">
+      <ng-template uiTableCell="userCode" let-row>
+        <span class="font-medium text-gray-900">{{ row.userCode || '-' }}</span>
+      </ng-template>
+      <ng-template uiTableCell="email" let-row>
+        <span class="text-gray-600">{{ row.email }}</span>
+      </ng-template>
+      <ng-template uiTableCell="deletedBy" let-row>
+        <span class="text-gray-600">{{ row.deletedBy || 'Admin' }}</span>
+      </ng-template>
+    </ui-data-table>
+  </div>
+
+  <!-- Assignment Overview -->
+  <div *ngIf="!loading" class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+      </svg>
+      Recent Assignments (Last 30 Days)
+    </h3>
+    <ui-data-table
+      [columns]="assignmentColumns"
+      [data]="assignments"
+      emptyMessage="No recent assignments">
+      <ng-template uiTableCell="assignedTo" let-row>
+        {{ row.contractorName || row.assignedTo }}
+      </ng-template>
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge [status]="row.status">{{ row.status }}</ui-status-badge>
+      </ng-template>
+    </ui-data-table>
+  </div>
+
+  <!-- Info Note -->
+  <div class="card bg-blue-50 border border-blue-200">
+    <div class="flex items-start gap-3">
+      <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <div>
+        <h4 class="text-sm font-semibold text-blue-900 mb-1">Admin Reports</h4>
+        <p class="text-sm text-blue-800">These reports focus on user management, system access monitoring, registrations, deletions, and assignment tracking. For compliance tracking, escalations, and operational reports, please refer to the CEO or CCO dashboards.</p>
+      </div>
+    </div>
+  </div>
+</main>

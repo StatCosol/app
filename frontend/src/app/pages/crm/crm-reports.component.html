@@ -1,0 +1,182 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="CRM Reports" 
+    description="Compliance analytics and performance reports" 
+    icon="document-report">
+  </ui-page-header>
+
+  <!-- Filters -->
+  <div class="card mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.clientId" (change)="onClientChange()">
+          <option value="">All Clients</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.branchId">
+          <option value="">All Branches</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">From</label>
+        <input type="date" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.from" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">To</label>
+        <input type="date" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.to" />
+      </div>
+      <div class="form-group">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status">
+          <option value="">All</option>
+          <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" class="btn-primary" (click)="apply()" [disabled]="loading">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        Apply
+      </button>
+      <button type="button" class="btn-secondary" (click)="reset()" [disabled]="loading">Reset</button>
+      <button type="button" class="btn-secondary" (click)="downloadOverdueExcel()" [disabled]="loading">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export Overdue Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="card">
+    <div class="flex items-center justify-center py-12">
+      <svg class="animate-spin h-8 w-8 text-statco-blue-light mr-3" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="text-gray-600">Loading summary...</span>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error" class="alert alert-error mb-6">{{ error }}</div>
+
+  <!-- Summary Section -->
+  <div *ngIf="summary && !loading" class="mb-6">
+    <div class="card mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Compliance Summary</h3>
+
+      <!-- KPI Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div class="stat-card bg-gradient-to-br from-blue-500 to-blue-600">
+          <h3 class="text-3xl font-bold text-white">{{ summary.total }}</h3>
+          <span class="text-blue-100 text-sm">Total Tasks</span>
+        </div>
+        <div class="stat-card bg-gradient-to-br from-green-500 to-green-600">
+          <h3 class="text-3xl font-bold text-white">{{ summary.approved }}</h3>
+          <span class="text-green-100 text-sm">Approved</span>
+        </div>
+        <div class="stat-card bg-gradient-to-br from-yellow-500 to-yellow-600">
+          <h3 class="text-3xl font-bold text-white">{{ summary.pending }}</h3>
+          <span class="text-yellow-100 text-sm">Pending</span>
+        </div>
+        <div class="stat-card bg-gradient-to-br from-red-500 to-red-600">
+          <h3 class="text-3xl font-bold text-white">{{ summary.overdue }}</h3>
+          <span class="text-red-100 text-sm">Overdue</span>
+        </div>
+        <div class="stat-card bg-gradient-to-br from-statco-blue-light to-statco-blue">
+          <h3 class="text-3xl font-bold text-white">{{ summary.percentage | number: '1.0-1' }}%</h3>
+          <span class="text-blue-100 text-sm">Compliance</span>
+        </div>
+      </div>
+
+      <!-- Summary Table -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Count</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let entry of summaryEntries" class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ entry.key }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600">{{ entry.value }}</td>
+            </tr>
+            <tr *ngIf="summaryEntries.length === 0">
+              <td colspan="2" class="px-6 py-8 text-center text-gray-500">No data</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Overdue Tasks -->
+    <div class="card mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Overdue Tasks</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Compliance</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Due Date</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let t of overdue" class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm text-gray-900">{{ t.clientName || '-' }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600">{{ t.branchName || '-' }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600">{{ t.complianceName || '-' }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600">{{ t.dueDate }}</td>
+              <td class="px-6 py-4 text-sm"><span class="badge-danger">{{ t.status }}</span></td>
+            </tr>
+            <tr *ngIf="!overdue || overdue.length === 0">
+              <td colspan="5" class="px-6 py-8 text-center text-gray-500">No overdue tasks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Contractor Performance -->
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Contractor Performance</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Contractor</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Submitted</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Approved</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Overdue</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let c of contractorPerf" class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ c.contractorName }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600">{{ c.submitted }}</td>
+              <td class="px-6 py-4 text-sm"><span class="badge-success">{{ c.approved }}</span></td>
+              <td class="px-6 py-4 text-sm"><span class="badge-danger">{{ c.overdue }}</span></td>
+            </tr>
+            <tr *ngIf="!contractorPerf || contractorPerf.length === 0">
+              <td colspan="4" class="px-6 py-8 text-center text-gray-500">No contractor data</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>

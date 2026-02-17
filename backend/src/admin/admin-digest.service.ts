@@ -48,9 +48,10 @@ export class AdminDigestService {
       `
       SELECT u.email
       FROM users u
-      JOIN roles r ON r.id = u."roleId"
+      JOIN roles r ON r.id = u.role_id
       WHERE r.code IN ('ADMIN','CCO')
-        AND u."isActive" = true
+        AND u.is_active = true
+        AND u.deleted_at IS NULL
       `,
     );
 
@@ -67,13 +68,12 @@ export class AdminDigestService {
       overdueAudits = await this.ds.query(
         `
         SELECT
-          c."clientName" AS client,
-          b."branchName" AS branch_name,
+          c.client_name AS client,
+          NULL::text AS branch_name,
           a.audit_type,
           (now()::date - a.due_date::date) AS days_overdue
         FROM audits a
-        JOIN client_branches b ON b.id = a.branch_id
-        JOIN clients c ON c.id = b."clientId"
+        JOIN clients c ON c.id = a.client_id
         WHERE a.status <> 'COMPLETED'
           AND a.due_date < now()
         ORDER BY days_overdue DESC
@@ -88,7 +88,7 @@ export class AdminDigestService {
       assignmentsDue = await this.ds.query(
         `
         SELECT
-          c."clientName" AS client,
+          c.client_name AS client,
           ca.assignment_type,
           CASE
             WHEN ca.assignment_type = 'CRM' THEN ca.start_date + interval '365 days'
@@ -128,7 +128,12 @@ export class AdminDigestService {
       lowestCompliance,
     );
 
-    await this.email.send(to, 'Statco Weekly Compliance Digest', 'Weekly Compliance Digest', html);
+    await this.email.send(
+      to,
+      'Statco Weekly Compliance Digest',
+      'Weekly Compliance Digest',
+      html,
+    );
     this.logger.log('Weekly digest email sent');
   }
 
@@ -138,9 +143,10 @@ export class AdminDigestService {
       `
       SELECT u.email
       FROM users u
-      JOIN roles r ON r.id = u."roleId"
+      JOIN roles r ON r.id = u.role_id
       WHERE r.code IN ('ADMIN','CCO')
-        AND u."isActive" = true
+        AND u.is_active = true
+        AND u.deleted_at IS NULL
       `,
     );
 
@@ -156,14 +162,13 @@ export class AdminDigestService {
       overdueAudits30 = await this.ds.query(
         `
         SELECT
-          c."clientName" AS client,
-          b."branchName" AS branch_name,
+          c.client_name AS client,
+          NULL::text AS branch_name,
           a.audit_type,
           a.due_date,
           (now()::date - a.due_date::date) AS days_overdue
         FROM audits a
-        JOIN client_branches b ON b.id = a.branch_id
-        JOIN clients c ON c.id = b."clientId"
+        JOIN clients c ON c.id = a.client_id
         WHERE a.status <> 'COMPLETED'
           AND a.due_date < now()
           AND (now()::date - a.due_date::date) > 30
@@ -179,7 +184,7 @@ export class AdminDigestService {
       assignmentsPastDue = await this.ds.query(
         `
         SELECT
-          c."clientName" AS client,
+          c.client_name AS client,
           ca.assignment_type,
           CASE
             WHEN ca.assignment_type = 'CRM' THEN ca.start_date + interval '365 days'
@@ -207,7 +212,12 @@ export class AdminDigestService {
     if (!overdueAudits30.length && !assignmentsPastDue.length) return;
 
     const html = this.buildCriticalHtml(overdueAudits30, assignmentsPastDue);
-    await this.email.send(to, 'Statco Daily Critical Alerts', 'Daily Critical Alerts', html);
+    await this.email.send(
+      to,
+      'Statco Daily Critical Alerts',
+      'Daily Critical Alerts',
+      html,
+    );
     this.logger.log('Critical alerts email sent');
   }
 

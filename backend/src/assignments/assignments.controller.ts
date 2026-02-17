@@ -20,7 +20,7 @@ import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { ChangeAssignmentDto } from './dto/change-assignment.dto';
 
-@Controller('api/admin/assignments')
+@Controller({ path: 'admin/assignments', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AssignmentsController {
@@ -30,7 +30,6 @@ export class AssignmentsController {
   // Frontend uses:
   //   GET  /api/admin/assignments/crm
   //   POST /api/admin/assignments/crm      { clientId, crmId }
-
 
   //   GET  /api/admin/assignments/auditor
   //   POST /api/admin/assignments/auditor  { clientId, auditorId }
@@ -72,6 +71,49 @@ export class AssignmentsController {
       actorUserId: req.user?.userId ?? null,
       actorRole: req.user?.roleCode ?? null,
       changeReason: 'MANUAL',
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Branch-wise Auditor Assignments (new)
+  // ---------------------------------------------------------------------------
+
+  @Get('branch-auditors')
+  async listBranchAuditors(
+    @Query('clientId') clientId?: string,
+    @Query('auditorUserId') auditorUserId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.assignmentsService.listBranchAuditorAssignments({
+      clientId,
+      auditorUserId,
+      branchId,
+      activeOnly: true,
+    });
+  }
+
+  @Post('branch-auditors')
+  async assignAuditorToBranch(
+    @Body() body: { clientId: string; branchId: string; auditorId: string },
+    @Request() req,
+  ) {
+    return this.assignmentsService.assignAuditorToBranch({
+      clientId: body.clientId,
+      branchId: body.branchId,
+      auditorUserId: body.auditorId,
+      actorUserId: req.user?.userId ?? null,
+      actorRole: req.user?.roleCode ?? null,
+    });
+  }
+
+  @Delete('branch-auditors/:id')
+  async endBranchAuditor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req,
+  ) {
+    return this.assignmentsService.endBranchAuditorAssignment(id, {
+      actorUserId: req.user?.userId ?? null,
+      actorRole: req.user?.roleCode ?? null,
     });
   }
 
@@ -193,7 +235,7 @@ export class AssignmentsController {
   }
 }
 
-@Controller('api/crm/clients')
+@Controller({ path: 'crm/clients', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmClientsController {
@@ -205,7 +247,7 @@ export class CrmClientsController {
   }
 }
 
-@Controller('api/auditor/clients')
+@Controller({ path: 'auditor/clients', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('AUDITOR')
 export class AuditorClientsController {

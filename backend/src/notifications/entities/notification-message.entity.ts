@@ -11,22 +11,28 @@ import { NotificationEntity } from './notification.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 
 /**
- * Legacy table: notification_messages
- *  - id: bigserial
- *  - thread_id: uuid
+ * Table: notification_messages
+ *  - id: bigserial (bigint)
+ *  - notification_id: uuid (FK -> notifications.id)
  */
 @Entity({ name: 'notification_messages' })
-@Index('idx_notification_messages_thread_created', ['threadId', 'createdAt'])
+@Index('idx_notification_messages_notification_created', [
+  'notificationId',
+  'createdAt',
+])
 export class NotificationMessageEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
 
-  @Column({ name: 'thread_id', type: 'uuid' })
-  threadId: string;
+  @Column({ name: 'notification_id', type: 'uuid' })
+  notificationId: string;
 
-  @ManyToOne(() => NotificationEntity, (t) => t.messages, { nullable: false, onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'thread_id' })
-  thread?: NotificationEntity;
+  @ManyToOne(() => NotificationEntity, (t) => t.messages, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'notification_id' })
+  notification?: NotificationEntity;
 
   @Column({ name: 'sender_user_id', type: 'uuid' })
   senderUserId: string;

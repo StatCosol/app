@@ -1,0 +1,16 @@
+.card {
+  @apply bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-6;
+}
+
+.form-select,
+.form-input {
+  @apply border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-statco-blue-light focus:border-statco-blue-light;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-white bg-statco-blue hover:bg-statco-blue-dark transition disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-semibold text-statco-blue bg-blue-50 hover:bg-blue-100 transition disabled:opacity-60 disabled:cursor-not-allowed;
+}

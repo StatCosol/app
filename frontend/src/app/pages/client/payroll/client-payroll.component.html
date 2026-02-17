@@ -1,0 +1,333 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header 
+    title="Payroll (Confidential)" 
+    description="View and manage your payroll data securely" 
+    icon="lock-closed">
+  </ui-page-header>
+
+  <!-- Tabs -->
+  <div class="border-b border-gray-200 mb-6">
+    <nav class="-mb-px flex space-x-8">
+      <button
+        [class]="activeTab === 'inputs' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="switchTab('inputs')"
+      >
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Payroll Inputs
+      </button>
+      <button
+        [class]="activeTab === 'registers' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
+        (click)="switchTab('registers')"
+      >
+        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Registers & Reports
+      </button>
+    </nav>
+  </div>
+
+  <!-- Payroll Inputs Tab -->
+  <div *ngIf="activeTab === 'inputs'">
+    <!-- Create Input Card -->
+    <div class="card mb-6" *ngIf="!selectedInput">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Create Payroll Input</h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <ui-form-input
+          id="title"
+          label="Title"
+          type="text"
+          [(ngModel)]="newInput.title"
+          placeholder="January Payroll Input">
+        </ui-form-input>
+
+        <ui-form-input
+          id="year"
+          label="Year"
+          type="number"
+          [(ngModel)]="newInput.periodYear">
+        </ui-form-input>
+
+        <ui-form-select
+          id="month"
+          label="Month"
+          [(ngModel)]="newInput.periodMonth"
+          [options]="monthOptions">
+        </ui-form-select>
+
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Upload Excel</label>
+          <input type="file" (change)="onInputFileSelected($event)" class="w-full" />
+        </div>
+        <div class="md:col-span-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+          <textarea
+            [(ngModel)]="newInput.notes"
+            rows="3"
+            class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"
+            placeholder="Optional notes for payroll team"
+          ></textarea>
+        </div>
+        <div class="md:col-span-4 flex items-center gap-3">
+          <ui-button variant="primary" size="md" (click)="createInput()" [disabled]="creatingInput">
+            {{ creatingInput ? 'Creating...' : 'Create Input' }}
+          </ui-button>
+          <span *ngIf="inputError" class="text-sm text-red-600">{{ inputError }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card mb-6" *ngIf="!selectedInput">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Filter Payroll Inputs</h3>
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+        </svg>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <ui-form-select
+          id="filterYear"
+          label="Year"
+          [(ngModel)]="filters.periodYear"
+          (ngModelChange)="loadInputs()"
+          [options]="[
+            { value: 2024, label: '2024' },
+            { value: 2025, label: '2025' },
+            { value: 2026, label: '2026' },
+            { value: 2027, label: '2027' }
+          ]">
+        </ui-form-select>
+
+        <ui-form-select
+          id="filterMonth"
+          label="Month"
+          [(ngModel)]="filters.periodMonth"
+          (ngModelChange)="loadInputs()"
+          [options]="monthOptions">
+        </ui-form-select>
+
+        <ui-form-select
+          id="filterStatus"
+          label="Status"
+          [(ngModel)]="filters.status"
+          (ngModelChange)="loadInputs()"
+          [options]="[
+            { value: '', label: 'All Status' },
+            { value: 'DRAFT', label: 'Draft' },
+            { value: 'SUBMITTED', label: 'Submitted' },
+            { value: 'APPROVED', label: 'Approved' },
+            { value: 'REJECTED', label: 'Rejected' },
+            { value: 'COMPLETED', label: 'Completed' }
+          ]">
+        </ui-form-select>
+
+        <div class="flex items-end">
+          <ui-button variant="primary" size="md" class="w-full" (click)="loadInputs()">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+          </ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inputs List -->
+    <div *ngIf="!selectedInput" class="card">
+      <ui-data-table
+        [columns]="inputColumns"
+        [data]="inputs"
+        [loading]="loading"
+        emptyMessage="No payroll inputs found for the selected period.">
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          <ui-button variant="primary" size="sm" (click)="selectInput(row)">
+            View Details
+          </ui-button>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <!-- Input Details -->
+    <div *ngIf="selectedInput" class="space-y-6">
+      <!-- Detail Header -->
+      <div class="card">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div>
+              <h3 class="text-xl font-semibold text-gray-900">
+                Payroll Input: {{ selectedInput.periodMonth | number:'2.0-0' }}/{{ selectedInput.periodYear }}
+              </h3>
+              <span [ngClass]="getStatusClass(selectedInput.status)" class="badge mt-2 inline-block">
+                {{ selectedInput.status }}
+              </span>
+            </div>
+          </div>
+          <button class="btn-secondary" (click)="backToInputsList()">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to List
+          </button>
+        </div>
+      </div>
+
+      <!-- Status History -->
+      <div class="card">
+        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Status History
+        </h4>
+        <div class="space-y-4">
+          <div *ngFor="let h of statusHistory" class="flex gap-4">
+            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-statco-blue-light/10 flex items-center justify-center">
+              <div class="w-3 h-3 rounded-full bg-statco-blue-light"></div>
+            </div>
+            <div class="flex-grow">
+              <div class="font-medium text-gray-900">{{ h.newStatus }}</div>
+              <div class="text-sm text-gray-600 mt-0.5">{{ formatDate(h.changedAt) }}</div>
+              <div *ngIf="h.remarks" class="text-sm text-gray-500 mt-1 italic">{{ h.remarks }}</div>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="statusHistory.length === 0" class="text-center py-8">
+          <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p class="mt-2 text-sm text-gray-500">No status history available.</p>
+        </div>
+      </div>
+
+      <!-- Files -->
+      <div class="card">
+        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Uploaded Files
+        </h4>
+        <div class="space-y-2">
+          <div *ngFor="let file of inputFiles" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div class="flex-shrink-0">
+              <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div class="flex-grow">
+              <div class="font-medium text-gray-900">{{ file.fileName }}</div>
+              <div class="text-sm text-gray-600 mt-0.5">
+                Uploaded: {{ formatDate(file.createdAt) }}
+              </div>
+            </div>
+            <div>
+              <button class="btn-secondary" (click)="downloadInputFile(file)">Download</button>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="inputFiles.length === 0" class="text-center py-8">
+          <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          <p class="mt-2 text-sm text-gray-500">No files uploaded yet.</p>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card" *ngIf="selectedInput.status === 'DRAFT'">
+        <h4 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h4>
+        <div class="flex gap-3">
+          <button class="btn-primary" (click)="updateStatus('SUBMITTED')" [disabled]="updatingStatus">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            {{ updatingStatus ? 'Processing...' : 'Submit for Approval' }}
+          </button>
+          <button class="btn-secondary text-red-600 border-red-300 hover:bg-red-50" (click)="updateStatus('CANCELLED')" [disabled]="updatingStatus">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            {{ updatingStatus ? 'Processing...' : 'Cancel' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registers Tab -->
+  <div *ngIf="activeTab === 'registers'">
+    <!-- Filters Card -->
+    <div class="card mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Filter Registers & Reports</h3>
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+        </svg>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <ui-form-select
+          id="regYear"
+          label="Year"
+          [(ngModel)]="registerFilters.periodYear"
+          (ngModelChange)="loadRegisters()"
+          [options]="yearOptions">
+        </ui-form-select>
+
+        <ui-form-select
+          id="regMonth"
+          label="Month"
+          [(ngModel)]="registerFilters.periodMonth"
+          (ngModelChange)="loadRegisters()"
+          [options]="monthOptions">
+        </ui-form-select>
+
+        <ui-form-select
+          id="regType"
+          label="Register Type"
+          [(ngModel)]="registerFilters.registerType"
+          (ngModelChange)="loadRegisters()"
+          [options]="registerTypeOptions">
+        </ui-form-select>
+
+        <div class="flex items-end">
+          <ui-button variant="primary" size="md" class="w-full" (click)="loadRegisters()">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+          </ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Registers Table -->
+    <div class="card">
+      <ui-data-table
+        [columns]="registerColumns"
+        [data]="registers"
+        emptyMessage="No registers found for the selected period.">
+        <ng-template uiTableCell="registerType" let-value>
+          <span class="badge badge-info">{{ value }}</span>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          <ui-button variant="primary" size="sm" (click)="downloadRegister(row)">
+            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download
+          </ui-button>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </div>
+</div>

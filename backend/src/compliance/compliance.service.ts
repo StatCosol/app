@@ -5,11 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
 import { ComplianceTask, TaskStatus } from './entities/compliance-task.entity';
 import { ComplianceEvidence } from './entities/compliance-evidence.entity';
 import { ComplianceComment } from './entities/compliance-comment.entity';
+import {
+  ComplianceMcdItem,
+  McdItemStatus,
+} from './entities/compliance-mcd-item.entity';
+import { DocumentRemark } from './entities/document-remark.entity';
+import { DocumentReuploadRequest } from './entities/document-reupload-request.entity';
+import { DocumentVersion } from './entities/document-version.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
@@ -29,6 +36,14 @@ export class ComplianceService {
     private evidence: Repository<ComplianceEvidence>,
     @InjectRepository(ComplianceComment)
     private comments: Repository<ComplianceComment>,
+    @InjectRepository(ComplianceMcdItem)
+    private mcdItems: Repository<ComplianceMcdItem>,
+    @InjectRepository(DocumentRemark)
+    private remarkRepo: Repository<DocumentRemark>,
+    @InjectRepository(DocumentReuploadRequest)
+    private reuploadReqRepo: Repository<DocumentReuploadRequest>,
+    @InjectRepository(DocumentVersion)
+    private versionRepo: Repository<DocumentVersion>,
     @InjectRepository(UserEntity)
     private users: Repository<UserEntity>,
     @InjectRepository(BranchEntity)
@@ -38,6 +53,15 @@ export class ComplianceService {
     private readonly notifications: NotificationsService,
     private readonly email: EmailService,
   ) {}
+
+  // Common: list compliance master entries for admin/frontends
+  async listComplianceMaster(user: any) {
+    this.assertRole(user, ['ADMIN']);
+    return this.masters.find({
+      where: { isActive: true },
+      order: { complianceName: 'ASC' },
+    });
+  }
 
   // ---------- Helpers ----------
   private assertRole(user: any, allowed: string[]) {
@@ -51,6 +75,28 @@ export class ComplianceService {
     const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(d.getUTCDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
+  }
+
+  private computePeriodCode(year: number, month?: number | null): string {
+    if (month && month >= 1 && month <= 12) {
+      return `${year}-${String(month).padStart(2, '0')}`;
+    }
+    return `${year}`;
+  }
+
+  private computeUploadWindow(
+    periodYear: number,
+    periodMonth?: number | null,
+  ): { startDate: string; endDate: string } | null {
+    if (!periodMonth || periodMonth < 1 || periodMonth > 12) return null;
+    const nextMonth = periodMonth === 12 ? 1 : periodMonth + 1;
+    const nextYear = periodMonth === 12 ? periodYear + 1 : periodYear;
+    const start = new Date(Date.UTC(nextYear, nextMonth - 1, 20));
+    const end = new Date(Date.UTC(nextYear, nextMonth - 1, 25));
+    return {
+      startDate: this.toDateOnly(start),
+      endDate: this.toDateOnly(end),
+    };
   }
 
   private async assertCrmAssignedToClient(crmUserId: string, clientId: string) {
@@ -91,6 +137,22 @@ export class ComplianceService {
       throw new ForbiddenException('Client not assigned to this auditor');
   }
 
+  private async getEvidenceWithTaskOrThrow(
+    docId: string | number,
+  ): Promise<ComplianceEvidence & { task: ComplianceTask }> {
+    const doc = await this.evidence.findOne({
+      where: { id: Number(docId) },
+      relations: ['task'],
+    });
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+    if (!doc.task) {
+      throw new NotFoundException('Task not found for document');
+    }
+    return doc as ComplianceEvidence & { task: ComplianceTask };
+  }
+
   private async loadTaskOrThrow(taskId: string | number) {
     const idNum = Number(taskId);
     const t = await this.tasks.findOne({
@@ -120,6 +182,17 @@ export class ComplianceService {
     return task.status;
   }
 
+  private computeMonthlyDueDate(
+    periodYear?: number,
+    periodMonth?: number,
+  ): string | null {
+    if (!periodYear || !periodMonth) return null;
+    const nextMonth = periodMonth === 12 ? 1 : periodMonth + 1;
+    const nextYear = periodMonth === 12 ? periodYear + 1 : periodYear;
+    const d = new Date(Date.UTC(nextYear, nextMonth - 1, 20));
+    return this.toDateOnly(d);
+  }
+
   // ---------- Dashboards ----------
 
   async crmDashboard(user: any) {
@@ -139,10 +212,8 @@ export class ComplianceService {
           overdue: 0,
         },
         topOverdueBranches: [],
-        contractorPerformance: {
-          submitted: 0,
-          overdue: 0,
-        },
+        // Keep response shape consistent with normal flow
+        contractorPerformance: [],
       };
     }
 
@@ -159,8 +230,13 @@ export class ComplianceService {
       byStatus.set(String(r.status), Number(r.count));
     }
 
+    // UI groups all non-final work into "pending" bucket.
+    // Statuses used by tasks: PENDING, IN_PROGRESS, REJECTED, SUBMITTED, APPROVED, OVERDUE
     const tasks = {
-      pending: byStatus.get('PENDING') ?? 0,
+      pending:
+        (byStatus.get('PENDING') ?? 0) +
+        (byStatus.get('IN_PROGRESS') ?? 0) +
+        (byStatus.get('REJECTED') ?? 0),
       submitted: byStatus.get('SUBMITTED') ?? 0,
       approved: byStatus.get('APPROVED') ?? 0,
       overdue: byStatus.get('OVERDUE') ?? 0,
@@ -313,6 +389,7 @@ export class ComplianceService {
 
     const clientId = String(user.clientId);
 
+    // ── Summary: full status breakdown ──
     const rows = await this.tasks
       .createQueryBuilder('t')
       .select('t.status', 'status')
@@ -323,6 +400,9 @@ export class ComplianceService {
 
     let total = 0;
     let approved = 0;
+    let pending = 0;
+    let submitted = 0;
+    let rejected = 0;
     let overdue = 0;
 
     for (const r of rows) {
@@ -330,86 +410,102 @@ export class ComplianceService {
       const count = Number(r.count);
       total += count;
       if (status === 'APPROVED') approved += count;
-      if (status === 'OVERDUE') overdue += count;
+      else if (status === 'OVERDUE') overdue += count;
+      else if (status === 'PENDING' || status === 'IN_PROGRESS')
+        pending += count;
+      else if (status === 'SUBMITTED') submitted += count;
+      else if (status === 'REJECTED') rejected += count;
     }
 
-    const percentage = total > 0 ? (approved / total) * 100 : 0;
+    const compliancePercent =
+      total > 0 ? Math.round((approved / total) * 100) : 0;
 
+    // ── Branches: include id + overdue per branch ──
     const branchRows = await this.tasks
       .createQueryBuilder('t')
       .leftJoin('t.branch', 'b')
-      .select(
+      .select('t.branchId', 'branchId')
+      .addSelect(
         "COALESCE(b.branchName, CONCAT('Branch #', t.branchId))",
         'branchName',
       )
       .addSelect('t.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .where('t.clientId = :clientId', { clientId })
-      .groupBy('b.branchName')
-      .addGroupBy('t.branchId')
+      .groupBy('t.branchId')
+      .addGroupBy('b.branchName')
       .addGroupBy('t.status')
       .getRawMany();
 
-    const branchMap = new Map<string, { approved: number; total: number }>();
+    const branchMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        approved: number;
+        overdue: number;
+        total: number;
+      }
+    >();
     for (const r of branchRows) {
+      const bid = String(r.branchId);
       const name = String(r.branchName);
       const status = String(r.status);
       const count = Number(r.count);
-      const entry = branchMap.get(name) || { approved: 0, total: 0 };
+      const entry = branchMap.get(bid) || {
+        id: bid,
+        name,
+        approved: 0,
+        overdue: 0,
+        total: 0,
+      };
       entry.total += count;
       if (status === 'APPROVED') entry.approved += count;
-      branchMap.set(name, entry);
+      if (status === 'OVERDUE') entry.overdue += count;
+      branchMap.set(bid, entry);
     }
 
-    const branchWise = Array.from(branchMap.entries()).map(
-      ([branchName, v]) => ({
-        branchName,
-        approved: v.approved,
-        total: v.total,
-      }),
-    );
-
-    const monthRows = await this.tasks
-      .createQueryBuilder('t')
-      .select('t.periodYear', 'year')
-      .addSelect('t.periodMonth', 'month')
-      .addSelect('t.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .where('t.clientId = :clientId', { clientId })
-      .groupBy('t.periodYear')
-      .addGroupBy('t.periodMonth')
-      .addGroupBy('t.status')
-      .orderBy('t.periodYear', 'ASC')
-      .addOrderBy('t.periodMonth', 'ASC')
-      .getRawMany();
-
-    const trendMap = new Map<string, { approved: number; total: number }>();
-    for (const r of monthRows) {
-      const y = Number(r.year);
-      const m = Number(r.month || 0);
-      if (!y || !m) continue;
-      const key = `${y}-${String(m).padStart(2, '0')}`;
-      const status = String(r.status);
-      const count = Number(r.count);
-      const entry = trendMap.get(key) || { approved: 0, total: 0 };
-      entry.total += count;
-      if (status === 'APPROVED') entry.approved += count;
-      trendMap.set(key, entry);
-    }
-
-    const trend = Array.from(trendMap.entries()).map(([month, v]) => ({
-      month,
+    const branches = Array.from(branchMap.values()).map((v) => ({
+      id: v.id,
+      branchName: v.name,
       approved: v.approved,
+      overdue: v.overdue,
       total: v.total,
+      percent: v.total > 0 ? Math.round((v.approved / v.total) * 100) : 0,
+    }));
+
+    // ── Overdue preview: top 10 overdue tasks ──
+    const overdueRows = await this.tasks
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.compliance', 'c')
+      .leftJoinAndSelect('t.branch', 'b')
+      .where('t.clientId = :clientId', { clientId })
+      .andWhere('t.status = :st', { st: 'OVERDUE' })
+      .orderBy('t.dueDate', 'ASC')
+      .limit(10)
+      .getMany();
+
+    const overduePreview = overdueRows.map((t: any) => ({
+      id: t.id,
+      complianceTitle:
+        t.compliance?.complianceName || t.compliance?.title || 'Untitled',
+      branchName: t.branch?.branchName || '-',
+      status: 'OVERDUE',
+      dueDate: t.dueDate,
     }));
 
     return {
-      total,
-      approved,
-      overdue,
-      percentage,
-      branchWise,
-      trend,
+      summary: {
+        total,
+        approved,
+        pending,
+        submitted,
+        rejected,
+        overdue,
+        compliancePercent,
+      },
+      branches,
+      overduePreview,
     };
   }
 
@@ -487,10 +583,8 @@ export class ComplianceService {
           overdue: 0,
         },
         topOverdueBranches: [],
-        contractorPerformance: {
-          submitted: 0,
-          overdue: 0,
-        },
+        // Keep response shape consistent with normal flow
+        contractorPerformance: [],
       };
     }
 
@@ -507,8 +601,12 @@ export class ComplianceService {
       byStatus.set(String(r.status), Number(r.count));
     }
 
+    // UI groups all non-final work into "pending" bucket.
     const tasks = {
-      pending: byStatus.get('PENDING') ?? 0,
+      pending:
+        (byStatus.get('PENDING') ?? 0) +
+        (byStatus.get('IN_PROGRESS') ?? 0) +
+        (byStatus.get('REJECTED') ?? 0),
       submitted: byStatus.get('SUBMITTED') ?? 0,
       approved: byStatus.get('APPROVED') ?? 0,
       overdue: byStatus.get('OVERDUE') ?? 0,
@@ -662,16 +760,33 @@ export class ComplianceService {
       }
     }
 
+    const periodCode = this.computePeriodCode(
+      Number(dto.periodYear),
+      dto.periodMonth ? Number(dto.periodMonth) : null,
+    );
+    const window = this.computeUploadWindow(
+      Number(dto.periodYear),
+      dto.periodMonth ? Number(dto.periodMonth) : null,
+    );
+
+    const dueDateValue = window?.endDate || dto.dueDate;
+    if (!dueDateValue) {
+      throw new BadRequestException('dueDate required');
+    }
+
     const task = this.tasks.create({
       clientId: dto.clientId,
       branchId: dto.branchId ?? null,
       complianceId: dto.complianceId,
+      title: cm.complianceName,
+      description: cm.description ?? null,
+      frequency: cm.frequency,
       periodYear: Number(dto.periodYear),
       periodMonth: dto.periodMonth ? Number(dto.periodMonth) : null,
-      periodLabel: dto.periodLabel ?? null,
+      periodLabel: dto.periodLabel ?? periodCode,
       assignedToUserId: dto.assignedToUserId ? dto.assignedToUserId : null,
       assignedByUserId: user.userId,
-      dueDate: dto.dueDate,
+      dueDate: dueDateValue,
       status: 'PENDING',
       remarks: dto.remarks ?? null,
     });
@@ -721,10 +836,17 @@ export class ComplianceService {
       where: { taskId: taskIdNum },
       order: { createdAt: 'DESC' },
     });
-    const cm = await this.comments.find({
+    const cmRaw = await this.comments.find({
       where: { taskId: taskIdNum },
+      relations: ['user'],
       order: { createdAt: 'ASC' },
     });
+
+    // Map comments to include user name
+    const cm = cmRaw.map((c) => ({
+      ...c,
+      userName: c.user?.name || `User #${c.userId}`,
+    }));
 
     // TODO: Implement audit report thread check if needed with new notification system
     const hasAuditReport = false;
@@ -891,10 +1013,16 @@ export class ComplianceService {
       throw new ForbiddenException('Not your branch');
     }
 
-    const comments = await this.comments.find({
+    const commentsRaw = await this.comments.find({
       where: { taskId: taskIdNum },
+      relations: ['user'],
       order: { createdAt: 'ASC' },
     });
+
+    const comments = commentsRaw.map((c) => ({
+      ...c,
+      userName: c.user?.name || `User #${c.userId}`,
+    }));
 
     const evidence = await this.evidence.find({
       where: { taskId: taskIdNum },
@@ -1115,10 +1243,16 @@ export class ComplianceService {
       where: { taskId: taskIdNum },
       order: { createdAt: 'DESC' },
     });
-    const cm = await this.comments.find({
+    const cmRaw = await this.comments.find({
       where: { taskId: taskIdNum },
+      relations: ['user'],
       order: { createdAt: 'ASC' },
     });
+
+    const cm = cmRaw.map((c) => ({
+      ...c,
+      userName: c.user?.name || `User #${c.userId}`,
+    }));
 
     return {
       task: { ...t, status: this.computeOverdueStatus(t) },
@@ -1170,18 +1304,221 @@ export class ComplianceService {
 
     if (q.branchId)
       qb.andWhere('t.branchId = :bid', { bid: String(q.branchId) });
-    if (q.status) qb.andWhere('t.status = :st', { st: q.status });
+    if (q.status && q.status !== 'ALL')
+      qb.andWhere('t.status = :st', { st: q.status });
     if (q.year) qb.andWhere('t.periodYear = :yy', { yy: Number(q.year) });
     if (q.month) qb.andWhere('t.periodMonth = :mm', { mm: Number(q.month) });
+    if (q.frequency)
+      qb.andWhere('t.frequency = :freq', { freq: String(q.frequency) });
 
     qb.orderBy('t.dueDate', 'ASC');
 
     const data = await qb.getMany();
-    const mapped = data.map((t) => ({
-      ...t,
-      status: this.computeOverdueStatus(t),
-    }));
+    const mapped = data.map((t) => {
+      const dueDate =
+        t.dueDate ||
+        (t.frequency === 'MONTHLY'
+          ? this.computeMonthlyDueDate(t.periodYear, t.periodMonth || undefined)
+          : null);
+      const taskWithDue = {
+        ...t,
+        dueDate: dueDate || t.dueDate,
+      } as ComplianceTask;
+      return {
+        ...taskWithDue,
+        status: this.computeOverdueStatus(taskWithDue),
+        evidenceCount: 0,
+      };
+    });
+
+    // Attach evidence counts so client can see how many files were uploaded per task
+    if (mapped.length) {
+      const ids = mapped.map((t) => t.id);
+      const evidenceRows = await this.evidence
+        .createQueryBuilder('e')
+        .select('e.taskId', 'taskId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('e.taskId IN (:...ids)', { ids })
+        .groupBy('e.taskId')
+        .getRawMany();
+
+      const evidenceMap = new Map<number, number>();
+      for (const r of evidenceRows) {
+        evidenceMap.set(Number(r.taskId), Number(r.cnt));
+      }
+
+      mapped.forEach((t) => {
+        t.evidenceCount = evidenceMap.get(t.id) || 0;
+      });
+    }
+
     return { data: mapped };
+  }
+
+  async clientListMcdItems(user: any, taskId: string | number) {
+    this.assertRole(user, ['CLIENT']);
+    if (!user.clientId) throw new ForbiddenException('Client missing clientId');
+
+    try {
+      const taskIdNum = Number(taskId);
+      const t = await this.loadTaskOrThrow(taskIdNum);
+      if (String(t.clientId) !== String(user.clientId)) {
+        throw new ForbiddenException('Not your task');
+      }
+
+      const items = await this.mcdItems.find({ where: { taskId: taskIdNum } });
+      if (!items.length) return { data: [] };
+
+      const itemIds = items.map((i) => i.id);
+      const evidenceRows = await this.evidence
+        .createQueryBuilder('e')
+        .select('e.mcdItemId', 'mcdItemId')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('e.mcdItemId IN (:...itemIds)', { itemIds })
+        .groupBy('e.mcdItemId')
+        .getRawMany();
+
+      const evMap = new Map<number, number>();
+      for (const r of evidenceRows) {
+        evMap.set(Number(r.mcdItemId), Number(r.cnt));
+      }
+
+      const data = items.map((i) => ({
+        ...i,
+        evidenceCount: evMap.get(i.id) || 0,
+      }));
+
+      return { data };
+    } catch (err) {
+      // Avoid breaking client UI if table/migration missing; log once and return empty
+      return { data: [] };
+    }
+  }
+
+  async clientUploadEvidence(
+    user: any,
+    taskId: string,
+    file: any,
+    notes?: string,
+    mcdItemId?: string | number,
+  ) {
+    this.assertRole(user, ['CLIENT']);
+    if (!file) throw new BadRequestException('file required');
+
+    const taskIdNum = Number(taskId);
+    const t = await this.loadTaskOrThrow(taskIdNum);
+
+    if (String(t.clientId) !== String(user.clientId)) {
+      throw new ForbiddenException('Not your task');
+    }
+
+    if (t.assignedToUserId) {
+      throw new ForbiddenException('Task assigned to contractor');
+    }
+
+    // Enforce upload window (20-25 of next month for monthly compliance)
+    const window = this.computeUploadWindow(
+      t.periodYear,
+      t.periodMonth || undefined,
+    );
+    if (window) {
+      const today = new Date();
+      const start = new Date(`${window.startDate}T00:00:00Z`);
+      const end = new Date(`${window.endDate}T23:59:59Z`);
+      if (today < start) {
+        throw new BadRequestException(
+          `Upload window opens ${window.startDate} and closes ${window.endDate}`,
+        );
+      }
+      if (today > end) {
+        throw new BadRequestException(
+          `Upload window closed on ${window.endDate}`,
+        );
+      }
+    }
+
+    let mcdItem: ComplianceMcdItem | null = null;
+    if (mcdItemId !== undefined && mcdItemId !== null && mcdItemId !== '') {
+      const mcdIdNum = Number(mcdItemId);
+      mcdItem = await this.mcdItems.findOne({ where: { id: mcdIdNum } });
+      if (!mcdItem) throw new BadRequestException('MCD item not found');
+      if (mcdItem.taskId !== taskIdNum)
+        throw new ForbiddenException('Item not part of this task');
+    }
+
+    const ev = this.evidence.create({
+      taskId: taskIdNum,
+      mcdItemId: mcdItem ? mcdItem.id : null,
+      uploadedByUserId: user.userId,
+      fileName: file.originalname,
+      filePath: file.path.replace(/\\/g, '/'),
+      fileType: file.mimetype,
+      fileSize: file.size,
+      notes: notes?.trim() || null,
+    });
+    await this.evidence.save(ev);
+
+    if (['PENDING', 'REJECTED', 'OVERDUE'].includes(t.status)) {
+      await this.tasks.update({ id: taskIdNum }, { status: 'IN_PROGRESS' });
+    }
+
+    return { message: 'uploaded' };
+  }
+
+  async clientSubmitTask(user: any, taskId: string) {
+    this.assertRole(user, ['CLIENT']);
+
+    const taskIdNum = Number(taskId);
+    const t = await this.loadTaskOrThrow(taskIdNum);
+
+    if (String(t.clientId) !== String(user.clientId)) {
+      throw new ForbiddenException('Not your task');
+    }
+
+    if (t.assignedToUserId) {
+      throw new ForbiddenException('Task assigned to contractor');
+    }
+
+    const evCount = await this.evidence.count({ where: { taskId: taskIdNum } });
+    if (evCount === 0) {
+      throw new BadRequestException('Upload evidence before submitting');
+    }
+
+    const allowed: TaskStatus[] = [
+      'IN_PROGRESS',
+      'PENDING',
+      'REJECTED',
+      'OVERDUE',
+    ];
+    if (!allowed.includes(t.status)) {
+      throw new BadRequestException('Cannot submit from current status');
+    }
+
+    await this.tasks.update({ id: taskIdNum }, { status: 'SUBMITTED' });
+
+    const mcdItems = await this.mcdItems.find({ where: { taskId: taskIdNum } });
+    if (mcdItems.length) {
+      await this.mcdItems.update(
+        { taskId: taskIdNum, status: In(['PENDING', 'REJECTED']) },
+        { status: 'SUBMITTED' as McdItemStatus },
+      );
+    }
+
+    if (t.assignedByUserId) {
+      const crm = await this.users.findOne({
+        where: { id: t.assignedByUserId },
+      });
+      if (crm?.email) {
+        await this.email.send(
+          crm.email,
+          `Client submitted task #${taskIdNum}`,
+          'Compliance Task Submitted',
+          'A client submitted a compliance task for your review.',
+        );
+      }
+    }
+
+    return { status: 'SUBMITTED' };
   }
 
   // ---------- Admin APIs ----------
@@ -1212,5 +1549,248 @@ export class ComplianceService {
     } catch (_) {
       return { data: [] };
     }
+  }
+
+  // ---------- Auditor Audit Workflow APIs ----------
+
+  /**
+   * List documents (evidence) for auditor to review
+   */
+  async auditorListDocs(user: any, filters: any) {
+    this.assertRole(user, ['AUDITOR']);
+
+    const assignedClients =
+      await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
+    if (!assignedClients.length) {
+      return { data: [] };
+    }
+
+    const qb = this.evidence
+      .createQueryBuilder('ev')
+      .leftJoinAndSelect('ev.task', 't')
+      .leftJoinAndSelect('t.compliance', 'compliance')
+      .leftJoinAndSelect('t.branch', 'branch')
+      .where('t.clientId IN (:...clientIds)', {
+        clientIds: assignedClients.map((c) => c.id),
+      });
+
+    if (filters.clientId) {
+      qb.andWhere('t.clientId = :cid', { cid: filters.clientId });
+    }
+    if (filters.unitId) {
+      qb.andWhere('t.branchId = :bid', { bid: filters.unitId });
+    }
+    if (filters.month && filters.year) {
+      qb.andWhere('t.periodMonth = :month', { month: filters.month });
+      qb.andWhere('t.periodYear = :year', { year: filters.year });
+    }
+
+    qb.orderBy('ev.createdAt', 'DESC');
+
+    const docs = await qb.getMany();
+    return { data: docs };
+  }
+
+  /**
+   * Add auditor remark to a document
+   */
+  async auditorAddRemark(
+    user: any,
+    docId: string,
+    dto: { text: string; visibility: string },
+  ) {
+    this.assertRole(user, ['AUDITOR']);
+    throw new ForbiddenException('Auditors cannot review compliance documents');
+    const doc = await this.getEvidenceWithTaskOrThrow(docId);
+
+    await this.assertAuditorAssignedToClient(user.userId, doc.task.clientId);
+
+    const remark = this.remarkRepo.create({
+      documentId: doc.id,
+      documentType: 'COMPLIANCE_EVIDENCE',
+      createdByRole: 'AUDITOR',
+      createdByUserId: user.userId,
+      visibility: dto.visibility || 'CONTRACTOR_VISIBLE',
+      text: dto.text,
+    });
+
+    await this.remarkRepo.save(remark);
+    return { message: 'Remark added', remarkId: remark.id };
+  }
+
+  /**
+   * Request reupload from contractor/client
+   */
+  async auditorRequestReupload(user: any, docId: string, dto: any) {
+    this.assertRole(user, ['AUDITOR']);
+    throw new ForbiddenException(
+      'Auditors cannot request reupload on compliance documents',
+    );
+  }
+
+  /**
+   * List reupload requests for auditor
+   */
+  async auditorListReuploadRequests(user: any, filters: any) {
+    this.assertRole(user, ['AUDITOR']);
+    throw new ForbiddenException(
+      'Auditors cannot view compliance reupload requests',
+    );
+  }
+
+  // ---------- Contractor Reupload APIs ----------
+
+  /**
+   * List reupload requests for logged-in contractor
+   */
+  async contractorListReuploadRequests(user: any, filters: any) {
+    this.assertRole(user, ['CONTRACTOR']);
+
+    const qb = this.reuploadReqRepo
+      .createQueryBuilder('req')
+      .where('req.contractorId = :uid', { uid: user.userId })
+      .andWhere('req.targetRole = :role', { role: 'CONTRACTOR' });
+
+    if (filters.status) {
+      qb.andWhere('req.status = :status', { status: filters.status });
+    }
+
+    qb.orderBy('req.createdAt', 'DESC');
+
+    const data = await qb.getMany();
+    return { data };
+  }
+
+  /**
+   * Get remarks visible to contractor for a document
+   */
+  async contractorGetDocRemarks(user: any, docId: string) {
+    this.assertRole(user, ['CONTRACTOR']);
+
+    const doc = await this.getEvidenceWithTaskOrThrow(docId);
+
+    // Ensure contractor is assigned to this task
+    if (String(doc.task.assignedToUserId) !== String(user.userId)) {
+      throw new ForbiddenException('Not your document');
+    }
+
+    const remarks = await this.remarkRepo.find({
+      where: {
+        documentId: doc.id,
+        documentType: 'COMPLIANCE_EVIDENCE',
+        visibility: In(['CONTRACTOR_VISIBLE', 'BOTH_VISIBLE']),
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    return { data: remarks };
+  }
+
+  /**
+   * Upload file in response to reupload request
+   */
+  async contractorReuploadFile(user: any, requestId: string, file: any) {
+    this.assertRole(user, ['CONTRACTOR']);
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) {
+      throw new NotFoundException('Reupload request not found');
+    }
+
+    if (String(request.contractorId) !== String(user.userId)) {
+      throw new ForbiddenException('Not your request');
+    }
+
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    // Get original document
+    const originalDoc = await this.evidence.findOne({
+      where: { id: Number(request.documentId) },
+    });
+
+    if (!originalDoc) {
+      throw new NotFoundException('Original document not found');
+    }
+
+    // Save new version
+    const currentVersion = await this.versionRepo.count({
+      where: {
+        documentId: originalDoc.id,
+        documentType: 'COMPLIANCE_EVIDENCE',
+      },
+    });
+
+    const newVersion = this.versionRepo.create({
+      documentId: originalDoc.id,
+      documentType: 'COMPLIANCE_EVIDENCE',
+      versionNo: currentVersion + 1,
+      filePath: file.path.replace(/\\/g, '/'),
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+      uploadedByRole: 'CONTRACTOR',
+      uploadedByUserId: user.userId,
+      reuploadRequestId: requestId,
+    });
+
+    await this.versionRepo.save(newVersion);
+
+    // Update evidence record with new file
+    await this.evidence.update(
+      { id: originalDoc.id },
+      {
+        filePath: file.path.replace(/\\/g, '/'),
+        fileName: file.originalname,
+        fileType: file.mimetype,
+        fileSize: file.size,
+      },
+    );
+
+    return { message: 'File uploaded', versionId: newVersion.id };
+  }
+
+  /**
+   * Submit reupload (mark as submitted for CRM review)
+   */
+  async contractorSubmitReupload(user: any, requestId: string) {
+    this.assertRole(user, ['CONTRACTOR']);
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) {
+      throw new NotFoundException('Reupload request not found');
+    }
+
+    if (String(request.contractorId) !== String(user.userId)) {
+      throw new ForbiddenException('Not your request');
+    }
+
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    // Check if file was uploaded
+    const versionExists = await this.versionRepo.findOne({
+      where: { reuploadRequestId: requestId },
+    });
+
+    if (!versionExists) {
+      throw new BadRequestException('Please upload file before submitting');
+    }
+
+    await this.reuploadReqRepo.update(
+      { id: requestId },
+      {
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+      },
+    );
+
+    return { message: 'Reupload submitted for review', status: 'SUBMITTED' };
   }
 }

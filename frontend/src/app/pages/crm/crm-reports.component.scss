@@ -1,0 +1,29 @@
+@use '../../shared/dashboard.scss' as dashboard;
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+  }
+
+  input,
+  select {
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+
+  button {
+    padding: 0.4rem 0.9rem;
+  }
+}

@@ -1,0 +1,141 @@
+@use '../../shared/dashboard.scss' as dashboard;
+
+/* Dashboard widgets (pure CSS, no external chart libs) */
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.donut-wrap {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.donut {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  position: relative;
+  border: 1px solid #e5e7eb;
+}
+
+.donut::after {
+  content: '';
+  position: absolute;
+  inset: 18px;
+  background: #fff;
+  border-radius: 50%;
+  border: 1px solid #f3f4f6;
+}
+
+.legend {
+  display: grid;
+  gap: 8px;
+}
+
+.legend-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.legend .value {
+  font-weight: 600;
+}
+
+.legend .pct {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.dot-pending { background: #60a5fa; }
+.dot-submitted { background: #fb923c; }
+.dot-approved { background: #34d399; }
+.dot-overdue { background: #f87171; }
+
+.barlist {
+  display: grid;
+  gap: 10px;
+}
+
+.barrow {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.barname {
+  font-size: 13px;
+  color: #111827;
+}
+
+.bartrack {
+  height: 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.barfill {
+  height: 100%;
+  background: #f87171;
+  border-radius: 999px;
+}
+
+.barval {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .widget-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .donut-wrap {
+    grid-template-columns: 120px 1fr;
+  }
+
+  .donut {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (max-width: 520px) {
+  .donut-wrap {
+    grid-template-columns: 1fr;
+  }
+  .donut {
+    margin: 0 auto;
+  }
+}

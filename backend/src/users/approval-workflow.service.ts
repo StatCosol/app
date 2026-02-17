@@ -27,15 +27,18 @@ export class ApprovalWorkflowService {
     // Start transaction
     await manager.transaction(async (transactionalEntityManager) => {
       // 1. Find approval
-      const approval = await transactionalEntityManager.findOne(ApprovalEntity, {
-        where: {
-          id: approvalId,
-          status: 'PENDING',
-          action: 'DELETE_CLIENT',
-          entityType: 'CLIENT',
+      const approval = await transactionalEntityManager.findOne(
+        ApprovalEntity,
+        {
+          where: {
+            id: approvalId,
+            status: 'PENDING',
+            action: 'DELETE_CLIENT',
+            entityType: 'CLIENT',
+          },
+          relations: ['requestedBy', 'requestedTo'],
         },
-        relations: ['requestedBy', 'requestedTo'],
-      });
+      );
       if (!approval)
         throw new NotFoundException('Approval not found or already processed');
 

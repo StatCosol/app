@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -55,30 +56,36 @@ const fileUploadOptions = {
   limits: { fileSize: MAX_MB * 1024 * 1024 },
 };
 
-@Controller('api/contractor/compliance')
+@Controller({ path: 'contractor/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorComplianceController {
   constructor(private readonly svc: ComplianceService) {}
 
+  private forbidden() {
+    throw new ForbiddenException(
+      'Contractor compliance workflow is disabled; use audit endpoints',
+    );
+  }
+
   @Get('tasks')
   list(@Req() req: any, @Query() q: any) {
-    return this.svc.contractorListTasks(req.user, q);
+    this.forbidden();
   }
 
   @Get('tasks/:id')
   detail(@Req() req: any, @Param('id') id: string) {
-    return this.svc.contractorGetTaskDetail(req.user, id);
+    this.forbidden();
   }
 
   @Post('tasks/:id/start')
   start(@Req() req: any, @Param('id') id: string) {
-    return this.svc.contractorSetInProgress(req.user, id);
+    this.forbidden();
   }
 
   @Post('tasks/:id/submit')
   submit(@Req() req: any, @Param('id') id: string) {
-    return this.svc.contractorSubmit(req.user, id);
+    this.forbidden();
   }
 
   @Post('tasks/:id/comment')
@@ -87,7 +94,7 @@ export class ContractorComplianceController {
     @Param('id') id: string,
     @Body() dto: { message: string },
   ) {
-    return this.svc.contractorAddComment(req.user, id, dto.message);
+    this.forbidden();
   }
 
   @Post('tasks/:id/evidence')
@@ -98,6 +105,33 @@ export class ContractorComplianceController {
     @UploadedFile() file: any,
     @Body() dto: { notes?: string },
   ) {
-    return this.svc.contractorUploadEvidence(req.user, id, file, dto?.notes);
+    this.forbidden();
+  }
+
+  // Reupload workflow endpoints
+
+  @Get('reupload-requests')
+  listReuploadRequests(@Req() req: any, @Query() filters: any) {
+    this.forbidden();
+  }
+
+  @Get('docs/:docId/remarks')
+  getDocRemarks(@Req() req: any, @Param('docId') docId: string) {
+    this.forbidden();
+  }
+
+  @Post('reupload-requests/:id/upload')
+  @UseInterceptors(FileInterceptor('file', fileUploadOptions))
+  reuploadFile(
+    @Req() req: any,
+    @Param('id') requestId: string,
+    @UploadedFile() file: any,
+  ) {
+    this.forbidden();
+  }
+
+  @Post('reupload-requests/:id/submit')
+  submitReupload(@Req() req: any, @Param('id') requestId: string) {
+    this.forbidden();
   }
 }

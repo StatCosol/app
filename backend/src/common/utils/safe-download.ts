@@ -12,10 +12,18 @@ export function sanitizeFilename(name: string, fallback = 'download.bin') {
   if (!base) return fallback;
 
   // remove path separators and control chars
-  const noCtrl = base.replace(/[\u0000-\u001F\u007F]/g, '');
-  const noSlashes = noCtrl.replace(/[\\/]/g, '-');
+  const withoutControl = Array.from(base)
+    .filter((ch) => {
+      const code = ch.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    })
+    .join('');
+  const noSlashes = withoutControl.replace(/[\\/]/g, '-');
 
-  const safe = noSlashes.replace(/[^a-zA-Z0-9 ._\-()]/g, '_').slice(0, 200).trim();
+  const safe = noSlashes
+    .replace(/[^a-zA-Z0-9 ._\-()]/g, '_')
+    .slice(0, 200)
+    .trim();
   return safe || fallback;
 }
 
@@ -27,13 +35,21 @@ export function assertWithinUploadsRoot(filePath: string) {
   const uploadsRoot = path.resolve(process.cwd(), 'uploads');
   const resolved = path.resolve(filePath);
 
-  if (!resolved.startsWith(uploadsRoot + path.sep) && resolved !== uploadsRoot) {
+  if (
+    !resolved.startsWith(uploadsRoot + path.sep) &&
+    resolved !== uploadsRoot
+  ) {
     // If you store outside "uploads", either adjust uploadsRoot or remove this guard
     throw new NotFoundException('File not found');
   }
 }
 
-export function safeSendFile(res: Response, filePath: string, fileName: string, mimeType?: string) {
+export function safeSendFile(
+  res: Response,
+  filePath: string,
+  fileName: string,
+  mimeType?: string,
+) {
   if (!filePath) throw new NotFoundException('File not found');
 
   // Optional containment guard (turn off if your storage path is different)

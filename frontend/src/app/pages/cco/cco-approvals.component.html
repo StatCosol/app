@@ -1,0 +1,39 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="CRM Deletion Requests"
+    description="Review and approve CRM deletion requests"
+    icon="check-circle">
+  </ui-page-header>
+
+  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+
+  <div *ngIf="error" class="alert alert-error mb-6">{{ error }}</div>
+
+  <div *ngIf="!loading" class="card">
+    <ui-data-table
+      [columns]="columns"
+      [data]="requests"
+      emptyMessage="No pending requests.">
+      <ng-template uiTableCell="crmName" let-row>
+        <span class="font-medium text-gray-900">{{ row.crmName }}</span>
+      </ng-template>
+      <ng-template uiTableCell="email" let-row>
+        <span class="text-gray-600">{{ row.email }}</span>
+      </ng-template>
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge
+          [variant]="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'error' : 'warning'">
+          {{ row.status }}
+        </ui-status-badge>
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <div class="flex justify-end gap-2">
+          <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (click)="approve(row.id)">
+            {{ actionId === row.id ? 'Processing...' : 'Approve' }}
+          </ui-button>
+          <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (click)="reject(row.id)">Reject</ui-button>
+        </div>
+      </ng-template>
+    </ui-data-table>
+  </div>
+</div>

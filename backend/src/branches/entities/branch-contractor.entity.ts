@@ -1,5 +1,5 @@
 import {
-  Entity, 
+  Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
@@ -12,7 +12,11 @@ import { BranchEntity } from './branch.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 
 @Entity('branch_contractor')
-@Index('UQ_branch_contractor_client_branch_contractor', ['clientId', 'branchId', 'contractorUserId'], { unique: true })
+@Index(
+  'UQ_branch_contractor_client_branch_contractor',
+  ['clientId', 'branchId', 'contractorUserId'],
+  { unique: true },
+)
 @Index('IDX_branch_contractor_client', ['clientId'])
 @Index('IDX_branch_contractor_branch', ['branchId'])
 @Index('IDX_branch_contractor_contractor', ['contractorUserId'])

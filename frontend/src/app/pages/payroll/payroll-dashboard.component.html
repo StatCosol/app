@@ -1,0 +1,57 @@
+<!-- Header now handled by layout -->
+<main class="content">
+  <div class="page">
+    <ui-page-header
+      title="Payroll Dashboard"
+      description="Payroll processing overview"
+      icon="currency-dollar">
+    </ui-page-header>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="my-8">
+      <ui-loading-spinner text="Loading payroll data..." size="lg"></ui-loading-spinner>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="my-8">
+      <ui-empty-state
+        title="Unable to Load Data"
+        [description]="error">
+      </ui-empty-state>
+    </div>
+
+    <!-- KPI Grid -->
+    <div *ngIf="summary && !loading" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <ui-stat-card
+        label="Assigned Clients"
+        [value]="summary.assignedClients"
+        color="success">
+      </ui-stat-card>
+
+      <ui-stat-card
+        label="Pending Runs"
+        [value]="summary.pendingRuns"
+        color="warning">
+      </ui-stat-card>
+
+      <ui-stat-card
+        label="Completed This Month"
+        [value]="summary.completedThisMonth"
+        color="primary">
+      </ui-stat-card>
+    </div>
+
+    <!-- Info Notice -->
+    <div *ngIf="summary && !loading" class="card bg-gray-50 border-gray-200">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-gray-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-sm text-gray-700">
+          This is Payroll V1 UI shell. Once backend payroll endpoints are fully enabled for PAYROLL role,
+          these cards will load live data and additional features will be available.
+        </p>
+      </div>
+    </div>
+  </div>
+</main>

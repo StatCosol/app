@@ -18,6 +18,15 @@ export class AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({
+    name: 'audit_code',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    unique: true,
+  })
+  auditCode: string | null;
+
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
 

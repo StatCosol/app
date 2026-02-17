@@ -1,0 +1,141 @@
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6" *ngIf="!loading && task; else loadingTpl">
+  <!-- Page Header -->
+  <div class="card mb-6">
+    <div class="flex items-start justify-between">
+      <div class="flex-grow">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">{{task.compliance?.title || 'Compliance Task'}}</h1>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
+          <span><span class="font-medium">Client:</span> {{task.client?.clientName || task.clientName || 'Client'}}</span>
+          <span class="text-gray-400">•</span>
+          <span><span class="font-medium">Branch:</span> {{task.branch?.branchName || '-'}}</span>
+          <span class="text-gray-400">•</span>
+          <span><span class="font-medium">Due:</span> {{task.dueDate}}</span>
+        </div>
+      </div>
+      <ui-status-badge [status]="task.status"></ui-status-badge>
+    </div>
+  </div>
+
+  <!-- Progress Stepper -->
+  <div class="flex items-center justify-center gap-4 mb-6">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-statco-blue text-white flex items-center justify-center text-sm font-medium">1</div>
+      <span class="text-sm font-medium text-gray-900">Upload Evidence</span>
+    </div>
+    <div class="w-12 h-0.5" [class]="(evidence.length||0)>0 ? 'bg-statco-blue' : 'bg-gray-200'"></div>
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+           [class]="(evidence.length||0)>0 ? 'bg-statco-blue text-white' : 'bg-gray-200 text-gray-500'">
+        2
+      </div>
+      <span class="text-sm font-medium" [class]="(evidence.length||0)>0 ? 'text-gray-900' : 'text-gray-500'">Submit</span>
+    </div>
+    <div class="w-12 h-0.5" [class]="(task.status==='SUBMITTED' || task.status==='APPROVED') ? 'bg-statco-blue' : 'bg-gray-200'"></div>
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium"
+           [class]="(task.status==='SUBMITTED' || task.status==='APPROVED') ? 'bg-statco-blue text-white' : 'bg-gray-200 text-gray-500'">
+        3
+      </div>
+      <span class="text-sm font-medium" [class]="(task.status==='SUBMITTED' || task.status==='APPROVED') ? 'text-gray-900' : 'text-gray-500'">CRM Review</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Upload Evidence Card -->
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Step 1 — Upload Evidence</h3>
+
+      <app-file-dropzone
+        [files]="files"
+        (filesChange)="files=$event"
+        [maxMb]="10"
+        title="Drag & drop evidence files">
+      </app-file-dropzone>
+
+      <textarea 
+        class="w-full mt-4 rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" 
+        [(ngModel)]="notes" 
+        placeholder="Add any notes about the evidence" 
+        rows="3">
+      </textarea>
+
+      <div class="mt-4">
+        <ui-button
+          variant="primary"
+          [disabled]="!canEdit() || uploading || files.length===0"
+          (clicked)="upload()">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          {{ uploading ? 'Uploading...' : 'Upload' }}
+        </ui-button>
+      </div>
+
+      <div class="alert alert-warning mt-4" *ngIf="!canEdit()">
+        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        Upload is disabled because this task is already submitted/approved.
+      </div>
+    </div>
+
+    <!-- Evidence List & Submit Card -->
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Uploaded Evidence</h3>
+
+      <div class="space-y-2 mb-6">
+        <div *ngFor="let e of evidence" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div class="flex-grow">
+            <div class="text-sm font-medium text-gray-900">{{e.fileName || e.file_name}}</div>
+            <div class="text-xs text-gray-500">{{e.createdAt || e.created_at}}</div>
+          </div>
+          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        
+        <ui-empty-state
+          *ngIf="(evidence.length||0)===0"
+          title="No evidence uploaded yet"
+          description="Upload documents to continue">
+        </ui-empty-state>
+      </div>
+
+      <hr class="my-6 border-gray-200"/>
+
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Step 2 — Submit Task</h3>
+      <p class="text-sm text-gray-600 mb-4">Submit only after uploading all required documents.</p>
+
+      <ui-button
+        variant="primary"
+        [fullWidth]="true"
+        [disabled]="task.status==='SUBMITTED' || task.status==='APPROVED' || (evidence.length||0)<1 || submitting"
+        (clicked)="submit()">
+        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        {{ submitting ? 'Submitting...' : 'Submit to CRM' }}
+      </ui-button>
+
+      <div class="alert alert-info mt-4" *ngIf="(evidence.length||0)<1">
+        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Upload at least 1 file to enable Submit.
+      </div>
+
+      <div class="alert alert-error mt-4" *ngIf="task.status==='REJECTED'">
+        <div class="font-semibold mb-1">Rejected Remarks:</div>
+        <div>{{task.remarks || 'Please check CRM remarks in thread.'}}</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<ng-template #loadingTpl>
+  <ui-loading-spinner 
+    size="lg" 
+    text="Loading task..."
+    class="py-12">
+  </ui-loading-spinner>
+</ng-template>
