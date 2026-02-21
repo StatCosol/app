@@ -12,7 +12,6 @@ import {
   TableColumn,
   FormSelectComponent,
   EmptyStateComponent,
-  LoadingSpinnerComponent,
 } from '../../../shared/ui';
 
 type ActiveTab = 'branches' | 'tasks' | 'returns' | 'contractors' | 'audit';
@@ -29,7 +28,6 @@ type ActiveTab = 'branches' | 'tasks' | 'returns' | 'contractors' | 'audit';
     DataTableComponent,
     FormSelectComponent,
     EmptyStateComponent,
-    LoadingSpinnerComponent,
   ],
   templateUrl: './client-compliance-status.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-compliance-status.component.scss'],
@@ -101,6 +99,14 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     value: String(i + 1),
     label: new Date(2000, i).toLocaleString('en', { month: 'long' }),
   }));
+
+  yearOptions = (() => {
+    const current = new Date().getFullYear();
+    return [current - 1, current, current + 1].map(y => ({
+      value: String(y),
+      label: String(y),
+    }));
+  })();
 
   categoryOptions = [
     { value: '', label: 'All Categories' },
@@ -240,6 +246,12 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   }
 
   onFilterChange(): void {
+    this.loadAll();
+  }
+
+  drillIntoBranch(branch: any): void {
+    this.selectedBranchId = branch.branchId || branch.id || '';
+    this.activeTab = 'tasks' as ActiveTab;
     this.loadAll();
   }
 

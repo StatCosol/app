@@ -1,43 +1,45 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject, of } from 'rxjs';
+import { catchError, debounceTime, finalize, switchMap, takeUntil, tap, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { PayrollRegistersService, RegisterRecordRow } from './payroll-registers.service';
-import { 
-  PageHeaderComponent, 
-  DataTableComponent, 
-  TableColumn, 
-  TableCellDirective, 
-  FormSelectComponent, 
+import {
+  PageHeaderComponent,
+  DataTableComponent,
+  TableColumn,
+  TableCellDirective,
+  FormSelectComponent,
   FormInputComponent,
   SelectOption,
   ActionButtonComponent,
   EmptyStateComponent,
-  LoadingSpinnerComponent
+  LoadingSpinnerComponent,
+  StatusBadgeComponent,
 } from '../../shared/ui';
 
 @Component({
   selector: 'app-payroll-registers',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    PageHeaderComponent, 
-    DataTableComponent, 
+    CommonModule,
+    FormsModule,
+    PageHeaderComponent,
+    DataTableComponent,
     TableCellDirective,
-    FormSelectComponent, 
+    FormSelectComponent,
     FormInputComponent,
     ActionButtonComponent,
     EmptyStateComponent,
-    LoadingSpinnerComponent
+    LoadingSpinnerComponent,
+    StatusBadgeComponent,
   ],
   template: `
     <div class="page">
       <ui-page-header
         title="Payroll Registers & Records"
-        description="Access and download payroll registers and documents"
-        icon="document-text">
+        subtitle="Access, approve, and download payroll registers">
         <div slot="actions" class="flex items-center gap-3">
           <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">
             Refresh
@@ -101,9 +103,10 @@ import {
         [data]="rows"
         [loading]="loading"
         emptyMessage="No records found.">
-        
+
         <ng-template uiTableCell="title" let-row>
           <div class="font-semibold text-gray-900">{{ row.title }}</div>
+          <div *ngIf="row.registerType" class="text-xs text-gray-500">{{ row.registerType }}</div>
         </ng-template>
 
         <ng-template uiTableCell="category" let-row>
@@ -118,10 +121,26 @@ import {
           <div class="font-medium text-gray-900">{{ row.clientName || clientName(row.clientId) }}</div>
         </ng-template>
 
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.approvalStatus || 'PENDING'"></ui-status-badge>
+        </ng-template>
+
         <ng-template uiTableCell="actions" let-row>
-          <ui-button size="sm" variant="secondary" (clicked)="download(row)">
-            Download
-          </ui-button>
+          <div class="flex items-center gap-2">
+            <ui-button size="sm" variant="secondary" (clicked)="download(row)">
+              Download
+            </ui-button>
+            <ui-button
+              *ngIf="row.approvalStatus !== 'APPROVED'"
+              size="sm" variant="primary" (clicked)="approve(row)">
+              Approve
+            </ui-button>
+            <ui-button
+              *ngIf="row.approvalStatus !== 'REJECTED'"
+              size="sm" variant="danger" (clicked)="reject(row)">
+              Reject
+            </ui-button>
+          </div>
         </ng-template>
       </ui-data-table>
     </div>
@@ -131,27 +150,26 @@ import {
       .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PayrollRegistersComponent implements OnInit {
+export class PayrollRegistersComponent implements OnInit, OnDestroy {
   clients: PayrollClient[] = [];
   rows: RegisterRecordRow[] = [];
   loading = false;
   error = '';
+  clientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
+
+  private reload$ = new Subject<void>();
+  private destroy$ = new Subject<void>();
 
   columns: TableColumn[] = [
     { key: 'title', header: 'Title', sortable: true },
     { key: 'category', header: 'Category', sortable: true, width: '120px' },
     { key: 'period', header: 'Period', sortable: true, width: '100px' },
     { key: 'client', header: 'Client', sortable: true },
-    { key: 'actions', header: 'Download', sortable: false, width: '140px', align: 'center' },
+    { key: 'status', header: 'Status', sortable: true, width: '120px' },
+    { key: 'actions', header: 'Actions', sortable: false, width: '260px', align: 'center' },
   ];
-
-  get clientOptions(): SelectOption[] {
-    return [
-      { value: null, label: 'All Clients' },
-      ...this.clients.map(c => ({ value: c.id, label: c.name }))
-    ];
-  }
 
   q: { clientId: string | null; category: string; periodYear: number | null; periodMonth: number | null } = {
     clientId: null,
@@ -160,58 +178,81 @@ export class PayrollRegistersComponent implements OnInit {
     periodMonth: null,
   };
 
-  constructor(private payrollApi: PayrollApiService, private api: PayrollRegistersService, private cdr: ChangeDetectorRef) {}
+  constructor(private payrollApi: PayrollApiService, private api: PayrollRegistersService) {}
 
   ngOnInit(): void {
-    console.log('PayrollRegisters ngOnInit - loading clients and registers');
     this.payrollApi.getAssignedClients().subscribe({
       next: (list) => {
-        console.log('PayrollRegisters clients loaded:', list);
         this.clients = list || [];
-        this.cdr.detectChanges();
+        this.clientOptions = [
+          { value: null, label: 'All Clients' },
+          ...this.clients.map((c) => ({ value: c.id, label: c.name })),
+        ];
       },
       error: (e) => {
-        console.error('PayrollRegisters error loading clients:', e);
         this.error = `Unable to load clients. ${e?.error?.message || ''}`;
-        this.cdr.detectChanges();
       },
     });
+
+    this.reload$
+      .pipe(
+        debounceTime(150),
+        tap(() => { this.loading = true; this.error = ''; }),
+        switchMap(() =>
+          this.api
+            .listRegisters({
+              clientId: this.q.clientId ?? undefined,
+              category: this.q.category?.trim() || undefined,
+              periodYear: this.q.periodYear ?? undefined,
+              periodMonth: this.q.periodMonth ?? undefined,
+            })
+            .pipe(
+              timeout(10000),
+              catchError((e) => {
+                this.error = e?.error?.message || `Unable to load registers. ${e?.message || ''}`;
+                return of([] as RegisterRecordRow[]);
+              }),
+              finalize(() => { this.loading = false; }),
+            ),
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((rows) => {
+        this.rows = rows || [];
+      });
+
     this.reload();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.reload$.complete();
+  }
+
   reload(): void {
-    console.log('PayrollRegisters reload called with filters:', this.q);
-    this.loading = true;
-    this.error = '';
-    this.api
-      .listRegisters({
-        clientId: this.q.clientId ?? undefined,
-        category: this.q.category?.trim() || undefined,
-        periodYear: this.q.periodYear ?? undefined,
-        periodMonth: this.q.periodMonth ?? undefined,
-      })
-      .pipe(
-        timeout(10000),
-        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
-      )
-      .subscribe({
-        next: (rows) => {
-          console.log('PayrollRegisters loaded:', rows);
-          this.rows = rows || [];
-          this.cdr.detectChanges();
-        },
-        error: (e) => {
-          console.error('PayrollRegisters error:', e);
-          this.error = e?.error?.message || `Unable to load registers. ${e?.message || ''}`;
-          this.cdr.detectChanges();
-        },
-      });
+    this.reload$.next();
   }
 
   download(r: RegisterRecordRow): void {
     this.api.downloadRegister(r.id).subscribe({
       next: (blob) => this.api.saveBlob(blob, r.fileName || `${r.category}_${r.id}`),
-      error: (e) => { this.error = e?.error?.message || 'Download failed'; this.cdr.detectChanges(); },
+      error: (e) => { this.error = e?.error?.message || 'Download failed'; },
+    });
+  }
+
+  approve(r: RegisterRecordRow): void {
+    this.api.approveRegister(r.id).subscribe({
+      next: () => this.reload(),
+      error: (e) => { this.error = e?.error?.message || 'Approve failed'; },
+    });
+  }
+
+  reject(r: RegisterRecordRow): void {
+    const reason = prompt('Rejection reason (optional):') ?? '';
+    this.api.rejectRegister(r.id, reason).subscribe({
+      next: () => this.reload(),
+      error: (e) => { this.error = e?.error?.message || 'Reject failed'; },
     });
   }
 

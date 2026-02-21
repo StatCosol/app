@@ -1,59 +1,157 @@
-<!-- Header now handled by layout -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Contractor Dashboard"
+    description="Your task overview and compliance status"
+    icon="briefcase">
+  </ui-page-header>
 
-<main class="content">
-  <div class="page">
-    <ui-page-header 
-      title="Contractor Dashboard" 
-      description="Your task overview and compliance status" 
-      icon="briefcase">
-    </ui-page-header>
+  <!-- Skeleton Loading -->
+  <ng-container *ngIf="loading">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div *ngFor="let s of [1,2,3,4]" class="skeleton skeleton--card"></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div class="skeleton skeleton--card lg:col-span-1" style="height:10rem"></div>
+      <div class="skeleton skeleton--card lg:col-span-2" style="height:10rem"></div>
+    </div>
+  </ng-container>
 
-    <!-- Loading State -->
-    <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
-
-    <!-- Error Banner -->
-    <div *ngIf="!loading && errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+  <!-- Error Banner -->
+  <div *ngIf="!loading && errorMsg"
+       class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
       <span>{{ errorMsg }}</span>
-      <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+    </div>
+    <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4 flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      Retry
+    </button>
+  </div>
+
+  <ng-container *ngIf="!loading && data">
+    <!-- KPI Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="contractor-kpi contractor-kpi--amber cursor-pointer" (click)="goToTasks('DUE_TODAY')">
+        <div class="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">Due Today</div>
+        <div class="text-3xl font-bold text-gray-900">{{ data.dueTodayCount || 0 }}</div>
+        <div class="text-xs text-gray-500 mt-1">tasks due today</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--red cursor-pointer" (click)="goToTasks('OVERDUE')">
+        <div class="text-xs font-semibold uppercase tracking-wider text-red-600 mb-1">Overdue</div>
+        <div class="text-3xl font-bold text-gray-900">{{ data.overdueCount || 0 }}</div>
+        <div class="text-xs text-gray-500 mt-1">require attention</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--indigo cursor-pointer" (click)="goToTasks('IN_PROGRESS')">
+        <div class="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">In Progress</div>
+        <div class="text-3xl font-bold text-gray-900">{{ data.inProgressCount || 0 }}</div>
+        <div class="text-xs text-gray-500 mt-1">being worked on</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--teal cursor-pointer" (click)="goToTasks('SUBMITTED')">
+        <div class="text-xs font-semibold uppercase tracking-wider text-teal-600 mb-1">Awaiting Approval</div>
+        <div class="text-3xl font-bold text-gray-900">{{ data.awaitingApprovalCount || 0 }}</div>
+        <div class="text-xs text-gray-500 mt-1">under CRM review</div>
+      </div>
     </div>
 
-    <ng-container *ngIf="!loading && data">
-      <!-- KPI Grid using StatCardComponent -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <ui-stat-card
-          label="Due Today"
-          [value]="data.dueTodayCount"
-          color="info">
-        </ui-stat-card>
-        <ui-stat-card
-          label="Overdue"
-          [value]="data.overdueCount"
-          color="error">
-        </ui-stat-card>
-        <ui-stat-card
-          label="In Progress"
-          [value]="data.inProgressCount"
-          color="warning">
-        </ui-stat-card>
-        <ui-stat-card
-          label="Awaiting Approval"
-          [value]="data.awaitingApprovalCount"
-          color="primary">
-        </ui-stat-card>
+    <!-- Compliance Progress + Upcoming Tasks -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <!-- Compliance Progress Ring -->
+      <div class="contractor-card flex flex-col items-center justify-center py-6">
+        <div class="relative">
+          <svg class="progress-ring" width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#f3f4f6" stroke-width="10"/>
+            <circle class="progress-ring__circle" cx="60" cy="60" r="52" fill="none"
+                    [attr.stroke]="compliancePct >= 85 ? '#059669' : (compliancePct >= 70 ? '#f59e0b' : '#ef4444')"
+                    stroke-width="10"
+                    [attr.stroke-dasharray]="circumference"
+                    [attr.stroke-dashoffset]="strokeOffset"/>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-2xl font-bold" [ngClass]="{
+              'text-green-700': compliancePct >= 85,
+              'text-yellow-700': compliancePct >= 70 && compliancePct < 85,
+              'text-red-700': compliancePct < 70
+            }">{{ compliancePct }}%</span>
+            <span class="text-xs text-gray-500">Compliant</span>
+          </div>
+        </div>
+        <div class="mt-4 text-center">
+          <div class="text-sm font-semibold text-gray-900">Overall Compliance</div>
+          <div class="text-xs text-gray-500 mt-0.5">Based on document submissions</div>
+        </div>
       </div>
 
-      <!-- Overdue Tasks Table using DataTableComponent -->
-      <div class="card">
-        <h3 class="card-title mb-4">Overdue Tasks</h3>
-        <ui-data-table
-          [columns]="overdueColumns"
-          [data]="overdueTableData"
-          emptyMessage="No overdue tasks">
-          <ng-template uiTableCell="dueDate" let-value>
-            <span class="badge badge-danger">{{ value }}</span>
-          </ng-template>
-        </ui-data-table>
+      <!-- Upcoming Tasks -->
+      <div class="contractor-card lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-semibold text-gray-900">Upcoming Tasks</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Next tasks requiring your attention</p>
+          </div>
+          <button (click)="goToTasks('')"
+                  class="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+            View all &rarr;
+          </button>
+        </div>
+        <div class="space-y-2" *ngIf="upcomingTasks.length; else noUpcoming">
+          <div *ngFor="let t of upcomingTasks"
+               class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+               (click)="openTask(t)">
+            <div class="flex-grow min-w-0">
+              <div class="text-sm font-medium text-gray-900 truncate">{{ t.complianceName }}</div>
+              <div class="text-xs text-gray-500">{{ t.branchName }}</div>
+            </div>
+            <div class="flex items-center gap-3 flex-shrink-0 ml-3">
+              <span class="text-xs px-2 py-1 rounded-full font-medium"
+                    [ngClass]="{
+                      'bg-red-100 text-red-700': t.daysUntilDue < 0,
+                      'bg-amber-100 text-amber-700': t.daysUntilDue >= 0 && t.daysUntilDue <= 3,
+                      'bg-blue-100 text-blue-700': t.daysUntilDue > 3
+                    }">
+                {{ t.dueLabel }}
+              </span>
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <ng-template #noUpcoming>
+          <ui-empty-state
+            title="All caught up!"
+            description="No upcoming tasks at the moment">
+          </ui-empty-state>
+        </ng-template>
       </div>
-    </ng-container>
-  </div>
-</main>
+    </div>
+
+    <!-- Overdue Tasks Table -->
+    <div class="contractor-card" *ngIf="overdueTableData.length > 0">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-base font-semibold text-red-700">Overdue Tasks</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Tasks past their due date</p>
+        </div>
+        <span class="text-xs font-bold text-red-700 bg-red-100 px-2.5 py-1 rounded-full">
+          {{ overdueTableData.length }} items
+        </span>
+      </div>
+      <ui-data-table
+        [columns]="overdueColumns"
+        [data]="overdueTableData"
+        emptyMessage="No overdue tasks">
+        <ng-template uiTableCell="dueDate" let-value>
+          <span class="text-red-600 font-semibold text-sm">{{ value }}</span>
+        </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status || 'OVERDUE'"></ui-status-badge>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </ng-container>
+</div>

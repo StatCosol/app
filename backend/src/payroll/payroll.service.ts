@@ -36,6 +36,7 @@ import { PayrollClientPayslipLayoutEntity } from './entities/payroll-client-pays
 import { PayrollTemplate } from './entities/payroll-template.entity';
 import { PayrollTemplateComponent } from './entities/payroll-template-component.entity';
 import { PayrollClientTemplate } from './entities/payroll-client-template.entity';
+import { AuditEntity } from '../audits/entities/audit.entity';
 
 @Injectable()
 export class PayrollService {
@@ -70,6 +71,8 @@ export class PayrollService {
     private readonly templateCompRepo: Repository<PayrollTemplateComponent>,
     @InjectRepository(PayrollClientTemplate)
     private readonly clientTemplateRepo: Repository<PayrollClientTemplate>,
+    @InjectRepository(AuditEntity)
+    private readonly auditRepo: Repository<AuditEntity>,
     private readonly notificationsSvc: NotificationsService,
   ) {}
 
@@ -220,8 +223,8 @@ export class PayrollService {
     // Admins always allowed
     if (payrollUser?.roleCode === 'ADMIN') return;
 
-    // CRM read-only allowance when explicitly permitted by caller
-    if (opts?.allowReadOnly && payrollUser?.roleCode === 'CRM') {
+    // CEO/CCO/CRM read-only allowance when explicitly permitted by caller
+    if (opts?.allowReadOnly && ['CRM', 'CEO', 'CCO'].includes(payrollUser?.roleCode)) {
       return;
     }
 
@@ -247,13 +250,11 @@ export class PayrollService {
   async getAssignedClients(user: any) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (
-      user?.roleCode !== 'PAYROLL' &&
-      user?.roleCode !== 'ADMIN' &&
-      user?.roleCode !== 'CRM'
+      !['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user?.roleCode)
     ) {
-      throw new ForbiddenException('Only payroll/admin/CRM allowed');
+      throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
     }
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+    if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
       return this.clientRepo
         .createQueryBuilder('c')
         .select([
@@ -902,6 +903,15 @@ export class PayrollService {
       .createQueryBuilder('r')
       .where('r.client_id = :cid', { cid: user.clientId })
       .orderBy('r.created_at', 'DESC');
+
+    // Branch users can only see their branch's registers and only approved ones
+    if (user.userType === 'BRANCH') {
+      if (user.branchId) {
+        qb.andWhere('r.branch_id = :ub', { ub: user.branchId });
+      }
+      qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
+    }
+
     if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
     if (q?.category) qb.andWhere('r.category = :cat', { cat: q.category });
     if (q?.periodYear)
@@ -916,11 +926,15 @@ export class PayrollService {
       payrollInputId: r.payrollInputId ?? null,
       category: r.category,
       title: r.title,
+      registerType: r.registerType ?? null,
+      stateCode: r.stateCode ?? null,
       periodYear: r.periodYear ?? null,
       periodMonth: r.periodMonth ?? null,
       fileName: r.fileName ?? null,
       fileType: r.fileType ?? null,
       fileSize: r.fileSize ?? null,
+      approvalStatus: r.approvalStatus,
+      approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/client/payroll/registers-records/${r.id}/download`,
@@ -953,15 +967,13 @@ export class PayrollService {
   async payrollListRegistersRecords(user: any, q: any) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (
-      user.roleCode !== 'PAYROLL' &&
-      user.roleCode !== 'ADMIN' &&
-      user.roleCode !== 'CRM'
+      !['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)
     ) {
-      throw new ForbiddenException('Only payroll/admin/CRM allowed');
+      throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
     }
     let ids: string[] = [];
 
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+    if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
       if (q?.clientId) {
         ids = [q.clientId];
       } else {
@@ -1013,11 +1025,15 @@ export class PayrollService {
       payrollInputId: r.payrollInputId ?? null,
       category: r.category,
       title: r.title,
+      registerType: r.registerType ?? null,
+      stateCode: r.stateCode ?? null,
       periodYear: r.periodYear ?? null,
       periodMonth: r.periodMonth ?? null,
       fileName: r.fileName ?? null,
       fileType: r.fileType ?? null,
       fileSize: r.fileSize ?? null,
+      approvalStatus: r.approvalStatus,
+      approvedAt: r.approvedAt ?? null,
       createdAt: r.createdAt,
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/payroll/registers-records/${r.id}/download`,
@@ -1330,6 +1346,7 @@ export class PayrollService {
 
   /**
    * Download a register/record file for CLIENT.
+   * Only approved registers can be downloaded by clients.
    */
   async downloadRegisterForClient(user: any, registerId: string) {
     this.ensureClientUser(user);
@@ -1337,6 +1354,16 @@ export class PayrollService {
     if (!row) throw new BadRequestException('Register not found');
     if (row.clientId !== user.clientId)
       throw new ForbiddenException('Access denied');
+    // Branch users: approved only + same branch
+    if (user.userType === 'BRANCH') {
+      if (user.branchId && row.branchId && row.branchId !== user.branchId) {
+        throw new ForbiddenException('Not your branch register');
+      }
+      if (row.approvalStatus !== 'APPROVED') {
+        throw new ForbiddenException('Register is not yet approved for download');
+      }
+    }
+    // Master users can download any status
     const buffer = fs.readFileSync(row.filePath);
     return { fileName: row.fileName, fileType: row.fileType, buffer };
   }
@@ -1660,5 +1687,144 @@ export class PayrollService {
     }
 
     await archive.finalize();
+  }
+
+  // ── Register Approval ──────────────────────────────────
+
+  /**
+   * Approve a register. PAYROLL or ADMIN only.
+   */
+  async approveRegister(user: any, registerId: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
+      throw new ForbiddenException('Only payroll or admin users can approve registers');
+    }
+    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    if (!row) throw new BadRequestException('Register not found');
+    await this.assertPayrollAccessToClient(user, row.clientId);
+
+    row.approvalStatus = 'APPROVED';
+    row.approvedByUserId = user.id;
+    row.approvedAt = new Date();
+    await this.rrRepo.save(row);
+    return {
+      id: row.id,
+      approvalStatus: row.approvalStatus,
+      approvedAt: row.approvedAt,
+    };
+  }
+
+  /**
+   * Reject a register. PAYROLL or ADMIN only.
+   */
+  async rejectRegister(user: any, registerId: string, reason?: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
+      throw new ForbiddenException('Only payroll or admin users can reject registers');
+    }
+    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    if (!row) throw new BadRequestException('Register not found');
+    await this.assertPayrollAccessToClient(user, row.clientId);
+
+    row.approvalStatus = 'REJECTED';
+    row.approvedByUserId = user.id;
+    row.approvedAt = new Date();
+    await this.rrRepo.save(row);
+    return {
+      id: row.id,
+      approvalStatus: row.approvalStatus,
+      approvedAt: row.approvedAt,
+      reason: reason ?? null,
+    };
+  }
+
+  // ── Auditor Register Access ────────────────────────────
+
+  /**
+   * List registers for AUDITOR. Only registers belonging to clients
+   * where the auditor has a PAYROLL-type audit assigned (IN_PROGRESS or PLANNED).
+   */
+  async auditorListRegisters(user: any, q: any) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    if (user.roleCode !== 'AUDITOR') {
+      throw new ForbiddenException('Only auditors can access this resource');
+    }
+
+    // Find client IDs where this auditor has a PAYROLL-type audit assigned
+    const audits = await this.auditRepo
+      .createQueryBuilder('a')
+      .select('DISTINCT a.client_id', 'clientId')
+      .where('a.assigned_auditor_id = :uid', { uid: user.id })
+      .andWhere('a.audit_type = :type', { type: 'PAYROLL' })
+      .andWhere('a.status IN (:...statuses)', { statuses: ['PLANNED', 'IN_PROGRESS'] })
+      .getRawMany<{ clientId: string }>();
+
+    const allowedClientIds = audits.map((a) => a.clientId);
+    if (allowedClientIds.length === 0) return [];
+
+    // If clientId filter passed, check access
+    let clientIds = allowedClientIds;
+    if (q?.clientId) {
+      if (!allowedClientIds.includes(q.clientId)) {
+        throw new ForbiddenException('No payroll audit assigned for this client');
+      }
+      clientIds = [q.clientId];
+    }
+
+    const qb = this.rrRepo
+      .createQueryBuilder('r')
+      .where('r.client_id IN (:...ids)', { ids: clientIds });
+
+    if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
+    if (q?.periodYear) qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
+    if (q?.periodMonth) qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
+    if (q?.category) qb.andWhere('r.category = :cat', { cat: q.category });
+
+    qb.orderBy('r.created_at', 'DESC');
+    const rows = await qb.getMany();
+    return rows.map((r: any) => ({
+      id: r.id,
+      clientId: r.clientId,
+      branchId: r.branchId ?? null,
+      category: r.category,
+      title: r.title,
+      registerType: r.registerType ?? null,
+      stateCode: r.stateCode ?? null,
+      periodYear: r.periodYear ?? null,
+      periodMonth: r.periodMonth ?? null,
+      fileName: r.fileName ?? null,
+      fileType: r.fileType ?? null,
+      approvalStatus: r.approvalStatus,
+      approvedAt: r.approvedAt ?? null,
+      createdAt: r.createdAt,
+      downloadUrl: `/api/auditor/registers/${r.id}/download`,
+    }));
+  }
+
+  /**
+   * Download a register for AUDITOR. Only when auditor has PAYROLL audit for the client.
+   */
+  async downloadRegisterForAuditor(user: any, registerId: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    if (user.roleCode !== 'AUDITOR') {
+      throw new ForbiddenException('Only auditors can access this resource');
+    }
+    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    if (!row) throw new BadRequestException('Register not found');
+
+    // Check auditor has payroll audit for this client
+    const audit = await this.auditRepo.findOne({
+      where: {
+        assignedAuditorId: user.id,
+        clientId: row.clientId,
+        auditType: 'PAYROLL' as any,
+      } as any,
+    });
+    if (!audit || (audit.status !== 'PLANNED' && audit.status !== 'IN_PROGRESS')) {
+      throw new ForbiddenException('No active payroll audit for this client');
+    }
+
+    const buffer = fs.readFileSync(row.filePath);
+    return { fileName: row.fileName, fileType: row.fileType, buffer };
   }
 }

@@ -235,6 +235,14 @@ export class ClientsService {
     return { message: 'Client assignments updated', clientId };
   }
 
+  async updateLogo(clientId: string, logoUrl: string | null) {
+    const client = await this.repo.findOne({ where: { id: clientId, isDeleted: false } });
+    if (!client) throw new NotFoundException('Client not found');
+    client.logoUrl = logoUrl;
+    await this.repo.save(client);
+    return { message: 'Logo updated', clientId, logoUrl };
+  }
+
   async findById(id: string, includeDeleted = false) {
     return this.repo.findOne({
       select: ['id', 'clientName', 'clientCode', 'status'],

@@ -1,4 +1,4 @@
-/* Compliance Status Dashboard - minimal overrides (Tailwind handles most styling) */
+/* Compliance Status Dashboard */
 
 :host {
   display: block;
@@ -29,4 +29,27 @@ th, td {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Skeleton loading animation */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 0.5rem;
+
+  &--card {
+    height: 5rem;
+    border-radius: 0.75rem;
+  }
+
+  &--chart {
+    height: 16rem;
+    border-radius: 1rem;
+  }
 }

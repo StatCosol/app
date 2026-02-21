@@ -8,8 +8,15 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 import { ClientsService } from './clients.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -111,5 +118,39 @@ export class AdminClientsController {
     @Param('userId', ParseUUIDPipe) userId: string,
   ) {
     return this.clientsService.removeClientUser(clientId, userId);
+  }
+
+  // ── Client Logo Upload ──────────────────────────────────
+  @Post('clients/:id/logo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const dir = path.join(process.cwd(), 'uploads', 'logos');
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req, file, cb) => {
+          const ext = path.extname(file.originalname).toLowerCase();
+          cb(null, `${(req.params as any).id}${ext}`);
+        },
+      }),
+      fileFilter: (req: any, file: any, cb: any) => {
+        const allowed = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];
+        if (!allowed.includes(file.mimetype)) {
+          return cb(new BadRequestException('Only PNG, JPG, SVG, or WebP images are allowed'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+    }),
+  )
+  async uploadLogo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const logoUrl = `/uploads/logos/${file.filename}`;
+    return this.clientsService.updateLogo(id, logoUrl);
   }
 }

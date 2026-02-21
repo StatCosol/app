@@ -37,9 +37,19 @@
     </div>
   </div>
 
-  <!-- Loading State -->
-  <div *ngIf="loading" class="flex items-center justify-center py-20">
-    <ui-loading-spinner></ui-loading-spinner>
+  <!-- Skeleton Loading -->
+  <div *ngIf="loading" class="space-y-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div *ngFor="let s of [1,2,3,4,5,6,7,8]" class="skeleton skeleton--kpi"></div>
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+      <div class="skeleton skeleton--chart xl:col-span-2"></div>
+      <div class="skeleton skeleton--chart"></div>
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div class="skeleton skeleton--chart"></div>
+      <div class="skeleton skeleton--chart"></div>
+    </div>
   </div>
 
   <ng-container *ngIf="!loading">
@@ -48,51 +58,363 @@
     <ng-container *ngIf="!errorMsg && data as d; else clientFallback">
       <!-- KPI strip -->
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('EMPLOYEES')" title="View employee status details">
           <div class="kpi-pill kpi-pill--blue">Employees</div>
           <div class="kpi-value">{{ d.kpis.employees.active || 0 }}</div>
           <div class="kpi-sub">Active of {{ d.kpis.employees.total || 0 }}</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('CONTRACTORS')" title="View contractor upload details">
           <div class="kpi-pill kpi-pill--blue">Contractors</div>
           <div class="kpi-value">{{ d.kpis.contractors.total || 0 }}</div>
           <div class="kpi-sub">M {{ d.kpis.contractors.male || 0 }} / F {{ d.kpis.contractors.female || 0 }}</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('PAYROLL')" title="View payroll pending breakdown">
           <div class="kpi-pill kpi-pill--amber">Payroll Pending</div>
           <div class="kpi-value">{{ d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees }}</div>
           <div class="kpi-sub">Queries, inputs, PF/ESI</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('BRANCHES')" title="View branch compliance ranking">
           <div class="kpi-pill kpi-pill--green">Branches Live</div>
           <div class="kpi-value">{{ d.kpis.branches.live || 0 }}</div>
           <div class="kpi-sub">of {{ d.kpis.branches.total || 0 }}</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('COMPLIANCE')" title="View compliance trend details">
           <div class="kpi-pill kpi-pill--blue">Compliance %</div>
           <div class="kpi-value">{{ d.kpis.compliance.overallPercent || 0 }}%</div>
           <div class="kpi-sub">Branch avg {{ d.kpis.compliance.branchAvgPercent || 0 }}%</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('AUDIT')" title="View audit completion details">
           <div class="kpi-pill kpi-pill--blue">Audit Score</div>
           <div class="kpi-value">{{ d.kpis.audits.overallAuditScore || 0 }}%</div>
           <div class="kpi-sub">Completed {{ d.kpis.audits.completed || 0 }}</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('RISK')" title="View critical queue">
           <div class="kpi-pill kpi-pill--red">Critical</div>
           <div class="kpi-value">{{ d.queues.critical.length || 0 }}</div>
           <div class="kpi-sub">Risk items</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card--clickable" (click)="openDetail('RISK')" title="View pending queue">
           <div class="kpi-pill kpi-pill--amber">Pending</div>
           <div class="kpi-value">{{ d.queues.pending.length || 0 }}</div>
           <div class="kpi-sub">Operational</div>
         </div>
       </div>
 
+      <div *ngIf="activeDetail === 'PAYROLL' && d" #payrollDetails class="panel panel--highlight">
+        <div class="panel-header">
+          <div>
+            <p class="panel-eyebrow">Payroll</p>
+            <h3 class="panel-title">Pending breakdown</h3>
+            <p class="mini-kpi-sub mt-1">Click payroll KPI to jump here. Queries, inputs, PF/ESI and F&amp;F status.</p>
+          </div>
+          <button type="button" class="ghost-btn" (click)="clearDetails()">Hide</button>
+        </div>
+        <div class="panel-body">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Queries</p>
+              <p class="mini-kpi-value text-amber-600">{{ d.kpis.payroll.pendingQueries }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Pending inputs</p>
+              <p class="mini-kpi-value text-blue-700">{{ d.kpis.payroll.pendingEmployees }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">PF pending</p>
+              <p class="mini-kpi-value text-amber-600">{{ d.kpis.payroll.pfPendingEmployees }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">ESI pending</p>
+              <p class="mini-kpi-value text-amber-600">{{ d.kpis.payroll.esiPendingEmployees }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">F&amp;F pending / done</p>
+              <p class="mini-kpi-value">
+                <span class="text-red-600 mr-1">{{ d.kpis.payroll.pendingFF }}</span>
+                <span class="text-slate-500">/ {{ d.kpis.payroll.completedFF }}</span>
+              </p>
+            </div>
+          </div>
+          <p class="mini-kpi-sub mt-3">PF/ESI employee-level details are listed below.</p>
+        </div>
+      </div>
+
+      <!-- PF/ESI & Contractor upload summary cards -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="panel" #pfPanel>
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">PF</p>
+              <h3 class="panel-title">Registration status</h3>
+            </div>
+            <button class="ghost-btn ghost-btn--sm" *ngIf="pfSummary.pendingEmployees.length" (click)="togglePfModal()">View Pending</button>
+          </div>
+          <div class="panel-body">
+            <div class="kpi-grid">
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Registered</p>
+                <p class="mini-kpi-value text-green-600">{{ pfSummary.registered }}</p>
+              </div>
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Not Registered</p>
+                <p class="mini-kpi-value text-amber-600">{{ pfSummary.notRegisteredApplicable }}</p>
+              </div>
+            </div>
+            <p class="mini-kpi-sub" *ngIf="pfSummary.pendingEmployees.length">Top pending: {{ pfSummary.pendingEmployees[0]?.empCode }} ({{ pfSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+            <p class="mini-kpi-sub" *ngIf="!pfSummary.pendingEmployees.length">All PF applicable employees are registered.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">ESI</p>
+              <h3 class="panel-title">Registration status</h3>
+            </div>
+            <button class="ghost-btn ghost-btn--sm" *ngIf="esiSummary.pendingEmployees.length" (click)="toggleEsiModal()">View Pending</button>
+          </div>
+          <div class="panel-body">
+            <div class="kpi-grid">
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Registered</p>
+                <p class="mini-kpi-value text-green-600">{{ esiSummary.registered }}</p>
+              </div>
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Not Registered</p>
+                <p class="mini-kpi-value text-amber-600">{{ esiSummary.notRegisteredApplicable }}</p>
+              </div>
+            </div>
+            <p class="mini-kpi-sub" *ngIf="esiSummary.pendingEmployees.length">Top pending: {{ esiSummary.pendingEmployees[0]?.empCode }} ({{ esiSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+            <p class="mini-kpi-sub" *ngIf="!esiSummary.pendingEmployees.length">All ESI applicable employees are registered.</p>
+          </div>
+        </div>
+
+        <div class="panel" #contractorPanel [class.panel--highlight]="activeDetail === 'CONTRACTORS'">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Document upload</h3>
+            </div>
+            <div class="score-chip">{{ contractorSummary?.overallPercent ?? 0 }}%</div>
+          </div>
+          <div class="panel-body space-y-2">
+            <div class="flex justify-between text-sm" *ngFor="let c of contractorSummary?.top10?.slice(0,3)">
+              <span class="truncate mr-2">{{ c.name }}</span>
+              <span class="font-semibold">{{ c.percent }}%</span>
+            </div>
+            <p class="mini-kpi-sub" *ngIf="(contractorSummary?.contractors?.length || 0) === 0">No contractor data for this month.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PF Pending Modal Overlay -->
+      <div class="modal-overlay" *ngIf="showPfModal" (click)="togglePfModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">PF &mdash; Pending Registration</h3>
+            <button class="modal-close" (click)="togglePfModal()">&times;</button>
+          </div>
+          <div class="modal-body overflow-x-auto">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Emp Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>PF Applicable</th>
+                  <th>UAN Available</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of pfSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span class="badge-yes">Y</span></td>
+                  <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESI Pending Modal Overlay -->
+      <div class="modal-overlay" *ngIf="showEsiModal" (click)="toggleEsiModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">ESI &mdash; Pending Registration</h3>
+            <button class="modal-close" (click)="toggleEsiModal()">&times;</button>
+          </div>
+          <div class="modal-body overflow-x-auto">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Emp Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>ESI Applicable</th>
+                  <th>IP Number</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of esiSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span class="badge-yes">Y</span></td>
+                  <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PF/ESI pending details inline tables -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">PF</p>
+              <h3 class="panel-title">Pending employees</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="pfSummary.pendingEmployees.length; else pfOk">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>UAN</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of pfSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #pfOk>
+              <p class="mini-kpi-sub">All PF applicable employees are registered.</p>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">ESI</p>
+              <h3 class="panel-title">Pending employees</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="esiSummary.pendingEmployees.length; else esiOk">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>IP No.</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of esiSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #esiOk>
+              <p class="mini-kpi-sub">All ESI applicable employees are registered.</p>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Top 10 by upload %</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="contractorSummary?.top10?.length; else topEmpty">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th class="text-right">Uploaded</th>
+                  <th class="text-right">Expected</th>
+                  <th class="text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of contractorSummary?.top10">
+                  <td>{{ c.name }}</td>
+                  <td class="text-right">{{ c.uploaded }}</td>
+                  <td class="text-right">{{ c.expected }}</td>
+                  <td class="text-right font-semibold">{{ c.percent }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #topEmpty>
+              <p class="mini-kpi-sub">No contractor data for this month.</p>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Bottom 10 by upload %</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="contractorSummary?.bottom10?.length; else bottomEmpty">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th class="text-right">Uploaded</th>
+                  <th class="text-right">Expected</th>
+                  <th class="text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of contractorSummary?.bottom10">
+                  <td>{{ c.name }}</td>
+                  <td class="text-right">{{ c.uploaded }}</td>
+                  <td class="text-right">{{ c.expected }}</td>
+                  <td class="text-right font-semibold">{{ c.percent }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #bottomEmpty>
+              <p class="mini-kpi-sub">No contractor data for this month.</p>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+
       <!-- Charts Row 1 -->
       <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div class="panel xl:col-span-2">
+        <div class="panel xl:col-span-2" #compliancePanel [class.panel--highlight]="activeDetail === 'COMPLIANCE'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Compliance</p>
@@ -103,7 +425,7 @@
             <canvas #complianceTrendChart></canvas>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel" #auditPanel [class.panel--highlight]="activeDetail === 'AUDIT'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Audits</p>
@@ -130,7 +452,7 @@
             <canvas #complianceOpsChart></canvas>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel" #payrollPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Payroll</p>
@@ -145,7 +467,7 @@
 
       <!-- Charts Row 3 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="panel">
+        <div class="panel" #branchPanel [class.panel--highlight]="activeDetail === 'BRANCHES'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Branches</p>
@@ -156,7 +478,7 @@
             <canvas #branchRankChart></canvas>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel" #docsPanel>
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Contractors</p>
@@ -171,7 +493,7 @@
 
       <!-- Charts Row 4 -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <div class="panel">
+        <div class="panel" #employeePanel [class.panel--highlight]="activeDetail === 'EMPLOYEES'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Employees</p>
@@ -182,7 +504,7 @@
             <canvas #employeeStatusChart></canvas>
           </div>
         </div>
-        <div class="panel xl:col-span-1">
+        <div class="panel xl:col-span-1" #riskPanel [class.panel--highlight]="activeDetail === 'RISK'">
           <div class="panel-header">
             <div>
               <p class="panel-eyebrow">Critical & Pending</p>

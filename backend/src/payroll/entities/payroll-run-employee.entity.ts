@@ -40,6 +40,12 @@ export class PayrollRunEmployeeEntity {
   @Column({ name: 'esic', type: 'varchar', length: 30, nullable: true })
   esic: string | null;
 
+  @Column({ name: 'employee_id', type: 'uuid', nullable: true })
+  employeeId: string | null;
+
+  @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
+  stateCode: string | null;
+
   @Column({
     name: 'gross_earnings',
     type: 'numeric',

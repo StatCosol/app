@@ -14,14 +14,39 @@ import {
   AttentionItemDto
 } from './dashboard/admin-dashboard.dto';
 import { ToastService } from '../../shared/toast/toast.service';
-import { StatCardComponent } from '../../shared/ui/stat-card/stat-card.component';
+import {
+  StatCardComponent,
+  LoadingSpinnerComponent,
+  EmptyStateComponent,
+  ActionButtonComponent,
+  DataTableComponent,
+  TableCellDirective,
+  TableColumn,
+  StatusBadgeComponent,
+  FormSelectComponent,
+  FormInputComponent,
+  SelectOption,
+} from '../../shared/ui';
 
 type Range = '7d' | '30d' | '90d';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, StatCardComponent],
+  imports: [
+    CommonModule,
+    RouterModule,
+    FormsModule,
+    StatCardComponent,
+    LoadingSpinnerComponent,
+    EmptyStateComponent,
+    ActionButtonComponent,
+    DataTableComponent,
+    TableCellDirective,
+    StatusBadgeComponent,
+    FormSelectComponent,
+    FormInputComponent,
+  ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss'],
 })
@@ -49,6 +74,41 @@ export class AdminDashboardComponent implements OnInit {
   crmLoad: LoadRowDto[] = [];
   auditorLoad: LoadRowDto[] = [];
   attention: AttentionItemDto[] = [];
+
+  // Table column definitions
+  escalationColumns: TableColumn[] = [
+    { key: 'clientName', header: 'Client', sortable: true },
+    { key: 'issueType', header: 'Issue Type', sortable: true, width: '120px' },
+    { key: 'reason', header: 'Reason', sortable: false },
+    { key: 'ownerName', header: 'Owner', sortable: true, width: '150px' },
+    { key: 'daysDelayed', header: 'Delayed', sortable: true, width: '100px', align: 'center' },
+    { key: 'lastUpdated', header: 'Updated', sortable: true, width: '120px' },
+    { key: 'escActions', header: 'Actions', sortable: false, width: '160px', align: 'right' },
+  ];
+
+  assignmentColumns: TableColumn[] = [
+    { key: 'clientName', header: 'Client', sortable: true },
+    { key: 'assignmentType', header: 'Role', sortable: true, width: '120px' },
+    { key: 'assignedTo', header: 'Assigned To', sortable: true },
+    { key: 'rotationDueOn', header: 'Rotation Due', sortable: true, width: '130px' },
+    { key: 'asgStatus', header: 'Status', sortable: true, width: '140px', align: 'center' },
+    { key: 'asgActions', header: '', sortable: false, width: '100px', align: 'right' },
+  ];
+
+  // Select options for shared form components
+  get clientOptions(): SelectOption[] {
+    return [
+      { value: null, label: 'All Clients' },
+      ...this.clients.map(c => ({ value: c.id, label: c.name })),
+    ];
+  }
+
+  get stateOptions(): SelectOption[] {
+    return [
+      { value: null, label: 'All States' },
+      ...this.states.map(s => ({ value: s, label: s })),
+    ];
+  }
 
   constructor(
     private router: Router,
@@ -96,7 +156,6 @@ export class AdminDashboardComponent implements OnInit {
         auditorLoad: LoadRowDto[];
         attention: AttentionItemDto[];
       }) => {
-        // Provide sane defaults to avoid template crashes when backend omits fields
         this.summary = res.summary
           ? {
               ...res.summary,
@@ -133,7 +192,6 @@ export class AdminDashboardComponent implements OnInit {
     });
   }
 
-  // ---------- Derived helpers ----------
   get completionPct(): number {
     if (!this.taskStatus) return 0;
     const total = this.taskStatus.completed + this.taskStatus.pending + this.taskStatus.overdue;
@@ -141,7 +199,7 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   donutDash(value: number): string {
-    const c = 251.2; // circumference for r=40
+    const c = 251.2;
     const dash = ((value || 0) / 100) * c;
     return `${dash} ${c - dash}`;
   }
@@ -218,7 +276,6 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   openAudit(row: { audit_id: string; client_id: string; branch_id: string }): void {
-    // Route admin to reports page; pass context via query params for future filtering.
     this.router.navigate(['/admin/reports'], {
       queryParams: {
         clientId: row.client_id,
@@ -239,7 +296,6 @@ export class AdminDashboardComponent implements OnInit {
     return s === 'High' ? 'sev-high' : s === 'Medium' ? 'sev-med' : 'sev-low';
   }
 
-  // ---------- Navigation ----------
   go(route?: string) {
     if (!route) return;
     this.router.navigateByUrl(route);

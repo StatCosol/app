@@ -14,12 +14,15 @@ import { RouterModule } from '@angular/router';
 import { Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { LegitxDashboardService } from '../../../core/legitx-dashboard.service';
+import { DashboardService } from '../../../core/dashboard.service';
+import { PfEsiSummaryResponse, ContractorUploadSummaryResponse, PfPendingEmployee, EsiPendingEmployee } from './client-dashboard.types';
+import { forkJoin } from 'rxjs';
 import {
   LegitxDashboardResponse,
   LegitxQueueItem,
   LegitxToggle,
 } from './legitx-dashboard.dto';
-import { LoadingSpinnerComponent } from '../../../shared/ui';
+// Skeleton loading handled via CSS (no spinner component needed)
 
 type ChartKey =
   | 'complianceTrend'
@@ -30,10 +33,19 @@ type ChartKey =
   | 'employeeStatus'
   | 'docsBucket';
 
+type DetailKey =
+  | 'EMPLOYEES'
+  | 'CONTRACTORS'
+  | 'PAYROLL'
+  | 'BRANCHES'
+  | 'COMPLIANCE'
+  | 'AUDIT'
+  | 'RISK';
+
 @Component({
   standalone: true,
   selector: 'app-client-dashboard',
-  imports: [CommonModule, FormsModule, RouterModule, LoadingSpinnerComponent],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })
@@ -45,10 +57,22 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   @ViewChild('payrollDonutChart') payrollDonutChart?: ElementRef<HTMLCanvasElement>;
   @ViewChild('employeeStatusChart') employeeStatusChart?: ElementRef<HTMLCanvasElement>;
   @ViewChild('docsBucketChart') docsBucketChart?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('payrollDetails') payrollDetails?: ElementRef<HTMLDivElement>;
+  @ViewChild('compliancePanel') compliancePanel?: ElementRef<HTMLDivElement>;
+  @ViewChild('auditPanel') auditPanel?: ElementRef<HTMLDivElement>;
+  @ViewChild('branchPanel') branchPanel?: ElementRef<HTMLDivElement>;
+  @ViewChild('contractorPanel') contractorPanel?: ElementRef<HTMLDivElement>;
+  @ViewChild('employeePanel') employeePanel?: ElementRef<HTMLDivElement>;
+  @ViewChild('riskPanel') riskPanel?: ElementRef<HTMLDivElement>;
 
   loading = false;
   errorMsg = '';
   data: LegitxDashboardResponse | null = null;
+  pfEsiSummary: PfEsiSummaryResponse | null = null;
+  contractorSummary: ContractorUploadSummaryResponse | null = null;
+  activeDetail: DetailKey | null = null;
+  showPfModal = false;
+  showEsiModal = false;
 
   branches: Array<{ id: string | number; name: string }> = [];
   contractors: Array<{ id: string | number; name: string; branchId?: string | number }> = [];
@@ -86,6 +110,15 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private loadSub?: Subscription;
   private readonly destroy$ = new Subject<void>();
 
+  // Safe fallbacks so template accessors stay non-null/defined
+  get pfSummary() {
+    return this.pfEsiSummary?.pf ?? { registered: 0, notRegisteredApplicable: 0, pendingEmployees: [] };
+  }
+
+  get esiSummary() {
+    return this.pfEsiSummary?.esi ?? { registered: 0, notRegisteredApplicable: 0, pendingEmployees: [] };
+  }
+
   readonly palette = {
     green: '#16a34a',
     amber: '#f59e0b',
@@ -96,6 +129,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   constructor(
     private legitx: LegitxDashboardService,
+    private dashboard: DashboardService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -121,14 +155,20 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.loadSub?.unsubscribe();
     this.loading = true;
     this.errorMsg = '';
-    this.loadSub = this.legitx
-      .getSummary({
+    const monthStr = `${this.filters.year}-${this.two(this.filters.month)}`;
+    const branchIdParam = this.filters.branchId === 'ALL' ? undefined : String(this.filters.branchId);
+
+    this.loadSub = forkJoin({
+      legitx: this.legitx.getSummary({
         month: this.filters.month,
         year: this.filters.year,
         branchId: this.filters.branchId,
         contractorId: this.filters.contractorId,
         toggle: this.filters.toggle,
-      })
+      }),
+      pfEsi: this.dashboard.getClientPfEsiSummary({ month: monthStr, branchId: branchIdParam }),
+      contractor: this.dashboard.getClientContractorUploadSummary({ month: monthStr, branchId: branchIdParam }),
+    })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -138,9 +178,11 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       )
       .subscribe({
         next: (res) => {
-          this.data = res;
-          this.branches = res.meta?.branches ?? [];
-          this.contractors = res.meta?.contractors ?? [];
+          this.data = res.legitx;
+          this.pfEsiSummary = res.pfEsi;
+          this.contractorSummary = res.contractor;
+          this.branches = res.legitx.meta?.branches ?? [];
+          this.contractors = res.legitx.meta?.contractors ?? [];
           if (this.viewReady) {
             this.renderAllCharts();
           }
@@ -149,6 +191,8 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
         error: () => {
           this.errorMsg = 'Failed to load LegitX dashboard.';
           this.data = null;
+          this.pfEsiSummary = null;
+          this.contractorSummary = null;
           this.destroyCharts();
           this.cdr.markForCheck();
         },
@@ -171,6 +215,54 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.load();
   }
 
+  openDetail(detail: DetailKey): void {
+    if (!this.data) return;
+    this.activeDetail = detail;
+    this.cdr.markForCheck();
+    setTimeout(() => this.scrollToDetail(detail), 50);
+  }
+
+  clearDetails(): void {
+    this.activeDetail = null;
+    this.cdr.markForCheck();
+  }
+
+  togglePfModal(): void {
+    this.showPfModal = !this.showPfModal;
+    this.cdr.markForCheck();
+  }
+
+  toggleEsiModal(): void {
+    this.showEsiModal = !this.showEsiModal;
+    this.cdr.markForCheck();
+  }
+
+  private scrollToDetail(detail: DetailKey): void {
+    const el = this.getDetailElement(detail);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  private getDetailElement(detail: DetailKey): HTMLElement | null {
+    switch (detail) {
+      case 'PAYROLL':
+        return this.payrollDetails?.nativeElement ?? null;
+      case 'COMPLIANCE':
+        return this.compliancePanel?.nativeElement ?? null;
+      case 'AUDIT':
+        return this.auditPanel?.nativeElement ?? null;
+      case 'BRANCHES':
+        return this.branchPanel?.nativeElement ?? null;
+      case 'CONTRACTORS':
+        return this.contractorPanel?.nativeElement ?? null;
+      case 'EMPLOYEES':
+        return this.employeePanel?.nativeElement ?? null;
+      case 'RISK':
+        return this.riskPanel?.nativeElement ?? null;
+      default:
+        return null;
+    }
+  }
+
   filteredContractors() {
     if (this.filters.branchId === 'ALL') return this.contractors;
     return this.contractors.filter((c) => String(c.branchId) === String(this.filters.branchId));
@@ -181,6 +273,10 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     if (age >= 16 || this.isCriticalType(item.type)) return 'badge-critical';
     if (age >= 8) return 'badge-warning';
     return 'badge-info';
+  }
+
+  two(n: number) {
+    return String(n).padStart(2, '0');
   }
 
   private isCriticalType(type: string): boolean {

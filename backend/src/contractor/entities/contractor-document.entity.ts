@@ -74,6 +74,9 @@ export class ContractorDocumentEntity {
   @Column({ type: 'varchar', default: 'UPLOADED' })
   status: string; // UPLOADED, PENDING_REVIEW, APPROVED, REJECTED, EXPIRED
 
+  @Column({ name: 'doc_month', type: 'varchar', length: 7, nullable: true })
+  docMonth: string | null; // YYYY-MM format for month-based tracking
+
   @Column({ name: 'expiry_date', type: 'date', nullable: true })
   expiryDate: string | null;
 

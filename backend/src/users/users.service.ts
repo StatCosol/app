@@ -174,6 +174,11 @@ export class UsersService implements OnModuleInit {
         description:
           'Uploads monthly compliance docs and corrects observations',
       },
+      {
+        code: 'EMPLOYEE',
+        name: 'Employee Self-Service',
+        description: 'View payslips, apply leave, manage nominations',
+      },
     ];
 
     await this.rolesRepo.save(roles.map((r) => this.rolesRepo.create(r)));

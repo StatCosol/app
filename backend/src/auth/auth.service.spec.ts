@@ -53,6 +53,7 @@ describe('AuthService.login', () => {
     client: undefined,
     deletedAt: null,
     ownerCcoId: null,
+    employeeId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     branches: [],

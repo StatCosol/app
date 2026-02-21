@@ -11,6 +11,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       '/api/v1/auth/login',
       '/auth/login',
 
+      '/api/auth/ess/login',
+      '/api/v1/auth/ess/login',
+
       '/api/auth/refresh',
       '/api/v1/auth/refresh',
 

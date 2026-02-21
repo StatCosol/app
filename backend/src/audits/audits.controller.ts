@@ -63,8 +63,9 @@ export class ClientAuditsController {
     const branchIds = await this.branchAccess.getUserBranchIds(req.user.userId);
     if (branchIds.length > 0 && rows.length > 0) {
       // Get contractor IDs mapped to user's branches
+      // NOTE: DB table name is `branch_contractor` (singular) as per schema.
       const mapped: { contractor_user_id: string }[] = await this.ds.query(
-        `SELECT DISTINCT contractor_user_id FROM branch_contractors WHERE branch_id = ANY($1)`,
+        `SELECT DISTINCT contractor_user_id FROM branch_contractor WHERE branch_id = ANY($1)`,
         [branchIds],
       );
       const allowedContractors = new Set(

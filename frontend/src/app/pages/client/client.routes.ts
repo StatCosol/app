@@ -28,14 +28,26 @@ const ClientContractorsBranchComponent = () =>
   );
 const ClientPayrollComponent = () =>
   import('./payroll/client-payroll.component').then((m) => m.ClientPayrollComponent);
+const ClientEmployeesComponent = () =>
+  import('./employees/client-employees.component').then((m) => m.ClientEmployeesComponent);
+const ClientEmployeeFormComponent = () =>
+  import('./employees/client-employee-form.component').then((m) => m.ClientEmployeeFormComponent);
+const ClientEmployeeDetailComponent = () =>
+  import('./employees/client-employee-detail.component').then((m) => m.ClientEmployeeDetailComponent);
 const ClientAuditsComponent = () =>
   import('./audits/client-audits.component').then((m) => m.ClientAuditsComponent);
+const ClientRegistersComponent = () =>
+  import('./registers/client-registers.component').then((m) => m.ClientRegistersComponent);
 const ClientReturnsComponent = () =>
   import('./compliance/client-returns.component').then((m) => m.ClientReturnsComponent);
 const ClientMcdComponent = () =>
   import('./compliance/client-mcd.component').then((m) => m.ClientMcdComponent);
 const ClientMcdUploadsComponent = () =>
   import('./compliance/client-mcd-uploads.component').then((m) => m.ClientMcdUploadsComponent);
+const NominationApprovalsComponent = () =>
+  import('./approvals/nomination-approvals.component').then((m) => m.NominationApprovalsComponent);
+const LeaveApprovalsComponent = () =>
+  import('./approvals/leave-approvals.component').then((m) => m.LeaveApprovalsComponent);
 
 export const CLIENT_ROUTES: Routes = [
   {
@@ -57,11 +69,18 @@ export const CLIENT_ROUTES: Routes = [
       },
       { path: 'compliance/returns', loadComponent: ClientReturnsComponent },
       { path: 'payroll', loadComponent: ClientPayrollComponent },
+      { path: 'employees', loadComponent: ClientEmployeesComponent },
+      { path: 'employees/new', loadComponent: ClientEmployeeFormComponent },
+      { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent },
+      { path: 'employees/:id/edit', loadComponent: ClientEmployeeFormComponent },
+      { path: 'registers', loadComponent: ClientRegistersComponent },
       { path: 'audits', loadComponent: ClientAuditsComponent },
       { path: 'queries', loadComponent: ClientQueriesComponent },
       { path: 'queries/:id', loadComponent: ThreadChatComponent },
       { path: 'profile', loadComponent: ClientProfileComponent },
       { path: 'support', loadComponent: ClientSupportComponent },
+      { path: 'approvals/nominations', loadComponent: NominationApprovalsComponent },
+      { path: 'approvals/leaves', loadComponent: LeaveApprovalsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

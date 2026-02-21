@@ -6,7 +6,19 @@ import { DashboardService } from '../../core/dashboard.service';
 import { CrmService } from '../../core/crm.service';
 import { CrmClientsApi } from '../../core/api/crm-clients.api';
 import { ToastService } from '../../shared/toast/toast.service';
-import { PageHeaderComponent, StatCardComponent, LoadingSpinnerComponent, ActionButtonComponent } from '../../shared/ui';
+import {
+  PageHeaderComponent,
+  StatCardComponent,
+  LoadingSpinnerComponent,
+  ActionButtonComponent,
+  DataTableComponent,
+  TableCellDirective,
+  TableColumn,
+  StatusBadgeComponent,
+  FormSelectComponent,
+  FormInputComponent,
+  SelectOption,
+} from '../../shared/ui';
 import { retry, timeout, finalize } from 'rxjs/operators';
 import {
   CrmFilters,
@@ -20,7 +32,19 @@ import {
 @Component({
   selector: 'app-crm-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, StatCardComponent, LoadingSpinnerComponent, ActionButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    PageHeaderComponent,
+    StatCardComponent,
+    LoadingSpinnerComponent,
+    ActionButtonComponent,
+    DataTableComponent,
+    TableCellDirective,
+    StatusBadgeComponent,
+    FormSelectComponent,
+    FormInputComponent,
+  ],
   templateUrl: './crm-dashboard.component.html',
   styleUrls: ['./crm-dashboard.component.scss'],
 })
@@ -60,6 +84,54 @@ export class CrmDashboardComponent implements OnInit {
   pendingDocuments: PendingDocument[] = [];
   queries: ComplianceQuery[] = [];
 
+  // Table column definitions
+  dueColumns: TableColumn[] = [
+    { key: 'complianceItem', header: 'Compliance Item', sortable: true },
+    { key: 'client', header: 'Client / Branch', sortable: true },
+    { key: 'dueDate', header: 'Due Date', sortable: true, width: '110px' },
+    { key: 'daysOverdue', header: 'Days Overdue', sortable: true, width: '120px', align: 'center' },
+    { key: 'risk', header: 'Risk', sortable: true, width: '100px', align: 'center' },
+    { key: 'dueActions', header: 'Actions', sortable: false, width: '100px', align: 'center' },
+  ];
+
+  coverageColumns: TableColumn[] = [
+    { key: 'branch', header: 'Branch', sortable: true },
+    { key: 'coveragePct', header: 'Coverage', sortable: true, width: '180px' },
+    { key: 'overdueCount', header: 'Overdue', sortable: true, width: '100px', align: 'center' },
+    { key: 'highRiskCount', header: 'High Risk', sortable: true, width: '100px', align: 'center' },
+    { key: 'coverageActions', header: '', sortable: false, width: '80px', align: 'center' },
+  ];
+
+  docColumns: TableColumn[] = [
+    { key: 'documentType', header: 'Document', sortable: true },
+    { key: 'requestedOn', header: 'Requested', sortable: true, width: '120px' },
+    { key: 'pendingDays', header: 'Pending', sortable: true, width: '100px', align: 'center' },
+    { key: 'docActions', header: 'Actions', sortable: false, width: '200px', align: 'center' },
+  ];
+
+  queryColumns: TableColumn[] = [
+    { key: 'from', header: 'From', sortable: true, width: '150px' },
+    { key: 'subject', header: 'Subject', sortable: true },
+    { key: 'ageingDays', header: 'Age', sortable: true, width: '80px', align: 'center' },
+    { key: 'queryStatus', header: 'Status', sortable: true, width: '120px', align: 'center' },
+    { key: 'queryActions', header: 'Actions', sortable: false, width: '180px', align: 'center' },
+  ];
+
+  // Select options for shared form components
+  get clientOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All Clients' },
+      ...this.clients.map(c => ({ value: c.id, label: c.name })),
+    ];
+  }
+
+  get branchOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All Branches' },
+      ...this.branches.map(b => ({ value: b.id, label: b.name })),
+    ];
+  }
+
   constructor(
     private dashboardService: DashboardService,
     private crmService: CrmService,
@@ -74,7 +146,6 @@ export class CrmDashboardComponent implements OnInit {
     this.loadAllData();
   }
 
-  /** Load clients and branches for filter dropdowns */
   loadReferenceData(): void {
     this.crmService.getAssignedClients().subscribe({
       next: (data) => {
@@ -90,7 +161,6 @@ export class CrmDashboardComponent implements OnInit {
     });
   }
 
-  /** Load branches scoped to the selected client */
   loadBranchesForClient(clientId: string): void {
     if (!clientId) {
       this.branches = [];
@@ -117,7 +187,6 @@ export class CrmDashboardComponent implements OnInit {
     });
   }
 
-  /** Load all dashboard data */
   loadAllData(): void {
     this.loadSummary();
     this.loadDueCompliances();
@@ -126,7 +195,6 @@ export class CrmDashboardComponent implements OnInit {
     this.loadQueries();
   }
 
-  /** Load summary KPIs */
   loadSummary(): void {
     this.loading = true;
     this.errorMsg = null;
@@ -146,7 +214,6 @@ export class CrmDashboardComponent implements OnInit {
     });
   }
 
-  /** Load compliances due based on active tab */
   loadDueCompliances(): void {
     const params = { ...this.buildFilterParams(), tab: this.activeTab };
     this.dashboardService.getCrmDueCompliances(params).pipe(timeout(10000), retry(1)).subscribe({
@@ -154,13 +221,12 @@ export class CrmDashboardComponent implements OnInit {
         this.dueCompliances = response.items;
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load due compliances');
       },
     });
   }
 
-  /** Load branches with low coverage */
   loadLowCoverage(): void {
     const params = this.buildFilterParams();
     this.dashboardService.getCrmLowCoverage(params).pipe(timeout(10000), retry(1)).subscribe({
@@ -168,13 +234,12 @@ export class CrmDashboardComponent implements OnInit {
         this.lowCoverageBranches = response.items;
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load low coverage branches');
       },
     });
   }
 
-  /** Load pending documents */
   loadPendingDocuments(): void {
     const params = this.buildFilterParams();
     this.dashboardService.getCrmPendingDocuments(params).pipe(timeout(10000), retry(1)).subscribe({
@@ -182,13 +247,12 @@ export class CrmDashboardComponent implements OnInit {
         this.pendingDocuments = response.items;
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load pending documents');
       },
     });
   }
 
-  /** Load compliance queries */
   loadQueries(): void {
     const params = this.buildFilterParams();
     this.dashboardService.getCrmQueries(params).pipe(timeout(10000), retry(1)).subscribe({
@@ -196,13 +260,12 @@ export class CrmDashboardComponent implements OnInit {
         this.queries = response.items;
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load queries');
       },
     });
   }
 
-  /** Build query params from filters */
   private buildFilterParams(): Record<string, string> {
     const params: Record<string, string> = {};
     if (this.filter.clientId) params['clientId'] = this.filter.clientId;
@@ -212,7 +275,6 @@ export class CrmDashboardComponent implements OnInit {
     return params;
   }
 
-  /** Apply filters */
   applyFilters(): void {
     if (this.filter.clientId) {
       this.loadBranchesForClient(this.filter.clientId);
@@ -220,7 +282,6 @@ export class CrmDashboardComponent implements OnInit {
     this.loadAllData();
   }
 
-  /** Reset filters */
   resetFilters(): void {
     this.filter = {
       clientId: '',
@@ -232,7 +293,6 @@ export class CrmDashboardComponent implements OnInit {
     this.loadAllData();
   }
 
-  /** Set active tab for Compliance Due Tracker */
   setDueTab(tab: 'OVERDUE' | 'DUE_SOON' | 'THIS_MONTH'): void {
     this.activeTab = tab;
     this.loadDueCompliances();
@@ -242,71 +302,47 @@ export class CrmDashboardComponent implements OnInit {
     this.loadBranchesForClient(this.filter.clientId ?? '');
   }
 
-  /** Update compliance status */
   updateCompliance(item: ComplianceDueItem): void {
-    // TODO: Navigate to compliance update page or open modal
     this.toast.info('Navigate to compliance update for: ' + item.complianceItem);
   }
 
-  /** View branch details */
   viewBranchDetails(branch: LowCoverageBranch): void {
-    // TODO: Navigate to branch compliance detail page
     this.router.navigate(['/crm/clients', branch.clientId, 'branches', branch.branchId]);
   }
 
-  /** Upload document */
   uploadDocument(doc: PendingDocument): void {
-    // TODO: Open document upload modal or navigate to upload page
     this.toast.info('Upload document: ' + doc.documentType);
   }
 
-  /** Follow up on pending document */
   followUpDocument(doc: PendingDocument): void {
-    // TODO: Send follow-up notification to contractor
     this.toast.info('Follow-up sent for: ' + doc.documentType);
   }
 
-  /** Reply to query */
   replyToQuery(query: ComplianceQuery): void {
-    // TODO: Navigate to query detail/reply page
     this.router.navigate(['/crm/queries', query.refId]);
   }
 
-  /** Assign query to someone else */
   assignQuery(query: ComplianceQuery): void {
-    // TODO: Open assignment modal
     this.toast.info('Assign query: ' + query.subject);
   }
 
-  /** Close query */
   closeQuery(query: ComplianceQuery): void {
-    // TODO: Mark query as closed with confirmation
     this.toast.info('Close query: ' + query.subject);
   }
 
-  // KPI Card Drill-down Handlers
   drillOverdueCompliances() {
-    this.router.navigate(['/crm/compliances'], {
-      queryParams: { tab: 'OVERDUE' }
-    });
+    this.router.navigate(['/crm/compliances'], { queryParams: { tab: 'OVERDUE' } });
   }
 
   drillDueSoon() {
-    this.router.navigate(['/crm/compliances'], {
-      queryParams: { tab: 'DUE_SOON', window: 30 }
-    });
+    this.router.navigate(['/crm/compliances'], { queryParams: { tab: 'DUE_SOON', window: 30 } });
   }
 
   drillOpenQueries() {
-    this.router.navigate(['/crm/queries'], {
-      queryParams: { status: 'OPEN', type: 'COMPLIANCE' }
-    });
+    this.router.navigate(['/crm/queries'], { queryParams: { status: 'OPEN', type: 'COMPLIANCE' } });
   }
 
   drillCoverage() {
-    // Navigate to low coverage branches view
-    this.router.navigate(['/crm/branches'], {
-      queryParams: { view: 'LOW_COVERAGE' }
-    });
+    this.router.navigate(['/crm/branches'], { queryParams: { view: 'LOW_COVERAGE' } });
   }
 }

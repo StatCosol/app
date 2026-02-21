@@ -19,6 +19,8 @@ const CeoNotificationsComponent = () =>
   import('./ceo-notifications.component').then((m) => m.CeoNotificationsComponent);
 const CeoProfileComponent = () =>
   import('./ceo-profile.component').then((m) => m.CeoProfileComponent);
+const CeoRegistersComponent = () =>
+  import('./registers/ceo-registers.component').then((m) => m.CeoRegistersComponent);
 
 export const CEO_ROUTES: Routes = [
   {
@@ -31,6 +33,7 @@ export const CEO_ROUTES: Routes = [
       { path: 'escalations', loadComponent: CeoEscalationsComponent },
       { path: 'oversight', loadComponent: CeoOversightComponent },
       { path: 'reports', loadComponent: CeoReportsComponent },
+      { path: 'registers', loadComponent: CeoRegistersComponent },
       { path: 'notifications', loadComponent: CeoNotificationsComponent },
       { path: 'profile', loadComponent: CeoProfileComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },

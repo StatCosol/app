@@ -45,6 +45,7 @@ export class LoginComponent {
             CLIENT: this.auth.isBranchUser() ? '/branch' : '/client',
             CONTRACTOR: '/contractor',
             PAYROLL: '/payroll',
+            EMPLOYEE: '/ess',
           };
 
           this.router.navigateByUrl(roleRedirects[role] || '/login');

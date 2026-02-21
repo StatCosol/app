@@ -13,6 +13,7 @@ import { AUDITOR_ROUTES } from './pages/auditor/auditor.routes';
 import { PUBLIC_ROUTES } from './pages/public/public.routes';
 import { PAYROLL_ROUTES } from './pages/payroll/payroll.routes';
 import { BRANCH_ROUTES } from './pages/branch/branch.routes';
+import { ESS_ROUTES } from './pages/ess/ess.routes';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -27,6 +28,7 @@ export const routes: Routes = [
   ...AUDITOR_ROUTES,
   ...BRANCH_ROUTES,
   ...PAYROLL_ROUTES,
+  ...ESS_ROUTES,
   ...PUBLIC_ROUTES,
 
   { path: '**', redirectTo: '', pathMatch: 'full' },

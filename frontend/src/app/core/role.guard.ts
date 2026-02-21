@@ -7,15 +7,22 @@ export const roleGuard = (roles: string[]): CanActivateFn => {
     const auth = inject(AuthService);
     const router = inject(Router);
 
-    // If not logged in, go to login
+    // If not logged in, redirect to appropriate login page
     if (!auth.isLoggedIn || !auth.isLoggedIn()) {
+      // Employee routes → ESS login; everything else → main login
+      if (roles.includes('EMPLOYEE')) {
+        return router.parseUrl('/ess/login');
+      }
       return router.parseUrl('/login');
     }
 
     const role = auth.getRoleCode();
 
-    // If role not allowed, redirect (you can change target to /not-authorized if you have one)
+    // If role not allowed, redirect
     if (!roles.includes(role)) {
+      if (role === 'EMPLOYEE') {
+        return router.parseUrl('/ess/login');
+      }
       return router.parseUrl('/login');
     }
 

@@ -43,7 +43,11 @@
       "Bash(set:*)",
       "Bash(\"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\":*)",
       "Bash(npx ng version:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZDNkNjhkNS1kMDkzLTQwYjYtOWY0Ni00MGE4NTg4YjQ0ZDQiLCJyb2xlSWQiOiJmMDc1ZDlhMS02MDZiLTQxODAtYmIzNy0zYjViNzlhZDI2MGUiLCJyb2xlQ29kZSI6IkFETUlOIiwiZW1haWwiOiJhZG1pbkBzdGF0Y29zb2wuY29tIiwibmFtZSI6IlN5c3RlbSBBZG1pbiIsImNsaWVudElkIjpudWxsLCJjbGllbnROYW1lIjpudWxsLCJpYXQiOjE3NzEwODc4MjQsImV4cCI6MTc3MTE3NDIyNH0.TSdVKFzDAQYJAaz3aXMNEOPG2NxViJiDx-UMsciEhkI\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZDNkNjhkNS1kMDkzLTQwYjYtOWY0Ni00MGE4NTg4YjQ0ZDQiLCJyb2xlSWQiOiJmMDc1ZDlhMS02MDZiLTQxODAtYmIzNy0zYjViNzlhZDI2MGUiLCJyb2xlQ29kZSI6IkFETUlOIiwiZW1haWwiOiJhZG1pbkBzdGF0Y29zb2wuY29tIiwibmFtZSI6IlN5c3RlbSBBZG1pbiIsImNsaWVudElkIjpudWxsLCJjbGllbnROYW1lIjpudWxsLCJpYXQiOjE3NzEwODc4MjQsImV4cCI6MTc3MTE3NDIyNH0.TSdVKFzDAQYJAaz3aXMNEOPG2NxViJiDx-UMsciEhkI\")",
+      "Bash(git checkout:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)"
     ]
   }
 }

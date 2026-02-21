@@ -40,9 +40,9 @@ export class AccessPolicyService {
       const rows = await this.ds.query(
         `
         SELECT 1
-        FROM branch_contractors bc
-        JOIN client_branches b ON b.id = bc."branchId"
-        WHERE bc."contractorUserId" = $1 AND b."clientId" = $2
+        FROM branch_contractor bc
+        JOIN client_branches b ON b.id = bc.branch_id
+        WHERE bc.contractor_user_id = $1 AND b.clientid = $2
         LIMIT 1
         `,
         [userId, clientId],

@@ -93,7 +93,7 @@ export class PayrollController {
   }
 
   // Frontend expects: GET /api/payroll/clients
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @Get('clients')
   getAssignedClients(@Req() req: any) {
     return this.svc.getAssignedClients(req.user);
@@ -114,21 +114,21 @@ export class PayrollController {
   }
 
   // Existing endpoint (kept): GET /api/payroll/registers-records
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @Get('registers-records')
   listRegistersRecords(@Req() req: any, @Query() q: any) {
     return this.svc.payrollListRegistersRecords(req.user, q);
   }
 
   // Frontend expects: GET /api/payroll/registers (alias)
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @Get('registers')
   listRegistersAlias(@Req() req: any, @Query() q: any) {
     return this.svc.payrollListRegistersRecords(req.user, q);
   }
 
   // Frontend expects: GET /api/payroll/registers/:id/download
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @Get('registers/:id/download')
   async downloadRegister(
     @Req() req: any,
@@ -145,7 +145,7 @@ export class PayrollController {
   }
 
   // Alias: GET /api/payroll/registers-records/:id/download
-  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @Get('registers-records/:id/download')
   async downloadRegisterRecord(
     @Req() req: any,
@@ -159,6 +159,20 @@ export class PayrollController {
       `attachment; filename="${out.fileName}"`,
     );
     res.end(out.buffer);
+  }
+
+  // Approve register: PATCH /api/payroll/registers/:id/approve
+  @Roles('PAYROLL', 'ADMIN')
+  @Patch('registers/:id/approve')
+  approveRegister(@Req() req: any, @Param('id') id: string) {
+    return this.svc.approveRegister(req.user, id);
+  }
+
+  // Reject register: PATCH /api/payroll/registers/:id/reject
+  @Roles('PAYROLL', 'ADMIN')
+  @Patch('registers/:id/reject')
+  rejectRegister(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.svc.rejectRegister(req.user, id, body?.reason);
   }
 
   // Frontend expects: GET /api/payroll/runs
@@ -503,5 +517,33 @@ export class ClientPayslipLayoutController {
     @Body() dto: SaveClientPayslipLayoutDto,
   ) {
     return this.svc.saveClientPayslipLayout(req.user, clientId, dto);
+  }
+}
+
+// ── Auditor Registers ──────────────────────────────────
+@Controller({ path: 'auditor/registers', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('AUDITOR')
+export class AuditorRegistersController {
+  constructor(private readonly svc: PayrollService) {}
+
+  @Get()
+  list(@Req() req: any, @Query() q: any) {
+    return this.svc.auditorListRegisters(req.user, q);
+  }
+
+  @Get(':id/download')
+  async download(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const out = await this.svc.downloadRegisterForAuditor(req.user, id);
+    res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${out.fileName}"`,
+    );
+    res.end(out.buffer);
   }
 }

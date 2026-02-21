@@ -48,6 +48,21 @@ export class RegistersRecordEntity {
   @Column({ type: 'bigint', name: 'file_size' })
   fileSize: string;
 
+  @Column({ type: 'varchar', length: 60, name: 'register_type', nullable: true })
+  registerType: string | null;
+
+  @Column({ type: 'varchar', length: 10, name: 'state_code', nullable: true })
+  stateCode: string | null;
+
+  @Column({ type: 'varchar', length: 20, name: 'approval_status', default: 'PENDING' })
+  approvalStatus: string;
+
+  @Column({ type: 'uuid', name: 'approved_by_user_id', nullable: true })
+  approvedByUserId: string | null;
+
+  @Column({ type: 'timestamptz', name: 'approved_at', nullable: true })
+  approvedAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 }

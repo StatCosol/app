@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
+import { EssLoginDto } from './dto/ess-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -64,6 +65,69 @@ export class AuthService {
         clientName: user.client?.clientName ?? null,
         crmId: (user as any).crmId ?? null,
         userType: user.userType ?? null,
+        employeeId: (user as any).employeeId ?? null,
+      },
+    };
+  }
+
+  /**
+   * ESS-specific login: validates company code + email + password,
+   * ensures role is EMPLOYEE and user belongs to the given company.
+   */
+  async essLogin(dto: EssLoginDto) {
+    const email = (dto.email || '').trim().toLowerCase();
+    const companyCode = (dto.companyCode || '').trim().toUpperCase();
+
+    const user = await this.usersRepo
+      .createQueryBuilder('u')
+      .leftJoinAndSelect('u.client', 'c')
+      .where('LOWER(u.email) = LOWER(:email)', { email })
+      .addSelect('u.passwordHash')
+      .getOne();
+
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    // Must be active + not deleted
+    if (!user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Verify password
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isMatch) throw new UnauthorizedException('Invalid credentials');
+
+    // Verify role is EMPLOYEE
+    const role = await this.usersService.getRoleById(user.roleId);
+    if (role.code !== 'EMPLOYEE') {
+      throw new UnauthorizedException('This login is for employees only');
+    }
+
+    // Verify company code matches the user's client
+    if (
+      !user.client ||
+      user.client.clientCode?.toUpperCase() !== companyCode
+    ) {
+      throw new UnauthorizedException('Company code does not match your account');
+    }
+
+    const tokens = await this.issueTokens(user.id, role.code, user);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        userId: user.id,
+        email: user.email,
+        roleCode: role.code,
+        fullName: (user as any).fullName ?? user.name ?? null,
+        name: user.name,
+        clientId: user.clientId ?? null,
+        clientCode: user.client?.clientCode ?? null,
+        clientName: user.client?.clientName ?? null,
+        clientLogoUrl: (user.client as any)?.logoUrl ?? null,
+        userType: user.userType ?? null,
+        employeeId: (user as any).employeeId ?? null,
       },
     };
   }

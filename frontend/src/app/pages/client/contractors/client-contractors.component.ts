@@ -104,14 +104,6 @@ export class ClientContractorsComponent implements OnInit, OnDestroy {
     }
   }
 
-  openBranchPage() {
-    if (this.branchId) {
-      this.router.navigate(['/client/contractors/branch', this.branchId], { queryParams: { month: this.month } });
-    } else {
-      this.router.navigate(['/client/contractors']);
-    }
-  }
-
   onMonthChange() {
     this.refreshAll();
   }

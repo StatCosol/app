@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'payroll_runs' })
+@Index(['clientId', 'branchId', 'periodYear', 'periodMonth'], { unique: true })
 export class PayrollRunEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

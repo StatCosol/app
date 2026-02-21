@@ -1,0 +1,332 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <!-- Header + Quick links -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900">BranchDesk</h1>
+      <p class="text-sm text-slate-500">PF/ESI status and contractor document uploads for your branch</p>
+    </div>
+    <div class="flex gap-2">
+      <a routerLink="/branch/mcd" class="quick-link">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3" /></svg>
+        MCD
+      </a>
+      <a routerLink="/branch/returns" class="quick-link">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z" /></svg>
+        Returns
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="flex flex-wrap gap-3 items-center">
+      <label class="filter-group">
+        <span class="filter-label">Month</span>
+        <select class="filter-select" [(ngModel)]="filters.month" (change)="load()">
+          <option *ngFor="let m of months" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+      <label class="filter-group">
+        <span class="filter-label">Year</span>
+        <select class="filter-select" [(ngModel)]="filters.year" (change)="load()">
+          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+        </select>
+      </label>
+    </div>
+    <button class="ghost-btn" (click)="load()">Refresh</button>
+  </div>
+
+  <!-- Skeleton Loading -->
+  <div *ngIf="loading" class="space-y-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div *ngFor="let s of [1,2,3]" class="skeleton skeleton--kpi"></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="skeleton skeleton--chart"></div>
+      <div class="skeleton skeleton--chart"></div>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <div *ngIf="errorMsg" class="alert-error">{{ errorMsg }}</div>
+
+    <ng-container *ngIf="!errorMsg">
+      <!-- PF / ESI / Contractor summary cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <!-- PF Card -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">PF</p>
+              <h3 class="panel-title">Registration status</h3>
+            </div>
+            <button class="ghost-btn ghost-btn--sm" *ngIf="pfSummary.pendingEmployees.length" (click)="togglePfModal()">View Pending</button>
+          </div>
+          <div class="panel-body">
+            <div class="kpi-grid">
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Registered</p>
+                <p class="mini-kpi-value text-green-600">{{ pfSummary.registered }}</p>
+              </div>
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Not Registered</p>
+                <p class="mini-kpi-value text-amber-600">{{ pfSummary.notRegisteredApplicable }}</p>
+              </div>
+            </div>
+            <p class="mini-kpi-sub" *ngIf="pfSummary.pendingEmployees.length">Top pending: {{ pfSummary.pendingEmployees[0]?.empCode }} ({{ pfSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+            <p class="mini-kpi-sub" *ngIf="!pfSummary.pendingEmployees.length">All PF applicable employees are registered.</p>
+          </div>
+        </div>
+
+        <!-- ESI Card -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">ESI</p>
+              <h3 class="panel-title">Registration status</h3>
+            </div>
+            <button class="ghost-btn ghost-btn--sm" *ngIf="esiSummary.pendingEmployees.length" (click)="toggleEsiModal()">View Pending</button>
+          </div>
+          <div class="panel-body">
+            <div class="kpi-grid">
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Registered</p>
+                <p class="mini-kpi-value text-green-600">{{ esiSummary.registered }}</p>
+              </div>
+              <div class="mini-kpi">
+                <p class="mini-kpi-label">Not Registered</p>
+                <p class="mini-kpi-value text-amber-600">{{ esiSummary.notRegisteredApplicable }}</p>
+              </div>
+            </div>
+            <p class="mini-kpi-sub" *ngIf="esiSummary.pendingEmployees.length">Top pending: {{ esiSummary.pendingEmployees[0]?.empCode }} ({{ esiSummary.pendingEmployees[0]?.pendingDays }} days)</p>
+            <p class="mini-kpi-sub" *ngIf="!esiSummary.pendingEmployees.length">All ESI applicable employees are registered.</p>
+          </div>
+        </div>
+
+        <!-- Contractor Upload Card -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Document upload</h3>
+            </div>
+            <div class="score-chip">{{ contractorSummary?.overallPercent ?? 0 }}%</div>
+          </div>
+          <div class="panel-body space-y-2">
+            <div class="flex justify-between text-sm" *ngFor="let c of contractorSummary?.top10?.slice(0,3)">
+              <span class="truncate mr-2">{{ c.name }}</span>
+              <span class="font-semibold">{{ c.percent }}%</span>
+            </div>
+            <p class="mini-kpi-sub" *ngIf="(contractorSummary?.contractors?.length || 0) === 0">No contractor data for this month.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PF Pending Modal -->
+      <div class="modal-overlay" *ngIf="showPfModal" (click)="togglePfModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">PF &mdash; Pending Registration</h3>
+            <button class="modal-close" (click)="togglePfModal()">&times;</button>
+          </div>
+          <div class="modal-body overflow-x-auto">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Emp Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>PF Applicable</th>
+                  <th>UAN Available</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of pfSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span class="badge-yes">Y</span></td>
+                  <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESI Pending Modal -->
+      <div class="modal-overlay" *ngIf="showEsiModal" (click)="toggleEsiModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3 class="modal-title">ESI &mdash; Pending Registration</h3>
+            <button class="modal-close" (click)="toggleEsiModal()">&times;</button>
+          </div>
+          <div class="modal-body overflow-x-auto">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Emp Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>ESI Applicable</th>
+                  <th>IP Number</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of esiSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span class="badge-yes">Y</span></td>
+                  <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PF/ESI Pending Inline Tables -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">PF</p>
+              <h3 class="panel-title">Pending employees</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="pfSummary.pendingEmployees.length; else pfOk">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>UAN</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of pfSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #pfOk>
+              <p class="mini-kpi-sub">All PF applicable employees are registered.</p>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">ESI</p>
+              <h3 class="panel-title">Pending employees</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="esiSummary.pendingEmployees.length; else esiOk">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>DOJ</th>
+                  <th>IP No.</th>
+                  <th class="text-right">Pending Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of esiSummary.pendingEmployees">
+                  <td>{{ emp.empCode }}</td>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
+                  <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #esiOk>
+              <p class="mini-kpi-sub">All ESI applicable employees are registered.</p>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contractor Top/Bottom 10 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Top 10 by upload %</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="contractorSummary?.top10?.length; else topEmpty">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th class="text-right">Uploaded</th>
+                  <th class="text-right">Expected</th>
+                  <th class="text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of contractorSummary?.top10">
+                  <td>{{ c.name }}</td>
+                  <td class="text-right">{{ c.uploaded }}</td>
+                  <td class="text-right">{{ c.expected }}</td>
+                  <td class="text-right font-semibold">{{ c.percent }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #topEmpty>
+              <p class="mini-kpi-sub">No contractor data for this month.</p>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-eyebrow">Contractors</p>
+              <h3 class="panel-title">Bottom 10 by upload %</h3>
+            </div>
+          </div>
+          <div class="panel-body overflow-x-auto">
+            <table class="mini-table" *ngIf="contractorSummary?.bottom10?.length; else bottomEmpty">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th class="text-right">Uploaded</th>
+                  <th class="text-right">Expected</th>
+                  <th class="text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of contractorSummary?.bottom10">
+                  <td>{{ c.name }}</td>
+                  <td class="text-right">{{ c.uploaded }}</td>
+                  <td class="text-right">{{ c.expected }}</td>
+                  <td class="text-right font-semibold">{{ c.percent }}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #bottomEmpty>
+              <p class="mini-kpi-sub">No contractor data for this month.</p>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </ng-container>
+</div>

@@ -51,6 +51,9 @@ export class PayrollRunItemEntity {
   })
   rate: string | null;
 
+  @Column({ name: 'source', type: 'varchar', length: 20, default: 'UPLOADED' })
+  source: 'UPLOADED' | 'CALCULATED' | 'OVERRIDE';
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

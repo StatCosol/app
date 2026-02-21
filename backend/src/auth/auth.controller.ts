@@ -8,6 +8,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { EssLoginDto } from './dto/ess-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -25,6 +26,12 @@ export class AuthController {
   @Throttle({ default: { ttl: 60, limit: 10 } })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('ess/login')
+  @Throttle({ default: { ttl: 60, limit: 10 } })
+  essLogin(@Body() dto: EssLoginDto) {
+    return this.auth.essLogin(dto);
   }
 
   @Post('refresh')

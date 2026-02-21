@@ -51,7 +51,7 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
   `
 })
 export class ModalComponent {
-  @Input() isOpen = false;
+  @Input() isOpen = true;
   @Input() title = '';
   @Input() size: ModalSize = 'md';
   @Input() showCloseButton = true;

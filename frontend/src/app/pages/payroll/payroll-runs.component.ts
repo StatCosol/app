@@ -1,9 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { BehaviorSubject, Subject, of } from 'rxjs';
+import { catchError, debounceTime, finalize, switchMap, takeUntil, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { PayrollRunsService, PayrollRunSummary, PayrollRunEmployeeRow } from './payroll-runs.service';
+import { PayrollSetupApiService } from './payroll-setup-api.service';
 import { 
   PageHeaderComponent, 
   DataTableComponent, 
@@ -206,6 +208,37 @@ import {
           </ui-button>
         </div>
 
+        <!-- Processing Actions -->
+        <div class="processing-bar">
+          <div class="flex flex-col gap-1.5">
+            <label class="block text-sm font-medium text-gray-700">Upload Breakup (Excel)</label>
+            <input
+              type="file"
+              (change)="onBreakupFileSelected($event)"
+              accept=".xlsx,.xls,.csv"
+              class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none p-2" />
+          </div>
+          <ui-button
+            size="sm"
+            variant="primary"
+            [disabled]="!breakupFile || uploadingBreakup"
+            (clicked)="uploadBreakup()">
+            {{ uploadingBreakup ? 'Uploading...' : 'Upload Breakup' }}
+          </ui-button>
+          <ui-button
+            size="sm"
+            variant="primary"
+            [disabled]="processingRun"
+            (clicked)="processRun()">
+            {{ processingRun ? 'Processing...' : 'Process Run' }}
+          </ui-button>
+          <ui-button size="sm" variant="secondary" (clicked)="generatePfEcr()">PF ECR</ui-button>
+          <ui-button size="sm" variant="secondary" (clicked)="generateEsi()">ESI File</ui-button>
+        </div>
+        <div *ngIf="processingMsg" class="text-sm mt-2" [class.text-green-600]="!processingError" [class.text-red-600]="processingError">
+          {{ processingMsg }}
+        </div>
+
         <ui-loading-spinner *ngIf="loadingEmployees" text="Loading employees..." size="lg"></ui-loading-spinner>
 
         <ui-empty-state
@@ -255,21 +288,39 @@ import {
   styles: [
     `
       .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+      .processing-bar { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; padding: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 1rem; }
     `,
   ],
 })
-export class PayrollRunsComponent implements OnInit {
+export class PayrollRunsComponent implements OnInit, OnDestroy {
   clients: PayrollClient[] = [];
   runs: PayrollRunSummary[] = [];
   employees: PayrollRunEmployeeRow[] = [];
 
-  loadingRuns = false;
+  loadingRuns = true;
   loadingEmployees = false;
   archivingRunId: string | null = null;
   error = '';
   createError = '';
   creatingRun = false;
   runFile: File | null = null;
+
+  clientOptions: SelectOption[] = [{ value: null, label: 'Select client' }];
+  statusOptions: SelectOption[] = [
+    { value: null, label: 'All Statuses' },
+    { value: 'DRAFT', label: 'Draft' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'SUBMITTED', label: 'Submitted' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'COMPLETED', label: 'Completed' },
+  ];
+
+  // Processing state
+  breakupFile: File | null = null;
+  uploadingBreakup = false;
+  processingRun = false;
+  processingMsg = '';
+  processingError = false;
 
   selectedRunId: string | null = null;
 
@@ -303,70 +354,97 @@ export class PayrollRunsComponent implements OnInit {
     title: '',
   };
 
-  get clientOptions(): SelectOption[] {
-    return [
-      { value: null, label: 'Select client' },
-      ...this.clients.map(c => ({ value: c.id, label: c.name }))
-    ];
-  }
+  private reload$ = new BehaviorSubject<void>(undefined);
+  private employeesReload$ = new Subject<string>();
+  private destroy$ = new Subject<void>();
 
-  get statusOptions(): SelectOption[] {
-    return [
-      { value: null, label: 'All Statuses' },
-      { value: 'DRAFT', label: 'Draft' },
-      { value: 'IN_PROGRESS', label: 'In Progress' },
-      { value: 'SUBMITTED', label: 'Submitted' },
-      { value: 'APPROVED', label: 'Approved' },
-      { value: 'COMPLETED', label: 'Completed' },
-    ];
-  }
-
-  constructor(private payrollApi: PayrollApiService, private runsApi: PayrollRunsService, private cdr: ChangeDetectorRef) {}
+  constructor(private payrollApi: PayrollApiService, private runsApi: PayrollRunsService, private setupApi: PayrollSetupApiService) {}
 
   ngOnInit(): void {
     console.log('PayrollRuns ngOnInit - loading clients and runs');
+
+    this.reload$
+      .pipe(
+        switchMap(() => {
+          this.error = '';
+          this.loadingRuns = true;
+          return this.runsApi
+            .listRuns({
+              clientId: this.filters.clientId ?? undefined,
+              periodYear: this.filters.periodYear ?? undefined,
+              periodMonth: this.filters.periodMonth ?? undefined,
+              status: this.filters.status ?? undefined,
+            })
+            .pipe(
+              timeout(10000),
+              catchError((e) => {
+                console.error('PayrollRuns error:', e);
+                this.error = e?.error?.message || `Unable to load runs. ${e?.message || ''}`;
+                return of([] as PayrollRunSummary[]);
+              }),
+              finalize(() => {
+                this.loadingRuns = false;
+              }),
+            );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((rows) => {
+        console.log('PayrollRuns loaded:', rows);
+        this.runs = rows || [];
+      });
+
+    this.employeesReload$
+      .pipe(
+        debounceTime(50),
+        switchMap((runId) => {
+          this.error = '';
+          this.loadingEmployees = true;
+          return this.runsApi
+            .listRunEmployees(runId)
+            .pipe(
+              timeout(10000),
+              catchError((e) => {
+                console.error('PayrollRuns employees error:', e);
+                this.error = e?.error?.message || 'Unable to load run employees';
+                return of([] as PayrollRunEmployeeRow[]);
+              }),
+              finalize(() => {
+                this.loadingEmployees = false;
+              }),
+            );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((rows) => {
+        this.employees = rows || [];
+      });
     this.payrollApi.getAssignedClients().subscribe({
       next: (list) => {
         console.log('PayrollRuns clients loaded:', list);
         this.clients = list || [];
-        this.cdr.detectChanges();
+        this.clientOptions = [
+          { value: null, label: 'Select client' },
+          ...this.clients.map(c => ({ value: c.id, label: c.name })),
+        ];
       },
       error: (e) => {
         console.error('PayrollRuns error loading clients:', e);
         this.error = `Unable to load clients. ${e?.error?.message || ''}`;
-        this.cdr.detectChanges();
       },
     });
-    this.reloadRuns();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.reload$.complete();
+    this.employeesReload$.complete();
   }
 
   reloadRuns(): void {
     console.log('PayrollRuns reloadRuns called with filters:', this.filters);
-    this.error = '';
-    this.loadingRuns = true;
-    this.runsApi
-      .listRuns({
-        clientId: this.filters.clientId ?? undefined,
-        periodYear: this.filters.periodYear ?? undefined,
-        periodMonth: this.filters.periodMonth ?? undefined,
-        status: this.filters.status ?? undefined,
-      })
-      .pipe(
-        timeout(10000),
-        finalize(() => { this.loadingRuns = false; this.cdr.detectChanges(); }),
-      )
-      .subscribe({
-        next: (rows) => {
-          console.log('PayrollRuns loaded:', rows);
-          this.runs = rows || [];
-          this.cdr.detectChanges();
-        },
-        error: (e) => {
-          console.error('PayrollRuns error:', e);
-          this.error = e?.error?.message || `Unable to load runs. ${e?.message || ''}`;
-          this.cdr.detectChanges();
-        },
-      });
+    this.reload$.next(); // switchMap + debounceTime handle cancellation of in-flight requests
   }
 
   openRun(runId: string): void {
@@ -376,20 +454,7 @@ export class PayrollRunsComponent implements OnInit {
 
   loadEmployees(): void {
     if (!this.selectedRunId) return;
-    this.loadingEmployees = true;
-    this.runsApi.listRunEmployees(this.selectedRunId).pipe(
-      timeout(10000),
-      finalize(() => { this.loadingEmployees = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (rows) => {
-        this.employees = rows || [];
-        this.cdr.detectChanges();
-      },
-      error: (e) => {
-        this.error = e?.error?.message || 'Unable to load run employees';
-        this.cdr.detectChanges();
-      },
-    });
+    this.employeesReload$.next(this.selectedRunId); // switchMap handles cancellation
   }
 
   archiveRun(runId: string): void {
@@ -397,12 +462,10 @@ export class PayrollRunsComponent implements OnInit {
     this.runsApi.archiveRunPayslips(runId).subscribe({
       next: () => {
         this.archivingRunId = null;
-        this.cdr.detectChanges();
       },
       error: (e) => {
         this.archivingRunId = null;
         this.error = e?.error?.message || 'Failed to archive payslips';
-        this.cdr.detectChanges();
       },
     });
   }
@@ -410,14 +473,14 @@ export class PayrollRunsComponent implements OnInit {
   downloadZip(runId: string): void {
     this.runsApi.downloadPayslipsZip(runId).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `payslips_${runId}.zip`),
-      error: (e) => { this.error = e?.error?.message || 'Failed to download ZIP'; this.cdr.detectChanges(); },
+      error: (e) => { this.error = e?.error?.message || 'Failed to download ZIP'; },
     });
   }
 
   downloadPayslipPdf(runId: string, employeeId: string): void {
     this.runsApi.downloadPayslipPdf(runId, employeeId).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `payslip_${employeeId}.pdf`),
-      error: (e) => { this.error = e?.error?.message || 'Failed to download PDF'; this.cdr.detectChanges(); },
+      error: (e) => { this.error = e?.error?.message || 'Failed to download PDF'; },
     });
   }
 
@@ -450,7 +513,6 @@ export class PayrollRunsComponent implements OnInit {
               error: (e) => {
                 this.creatingRun = false;
                 this.createError = e?.error?.message || 'Run created, but upload failed.';
-                this.cdr.detectChanges();
                 this.reloadRuns();
               },
             });
@@ -461,7 +523,6 @@ export class PayrollRunsComponent implements OnInit {
         error: (e) => {
           this.creatingRun = false;
           this.createError = e?.error?.message || 'Failed to create payroll run.';
-          this.cdr.detectChanges();
         },
       });
   }
@@ -475,14 +536,13 @@ export class PayrollRunsComponent implements OnInit {
       title: '',
     };
     this.runFile = null;
-    this.cdr.detectChanges();
     this.reloadRuns();
   }
 
   downloadArchivedPayslipPdf(runId: string, employeeId: string): void {
     this.runsApi.downloadArchivedPayslipPdf(runId, employeeId).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `payslip_${employeeId}_archived.pdf`),
-      error: (e) => { this.error = e?.error?.message || 'Archived payslip not available'; this.cdr.detectChanges(); },
+      error: (e) => { this.error = e?.error?.message || 'Archived payslip not available'; },
     });
   }
 
@@ -499,5 +559,74 @@ export class PayrollRunsComponent implements OnInit {
     const v = Number(n ?? 0);
     if (!isFinite(v)) return '-';
     return v.toFixed(2);
+  }
+
+  // ── Processing Methods ──────────────────────────────────
+
+  onBreakupFileSelected(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.breakupFile = target.files && target.files.length ? target.files[0] : null;
+  }
+
+  uploadBreakup(): void {
+    if (!this.selectedRunId || !this.breakupFile) return;
+    this.uploadingBreakup = true;
+    this.processingMsg = '';
+    this.processingError = false;
+    this.setupApi.uploadBreakup(this.selectedRunId, this.breakupFile).pipe(
+      finalize(() => { this.uploadingBreakup = false; }),
+    ).subscribe({
+      next: (res: any) => {
+        this.processingMsg = `Breakup uploaded: ${res?.imported ?? 0} employees imported`;
+        this.breakupFile = null;
+        this.loadEmployees();
+      },
+      error: (e) => {
+        this.processingMsg = e?.error?.message || 'Upload failed';
+        this.processingError = true;
+      },
+    });
+  }
+
+  processRun(): void {
+    if (!this.selectedRunId) return;
+    this.processingRun = true;
+    this.processingMsg = '';
+    this.processingError = false;
+    this.setupApi.processRun(this.selectedRunId).pipe(
+      finalize(() => { this.processingRun = false; }),
+    ).subscribe({
+      next: (res: any) => {
+        this.processingMsg = `Processed ${res?.processed ?? 0} employees. Status: ${res?.status ?? 'DONE'}`;
+        this.loadEmployees();
+        this.reloadRuns();
+      },
+      error: (e) => {
+        this.processingMsg = e?.error?.message || 'Processing failed';
+        this.processingError = true;
+      },
+    });
+  }
+
+  generatePfEcr(): void {
+    if (!this.selectedRunId) return;
+    this.setupApi.generatePfEcr(this.selectedRunId).subscribe({
+      next: (blob) => this.runsApi.saveBlob(blob, `PF_ECR_${this.selectedRunId}.txt`),
+      error: (e) => {
+        this.processingMsg = e?.error?.message || 'PF ECR generation failed';
+        this.processingError = true;
+      },
+    });
+  }
+
+  generateEsi(): void {
+    if (!this.selectedRunId) return;
+    this.setupApi.generateEsi(this.selectedRunId).subscribe({
+      next: (blob) => this.runsApi.saveBlob(blob, `ESI_${this.selectedRunId}.txt`),
+      error: (e) => {
+        this.processingMsg = e?.error?.message || 'ESI generation failed';
+        this.processingError = true;
+      },
+    });
   }
 }

@@ -41,6 +41,9 @@ export class ClientEntity {
   @Column({ name: 'assigned_auditor_id', type: 'uuid', nullable: true })
   assignedAuditorId: string | null;
 
+  @Column({ name: 'logo_url', type: 'varchar', length: 500, nullable: true })
+  logoUrl: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

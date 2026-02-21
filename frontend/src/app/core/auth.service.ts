@@ -25,13 +25,26 @@ export class AuthService {
       );
   }
 
+  /** ESS-specific login: company code + email + password */
+  essLogin(companyCode: string, email: string, password: string) {
+    return this.http
+      .post<any>(`${environment.apiBaseUrl}/api/auth/ess/login`, { companyCode, email, password })
+      .pipe(
+        tap((res) => {
+          localStorage.setItem(this.TOKEN_KEY, res.accessToken);
+          localStorage.setItem(this.USER_KEY, JSON.stringify(res.user));
+        })
+      );
+  }
+
   /** Call this from UI logout button */
   logout(reason?: string) {
-    this.logoutOnce(reason);
+    const wasEmployee = this.getRoleCode() === 'EMPLOYEE';
+    this.logoutOnce(reason, wasEmployee);
   }
 
   /** Call this from interceptor on 401 */
-  logoutOnce(_reason?: string) {
+  logoutOnce(_reason?: string, toEssLogin = false) {
     if (this.loggingOut) return;
     this.loggingOut = true;
 
@@ -39,10 +52,8 @@ export class AuthService {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
 
-    // Optional: you can log reason for debugging
-    // console.warn('[AuthService] logoutOnce:', reason);
-
-    this.router.navigate(['/login'], { replaceUrl: true }).finally(() => {
+    const target = toEssLogin ? '/ess/login' : '/login';
+    this.router.navigate([target], { replaceUrl: true }).finally(() => {
       // allow future logout actions after navigation stabilizes
       setTimeout(() => (this.loggingOut = false), 0);
     });

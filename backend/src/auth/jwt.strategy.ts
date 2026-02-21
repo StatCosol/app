@@ -69,6 +69,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       roleCode,
       clientId: payload.clientId ?? user.clientId ?? null,
       userType: (user as any).userType ?? null,
+      employeeId: (user as any).employeeId ?? null,
     } as const;
 
     Logger.log(

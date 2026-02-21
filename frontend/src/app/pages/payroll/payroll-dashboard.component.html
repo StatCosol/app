@@ -1,57 +1,144 @@
-<!-- Header now handled by layout -->
-<main class="content">
-  <div class="page">
-    <ui-page-header
-      title="Payroll Dashboard"
-      description="Payroll processing overview"
-      icon="currency-dollar">
-    </ui-page-header>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Payroll Dashboard"
+    subtitle="Payroll processing overview and recent activity">
+  </ui-page-header>
 
-    <!-- Loading State -->
-    <div *ngIf="loading" class="my-8">
-      <ui-loading-spinner text="Loading payroll data..." size="lg"></ui-loading-spinner>
+  <!-- Loading State -->
+  <div *ngIf="loading" class="my-8">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div *ngFor="let i of [1,2,3,4,5,6]" class="skeleton-card"></div>
     </div>
+    <div class="skeleton-table"></div>
+  </div>
 
-    <!-- Error State -->
-    <div *ngIf="error && !loading" class="my-8">
-      <ui-empty-state
-        title="Unable to Load Data"
-        [description]="error">
-      </ui-empty-state>
-    </div>
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="my-8">
+    <ui-empty-state
+      title="Unable to Load Data"
+      [description]="error">
+    </ui-empty-state>
+  </div>
 
+  <!-- Dashboard Content -->
+  <ng-container *ngIf="!loading && !error">
     <!-- KPI Grid -->
-    <div *ngIf="summary && !loading" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div class="cursor-pointer" (click)="goTo('/payroll/clients')">
+        <ui-stat-card
+          label="Assigned Clients"
+          [value]="summary?.assignedClients ?? clients.length"
+          color="primary">
+        </ui-stat-card>
+      </div>
+
       <ui-stat-card
-        label="Assigned Clients"
-        [value]="summary.assignedClients"
-        color="success">
+        label="Active Runs"
+        [value]="activeRunsCount"
+        color="info">
       </ui-stat-card>
 
       <ui-stat-card
         label="Pending Runs"
-        [value]="summary.pendingRuns"
+        [value]="summary?.pendingRuns ?? 0"
         color="warning">
       </ui-stat-card>
 
-      <ui-stat-card
-        label="Completed This Month"
-        [value]="summary.completedThisMonth"
-        color="primary">
-      </ui-stat-card>
-    </div>
+      <div class="cursor-pointer" (click)="goTo('/payroll/runs')">
+        <ui-stat-card
+          label="Completed"
+          [value]="summary?.completedThisMonth ?? 0"
+          description="This month"
+          color="success">
+        </ui-stat-card>
+      </div>
 
-    <!-- Info Notice -->
-    <div *ngIf="summary && !loading" class="card bg-gray-50 border-gray-200">
-      <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-gray-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <p class="text-sm text-gray-700">
-          This is Payroll V1 UI shell. Once backend payroll endpoints are fully enabled for PAYROLL role,
-          these cards will load live data and additional features will be available.
-        </p>
+      <ui-stat-card
+        label="Total Employees"
+        [value]="totalEmployees"
+        color="gray">
+      </ui-stat-card>
+
+      <div class="cursor-pointer" (click)="goTo('/payroll/registers')">
+        <ui-stat-card
+          label="Registers"
+          [value]="'View'"
+          color="primary">
+        </ui-stat-card>
       </div>
     </div>
-  </div>
-</main>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6 shadow-sm">
+      <div class="flex flex-wrap gap-3">
+        <ui-button variant="primary" (clicked)="goTo('/payroll/runs')">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Payroll Runs
+          </span>
+        </ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/clients')">Manage Clients</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/setup')">Setup</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/registers')">Registers</ui-button>
+      </div>
+    </div>
+
+    <!-- Recent Payroll Runs -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-3">Recent Payroll Runs</h3>
+      <ui-data-table
+        [columns]="runColumns"
+        [data]="recentRuns"
+        [loading]="false"
+        [clickable]="true"
+        (rowClick)="openRun($event.row)"
+        emptyMessage="No payroll runs yet. Create your first run from the Runs page.">
+
+        <ng-template uiTableCell="clientName" let-row>
+          <div class="font-medium text-gray-900">{{ row.clientName || 'Unknown' }}</div>
+        </ng-template>
+
+        <ng-template uiTableCell="period" let-row>
+          <span class="text-sm text-gray-700 font-medium">{{ formatPeriod(row) }}</span>
+        </ng-template>
+
+        <ng-template uiTableCell="employeeCount" let-row>
+          <span class="text-sm text-gray-600">{{ row.employeeCount ?? '-' }}</span>
+        </ng-template>
+
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+
+        <ng-template uiTableCell="actions" let-row>
+          <ui-button size="sm" variant="secondary" (clicked)="openRun(row)">Open</ui-button>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <!-- Assigned Clients -->
+    <div *ngIf="clients.length > 0">
+      <h3 class="text-lg font-semibold text-gray-900 mb-3">Assigned Clients</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div *ngFor="let client of clients"
+             class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+             (click)="goTo('/payroll/runs')">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-statco-blue flex items-center justify-center text-white font-bold text-sm">
+              {{ (client.name || client.clientName || '?').charAt(0).toUpperCase() }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-gray-900 truncate">{{ client.name || client.clientName }}</div>
+              <div *ngIf="client.clientCode" class="text-xs text-gray-500">{{ client.clientCode }}</div>
+            </div>
+            <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

@@ -273,7 +273,7 @@ export class ClientBranchesController {
     // Get contractors for this branch
     const contractors: any[] = await this.dataSource.query(
       `SELECT bc.contractor_user_id AS contractor_id, u.name AS contractor_name
-       FROM branch_contractors bc
+       FROM branch_contractor bc
        JOIN users u ON u.id = bc.contractor_user_id
        WHERE bc.branch_id = $1 AND u.deleted_at IS NULL
        ORDER BY u.name`,

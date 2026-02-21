@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ClientEntity } from './entities/client.entity';
 import { UsersService } from '../users/users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { DataSource } from 'typeorm';
 
 describe('ClientsService', () => {
   let service: ClientsService;
@@ -23,6 +24,11 @@ describe('ClientsService', () => {
     log: jest.fn(),
   };
 
+  const mockDataSource = {
+    query: jest.fn(),
+    createQueryRunner: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -36,6 +42,7 @@ describe('ClientsService', () => {
         },
         { provide: UsersService, useValue: mockUsersService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
+        { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
 

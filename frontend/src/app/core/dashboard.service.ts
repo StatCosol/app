@@ -16,12 +16,25 @@ import {
   AuditorEvidenceResponse,
   AuditorActivityResponse,
 } from '../pages/auditor/auditor-dashboard.dto';
+import { PfEsiSummaryResponse, ContractorUploadSummaryResponse } from '../pages/client/dashboard/client-dashboard.types';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
   private baseUrl = environment.apiBaseUrl;
 
   constructor(private http: HttpClient) {}
+
+  // ===== Client Dashboard (PF/ESI + Contractor uploads) =====
+
+  getClientPfEsiSummary(params: { month: string; branchId?: string }): Observable<PfEsiSummaryResponse> {
+    const httpParams = new HttpParams({ fromObject: { month: params.month, ...(params.branchId ? { branchId: params.branchId } : {}) } });
+    return this.http.get<PfEsiSummaryResponse>(`${this.baseUrl}/api/client-dashboard/pf-esi-summary`, { params: httpParams });
+  }
+
+  getClientContractorUploadSummary(params: { month: string; branchId?: string }): Observable<ContractorUploadSummaryResponse> {
+    const httpParams = new HttpParams({ fromObject: { month: params.month, ...(params.branchId ? { branchId: params.branchId } : {}) } });
+    return this.http.get<ContractorUploadSummaryResponse>(`${this.baseUrl}/api/client-dashboard/contractor-upload-summary`, { params: httpParams });
+  }
 
   /** @deprecated Legacy CRM dashboard endpoint */
   crm(): Observable<any> {

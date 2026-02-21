@@ -64,6 +64,11 @@ export class UserEntity {
   @Column({ name: 'owner_cco_id', type: 'uuid', nullable: true })
   ownerCcoId: string | null;
 
+  // Link to employees table for EMPLOYEE role (ESS)
+  @Index('IDX_USERS_EMPLOYEEID')
+  @Column({ name: 'employee_id', type: 'uuid', nullable: true })
+  employeeId: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -33,9 +33,13 @@ import { AdminModule } from './admin/admin.module';
 import { LegitxModule } from './legitx/legitx.module';
 
 import { PayrollModule } from './payroll/payroll.module';
+import { EmployeesModule } from './employees/employees.module';
 import { HelpdeskModule } from './helpdesk/helpdesk.module';
 import { FilesModule } from './files/files.module';
 import { ReturnsModule } from './returns/returns.module';
+import { NominationsModule } from './nominations/nominations.module';
+import { ClientDashboardModule } from './client-dashboard/client-dashboard.module';
+import { EssModule } from './ess/ess.module';
 
 @Module({
   imports: [
@@ -86,10 +90,14 @@ import { ReturnsModule } from './returns/returns.module';
     AuditorModule,
     AdminModule,
     PayrollModule,
+    EmployeesModule,
     HelpdeskModule,
     FilesModule,
     LegitxModule,
     ReturnsModule,
+    NominationsModule,
+    ClientDashboardModule,
+    EssModule,
   ],
   controllers: [],
   providers: [

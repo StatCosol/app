@@ -1,129 +1,156 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <ui-page-header 
-    title="Compliance Workbench" 
-    description="Manage and submit your compliance tasks" 
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Compliance Workbench"
+    description="Manage and submit your compliance tasks"
     icon="clipboard-check">
   </ui-page-header>
 
   <!-- Tabs -->
-  <div class="border-b border-gray-200 mb-6">
-    <nav class="-mb-px flex space-x-8">
-      <button
-        [class]="viewTab === 'MY' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
-        (click)="setTab('MY')"
-      >
-        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-        </svg>
-        My Tasks
-      </button>
-      <button
-        [class]="viewTab === 'SUBMITTED' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
-        (click)="setTab('SUBMITTED')"
-      >
-        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        Submitted
-      </button>
-      <button
-        [class]="viewTab === 'OVERDUE' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
-        (click)="setTab('OVERDUE')"
-      >
-        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        Overdue
-      </button>
-    </nav>
+  <div class="contractor-tabs mb-6">
+    <button
+      *ngFor="let tab of tabItems"
+      [class]="viewTab === tab.key ? 'contractor-tabs__tab contractor-tabs__tab--active' : 'contractor-tabs__tab'"
+      (click)="setTab(tab.key)">
+      {{ tab.label }}
+      <span *ngIf="tab.count !== undefined"
+            class="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 text-xs rounded-full"
+            [ngClass]="viewTab === tab.key ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'">
+        {{ tab.count }}
+      </span>
+    </button>
   </div>
 
-  <!-- Filters using FormSelectComponent and FormInputComponent -->
-  <div class="card mb-6">
+  <!-- Filters -->
+  <div class="contractor-filter-bar mb-6">
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <ui-form-select 
-        label="Status" 
+      <ui-form-select
+        label="Status"
         [(ngModel)]="filters.status"
-        [options]="statusOptions">
+        [options]="statusOptions"
+        (ngModelChange)="load()">
       </ui-form-select>
-      <ui-form-input 
-        label="Year" 
-        placeholder="Year" 
-        [(ngModel)]="filters.year">
-      </ui-form-input>
-      <ui-form-input 
-        label="Month" 
-        placeholder="Month" 
-        [(ngModel)]="filters.month">
-      </ui-form-input>
+      <ui-form-select
+        label="Year"
+        [(ngModel)]="filters.year"
+        [options]="yearOptions"
+        (ngModelChange)="load()">
+      </ui-form-select>
+      <ui-form-select
+        label="Month"
+        [(ngModel)]="filters.month"
+        [options]="monthOptions"
+        (ngModelChange)="load()">
+      </ui-form-select>
       <div class="flex items-end">
-        <ui-button 
-          variant="primary" 
-          size="md" 
-          [fullWidth]="true"
-          (clicked)="load()">
-          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button
+          (click)="load()"
+          class="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
           Search
-        </ui-button>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Tasks Table using DataTableComponent -->
-  <div class="card">
-    <ui-data-table
-      [columns]="taskColumns"
-      [data]="tasks"
-      [loading]="loading"
-      emptyMessage="No tasks found">
-      
-      <ng-template uiTableCell="status" let-row>
-        <ui-status-badge [status]="row.status"></ui-status-badge>
-      </ng-template>
+  <!-- Desktop Table -->
+  <div class="hidden md:block">
+    <div class="contractor-card" style="padding:0; overflow:hidden">
+      <ui-data-table
+        [columns]="taskColumns"
+        [data]="tasks"
+        [loading]="loading"
+        emptyMessage="No tasks found">
 
-      <ng-template uiTableCell="evidence" let-row>
-        <div class="flex items-center gap-2">
-          <input
-            type="file"
-            (change)="pickFile($event, row.id)"
-            [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
-            class="text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-statco-blue-light file:text-white hover:file:bg-statco-blue file:cursor-pointer disabled:opacity-50"
-          />
-          <ui-button
-            variant="primary"
-            size="sm"
-            [disabled]="selectedId !== row.id || row.status === 'APPROVED' || row.status === 'SUBMITTED'"
-            (clicked)="upload(row.id)">
-            Upload
-          </ui-button>
-        </div>
-      </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
 
-      <ng-template uiTableCell="actions" let-row>
-        <div class="flex items-center gap-2 justify-end">
-          <ui-button
-            variant="secondary"
-            size="sm"
-            [disabled]="row.status !== 'PENDING' && row.status !== 'REJECTED' && row.status !== 'OVERDUE'"
-            title="You can start tasks that are Pending, Rejected, or Overdue"
-            (clicked)="start(row.id)">
-            Start
-          </ui-button>
-          <ui-button
-            variant="primary"
-            size="sm"
-            [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
-            title="Submit after uploading evidence"
-            (clicked)="submit(row.id)">
-            Submit
-          </ui-button>
-        </div>
-      </ng-template>
-    </ui-data-table>
+        <ng-template uiTableCell="evidence" let-row>
+          <div class="flex items-center gap-2">
+            <label class="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                   [ngClass]="(row.status === 'APPROVED' || row.status === 'SUBMITTED')
+                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                     : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+              </svg>
+              {{ selectedId === row.id ? 'File selected' : 'Choose file' }}
+              <input
+                type="file"
+                class="hidden"
+                (change)="pickFile($event, row.id)"
+                [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
+              />
+            </label>
+            <button
+              *ngIf="selectedId === row.id"
+              (click)="upload(row.id)"
+              [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
+              class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
+              Upload
+            </button>
+          </div>
+        </ng-template>
+
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex items-center gap-2 justify-end">
+            <button
+              [disabled]="row.status !== 'PENDING' && row.status !== 'REJECTED' && row.status !== 'OVERDUE'"
+              (click)="start(row.id)"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors
+                     enabled:border-gray-300 enabled:text-gray-700 enabled:hover:bg-gray-50
+                     disabled:opacity-40 disabled:cursor-not-allowed">
+              Start
+            </button>
+            <button
+              [disabled]="row.status === 'APPROVED' || row.status === 'SUBMITTED'"
+              (click)="submit(row.id)"
+              class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg transition-colors
+                     enabled:hover:bg-indigo-700
+                     disabled:opacity-40 disabled:cursor-not-allowed">
+              Submit
+            </button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+    </div>
   </div>
-</main>
+
+  <!-- Mobile Cards -->
+  <div class="md:hidden space-y-3" *ngIf="!loading">
+    <div *ngFor="let row of tasks" class="contractor-card">
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex-grow min-w-0">
+          <div class="text-sm font-semibold text-gray-900 truncate">{{ row.complianceName }}</div>
+          <div class="text-xs text-gray-500 mt-0.5">{{ row.branchName }}</div>
+        </div>
+        <ui-status-badge [status]="row.status"></ui-status-badge>
+      </div>
+      <div class="text-xs text-gray-500 mb-3">Due: {{ row.dueDate }}</div>
+      <div class="flex items-center gap-2">
+        <button
+          *ngIf="row.status === 'PENDING' || row.status === 'REJECTED' || row.status === 'OVERDUE'"
+          (click)="start(row.id)"
+          class="flex-1 py-2 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+          Start
+        </button>
+        <button
+          *ngIf="row.status !== 'APPROVED' && row.status !== 'SUBMITTED'"
+          (click)="submit(row.id)"
+          class="flex-1 py-2 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+          Submit
+        </button>
+      </div>
+    </div>
+    <ui-empty-state
+      *ngIf="tasks.length === 0"
+      title="No tasks found"
+      description="No compliance tasks match the current filters">
+    </ui-empty-state>
+  </div>
+
+  <!-- Mobile Loading -->
+  <ui-loading-spinner *ngIf="loading" class="md:hidden" size="lg" text="Loading..."></ui-loading-spinner>
+</div>
