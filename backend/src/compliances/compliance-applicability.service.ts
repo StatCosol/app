@@ -53,16 +53,15 @@ export class ComplianceApplicabilityService {
           `
           UPDATE branch_compliances
           SET
-            is_applicable = $4,
-            source = $5,
-            reason = $6,
+            is_applicable = $3,
+            source = $4,
+            reason = $5,
             last_updated = now()
           WHERE branch_id = $1 AND compliance_id = $2
           `,
           [
             branch.id,
             c.id,
-            branch.clientId,
             res.isApplicable,
             res.source,
             res.reason,

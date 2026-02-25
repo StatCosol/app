@@ -12,18 +12,18 @@ export class AdminApprovalsService {
   list(status?: string): Observable<any> {
     let params = new HttpParams();
     if (status) params = params.set('status', status);
-    return this.http.get(`${this.baseUrl}/api/admin/approvals`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/admin/approvals`, { params });
   }
 
   getCounts(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/admin/approvals/counts`);
+    return this.http.get(`${this.baseUrl}/api/v1/admin/approvals/counts`);
   }
 
   approve(id: string, notes: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/admin/approvals/${id}/approve`, { notes });
+    return this.http.post(`${this.baseUrl}/api/v1/admin/approvals/${id}/approve`, { notes });
   }
 
   reject(id: string, notes: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/admin/approvals/${id}/reject`, { notes });
+    return this.http.post(`${this.baseUrl}/api/v1/admin/approvals/${id}/reject`, { notes });
   }
 }

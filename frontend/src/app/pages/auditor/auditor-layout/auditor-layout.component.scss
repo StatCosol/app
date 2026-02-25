@@ -1,4 +1,11 @@
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  background: #f9fafb;
+}
+
 .auditor-content {
-  min-height: 80vh;
-  padding: 2rem 0;
+  min-height: calc(100vh - 64px);
+  padding-top: 1.25rem;
 }

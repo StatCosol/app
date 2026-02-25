@@ -1,11 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
 
-const API = environment.apiBaseUrl;
+const API = `${environment.apiBaseUrl}/api/v1`;
 
 interface ReuploadRequest {
   id: string;
@@ -143,9 +145,10 @@ interface ReuploadRequest {
     }
   `]
 })
-export class ContractorReuploadRequestsComponent implements OnInit {
+export class ContractorReuploadRequestsComponent implements OnInit, OnDestroy {
   loading = false;
   requests: ReuploadRequest[] = [];
+  private destroy$ = new Subject<void>();
   activeStatus = '';
   uploading: Record<string, boolean> = {};
   submitting: Record<string, boolean> = {};
@@ -158,10 +161,15 @@ export class ContractorReuploadRequestsComponent implements OnInit {
     { label: 'Reverified', value: 'REVERIFIED' },
   ];
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadRequests();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadRequests() {
@@ -171,14 +179,19 @@ export class ContractorReuploadRequestsComponent implements OnInit {
       params.status = this.activeStatus;
     }
 
-    this.http.get<{ data: ReuploadRequest[] }>(`${API}/contractor/compliance/reupload-requests`, { params }).subscribe({
+    this.http.get<{ data: ReuploadRequest[] }>(`${API}/contractor/compliance/reupload-requests`, { params }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.loading = false),
+    ).subscribe({
       next: (res: any) => {
         this.requests = res.data || [];
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
-        this.requests = [];
         this.loading = false;
+        this.requests = [];
+        this.cdr.detectChanges();
       }
     });
   }
@@ -191,7 +204,7 @@ export class ContractorReuploadRequestsComponent implements OnInit {
     const formData = new FormData();
     formData.append('file', file);
 
-    this.http.post<any>(`${API}/contractor/compliance/reupload-requests/${req.id}/upload`, formData).subscribe({
+    this.http.post<any>(`${API}/contractor/compliance/reupload-requests/${req.id}/upload`, formData).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.uploading[req.id] = false;
         this.selectedFiles[req.id] = file.name;
@@ -212,7 +225,7 @@ export class ContractorReuploadRequestsComponent implements OnInit {
     }
 
     this.submitting[req.id] = true;
-    this.http.post<any>(`${API}/contractor/compliance/reupload-requests/${req.id}/submit`, {}).subscribe({
+    this.http.post<any>(`${API}/contractor/compliance/reupload-requests/${req.id}/submit`, {}).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.submitting[req.id] = false;
         delete this.selectedFiles[req.id];

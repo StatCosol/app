@@ -23,8 +23,8 @@ export class DocumentReuploadRequest {
   @Column({ name: 'unit_id', type: 'uuid', nullable: true })
   unitId: string | null;
 
-  @Column({ name: 'contractor_id', type: 'uuid', nullable: true })
-  contractorId: string | null;
+  @Column({ name: 'contractor_user_id', type: 'uuid', nullable: true })
+  contractorUserId: string | null;
 
   @Column({ name: 'target_role', type: 'varchar', length: 20 })
   targetRole: string; // CLIENT, CONTRACTOR

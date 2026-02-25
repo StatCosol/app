@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import {
   PayrollSetupApiService,
   PayrollClientSetup,
@@ -235,7 +236,7 @@ import { ToastService } from '../../shared/toast/toast.service';
   `,
   styles: [
     `
-      .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
       .client-bar { margin-bottom: 1.5rem; max-width: 400px; }
       .tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 1rem; }
       .tab { padding: 0.5rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: #6b7280; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -2px; background: none; border-top: none; border-left: none; border-right: none; }
@@ -262,7 +263,8 @@ import { ToastService } from '../../shared/toast/toast.service';
     `,
   ],
 })
-export class PayrollSetupComponent implements OnInit {
+export class PayrollSetupComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   clients: PayrollClient[] = [];
   clientOptions: { label: string; value: string }[] = [];
   selectedClientId = '';
@@ -333,7 +335,7 @@ export class PayrollSetupComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.payrollApi.getAssignedClients().subscribe({
+    this.payrollApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
       next: (list) => {
         this.clients = list;
         this.clientOptions = [
@@ -342,16 +344,28 @@ export class PayrollSetupComponent implements OnInit {
         ];
         this.cdr.detectChanges();
       },
+      error: (e) => {
+        console.error('PayrollSetup error loading clients:', e);
+        this.toast.error(e?.error?.message || 'Unable to load clients');
+        this.cdr.detectChanges();
+      },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   onClientChange() {
     if (!this.selectedClientId) return;
     this.loading = true;
     this.setupApi.getSetup(this.selectedClientId).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
+        this.loading = false;
         this.setup = {
           pfEnabled: res.pfEnabled ?? res.pf_enabled ?? true,
           esiEnabled: res.esiEnabled ?? res.esi_enabled ?? true,
@@ -368,6 +382,7 @@ export class PayrollSetupComponent implements OnInit {
         this.loadComponents();
       },
       error: () => {
+        this.loading = false;
         this.setup = {
           pfEnabled: true, esiEnabled: true, ptEnabled: false, lwfEnabled: false,
           pfEmployerRate: 12, pfEmployeeRate: 12,
@@ -383,20 +398,23 @@ export class PayrollSetupComponent implements OnInit {
     this.savingSetup = true;
     this.setupMsg = '';
     this.setupApi.saveSetup(this.selectedClientId, this.setup).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.savingSetup = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: () => { this.setupMsg = 'Settings saved'; this.setupError = false; },
-      error: (e) => { this.setupMsg = e?.error?.message || 'Save failed'; this.setupError = true; },
+      next: () => { this.savingSetup = false; this.setupMsg = 'Settings saved'; this.setupError = false; },
+      error: (e) => { this.savingSetup = false; this.setupMsg = e?.error?.message || 'Save failed'; this.setupError = true; },
     });
   }
 
   loadComponents() {
     this.loadingComps = true;
     this.setupApi.listComponents(this.selectedClientId).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.loadingComps = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (list) => { this.components = list; },
+      next: (list) => { this.loadingComps = false; this.components = list; },
       error: (e) => {
+        this.loadingComps = false;
         this.components = [];
         const msg = e?.error?.message || 'Failed to load components';
         this.toast.error(msg);
@@ -425,9 +443,10 @@ export class PayrollSetupComponent implements OnInit {
     const obs = this.editingComp
       ? this.setupApi.updateComponent(this.selectedClientId, this.compForm.id, this.compForm)
       : this.setupApi.createComponent(this.selectedClientId, this.compForm);
-    obs.pipe(finalize(() => { this.savingComp = false; this.cdr.detectChanges(); })).subscribe({
-      next: () => { this.showCompModal = false; this.loadComponents(); },
+    obs.pipe(takeUntil(this.destroy$), finalize(() => { this.savingComp = false; this.cdr.detectChanges(); })).subscribe({
+      next: () => { this.savingComp = false; this.showCompModal = false; this.loadComponents(); },
       error: (e) => {
+        this.savingComp = false;
         this.compFormError = e?.error?.message || 'Save failed';
         this.toast.error(this.compFormError);
       },
@@ -436,7 +455,7 @@ export class PayrollSetupComponent implements OnInit {
 
   deleteComp(comp: PComp) {
     if (!confirm(`Delete component "${comp.name}"?`)) return;
-    this.setupApi.deleteComponent(this.selectedClientId, comp.id).subscribe({
+    this.setupApi.deleteComponent(this.selectedClientId, comp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadComponents(),
       error: (e) => alert(e?.error?.message || 'Delete failed'),
     });
@@ -452,9 +471,15 @@ export class PayrollSetupComponent implements OnInit {
     if (!this.selectedComp) return;
     this.loadingRules = true;
     this.setupApi.listRules(this.selectedClientId, this.selectedComp.id).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.loadingRules = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (list) => { this.rules = list; },
+      next: (list) => { this.loadingRules = false; this.rules = list; },
+      error: (e) => {
+        this.loadingRules = false;
+        this.rules = [];
+        this.toast.error(e?.error?.message || 'Failed to load rules');
+      },
     });
   }
 
@@ -469,16 +494,17 @@ export class PayrollSetupComponent implements OnInit {
     if (!this.selectedComp) return;
     this.savingRule = true;
     this.setupApi.createRule(this.selectedClientId, this.selectedComp.id, this.ruleForm).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.savingRule = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: () => { this.showRuleModal = false; this.loadRules(); },
-      error: (e) => { this.ruleFormError = e?.error?.message || 'Save failed'; },
+      next: () => { this.savingRule = false; this.showRuleModal = false; this.loadRules(); },
+      error: (e) => { this.savingRule = false; this.ruleFormError = e?.error?.message || 'Save failed'; },
     });
   }
 
   deleteRule(rule: ComponentRule) {
     if (!this.selectedComp || !confirm('Delete this rule?')) return;
-    this.setupApi.deleteRule(this.selectedClientId, this.selectedComp.id, rule.id).subscribe({
+    this.setupApi.deleteRule(this.selectedClientId, this.selectedComp.id, rule.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadRules(),
       error: (e) => alert(e?.error?.message || 'Delete failed'),
     });

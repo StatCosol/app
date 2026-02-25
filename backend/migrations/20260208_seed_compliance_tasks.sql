@@ -1,3 +1,7 @@
+-- ⚠️  DEPRECATED — DO NOT RUN. This inserts sample/demo compliance tasks.
+-- All sample data was purged from the database. Use the Admin UI to create real data.
+--
+-- Original header:
 -- Seed compliance tasks for Vedha Entech India Private Limited
 -- Client: a31032bc-407e-4658-864b-a42bc1bff09e
 -- CRM (assigned_by): e53df7cc-ea22-41ce-805c-6d79096d448a (chakravarthi)

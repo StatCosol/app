@@ -1,7 +1,8 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
 import { AuthService } from '../../../core/auth.service';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent } from '../../../shared/ui';
@@ -13,8 +14,9 @@ import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, Stat
   templateUrl: './client-mcd-uploads.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-mcd-uploads.component.scss'],
 })
-export class ClientMcdUploadsComponent {
-  loading = false;
+export class ClientMcdUploadsComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
+  loading = true;
   branches: any[] = [];
   tasks: any[] = [];
   filters: any = { branchId: '', month: '', year: '' };
@@ -38,8 +40,13 @@ export class ClientMcdUploadsComponent {
     this.loadBranches();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadBranches() {
-    this.api.getBranches().subscribe({
+    this.api.getBranches().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.branches = res?.data || res || [];
         // Auto-select for branch users with a single branch
@@ -65,10 +72,12 @@ export class ClientMcdUploadsComponent {
     this.loading = true;
     const payload = { ...this.filters, frequency: 'MONTHLY' };
     this.api.getTasks(payload).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
+        this.loading = false;
         this.tasks = (res?.data || res || []).map((t: any) => ({
           ...t,
           complianceTitle: t.complianceTitle || t.title || t.compliance?.title,
@@ -79,7 +88,7 @@ export class ClientMcdUploadsComponent {
         }));
         this.cdr.detectChanges();
       },
-      error: () => { this.tasks = []; this.cdr.detectChanges(); }
+      error: () => { this.loading = false; this.tasks = []; this.cdr.detectChanges(); }
     });
   }
 
@@ -89,14 +98,15 @@ export class ClientMcdUploadsComponent {
     if (!file) return;
     this.uploading[task.id] = true;
     this.api.uploadEvidence(task.id, file).pipe(
+      takeUntil(this.destroy$),
       finalize(() => {
         this.uploading[task.id] = false;
         this.cdr.detectChanges();
         if (input) input.value = '';
       }),
     ).subscribe({
-      next: () => this.loadTasks(),
-      error: () => {},
+      next: () => { this.uploading[task.id] = false; this.loadTasks(); },
+      error: () => { this.uploading[task.id] = false; },
     });
   }
 

@@ -6,8 +6,8 @@ import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class AuditsService {
   private baseUrl = environment.apiBaseUrl;
-  private crmBase = `${this.baseUrl}/api/crm/audits`;
-  private auditorBase = `${this.baseUrl}/api/auditor/audits`;
+  private crmBase = `${this.baseUrl}/api/v1/crm/audits`;
+  private auditorBase = `${this.baseUrl}/api/v1/auditor/audits`;
 
   constructor(private http: HttpClient) {}
 

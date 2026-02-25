@@ -1,9 +1,10 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Header + Filters -->
   <ui-page-header
     title="Contractors"
-    description="View contractors and their compliance documents"
+    description="Monitor contractor compliance, document uploads, and risk across all branches"
     icon="user-group">
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-3">
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Month</span>
         <input type="month" [(ngModel)]="month" (change)="onMonthChange()" class="form-input" />
@@ -11,207 +12,372 @@
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Branch</span>
         <select class="form-select" [(ngModel)]="branchId" (change)="onBranchChange()" [disabled]="loadingBranches">
-          <option value="" disabled>Select branch</option>
+          <option value="">All Branches</option>
           <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
         </select>
       </label>
     </div>
   </ui-page-header>
 
-  <!-- Dashboard Blocks -->
-  <div class="space-y-6">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" *ngIf="overview">
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-        <p class="text-xs uppercase text-gray-500">Total Clients</p>
-        <p class="text-2xl font-semibold text-gray-900 mt-1">1</p>
-        <p class="text-xs text-gray-500 mt-2">Scoped to your login</p>
+  <!-- Loading skeleton -->
+  <div *ngIf="!overview" class="space-y-6 mt-2">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div *ngFor="let _ of skeletonSlots" class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm animate-pulse">
+        <div class="h-3 bg-gray-200 rounded w-24 mb-3"></div>
+        <div class="h-8 bg-gray-200 rounded w-16 mb-2"></div>
+        <div class="h-2 bg-gray-100 rounded w-32"></div>
       </div>
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-        <p class="text-xs uppercase text-gray-500">Total Contractors</p>
-        <p class="text-2xl font-semibold text-gray-900 mt-1">{{ overview?.totalContractors || 0 }}</p>
-        <p class="text-xs text-gray-500 mt-2">All branches</p>
-      </div>
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-        <p class="text-xs uppercase text-gray-500">Accumulated Score (Month)</p>
-        <p class="text-2xl font-semibold text-gray-900 mt-1">{{ overview?.accumulatedScore ?? 0 }}</p>
-        <p class="text-xs text-gray-500 mt-2">Average across contractors</p>
-      </div>
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-        <p class="text-xs uppercase text-gray-500">Avg Audit Risk Points</p>
-        <p class="text-2xl font-semibold mt-1" [ngClass]="(overview?.avgAuditRiskPoints ?? 0) > 5 ? 'text-red-600' : (overview?.avgAuditRiskPoints ?? 0) > 2 ? 'text-amber-600' : 'text-green-600'">{{ overview?.avgAuditRiskPoints ?? 0 }}</p>
-        <p class="text-xs text-gray-500 mt-2">Lower is better</p>
-      </div>
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-        <div class="relative w-14 h-14">
-          <svg class="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
-            <path class="text-gray-200" stroke-width="4" stroke="currentColor" fill="none" d="M18 2a16 16 0 1 1 0 32 16 16 0 1 1 0-32" />
-            <path class="text-statco-blue" stroke-width="4" stroke="currentColor" fill="none" [attr.stroke-dasharray]="(overview?.uploadPercent || 0) + ', 100'" stroke-linecap="round" d="M18 2a16 16 0 1 1 0 32 16 16 0 1 1 0-32" />
-          </svg>
-          <div class="absolute inset-0 flex items-center justify-center text-sm font-semibold text-gray-800">{{ uploadPercentDisplay(overview?.uploadPercent) }}</div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="space-y-6" *ngIf="overview">
+
+    <!-- ──────────── Row 1 — Primary KPI Cards ──────────── -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <!-- 1. Overall Compliance Score -->
+      <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-gray-500 font-medium">Compliance Score</p>
+            <p class="text-3xl font-bold mt-2" [ngClass]="getScoreColor(overview?.accumulatedScore)">
+              {{ overview?.accumulatedScore ?? 0 }}<span class="text-lg font-medium text-gray-400">/100</span>
+            </p>
+            <p class="text-xs text-gray-500 mt-1.5">Average across all contractors</p>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" [ngClass]="getScoreBg(overview?.accumulatedScore)">
+            <svg class="w-5 h-5" [ngClass]="getScoreIconColor(overview?.accumulatedScore)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
         </div>
-        <div>
-          <p class="text-xs uppercase text-gray-500">Document Upload %</p>
-          <p class="text-sm text-gray-600">Month to date</p>
+        <!-- Progress bar -->
+        <div class="mt-3 w-full bg-gray-100 rounded-full h-2">
+          <div class="h-2 rounded-full transition-all duration-700" [ngClass]="getScoreBarColor(overview?.accumulatedScore)" [style.width.%]="overview?.accumulatedScore ?? 0"></div>
+        </div>
+      </div>
+
+      <!-- 2. Document Upload % -->
+      <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-gray-500 font-medium">Document Upload</p>
+            <p class="text-3xl font-bold mt-2" [ngClass]="getScoreColor(overview?.uploadPercent)">
+              {{ overview?.uploadPercent ?? 0 }}<span class="text-lg font-medium text-gray-400">%</span>
+            </p>
+            <p class="text-xs text-gray-500 mt-1.5">Month to date completion</p>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" [ngClass]="getScoreBg(overview?.uploadPercent)">
+            <svg class="w-5 h-5" [ngClass]="getScoreIconColor(overview?.uploadPercent)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-3 w-full bg-gray-100 rounded-full h-2">
+          <div class="h-2 rounded-full transition-all duration-700" [ngClass]="getScoreBarColor(overview?.uploadPercent)" [style.width.%]="overview?.uploadPercent ?? 0"></div>
+        </div>
+      </div>
+
+      <!-- 3. Avg Audit Risk -->
+      <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-gray-500 font-medium">Avg Risk Points</p>
+            <p class="text-3xl font-bold mt-2" [ngClass]="getRiskColor(overview?.avgAuditRiskPoints)">
+              {{ overview?.avgAuditRiskPoints ?? 0 }}
+            </p>
+            <p class="text-xs text-gray-500 mt-1.5">Lower is better</p>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" [ngClass]="getRiskBg(overview?.avgAuditRiskPoints)">
+            <svg class="w-5 h-5" [ngClass]="getRiskIconColor(overview?.avgAuditRiskPoints)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-1.5">
+          <span class="inline-block w-2 h-2 rounded-full" [ngClass]="getRiskDotColor(overview?.avgAuditRiskPoints)"></span>
+          <span class="text-xs font-medium" [ngClass]="getRiskColor(overview?.avgAuditRiskPoints)">
+            {{ (overview?.avgAuditRiskPoints ?? 0) <= 2 ? 'Low Risk' : (overview?.avgAuditRiskPoints ?? 0) <= 5 ? 'Medium Risk' : 'High Risk' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 4. Active Contractors + Branches -->
+      <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-gray-500 font-medium">Active Contractors</p>
+            <p class="text-3xl font-bold mt-2 text-gray-900">
+              {{ overview?.totalContractors ?? 0 }}
+            </p>
+            <p class="text-xs text-gray-500 mt-1.5">
+              Across {{ branches.length }} branch{{ branches.length !== 1 ? 'es' : '' }}
+            </p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+        </div>
+        <!-- No contractors empty state -->
+        <div *ngIf="(overview?.totalContractors ?? 0) === 0" class="mt-3">
+          <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full font-medium">No contractors registered</span>
         </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" *ngIf="overview">
-      <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold text-gray-900">Top 10 Highest (Month)</p>
-            <p class="text-xs text-gray-500">Across all branches</p>
+    <!-- ──────────── Row 2 — Performance View (Top 5 best / worst) ──────────── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" *ngIf="hasContractorData()">
+
+      <!-- Needs Attention (Lowest compliance) -->
+      <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 bg-red-50/40">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center">
+              <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-gray-900">Needs Attention</p>
+              <p class="text-xs text-gray-500">Lowest compliance — action needed</p>
+            </div>
           </div>
         </div>
         <div class="divide-y divide-gray-100">
-          <div *ngFor="let c of overview?.top10Highest" class="px-4 py-3 flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
-              <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+          <div *ngFor="let c of bottom5; let i = index" class="px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                 [ngClass]="c.score < 40 ? 'bg-red-100 text-red-700' : c.score < 60 ? 'bg-amber-100 text-amber-700' : 'bg-yellow-100 text-yellow-700'">
+              {{ i + 1 }}
             </div>
-            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">Score {{ c.score }}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ c.name }}</p>
+              <p class="text-xs text-gray-500">{{ c.branchName || 'Unknown Branch' }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold"
+                    [ngClass]="c.score < 40 ? 'bg-red-50 text-red-700' : c.score < 60 ? 'bg-amber-50 text-amber-700' : 'bg-yellow-50 text-yellow-700'">
+                {{ c.score }}/100
+              </span>
+            </div>
           </div>
-          <div *ngIf="!overview?.top10Highest?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
         </div>
       </div>
-      <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold text-gray-900">Top 10 Lowest (Month)</p>
-            <p class="text-xs text-gray-500">Across all branches</p>
+
+      <!-- Best Performing -->
+      <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 bg-green-50/40">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
+              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-gray-900">Top Performers</p>
+              <p class="text-xs text-gray-500">Highest compliance score this month</p>
+            </div>
           </div>
         </div>
         <div class="divide-y divide-gray-100">
-          <div *ngFor="let c of overview?.top10Lowest" class="px-4 py-3 flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
-              <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+          <div *ngFor="let c of top5; let i = index" class="px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                 [ngClass]="i === 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'">
+              {{ i === 0 ? '★' : (i + 1) }}
             </div>
-            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Score {{ c.score }}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ c.name }}</p>
+              <p class="text-xs text-gray-500">{{ c.branchName || 'Unknown Branch' }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold"
+                    [ngClass]="c.score >= 80 ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'">
+                {{ c.score }}/100
+              </span>
+            </div>
           </div>
-          <div *ngIf="!overview?.top10Lowest?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
         </div>
       </div>
     </div>
 
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
-      <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
-        <div>
-          <p class="text-sm font-semibold text-gray-900">Branch View</p>
-          <p class="text-xs text-gray-500">Month: {{ month }}</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <label class="text-sm text-gray-600 flex items-center gap-2">
-            <span class="font-medium text-gray-700">Branch</span>
-            <select class="form-select" [(ngModel)]="branchId" (change)="onBranchChange()">
-              <option value="">All</option>
-              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
-            </select>
-          </label>
+    <!-- Empty state for performance view when no contractors -->
+    <div *ngIf="!hasContractorData()" class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 text-center">
+      <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </div>
+      <p class="text-sm font-semibold text-gray-700">No contractor performance data yet</p>
+      <p class="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+        Contractor rankings will appear here once audit scoring and document uploads are available for this period.
+      </p>
+    </div>
+
+    <!-- ──────────── Row 3 — Branch View ──────────── -->
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm" *ngIf="branchView">
+      <div class="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-gray-900">Branch View</p>
+            <p class="text-xs text-gray-500">{{ getSelectedBranchName() }} · {{ month }}</p>
+          </div>
         </div>
       </div>
-      <div class="p-4 grid grid-cols-1 sm:grid-cols-4 gap-4" *ngIf="branchView">
+      <!-- Branch KPI mini-cards -->
+      <div class="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-xs uppercase text-gray-500">Branch Score</p>
-          <p class="text-2xl font-semibold text-gray-900 mt-1">{{ branchView?.branchScore ?? 0 }}</p>
+          <p class="text-xs uppercase text-gray-500 font-medium">Branch Score</p>
+          <p class="text-2xl font-bold mt-1" [ngClass]="getScoreColor(branchView?.branchScore)">{{ branchView?.branchScore ?? 0 }}</p>
         </div>
         <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-xs uppercase text-gray-500">Branch Upload %</p>
-          <p class="text-2xl font-semibold text-gray-900 mt-1">{{ uploadPercentDisplay(branchView?.branchUploadPercent) }}</p>
+          <p class="text-xs uppercase text-gray-500 font-medium">Upload %</p>
+          <p class="text-2xl font-bold mt-1" [ngClass]="getScoreColor(branchView?.branchUploadPercent)">{{ uploadPercentDisplay(branchView?.branchUploadPercent) }}</p>
         </div>
         <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-xs uppercase text-gray-500">Audit Risk Points</p>
-          <p class="text-2xl font-semibold mt-1" [ngClass]="(branchView?.branchAuditRiskPoints ?? 0) > 5 ? 'text-red-600' : (branchView?.branchAuditRiskPoints ?? 0) > 2 ? 'text-amber-600' : 'text-green-600'">{{ branchView?.branchAuditRiskPoints ?? 0 }}</p>
+          <p class="text-xs uppercase text-gray-500 font-medium">Audit Risk</p>
+          <p class="text-2xl font-bold mt-1" [ngClass]="getRiskColor(branchView?.branchAuditRiskPoints)">{{ branchView?.branchAuditRiskPoints ?? 0 }}</p>
         </div>
         <div class="bg-gray-50 rounded-xl p-4">
-          <p class="text-xs uppercase text-gray-500">Contractors in Branch</p>
-          <p class="text-2xl font-semibold text-gray-900 mt-1">{{ branchView?.top10HighestInBranch?.length || branchView?.top10LowestInBranch?.length || 0 }}</p>
+          <p class="text-xs uppercase text-gray-500 font-medium">Contractors</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">{{ branchView?.top10HighestInBranch?.length || branchView?.top10LowestInBranch?.length || 0 }}</p>
         </div>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4" *ngIf="branchView">
-        <div class="border border-gray-100 rounded-xl">
-          <div class="px-4 py-2 border-b border-gray-100 text-sm font-semibold text-gray-900">Top 10 (Branch)</div>
+      <!-- Branch top/bottom lists -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 pt-0" *ngIf="branchView?.top10HighestInBranch?.length || branchView?.top10LowestInBranch?.length">
+        <div class="border border-gray-100 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-gray-100 bg-green-50/30 text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+            Top Performers (Branch)
+          </div>
           <div class="divide-y divide-gray-100">
             <div *ngFor="let c of branchView?.top10HighestInBranch" class="px-4 py-3 flex items-center justify-between">
               <div>
                 <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
-                <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+                <p class="text-xs text-gray-500">Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
               </div>
-              <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">{{ c.score }}</span>
+              <span class="px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700">{{ c.score }}</span>
             </div>
-            <div *ngIf="!branchView?.top10HighestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+            <div *ngIf="!branchView?.top10HighestInBranch?.length" class="px-4 py-6 text-sm text-gray-400 text-center">No data yet</div>
           </div>
         </div>
-        <div class="border border-gray-100 rounded-xl">
-          <div class="px-4 py-2 border-b border-gray-100 text-sm font-semibold text-gray-900">Bottom 10 (Branch)</div>
+        <div class="border border-gray-100 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-gray-100 bg-red-50/30 text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+            Needs Attention (Branch)
+          </div>
           <div class="divide-y divide-gray-100">
             <div *ngFor="let c of branchView?.top10LowestInBranch" class="px-4 py-3 flex items-center justify-between">
               <div>
                 <p class="text-sm font-medium text-gray-900">{{ c.name }}</p>
-                <p class="text-xs text-gray-500">Score {{ c.score }} · Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
+                <p class="text-xs text-gray-500">Upload {{ uploadPercentDisplay(c.uploadPercent) }}</p>
               </div>
-              <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{{ c.score }}</span>
+              <span class="px-2 py-1 rounded-full text-xs font-bold"
+                    [ngClass]="c.score < 40 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'">{{ c.score }}</span>
             </div>
-            <div *ngIf="!branchView?.top10LowestInBranch?.length" class="px-4 py-6 text-sm text-gray-500 text-center">No data</div>
+            <div *ngIf="!branchView?.top10LowestInBranch?.length" class="px-4 py-6 text-sm text-gray-400 text-center">No data yet</div>
           </div>
         </div>
       </div>
-      <div *ngIf="!branchView && branchId" class="p-4 text-sm text-gray-500">No data for this branch.</div>
     </div>
 
+    <!-- ──────────── Row 4 — Contractor Trend ──────────── -->
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
-      <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3 justify-between">
-        <div>
-          <p class="text-sm font-semibold text-gray-900">Contractor Trend</p>
-          <p class="text-xs text-gray-500">Score, NC points, upload % by month</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="text-sm text-gray-600 flex items-center gap-2">
-            <span class="font-medium text-gray-700">Contractor</span>
-            <select class="form-select" [(ngModel)]="contractorId" (change)="loadTrend()" [disabled]="loadingContractors">
-              <option value="" disabled [selected]="true">Select</option>
-              <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}</option>
-            </select>
-          </label>
-          <label class="text-sm text-gray-600 flex items-center gap-2">
-            <span class="font-medium text-gray-700">From</span>
-            <input type="month" class="form-input" [(ngModel)]="fromMonth" (change)="loadTrend()" />
-          </label>
-          <label class="text-sm text-gray-600 flex items-center gap-2">
-            <span class="font-medium text-gray-700">To</span>
-            <input type="month" class="form-input" [(ngModel)]="toMonth" (change)="loadTrend()" />
-          </label>
+      <div class="px-5 py-4 border-b border-gray-100">
+        <div class="flex flex-wrap items-center gap-3 justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+              <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-gray-900">Contractor Trend</p>
+              <p class="text-xs text-gray-500">Monthly compliance, upload % &amp; risk analysis</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="text-sm text-gray-600 flex items-center gap-2">
+              <span class="font-medium text-gray-700">Contractor</span>
+              <select class="form-select" [(ngModel)]="contractorId" (change)="loadTrend()" [disabled]="loadingContractors">
+                <option value="" disabled [selected]="true">Select contractor</option>
+                <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}</option>
+              </select>
+            </label>
+            <label class="text-sm text-gray-600 flex items-center gap-2">
+              <span class="font-medium text-gray-700">From</span>
+              <input type="month" class="form-input" [(ngModel)]="fromMonth" (change)="loadTrend()" />
+            </label>
+            <label class="text-sm text-gray-600 flex items-center gap-2">
+              <span class="font-medium text-gray-700">To</span>
+              <input type="month" class="form-input" [(ngModel)]="toMonth" (change)="loadTrend()" />
+            </label>
+          </div>
         </div>
       </div>
+
+      <!-- Trend data table -->
       <div *ngIf="trend.length" class="overflow-x-auto">
         <table class="min-w-full text-sm">
-          <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+          <thead class="bg-gray-50/80">
             <tr>
-              <th class="px-4 py-2 text-left">Month</th>
-              <th class="px-4 py-2 text-left">Score</th>
-              <th class="px-4 py-2 text-left">Upload %</th>
-              <th class="px-4 py-2 text-left">Rejected</th>
-              <th class="px-4 py-2 text-left">Missing</th>
-              <th class="px-4 py-2 text-left">Audit Risk</th>
-              <th class="px-4 py-2 text-left">NC Points</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Month</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Score</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Upload %</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Rejected</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Missing</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Risk Pts</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">NC Points</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let row of trend">
-              <td class="px-4 py-3 text-gray-900">{{ row.month }}</td>
-              <td class="px-4 py-3 text-gray-900 font-semibold">{{ row.score }}</td>
-              <td class="px-4 py-3 text-gray-700">{{ uploadPercentDisplay(row.uploadedPercent) }}</td>
-              <td class="px-4 py-3 text-gray-700">{{ row.rejectedCount }}</td>
-              <td class="px-4 py-3 text-gray-700">{{ row.missingCount }}</td>
-              <td class="px-4 py-3 text-gray-700">{{ row.auditRiskPoints || 0 }}</td>
-              <td class="px-4 py-3 text-gray-700">{{ row.ncPoints }}</td>
+            <tr *ngFor="let row of trend" class="hover:bg-gray-50/50 transition-colors">
+              <td class="px-5 py-3.5 text-gray-900 font-medium">{{ row.month }}</td>
+              <td class="px-5 py-3.5">
+                <span class="font-bold" [ngClass]="getScoreColor(row.score)">{{ row.score }}</span>
+              </td>
+              <td class="px-5 py-3.5">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 bg-gray-100 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full transition-all duration-500" [ngClass]="getScoreBarColor(row.uploadedPercent)" [style.width.%]="row.uploadedPercent || 0"></div>
+                  </div>
+                  <span class="text-xs font-medium text-gray-700">{{ uploadPercentDisplay(row.uploadedPercent) }}</span>
+                </div>
+              </td>
+              <td class="px-5 py-3.5 text-gray-700">
+                <span *ngIf="row.rejectedCount > 0" class="text-red-600 font-medium">{{ row.rejectedCount }}</span>
+                <span *ngIf="!row.rejectedCount" class="text-gray-400">0</span>
+              </td>
+              <td class="px-5 py-3.5 text-gray-700">
+                <span *ngIf="row.missingCount > 0" class="text-amber-600 font-medium">{{ row.missingCount }}</span>
+                <span *ngIf="!row.missingCount" class="text-gray-400">0</span>
+              </td>
+              <td class="px-5 py-3.5">
+                <span [ngClass]="getRiskColor(row.auditRiskPoints)">{{ row.auditRiskPoints || 0 }}</span>
+              </td>
+              <td class="px-5 py-3.5 text-gray-700">{{ row.ncPoints }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div *ngIf="!trend.length" class="p-6 text-sm text-gray-500">Select a contractor to see the monthly trend.</div>
-    </div>
-  </div>
 
+      <!-- Empty state for trend -->
+      <div *ngIf="!trend.length" class="p-8 text-center">
+        <div class="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mx-auto mb-3">
+          <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-600">Select a contractor to view monthly trends</p>
+        <p class="text-xs text-gray-400 mt-1">Compliance score, document uploads, and risk points over time</p>
+      </div>
+    </div>
+
+  </div>
 </div>

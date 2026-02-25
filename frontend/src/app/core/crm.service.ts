@@ -14,7 +14,7 @@ export class CrmService {
 
   /** List of clients assigned to the logged-in CRM user (cached). */
   getAssignedClients(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/api/crm/clients/assigned`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/crm/clients/assigned`);
   }
 
   /** Cached getter — caches on success, invalidates on error so next call retries.

@@ -1,8 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { forkJoin, Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, LeaveBalance, LeavePolicy, LeaveApplication } from '../ess-api.service';
 
 @Component({
@@ -252,8 +252,8 @@ import { EssApiService, LeaveBalance, LeavePolicy, LeaveApplication } from '../e
     .field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
   `],
 })
-export class EssLeaveComponent implements OnInit {
-  loading = true;
+export class EssLeaveComponent implements OnInit, OnDestroy {
+  loading = false;
   balances: LeaveBalance[] = [];
   policies: LeavePolicy[] = [];
   applications: LeaveApplication[] = [];
@@ -262,11 +262,17 @@ export class EssLeaveComponent implements OnInit {
   submitting = false;
   applyError = '';
   applyForm: any = {};
+  private readonly destroy$ = new Subject<void>();
 
   constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadAll();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadAll(): void {
@@ -276,14 +282,23 @@ export class EssLeaveComponent implements OnInit {
       policies: this.api.getLeavePolicies(),
       applications: this.api.listLeaveApplications(),
     })
-    .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+    .pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+    )
     .subscribe({
       next: (data) => {
+        this.loading = false;
         this.balances = data.balances;
         this.policies = data.policies;
         this.applications = data.applications;
       },
-      error: () => {},
+      error: () => {
+        this.loading = false;
+        this.balances = [];
+        this.policies = [];
+        this.applications = [];
+      },
     });
   }
 
@@ -306,13 +321,18 @@ export class EssLeaveComponent implements OnInit {
     this.submitting = true;
     this.applyError = '';
     this.api.applyLeave(this.applyForm)
-      .pipe(finalize(() => { this.submitting = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.submitting = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
         next: () => {
+          this.submitting = false;
           this.showApplyForm = false;
           this.loadAll();
         },
         error: (e) => {
+          this.submitting = false;
           this.applyError = e?.error?.message || 'Failed to submit leave application';
         },
       });
@@ -321,9 +341,15 @@ export class EssLeaveComponent implements OnInit {
   cancelApplication(app: LeaveApplication): void {
     if (!confirm('Are you sure you want to cancel this leave application?')) return;
     this.api.cancelLeave((app as any).id)
+    .pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.cdr.detectChanges()),
+    )
     .subscribe({
       next: () => this.loadAll(),
-      error: () => {},
+      error: () => {
+        alert('Failed to cancel leave application.');
+      },
     });
   }
 }

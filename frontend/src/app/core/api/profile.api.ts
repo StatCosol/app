@@ -19,14 +19,14 @@ export class ProfileApiService {
   constructor(private http: HttpClient) {}
 
   getProfile(): Observable<UserProfile> {
-    return this.http.get<UserProfile>(`${this.baseUrl}/api/me`);
+    return this.http.get<UserProfile>(`${this.baseUrl}/api/v1/me`);
   }
 
   updateProfile(data: Partial<UserProfile>): Observable<UserProfile> {
-    return this.http.patch<UserProfile>(`${this.baseUrl}/api/me/profile`, data);
+    return this.http.patch<UserProfile>(`${this.baseUrl}/api/v1/me/profile`, data);
   }
 
   changePassword(currentPassword: string, newPassword: string): Observable<any> {
-    return this.http.patch(`${this.baseUrl}/api/me/password`, { currentPassword, newPassword });
+    return this.http.patch(`${this.baseUrl}/api/v1/me/password`, { currentPassword, newPassword });
   }
 }

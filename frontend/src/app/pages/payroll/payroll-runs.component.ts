@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BehaviorSubject, Subject, of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, finalize, switchMap, takeUntil, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { PayrollRunsService, PayrollRunSummary, PayrollRunEmployeeRow } from './payroll-runs.service';
@@ -287,7 +287,7 @@ import {
   `,
   styles: [
     `
-      .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
       .processing-bar { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; padding: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 1rem; }
     `,
   ],
@@ -297,7 +297,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   runs: PayrollRunSummary[] = [];
   employees: PayrollRunEmployeeRow[] = [];
 
-  loadingRuns = true;
+  loadingRuns = false;
   loadingEmployees = false;
   archivingRunId: string | null = null;
   error = '';
@@ -354,44 +354,36 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     title: '',
   };
 
-  private reload$ = new BehaviorSubject<void>(undefined);
+  private reload$ = new Subject<void>();
   private employeesReload$ = new Subject<string>();
   private destroy$ = new Subject<void>();
+  private initialLoadDone = false;
 
-  constructor(private payrollApi: PayrollApiService, private runsApi: PayrollRunsService, private setupApi: PayrollSetupApiService) {}
+  constructor(private payrollApi: PayrollApiService, private runsApi: PayrollRunsService, private setupApi: PayrollSetupApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     console.log('PayrollRuns ngOnInit - loading clients and runs');
 
+    // Subscribe to reload$ for user-triggered filter changes (debounced)
     this.reload$
       .pipe(
-        switchMap(() => {
-          this.error = '';
-          this.loadingRuns = true;
-          return this.runsApi
-            .listRuns({
-              clientId: this.filters.clientId ?? undefined,
-              periodYear: this.filters.periodYear ?? undefined,
-              periodMonth: this.filters.periodMonth ?? undefined,
-              status: this.filters.status ?? undefined,
-            })
-            .pipe(
-              timeout(10000),
-              catchError((e) => {
-                console.error('PayrollRuns error:', e);
-                this.error = e?.error?.message || `Unable to load runs. ${e?.message || ''}`;
-                return of([] as PayrollRunSummary[]);
-              }),
-              finalize(() => {
-                this.loadingRuns = false;
-              }),
-            );
-        }),
+        debounceTime(300),
+        switchMap(() => this.fetchRuns$()),
         takeUntil(this.destroy$),
       )
-      .subscribe((rows) => {
-        console.log('PayrollRuns loaded:', rows);
-        this.runs = rows || [];
+      .subscribe({
+        next: (rows) => {
+          console.log('PayrollRuns loaded:', rows);
+          this.runs = rows || [];
+          this.loadingRuns = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('PayrollRuns reload$ error:', err);
+          this.loadingRuns = false;
+          this.runs = [];
+          this.cdr.detectChanges();
+        },
       });
 
     this.employeesReload$
@@ -416,10 +408,18 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe((rows) => {
-        this.employees = rows || [];
+      .subscribe({
+        next: (rows) => {
+          this.employees = rows || [];
+        },
+        error: (err) => {
+          console.error('PayrollRuns employeesReload$ error:', err);
+          this.loadingEmployees = false;
+          this.employees = [];
+          this.error = err?.error?.message || 'Unable to load employees';
+        },
       });
-    this.payrollApi.getAssignedClients().subscribe({
+    this.payrollApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
       next: (list) => {
         console.log('PayrollRuns clients loaded:', list);
         this.clients = list || [];
@@ -433,6 +433,25 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         this.error = `Unable to load clients. ${e?.error?.message || ''}`;
       },
     });
+
+    // Direct initial load — not through the Subject so filter setup can't cancel it
+    this.fetchRuns$().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (rows) => {
+        console.log('PayrollRuns initial load:', rows);
+        this.runs = rows || [];
+        this.loadingRuns = false;
+        this.cdr.detectChanges();
+        // Defer initialLoadDone so template-init ngModelChange noise is blocked
+        setTimeout(() => { this.initialLoadDone = true; });
+      },
+      error: (err) => {
+        console.error('PayrollRuns initial load error:', err);
+        this.loadingRuns = false;
+        this.runs = [];
+        this.cdr.detectChanges();
+        setTimeout(() => { this.initialLoadDone = true; });
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -443,8 +462,34 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   reloadRuns(): void {
+    // Skip reloads triggered by filter setup if initial load hasn't finished
+    if (!this.initialLoadDone) return;
     console.log('PayrollRuns reloadRuns called with filters:', this.filters);
-    this.reload$.next(); // switchMap + debounceTime handle cancellation of in-flight requests
+    this.reload$.next();
+  }
+
+  /** Shared observable factory for fetching runs */
+  private fetchRuns$() {
+    this.error = '';
+    this.loadingRuns = true;
+    return this.runsApi
+      .listRuns({
+        clientId: this.filters.clientId ?? undefined,
+        periodYear: this.filters.periodYear ?? undefined,
+        periodMonth: this.filters.periodMonth ?? undefined,
+        status: this.filters.status ?? undefined,
+      })
+      .pipe(
+        timeout(10000),
+        catchError((e) => {
+          console.error('PayrollRuns error:', e);
+          this.error = e?.error?.message || `Unable to load runs. ${e?.message || ''}`;
+          return of([] as PayrollRunSummary[]);
+        }),
+        finalize(() => {
+          this.loadingRuns = false;
+        }),
+      );
   }
 
   openRun(runId: string): void {
@@ -459,7 +504,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   archiveRun(runId: string): void {
     this.archivingRunId = runId;
-    this.runsApi.archiveRunPayslips(runId).subscribe({
+    this.runsApi.archiveRunPayslips(runId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.archivingRunId = null;
       },
@@ -471,14 +516,14 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   downloadZip(runId: string): void {
-    this.runsApi.downloadPayslipsZip(runId).subscribe({
+    this.runsApi.downloadPayslipsZip(runId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `payslips_${runId}.zip`),
       error: (e) => { this.error = e?.error?.message || 'Failed to download ZIP'; },
     });
   }
 
   downloadPayslipPdf(runId: string, employeeId: string): void {
-    this.runsApi.downloadPayslipPdf(runId, employeeId).subscribe({
+    this.runsApi.downloadPayslipPdf(runId, employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `payslip_${employeeId}.pdf`),
       error: (e) => { this.error = e?.error?.message || 'Failed to download PDF'; },
     });
@@ -503,10 +548,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         periodMonth: this.newRun.periodMonth,
         title: this.newRun.title || undefined,
       })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (run: any) => {
           if (this.runFile) {
-            this.runsApi.uploadRunEmployeesFile(run.id, this.runFile).subscribe({
+            this.runsApi.uploadRunEmployeesFile(run.id, this.runFile).pipe(takeUntil(this.destroy$)).subscribe({
               next: () => {
                 this.afterRunCreated();
               },
@@ -540,7 +586,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   downloadArchivedPayslipPdf(runId: string, employeeId: string): void {
-    this.runsApi.downloadArchivedPayslipPdf(runId, employeeId).subscribe({
+    this.runsApi.downloadArchivedPayslipPdf(runId, employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `payslip_${employeeId}_archived.pdf`),
       error: (e) => { this.error = e?.error?.message || 'Archived payslip not available'; },
     });
@@ -574,6 +620,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.processingMsg = '';
     this.processingError = false;
     this.setupApi.uploadBreakup(this.selectedRunId, this.breakupFile).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.uploadingBreakup = false; }),
     ).subscribe({
       next: (res: any) => {
@@ -594,6 +641,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.processingMsg = '';
     this.processingError = false;
     this.setupApi.processRun(this.selectedRunId).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.processingRun = false; }),
     ).subscribe({
       next: (res: any) => {
@@ -610,7 +658,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   generatePfEcr(): void {
     if (!this.selectedRunId) return;
-    this.setupApi.generatePfEcr(this.selectedRunId).subscribe({
+    this.setupApi.generatePfEcr(this.selectedRunId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `PF_ECR_${this.selectedRunId}.txt`),
       error: (e) => {
         this.processingMsg = e?.error?.message || 'PF ECR generation failed';
@@ -621,7 +669,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   generateEsi(): void {
     if (!this.selectedRunId) return;
-    this.setupApi.generateEsi(this.selectedRunId).subscribe({
+    this.setupApi.generateEsi(this.selectedRunId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => this.runsApi.saveBlob(blob, `ESI_${this.selectedRunId}.txt`),
       error: (e) => {
         this.processingMsg = e?.error?.message || 'ESI generation failed';

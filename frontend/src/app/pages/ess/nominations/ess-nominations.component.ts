@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, EssNomination } from '../ess-api.service';
 
 @Component({
@@ -267,15 +268,16 @@ import { EssApiService, EssNomination } from '../ess-api.service';
     .field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
   `],
 })
-export class EssNominationsComponent implements OnInit {
+export class EssNominationsComponent implements OnInit, OnDestroy {
   nominations: EssNomination[] = [];
-  loading = true;
+  loading = false;
   showForm = false;
   saving = false;
   formError = '';
   form: any = {};
   actionPending = false;
   resubmitId: string | null = null;
+  private readonly destroy$ = new Subject<void>();
 
   constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
@@ -283,13 +285,22 @@ export class EssNominationsComponent implements OnInit {
     this.loadNominations();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadNominations(): void {
+    if (this.loading && this.nominations.length) return; // prevent double-load
     this.loading = true;
     this.api.listNominations()
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
-        next: (list) => { this.nominations = list; },
-        error: () => { this.nominations = []; },
+        next: (list) => { this.loading = false; this.nominations = list; },
+        error: () => { this.loading = false; this.nominations = []; },
       });
   }
 
@@ -327,13 +338,18 @@ export class EssNominationsComponent implements OnInit {
     this.saving = true;
     this.formError = '';
     this.api.createNomination({ ...this.form, members: validMembers, asDraft })
-      .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.saving = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
         next: () => {
+          this.saving = false;
           this.showForm = false;
           this.loadNominations();
         },
         error: (e) => {
+          this.saving = false;
           this.formError = e?.error?.message || 'Failed to save nomination';
         },
       });
@@ -343,10 +359,13 @@ export class EssNominationsComponent implements OnInit {
     if (!confirm('Submit this nomination for approval? You will not be able to edit it afterwards.')) return;
     this.actionPending = true;
     this.api.submitNomination(nom.id)
-      .pipe(finalize(() => { this.actionPending = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.actionPending = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
-        next: () => this.loadNominations(),
-        error: (e) => alert(e?.error?.message || 'Failed to submit'),
+        next: () => { this.actionPending = false; this.loadNominations(); },
+        error: (e) => { this.actionPending = false; alert(e?.error?.message || 'Failed to submit'); },
       });
   }
 
@@ -374,14 +393,19 @@ export class EssNominationsComponent implements OnInit {
     this.saving = true;
     this.formError = '';
     this.api.resubmitNomination(this.resubmitId!, { ...this.form, members: validMembers })
-      .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.saving = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
         next: () => {
+          this.saving = false;
           this.showForm = false;
           this.resubmitId = null;
           this.loadNominations();
         },
         error: (e) => {
+          this.saving = false;
           this.formError = e?.error?.message || 'Failed to resubmit';
         },
       });

@@ -9,7 +9,7 @@ export class ClientAuditsService {
   private readonly baseUrl = environment.apiBaseUrl || '';
 
   getSummary(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/audits/summary`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/audits/summary`);
   }
 
   list(filters?: any): Observable<any> {
@@ -21,6 +21,6 @@ export class ClientAuditsService {
         }
       });
     }
-    return this.http.get(`${this.baseUrl}/api/client/audits`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/audits`, { params });
   }
 }

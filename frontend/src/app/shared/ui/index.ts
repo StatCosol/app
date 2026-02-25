@@ -31,16 +31,9 @@ export type { TableColumn, SortEvent, PaginationEvent } from './data-table/data-
 export { ModalComponent } from './modal/modal.component';
 export type { ModalSize } from './modal/modal.component';
 
-// Drawer
-export { DrawerComponent } from './drawer/drawer.component';
-export type { DrawerPosition, DrawerSize } from './drawer/drawer.component';
-
 // Empty State
 export { EmptyStateComponent } from './empty-state/empty-state.component';
 
 // Loading Spinner
 export { LoadingSpinnerComponent } from './loading-spinner/loading-spinner.component';
 export type { SpinnerSize, SpinnerColor } from './loading-spinner/loading-spinner.component';
-
-// Legacy Status Chip (kept for backwards compatibility)
-export { StatusChipComponent } from './status-chip.component';

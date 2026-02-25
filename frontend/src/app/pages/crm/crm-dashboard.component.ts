@@ -1,348 +1,153 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DashboardService } from '../../core/dashboard.service';
-import { CrmService } from '../../core/crm.service';
-import { CrmClientsApi } from '../../core/api/crm-clients.api';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
   StatCardComponent,
   LoadingSpinnerComponent,
-  ActionButtonComponent,
-  DataTableComponent,
-  TableCellDirective,
-  TableColumn,
   StatusBadgeComponent,
-  FormSelectComponent,
-  FormInputComponent,
-  SelectOption,
 } from '../../shared/ui';
-import { retry, timeout, finalize } from 'rxjs/operators';
-import {
-  CrmFilters,
-  CrmSummary,
-  ComplianceDueItem,
-  LowCoverageBranch,
-  PendingDocument,
-  ComplianceQuery,
-} from './crm-dashboard.dto';
+import { Subject } from 'rxjs';
+import { takeUntil, timeout, retry } from 'rxjs/operators';
+import { CrmKpis, PriorityItem, RiskClient, UpcomingAudit } from './crm-dashboard.dto';
 
 @Component({
   selector: 'app-crm-dashboard',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     PageHeaderComponent,
     StatCardComponent,
     LoadingSpinnerComponent,
-    ActionButtonComponent,
-    DataTableComponent,
-    TableCellDirective,
     StatusBadgeComponent,
-    FormSelectComponent,
-    FormInputComponent,
   ],
   templateUrl: './crm-dashboard.component.html',
   styleUrls: ['./crm-dashboard.component.scss'],
 })
-export class CrmDashboardComponent implements OnInit {
-  loading = false;
+export class CrmDashboardComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  loading = true;
   errorMsg: string | null = null;
 
-  // Filters
-  filter: CrmFilters = {
-    clientId: '',
-    branchId: '',
-    periodFrom: '',
-    periodTo: '',
-  };
-
-  // Reference data for filters
-  clients: Array<{ id: string; name: string }> = [];
-  branches: Array<{ id: string; name: string }> = [];
-  branchesLoading = false;
-
-  // Summary KPIs
-  summary: CrmSummary = {
+  /* ═══════ KPI Cards (Row 1) ═══════ */
+  kpis: CrmKpis = {
     assignedClientsCount: 0,
-    assignedBranchesCount: 0,
-    complianceCoveragePct: 0,
-    overdueCompliancesCount: 0,
-    dueSoonCompliancesCount: 0,
-    openComplianceQueriesCount: 0,
+    compliancePct: 0,
+    pendingReviewCount: 0,
+    reuploadRequiredCount: 0,
+    overdueCount: 0,
+    expiring30Count: 0,
+    openObservationsCount: 0,
+    mcdPendingCount: 0,
   };
 
-  // Active tab for Compliance Due Tracker
-  activeTab: 'OVERDUE' | 'DUE_SOON' | 'THIS_MONTH' = 'OVERDUE';
+  /* ═══════ Priority Today (Row 2) ═══════ */
+  priorityItems: PriorityItem[] = [];
+  priorityLoading = false;
 
-  // Data tables
-  dueCompliances: ComplianceDueItem[] = [];
-  lowCoverageBranches: LowCoverageBranch[] = [];
-  pendingDocuments: PendingDocument[] = [];
-  queries: ComplianceQuery[] = [];
+  /* ═══════ Top Risk Clients (Row 3) ═══════ */
+  riskClients: RiskClient[] = [];
+  riskLoading = false;
 
-  // Table column definitions
-  dueColumns: TableColumn[] = [
-    { key: 'complianceItem', header: 'Compliance Item', sortable: true },
-    { key: 'client', header: 'Client / Branch', sortable: true },
-    { key: 'dueDate', header: 'Due Date', sortable: true, width: '110px' },
-    { key: 'daysOverdue', header: 'Days Overdue', sortable: true, width: '120px', align: 'center' },
-    { key: 'risk', header: 'Risk', sortable: true, width: '100px', align: 'center' },
-    { key: 'dueActions', header: 'Actions', sortable: false, width: '100px', align: 'center' },
-  ];
-
-  coverageColumns: TableColumn[] = [
-    { key: 'branch', header: 'Branch', sortable: true },
-    { key: 'coveragePct', header: 'Coverage', sortable: true, width: '180px' },
-    { key: 'overdueCount', header: 'Overdue', sortable: true, width: '100px', align: 'center' },
-    { key: 'highRiskCount', header: 'High Risk', sortable: true, width: '100px', align: 'center' },
-    { key: 'coverageActions', header: '', sortable: false, width: '80px', align: 'center' },
-  ];
-
-  docColumns: TableColumn[] = [
-    { key: 'documentType', header: 'Document', sortable: true },
-    { key: 'requestedOn', header: 'Requested', sortable: true, width: '120px' },
-    { key: 'pendingDays', header: 'Pending', sortable: true, width: '100px', align: 'center' },
-    { key: 'docActions', header: 'Actions', sortable: false, width: '200px', align: 'center' },
-  ];
-
-  queryColumns: TableColumn[] = [
-    { key: 'from', header: 'From', sortable: true, width: '150px' },
-    { key: 'subject', header: 'Subject', sortable: true },
-    { key: 'ageingDays', header: 'Age', sortable: true, width: '80px', align: 'center' },
-    { key: 'queryStatus', header: 'Status', sortable: true, width: '120px', align: 'center' },
-    { key: 'queryActions', header: 'Actions', sortable: false, width: '180px', align: 'center' },
-  ];
-
-  // Select options for shared form components
-  get clientOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All Clients' },
-      ...this.clients.map(c => ({ value: c.id, label: c.name })),
-    ];
-  }
-
-  get branchOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All Branches' },
-      ...this.branches.map(b => ({ value: b.id, label: b.name })),
-    ];
-  }
+  /* ═══════ Upcoming Audits (Row 4) ═══════ */
+  upcomingAudits: UpcomingAudit[] = [];
+  auditsLoading = false;
+  auditDays = 15;
 
   constructor(
     private dashboardService: DashboardService,
-    private crmService: CrmService,
-    private crmClientsApi: CrmClientsApi,
     private toast: ToastService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.loadReferenceData();
-    this.loadAllData();
+    this.loadAll();
   }
 
-  loadReferenceData(): void {
-    this.crmService.getAssignedClients().subscribe({
-      next: (data) => {
-        this.clients = (data || []).map((c: any) => ({ id: c.id, name: c.clientName || c.name }));
-        if (this.filter.clientId) {
-          this.loadBranchesForClient(this.filter.clientId);
-        } else {
-          this.branches = [];
-        }
-        this.cdr.detectChanges();
-      },
-      error: () => { this.clients = []; },
-    });
+  loadAll(): void {
+    this.loadKpis();
+    this.loadPriorityToday();
+    this.loadTopRiskClients();
+    this.loadUpcomingAudits();
   }
 
-  loadBranchesForClient(clientId: string): void {
-    if (!clientId) {
-      this.branches = [];
-      this.filter.branchId = '';
-      this.cdr.detectChanges();
-      return;
-    }
-
-    this.branchesLoading = true;
-    this.filter.branchId = '';
-
-    this.crmClientsApi.getBranchesForClient(clientId).pipe(
-      finalize(() => {
-        this.branchesLoading = false;
-        this.cdr.detectChanges();
-      }),
-    ).subscribe({
-      next: (data) => {
-        this.branches = (data || []).map((b: any) => ({ id: b.id, name: b.branchName || b.name }));
-      },
-      error: () => {
-        this.branches = [];
-      },
-    });
-  }
-
-  loadAllData(): void {
-    this.loadSummary();
-    this.loadDueCompliances();
-    this.loadLowCoverage();
-    this.loadPendingDocuments();
-    this.loadQueries();
-  }
-
-  loadSummary(): void {
+  /* ─── KPIs ─── */
+  loadKpis(): void {
     this.loading = true;
     this.errorMsg = null;
-
-    const params = this.buildFilterParams();
-    this.dashboardService.getCrmSummary(params).pipe(
-      timeout(10000),
-      retry(1),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+    this.dashboardService.getCrmKpis().pipe(
+      takeUntil(this.destroy$), timeout(10000), retry(1),
     ).subscribe({
-      next: (data) => {
-        this.summary = data;
-      },
+      next: (data) => { this.kpis = data; this.loading = false; this.cdr.detectChanges(); },
       error: (err) => {
-        this.errorMsg = err?.error?.message || 'Failed to load dashboard summary';
-      },
-    });
-  }
-
-  loadDueCompliances(): void {
-    const params = { ...this.buildFilterParams(), tab: this.activeTab };
-    this.dashboardService.getCrmDueCompliances(params).pipe(timeout(10000), retry(1)).subscribe({
-      next: (response) => {
-        this.dueCompliances = response.items;
+        this.loading = false;
+        this.errorMsg = err?.error?.message || 'Failed to load KPIs';
         this.cdr.detectChanges();
       },
-      error: () => {
-        this.toast.error('Failed to load due compliances');
-      },
     });
   }
 
-  loadLowCoverage(): void {
-    const params = this.buildFilterParams();
-    this.dashboardService.getCrmLowCoverage(params).pipe(timeout(10000), retry(1)).subscribe({
-      next: (response) => {
-        this.lowCoverageBranches = response.items;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.toast.error('Failed to load low coverage branches');
-      },
+  /* ─── Priority Today ─── */
+  loadPriorityToday(): void {
+    this.priorityLoading = true;
+    this.dashboardService.getCrmPriorityToday(20).pipe(
+      takeUntil(this.destroy$), timeout(10000), retry(1),
+    ).subscribe({
+      next: (res) => { this.priorityItems = res.items; this.priorityLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.priorityLoading = false; this.toast.error('Failed to load priority list'); this.cdr.detectChanges(); },
     });
   }
 
-  loadPendingDocuments(): void {
-    const params = this.buildFilterParams();
-    this.dashboardService.getCrmPendingDocuments(params).pipe(timeout(10000), retry(1)).subscribe({
-      next: (response) => {
-        this.pendingDocuments = response.items;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.toast.error('Failed to load pending documents');
-      },
+  /* ─── Top Risk Clients ─── */
+  loadTopRiskClients(): void {
+    this.riskLoading = true;
+    this.dashboardService.getCrmTopRiskClients(10).pipe(
+      takeUntil(this.destroy$), timeout(10000), retry(1),
+    ).subscribe({
+      next: (res) => { this.riskClients = res.items; this.riskLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.riskLoading = false; this.toast.error('Failed to load risk clients'); this.cdr.detectChanges(); },
     });
   }
 
-  loadQueries(): void {
-    const params = this.buildFilterParams();
-    this.dashboardService.getCrmQueries(params).pipe(timeout(10000), retry(1)).subscribe({
-      next: (response) => {
-        this.queries = response.items;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.toast.error('Failed to load queries');
-      },
+  /* ─── Upcoming Audits ─── */
+  loadUpcomingAudits(): void {
+    this.auditsLoading = true;
+    this.dashboardService.getCrmUpcomingAudits(this.auditDays).pipe(
+      takeUntil(this.destroy$), timeout(10000), retry(1),
+    ).subscribe({
+      next: (res) => { this.upcomingAudits = res.items; this.auditsLoading = false; this.cdr.detectChanges(); },
+      error: () => { this.auditsLoading = false; this.toast.error('Failed to load audits'); this.cdr.detectChanges(); },
     });
   }
 
-  private buildFilterParams(): Record<string, string> {
-    const params: Record<string, string> = {};
-    if (this.filter.clientId) params['clientId'] = this.filter.clientId;
-    if (this.filter.branchId) params['branchId'] = this.filter.branchId;
-    if (this.filter.periodFrom) params['periodFrom'] = this.filter.periodFrom;
-    if (this.filter.periodTo) params['periodTo'] = this.filter.periodTo;
-    return params;
+  toggleAuditDays(): void {
+    this.auditDays = this.auditDays === 15 ? 7 : 15;
+    this.loadUpcomingAudits();
   }
 
-  applyFilters(): void {
-    if (this.filter.clientId) {
-      this.loadBranchesForClient(this.filter.clientId);
+  /* ─── Deep-link helpers ─── */
+  openTracker(tab?: string, filters?: Record<string, string>): void {
+    this.router.navigate(['/crm/compliance-tracker'], { queryParams: { tab, ...filters } });
+  }
+
+  openClientWorkspace(clientId: string): void {
+    this.router.navigate(['/crm/clients', clientId, 'overview']);
+  }
+
+  itemTypeLabel(t: string): string {
+    switch (t) {
+      case 'OVERDUE_TASK': return 'Overdue Task';
+      case 'EXPIRED_DOC': return 'Expired Document';
+      case 'HIGH_RISK_OBS': return 'High-Risk Observation';
+      default: return t;
     }
-    this.loadAllData();
   }
 
-  resetFilters(): void {
-    this.filter = {
-      clientId: '',
-      branchId: '',
-      periodFrom: '',
-      periodTo: '',
-    };
-    this.branches = [];
-    this.loadAllData();
-  }
-
-  setDueTab(tab: 'OVERDUE' | 'DUE_SOON' | 'THIS_MONTH'): void {
-    this.activeTab = tab;
-    this.loadDueCompliances();
-  }
-
-  onClientChange(): void {
-    this.loadBranchesForClient(this.filter.clientId ?? '');
-  }
-
-  updateCompliance(item: ComplianceDueItem): void {
-    this.toast.info('Navigate to compliance update for: ' + item.complianceItem);
-  }
-
-  viewBranchDetails(branch: LowCoverageBranch): void {
-    this.router.navigate(['/crm/clients', branch.clientId, 'branches', branch.branchId]);
-  }
-
-  uploadDocument(doc: PendingDocument): void {
-    this.toast.info('Upload document: ' + doc.documentType);
-  }
-
-  followUpDocument(doc: PendingDocument): void {
-    this.toast.info('Follow-up sent for: ' + doc.documentType);
-  }
-
-  replyToQuery(query: ComplianceQuery): void {
-    this.router.navigate(['/crm/queries', query.refId]);
-  }
-
-  assignQuery(query: ComplianceQuery): void {
-    this.toast.info('Assign query: ' + query.subject);
-  }
-
-  closeQuery(query: ComplianceQuery): void {
-    this.toast.info('Close query: ' + query.subject);
-  }
-
-  drillOverdueCompliances() {
-    this.router.navigate(['/crm/compliances'], { queryParams: { tab: 'OVERDUE' } });
-  }
-
-  drillDueSoon() {
-    this.router.navigate(['/crm/compliances'], { queryParams: { tab: 'DUE_SOON', window: 30 } });
-  }
-
-  drillOpenQueries() {
-    this.router.navigate(['/crm/queries'], { queryParams: { status: 'OPEN', type: 'COMPLIANCE' } });
-  }
-
-  drillCoverage() {
-    this.router.navigate(['/crm/branches'], { queryParams: { view: 'LOW_COVERAGE' } });
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

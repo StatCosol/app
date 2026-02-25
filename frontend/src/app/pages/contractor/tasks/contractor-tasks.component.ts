@@ -1,8 +1,9 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { ComplianceService } from '../../../core/compliance.service';
 import {
   PageHeaderComponent,
@@ -33,9 +34,10 @@ import {
   templateUrl: './contractor-tasks.component.html',
   styleUrls: ['../shared/contractor-theme.scss', './contractor-tasks.component.scss'],
 })
-export class ContractorTasksComponent implements OnInit {
+export class ContractorTasksComponent implements OnInit, OnDestroy {
   tasks: any[] = [];
   loading = false;
+  private destroy$ = new Subject<void>();
 
   filters = {
     status: 'ALL',
@@ -96,11 +98,17 @@ export class ContractorTasksComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load() {
     this.loading = true;
     this.api
       .contractorListTasks(this.filters)
       .pipe(
+        takeUntil(this.destroy$),
         timeout(10000),
         finalize(() => {
           this.loading = false;
@@ -109,6 +117,7 @@ export class ContractorTasksComponent implements OnInit {
       )
       .subscribe({
         next: (res: any) => {
+          this.loading = false;
           this.tasks = res?.data || res || [];
           this.tasks = this.tasks.map((t: any) => ({
             ...t,
@@ -119,6 +128,7 @@ export class ContractorTasksComponent implements OnInit {
           this.cdr.detectChanges();
         },
         error: () => {
+          this.loading = false;
           this.cdr.detectChanges();
         },
       });

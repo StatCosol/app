@@ -155,7 +155,7 @@ export class ContractorService {
     // Required doc count
     const [reqRow] = await this.branchContractorRepo.manager.query(
       `SELECT COUNT(*) AS cnt FROM contractor_required_documents
-       WHERE client_id = $1 AND contractor_id = $2 AND is_required = TRUE`,
+       WHERE client_id = $1 AND contractor_user_id = $2 AND is_required = TRUE`,
       [clientId, userId],
     );
     const requiredCount = Number(reqRow?.cnt || 0);
@@ -166,7 +166,7 @@ export class ContractorService {
               SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS "rejectedCount",
               SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END) AS "expiredCount"
        FROM contractor_documents
-       WHERE client_id = $1 AND contractor_id = $2
+       WHERE client_id = $1 AND contractor_user_id = $2
          AND branch_id = ANY($3)
          AND created_at >= $4 AND created_at < $5`,
       [clientId, userId, branchIds, monthStart, monthEnd],
@@ -258,7 +258,7 @@ export class ContractorService {
     }
     const where: any = {
       clientId: user.clientId,
-      contractorId: userId,
+      contractorUserId: userId,
     };
     if (q?.docType) where.docType = q.docType;
     if (q?.branchId) where.branchId = q.branchId;
@@ -332,7 +332,7 @@ export class ContractorService {
 
     const doc = this.contractorDocsRepo.create({
       clientId: user.clientId,
-      contractorId: userId,
+      contractorUserId: userId,
       branchId: dto.branchId ?? undefined,
       auditId: dto.auditId ?? undefined,
       docType: dto.docType,

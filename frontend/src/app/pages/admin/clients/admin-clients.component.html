@@ -32,9 +32,9 @@
         Branches <ui-status-badge *ngIf="branches.length" variant="info" size="sm">{{ branches.length }}</ui-status-badge>
       </a>
       <a
-        [class]="activeTab === 'compliances' ? (branchForCompliance ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-400 cursor-not-allowed') : (branchForCompliance ? 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' : 'border-transparent text-gray-400 cursor-not-allowed')"
-        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
-        [routerLink]="branchForCompliance ? ['/admin/clients', selectedClient.id, 'compliances'] : null">
+        [class]="activeTab === 'compliances' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors cursor-pointer"
+        [routerLink]="['/admin/clients', selectedClient.id, 'compliances']">
         Compliance Applicability
       </a>
     </nav>
@@ -333,6 +333,24 @@
   </div>
 
   <!-- TAB 3: COMPLIANCE APPLICABILITY -->
+  <!-- Branch picker when no branch selected -->
+  <div *ngIf="activeTab === 'compliances' && !branchForCompliance" class="tab-content">
+    <div class="card">
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Select a Branch</h3>
+      <p class="text-sm text-gray-500 mb-4">Choose a branch to view and manage compliance applicability.</p>
+      <div *ngIf="branches.length === 0 && !loading" class="text-sm text-gray-400">No branches found for this client. Add a branch first.</div>
+      <div *ngIf="loading" class="text-sm text-gray-400">Loading branches…</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <button *ngFor="let b of branches" type="button"
+          class="text-left p-4 rounded-lg border border-gray-200 hover:border-statco-blue-light hover:bg-blue-50 transition-colors"
+          (click)="selectBranchForCompliance(b)">
+          <div class="font-medium text-gray-900">{{ b.branchName }}</div>
+          <div class="text-xs text-gray-500 mt-1">{{ b.stateCode || 'No state' }} · {{ b.branchType || 'Branch' }}</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div *ngIf="activeTab === 'compliances' && branchForCompliance" class="tab-content">
     <div class="card">
       <div class="flex items-center justify-between mb-4">

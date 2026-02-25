@@ -116,11 +116,23 @@ export class ReturnsService {
   ) {
     const rec = await this.findOwned(user, id);
 
-    // Only branch users can upload
-    if (rec.branchId) {
-      await this.branchAccess.assertBranchUserOnly(user.userId, rec.branchId);
+    // Upload permissions:
+    // - Branch CLIENT users: only branch users for that branch
+    // - CRM users: allowed if they are assigned to the client
+    if (!rec.branchId) throw new ForbiddenException('Branch ID missing for filing');
+
+    if (user?.roleCode === 'CRM') {
+      const assignment = await this.assignmentsRepo.findOne({
+        where: {
+          clientId: rec.clientId,
+          assignmentType: 'CRM',
+          assignedToUserId: user.userId,
+        },
+      });
+      if (!assignment) throw new ForbiddenException('You are not assigned to this client');
     } else {
-      throw new ForbiddenException('Branch ID missing for filing');
+      // CLIENT branch users
+      await this.branchAccess.assertBranchUserOnly(user.userId, rec.branchId);
     }
 
     if (!file) throw new BadRequestException('File is required');
@@ -286,7 +298,8 @@ export class ReturnsService {
   private async findOwned(user: any, id: string) {
     const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: false } });
     if (!rec) throw new NotFoundException('Return not found');
-    if (rec.clientId !== user.clientId) {
+    // CRM users are verified via assignment check in the caller
+    if (user?.roleCode !== 'CRM' && rec.clientId !== user.clientId) {
       throw new ForbiddenException('Cross-tenant access blocked');
     }
     return rec;

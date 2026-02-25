@@ -1,0 +1,13 @@
+<svg width="70" height="44" viewBox="12 8 70 44" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Left Circle -->
+  <circle cx="35" cy="30" r="20" fill="#2F80FF"/>
+
+  <!-- Right Circle (overlapping) -->
+  <circle cx="55" cy="30" r="20" fill="#0F2A4A"/>
+
+  <!-- Vertical Line (exactly next to navy circle) -->
+  <!-- Navy circle right edge = cx + r = 55 + 20 = 75 -->
+  <rect x="75" y="10" width="4" height="40" fill="#000000" rx="2"/>
+
+</svg>

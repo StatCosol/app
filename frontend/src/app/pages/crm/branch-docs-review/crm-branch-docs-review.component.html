@@ -1,0 +1,219 @@
+<div class="page-container">
+  <ui-page-header
+    title="Branch Compliance Review"
+    subtitle="Review, approve, or request reupload of branch compliance documents">
+  </ui-page-header>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <select class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
+      <option *ngFor="let f of frequencies" [ngValue]="f.value">{{ f.label }}</option>
+    </select>
+
+    <select class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
+      <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+    </select>
+
+    <select class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
+      <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+    </select>
+
+    <select class="filter-select" [(ngModel)]="selectedStatus" (change)="load()">
+      <option *ngFor="let s of statuses" [ngValue]="s.value">{{ s.label }}</option>
+    </select>
+
+    <span class="ml-auto text-sm font-semibold" [class.text-orange-500]="pendingCount > 0" [class.text-green-600]="pendingCount === 0">
+      {{ pendingCount }} pending review
+    </span>
+  </div>
+
+  <!-- KPI Cards -->
+  <div *ngIf="kpis" class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-value text-blue-600">{{ kpis.pending_review || 0 }}</div>
+      <div class="kpi-label">Pending Review</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-green-600">{{ kpis.approved || 0 }}</div>
+      <div class="kpi-label">Approved</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-orange-500">{{ kpis.reupload_required || 0 }}</div>
+      <div class="kpi-label">Reupload Required</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-gray-400">{{ kpis.not_uploaded || 0 }}</div>
+      <div class="kpi-label">Not Uploaded</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-red-500">{{ kpis.overdue || 0 }}</div>
+      <div class="kpi-label">Overdue</div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="space-y-3">
+    <div class="kpi-grid">
+      <div *ngFor="let s of [1,2,3,4,5]" class="skeleton skeleton--kpi"></div>
+    </div>
+    <div *ngFor="let s of [1,2,3,4,5,6,7,8]" class="skeleton skeleton--row"></div>
+  </div>
+
+  <!-- Documents Table -->
+  <ng-container *ngIf="!loading">
+    <div *ngIf="documents.length === 0" class="text-center py-12 text-gray-400">
+      <svg class="mx-auto w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p class="text-sm font-medium">No documents to review for the selected filters.</p>
+    </div>
+
+    <div *ngIf="documents.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <table class="doc-table">
+        <thead>
+          <tr>
+            <th style="width: 20%;">Branch</th>
+            <th style="width: 18%;">Document</th>
+            <th style="width: 10%;">Period</th>
+            <th style="width: 10%;">Frequency</th>
+            <th style="width: 12%;">Status</th>
+            <th style="width: 8%;">Version</th>
+            <th style="width: 22%;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let doc of documents">
+            <td>
+              <div class="font-medium">{{ doc.branch?.branchName || '—' }}</div>
+              <div class="text-xs text-gray-400">{{ doc.lawArea }}</div>
+            </td>
+            <td>
+              <div class="font-medium">{{ doc.returnName }}</div>
+              <div class="text-xs text-gray-400">{{ doc.returnCode }}</div>
+              <div *ngIf="doc.uploadedFileName" class="text-xs text-blue-500 mt-0.5 truncate max-w-[200px]">
+                {{ doc.uploadedFileName }}
+              </div>
+            </td>
+            <td>
+              <span class="text-sm">{{ getPeriodLabel(doc) }}</span>
+            </td>
+            <td>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ doc.frequency }}</span>
+            </td>
+            <td>
+              <ui-status-badge [status]="doc.status" size="sm"></ui-status-badge>
+              <div *ngIf="doc.uploaderRemarks" class="text-xs text-blue-600 italic mt-1">
+                <strong>Uploader:</strong> {{ doc.uploaderRemarks }}
+              </div>
+              <div *ngIf="doc.remarks" class="text-xs text-orange-500 italic mt-1">
+                <strong>Review:</strong> {{ doc.remarks }}
+              </div>
+            </td>
+            <td>
+              <span class="text-sm">v{{ doc.version }}</span>
+            </td>
+            <td>
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  *ngIf="doc.uploadedFileUrl"
+                  class="btn-outline"
+                  (click)="viewDoc(doc)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                  </svg>
+                  View
+                </button>
+                <button
+                  *ngIf="canReview(doc)"
+                  class="btn-approve"
+                  (click)="openReviewModal(doc, 'APPROVED')">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                  Approve
+                </button>
+                <button
+                  *ngIf="canReview(doc)"
+                  class="btn-reject"
+                  (click)="openReviewModal(doc, 'REUPLOAD_REQUIRED')">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  Reupload
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <!-- Review Modal -->
+  <ui-modal
+    *ngIf="showReviewModal"
+    [isOpen]="showReviewModal"
+    [title]="reviewAction === 'APPROVED' ? 'Approve Document' : 'Request Reupload'"
+    size="md"
+    (closed)="closeReviewModal()">
+
+    <div class="space-y-4">
+      <div class="text-sm text-gray-600">
+        <strong>Document:</strong> {{ reviewDoc?.returnName }}<br>
+        <strong>Branch:</strong> {{ reviewDoc?.branch?.branchName || '—' }}<br>
+        <strong>File:</strong> {{ reviewDoc?.uploadedFileName || '—' }}
+      </div>
+
+      <div *ngIf="reviewAction === 'APPROVED'" class="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+        <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="text-sm text-green-700">This document will be approved and locked. It cannot be modified after approval.</span>
+      </div>
+
+      <div *ngIf="reviewAction === 'REUPLOAD_REQUIRED'" class="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+        <svg class="w-5 h-5 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        <span class="text-sm text-orange-700">The branch user will be asked to reupload this document.</span>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Remarks {{ reviewAction === 'REUPLOAD_REQUIRED' ? '(Required)' : '(Optional)' }}
+        </label>
+        <textarea
+          class="remarks-textarea"
+          [(ngModel)]="reviewRemarks"
+          placeholder="Enter your remarks here..."
+          [required]="reviewAction === 'REUPLOAD_REQUIRED'">
+        </textarea>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          (click)="closeReviewModal()">
+          Cancel
+        </button>
+        <button
+          *ngIf="reviewAction === 'APPROVED'"
+          class="btn-approve px-4 py-2 text-sm"
+          [disabled]="reviewing"
+          (click)="submitReview()">
+          {{ reviewing ? 'Processing...' : 'Approve' }}
+        </button>
+        <button
+          *ngIf="reviewAction === 'REUPLOAD_REQUIRED'"
+          class="btn-reject px-4 py-2 text-sm"
+          [disabled]="reviewing || !reviewRemarks.trim()"
+          (click)="submitReview()">
+          {{ reviewing ? 'Processing...' : 'Request Reupload' }}
+        </button>
+      </div>
+    </div>
+
+    <div slot="footer"></div>
+  </ui-modal>
+</div>

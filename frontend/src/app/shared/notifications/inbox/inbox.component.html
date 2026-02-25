@@ -36,12 +36,8 @@
             (click)="openThread(t.id)"
           >
             <div class="flex gap-2 mb-2">
-              <span class="badge-secondary text-xs">{{ t.queryType }}</span>
-              <span [ngClass]="{
-                'badge-success': t.status === 'RESOLVED' || t.status === 'CLOSED',
-                'badge-warning': t.status === 'OPEN' || t.status === 'IN_PROGRESS',
-                'badge-info': t.status === 'RESPONDED'
-              }" class="text-xs">{{ t.status }}</span>
+              <ui-status-badge variant="gray" [label]="t.queryType" size="sm"></ui-status-badge>
+              <ui-status-badge [status]="t.status" size="sm"></ui-status-badge>
             </div>
             <div class="font-medium text-sm mb-1" [class.text-white]="t.id === selectedThreadId" [class.text-gray-900]="t.id !== selectedThreadId">{{ t.subject || '(No subject)' }}</div>
             <div class="text-xs mb-1" [class.text-blue-100]="t.id === selectedThreadId" [class.text-gray-600]="t.id !== selectedThreadId">
@@ -67,22 +63,12 @@
           <p class="text-gray-500">Select a thread to view messages.</p>
         </div>
 
-        <div *ngIf="loadingThread" class="flex items-center justify-center py-12">
-          <svg class="animate-spin h-8 w-8 text-statco-blue-light mr-3" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span class="text-gray-600">Loading conversation...</span>
-        </div>
+        <ui-loading-spinner *ngIf="loadingThread" text="Loading conversation..."></ui-loading-spinner>
 
         <div *ngIf="thread && !loadingThread">
           <div class="flex gap-4 mb-6 pb-4 border-b border-gray-200">
-            <div class="text-sm"><span class="font-medium text-gray-700">Type:</span> <span class="badge-secondary ml-2">{{ thread.queryType }}</span></div>
-            <div class="text-sm"><span class="font-medium text-gray-700">Status:</span> <span [ngClass]="{
-              'badge-success': thread.status === 'RESOLVED' || thread.status === 'CLOSED',
-              'badge-warning': thread.status === 'OPEN' || thread.status === 'IN_PROGRESS',
-              'badge-info': thread.status === 'RESPONDED'
-            }" class="ml-2">{{ thread.status }}</span></div>
+            <div class="text-sm"><span class="font-medium text-gray-700">Type:</span> <ui-status-badge variant="gray" [label]="thread.queryType" class="ml-2"></ui-status-badge></div>
+            <div class="text-sm"><span class="font-medium text-gray-700">Status:</span> <ui-status-badge [status]="thread.status" class="ml-2"></ui-status-badge></div>
           </div>
 
           <div class="space-y-4 mb-6" style="max-height: 50vh; overflow-y: auto;">
@@ -104,33 +90,14 @@
               placeholder="Type your reply..."
             ></textarea>
             <div class="flex gap-2">
-              <button
-                type="button"
-                class="btn-primary"
-                (click)="sendReply()"
-                [disabled]="sending"
-              >
-                <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                </svg>
-                {{ sending ? 'Sending...' : 'Send Reply' }}
-              </button>
-              <button
-                type="button"
-                class="btn-secondary"
-                (click)="closeThread()"
-                [disabled]="closing"
-              >
-                {{ closing ? 'Closing...' : 'Close' }}
-              </button>
+              <ui-button variant="primary" (clicked)="sendReply()" [disabled]="sending" [loading]="sending">Send Reply</ui-button>
+              <ui-button variant="secondary" (clicked)="closeThread()" [disabled]="closing" [loading]="closing">Close</ui-button>
             </div>
           </div>
 
           <div *ngIf="thread.status === 'CLOSED'" class="border-t border-gray-200 pt-4">
             <p class="text-gray-500 italic mb-3">This thread is closed.</p>
-            <button type="button" class="btn-secondary" (click)="reopenThread()" [disabled]="reopening">
-              {{ reopening ? 'Reopening...' : 'Reopen' }}
-            </button>
+            <ui-button variant="secondary" (clicked)="reopenThread()" [disabled]="reopening" [loading]="reopening">Reopen</ui-button>
           </div>
         </div>
       </div>

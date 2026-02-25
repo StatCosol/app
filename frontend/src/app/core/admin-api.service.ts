@@ -44,7 +44,7 @@ export class AdminApiService {
   constructor(private http: HttpClient) {}
 
   roles() {
-    return this.http.get<Role[]>(`${environment.apiBaseUrl}/api/admin/roles`);
+    return this.http.get<Role[]>(`${environment.apiBaseUrl}/api/v1/admin/roles`);
   }
 
   // Backward compatible names (used by components)
@@ -54,7 +54,7 @@ export class AdminApiService {
 
   users() {
     // legacy (returns first 1000)
-    return this.http.get<UserRow[]>(`${environment.apiBaseUrl}/api/admin/users`);
+    return this.http.get<UserRow[]>(`${environment.apiBaseUrl}/api/v1/admin/users`);
   }
 
   getUsers() {
@@ -65,7 +65,7 @@ export class AdminApiService {
   getCcoUsers() {
     const params = new HttpParams().set('role', 'CCO');
     return this.http.get<Array<{ id: string; name: string; email: string }>>(
-      `${environment.apiBaseUrl}/api/admin/users`,
+      `${environment.apiBaseUrl}/api/v1/admin/users`,
       { params },
     );
   }
@@ -74,7 +74,7 @@ export class AdminApiService {
   getActiveUsersByRole(roleCode: string) {
     const params = new HttpParams().set('role', roleCode);
     return this.http.get<Array<{ id: string; name: string; email: string }>>(
-      `${environment.apiBaseUrl}/api/admin/users`,
+      `${environment.apiBaseUrl}/api/v1/admin/users`,
       { params },
     );
   }
@@ -102,7 +102,7 @@ export class AdminApiService {
     if (params.sortBy) query.sortBy = params.sortBy;
     if (params.sortDir) query.sortDir = params.sortDir;
 
-    return this.http.get<PagedResult<UserRow>>(`${environment.apiBaseUrl}/api/admin/users`, { params: query });
+    return this.http.get<PagedResult<UserRow>>(`${environment.apiBaseUrl}/api/v1/admin/users`, { params: query });
   }
 
   // Advanced user directory: global search + filters + pagination + optional grouping
@@ -134,19 +134,19 @@ export class AdminApiService {
       query.groupByClient = String(params.groupByClient);
     }
 
-    return this.http.get<UserDirectoryResponse>(`${environment.apiBaseUrl}/api/admin/users/directory`, { params: query });
+    return this.http.get<UserDirectoryResponse>(`${environment.apiBaseUrl}/api/v1/admin/users/directory`, { params: query });
   }
 
   createUser(payload: { roleId: string; clientId?: string; ownerCcoId?: string; name: string; email: string; mobile?: string | null; password: string }) {
-    return this.http.post(`${environment.apiBaseUrl}/api/admin/users`, payload);
+    return this.http.post(`${environment.apiBaseUrl}/api/v1/admin/users`, payload);
   }
 
   updateUserStatus(id: string, isActive: boolean) {
-    return this.http.patch(`${environment.apiBaseUrl}/api/admin/users/${id}/status`, { isActive });
+    return this.http.patch(`${environment.apiBaseUrl}/api/v1/admin/users/${id}/status`, { isActive });
   }
 
   deleteUser(id: string) {
-    return this.http.delete(`${environment.apiBaseUrl}/api/admin/users/${id}`);
+    return this.http.delete(`${environment.apiBaseUrl}/api/v1/admin/users/${id}`);
   }
 
   // Client users with linked client info
@@ -160,7 +160,7 @@ export class AdminApiService {
       userName: string;
       userEmail: string;
       userMobile: string | null;
-    }>>(`${environment.apiBaseUrl}/api/admin/client-users-with-client`);
+    }>>(`${environment.apiBaseUrl}/api/v1/admin/client-users-with-client`);
   }
 
   // Contractor links (client + branches per contractor user)
@@ -172,26 +172,26 @@ export class AdminApiService {
       clientId: string | null;
       clientName: string | null;
       branches: { id: string; name: string }[];
-    }>>(`${environment.apiBaseUrl}/api/admin/contractors/links`);
+    }>>(`${environment.apiBaseUrl}/api/v1/admin/contractors/links`);
   }
 
   // Assignments API
   listCrmAssignments() {
-    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/admin/assignments/crm`);
+    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/assignments/crm`);
   }
 
   // UUID payloads
   assignCrm(payload: { clientId: string; crmId: string }) {
-    return this.http.post(`${environment.apiBaseUrl}/api/admin/assignments/crm`, payload);
+    return this.http.post(`${environment.apiBaseUrl}/api/v1/admin/assignments/crm`, payload);
   }
 
   listAuditorAssignments() {
-    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/admin/assignments/auditor`);
+    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/assignments/auditor`);
   }
 
   // UUID payloads
   assignAuditor(payload: { clientId: string; auditorId: string }) {
-    return this.http.post(`${environment.apiBaseUrl}/api/admin/assignments/auditor`, payload);
+    return this.http.post(`${environment.apiBaseUrl}/api/v1/admin/assignments/auditor`, payload);
   }
 
 
@@ -201,27 +201,27 @@ export class AdminApiService {
     if (params?.clientId) httpParams = httpParams.set('clientId', params.clientId);
     if (params?.auditorUserId) httpParams = httpParams.set('auditorUserId', params.auditorUserId);
     if (params?.branchId) httpParams = httpParams.set('branchId', params.branchId);
-    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/admin/assignments/branch-auditors`, { params: httpParams });
+    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/assignments/branch-auditors`, { params: httpParams });
   }
 
   assignAuditorToBranch(payload: { clientId: string; branchId: string; auditorId: string }) {
-    return this.http.post(`${environment.apiBaseUrl}/api/admin/assignments/branch-auditors`, payload);
+    return this.http.post(`${environment.apiBaseUrl}/api/v1/admin/assignments/branch-auditors`, payload);
   }
 
   endBranchAuditorAssignment(id: string) {
-    return this.http.delete(`${environment.apiBaseUrl}/api/admin/assignments/branch-auditors/${id}`);
+    return this.http.delete(`${environment.apiBaseUrl}/api/v1/admin/assignments/branch-auditors/${id}`);
   }
 
 
   // Clients (used by assignments UI)
   getClients() {
     // Admin scope (do not call CCO routes from Admin UI)
-    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/admin/clients`);
+    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/clients`);
   }
 
   // Clients (master data - company list)
   getAdminClients() {
-    return this.http.get<Array<{id: string, clientName: string}>>(`${environment.apiBaseUrl}/api/admin/clients`);
+    return this.http.get<Array<{id: string, clientName: string}>>(`${environment.apiBaseUrl}/api/v1/admin/clients`);
   }
 
   // Branches for a given client (admin scope), used for filters
@@ -235,7 +235,7 @@ export class AdminApiService {
       employeeCount: number;
       contractorCount: number;
       status: string;
-    }>>(`${environment.apiBaseUrl}/api/admin/clients/${clientId}/branches`);
+    }>>(`${environment.apiBaseUrl}/api/v1/admin/clients/${clientId}/branches`);
   }
 
   assignClient(clientId: string, payload: { crmId: string | null; auditorId: string | null }) {
@@ -270,10 +270,10 @@ export class AdminApiService {
       entityLabel?: string | null;
       requestedByUserName?: string | null;
       requestedByUserEmail?: string | null;
-    }>>(`${environment.apiBaseUrl}/api/approvals/pending`);
+    }>>(`${environment.apiBaseUrl}/api/v1/approvals/pending`);
   }
 
   approveDeletionRequest(id: string) {
-    return this.http.post(`${environment.apiBaseUrl}/api/approvals/${id}/approve`, {});
+    return this.http.post(`${environment.apiBaseUrl}/api/v1/approvals/${id}/approve`, {});
   }
 }

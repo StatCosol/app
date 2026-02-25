@@ -2,18 +2,20 @@ import { Component, ChangeDetectorRef, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { Subject, combineLatest } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { ClientContractorsService } from '../../../core/client-contractors.service';
-import { StatusBadgeComponent } from '../../../shared/ui';
+import { StatusBadgeComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 
 @Component({
   standalone: true,
   selector: 'app-client-contractors-branch',
-  imports: [CommonModule, FormsModule, StatusBadgeComponent],
+  imports: [CommonModule, FormsModule, StatusBadgeComponent, LoadingSpinnerComponent],
   templateUrl: './client-contractors-branch.component.html',
   styleUrls: ['./client-contractors.component.scss'],
 })
 export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   branchId = '';
   branchName = '';
 
@@ -47,19 +49,20 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe((p) => {
+    combineLatest([
+      this.route.paramMap,
+      this.route.queryParamMap,
+    ]).pipe(takeUntil(this.destroy$)).subscribe(([p, qp]) => {
       this.branchId = p.get('branchId') || '';
       if (!this.branchId) {
         this.router.navigate(['/client/contractors']);
         return;
       }
-      this.route.queryParamMap.subscribe((qp) => {
-        const qMonth = qp.get('month');
-        this.month = qMonth || this.month;
-        this.fromMonth = this.month;
-        this.toMonth = this.month;
-        this.refreshAll();
-      });
+      const qMonth = qp.get('month');
+      this.month = qMonth || this.month;
+      this.fromMonth = this.month;
+      this.toMonth = this.month;
+      this.refreshAll();
     });
 
     this.refreshTimer = setInterval(() => {
@@ -71,6 +74,8 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
     }
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   currentMonth(): string {
@@ -92,6 +97,7 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
     this.api
       .getBranchDashboard(this.branchId, this.month)
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loadingBranch = false;
           this.cdr.detectChanges();
@@ -101,9 +107,13 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           this.branchView = res;
           this.branchName = res?.branchName || '';
+          this.loadingBranch = false;
+          this.cdr.detectChanges();
         },
         error: () => {
+          this.loadingBranch = false;
           this.branchView = null;
+          this.cdr.detectChanges();
         },
       });
   }
@@ -113,6 +123,7 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
     this.api
       .getContractors({ branchId: this.branchId, month: this.month })
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loadingContractors = false;
           this.cdr.detectChanges();
@@ -121,9 +132,13 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: any) => {
           this.contractors = res || [];
+          this.loadingContractors = false;
+          this.cdr.detectChanges();
         },
         error: () => {
+          this.loadingContractors = false;
           this.contractors = [];
+          this.cdr.detectChanges();
         },
       });
   }
@@ -151,14 +166,23 @@ export class ClientContractorsBranchComponent implements OnInit, OnDestroy {
     this.api
       .getContractorTrend(this.contractorId, this.fromMonth, this.toMonth)
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loadingTrend = false;
           this.cdr.detectChanges();
         }),
       )
       .subscribe({
-        next: (res: any) => (this.trend = res || []),
-        error: () => (this.trend = []),
+        next: (res: any) => {
+          this.trend = res || [];
+          this.loadingTrend = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.loadingTrend = false;
+          this.trend = [];
+          this.cdr.detectChanges();
+        },
       });
   }
 

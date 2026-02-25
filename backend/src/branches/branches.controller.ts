@@ -60,16 +60,11 @@ export class BranchesController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: any,
-    @Query('recomputeCompliances') recomputeCompliances?: string,
   ) {
-    return this.service.update(id, dto).then(async (updated) => {
-      const shouldRecompute = recomputeCompliances !== 'false';
-      if (shouldRecompute) {
-        await this.compliancesService.recomputeBranchComplianceApplicability(
-          id,
-        );
-      }
-      return { ok: true, branch: updated, recomputed: shouldRecompute };
+    // recomputeForBranch() is already called inside service.update(),
+    // so we do NOT call recomputeBranchComplianceApplicability here.
+    return this.service.update(id, dto).then((updated) => {
+      return { ok: true, branch: updated };
     });
   }
 

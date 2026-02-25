@@ -3,11 +3,12 @@ import { catchError, finalize, of } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NotificationsService } from '../../../core/notifications.service';
+import { LoadingSpinnerComponent, ActionButtonComponent, StatusBadgeComponent } from '../../ui';
 
 @Component({
   selector: 'app-notification-inbox',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, ActionButtonComponent, StatusBadgeComponent],
   templateUrl: './inbox.component.html',
   styleUrls: ['./inbox.component.scss'],
 })

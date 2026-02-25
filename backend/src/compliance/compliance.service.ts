@@ -24,6 +24,7 @@ import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Cron } from '@nestjs/schedule';
 import { EmailService } from '../email/email.service';
+import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 
 @Injectable()
 export class ComplianceService {
@@ -52,6 +53,7 @@ export class ComplianceService {
     private readonly usersService: UsersService,
     private readonly notifications: NotificationsService,
     private readonly email: EmailService,
+    private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
   // Common: list compliance master entries for admin/frontends
@@ -910,6 +912,9 @@ export class ComplianceService {
       { status: 'APPROVED', remarks: remarks ?? t.remarks ?? null },
     );
 
+    // Invalidate risk cache for this branch
+    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
+
     const clientUser = await this.users.findOne({
       where: { clientId: t.clientId },
     });
@@ -944,6 +949,9 @@ export class ComplianceService {
       { id: taskIdNum },
       { status: 'REJECTED', remarks: remarks.trim() },
     );
+
+    // Invalidate risk cache for this branch
+    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
 
     if (t.assignedToUserId) {
       // TODO: Implement notification ticket creation for task rejection with new notification system
@@ -1125,6 +1133,9 @@ export class ComplianceService {
       throw new BadRequestException('Cannot submit from current status');
 
     await this.tasks.update({ id: taskIdNum }, { status: 'SUBMITTED' });
+
+    // Invalidate risk cache for this branch
+    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
 
     if (t.assignedByUserId) {
       // TODO: Implement notification ticket creation for task submission with new notification system
@@ -1496,6 +1507,9 @@ export class ComplianceService {
 
     await this.tasks.update({ id: taskIdNum }, { status: 'SUBMITTED' });
 
+    // Invalidate risk cache for this branch
+    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
+
     const mcdItems = await this.mcdItems.find({ where: { taskId: taskIdNum } });
     if (mcdItems.length) {
       await this.mcdItems.update(
@@ -1648,7 +1662,7 @@ export class ComplianceService {
 
     const qb = this.reuploadReqRepo
       .createQueryBuilder('req')
-      .where('req.contractorId = :uid', { uid: user.userId })
+      .where('req.contractorUserId = :uid', { uid: user.userId })
       .andWhere('req.targetRole = :role', { role: 'CONTRACTOR' });
 
     if (filters.status) {
@@ -1699,7 +1713,7 @@ export class ComplianceService {
       throw new NotFoundException('Reupload request not found');
     }
 
-    if (String(request.contractorId) !== String(user.userId)) {
+    if (String(request.contractorUserId) !== String(user.userId)) {
       throw new ForbiddenException('Not your request');
     }
 
@@ -1766,7 +1780,7 @@ export class ComplianceService {
       throw new NotFoundException('Reupload request not found');
     }
 
-    if (String(request.contractorId) !== String(user.userId)) {
+    if (String(request.contractorUserId) !== String(user.userId)) {
       throw new ForbiddenException('Not your request');
     }
 

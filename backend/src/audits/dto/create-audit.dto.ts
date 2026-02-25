@@ -14,6 +14,10 @@ export class CreateAuditDto {
 
   @IsOptional()
   @IsString()
+  branchId?: string | null;
+
+  @IsOptional()
+  @IsString()
   contractorUserId?: string | null;
 
   @IsEnum(Frequency)

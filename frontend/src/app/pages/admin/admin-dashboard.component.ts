@@ -1,9 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { finalize, timeout } from 'rxjs/operators';
+import { forkJoin, Subject, of } from 'rxjs';
+import { finalize, timeout, takeUntil, catchError } from 'rxjs/operators';
 
 import { AdminDashboardService } from './dashboard/admin-dashboard.service';
 import {
@@ -50,7 +50,8 @@ type Range = '7d' | '30d' | '90d';
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss'],
 })
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   dateRange: Range = '30d';
 
   clientId: string | null = null;
@@ -61,7 +62,14 @@ export class AdminDashboardComponent implements OnInit {
   clients: Array<{ id: string; name: string }> = [];
   states: string[] = ['AP', 'DL', 'GJ', 'KA', 'MH', 'RJ', 'TN', 'TS'];
 
-  loading = false;
+  // Cached select options (avoid recreating arrays every CD cycle → NG0103)
+  cachedClientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
+  cachedStateOptions: SelectOption[] = [
+    { value: null, label: 'All States' },
+    ...['AP', 'DL', 'GJ', 'KA', 'MH', 'RJ', 'TN', 'TS'].map(s => ({ value: s, label: s })),
+  ];
+
+  loading = true;
   errorMsg = '';
   sendingDigest = false;
   sendingAlerts = false;
@@ -95,18 +103,19 @@ export class AdminDashboardComponent implements OnInit {
     { key: 'asgActions', header: '', sortable: false, width: '100px', align: 'right' },
   ];
 
-  // Select options for shared form components
+  // Select options — return cached arrays to avoid NG0103
   get clientOptions(): SelectOption[] {
-    return [
-      { value: null, label: 'All Clients' },
-      ...this.clients.map(c => ({ value: c.id, label: c.name })),
-    ];
+    return this.cachedClientOptions;
   }
 
   get stateOptions(): SelectOption[] {
-    return [
-      { value: null, label: 'All States' },
-      ...this.states.map(s => ({ value: s, label: s })),
+    return this.cachedStateOptions;
+  }
+
+  private rebuildClientOptions(): void {
+    this.cachedClientOptions = [
+      { value: null, label: 'All Clients' },
+      ...this.clients.map(c => ({ value: c.id, label: c.name })),
     ];
   }
 
@@ -122,6 +131,11 @@ export class AdminDashboardComponent implements OnInit {
     this.loadAll();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   setRange(r: Range) {
     this.dateRange = r;
     this.loadAll();
@@ -134,28 +148,19 @@ export class AdminDashboardComponent implements OnInit {
     const summaryParams = this.buildSummaryParams();
 
     forkJoin({
-      summary: this.dash.getSummary(summaryParams).pipe(timeout(8000)),
-      stats: this.dash.getStats(this.dateRange).pipe(timeout(8000)),
-      taskStatus: this.dash.getTaskStatus(this.dateRange).pipe(timeout(8000)),
-      trend: this.dash.getSlaTrend(this.dateRange).pipe(timeout(8000)),
-      crmLoad: this.dash.getCrmLoad().pipe(timeout(8000)),
-      auditorLoad: this.dash.getAuditorLoad().pipe(timeout(8000)),
-      attention: this.dash.getAttention(this.dateRange).pipe(timeout(8000)),
+      summary: this.dash.getSummary(summaryParams).pipe(timeout(8000), catchError(() => of(null as AdminDashboardSummaryDto | null))),
+      stats: this.dash.getStats(this.dateRange).pipe(timeout(8000), catchError(() => of(null as AdminStatsDto | null))),
+      taskStatus: this.dash.getTaskStatus(this.dateRange).pipe(timeout(8000), catchError(() => of(null as TaskStatusDto | null))),
+      trend: this.dash.getSlaTrend(this.dateRange).pipe(timeout(8000), catchError(() => of({ values: [] as number[] }))),
+      crmLoad: this.dash.getCrmLoad().pipe(timeout(8000), catchError(() => of([] as LoadRowDto[]))),
+      auditorLoad: this.dash.getAuditorLoad().pipe(timeout(8000), catchError(() => of([] as LoadRowDto[]))),
+      attention: this.dash.getAttention(this.dateRange).pipe(timeout(8000), catchError(() => of([] as AttentionItemDto[]))),
     })
-    .pipe(finalize(() => {
-      this.loading = false;
-      this.cdr.markForCheck();
-    }))
+    .pipe(
+      takeUntil(this.destroy$),
+    )
     .subscribe({
-      next: (res: {
-        summary: AdminDashboardSummaryDto;
-        stats: AdminStatsDto;
-        taskStatus: TaskStatusDto;
-        trend: { values: number[] };
-        crmLoad: LoadRowDto[];
-        auditorLoad: LoadRowDto[];
-        attention: AttentionItemDto[];
-      }) => {
+      next: (res) => {
         this.summary = res.summary
           ? {
               ...res.summary,
@@ -176,9 +181,11 @@ export class AdminDashboardComponent implements OnInit {
         this.crmLoad = res.crmLoad ?? [];
         this.auditorLoad = res.auditorLoad ?? [];
         this.attention = res.attention ?? [];
+        this.loading = false;
         this.cdr.markForCheck();
       },
       error: () => {
+        this.loading = false;
         this.errorMsg = 'Failed to load live dashboard data.';
         this.summary = null;
         this.stats = null;
@@ -225,7 +232,7 @@ export class AdminDashboardComponent implements OnInit {
   sendDigestNow(): void {
     if (this.sendingDigest) return;
     this.sendingDigest = true;
-    this.dash.sendDigestNow().subscribe({
+    this.dash.sendDigestNow().pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.sendingDigest = false; this.toast.success('Digest sent successfully'); },
       error: () => { this.sendingDigest = false; this.toast.error('Failed to send digest'); },
     });
@@ -234,7 +241,7 @@ export class AdminDashboardComponent implements OnInit {
   sendCriticalAlertsNow(): void {
     if (this.sendingAlerts) return;
     this.sendingAlerts = true;
-    this.dash.sendCriticalAlertsNow().subscribe({
+    this.dash.sendCriticalAlertsNow().pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.sendingAlerts = false; this.toast.success('Critical alerts sent'); },
       error: () => { this.sendingAlerts = false; this.toast.error('Failed to send critical alerts'); },
     });
@@ -250,13 +257,15 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   private loadClients(): void {
-    this.dash.getClientsMinimal().subscribe({
+    this.dash.getClientsMinimal().pipe(takeUntil(this.destroy$)).subscribe({
       next: (rows) => {
         this.clients = rows ?? [];
+        this.rebuildClientOptions();
         this.cdr.markForCheck();
       },
       error: () => {
         this.clients = [];
+        this.rebuildClientOptions();
         this.cdr.markForCheck();
       }
     });

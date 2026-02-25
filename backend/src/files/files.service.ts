@@ -31,7 +31,7 @@ export class FilesService {
     // 1) contractor_documents
     const cd = await this.cdRepo.findOne({ where: { filePath } });
     if (cd) {
-      if (user.roleCode === 'CONTRACTOR' && user.id !== cd.contractorId)
+      if (user.roleCode === 'CONTRACTOR' && user.id !== cd.contractorUserId)
         throw new ForbiddenException();
       if (user.roleCode === 'CLIENT' && user.clientId !== cd.clientId)
         throw new ForbiddenException();

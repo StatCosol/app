@@ -89,17 +89,17 @@ export class ContractorDashboardService {
     if (!contractorIds.length) return new Map<string, number>();
     const qb = this.requiredRepo
       .createQueryBuilder('r')
-      .select('r.contractor_id', 'contractorId')
+      .select('r.contractor_user_id', 'contractorId')
       .addSelect('COUNT(*)', 'requiredCount')
       .where('r.client_id = :clientId', { clientId })
-      .andWhere('r.contractor_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('r.contractor_user_id IN (:...contractorIds)', { contractorIds })
       .andWhere('r.is_required = TRUE');
     if (branchIds && branchIds.length) {
       qb.andWhere('(r.branch_id IS NULL OR r.branch_id IN (:...branchIds))', {
         branchIds,
       });
     }
-    const rows = await qb.groupBy('r.contractor_id').getRawMany();
+    const rows = await qb.groupBy('r.contractor_user_id').getRawMany();
     const map = new Map<string, number>();
     rows.forEach((r: any) =>
       map.set(String(r.contractorId), Number(r.requiredCount || 0)),
@@ -117,7 +117,7 @@ export class ContractorDashboardService {
     if (!contractorIds.length) return new Map<string, any>();
     const qb = this.docRepo
       .createQueryBuilder('d')
-      .select('d.contractor_id', 'contractorId')
+      .select('d.contractor_user_id', 'contractorId')
       .addSelect('COUNT(DISTINCT d.doc_type)', 'uploadedDistinct')
       .addSelect(
         "SUM(CASE WHEN d.status = 'REJECTED' THEN 1 ELSE 0 END)",
@@ -128,12 +128,12 @@ export class ContractorDashboardService {
         'expiredCount',
       )
       .where('d.client_id = :clientId', { clientId })
-      .andWhere('d.contractor_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('d.contractor_user_id IN (:...contractorIds)', { contractorIds })
       .andWhere('d.created_at BETWEEN :start AND :end', { start, end });
     if (branchIds.length) {
       qb.andWhere('d.branch_id IN (:...branchIds)', { branchIds });
     }
-    const rows = await qb.groupBy('d.contractor_id').getRawMany();
+    const rows = await qb.groupBy('d.contractor_user_id').getRawMany();
     const map = new Map<string, any>();
     rows.forEach((r: any) =>
       map.set(String(r.contractorId), {
@@ -155,7 +155,7 @@ export class ContractorDashboardService {
     if (!contractorIds.length) return new Map<string, any>();
     const qb = this.docRepo
       .createQueryBuilder('d')
-      .select('d.contractor_id', 'contractorId')
+      .select('d.contractor_user_id', 'contractorId')
       .addSelect('COUNT(*)', 'totalDocs')
       .addSelect(
         "SUM(CASE WHEN d.status = 'APPROVED' THEN 1 ELSE 0 END)",
@@ -179,14 +179,14 @@ export class ContractorDashboardService {
       )
       .addSelect('COUNT(DISTINCT d.doc_type)', 'uploadedDistinct')
       .where('d.client_id = :clientId', { clientId })
-      .andWhere('d.contractor_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('d.contractor_user_id IN (:...contractorIds)', { contractorIds })
       .andWhere('d.created_at BETWEEN :start AND :end', { start, end });
 
     if (branchIds.length) {
       qb.andWhere('d.branch_id IN (:...branchIds)', { branchIds });
     }
 
-    const rows = await qb.groupBy('d.contractor_id').getRawMany();
+    const rows = await qb.groupBy('d.contractor_user_id').getRawMany();
     const map = new Map<string, any>();
     rows.forEach((r: any) =>
       map.set(String(r.contractorId), {
@@ -533,7 +533,7 @@ export class ContractorDashboardService {
     const rangeEnd = lastMonth.end;
 
     const requiredCount = await this.requiredRepo.count({
-      where: { clientId, contractorId, isRequired: true },
+      where: { clientId, contractorUserId: contractorId, isRequired: true },
     });
 
     const rows = await this.docRepo
@@ -549,7 +549,7 @@ export class ContractorDashboardService {
         'expiredCount',
       )
       .where('d.client_id = :clientId', { clientId })
-      .andWhere('d.contractor_id = :contractorId', { contractorId })
+      .andWhere('d.contractor_user_id = :contractorId', { contractorId })
       .andWhere('d.created_at BETWEEN :start AND :end', {
         start: rangeStart,
         end: rangeEnd,

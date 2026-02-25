@@ -22,16 +22,16 @@ export class ReportsService {
 
   summary(params: any): Observable<any> {
     const p = this.buildParams(params);
-    return this.http.get(`${this.baseUrl}/api/reports/compliance-summary`, { params: p });
+    return this.http.get(`${this.baseUrl}/api/v1/reports/compliance-summary`, { params: p });
   }
 
   overdue(params: any): Observable<any> {
     const p = this.buildParams(params);
-    return this.http.get(`${this.baseUrl}/api/reports/overdue`, { params: p });
+    return this.http.get(`${this.baseUrl}/api/v1/reports/overdue`, { params: p });
   }
 
   contractorPerf(params: any): Observable<any> {
     const p = this.buildParams(params);
-    return this.http.get(`${this.baseUrl}/api/reports/contractor-performance`, { params: p });
+    return this.http.get(`${this.baseUrl}/api/v1/reports/contractor-performance`, { params: p });
   }
 }

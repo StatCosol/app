@@ -1,4 +1,4 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header 
     title="Payroll Assignments" 
     description="Assign payroll users to clients"
@@ -20,13 +20,13 @@
           [options]="payrollUserSelectOptions">
       </ui-form-select>
       <div class="flex items-end gap-2">
-        <ui-button variant="primary" (click)="assign()" [disabled]="loading || !canAssign()" class="flex-grow">
+        <ui-button variant="primary" (clicked)="assign()" [disabled]="loading || !canAssign()" class="flex-grow">
           <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
           </svg>
           Assign
         </ui-button>
-        <ui-button variant="secondary" (click)="loadAll()" [disabled]="loading">
+        <ui-button variant="secondary" (clicked)="loadAll()" [disabled]="loading">
           <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -66,7 +66,7 @@
       </ng-template>
       
       <ng-template uiTableCell="actions" let-row>
-        <ui-button variant="secondary" size="sm" (click)="unassign(row)" [disabled]="loading">
+        <ui-button variant="secondary" size="sm" (clicked)="unassign(row)" [disabled]="loading">
           <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -81,4 +81,4 @@
       icon="currency-dollar">
     </ui-empty-state>
   </div>
-</main>
+</div>

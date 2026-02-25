@@ -36,6 +36,7 @@ import { PayrollClientPayslipLayoutEntity } from './entities/payroll-client-pays
 import { PayrollTemplate } from './entities/payroll-template.entity';
 import { PayrollTemplateComponent } from './entities/payroll-template-component.entity';
 import { PayrollClientTemplate } from './entities/payroll-client-template.entity';
+import { PayrollClientSettings } from './entities/payroll-client-settings.entity';
 import { AuditEntity } from '../audits/entities/audit.entity';
 
 @Injectable()
@@ -71,6 +72,8 @@ export class PayrollService {
     private readonly templateCompRepo: Repository<PayrollTemplateComponent>,
     @InjectRepository(PayrollClientTemplate)
     private readonly clientTemplateRepo: Repository<PayrollClientTemplate>,
+    @InjectRepository(PayrollClientSettings)
+    private readonly clientSettingsRepo: Repository<PayrollClientSettings>,
     @InjectRepository(AuditEntity)
     private readonly auditRepo: Repository<AuditEntity>,
     private readonly notificationsSvc: NotificationsService,
@@ -211,6 +214,60 @@ export class PayrollService {
     if (!isClient || isBranchUser) {
       throw new BadRequestException('Only client master users can access payroll');
     }
+  }
+
+  /** Allows both MASTER and BRANCH client users */
+  private ensureClientOrBranchUser(user: any) {
+    const isClient = !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
+    if (!isClient) {
+      throw new BadRequestException('Only client users can access this resource');
+    }
+  }
+
+  private async getClientAccessToggles(clientId: string): Promise<{
+    allowBranchWageRegisters: boolean;
+    allowBranchSalaryRegisters: boolean;
+  }> {
+    const row = await this.clientSettingsRepo.findOne({ where: { clientId } });
+    const s = (row?.settings || {}) as Record<string, any>;
+    return {
+      allowBranchWageRegisters: s.allowBranchWageRegisters === true,
+      allowBranchSalaryRegisters: s.allowBranchSalaryRegisters === true,
+    };
+  }
+
+  async clientGetPayrollSettings(user: any) {
+    this.ensureClientOrBranchUser(user);
+    const toggles = await this.getClientAccessToggles(user.clientId);
+    return { clientId: user.clientId, ...toggles };
+  }
+
+  async clientUpdatePayrollSettings(user: any, dto: any) {
+    this.ensureClientOrBranchUser(user);
+    if (user.userType !== 'MASTER') {
+      throw new ForbiddenException('Only client master users can update settings');
+    }
+
+    const existing = await this.clientSettingsRepo.findOne({
+      where: { clientId: user.clientId },
+    });
+
+    const next = {
+      ...(existing?.settings || {}),
+      allowBranchWageRegisters: dto?.allowBranchWageRegisters === true,
+      allowBranchSalaryRegisters: dto?.allowBranchSalaryRegisters === true,
+    };
+
+    const row = existing
+      ? Object.assign(existing, { settings: next, updatedBy: user.userId })
+      : this.clientSettingsRepo.create({
+          clientId: user.clientId,
+          settings: next,
+          updatedBy: user.userId,
+        });
+
+    await this.clientSettingsRepo.save(row);
+    return { clientId: user.clientId, ...next };
   }
 
   private async assertPayrollAccessToClient(
@@ -898,7 +955,7 @@ export class PayrollService {
   }
 
   async clientListRegistersRecords(user: any, q: any) {
-    this.ensureClientUser(user);
+    this.ensureClientOrBranchUser(user);
     const qb = this.rrRepo
       .createQueryBuilder('r')
       .where('r.client_id = :cid', { cid: user.clientId })
@@ -910,6 +967,20 @@ export class PayrollService {
         qb.andWhere('r.branch_id = :ub', { ub: user.branchId });
       }
       qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
+
+      // Enforce wage/salary register restrictions
+      const toggles = await this.getClientAccessToggles(user.clientId);
+
+      if (!toggles.allowBranchWageRegisters) {
+        qb.andWhere(
+          `NOT (LOWER(r.title) LIKE '%wage%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%wage%')`,
+        );
+      }
+      if (!toggles.allowBranchSalaryRegisters) {
+        qb.andWhere(
+          `NOT (LOWER(r.title) LIKE '%salary%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%salary%')`,
+        );
+      }
     }
 
     if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
@@ -1052,9 +1123,10 @@ export class PayrollService {
 
     let assignedClients = 0;
     if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
-      assignedClients = await this.clientRepo.count({
-        where: { is_deleted: false } as any,
-      });
+      assignedClients = await this.clientRepo
+        .createQueryBuilder('c')
+        .where('c.is_deleted = false')
+        .getCount();
     } else {
       assignedClients = await this.assignRepo.count({
         where: { payrollUserId: user.id, status: 'ACTIVE', endDate: IsNull() },
@@ -1349,7 +1421,7 @@ export class PayrollService {
    * Only approved registers can be downloaded by clients.
    */
   async downloadRegisterForClient(user: any, registerId: string) {
-    this.ensureClientUser(user);
+    this.ensureClientOrBranchUser(user);
     const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
     if (!row) throw new BadRequestException('Register not found');
     if (row.clientId !== user.clientId)
@@ -1361,6 +1433,19 @@ export class PayrollService {
       }
       if (row.approvalStatus !== 'APPROVED') {
         throw new ForbiddenException('Register is not yet approved for download');
+      }
+
+      // Enforce wage/salary register download restrictions
+      const toggles = await this.getClientAccessToggles(user.clientId);
+
+      const title = String(row.title || '').toLowerCase();
+      const rtype = String(row.registerType || '').toLowerCase();
+
+      if (!toggles.allowBranchWageRegisters && (title.includes('wage') || rtype.includes('wage'))) {
+        throw new ForbiddenException('Wage registers are restricted for branch users');
+      }
+      if (!toggles.allowBranchSalaryRegisters && (title.includes('salary') || rtype.includes('salary'))) {
+        throw new ForbiddenException('Salary registers are restricted for branch users');
       }
     }
     // Master users can download any status
@@ -1826,5 +1911,33 @@ export class PayrollService {
 
     const buffer = fs.readFileSync(row.filePath);
     return { fileName: row.fileName, fileType: row.fileType, buffer };
+  }
+
+  // --- Templates listing ---
+  async listTemplates() {
+    const items = await this.templateRepo.find({
+      order: { name: 'ASC' },
+      relations: ['components'],
+    });
+    return { items, total: items.length };
+  }
+
+  // --- Payslips listing ---
+  async listPayslips(user: any, q: any) {
+    try {
+      const qb = this.payslipArchiveRepo.createQueryBuilder('p');
+      if (q?.clientId) qb.andWhere('p.client_id = :cid', { cid: q.clientId });
+      if (q?.month && q?.year) {
+        qb.andWhere('p.period_month = :m AND p.period_year = :y', {
+          m: Number(q.month),
+          y: Number(q.year),
+        });
+      }
+      qb.orderBy('p.created_at', 'DESC').take(200);
+      const items = await qb.getMany();
+      return { items, total: items.length };
+    } catch {
+      return { items: [], total: 0 };
+    }
   }
 }

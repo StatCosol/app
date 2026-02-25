@@ -42,7 +42,7 @@
         <div class="flex gap-3">
           <ui-button
             variant="primary"
-            (click)="assign()"
+            (clicked)="assign()"
             [disabled]="loading"
             class="flex-grow">
             {{ loading ? 'Processing...' : (isEditMode ? 'Update' : 'Assign') }}
@@ -50,7 +50,7 @@
           <ui-button
             *ngIf="isEditMode"
             variant="secondary"
-            (click)="resetForm()"
+            (clicked)="resetForm()"
             [disabled]="loading">
             Cancel
           </ui-button>
@@ -62,13 +62,7 @@
     <div class="card">
       <h3 class="text-xl font-semibold text-gray-900 mb-6">Current Assignments</h3>
 
-      <div *ngIf="loading && currentAssignments.length === 0" class="flex items-center justify-center py-8">
-        <svg class="animate-spin h-8 w-8 text-statco-blue-light mr-3" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-gray-600">Loading assignments...</span>
-      </div>
+      <ui-loading-spinner *ngIf="loading && currentAssignments.length === 0" text="Loading assignments..."></ui-loading-spinner>
 
       <ui-data-table
         [columns]="currentAssignmentsColumns"
@@ -105,8 +99,8 @@
         <!-- Actions -->
         <ng-template uiTableCell="actions" let-row>
           <div class="flex justify-end gap-2">
-            <ui-button variant="secondary" size="sm" (click)="openEdit(row)">Edit</ui-button>
-            <ui-button variant="danger" size="sm" (click)="remove(row)" [disabled]="removingClientId === row.clientId">{{ removingClientId === row.clientId ? 'Removing...' : 'Delete' }}</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="openEdit(row)">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="remove(row)" [disabled]="removingClientId === row.clientId">{{ removingClientId === row.clientId ? 'Removing...' : 'Delete' }}</ui-button>
           </div>
         </ng-template>
         

@@ -91,13 +91,13 @@
               <td class="px-4 py-3 text-right text-sm text-gray-800 space-y-2">
                 <div class="flex items-center gap-2 justify-end">
                   <input type="file" class="hidden" #fileInput accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(t, $event)" />
-                  <button
-                    class="btn-secondary"
+                  <ui-button
+                    variant="secondary"
                     [disabled]="statusBlocked(t) || uploading[t.id] || !isWindowOpen(t)"
-                    (click)="fileInput.click()"
+                    (clicked)="fileInput.click()"
                   >
                     {{ uploading[t.id] ? 'Uploading...' : 'Upload file' }}
-                  </button>
+                  </ui-button>
                   <input
                     class="form-input w-40"
                     placeholder="Notes (optional)"
@@ -105,13 +105,13 @@
                     [disabled]="statusBlocked(t)"
                   />
                 </div>
-                <button
-                  class="btn-primary w-full"
+                <ui-button
+                  variant="primary" [fullWidth]="true"
                     [disabled]="statusBlocked(t) || t.evidenceCount < 1 || submitting[t.id] || !isWindowOpen(t)"
-                  (click)="submit(t)"
+                  (clicked)="submit(t)"
                 >
                   {{ submitting[t.id] ? 'Submitting...' : 'Submit to CRM' }}
-                </button>
+                </ui-button>
               </td>
             </tr>
             <tr>
@@ -145,13 +145,13 @@
                   </div>
                   <div class="flex items-center gap-2 flex-wrap">
                     <input type="file" class="hidden" #itemFile accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onItemFileSelected(t, item, $event)" />
-                    <button
-                      class="btn-secondary"
+                    <ui-button
+                      variant="secondary"
                       [disabled]="statusBlocked(t) || uploadingItem[t.id + '-' + item.id] || !isWindowOpen(t)"
-                      (click)="itemFile.click()"
+                      (clicked)="itemFile.click()"
                     >
                       {{ uploadingItem[t.id + '-' + item.id] ? 'Uploading...' : 'Upload' }}
-                    </button>
+                    </ui-button>
                     <input
                       class="form-input w-40"
                       placeholder="Notes (optional)"

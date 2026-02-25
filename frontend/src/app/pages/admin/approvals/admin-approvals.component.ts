@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { AdminApprovalsService } from '../../../core/admin-approvals.service';
 import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, LoadingSpinnerComponent, EmptyStateComponent } from '../../../shared/ui';
 
@@ -66,8 +67,9 @@ import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, Loadi
     </div>
   `
 })
-export class AdminApprovalsComponent implements OnInit {
-  loading = false;
+export class AdminApprovalsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  loading = true;
   actionId: string | null = null;
   filter: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING';
   requests: any[] = [];
@@ -80,8 +82,13 @@ export class AdminApprovalsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadCounts() {
-    this.api.getCounts().subscribe({
+    this.api.getCounts().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.counts = res || this.counts;
         this.cdr.detectChanges();
@@ -93,6 +100,7 @@ export class AdminApprovalsComponent implements OnInit {
     this.loading = true;
     this.api.list(this.filter).pipe(
       timeout(10000),
+      takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
@@ -107,7 +115,7 @@ export class AdminApprovalsComponent implements OnInit {
     if (this.actionId) return;
     const notes = prompt('Approval notes (optional):');
     this.actionId = id;
-    this.api.approve(id, notes || '').subscribe({
+    this.api.approve(id, notes || '').pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionId = null;
         this.cdr.detectChanges();
@@ -123,7 +131,7 @@ export class AdminApprovalsComponent implements OnInit {
     const notes = prompt('Rejection reason:');
     if (!notes) { return; }
     this.actionId = id;
-    this.api.reject(id, notes).subscribe({
+    this.api.reject(id, notes).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionId = null;
         this.cdr.detectChanges();

@@ -39,7 +39,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
   private allSub?: Subscription;
   private metaSub?: Subscription;
   private readonly destroy$ = new Subject<void>();
-  loading = false;
+  loading = true;
   month = new Date().getMonth() + 1;
   year = new Date().getFullYear();
   selectedBranchId = '';
@@ -120,6 +120,23 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     { value: 'CLRA', label: 'CLRA' },
   ];
 
+  // Static options — must NOT be inline arrays in template (new refs every CD cycle → NG0103)
+  readonly taskStatusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'SUBMITTED', label: 'Submitted' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'OVERDUE', label: 'Overdue' },
+  ];
+  readonly taskLimitOptions = [
+    { value: 50, label: '50 rows' },
+    { value: 100, label: '100 rows' },
+    { value: 200, label: '200 rows' },
+    { value: 500, label: '500 rows' },
+  ];
+
   constructor(private api: ClientComplianceService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
@@ -146,7 +163,7 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
             { value: '', label: 'All Branches' },
             ...this.branchMeta.map((b: any) => ({ value: b.id, label: b.branchName || b.name })),
           ];
-          this.cdr.detectChanges();
+          this.cdr.markForCheck();
           this.loadAll();
         },
         error: () => {
@@ -172,21 +189,23 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
         timeout(15000),
         finalize(() => {
           this.loading = false;
-          this.cdr.detectChanges();
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
         next: (res) => {
           this.summary = res.summary;
           this.branchRows = res.branches || [];
-          this.cdr.detectChanges();
+          this.loading = false;
+          this.cdr.markForCheck();
           this.loadTabData();
         },
         error: () => {
+          this.loading = false;
           this.summary = null;
           this.branchRows = [];
           this.error = 'Unable to load compliance summary.';
-          this.cdr.detectChanges();
+          this.cdr.markForCheck();
         },
       });
   }
@@ -208,8 +227,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           })
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.tasks = res || []; this.cdr.detectChanges(); },
-            error: () => { this.tasks = []; this.error = 'Unable to load tasks. Please retry.'; this.cdr.detectChanges(); },
+            next: (res: any) => { this.tasks = res || []; this.cdr.markForCheck(); },
+            error: () => { this.tasks = []; this.error = 'Unable to load tasks. Please retry.'; this.cdr.markForCheck(); },
           });
         break;
 
@@ -218,8 +237,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           .getComplianceStatusReturns(this.month, this.year, bid)
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.returnsData = res; this.cdr.detectChanges(); },
-            error: () => { this.returnsData = null; this.error = 'Unable to load returns data.'; this.cdr.detectChanges(); },
+            next: (res: any) => { this.returnsData = res; this.cdr.markForCheck(); },
+            error: () => { this.returnsData = null; this.error = 'Unable to load returns data.'; this.cdr.markForCheck(); },
           });
         break;
 
@@ -228,8 +247,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           .getComplianceStatusContractors(this.month, this.year, bid)
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.contractorData = res; this.cdr.detectChanges(); },
-            error: () => { this.contractorData = null; this.error = 'Unable to load contractor data.'; this.cdr.detectChanges(); },
+            next: (res: any) => { this.contractorData = res; this.cdr.markForCheck(); },
+            error: () => { this.contractorData = null; this.error = 'Unable to load contractor data.'; this.cdr.markForCheck(); },
           });
         break;
 
@@ -238,8 +257,8 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
           .getComplianceStatusAudit(this.month, this.year, bid)
           .pipe(takeUntil(this.destroy$), timeout(10000))
           .subscribe({
-            next: (res: any) => { this.auditData = res; this.cdr.detectChanges(); },
-            error: () => { this.auditData = null; this.error = 'Unable to load audit data.'; this.cdr.detectChanges(); },
+            next: (res: any) => { this.auditData = res; this.cdr.markForCheck(); },
+            error: () => { this.auditData = null; this.error = 'Unable to load audit data.'; this.cdr.markForCheck(); },
           });
         break;
     }

@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { ProfileApiService, UserProfile } from '../../core/api/profile.api';
 
@@ -64,9 +65,10 @@ import { ProfileApiService, UserProfile } from '../../core/api/profile.api';
     </main>
   `,
 })
-export class CcoProfileComponent implements OnInit {
+export class CcoProfileComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   profile: UserProfile | null = null;
-  loading = false;
+  loading = true;
   saving = false;
   changingPassword = false;
   error: string | null = null;
@@ -80,11 +82,12 @@ export class CcoProfileComponent implements OnInit {
   ngOnInit(): void {
     this.loading = true;
     this.profileApi.getProfile().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.profile = data; this.cdr.detectChanges(); },
-      error: () => { this.error = 'Failed to load profile'; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.profile = data; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.error = 'Failed to load profile'; this.cdr.detectChanges(); },
     });
   }
 
@@ -93,7 +96,9 @@ export class CcoProfileComponent implements OnInit {
     this.saving = true;
     this.error = null;
     this.success = null;
-    this.profileApi.updateProfile({ name: this.profile.name, phone: this.profile.phone }).subscribe({
+    this.profileApi.updateProfile({ name: this.profile.name, phone: this.profile.phone }).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: (updated) => { this.profile = updated; this.saving = false; this.success = 'Profile updated'; this.cdr.detectChanges(); },
       error: () => { this.error = 'Failed to save profile'; this.saving = false; this.cdr.detectChanges(); },
     });
@@ -106,7 +111,9 @@ export class CcoProfileComponent implements OnInit {
     this.changingPassword = true;
     this.error = null;
     this.success = null;
-    this.profileApi.changePassword(this.currentPassword, this.newPassword).subscribe({
+    this.profileApi.changePassword(this.currentPassword, this.newPassword).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: () => {
         this.changingPassword = false;
         this.success = 'Password changed successfully';
@@ -117,5 +124,10 @@ export class CcoProfileComponent implements OnInit {
       },
       error: () => { this.error = 'Failed to change password'; this.changingPassword = false; this.cdr.detectChanges(); },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

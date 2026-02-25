@@ -1,4 +1,4 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <!-- Page Header -->
   <ui-page-header 
     title="Compliance Review (Auditor)" 
@@ -23,15 +23,7 @@
       <ui-form-select
         label="Status"
         [(ngModel)]="filters.status"
-        [options]="[
-          {value: '', label: 'All Status'},
-          {value: 'PENDING', label: 'PENDING'},
-          {value: 'IN_PROGRESS', label: 'IN_PROGRESS'},
-          {value: 'SUBMITTED', label: 'SUBMITTED'},
-          {value: 'APPROVED', label: 'APPROVED'},
-          {value: 'REJECTED', label: 'REJECTED'},
-          {value: 'OVERDUE', label: 'OVERDUE'}
-        ]">
+        [options]="statusFilterOptions">
       </ui-form-select>
       <ui-form-input
         label="Year"
@@ -136,4 +128,4 @@
       </ul>
     </div>
   </div>
-</main>
+</div>

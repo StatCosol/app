@@ -17,10 +17,10 @@ export class CrmContractorsService {
     clientId: string;
     branchIds?: string[];
   }): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/crm/contractors/register`, data);
+    return this.http.post(`${this.baseUrl}/api/v1/crm/contractors/register`, data);
   }
 
   listMyContractors(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/crm/contractors/my-contractors`);
+    return this.http.get(`${this.baseUrl}/api/v1/crm/contractors/my-contractors`);
   }
 }

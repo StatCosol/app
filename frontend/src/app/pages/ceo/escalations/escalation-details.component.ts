@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { CeoApiService, CeoEscalation } from '../../../core/api/ceo.api';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 
@@ -103,7 +104,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
     </main>
   `,
 })
-export class EscalationDetailsComponent implements OnInit {
+export class EscalationDetailsComponent implements OnInit, OnDestroy {
   escalation: CeoEscalation | null = null;
   loading = true;
   errorMsg: string | null = null;
@@ -113,6 +114,7 @@ export class EscalationDetailsComponent implements OnInit {
   actionErr: string | null = null;
 
   private escalationId = '';
+  private destroy$ = new Subject<void>();
 
   constructor(
     private route: ActivatedRoute,
@@ -126,6 +128,11 @@ export class EscalationDetailsComponent implements OnInit {
     this.loadEscalation();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   private loadEscalation(): void {
     if (!this.escalationId) {
       this.errorMsg = 'No escalation ID provided.';
@@ -136,14 +143,17 @@ export class EscalationDetailsComponent implements OnInit {
     this.errorMsg = null;
 
     this.ceoApi.getEscalation(this.escalationId).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (data) => {
+        this.loading = false;
         this.escalation = data;
         this.cdr.detectChanges();
       },
       error: (err) => {
+        this.loading = false;
         this.errorMsg = err?.error?.message || 'Failed to load escalation details.';
         this.cdr.detectChanges();
       },
@@ -156,7 +166,7 @@ export class EscalationDetailsComponent implements OnInit {
     this.actionMsg = null;
     this.actionErr = null;
 
-    this.ceoApi.commentOnEscalation(this.escalationId, this.newComment.trim()).subscribe({
+    this.ceoApi.commentOnEscalation(this.escalationId, this.newComment.trim()).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionMsg = 'Comment posted.';
         this.newComment = '';
@@ -179,7 +189,7 @@ export class EscalationDetailsComponent implements OnInit {
     this.actionMsg = null;
     this.actionErr = null;
 
-    this.ceoApi.closeEscalation(this.escalationId, note).subscribe({
+    this.ceoApi.closeEscalation(this.escalationId, note).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionMsg = 'Escalation closed.';
         this.submitting = false;

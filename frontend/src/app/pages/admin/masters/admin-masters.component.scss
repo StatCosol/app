@@ -13,6 +13,7 @@ h2 { margin: 0; }
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

@@ -1,8 +1,8 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
-import { catchError, timeout, finalize } from 'rxjs/operators';
+import { forkJoin, of, Subject } from 'rxjs';
+import { catchError, timeout, finalize, takeUntil } from 'rxjs/operators';
 import { AdminAssignmentsService, CreateAssignmentPayload, Assignment } from './admin-assignments.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
@@ -13,6 +13,7 @@ import {
   TableCellDirective,
   EmptyStateComponent,
   FormSelectComponent,
+  LoadingSpinnerComponent,
   TableColumn,
   SelectOption
 } from '../../../shared/ui';
@@ -31,12 +32,14 @@ type NamedOption = { id: string; name: string; meta?: Record<string, any> };
     DataTableComponent,
     TableCellDirective,
     EmptyStateComponent,
-    FormSelectComponent
+    FormSelectComponent,
+    LoadingSpinnerComponent
   ],
   templateUrl: './admin-assignments.component.html',
   styleUrls: ['./admin-assignments.component.scss']
 })
-export class AdminAssignmentsComponent implements OnInit {
+export class AdminAssignmentsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   private service = inject(AdminAssignmentsService);
   private toast = inject(ToastService);
   private cdr = inject(ChangeDetectorRef);
@@ -55,7 +58,7 @@ export class AdminAssignmentsComponent implements OnInit {
   clientNameById: Record<string, string> = {};
   userNameById: Record<string, string> = {};
 
-  loading = false;
+  loading = true;
   removingClientId: string | null = null;
   historyLoading = false;
   error = '';
@@ -92,6 +95,11 @@ export class AdminAssignmentsComponent implements OnInit {
     this.loadAll();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadAll() {
     this.loading = true;
     this.error = '';
@@ -122,6 +130,7 @@ export class AdminAssignmentsComponent implements OnInit {
         catchError(handleLoadError('Current assignments')),
       ),
     }).pipe(
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
         // Force change detection in case the initial render coalesced updates
@@ -129,6 +138,7 @@ export class AdminAssignmentsComponent implements OnInit {
       })
     ).subscribe({
       next: ({ clients, crms, auditors, current }) => {
+        this.loading = false;
         this.clients = this.toClientOptions(clients);
         this.crms = this.toUserOptions(crms, 'CRM');
         this.auditors = this.toUserOptions(auditors, 'AUDITOR');
@@ -140,6 +150,7 @@ export class AdminAssignmentsComponent implements OnInit {
         this.buildNameMaps();
       },
       error: (err) => {
+        this.loading = false;
         console.error('Load error:', err);
         this.error = 'Failed to load data';
       },
@@ -152,13 +163,18 @@ export class AdminAssignmentsComponent implements OnInit {
         console.error('History load error:', err);
         return of([]);
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.historyLoading = false;
         this.cdr.detectChanges();
       })
     ).subscribe({
       next: (history) => {
+        this.historyLoading = false;
         this.assignmentHistory = this.normalizeHistory(this.toArray(history));
+      },
+      error: () => {
+        this.historyLoading = false;
       },
     });
   }
@@ -342,7 +358,7 @@ export class AdminAssignmentsComponent implements OnInit {
     if (!row?.clientId) return;
     this.removingClientId = String(row.clientId);
     this.loading = true;
-    this.service.unassignClient(row.clientId).subscribe({
+    this.service.unassignClient(row.clientId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.removingClientId = null;
         if (this.editingClientId === String(row.clientId)) {
@@ -391,7 +407,7 @@ export class AdminAssignmentsComponent implements OnInit {
       ? this.service.updateAssignment(this.editingClientId, payload)
       : this.service.createAssignment(payload);
 
-    request$.subscribe({
+    request$.pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.toast.success(this.isEditMode ? 'Assignment updated successfully' : 'Assignment created successfully');
         this.resetForm();

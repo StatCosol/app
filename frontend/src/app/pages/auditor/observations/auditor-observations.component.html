@@ -1,4 +1,4 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <!-- Page Header -->
   <div class="flex items-center justify-between mb-6">
     <ui-page-header 
@@ -103,7 +103,7 @@
               #{{ obs.sequenceNumber || (i + 1) }}
             </div>
             <div class="flex gap-2">
-              <span class="badge-secondary" *ngIf="obs.category">{{ obs.category.name }}</span>
+              <ui-status-badge variant="gray" [label]="obs.category.name" *ngIf="obs.category"></ui-status-badge>
               <ui-status-badge [status]="obs.status"></ui-status-badge>
             </div>
           </div>
@@ -140,7 +140,7 @@
 
         <!-- Footer -->
         <div class="mt-4 pt-4 border-t border-gray-200">
-          <small class="text-gray-500">Created: {{ obs.createdAt | date:'medium' }}</small>
+          <small class="text-gray-500">Created: {{ obs.createdAt | date:'short' }}</small>
         </div>
       </div>
     </div>
@@ -152,4 +152,4 @@
       description="Click 'Add Observation' to start">
     </ui-empty-state>
   </div>
-</main>
+</div>

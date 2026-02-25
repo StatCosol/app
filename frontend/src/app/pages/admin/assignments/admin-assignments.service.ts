@@ -30,7 +30,7 @@ export interface Assignment {
 })
 export class AdminAssignmentsService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiBaseUrl}/api`;
+  private apiUrl = `${environment.apiBaseUrl}/api/v1`;
 
   getClients(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/admin/clients`);

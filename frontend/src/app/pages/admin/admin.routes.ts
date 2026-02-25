@@ -23,6 +23,16 @@ const AdminMastersComponent = () =>
   import('./masters/admin-masters.component').then((m) => m.AdminMastersComponent);
 const AdminApprovalsComponent = () =>
   import('./approvals/admin-approvals.component').then((m) => m.AdminApprovalsComponent);
+const AiDashboardComponent = () =>
+  import('./ai/ai-dashboard.component').then((m) => m.AiDashboardComponent);
+const AiRiskComponent = () =>
+  import('./ai/ai-risk.component').then((m) => m.AiRiskComponent);
+const AiAuditComponent = () =>
+  import('./ai/ai-audit.component').then((m) => m.AiAuditComponent);
+const AiPayrollComponent = () =>
+  import('./ai/ai-payroll.component').then((m) => m.AiPayrollComponent);
+const AiConfigComponent = () =>
+  import('./ai/ai-config.component').then((m) => m.AiConfigComponent);
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -41,6 +51,11 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'masters', loadComponent: AdminMastersComponent },
       { path: 'approvals', loadComponent: AdminApprovalsComponent },
       { path: 'notifications', loadComponent: AdminNotificationsComponent },
+      { path: 'ai-hub', loadComponent: AiDashboardComponent },
+      { path: 'ai-risk', loadComponent: AiRiskComponent },
+      { path: 'ai-audit', loadComponent: AiAuditComponent },
+      { path: 'ai-payroll', loadComponent: AiPayrollComponent },
+      { path: 'ai-config', loadComponent: AiConfigComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

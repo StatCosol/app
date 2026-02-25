@@ -1,7 +1,8 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { ComplianceService } from '../../../core/compliance.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
@@ -32,7 +33,7 @@ import {
   templateUrl: './contractor-compliance.component.html',
   styleUrls: ['../shared/contractor-theme.scss', './contractor-compliance.component.scss'],
 })
-export class ContractorComplianceComponent implements OnInit {
+export class ContractorComplianceComponent implements OnInit, OnDestroy {
   tasks: any[] = [];
   allTasks: any[] = [];
   filters: any = { status: '', year: '', month: '' };
@@ -42,6 +43,7 @@ export class ContractorComplianceComponent implements OnInit {
   selectedId?: string;
   uploadFile?: File;
   loading = false;
+  private destroy$ = new Subject<void>();
 
   tabItems: { key: 'MY' | 'SUBMITTED' | 'OVERDUE'; label: string; count?: number }[] = [
     { key: 'MY', label: 'My Tasks' },
@@ -96,11 +98,17 @@ export class ContractorComplianceComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load(): void {
     this.loading = true;
     this.compliance
       .contractorListTasks(this.filters)
       .pipe(
+        takeUntil(this.destroy$),
         timeout(10000),
         finalize(() => {
           this.loading = false;
@@ -109,6 +117,7 @@ export class ContractorComplianceComponent implements OnInit {
       )
       .subscribe({
         next: (res) => {
+          this.loading = false;
           const rawTasks = res?.data || [];
           this.allTasks = rawTasks.map((t: any) => ({
             ...t,
@@ -120,6 +129,7 @@ export class ContractorComplianceComponent implements OnInit {
           this.cdr.detectChanges();
         },
         error: () => {
+          this.loading = false;
           this.allTasks = [];
           this.tasks = [];
           this.cdr.detectChanges();
@@ -140,14 +150,20 @@ export class ContractorComplianceComponent implements OnInit {
   }
 
   start(id: string | number) {
-    this.compliance.contractorStart(String(id)).subscribe(() => {
-      this.cdr.detectChanges();
-      this.load();
+    this.compliance.contractorStart(String(id)).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.cdr.detectChanges();
+        this.load();
+      },
+      error: (e) => {
+        this.toast.error(e?.error?.message || 'Failed to start task');
+        this.cdr.detectChanges();
+      },
     });
   }
 
   submit(id: string | number) {
-    this.compliance.contractorSubmit(String(id)).subscribe({
+    this.compliance.contractorSubmit(String(id)).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.cdr.detectChanges();
         this.load();
@@ -168,7 +184,7 @@ export class ContractorComplianceComponent implements OnInit {
 
   upload(taskId: string | number) {
     if (!this.uploadFile) return;
-    this.compliance.contractorUploadEvidence(String(taskId), this.uploadFile).subscribe({
+    this.compliance.contractorUploadEvidence(String(taskId), this.uploadFile).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.uploadFile = undefined;
         this.selectedId = undefined;

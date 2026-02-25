@@ -1,8 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { finalize } from 'rxjs/operators';
-import { forkJoin } from 'rxjs';
+import { finalize, takeUntil, catchError } from 'rxjs/operators';
+import { forkJoin, Subject, of } from 'rxjs';
 import {
   EssApiService,
   EssProfile,
@@ -42,6 +42,12 @@ interface TimelineEntry {
           <div class="sk-val"></div>
           <div class="sk-sub"></div>
         </div>
+      </div>
+
+      <!-- ===== ERROR STATE ===== -->
+      <div *ngIf="errorMsg" class="err-banner">
+        <p>{{ errorMsg }}</p>
+        <button (click)="reload()">Retry</button>
       </div>
 
       <!-- ===== KPI CARDS ===== -->
@@ -156,7 +162,7 @@ interface TimelineEntry {
   styles: [`
     :host { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
 
-    .dash { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+    .dash { max-width: 1280px; margin: 0 auto; padding: 0 1rem; display: flex; flex-direction: column; gap: 24px; }
 
     /* greeting */
     .greeting { padding: 4px 0; }
@@ -265,10 +271,24 @@ interface TimelineEntry {
     .fw-600 { font-weight: 600; }
     .clr-green { color: #059669; }
     .clr-red { color: #dc2626; }
+
+    /* Error banner */
+    .err-banner {
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 12px; padding: 16px; margin-bottom: 16px;
+    }
+    .err-banner p { font-size: 14px; color: #991b1b; margin: 0 0 8px; }
+    .err-banner button {
+      font-size: 13px; font-weight: 600; color: #dc2626;
+      background: none; border: none; cursor: pointer; text-decoration: underline;
+    }
+    .err-banner button:hover { color: #b91c1c; }
   `],
 })
-export class EssDashboardComponent implements OnInit {
-  loading = true;
+export class EssDashboardComponent implements OnInit, OnDestroy {
+  loading = false;
+  errorMsg = '';
+  private readonly destroy$ = new Subject<void>();
   profile: EssProfile | null = null;
   statutory: StatutoryDetails | null = null;
   contributions: ContributionRow[] = [];
@@ -323,18 +343,23 @@ export class EssDashboardComponent implements OnInit {
   constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.loading = true;
     forkJoin({
-      profile: this.api.getProfile(),
-      statutory: this.api.getStatutory(),
-      contributions: this.api.getContributions(),
-      balances: this.api.getLeaveBalances(),
-      leaveApps: this.api.listLeaveApplications(),
-      nominations: this.api.listNominations(),
-      payslips: this.api.listPayslips(),
+      profile: this.api.getProfile().pipe(catchError(() => of(null as EssProfile | null))),
+      statutory: this.api.getStatutory().pipe(catchError(() => of(null as StatutoryDetails | null))),
+      contributions: this.api.getContributions().pipe(catchError(() => of([] as ContributionRow[]))),
+      balances: this.api.getLeaveBalances().pipe(catchError(() => of([] as LeaveBalance[]))),
+      leaveApps: this.api.listLeaveApplications().pipe(catchError(() => of([] as LeaveApplication[]))),
+      nominations: this.api.listNominations().pipe(catchError(() => of([] as EssNomination[]))),
+      payslips: this.api.listPayslips().pipe(catchError(() => of([] as Payslip[]))),
     })
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
         next: (res) => {
+          this.loading = false;
           this.profile = res.profile;
           this.statutory = res.statutory;
           this.contributions = res.contributions ?? [];
@@ -344,8 +369,23 @@ export class EssDashboardComponent implements OnInit {
           this.payslips = res.payslips ?? [];
           this.buildTimeline();
         },
-        error: () => {},
+        error: () => {
+          this.loading = false;
+          this.errorMsg = 'Could not load your data. Please try again.';
+          this.profile = null;
+          this.statutory = null;
+        },
       });
+  }
+
+  reload(): void {
+    this.errorMsg = '';
+    this.ngOnInit();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private buildTimeline(): void {

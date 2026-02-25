@@ -10,14 +10,14 @@ export class ClientContractorsService {
   constructor(private http: HttpClient) {}
 
   getBranches(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/branches`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/branches`);
   }
 
   getContractors(filters?: { branchId?: string; month?: string }): Observable<any> {
     let params = new HttpParams();
     if (filters?.branchId) params = params.set('branchId', filters.branchId);
     if (filters?.month) params = params.set('month', filters.month);
-    return this.http.get(`${this.baseUrl}/api/client/contractors`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/contractors`, { params });
   }
 
   getDocuments(filters?: any): Observable<any> {
@@ -29,25 +29,25 @@ export class ClientContractorsService {
         }
       });
     }
-    return this.http.get(`${this.baseUrl}/api/client/contractors/documents`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/contractors/documents`, { params });
   }
 
   getDashboard(month?: string): Observable<any> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
-    return this.http.get(`${this.baseUrl}/api/client/contractors/dashboard`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/contractors/dashboard`, { params });
   }
 
   getBranchDashboard(branchId: string, month?: string): Observable<any> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
-    return this.http.get(`${this.baseUrl}/api/client/contractors/dashboard/branch/${branchId}`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/contractors/dashboard/branch/${branchId}`, { params });
   }
 
   getContractorTrend(contractorId: string, from?: string, to?: string): Observable<any> {
     let params = new HttpParams();
     if (from) params = params.set('from', from);
     if (to) params = params.set('to', to);
-    return this.http.get(`${this.baseUrl}/api/client/contractors/dashboard/contractor/${contractorId}`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/contractors/dashboard/contractor/${contractorId}`, { params });
   }
 }

@@ -1,8 +1,9 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { FileDropzoneComponent } from '../../shared/file-dropzone.component';
 import { ComplianceService } from '../../../../core/compliance.service';
 import {
@@ -26,7 +27,7 @@ import {
   templateUrl: './contractor-task-detail.component.html',
   styleUrls: ['../../shared/contractor-theme.scss', './contractor-task-detail.component.scss'],
 })
-export class ContractorTaskDetailComponent implements OnInit {
+export class ContractorTaskDetailComponent implements OnInit, OnDestroy {
   id!: string;
   task: any;
   evidence: any[] = [];
@@ -36,6 +37,7 @@ export class ContractorTaskDetailComponent implements OnInit {
   loading = false;
   uploading = false;
   submitting = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private route: ActivatedRoute,
@@ -48,11 +50,17 @@ export class ContractorTaskDetailComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load() {
     this.loading = true;
     this.api
       .contractorListTasks({})
       .pipe(
+        takeUntil(this.destroy$),
         timeout(10000),
         finalize(() => {
           this.loading = false;
@@ -61,12 +69,14 @@ export class ContractorTaskDetailComponent implements OnInit {
       )
       .subscribe({
         next: (res: any) => {
+          this.loading = false;
           const list = res?.data || res || [];
           this.task = list.find((t: any) => String(t.id) === String(this.id));
           this.evidence = this.task?.evidence || [];
           this.cdr.detectChanges();
         },
         error: () => {
+          this.loading = false;
           this.cdr.detectChanges();
         },
       });
@@ -81,7 +91,7 @@ export class ContractorTaskDetailComponent implements OnInit {
     if (!this.files.length) return;
     this.uploading = true;
 
-    this.api.contractorUploadEvidence(String(this.id), this.files[0], this.notes).subscribe({
+    this.api.contractorUploadEvidence(String(this.id), this.files[0], this.notes).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.files = [];
         this.notes = '';
@@ -99,7 +109,7 @@ export class ContractorTaskDetailComponent implements OnInit {
   submit() {
     if ((this.evidence?.length || 0) < 1) return;
     this.submitting = true;
-    this.api.contractorSubmit(String(this.id)).subscribe({
+    this.api.contractorSubmit(String(this.id)).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.submitting = false;
         this.cdr.detectChanges();

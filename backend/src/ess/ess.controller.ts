@@ -16,7 +16,7 @@ import { EssService, EssUser } from './ess.service';
 
 // ─── Employee Self-Service Controller ─────────────────────────
 // All endpoints require EMPLOYEE role (enforced by global RolesGuard)
-@Controller('api/ess')
+@Controller({ path: 'ess', version: '1' })
 @Roles('EMPLOYEE')
 export class EssController {
   constructor(private readonly svc: EssService) {}
@@ -127,7 +127,7 @@ export class EssController {
 // ─── Branch Approval Controller ───────────────────────────────
 // Allows CLIENT (master/branch) users to approve/reject
 // nominations and leave requests.
-@Controller('api/branch-approvals')
+@Controller({ path: 'branch-approvals', version: '1' })
 @Roles('CLIENT')
 export class BranchApprovalsController {
   constructor(private readonly svc: EssService) {}

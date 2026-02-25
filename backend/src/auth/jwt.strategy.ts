@@ -11,6 +11,7 @@ type JwtPayload = {
   email?: string;
   name?: string;
   clientId?: string | null;
+  branchIds?: string[];
 };
 
 @Injectable()
@@ -70,6 +71,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       clientId: payload.clientId ?? user.clientId ?? null,
       userType: (user as any).userType ?? null,
       employeeId: (user as any).employeeId ?? null,
+      branchIds: payload.branchIds ?? [],
     } as const;
 
     Logger.log(

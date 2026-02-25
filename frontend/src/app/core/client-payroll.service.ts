@@ -20,22 +20,22 @@ export class ClientPayrollService {
         }
       });
     }
-    return this.http.get(`${this.baseUrl}/api/client/payroll/inputs`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/payroll/inputs`, { params });
   }
 
   createInput(data: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/client/payroll/inputs`, data);
+    return this.http.post(`${this.baseUrl}/api/v1/client/payroll/inputs`, data);
   }
 
   updateInputStatus(id: string, data: any): Observable<any> {
-    return this.http.patch(`${this.baseUrl}/api/client/payroll/inputs/${id}/status`, data);
+    return this.http.patch(`${this.baseUrl}/api/v1/client/payroll/inputs/${id}/status`, data);
   }
 
   /** Client payroll summary — returns basic stats from client-scoped inputs.
    *  Note: /api/payroll/summary is PAYROLL/ADMIN only. For CLIENT users
    *  we derive a lightweight summary from the inputs list. */
   getSummary(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/payroll/inputs`, { params: { limit: '1' } }).pipe(
+    return this.http.get(`${this.baseUrl}/api/v1/client/payroll/inputs`, { params: { limit: '1' } }).pipe(
       map((res: any) => ({
         totalRuns: res?.total || 0,
         activeEmployees: 0,
@@ -45,7 +45,7 @@ export class ClientPayrollService {
   }
 
   getStatusHistory(id: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/payroll/inputs/${id}/status-history`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/payroll/inputs/${id}/status-history`);
   }
 
   uploadInputFile(id: string, file: File, data?: any): Observable<any> {
@@ -54,15 +54,15 @@ export class ClientPayrollService {
     if (data) {
       Object.keys(data).forEach(k => formData.append(k, data[k]));
     }
-    return this.http.post(`${this.baseUrl}/api/client/payroll/inputs/${id}/files`, formData);
+    return this.http.post(`${this.baseUrl}/api/v1/client/payroll/inputs/${id}/files`, formData);
   }
 
   listInputFiles(id: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/payroll/inputs/${id}/files`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/payroll/inputs/${id}/files`);
   }
 
   downloadInputFileUrl(id: string): string {
-    return `${this.baseUrl}/api/client/payroll/inputs/files/${id}/download`;
+    return `${this.baseUrl}/api/v1/client/payroll/inputs/files/${id}/download`;
   }
 
   // Registers & Records
@@ -75,17 +75,17 @@ export class ClientPayrollService {
         }
       });
     }
-    return this.http.get(`${this.baseUrl}/api/client/payroll/registers-records`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/payroll/registers-records`, { params });
   }
 
   uploadRegister(file: File, data: any): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
     Object.keys(data).forEach(k => formData.append(k, data[k]));
-    return this.http.post(`${this.baseUrl}/api/client/payroll/registers-records`, formData);
+    return this.http.post(`${this.baseUrl}/api/v1/client/payroll/registers-records`, formData);
   }
 
   downloadRegister(id: string): string {
-    return `${this.baseUrl}/api/client/payroll/registers-records/${id}/download`;
+    return `${this.baseUrl}/api/v1/client/payroll/registers-records/${id}/download`;
   }
 }

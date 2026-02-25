@@ -42,9 +42,93 @@ body {
 }
 
 /* =========================
+   iOS / mobile 100vh fix
+   ========================= */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh !important;
+  }
+
+  .min-h-screen {
+    min-height: 100dvh !important;
+  }
+}
+
+/* =========================
+   Prevent media overflow on small screens
+   ========================= */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* =========================
+   Safe-area helpers (notch devices)
+   ========================= */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.fab-safe {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  right: calc(1.5rem + env(safe-area-inset-right));
+}
+
+/* =========================
    Modern Minimal Design System
    ========================= */
 @layer components {
+  /* ===========================
+     Global wrapper for ALL role pages
+     =========================== */
+  .role-content {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 min-w-0 overflow-x-hidden;
+  }
+
+  /* Windows laptops (1366×768 etc.) / smaller heights: reduce vertical crowding */
+  @media (max-height: 740px) {
+    .role-content {
+      padding-top: 1rem;
+      padding-bottom: 1rem;
+    }
+    .card {
+      padding: 1rem;
+    }
+  }
+
+  /* Android tablets (portrait/landscape): keep spacing comfortable */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .role-content {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  /* ===========================
+     Tables: never break mobile screen
+     =========================== */
+  @media (max-width: 768px) {
+    table {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  .table-scroll table {
+    min-width: 640px;
+  }
+
   /* App Header (Logo Image) */
   .app-header {
     @apply bg-white border-b border-gray-200 shadow-sm;
@@ -385,8 +469,7 @@ body {
 
 /* Global media elements should never force horizontal scroll */
 img,
-svg,
-table {
+svg {
   max-width: 100%;
 }
 

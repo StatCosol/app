@@ -16,6 +16,7 @@ import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailModule } from '../email/email.module';
 import { AuthModule } from '../auth/auth.module';
+import { AiModule } from '../ai/ai.module';
 import { ComplianceCronService } from './compliance-cron.service';
 import { CrmComplianceTasksController } from './controllers/crm-compliance.controller';
 import { ContractorComplianceController } from './controllers/contractor-compliance.controller';
@@ -50,6 +51,7 @@ import {
     NotificationsModule,
     EmailModule,
     AuthModule,
+    AiModule,
   ],
   controllers: [
     CrmComplianceTasksController,

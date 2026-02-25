@@ -71,9 +71,7 @@
         <p class="text-xs text-gray-500">Month: {{ month }}</p>
       </div>
     </div>
-    <div *ngIf="loadingContractors" class="flex items-center justify-center py-10">
-      <div class="animate-spin h-8 w-8 border-2 border-statco-blue border-t-transparent rounded-full"></div>
-    </div>
+    <ui-loading-spinner *ngIf="loadingContractors"></ui-loading-spinner>
     <div *ngIf="!loadingContractors" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       <div
         *ngFor="let c of contractors"

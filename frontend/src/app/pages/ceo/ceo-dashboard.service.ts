@@ -14,6 +14,6 @@ export class CeoDashboardService {
   constructor(private http: HttpClient) {}
 
   getDashboardData(): Observable<CeoDashboardData> {
-    return this.http.get<CeoDashboardData>('/api/ceo/dashboard');
+    return this.http.get<CeoDashboardData>('/api/v1/ceo/dashboard');
   }
 }

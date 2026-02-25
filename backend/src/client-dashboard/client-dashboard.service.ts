@@ -8,6 +8,7 @@ import { Repository, In } from 'typeorm';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { ContractorRequiredDocumentEntity } from '../contractor/entities/contractor-required-document.entity';
+import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
@@ -23,6 +24,8 @@ export class ClientDashboardService {
     private readonly contractorDocs: Repository<ContractorDocumentEntity>,
     @InjectRepository(ContractorRequiredDocumentEntity)
     private readonly requiredDocs: Repository<ContractorRequiredDocumentEntity>,
+    @InjectRepository(BranchContractorEntity)
+    private readonly branchContractorRepo: Repository<BranchContractorEntity>,
     @InjectRepository(UserEntity)
     private readonly usersRepo: Repository<UserEntity>,
     private readonly usersService: UsersService,
@@ -166,12 +169,44 @@ export class ClientDashboardService {
     const scope = await this.resolveScope(user, dto.branchId);
     const { start, end } = this.parseMonth(dto.month);
 
+    // ─── 1. Use branch_contractor as the source of truth for contractor IDs & names ───
+    //    This guarantees we only show CONTRACTOR-role users (validated on creation).
+    const bcQb = this.branchContractorRepo
+      .createQueryBuilder('bc')
+      .leftJoin('users', 'u', 'u.id = bc.contractor_user_id')
+      .select('bc.contractor_user_id', 'contractorId')
+      .addSelect('COALESCE(u.name, u.email, \'Contractor\')', 'name')
+      .where('bc.client_id = :clientId', { clientId: scope.clientId });
+
+    if (scope.branchIds.length) {
+      bcQb.andWhere('bc.branch_id IN (:...branchIds)', {
+        branchIds: scope.branchIds,
+      });
+    }
+
+    const bcRows = await bcQb
+      .groupBy('bc.contractor_user_id')
+      .addGroupBy('u.name')
+      .addGroupBy('u.email')
+      .getRawMany();
+
+    // Authoritative contractor IDs → names map (only real CONTRACTOR users)
+    const nameMap = new Map<string, string>();
+    bcRows.forEach((r: any) => nameMap.set(String(r.contractorId), String(r.name)));
+
+    const contractorIds = Array.from(nameMap.keys());
+    if (!contractorIds.length) {
+      return { overallPercent: 0, contractors: [], top10: [], bottom10: [] };
+    }
+
+    // ─── 2. Expected docs from contractor_required_documents (scoped to real contractors) ───
     const reqQb = this.requiredDocs
       .createQueryBuilder('r')
-      .select('r.contractor_id', 'contractorId')
+      .select('r.contractor_user_id', 'contractorId')
       .addSelect('COUNT(*)', 'expected')
       .where('r.client_id = :clientId', { clientId: scope.clientId })
-      .andWhere('r.is_required = TRUE');
+      .andWhere('r.is_required = TRUE')
+      .andWhere('r.contractor_user_id IN (:...contractorIds)', { contractorIds });
 
     if (scope.branchIds.length) {
       reqQb.andWhere('(r.branch_id IS NULL OR r.branch_id IN (:...branchIds))', {
@@ -179,21 +214,23 @@ export class ClientDashboardService {
       });
     }
 
-    const requiredRows = await reqQb.groupBy('r.contractor_id').getRawMany();
+    const requiredRows = await reqQb.groupBy('r.contractor_user_id').getRawMany();
     const requiredMap = new Map<string, number>();
     requiredRows.forEach((r: any) =>
       requiredMap.set(String(r.contractorId), Number(r.expected || 0)),
     );
 
+    // ─── 3. Uploaded docs from contractor_documents (scoped to real contractors) ───
     const monthStr = dto.month; // YYYY-MM
     const uploadedQb = this.contractorDocs
       .createQueryBuilder('d')
-      .select('d.contractor_id', 'contractorId')
+      .select('d.contractor_user_id', 'contractorId')
       .addSelect(
         "SUM(CASE WHEN d.status IN ('UPLOADED','APPROVED','PENDING_REVIEW') THEN 1 ELSE 0 END)",
         'uploaded',
       )
       .where('d.client_id = :clientId', { clientId: scope.clientId })
+      .andWhere('d.contractor_user_id IN (:...contractorIds)', { contractorIds })
       .andWhere(
         '(d.doc_month = :monthStr OR (d.doc_month IS NULL AND d.created_at >= :start AND d.created_at < :end))',
         { monthStr, start, end },
@@ -205,28 +242,13 @@ export class ClientDashboardService {
       });
     }
 
-    const uploadedRows = await uploadedQb.groupBy('d.contractor_id').getRawMany();
+    const uploadedRows = await uploadedQb.groupBy('d.contractor_user_id').getRawMany();
     const uploadedMap = new Map<string, number>();
     uploadedRows.forEach((r: any) =>
       uploadedMap.set(String(r.contractorId), Number(r.uploaded || 0)),
     );
 
-    const contractorIds = Array.from(
-      new Set([
-        ...requiredMap.keys(),
-        ...uploadedMap.keys(),
-      ]),
-    );
-
-    const names = contractorIds.length
-      ? await this.usersRepo.find({
-          select: ['id', 'name'],
-          where: { id: In(contractorIds) },
-        })
-      : [];
-    const nameMap = new Map<string, string>();
-    names.forEach((u) => nameMap.set(u.id, u.name));
-
+    // ─── 4. Build results for every known contractor ───
     let totalExpected = 0;
     let totalUploaded = 0;
 
@@ -237,7 +259,7 @@ export class ClientDashboardService {
       totalUploaded += uploaded;
       const percent = expected > 0 ? Math.round((uploaded / expected) * 100) : 0;
       return {
-        contractorId: id,
+        contractorUserId: id,
         name: nameMap.get(id) ?? 'Contractor',
         percent,
         uploaded,

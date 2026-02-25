@@ -12,12 +12,5 @@ VALUES
   ('CONTRACTOR','Contractor', true)
 ON CONFLICT (code) DO NOTHING;
 
--- Optional sample clients (can be removed anytime)
-INSERT INTO clients (client_code, client_name, status, is_active)
-VALUES
-  ('VEIPL','Vedha Entech India Pvt Ltd','ACTIVE',true),
-  ('KHS','Konark Hospitality Services','ACTIVE',true),
-  ('LCS','Lakshmi Corporate Services','ACTIVE',true),
-  ('KPS','Kamakshi Professional Services','ACTIVE',true),
-  ('SLVMS','SLV Management Services','ACTIVE',true)
-ON CONFLICT (client_code) DO NOTHING;
+-- NOTE: Sample clients removed. Add real clients via the Admin UI or dedicated migration.
+-- Previously inserted: VEIPL, KHS, LCS, KPS, SLVMS (removed to avoid mock data in production).

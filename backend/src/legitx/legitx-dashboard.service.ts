@@ -192,21 +192,44 @@ export class LegitxDashboardService {
       absconded: 0,
     };
 
+    // Build date range for the requested month/year
+    const params: any[] = [scope.year, scope.month];
+    const branchFilter: string[] = [];
+
+    if (scope.branchId) {
+      params.push(scope.branchId);
+      branchFilter.push(`e.branch_id = $${params.length}`);
+    } else if (scope.clientId) {
+      params.push(scope.clientId);
+      branchFilter.push(`e.client_id = $${params.length}`);
+    }
+
+    const whereBase = branchFilter.length ? `AND ${branchFilter.join(' AND ')}` : '';
+
+    // Derive HR snapshot from the employees table:
+    //  - total / male / female / active: employees whose date_of_joining <= end-of-month and (date_of_exit IS NULL or date_of_exit >= start-of-month)
+    //  - joiners: date_of_joining falls within the month
+    //  - left: date_of_exit falls within the month
+    //  - absconded: not tracked yet, return 0
     const row = await this.safeOne(
-      `SELECT
-         COALESCE(SUM(headcount_total), 0)::int AS total,
-         COALESCE(SUM(male), 0)::int AS male,
-         COALESCE(SUM(female), 0)::int AS female,
-         COALESCE(SUM(active), 0)::int AS active,
-         COALESCE(SUM(joiners), 0)::int AS joiners,
-         COALESCE(SUM(left_count), 0)::int AS left,
-         COALESCE(SUM(absconded), 0)::int AS absconded
-       FROM branch_hr_monthly_snapshot
-       WHERE month = $1 AND year = $2
-         ${scope.branchId ? 'AND branch_id = $3' : ''}`,
-      scope.branchId
-        ? [scope.month, scope.year, scope.branchId]
-        : [scope.month, scope.year],
+      `WITH month_range AS (
+         SELECT
+           make_date($1::int, $2::int, 1) AS start_dt,
+           (make_date($1::int, $2::int, 1) + INTERVAL '1 month' - INTERVAL '1 day')::date AS end_dt
+       )
+       SELECT
+         COUNT(*)::int AS total,
+         COUNT(CASE WHEN e.gender = 'M' THEN 1 END)::int AS male,
+         COUNT(CASE WHEN e.gender = 'F' THEN 1 END)::int AS female,
+         COUNT(CASE WHEN e.is_active = true THEN 1 END)::int AS active,
+         COUNT(CASE WHEN e.date_of_joining >= mr.start_dt AND e.date_of_joining <= mr.end_dt THEN 1 END)::int AS joiners,
+         COUNT(CASE WHEN e.date_of_exit >= mr.start_dt AND e.date_of_exit <= mr.end_dt THEN 1 END)::int AS left,
+         0::int AS absconded
+       FROM employees e, month_range mr
+       WHERE (e.date_of_joining IS NULL OR e.date_of_joining <= mr.end_dt)
+         AND (e.date_of_exit IS NULL OR e.date_of_exit >= mr.start_dt)
+         ${whereBase}`,
+      params,
       fallback,
     );
 
@@ -215,8 +238,37 @@ export class LegitxDashboardService {
 
   private async getEmployeeStatusTrend(scope: LegitxDashboardScope) {
     const months = this.lastMonths(scope.month, scope.year, 6);
-    const minKey = months[months.length - 1].key;
-    const maxKey = months[0].key;
+
+    const branchFilter: string[] = [];
+    const params: any[] = [];
+
+    if (scope.branchId) {
+      params.push(scope.branchId);
+      branchFilter.push(`e.branch_id = $${params.length}`);
+    } else if (scope.clientId) {
+      params.push(scope.clientId);
+      branchFilter.push(`e.client_id = $${params.length}`);
+    }
+
+    const whereExtra = branchFilter.length ? `AND ${branchFilter.join(' AND ')}` : '';
+
+    // Derive per-month stats from the employees table
+    // For each of the 6 months, count active employees in that month,
+    // joiners (date_of_joining in month), and leavers (date_of_exit in month).
+    const unionParts = months.map((m) => {
+      const startDt = `'${m.year}-${String(m.month).padStart(2, '0')}-01'::date`;
+      const endDt = `(${startDt} + INTERVAL '1 month' - INTERVAL '1 day')::date`;
+      return `SELECT
+          ${m.month} AS month, ${m.year} AS year,
+          COUNT(CASE WHEN e.is_active = true OR (e.date_of_exit IS NOT NULL AND e.date_of_exit >= ${startDt}) THEN 1 END)::int AS active,
+          COUNT(CASE WHEN e.date_of_joining >= ${startDt} AND e.date_of_joining <= ${endDt} THEN 1 END)::int AS joiners,
+          COUNT(CASE WHEN e.date_of_exit >= ${startDt} AND e.date_of_exit <= ${endDt} THEN 1 END)::int AS left,
+          0::int AS absconded
+        FROM employees e
+        WHERE (e.date_of_joining IS NULL OR e.date_of_joining <= ${endDt})
+          AND (e.date_of_exit IS NULL OR e.date_of_exit >= ${startDt})
+          ${whereExtra}`;
+    });
 
     const rows = await this.safeMany<{
       month: number;
@@ -226,17 +278,8 @@ export class LegitxDashboardService {
       left: number;
       absconded: number;
     }>(
-      `SELECT month, year,
-              COALESCE(SUM(active), 0)::int AS active,
-              COALESCE(SUM(joiners), 0)::int AS joiners,
-              COALESCE(SUM(left_count), 0)::int AS left,
-              COALESCE(SUM(absconded), 0)::int AS absconded
-       FROM branch_hr_monthly_snapshot
-       WHERE (year * 12 + month) BETWEEN $1 AND $2
-         ${scope.branchId ? 'AND branch_id = $3' : ''}
-       GROUP BY month, year
-       ORDER BY year, month`,
-      scope.branchId ? [minKey, maxKey, scope.branchId] : [minKey, maxKey],
+      unionParts.join(' UNION ALL ') + ' ORDER BY year, month',
+      params,
       [],
     );
 
@@ -266,6 +309,10 @@ export class LegitxDashboardService {
     const params: any[] = [];
     const where: string[] = [];
 
+    if (scope.clientId) {
+      params.push(scope.clientId);
+      where.push(`bc.client_id = $${params.length}`);
+    }
     if (scope.branchId) {
       params.push(scope.branchId);
       where.push(`bc.branch_id = $${params.length}`);
@@ -280,10 +327,11 @@ export class LegitxDashboardService {
     const row = await this.safeOne(
       `SELECT 
          COUNT(*)::int AS total,
-         COUNT(CASE WHEN u.gender = 'M' THEN 1 END)::int AS male,
-         COUNT(CASE WHEN u.gender = 'F' THEN 1 END)::int AS female
+         COUNT(CASE WHEN emp.gender = 'M' THEN 1 END)::int AS male,
+         COUNT(CASE WHEN emp.gender = 'F' THEN 1 END)::int AS female
       FROM branch_contractor bc
       LEFT JOIN users u ON u.id = bc.contractor_user_id
+      LEFT JOIN employees emp ON emp.id = u.employee_id
        ${whereClause}`,
       params,
       fallback,
@@ -293,12 +341,30 @@ export class LegitxDashboardService {
   }
 
   private async getContractorDocsBuckets(scope: LegitxDashboardScope) {
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (scope.clientId) {
+      params.push(scope.clientId);
+      conditions.push(`client_id = $${params.length}`);
+    }
+    if (scope.branchId) {
+      params.push(scope.branchId);
+      conditions.push(`branch_id = $${params.length}`);
+    }
+    if (scope.contractorId) {
+      params.push(scope.contractorId);
+      conditions.push(`contractor_user_id = $${params.length}`);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
     const rows = await this.safeMany<{ status: string; count: number }>(
       `SELECT status, COUNT(*)::int AS count
        FROM contractor_documents
-       ${scope.branchId ? 'WHERE branch_id = $1' : ''}
+       ${whereClause}
        GROUP BY status`,
-      scope.branchId ? [scope.branchId] : [],
+      params,
       [],
     );
 
@@ -325,9 +391,13 @@ export class LegitxDashboardService {
       pendingFF: 0,
     };
 
-    // Placeholder query; extend when PayDek exceptions tables are present.
-    const params: any[] = [];
-    const whereRuns: string[] = [`status NOT IN ('CANCELLED')`];
+    const params: any[] = [scope.year, scope.month];
+    const whereRuns: string[] = [`status NOT IN ('CANCELLED')`, `period_year = $1`, `period_month = $2`];
+
+    if (scope.clientId) {
+      params.push(scope.clientId);
+      whereRuns.push(`client_id = $${params.length}`);
+    }
     if (scope.branchId) {
       params.push(scope.branchId);
       whereRuns.push(`(branch_id = $${params.length} OR branch_id IS NULL)`);
@@ -384,13 +454,27 @@ export class LegitxDashboardService {
   }
 
   private async getComplianceKpis(scope: LegitxDashboardScope) {
+    const compParams: any[] = [];
+    const compConditions: string[] = [];
+
+    if (scope.clientId) {
+      compParams.push(scope.clientId);
+      compConditions.push(`bc.client_id = $${compParams.length}`);
+    }
+    if (scope.branchId) {
+      compParams.push(scope.branchId);
+      compConditions.push(`bc.branch_id = $${compParams.length}`);
+    }
+
+    const compWhere = compConditions.length ? `WHERE ${compConditions.join(' AND ')}` : '';
+
     const row = await this.safeOne(
       `SELECT
          COUNT(*)::int AS total,
          COUNT(CASE WHEN status = 'COMPLIANT' THEN 1 END)::int AS compliant
        FROM branch_compliances bc
-       ${scope.branchId ? 'WHERE bc.branch_id = $1' : ''}`,
-      scope.branchId ? [scope.branchId] : [],
+       ${compWhere}`,
+      compParams,
       { total: 0, compliant: 0 },
     );
 
@@ -415,6 +499,18 @@ export class LegitxDashboardService {
     const minKey = months[months.length - 1].key;
     const maxKey = months[0].key;
 
+    const trendParams: any[] = [minKey, maxKey];
+    const trendConditions = ['(EXTRACT(YEAR FROM created_at)::int * 12 + EXTRACT(MONTH FROM created_at)::int) BETWEEN $1 AND $2'];
+
+    if (scope.clientId) {
+      trendParams.push(scope.clientId);
+      trendConditions.push(`bc.client_id = $${trendParams.length}`);
+    }
+    if (scope.branchId) {
+      trendParams.push(scope.branchId);
+      trendConditions.push(`bc.branch_id = $${trendParams.length}`);
+    }
+
     const rows = await this.safeMany<{
       month: number;
       year: number;
@@ -427,11 +523,10 @@ export class LegitxDashboardService {
          COUNT(*)::int AS total,
          COUNT(CASE WHEN status = 'COMPLIANT' THEN 1 END)::int AS compliant
        FROM branch_compliances bc
-       WHERE (EXTRACT(YEAR FROM created_at)::int * 12 + EXTRACT(MONTH FROM created_at)::int) BETWEEN $1 AND $2
-         ${scope.branchId ? 'AND bc.branch_id = $3' : ''}
+       WHERE ${trendConditions.join(' AND ')}
        GROUP BY year, month
        ORDER BY year, month`,
-      scope.branchId ? [minKey, maxKey, scope.branchId] : [minKey, maxKey],
+      trendParams,
       [],
     );
 
@@ -452,23 +547,61 @@ export class LegitxDashboardService {
   }
 
   private async getComplianceOps(scope: LegitxDashboardScope) {
+    const opsParams: any[] = [scope.month, scope.year];
+
+    let scopeFilter = '';
+    if (scope.branchId) {
+      opsParams.push(scope.branchId);
+      scopeFilter = `AND ct.branch_id = $3`;
+    } else if (scope.clientId) {
+      opsParams.push(scope.clientId);
+      scopeFilter = `AND ct.branch_id IN (SELECT id FROM client_branches WHERE clientid = $3 AND isdeleted = false)`;
+    }
+
+    let returnScopeFilter = '';
+    if (scope.branchId) {
+      returnScopeFilter = `AND cr.branch_id = $3`;
+    } else if (scope.clientId) {
+      returnScopeFilter = `AND cr.branch_id IN (SELECT id FROM client_branches WHERE clientid = $3 AND isdeleted = false)`;
+    }
+
+    // Derive MCD / returns data from compliance_tasks + compliance_mcd_items + compliance_returns
+    const mcdSql = `
+      WITH task_mcd AS (
+        SELECT
+          COUNT(CASE WHEN mi.status IN ('SUBMITTED','VERIFIED') THEN 1 END)::int AS mcd_submitted,
+          COUNT(CASE WHEN mi.status = 'PENDING' THEN 1 END)::int AS mcd_pending
+        FROM compliance_tasks ct
+        JOIN compliance_mcd_items mi ON mi.task_id = ct.id
+        WHERE ct.period_month = $1 AND ct.period_year = $2
+          ${scopeFilter}
+      ),
+      returns_agg AS (
+        SELECT
+          COUNT(CASE WHEN cr.status IN ('SUBMITTED','APPROVED') THEN 1 END)::int AS returns_filed,
+          COUNT(CASE WHEN cr.status IN ('PENDING','IN_PROGRESS') THEN 1 END)::int AS returns_pending,
+          COUNT(CASE WHEN cr.status = 'REJECTED' THEN 1 END)::int AS amendments_open,
+          COUNT(CASE WHEN cr.due_date < NOW() AND cr.status NOT IN ('SUBMITTED','APPROVED') THEN 1 END)::int AS renewals_overdue
+        FROM compliance_returns cr
+        WHERE cr.period_month = $1 AND cr.period_year = $2 AND cr.is_deleted = false
+          ${returnScopeFilter}
+      )
+      SELECT
+        CONCAT(LPAD($1::text, 2, '0'), '/', $2::text) AS label,
+        COALESCE(m.mcd_submitted + r.returns_filed, 0)::int AS done,
+        COALESCE(m.mcd_pending + r.returns_pending + r.amendments_open, 0)::int AS pending,
+        COALESCE(r.renewals_overdue, 0)::int AS overdue
+      FROM task_mcd m, returns_agg r
+    `;
+
     const rows = await this.safeMany<{
       label: string;
       done: number;
       pending: number;
       overdue: number;
     }>(
-      `SELECT
-         CONCAT(LPAD($1::text, 2, '0'), '/', $2::text) AS label,
-         COALESCE(SUM(mcd_submitted + returns_filed + renewals_completed), 0)::int AS done,
-         COALESCE(SUM(mcd_pending + returns_pending + amendments_open), 0)::int AS pending,
-         COALESCE(SUM(renewals_overdue), 0)::int AS overdue
-       FROM crm_compliance_monthly_summary
-       WHERE month = $1 AND year = $2
-         ${scope.branchId ? 'AND branch_id = $3' : ''}`,
-      scope.branchId
-        ? [scope.month, scope.year, scope.branchId]
-        : [scope.month, scope.year],
+      mcdSql,
+      opsParams,
       [],
     );
 
@@ -532,6 +665,7 @@ export class LegitxDashboardService {
       params.push(scope.clientId);
       conditions.push(`a.client_id = $${params.length}`);
     } else if (scope.branchId) {
+      // Audits are at client level (no branch_id column); resolve clientId from the selected branch
       params.push(scope.branchId);
       conditions.push(`a.client_id = (SELECT clientid FROM client_branches WHERE id = $${params.length} LIMIT 1)`);
     }
@@ -590,15 +724,9 @@ export class LegitxDashboardService {
     });
 
     // BranchDesk inspections / showcause
-    const enforcementRows = await this.safeMany<EnforcementRow>(
-      `SELECT branch_id, event_type, authority, event_date, reference_no, status
-       FROM branch_enforcement_events
-       ${scope.branchId ? 'WHERE branch_id = $1' : ''}
-       ORDER BY event_date DESC
-       LIMIT 50`,
-      scope.branchId ? [scope.branchId] : [],
-      [],
-    );
+    // branch_enforcement_events table does not exist yet — skip enforcement queue items.
+    // When the table is created in a future migration, re-enable this block.
+    const enforcementRows: EnforcementRow[] = [];
 
     enforcementRows.forEach((row) => {
       const ageDays = this.ageFromDate(row.event_date);

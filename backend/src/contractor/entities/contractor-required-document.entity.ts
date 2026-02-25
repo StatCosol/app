@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 
 @Entity('contractor_required_documents')
-@Index('idx_crd_contractor', ['contractorId'])
+@Index('idx_crd_contractor', ['contractorUserId'])
 @Index('idx_crd_client', ['clientId'])
 @Index('idx_crd_branch', ['branchId'])
 @Index('idx_crd_doc_type', ['docType'])
@@ -19,8 +19,8 @@ export class ContractorRequiredDocumentEntity {
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
 
-  @Column({ name: 'contractor_id', type: 'uuid' })
-  contractorId: string;
+  @Column({ name: 'contractor_user_id', type: 'uuid' })
+  contractorUserId: string;
 
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;

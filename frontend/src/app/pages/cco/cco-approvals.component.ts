@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { CcoApprovalsService } from '../../core/cco-approvals.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
@@ -14,7 +15,8 @@ import {
   imports: [CommonModule, PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent],
   templateUrl: './cco-approvals.component.html',
 })
-export class CcoApprovalsComponent implements OnInit {
+export class CcoApprovalsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   requests: any[] = [];
   loading = true;
   error: string | null = null;
@@ -40,14 +42,17 @@ export class CcoApprovalsComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.approvals.list().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res) => {
+        this.loading = false;
         this.requests = res || [];
         this.cdr.detectChanges();
       },
       error: (e) => {
+        this.loading = false;
         this.error = e?.error?.message || 'Failed to load requests';
         this.cdr.detectChanges();
       },
@@ -57,7 +62,9 @@ export class CcoApprovalsComponent implements OnInit {
   approve(id: number): void {
     if (!confirm('Approve this CRM deletion request?')) return;
     this.actionId = id;
-    this.approvals.approve(id).subscribe({
+    this.approvals.approve(id).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: () => { this.actionId = null; this.cdr.detectChanges(); this.load(); },
       error: (e) => { this.actionId = null; this.toast.error(e?.error?.message || 'Failed to approve'); this.cdr.detectChanges(); },
     });
@@ -67,9 +74,16 @@ export class CcoApprovalsComponent implements OnInit {
     const remarks = prompt('Enter rejection remarks (required):') || '';
     if (!remarks.trim()) return;
     this.actionId = id;
-    this.approvals.reject(id, remarks.trim()).subscribe({
+    this.approvals.reject(id, remarks.trim()).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: () => { this.actionId = null; this.cdr.detectChanges(); this.load(); },
       error: (e) => { this.actionId = null; this.toast.error(e?.error?.message || 'Failed to reject'); this.cdr.detectChanges(); },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

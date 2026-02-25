@@ -10,11 +10,11 @@ export class ClientComplianceService {
   constructor(private http: HttpClient) {}
 
   getDashboard(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/dashboard`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/dashboard`);
   }
 
   getBranches(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/branches`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/branches`);
   }
 
   getTasks(filters: any): Observable<any> {
@@ -24,14 +24,14 @@ export class ClientComplianceService {
         params = params.set(k, String(filters[k]));
       }
     });
-    return this.http.get(`${this.baseUrl}/api/client/compliance/tasks`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/client/compliance/tasks`, { params });
   }
 
   uploadEvidence(taskId: string | number, file: File, notes?: string): Observable<any> {
     const form = new FormData();
     form.append('file', file);
     if (notes) form.append('notes', notes);
-    return this.http.post(`${this.baseUrl}/api/client/compliance/tasks/${taskId}/evidence`, form);
+    return this.http.post(`${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/evidence`, form);
   }
 
   uploadEvidenceForItem(taskId: string | number, itemId: string | number, file: File, notes?: string): Observable<any> {
@@ -39,15 +39,15 @@ export class ClientComplianceService {
     form.append('file', file);
     form.append('mcdItemId', String(itemId));
     if (notes) form.append('notes', notes);
-    return this.http.post(`${this.baseUrl}/api/client/compliance/tasks/${taskId}/evidence`, form);
+    return this.http.post(`${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/evidence`, form);
   }
 
   submitTask(taskId: string | number): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/client/compliance/tasks/${taskId}/submit`, {});
+    return this.http.post(`${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/submit`, {});
   }
 
   getMcdItems(taskId: string | number): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/compliance/tasks/${taskId}/items`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/compliance/tasks/${taskId}/items`);
   }
 
   // ── Compliance Status Dashboard APIs ──

@@ -7,13 +7,13 @@ import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class ComplianceService {
   private baseUrl = environment.apiBaseUrl;
-  private crmBase = `${this.baseUrl}/api/crm/compliance-tasks`;
-  private contractorBase = `${this.baseUrl}/api/contractor/compliance`;
-  private auditorBase = `${this.baseUrl}/api/auditor/compliance`;
-  private crmDashboardUrl = `${this.baseUrl}/api/crm/dashboard`;
-  private contractorDashboardUrl = `${this.baseUrl}/api/contractor/dashboard`;
-  private clientDashboardUrl = `${this.baseUrl}/api/client/dashboard`;
-  private adminDashboardUrl = `${this.baseUrl}/api/admin/dashboard`;
+  private crmBase = `${this.baseUrl}/api/v1/crm/compliance-tasks`;
+  private contractorBase = `${this.baseUrl}/api/v1/contractor/compliance`;
+  private auditorBase = `${this.baseUrl}/api/v1/auditor/compliance`;
+  private crmDashboardUrl = `${this.baseUrl}/api/v1/crm/dashboard`;
+  private contractorDashboardUrl = `${this.baseUrl}/api/v1/contractor/dashboard`;
+  private clientDashboardUrl = `${this.baseUrl}/api/v1/client/dashboard`;
+  private adminDashboardUrl = `${this.baseUrl}/api/v1/admin/dashboard`;
 
   constructor(private http: HttpClient) {}
 

@@ -333,7 +333,7 @@ export class LegitxComplianceStatusService {
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const rows = await this.safeMany<{
-      contractor_id: string;
+      contractor_user_id: string;
       contractor_name: string;
       branch_id: string | null;
       branch_name: string | null;
@@ -344,7 +344,7 @@ export class LegitxComplianceStatusService {
       expired_docs: number;
     }>(
       `SELECT
-         bc.contractor_user_id AS contractor_id,
+         bc.contractor_user_id AS contractor_user_id,
          COALESCE(u.name, u.email, 'Contractor') AS contractor_name,
          bc.branch_id,
          COALESCE(cb.branchname, 'Branch') AS branch_name,
@@ -364,7 +364,7 @@ export class LegitxComplianceStatusService {
            COUNT(*) FILTER (WHERE cd.status = 'REJECTED')::int AS rejected_docs,
            COUNT(*) FILTER (WHERE cd.status = 'EXPIRED')::int AS expired_docs
          FROM contractor_documents cd
-         WHERE cd.contractor_id = bc.contractor_user_id
+         WHERE cd.contractor_user_id = bc.contractor_user_id
            AND cd.branch_id = bc.branch_id
        ) ds ON true
        ${whereClause}
@@ -374,7 +374,7 @@ export class LegitxComplianceStatusService {
     );
 
     const mapped: ContractorImpactRow[] = rows.map(r => ({
-      contractorId: r.contractor_id,
+      contractorUserId: r.contractor_user_id,
       contractorName: r.contractor_name,
       branchId: r.branch_id,
       branchName: r.branch_name,

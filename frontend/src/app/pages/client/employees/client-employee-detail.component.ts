@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ClientEmployeesService,
   Employee,
@@ -259,7 +260,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms';
   `,
   styles: [
     `
-      .page { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem; }
 
       .header-card {
         background: white;
@@ -362,10 +363,11 @@ type DetailTab = 'profile' | 'nominations' | 'forms';
     `,
   ],
 })
-export class ClientEmployeeDetailComponent implements OnInit {
+export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   employeeId = '';
   emp: Employee | null = null;
-  loading = true;
+  loading = false;
   error = '';
 
   activeTab: DetailTab = 'profile';
@@ -417,17 +419,24 @@ export class ClientEmployeeDetailComponent implements OnInit {
     this.loadEmployee();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadEmployee(): void {
     this.loading = true;
     this.error = '';
     this.svc
       .getById(this.employeeId)
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: (emp) => {
+          this.loading = false;
           this.emp = emp;
         },
         error: () => {
+          this.loading = false;
           this.error = 'Employee not found or access denied.';
         },
       });
@@ -445,7 +454,7 @@ export class ClientEmployeeDetailComponent implements OnInit {
 
   confirmDeactivate(): void {
     if (!this.emp || !confirm(`Deactivate ${this.emp.firstName} ${this.emp.lastName || ''}?`)) return;
-    this.svc.deactivate(this.employeeId).subscribe({
+    this.svc.deactivate(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadEmployee(),
       error: (e) => alert(e?.error?.message || 'Failed to deactivate'),
     });
@@ -460,10 +469,10 @@ export class ClientEmployeeDetailComponent implements OnInit {
     this.loadingNoms = true;
     this.svc
       .listNominations(this.employeeId)
-      .pipe(finalize(() => { this.loadingNoms = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingNoms = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: (list) => { this.nominations = list; },
-        error: () => { this.nominations = []; },
+        next: (list) => { this.loadingNoms = false; this.nominations = list; },
+        error: () => { this.loadingNoms = false; this.nominations = []; },
       });
   }
 
@@ -501,13 +510,15 @@ export class ClientEmployeeDetailComponent implements OnInit {
     this.nomFormError = '';
     this.svc
       .createNomination(this.employeeId, { ...this.nomForm, members: validMembers })
-      .pipe(finalize(() => { this.savingNom = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.savingNom = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
+          this.savingNom = false;
           this.showNomModal = false;
           this.loadNominations();
         },
         error: (e) => {
+          this.savingNom = false;
           this.nomFormError = e?.error?.message || 'Failed to save nomination';
         },
       });
@@ -518,10 +529,10 @@ export class ClientEmployeeDetailComponent implements OnInit {
     this.loadingForms = true;
     this.svc
       .listForms(this.employeeId)
-      .pipe(finalize(() => { this.loadingForms = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingForms = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: (list) => { this.forms = list; },
-        error: () => { this.forms = []; },
+        next: (list) => { this.loadingForms = false; this.forms = list; },
+        error: () => { this.loadingForms = false; this.forms = []; },
       });
   }
 
@@ -530,14 +541,16 @@ export class ClientEmployeeDetailComponent implements OnInit {
     this.formGenMsg = '';
     this.svc
       .generateForm(this.employeeId, formType)
-      .pipe(finalize(() => { this.generatingForm = ''; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.generatingForm = ''; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
+          this.generatingForm = '';
           this.formGenMsg = `${formType} form generated successfully`;
           this.formGenError = false;
           this.loadForms();
         },
         error: (e) => {
+          this.generatingForm = '';
           this.formGenMsg = e?.error?.message || 'Generation failed';
           this.formGenError = true;
         },

@@ -22,8 +22,8 @@ export interface CreatePayrollAssignmentPayload {
 @Injectable({ providedIn: 'root' })
 export class AdminPayrollAssignmentsService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiBaseUrl}/api`;
-  private payrollAssignmentsBase = `${environment.apiBaseUrl}/api/admin/payroll-assignments`;
+  private apiUrl = `${environment.apiBaseUrl}/api/v1`;
+  private payrollAssignmentsBase = `${environment.apiBaseUrl}/api/v1/admin/payroll-assignments`;
 
   getClients(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/admin/clients`);

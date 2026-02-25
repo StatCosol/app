@@ -1,7 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { forkJoin } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { forkJoin, Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.service';
 
 @Component({
@@ -162,8 +162,9 @@ import { EssApiService, StatutoryDetails, ContributionRow } from '../ess-api.ser
     }
   `],
 })
-export class EssPfComponent implements OnInit {
-  loading = true;
+export class EssPfComponent implements OnInit, OnDestroy {
+  loading = false;
+  private readonly destroy$ = new Subject<void>();
   statutory: StatutoryDetails | null = null;
   pfContributions: ContributionRow[] = [];
 
@@ -175,18 +176,32 @@ export class EssPfComponent implements OnInit {
   constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.loading = true;
     forkJoin({
       statutory: this.api.getStatutory(),
       contributions: this.api.getContributions(),
     })
-    .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+    .pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+    )
     .subscribe({
       next: (data) => {
+        this.loading = false;
         this.statutory = data.statutory;
         this.pfContributions = data.contributions;
       },
-      error: () => {},
+      error: () => {
+        this.loading = false;
+        this.statutory = null;
+        this.pfContributions = [];
+      },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   monthName(m: number): string { return this.months[m] || String(m); }

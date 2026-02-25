@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { filter, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
 
 interface SidebarGroup {
@@ -328,7 +329,7 @@ interface SidebarItem {
     }
   `]
 })
-export class ClientSidebarComponent implements OnChanges {
+export class ClientSidebarComponent implements OnChanges, OnDestroy {
   @Input() collapsed = false;
   @Output() collapsedChange = new EventEmitter<boolean>();
 
@@ -341,12 +342,22 @@ export class ClientSidebarComponent implements OnChanges {
   collapsedLinks: SidebarItem[] = [];
   navGroups: SidebarGroup[] = [];
 
+  private readonly destroy$ = new Subject<void>();
+
   constructor(private router: Router, private sanitizer: DomSanitizer, private auth: AuthService) {
     this.setNavData();
     this.syncExpandedWithRoute(this.router.url);
-    this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(evt => {
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      takeUntil(this.destroy$),
+    ).subscribe(evt => {
       this.syncExpandedWithRoute(evt.urlAfterRedirects || evt.url);
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -450,6 +461,8 @@ export class ClientSidebarComponent implements OnChanges {
           { label: 'Monthly MCD', route: '/client/compliance/mcd', icon: this.svg('M4 6h16M4 10h16M4 14h10m-6 4h6') },
           { label: 'MCD Uploads', route: '/client/compliance/mcd/uploads', icon: this.svg('M12 4v16m8-8H4') },
           { label: 'Returns / Filings', route: '/client/compliance/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Registrations & Licenses', route: '/client/compliance/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Document Library', route: '/client/compliance/library', icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
           { label: 'Audits', route: '/client/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
         ],
       },
@@ -491,6 +504,7 @@ export class ClientSidebarComponent implements OnChanges {
         expanded: false,
         items: [
           { label: 'Profile', route: '/client/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
+          { label: 'Access Settings', route: '/client/settings/access', icon: this.svg('M12 11c0 1.657-1.343 3-3 3S6 12.657 6 11s1.343-3 3-3 3 1.343 3 3zm9 1a8.96 8.96 0 01-.5 3l2.2 1.7-2 3.464-2.6-1a9.1 9.1 0 01-2.6 1.5l-.4 2.8H9.9l-.4-2.8a9.1 9.1 0 01-2.6-1.5l-2.6 1-2-3.464L4.5 15A8.96 8.96 0 014 12c0-1.04.18-2.04.5-3L2.3 7.3l2-3.464 2.6 1A9.1 9.1 0 019.5 3.3L9.9.5h4.2l.4 2.8a9.1 9.1 0 012.6 1.5l2.6-1 2 3.464L20.5 9c.32.96.5 1.96.5 3z') },
         ],
       },
     ];

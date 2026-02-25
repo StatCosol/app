@@ -33,7 +33,7 @@ export class LegitxDashboardService {
       httpParams = httpParams.set('toggle', params.toggle);
     }
 
-    return this.http.get<LegitxDashboardResponse>(`${this.baseUrl}/api/legitx/dashboard/summary`, {
+    return this.http.get<LegitxDashboardResponse>(`${this.baseUrl}/api/v1/legitx/dashboard/summary`, {
       params: httpParams,
     });
   }

@@ -1,16 +1,17 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { finalize, timeout } from 'rxjs/operators';
-import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent } from '../../shared/ui';
 import { ShortIdPipe } from '../../shared/pipes/short-id.pipe';
 
 @Component({
   selector: 'app-cco-oversight',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, ShortIdPipe],
+  imports: [CommonModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent, ShortIdPipe],
   template: `
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="Compliance Oversight"
         description="Monitor escalated tasks and compliance status"
@@ -47,31 +48,38 @@ import { ShortIdPipe } from '../../shared/pipes/short-id.pipe';
                 <td class="px-6 py-4 text-sm">{{ t.client || '\u2014' }}</td>
                 <td class="px-6 py-4 text-sm">{{ t.branch || '\u2014' }}</td>
                 <td class="px-6 py-4 text-sm">{{ t.dueDate | date:'mediumDate' }}</td>
-                <td class="px-6 py-4 text-sm"><span class="badge badge-warning">{{ t.status }}</span></td>
+                <td class="px-6 py-4 text-sm"><ui-status-badge [status]="t.status"></ui-status-badge></td>
                 <td class="px-6 py-4 text-sm">{{ t.escalatedAt | date:'medium' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-    </main>
+    </div>
   `,
 })
-export class CcoOversightComponent implements OnInit {
+export class CcoOversightComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   tasks: any[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loading = true;
-    this.http.get<any[]>('/api/cco/oversight').pipe(
+    this.http.get<any[]>('/api/v1/cco/oversight').pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.tasks = data || []; this.cdr.detectChanges(); },
-      error: () => { this.tasks = []; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.tasks = data || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.error = 'Failed to load oversight data. Please try again.'; this.tasks = []; this.cdr.detectChanges(); },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

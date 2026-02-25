@@ -7,6 +7,7 @@ import { EmployeeNominationMemberEntity } from './entities/employee-nomination-m
 import { EmployeeGeneratedFormEntity } from './entities/employee-generated-form.entity';
 import { EmployeesService } from './employees.service';
 import { ClientEmployeesController } from './employees.controller';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ClientEmployeesController } from './employees.controller';
       EmployeeNominationMemberEntity,
       EmployeeGeneratedFormEntity,
     ]),
+    AiModule,
   ],
   controllers: [ClientEmployeesController],
   providers: [EmployeesService],

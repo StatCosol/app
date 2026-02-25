@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { PageHeaderComponent } from '../../../shared/ui';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
-import { catchError, finalize, of } from 'rxjs';
+import { catchError, finalize, of, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import type { ClientDto } from '../../../core/api/cco-clients.api';
 
 @Component({
@@ -78,10 +79,11 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
     </main>
   `,
 })
-export class CrmClientsComponent implements OnInit {
+export class CrmClientsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   all: ClientDto[] = [];
   filtered: ClientDto[] = [];
-  isLoading = false;
+  isLoading = true;
   err: string | null = null;
 
   search = '';
@@ -99,6 +101,7 @@ export class CrmClientsComponent implements OnInit {
 
     this.crmClientsApi.getAssignedClients()
       .pipe(
+        takeUntil(this.destroy$),
         catchError((err) => {
           console.error(err);
           this.err = err?.error?.message || 'Failed to load clients';
@@ -110,6 +113,7 @@ export class CrmClientsComponent implements OnInit {
         })
       )
       .subscribe((clients: any) => {
+        this.isLoading = false;
         this.all = clients || [];
         this.applyFilters();
       });
@@ -125,5 +129,10 @@ export class CrmClientsComponent implements OnInit {
         this.status === 'all' ? true : c.status === this.status;
       return matchesSearch && matchesStatus;
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

@@ -84,12 +84,7 @@
         label="Year"
         [(ngModel)]="filters.year"
         (ngModelChange)="loadAudits()"
-        [options]="[
-          { value: 2024, label: '2024' },
-          { value: 2025, label: '2025' },
-          { value: 2026, label: '2026' },
-          { value: 2027, label: '2027' }
-        ]">
+        [options]="yearOptions">
       </ui-form-select>
 
       <ui-form-select
@@ -97,13 +92,7 @@
         label="Status"
         [(ngModel)]="filters.status"
         (ngModelChange)="loadAudits()"
-        [options]="[
-          { value: '', label: 'All Statuses' },
-          { value: 'PLANNED', label: 'Planned' },
-          { value: 'IN_PROGRESS', label: 'In Progress' },
-          { value: 'COMPLETED', label: 'Completed' },
-          { value: 'CANCELLED', label: 'Cancelled' }
-        ]">
+        [options]="auditStatusOptions">
       </ui-form-select>
 
       <ui-form-select
@@ -111,13 +100,7 @@
         label="Frequency"
         [(ngModel)]="filters.frequency"
         (ngModelChange)="loadAudits()"
-        [options]="[
-          { value: '', label: 'All Frequencies' },
-          { value: 'MONTHLY', label: 'Monthly' },
-          { value: 'QUARTERLY', label: 'Quarterly' },
-          { value: 'HALF_YEARLY', label: 'Half Yearly' },
-          { value: 'YEARLY', label: 'Yearly' }
-        ]">
+        [options]="frequencyOptions">
       </ui-form-select>
     </div>
   </div>

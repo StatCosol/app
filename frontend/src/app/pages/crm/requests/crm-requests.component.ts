@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 
 @Component({
@@ -45,7 +46,8 @@ import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } fro
     </div>
   `,
 })
-export class CrmRequestsComponent implements OnInit {
+export class CrmRequestsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   requests: any[] = [];
   loading = false;
   error: string | null = null;
@@ -56,12 +58,18 @@ export class CrmRequestsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loading = true;
-    this.http.get<any[]>(`${this.baseUrl}/api/crm/helpdesk/tickets`).pipe(
+    this.http.get<any[]>(`${this.baseUrl}/api/v1/crm/helpdesk/tickets`).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.requests = data || []; this.cdr.detectChanges(); },
-      error: () => { this.requests = []; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.requests = data || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.requests = []; this.cdr.detectChanges(); },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

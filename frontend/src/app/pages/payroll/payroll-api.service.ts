@@ -27,10 +27,8 @@ export class PayrollApiService {
    * If not available yet, we return zeros.
    */
   getSummary(): Observable<PayrollSummary> {
-    console.log('PayrollApiService: fetching summary from', `${environment.apiBaseUrl}/api/payroll/summary`);
-    return this.http.get<any>(`${environment.apiBaseUrl}/api/payroll/summary`).pipe(
+    return this.http.get<any>(`${environment.apiBaseUrl}/api/v1/payroll/summary`).pipe(
       map((r) => {
-        console.log('PayrollApiService: summary response', r);
         return {
           assignedClients: Number(r?.assignedClients ?? 0),
           pendingRuns: Number(r?.pendingRuns ?? 0),
@@ -42,10 +40,8 @@ export class PayrollApiService {
 
   /** V1 endpoint (recommended backend): GET /api/payroll/clients */
   getAssignedClients(): Observable<PayrollClient[]> {
-    console.log('PayrollApiService: fetching clients from', `${environment.apiBaseUrl}/api/payroll/clients`);
-    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/payroll/clients`).pipe(
+    return this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/payroll/clients`).pipe(
       map((clients) => {
-        console.log('PayrollApiService: clients response', clients);
         return clients.map(c => ({
           id: c.id,
           name: c.clientName || c.name || c.client_name || 'Unknown Client',

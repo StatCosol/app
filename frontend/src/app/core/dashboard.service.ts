@@ -8,6 +8,10 @@ import {
   CrmLowCoverageResponse,
   CrmPendingDocumentsResponse,
   CrmQueriesResponse,
+  CrmKpis,
+  PriorityItem,
+  RiskClient,
+  UpcomingAudit,
 } from '../pages/crm/crm-dashboard.dto';
 import {
   AuditorSummary,
@@ -28,17 +32,17 @@ export class DashboardService {
 
   getClientPfEsiSummary(params: { month: string; branchId?: string }): Observable<PfEsiSummaryResponse> {
     const httpParams = new HttpParams({ fromObject: { month: params.month, ...(params.branchId ? { branchId: params.branchId } : {}) } });
-    return this.http.get<PfEsiSummaryResponse>(`${this.baseUrl}/api/client-dashboard/pf-esi-summary`, { params: httpParams });
+    return this.http.get<PfEsiSummaryResponse>(`${this.baseUrl}/api/v1/client-dashboard/pf-esi-summary`, { params: httpParams });
   }
 
   getClientContractorUploadSummary(params: { month: string; branchId?: string }): Observable<ContractorUploadSummaryResponse> {
     const httpParams = new HttpParams({ fromObject: { month: params.month, ...(params.branchId ? { branchId: params.branchId } : {}) } });
-    return this.http.get<ContractorUploadSummaryResponse>(`${this.baseUrl}/api/client-dashboard/contractor-upload-summary`, { params: httpParams });
+    return this.http.get<ContractorUploadSummaryResponse>(`${this.baseUrl}/api/v1/client-dashboard/contractor-upload-summary`, { params: httpParams });
   }
 
   /** @deprecated Legacy CRM dashboard endpoint */
   crm(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/crm/dashboard`);
+    return this.http.get(`${this.baseUrl}/api/v1/crm/dashboard`);
   }
 
   /** Get CRM summary KPIs */
@@ -49,7 +53,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<CrmSummary>(`${this.baseUrl}/api/crm/dashboard/summary`, { params });
+    return this.http.get<CrmSummary>(`${this.baseUrl}/api/v1/crm/dashboard/summary`, { params });
   }
 
   /** Get compliance due items (tab: OVERDUE, DUE_SOON, THIS_MONTH) */
@@ -60,7 +64,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<CrmDueCompliancesResponse>(`${this.baseUrl}/api/crm/dashboard/due-compliances`, { params });
+    return this.http.get<CrmDueCompliancesResponse>(`${this.baseUrl}/api/v1/crm/dashboard/due-compliances`, { params });
   }
 
   /** Get branches with low compliance coverage */
@@ -71,7 +75,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<CrmLowCoverageResponse>(`${this.baseUrl}/api/crm/dashboard/low-coverage-branches`, { params });
+    return this.http.get<CrmLowCoverageResponse>(`${this.baseUrl}/api/v1/crm/dashboard/low-coverage-branches`, { params });
   }
 
   /** Get pending documents from contractors */
@@ -82,7 +86,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<CrmPendingDocumentsResponse>(`${this.baseUrl}/api/crm/dashboard/pending-documents`, { params });
+    return this.http.get<CrmPendingDocumentsResponse>(`${this.baseUrl}/api/v1/crm/dashboard/pending-documents`, { params });
   }
 
   /** Get compliance queries inbox */
@@ -93,7 +97,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<CrmQueriesResponse>(`${this.baseUrl}/api/crm/dashboard/queries`, { params });
+    return this.http.get<CrmQueriesResponse>(`${this.baseUrl}/api/v1/crm/dashboard/queries`, { params });
   }
 
   // ===== Auditor Dashboard Endpoints =====
@@ -106,7 +110,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<AuditorSummary>(`${this.baseUrl}/api/auditor/dashboard/summary`, { params });
+    return this.http.get<AuditorSummary>(`${this.baseUrl}/api/v1/auditor/dashboard/summary`, { params });
   }
 
   /** Get auditor's assigned audits (tab: ACTIVE, OVERDUE, DUE_SOON, COMPLETED) */
@@ -117,7 +121,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<AuditorAuditsResponse>(`${this.baseUrl}/api/auditor/dashboard/audits`, { params });
+    return this.http.get<AuditorAuditsResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/audits`, { params });
   }
 
   /** Get observations pending closure */
@@ -128,7 +132,7 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<AuditorObservationsResponse>(`${this.baseUrl}/api/auditor/dashboard/observations`, { params });
+    return this.http.get<AuditorObservationsResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/observations`, { params });
   }
 
   /** Get evidence/documents pending */
@@ -139,35 +143,66 @@ export class DashboardService {
         params = params.set(key, filters[key]);
       }
     });
-    return this.http.get<AuditorEvidenceResponse>(`${this.baseUrl}/api/auditor/dashboard/evidence-pending`, { params });
+    return this.http.get<AuditorEvidenceResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/evidence-pending`, { params });
   }
 
   /** Get recent activity timeline */
   getAuditorActivity(): Observable<AuditorActivityResponse> {
-    return this.http.get<AuditorActivityResponse>(`${this.baseUrl}/api/auditor/dashboard/activity`);
+    return this.http.get<AuditorActivityResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/activity`);
   }
 
   // ===== Legacy Endpoints =====
 
   contractor(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/contractor/dashboard`);
+    return this.http.get(`${this.baseUrl}/api/v1/contractor/dashboard`);
   }
 
   client(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/client/dashboard`);
+    return this.http.get(`${this.baseUrl}/api/v1/client/dashboard`);
   }
 
   /** @deprecated Legacy auditor dashboard endpoint */
   auditor(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/auditor/dashboard`);
+    return this.http.get(`${this.baseUrl}/api/v1/auditor/dashboard`);
   }
 
   admin(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/admin/dashboard`);
+    return this.http.get(`${this.baseUrl}/api/v1/admin/dashboard`);
   }
 
   /** Auditor: list my assigned branches (branch-wise auditor assignment) */
   getAuditorBranches(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/api/auditor/branches`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/auditor/branches`);
+  }
+
+  /* ═══════ CRM Dashboard V2 ═══════ */
+
+  /** 8 KPI cards */
+  getCrmKpis(): Observable<CrmKpis> {
+    return this.http.get<CrmKpis>(`${this.baseUrl}/api/v1/crm/dashboard/kpis`);
+  }
+
+  /** Priority Today list */
+  getCrmPriorityToday(limit = 20): Observable<{ items: PriorityItem[] }> {
+    return this.http.get<{ items: PriorityItem[] }>(
+      `${this.baseUrl}/api/v1/crm/dashboard/priority-today`,
+      { params: { limit: String(limit) } },
+    );
+  }
+
+  /** Top Risk Clients */
+  getCrmTopRiskClients(limit = 10): Observable<{ items: RiskClient[] }> {
+    return this.http.get<{ items: RiskClient[] }>(
+      `${this.baseUrl}/api/v1/crm/dashboard/top-risk-clients`,
+      { params: { limit: String(limit) } },
+    );
+  }
+
+  /** Upcoming Audits */
+  getCrmUpcomingAudits(days = 15): Observable<{ items: UpcomingAudit[] }> {
+    return this.http.get<{ items: UpcomingAudit[] }>(
+      `${this.baseUrl}/api/v1/crm/dashboard/upcoming-audits`,
+      { params: { days: String(days) } },
+    );
   }
 }

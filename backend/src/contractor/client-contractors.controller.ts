@@ -87,7 +87,7 @@ export class ClientContractorsController {
     // Document stats per contractor (scoped to allowed branches)
     const stats = await this.docRepo
       .createQueryBuilder('d')
-      .select('d.contractor_id', 'contractorId')
+      .select('d.contractor_user_id', 'contractorId')
       .addSelect('COUNT(*)', 'totalDocs')
       .addSelect(
         `SUM(CASE WHEN d.status = 'APPROVED' THEN 1 ELSE 0 END)`,
@@ -108,7 +108,7 @@ export class ClientContractorsController {
       .addSelect('MAX(d.created_at)', 'lastUploadedAt')
       .where('d.client_id = :clientId', { clientId })
       .andWhere('d.branch_id IN (:...branchIds)', { branchIds })
-      .groupBy('d.contractor_id')
+      .groupBy('d.contractor_user_id')
       .getRawMany();
 
     const statMap = new Map<string, any>();

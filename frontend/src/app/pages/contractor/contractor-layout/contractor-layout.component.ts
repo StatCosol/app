@@ -32,7 +32,7 @@ import { ClientSidebarComponent } from '../../client/client-layout/client-sideba
       <div class="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300">
         <app-role-header [role]="'CONTRACTOR'" [displayName]="'Contractor User'"></app-role-header>
 
-        <main class="contractor-content">
+        <main class="role-content contractor-content">
           <router-outlet></router-outlet>
         </main>
       </div>

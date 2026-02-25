@@ -5,6 +5,7 @@ export interface LegitxDashboardScope {
   year: number;
   branchId?: string | number | null;
   contractorId?: string | number | null;
+  clientId?: string | null;
   toggle?: LegitxToggle;
 }
 

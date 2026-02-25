@@ -12,7 +12,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class AdminDashboardService {
-  private readonly base = '/api/admin/dashboard';
+  private readonly base = '/api/v1/admin/dashboard';
 
   constructor(private http: HttpClient) {}
 
@@ -29,11 +29,11 @@ export class AdminDashboardService {
   }
 
   sendDigestNow(): Observable<{ status: string }> {
-    return this.http.post<{ status: string }>(`/api/admin/reminders/send-now`, {});
+    return this.http.post<{ status: string }>(`/api/v1/admin/reminders/send-now`, {});
   }
 
   sendCriticalAlertsNow(): Observable<{ status: string }> {
-    return this.http.post<{ status: string }>(`/api/admin/reminders/send-critical`, {});
+    return this.http.post<{ status: string }>(`/api/v1/admin/reminders/send-critical`, {});
   }
 
   getTaskStatus(range: '7d' | '30d' | '90d'): Observable<TaskStatusDto> {

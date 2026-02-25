@@ -136,7 +136,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
   // UI state
   activeTab: 'company' | 'branches' | 'compliances' = 'company';
-  loading = false;
+  loading = true;
   error = '';
   success = '';
 
@@ -243,7 +243,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     if (tab === 'branches' && this.branches.length === 0) {
       this.loadBranches();
     } else if (tab === 'compliances' && !this.branchForCompliance) {
-      // User needs to select a branch first
+      if (this.branches.length > 0) {
+        this.selectBranchForCompliance(this.branches[0]);
+      } else {
+        this.loadBranches();
+      }
     }
   }
 
@@ -296,6 +300,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = err.error?.message || 'Failed to create client';
         throw err;
       }),
+      takeUntil(this.destroy$),
       finalize(() => this.loading = false)
     ).subscribe({
       next: (res) => {
@@ -330,6 +335,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = err.error?.message || 'Failed to delete client';
         return of(null);
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
       }),
@@ -354,6 +360,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = 'Failed to load client details';
         throw err;
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
       })
@@ -378,7 +385,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         console.error('Load client users error:', err);
         this.error = 'Failed to load client users';
         return of([] as ClientUserLink[]);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: (links) => {
         this.clientUsers = links || [];
@@ -392,7 +400,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       catchError((err) => {
         console.error('Load CLIENT users error:', err);
         return of([] as ClientUserOption[]);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: (users) => {
         this.availableClientUsers = users || [];
@@ -415,6 +424,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = err.error?.message || 'Failed to link client user';
         throw err;
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
       })
@@ -442,6 +452,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = 'Failed to unlink client user';
         return of(null);
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
       })
@@ -475,11 +486,16 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         }
         return of([]);
       }),
+      takeUntil(this.destroy$),
       finalize(() => this.loading = false)
     ).subscribe({
       next: (res) => {
         this.deferUi(() => {
           this.branches = res || [];
+          // Auto-select first branch when on compliances tab with no branch selected
+          if (this.activeTab === 'compliances' && !this.branchForCompliance && this.branches.length > 0) {
+            this.selectBranchForCompliance(this.branches[0]);
+          }
         });
       },
     });
@@ -512,6 +528,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.branchSaveError = err.error?.message || `Failed to ${this.editingBranchId ? 'update' : 'add'} branch`;
         throw err;
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.isSavingBranch = false;
       })
@@ -555,7 +572,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       catchError((_err) => {
         this.error = 'Failed to delete branch';
         return of(null);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: () => {
         this.deferUi(() => {
@@ -597,7 +615,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       catchError((err) => {
         console.error('Load compliances error:', err);
         return of([]);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: (res) => {
         // Kept for legacy use; actual branch applicability is loaded per-branch.
@@ -613,8 +632,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.selectedComplianceIds = new Set<string>();
     this.selectedCount = 0;
     
-    // Navigate to compliances tab
-    if (this.selectedClient) {
+    // Navigate to compliances tab only if not already there
+    if (this.selectedClient && this.activeTab !== 'compliances') {
       this.router.navigate(['/admin/clients', this.selectedClient.id, 'compliances']);
     }
     
@@ -634,6 +653,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         console.error('Recompute compliances error:', err);
         return of(null);
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.isRecomputing = false;
       }),
@@ -650,7 +670,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       catchError((err) => {
         console.error('Load branch compliances error:', err);
         return of([]);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: (items: any) => {
         // Support either array of applicability objects or { complianceIds }
@@ -664,6 +685,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
           this.compliances = [];
         }
         this.recalcSelectedCount();
+        this.cdr.detectChanges();
       },
     });
   }
@@ -693,7 +715,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         console.error('Load branch contractors error:', err);
         this.error = 'Failed to load branch contractors';
         return of([] as BranchContractorLink[]);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: (links) => {
         this.branchContractors = links || [];
@@ -707,7 +730,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       catchError((err) => {
         console.error('Load contractor users error:', err);
         return of([] as ContractorOption[]);
-      })
+      }),
+      takeUntil(this.destroy$),
     ).subscribe({
       next: (users) => {
         this.availableContractors = users || [];
@@ -730,6 +754,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = err.error?.message || 'Failed to link contractor';
         throw err;
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
       })
@@ -760,6 +785,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.error = 'Failed to unlink contractor';
         return of(null);
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.loading = false;
       })
@@ -793,6 +819,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.complianceSaveError = err?.error?.message || 'Failed to save compliances';
         throw err;
       }),
+      takeUntil(this.destroy$),
       finalize(() => {
         this.isSavingCompliances = false;
       })

@@ -1,4 +1,4 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header 
     title="Admin Reports" 
     description="User management, system access, and administrative insights"
@@ -19,50 +19,50 @@
       </div>
     </div>
     <div class="flex flex-wrap gap-3">
-      <ui-button variant="primary" (click)="apply()" [disabled]="loading">
+      <ui-button variant="primary" (clicked)="apply()" [disabled]="loading">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
         Apply Filter
       </ui-button>
-      <ui-button variant="secondary" (click)="reset()" [disabled]="loading">
+      <ui-button variant="secondary" (clicked)="reset()" [disabled]="loading">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
         Reset
       </ui-button>
       <div class="border-l border-gray-300 mx-2"></div>
-      <ui-button variant="secondary" (click)="downloadUsersReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+      <ui-button variant="secondary" (clicked)="downloadUsersReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         Export All Users
       </ui-button>
-      <ui-button variant="secondary" (click)="downloadUserActivityReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+      <ui-button variant="secondary" (clicked)="downloadUserActivityReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         Export User Activity
       </ui-button>
-      <ui-button variant="secondary" (click)="downloadSystemAccessLog()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+      <ui-button variant="secondary" (clicked)="downloadSystemAccessLog()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         Export Access Logs
       </ui-button>
-      <ui-button variant="secondary" (click)="downloadUserRegistrationsReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+      <ui-button variant="secondary" (clicked)="downloadUserRegistrationsReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         Export User Registrations
       </ui-button>
-      <ui-button variant="secondary" (click)="downloadDeletionReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+      <ui-button variant="secondary" (clicked)="downloadDeletionReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         Export Deletion History
       </ui-button>
-      <ui-button variant="secondary" (click)="downloadAssignmentReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
+      <ui-button variant="secondary" (clicked)="downloadAssignmentReport()" [disabled]="loading" class="text-green-700 border-green-300 hover:bg-green-50">
         <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
@@ -210,4 +210,4 @@
       </div>
     </div>
   </div>
-</main>
+</div>

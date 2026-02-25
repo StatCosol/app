@@ -30,8 +30,11 @@ export class AdminPayrollTemplatesController {
 
   @Get(['templates', 'payroll-templates'])
   async listTemplates() {
-    // Return stub payload to satisfy admin dashboard checks
-    return { items: [], total: 0 };
+    const items = await this.templateRepo.find({
+      order: { name: 'ASC' },
+      relations: ['components'],
+    });
+    return { items, total: items.length };
   }
 
   @Get(['templates/:id', 'payroll-templates/:id'])
@@ -81,9 +84,20 @@ export class AdminPayrollTemplatesController {
     });
   }
 
-  // Stub for admin payroll runs to avoid 404 in alignment tests
+  // GET /api/admin/payroll/runs — real DB query
   @Get('runs')
   async listRuns() {
-    return { items: [], total: 0 };
+    try {
+      const items = await this.templateRepo.manager.query(
+        `SELECT id, client_id AS "clientId", status, period_month AS "periodMonth",
+                period_year AS "periodYear", run_date AS "runDate", created_at AS "createdAt"
+         FROM payroll_runs
+         ORDER BY created_at DESC
+         LIMIT 200`,
+      );
+      return { items, total: items.length };
+    } catch {
+      return { items: [], total: 0 };
+    }
   }
 }

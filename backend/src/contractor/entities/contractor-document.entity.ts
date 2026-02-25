@@ -9,12 +9,8 @@ import {
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity';
 
-/**
- * NOTE: In DB the column is named contractor_id, but it represents the contractor user's id (users.id).
- * We keep the property name contractorId for minimal impact on existing code.
- */
 @Entity('contractor_documents')
-@Index('idx_cd_contractor_id', ['contractorId'])
+@Index('idx_cd_contractor_user_id', ['contractorUserId'])
 @Index('idx_cd_client_id', ['clientId'])
 @Index('idx_cd_branch_id', ['branchId'])
 @Index('idx_cd_audit_id', ['auditId'])
@@ -25,13 +21,13 @@ export class ContractorDocumentEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // users.id (contractor)
-  @Column({ name: 'contractor_id', type: 'uuid' })
-  contractorId: string;
+  // users.id (the contractor user this document belongs to)
+  @Column({ name: 'contractor_user_id', type: 'uuid' })
+  contractorUserId: string;
 
   @ManyToOne(() => UserEntity, { onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'contractor_id' })
-  contractor?: UserEntity;
+  @JoinColumn({ name: 'contractor_user_id' })
+  contractorUser?: UserEntity;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;

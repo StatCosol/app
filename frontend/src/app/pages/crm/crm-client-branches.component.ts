@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { timeout, finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, timeout, finalize } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } from '../../core/api/crm-clients.api';
 
@@ -406,10 +407,11 @@ import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } fr
     </main>
   `,
 })
-export class CrmClientBranchesComponent implements OnInit {
+export class CrmClientBranchesComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   clientId!: string;
   branches: BranchDto[] = [];
-  isLoading = false;
+  isLoading = true;
   err = '';
 
    newBranch: CreateBranchRequest = {
@@ -460,7 +462,7 @@ export class CrmClientBranchesComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe((params) => {
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       this.clientId = params.get('clientId') ?? '';
       this.resetState();
       if (!this.clientId) {
@@ -490,10 +492,12 @@ export class CrmClientBranchesComponent implements OnInit {
     this.err = '';
 
     this.crmClientsApi.getBranchesForClient(this.clientId).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.isLoading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (branches) => {
+        this.isLoading = false;
         this.branches = branches || [];
         this.cdr.detectChanges();
       },
@@ -534,7 +538,7 @@ export class CrmClientBranchesComponent implements OnInit {
       branchUserPassword: this.newBranch.branchUserPassword?.trim() || undefined,
     };
 
-    this.crmClientsApi.createBranch(this.clientId, payload).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.createBranch(this.clientId, payload).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (res: any) => {
         this.creatingBranch = false;
         // Show branch user credentials if created
@@ -587,7 +591,7 @@ export class CrmClientBranchesComponent implements OnInit {
       status: this.editingBranch.status,
     };
 
-    this.crmClientsApi.updateBranch(this.editingBranch.id, payload).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.updateBranch(this.editingBranch.id, payload).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: () => {
         this.updatingBranch = false;
         this.editingBranch = null;
@@ -607,7 +611,7 @@ export class CrmClientBranchesComponent implements OnInit {
     if (!ok) return;
 
     this.err = '';
-    this.crmClientsApi.deleteBranch(branch.id).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.deleteBranch(branch.id).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: () => {
         if (this.editingBranch?.id === branch.id) {
           this.editingBranch = null;
@@ -630,7 +634,7 @@ export class CrmClientBranchesComponent implements OnInit {
     this.contractorsError = '';
     this.contractors = [];
 
-    this.crmClientsApi.listBranchContractors(branch.id).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.listBranchContractors(branch.id).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (items) => {
         this.contractors = items || [];
         this.contractorsLoading = false;
@@ -653,7 +657,7 @@ export class CrmClientBranchesComponent implements OnInit {
     this.compliances = [];
     this.selected.clear();
 
-    this.crmClientsApi.listBranchCompliances(branch.id).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.listBranchCompliances(branch.id).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (items) => {
         this.compliances = items || [];
         // Pre-select items that are already mapped to this branch
@@ -687,7 +691,7 @@ export class CrmClientBranchesComponent implements OnInit {
 
     const complianceIds = Array.from(this.selected);
     this.crmClientsApi.saveBranchCompliances(this.compliancesBranch.id, complianceIds)
-      .pipe(timeout(10000))
+      .pipe(takeUntil(this.destroy$), timeout(10000))
       .subscribe({
         next: (res) => {
           this.savingCompliances = false;
@@ -720,6 +724,7 @@ export class CrmClientBranchesComponent implements OnInit {
 
     this.crmClientsApi
       .addBranchContractor(this.contractorsBranch.id, this.newContractorUserId)
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           this.addingContractor = false;
@@ -746,6 +751,7 @@ export class CrmClientBranchesComponent implements OnInit {
 
     this.crmClientsApi
       .removeBranchContractor(this.contractorsBranch.id, c.userId)
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           this.showContractors(this.contractorsBranch!);
@@ -764,7 +770,7 @@ export class CrmClientBranchesComponent implements OnInit {
     this.editContractorBranchesError = '';
     this.editContractorBranchesLoading = true;
 
-    this.crmClientsApi.getContractorBranches(c.userId).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.getContractorBranches(c.userId).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (res) => {
         this.editContractorBranchesSelected = (res?.branches || []).map((b) => b.id);
         this.editContractorBranchesLoading = false;
@@ -799,7 +805,7 @@ export class CrmClientBranchesComponent implements OnInit {
     const contractorId = this.editContractorBranchesUserId;
     const branchIds = this.editContractorBranchesSelected.slice();
 
-    this.crmClientsApi.setContractorBranches(contractorId, branchIds).pipe(timeout(10000)).subscribe({
+    this.crmClientsApi.setContractorBranches(contractorId, branchIds).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: () => {
         this.saveEditContractorBranchesLoading = false;
         this.cancelEditContractorBranches();
@@ -812,4 +818,8 @@ export class CrmClientBranchesComponent implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 }

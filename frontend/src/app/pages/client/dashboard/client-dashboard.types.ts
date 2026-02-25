@@ -39,7 +39,7 @@ export type PfEsiSummaryResponse = {
 };
 
 export type ContractorUploadItem = {
-  contractorId: string;
+  contractorUserId: string;
   name: string;
   percent: number;
   uploaded: number;

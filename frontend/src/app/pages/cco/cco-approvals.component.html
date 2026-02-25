@@ -28,10 +28,10 @@
       </ng-template>
       <ng-template uiTableCell="actions" let-row>
         <div class="flex justify-end gap-2">
-          <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (click)="approve(row.id)">
+          <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
             {{ actionId === row.id ? 'Processing...' : 'Approve' }}
           </ui-button>
-          <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (click)="reject(row.id)">Reject</ui-button>
+          <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">Reject</ui-button>
         </div>
       </ng-template>
     </ui-data-table>

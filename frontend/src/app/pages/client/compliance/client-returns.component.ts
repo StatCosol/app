@@ -1,12 +1,13 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent } from '../../../shared/ui';
 import { ReturnsService } from '../../../core/returns.service';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
 import { AuthService } from '../../../core/auth.service';
-import { SimpleToastService } from '../../../core/simple-toast.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 type Filing = {
   id: string;
@@ -32,10 +33,11 @@ type Filing = {
   templateUrl: './client-returns.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-returns.component.scss'],
 })
-export class ClientReturnsComponent {
+export class ClientReturnsComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
   isMasterUser = false;
   singleBranch = false;
-  loading = false;
+  loading = true;
   creating = false;
   submitting: Record<string, boolean> = {};
   uploading: Record<string, { ack?: boolean; challan?: boolean }> = {};
@@ -67,7 +69,7 @@ export class ClientReturnsComponent {
     private readonly returnsSvc: ReturnsService,
     private readonly complianceSvc: ClientComplianceService,
     private readonly auth: AuthService,
-    private readonly toast: SimpleToastService,
+    private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
   ) {
     this.isMasterUser = this.auth.isMasterUser();
@@ -78,8 +80,13 @@ export class ClientReturnsComponent {
     this.loadBranches();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadTypes() {
-    this.returnsSvc.listTypes().subscribe({
+    this.returnsSvc.listTypes().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.types = res?.data || res || [];
         this.cdr.detectChanges();
@@ -89,7 +96,7 @@ export class ClientReturnsComponent {
   }
 
   loadBranches() {
-    this.complianceSvc.getBranches().subscribe({
+    this.complianceSvc.getBranches().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.branches = res?.data || res || [];
         const userBranchIds = this.auth.getBranchIds();
@@ -116,6 +123,7 @@ export class ClientReturnsComponent {
     this.returnsSvc
       .listFilings(this.filters)
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
           this.cdr.detectChanges();
@@ -123,10 +131,12 @@ export class ClientReturnsComponent {
       )
       .subscribe({
         next: (res: any) => {
+          this.loading = false;
           this.filings = res?.data || res || [];
           this.cdr.detectChanges();
         },
         error: () => {
+          this.loading = false;
           this.filings = [];
           this.cdr.detectChanges();
         },
@@ -135,7 +145,7 @@ export class ClientReturnsComponent {
 
   create() {
     if (!this.newFiling.branchId || !this.newFiling.returnType) {
-      this.toast.show('Select branch and return type');
+      this.toast.info('Select branch and return type');
       return;
     }
     const chosen = this.types.find((t) => t.code === this.newFiling.returnType);
@@ -151,6 +161,7 @@ export class ClientReturnsComponent {
     this.returnsSvc
       .createFiling(payload)
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.creating = false;
           this.cdr.detectChanges();
@@ -158,11 +169,13 @@ export class ClientReturnsComponent {
       )
       .subscribe({
         next: () => {
-          this.toast.show('Return created');
+          this.creating = false;
+          this.toast.info('Return created');
           this.loadFilings();
         },
         error: () => {
-          this.toast.show('Could not create return');
+          this.creating = false;
+          this.toast.info('Could not create return');
         },
       });
   }
@@ -179,6 +192,7 @@ export class ClientReturnsComponent {
 
     obs
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           entry[kind] = false;
           if (input) input.value = '';
@@ -187,10 +201,11 @@ export class ClientReturnsComponent {
       )
       .subscribe({
         next: () => {
-          this.toast.show(`${kind === 'ack' ? 'Acknowledgement' : 'Challan'} uploaded`);
+          entry[kind] = false;
+          this.toast.info(`${kind === 'ack' ? 'Acknowledgement' : 'Challan'} uploaded`);
           this.loadFilings();
         },
-        error: () => this.toast.show('Upload failed'),
+        error: () => { entry[kind] = false; this.toast.info('Upload failed'); },
       });
   }
 
@@ -199,6 +214,7 @@ export class ClientReturnsComponent {
     this.returnsSvc
       .submitFiling(filing.id)
       .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.submitting[filing.id] = false;
           this.cdr.detectChanges();
@@ -206,10 +222,11 @@ export class ClientReturnsComponent {
       )
       .subscribe({
         next: () => {
-          this.toast.show('Submitted for review');
+          this.submitting[filing.id] = false;
+          this.toast.info('Submitted for review');
           this.loadFilings();
         },
-        error: () => this.toast.show('Submit failed'),
+        error: () => { this.submitting[filing.id] = false; this.toast.info('Submit failed'); },
       });
   }
 

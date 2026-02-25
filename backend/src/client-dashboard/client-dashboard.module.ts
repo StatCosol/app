@@ -5,6 +5,7 @@ import { ClientDashboardService } from './client-dashboard.service';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { ContractorRequiredDocumentEntity } from '../contractor/entities/contractor-required-document.entity';
+import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { UsersModule } from '../users/users.module';
 import { UserEntity } from '../users/entities/user.entity';
 
@@ -14,6 +15,7 @@ import { UserEntity } from '../users/entities/user.entity';
       EmployeeEntity,
       ContractorDocumentEntity,
       ContractorRequiredDocumentEntity,
+      BranchContractorEntity,
       UserEntity,
     ]),
     UsersModule,

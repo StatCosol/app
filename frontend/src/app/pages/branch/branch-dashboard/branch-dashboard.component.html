@@ -1,0 +1,295 @@
+<!-- Branch Dashboard: Execution-focused layout -->
+<div class="branch-dashboard">
+  <!-- Loading overlay -->
+  <div *ngIf="loading" class="loading-overlay">
+    <div class="spinner"></div>
+    <p class="text-sm text-slate-500 mt-3">Loading dashboard...</p>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <!-- Header -->
+    <div class="dash-header">
+      <div>
+        <h1 class="text-xl font-bold text-slate-800">{{ branchName }} — Dashboard</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Compliance execution overview &amp; action tracker</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input
+          type="month"
+          [(ngModel)]="currentMonth"
+          (change)="onMonthChange()"
+          class="month-picker"
+        />
+        <button (click)="loadDashboard()" class="refresh-btn" title="Refresh">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Row 1: KPI Cards -->
+    <div class="kpi-grid">
+      <!-- Employee Headcount -->
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon-wrap bg-blue-100">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <p class="kpi-label">Employee HC</p>
+          <p class="kpi-value">{{ employeeTotal }}</p>
+          <div class="kpi-detail">
+            <span class="text-blue-600">M: {{ employeeMale }}</span>
+            <span class="mx-1.5 text-slate-300">|</span>
+            <span class="text-pink-500">F: {{ employeeFemale }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contractor Headcount -->
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon-wrap bg-purple-100">
+          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <p class="kpi-label">Contractor HC</p>
+          <p class="kpi-value">{{ contractorTotal }}</p>
+          <div class="kpi-detail">
+            <span class="text-blue-600">M: {{ contractorMale }}</span>
+            <span class="mx-1.5 text-slate-300">|</span>
+            <span class="text-pink-500">F: {{ contractorFemale }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PF Pending -->
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon-wrap bg-amber-100">
+          <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <p class="kpi-label">PF Pending</p>
+          <p class="kpi-value" [class.text-red-600]="pfPending > 0">{{ pfPending }}</p>
+          <div class="kpi-detail">
+            <span class="text-emerald-600">Reg: {{ pfRegistered }}</span>
+            <span class="mx-1.5 text-slate-300">|</span>
+            <span class="text-red-500">Pending: {{ pfNotRegistered }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESIC Pending -->
+      <div class="kpi-card kpi-red">
+        <div class="kpi-icon-wrap bg-red-100">
+          <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <p class="kpi-label">ESIC Pending</p>
+          <p class="kpi-value" [class.text-red-600]="esicPending > 0">{{ esicPending }}</p>
+          <div class="kpi-detail">
+            <span class="text-emerald-600">Reg: {{ esiRegistered }}</span>
+            <span class="mx-1.5 text-slate-300">|</span>
+            <span class="text-red-500">Pending: {{ esiNotRegistered }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Compliance Status -->
+    <div class="status-grid">
+      <!-- Branch Compliance % -->
+      <div class="status-card">
+        <div class="status-header">
+          <h3 class="status-title">Branch Compliance</h3>
+          <span class="status-badge" [style.background]="getComplianceColor() + '20'" [style.color]="getComplianceColor()">
+            {{ compliancePercent | number:'1.0-0' }}%
+          </span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="compliancePercent" [style.background]="getComplianceColor()"></div>
+        </div>
+        <p class="status-note">Overall compliance score for this branch</p>
+      </div>
+
+      <!-- Document Upload % -->
+      <div class="status-card">
+        <div class="status-header">
+          <h3 class="status-title">Document Uploads</h3>
+          <span class="status-badge" [style.background]="getUploadColor() + '20'" [style.color]="getUploadColor()">
+            {{ documentUploadPercent | number:'1.0-0' }}%
+          </span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="documentUploadPercent" [style.background]="getUploadColor()"></div>
+        </div>
+        <p class="status-note">Contractor document upload completion</p>
+      </div>
+
+      <!-- Open Audit Observations -->
+      <div class="status-card">
+        <div class="status-header">
+          <h3 class="status-title">Open Observations</h3>
+          <span class="status-badge"
+            [class.bg-red-100]="openObservations > 0" [class.text-red-700]="openObservations > 0"
+            [class.bg-emerald-100]="openObservations === 0" [class.text-emerald-700]="openObservations === 0">
+            {{ openObservations }}
+          </span>
+        </div>
+        <div class="flex items-center gap-4 mt-3 text-sm">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span class="text-slate-600">Audit Score: {{ auditScore | number:'1.0-0' }}%</span>
+          </div>
+        </div>
+        <p class="status-note">Pending audit observations to resolve</p>
+      </div>
+    </div>
+
+    <!-- Row 3: Pending Actions -->
+    <div *ngIf="pendingActions.length > 0" class="section-card">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Pending Actions
+        </h2>
+        <span class="text-xs text-slate-500">{{ pendingActions.length }} items need attention</span>
+      </div>
+      <div class="action-list">
+        <a *ngFor="let action of pendingActions"
+           [routerLink]="action.route"
+           class="action-item"
+           [class.action-high]="action.severity === 'high'"
+           [class.action-medium]="action.severity === 'medium'"
+           [class.action-low]="action.severity === 'low'">
+          <div class="action-indicator"></div>
+          <span class="action-label">{{ action.label }}</span>
+          <span class="action-count">{{ action.count }}</span>
+          <svg class="w-4 h-4 text-slate-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Row 4: Expiry Tracker Table -->
+    <div class="section-card">
+      <div class="section-header">
+        <h2 class="section-title">
+          <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          Expiry Tracker
+        </h2>
+        <span class="text-xs text-slate-500">Registrations &amp; License expiry status</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="expiry-table">
+          <thead>
+            <tr>
+              <th>Registration / License</th>
+              <th>Detail</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of expiryItems" class="expiry-row">
+              <td class="font-medium text-slate-800">{{ item.type }}</td>
+              <td class="text-slate-600">{{ item.detail }}</td>
+              <td class="text-slate-600">{{ item.dueDate }}</td>
+              <td>
+                <span class="expiry-badge" [ngClass]="getStatusClass(item.status)">
+                  {{ item.status }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="expiryItems.length === 0">
+              <td colspan="4" class="text-center text-slate-400 py-8">No expiry items to track</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Row 5: PF / ESIC Pending Employees (collapsible) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" *ngIf="pfPendingEmployees.length > 0 || esiPendingEmployees.length > 0">
+      <!-- PF Pending Employees -->
+      <div class="section-card" *ngIf="pfPendingEmployees.length > 0">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            PF Pending Employees
+          </h2>
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ pfPendingEmployees.length }}</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>UAN</th>
+                <th>Contractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let emp of pfPendingEmployees | slice:0:10">
+                <td class="font-medium text-slate-800">{{ emp.name || emp.employeeName || '—' }}</td>
+                <td class="text-slate-600">{{ emp.uan || '—' }}</td>
+                <td class="text-slate-600">{{ emp.contractorName || emp.contractor || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p *ngIf="pfPendingEmployees.length > 10" class="text-xs text-slate-400 text-center mt-2">
+            + {{ pfPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-blue-600 hover:underline">View all</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- ESI Pending Employees -->
+      <div class="section-card" *ngIf="esiPendingEmployees.length > 0">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            ESIC Pending Employees
+          </h2>
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">{{ esiPendingEmployees.length }}</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>ESIC No</th>
+                <th>Contractor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let emp of esiPendingEmployees | slice:0:10">
+                <td class="font-medium text-slate-800">{{ emp.name || emp.employeeName || '—' }}</td>
+                <td class="text-slate-600">{{ emp.esicNumber || '—' }}</td>
+                <td class="text-slate-600">{{ emp.contractorName || emp.contractor || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p *ngIf="esiPendingEmployees.length > 10" class="text-xs text-slate-400 text-center mt-2">
+            + {{ esiPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-blue-600 hover:underline">View all</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

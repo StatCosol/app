@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { CeoApiService, CeoApproval } from '../../../core/api/ceo.api';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 
@@ -97,7 +98,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
     </main>
   `,
 })
-export class ApprovalDetailsComponent implements OnInit {
+export class ApprovalDetailsComponent implements OnInit, OnDestroy {
   approval: CeoApproval | null = null;
   loading = true;
   errorMsg: string | null = null;
@@ -107,6 +108,7 @@ export class ApprovalDetailsComponent implements OnInit {
   actionErr: string | null = null;
 
   private approvalId = '';
+  private destroy$ = new Subject<void>();
 
   constructor(
     private route: ActivatedRoute,
@@ -120,6 +122,11 @@ export class ApprovalDetailsComponent implements OnInit {
     this.loadApproval();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   private loadApproval(): void {
     if (!this.approvalId) {
       this.errorMsg = 'No approval ID provided.';
@@ -130,14 +137,17 @@ export class ApprovalDetailsComponent implements OnInit {
     this.errorMsg = null;
 
     this.ceoApi.getApproval(this.approvalId).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (data) => {
+        this.loading = false;
         this.approval = data;
         this.cdr.detectChanges();
       },
       error: (err) => {
+        this.loading = false;
         this.errorMsg = err?.error?.message || 'Failed to load approval details.';
         this.cdr.detectChanges();
       },
@@ -150,7 +160,7 @@ export class ApprovalDetailsComponent implements OnInit {
     this.actionMsg = null;
     this.actionErr = null;
 
-    this.ceoApi.approve(this.approvalId).subscribe({
+    this.ceoApi.approve(this.approvalId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionMsg = 'Approval granted successfully.';
         this.submitting = false;
@@ -171,7 +181,7 @@ export class ApprovalDetailsComponent implements OnInit {
     this.actionMsg = null;
     this.actionErr = null;
 
-    this.ceoApi.reject(this.approvalId, this.remarks.trim()).subscribe({
+    this.ceoApi.reject(this.approvalId, this.remarks.trim()).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionMsg = 'Request rejected.';
         this.submitting = false;

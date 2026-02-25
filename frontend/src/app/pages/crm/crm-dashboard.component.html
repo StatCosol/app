@@ -1,272 +1,205 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <!-- Loading State -->
+  <!-- Loading -->
   <div *ngIf="loading" class="flex items-center justify-center py-12">
     <ui-loading-spinner text="Loading dashboard..."></ui-loading-spinner>
   </div>
 
-  <!-- Main Content -->
   <ng-container *ngIf="!loading">
-    <ui-page-header
-      title="CRM Dashboard"
-      subtitle="Compliance execution and tracking for assigned clients/branches">
-    </ui-page-header>
+    <ui-page-header title="CRM Dashboard" subtitle="Fast overview — where to focus today"></ui-page-header>
 
-    <!-- Error Banner -->
+    <!-- Error -->
     <div *ngIf="errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
       <span>{{ errorMsg }}</span>
-      <ui-button variant="primary" size="sm" (clicked)="loadAllData()">Retry</ui-button>
+      <button class="text-sm font-medium text-red-700 underline" (click)="loadAll()">Retry</button>
     </div>
 
-    <!-- Filters -->
-    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-        <ui-form-select
-          label="Client"
-          [options]="clientOptions"
-          [(ngModel)]="filter.clientId"
-          (ngModelChange)="onClientChange()"
-          placeholder="All Clients">
-        </ui-form-select>
-
-        <ui-form-select
-          label="Branch"
-          [options]="branchOptions"
-          [(ngModel)]="filter.branchId"
-          [disabled]="!filter.clientId || branchesLoading"
-          placeholder="All Branches">
-        </ui-form-select>
-
-        <ui-form-input
-          label="From"
-          type="date"
-          [(ngModel)]="filter.periodFrom">
-        </ui-form-input>
-
-        <ui-form-input
-          label="To"
-          type="date"
-          [(ngModel)]="filter.periodTo">
-        </ui-form-input>
-
-        <div class="flex gap-2">
-          <ui-button variant="primary" (clicked)="applyFilters()" class="flex-1">Apply</ui-button>
-          <ui-button variant="secondary" (clicked)="resetFilters()">Reset</ui-button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 6 KPI Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      <ui-stat-card [value]="summary.assignedClientsCount" label="Assigned Clients" color="primary"></ui-stat-card>
-
-      <ui-stat-card [value]="summary.assignedBranchesCount" label="Assigned Branches" color="info"></ui-stat-card>
-
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="drillCoverage()">
+    <!-- ═══════ Row 1: 8 KPI Cards ═══════ -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+      <ui-stat-card [value]="kpis.assignedClientsCount" label="Assigned Clients" color="primary"></ui-stat-card>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS')">
         <ui-stat-card
-          [value]="summary.complianceCoveragePct + '%'"
-          label="Coverage"
-          [color]="summary.complianceCoveragePct >= 80 ? 'success' : summary.complianceCoveragePct >= 50 ? 'warning' : 'error'">
+          [value]="kpis.compliancePct + '%'"
+          label="Compliance %"
+          [color]="kpis.compliancePct >= 80 ? 'success' : kpis.compliancePct >= 50 ? 'warning' : 'error'">
         </ui-stat-card>
       </div>
-
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="drillOverdueCompliances()">
-        <ui-stat-card
-          [value]="summary.overdueCompliancesCount"
-          label="Overdue"
-          color="error">
-        </ui-stat-card>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS', {status:'PENDING_REVIEW'})">
+        <ui-stat-card [value]="kpis.pendingReviewCount" label="Pending Review" color="warning"></ui-stat-card>
       </div>
-
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="drillDueSoon()">
-        <ui-stat-card
-          [value]="summary.dueSoonCompliancesCount"
-          label="Due Soon"
-          color="warning">
-        </ui-stat-card>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS', {status:'REJECTED'})">
+        <ui-stat-card [value]="kpis.reuploadRequiredCount" label="Reupload Req." color="error"></ui-stat-card>
       </div>
-
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="drillOpenQueries()">
-        <ui-stat-card
-          [value]="summary.openComplianceQueriesCount"
-          label="Open Queries"
-          color="info">
-        </ui-stat-card>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS')">
+        <ui-stat-card [value]="kpis.overdueCount" label="Overdue Items" color="error"></ui-stat-card>
+      </div>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('EXPIRY')">
+        <ui-stat-card [value]="kpis.expiring30Count" label="Expiring 30d" color="warning"></ui-stat-card>
+      </div>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('AUDIT_CLOSURES')">
+        <ui-stat-card [value]="kpis.openObservationsCount" label="Open Obs." color="info"></ui-stat-card>
+      </div>
+      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('MCD')">
+        <ui-stat-card [value]="kpis.mcdPendingCount" label="MCD Pending" color="info"></ui-stat-card>
       </div>
     </div>
 
-    <!-- Block 1: Compliance Due Tracker -->
+    <!-- ═══════ Row 2: Priority Today ═══════ -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="flex items-center justify-between p-6 pb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Compliance Due Tracker</h3>
-        <div class="flex gap-2">
-          <ui-button
-            (clicked)="setDueTab('OVERDUE')"
-            [variant]="activeTab === 'OVERDUE' ? 'primary' : 'secondary'"
-            size="sm">
-            Overdue
-          </ui-button>
-          <ui-button
-            (clicked)="setDueTab('DUE_SOON')"
-            [variant]="activeTab === 'DUE_SOON' ? 'primary' : 'secondary'"
-            size="sm">
-            Due Soon
-          </ui-button>
-          <ui-button
-            (clicked)="setDueTab('THIS_MONTH')"
-            [variant]="activeTab === 'THIS_MONTH' ? 'primary' : 'secondary'"
-            size="sm">
-            This Month
-          </ui-button>
-        </div>
+      <div class="flex items-center justify-between p-5 pb-3">
+        <h3 class="text-lg font-semibold text-gray-900">My Priority Today</h3>
+        <span class="text-xs text-gray-400">Top urgent items across all clients</span>
       </div>
-      <ui-data-table
-        [columns]="dueColumns"
-        [data]="dueCompliances"
-        emptyMessage="No compliances in this category">
-
-        <ng-template uiTableCell="complianceItem" let-row>
-          <div class="font-medium text-gray-900">{{ row.complianceItem }}</div>
-          <div class="text-xs text-gray-500">{{ row.category }}</div>
-        </ng-template>
-
-        <ng-template uiTableCell="client" let-row>
-          <div class="text-sm text-gray-900">{{ row.clientName }}</div>
-          <div class="text-xs text-gray-500">{{ row.branchName }}</div>
-        </ng-template>
-
-        <ng-template uiTableCell="dueDate" let-row>
-          <span class="text-sm text-gray-600">{{ row.dueDate }}</span>
-        </ng-template>
-
-        <ng-template uiTableCell="daysOverdue" let-row>
-          <ui-status-badge *ngIf="row.daysOverdue > 0" [status]="row.daysOverdue + 'd'"></ui-status-badge>
-          <span *ngIf="row.daysOverdue <= 0" class="text-sm text-gray-400">-</span>
-        </ng-template>
-
-        <ng-template uiTableCell="risk" let-row>
-          <ui-status-badge [status]="row.risk"></ui-status-badge>
-        </ng-template>
-
-        <ng-template uiTableCell="dueActions" let-row>
-          <ui-button size="sm" variant="primary" (clicked)="updateCompliance(row)">Update</ui-button>
-        </ng-template>
-      </ui-data-table>
+      <div *ngIf="priorityLoading" class="flex justify-center py-8">
+        <ui-loading-spinner text="Loading..."></ui-loading-spinner>
+      </div>
+      <div *ngIf="!priorityLoading && priorityItems.length === 0" class="text-center text-gray-400 py-8">No urgent items today</div>
+      <div *ngIf="!priorityLoading && priorityItems.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th class="px-4 py-2 text-left">Client</th>
+              <th class="px-4 py-2 text-left">Branch</th>
+              <th class="px-4 py-2 text-left">Contractor</th>
+              <th class="px-4 py-2 text-left">Item</th>
+              <th class="px-4 py-2 text-left">Type</th>
+              <th class="px-4 py-2 text-center">Days Overdue</th>
+              <th class="px-4 py-2 text-center">Category</th>
+              <th class="px-4 py-2 text-center"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr *ngFor="let item of priorityItems" class="hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-2 font-medium text-gray-900">{{ item.clientName }}</td>
+              <td class="px-4 py-2 text-gray-600">{{ item.branchName || '-' }}</td>
+              <td class="px-4 py-2 text-gray-600">{{ item.contractorName || '-' }}</td>
+              <td class="px-4 py-2 text-gray-900">{{ item.itemName || '-' }}</td>
+              <td class="px-4 py-2 text-gray-500">{{ item.complianceType }}</td>
+              <td class="px-4 py-2 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
+                  [class.bg-red-100]="item.daysOverdue > 7" [class.text-red-700]="item.daysOverdue > 7"
+                  [class.bg-yellow-100]="item.daysOverdue <= 7" [class.text-yellow-700]="item.daysOverdue <= 7">
+                  {{ item.daysOverdue }}d
+                </span>
+              </td>
+              <td class="px-4 py-2 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                  [class.bg-red-50]="item.itemType==='OVERDUE_TASK'" [class.text-red-600]="item.itemType==='OVERDUE_TASK'"
+                  [class.bg-orange-50]="item.itemType==='EXPIRED_DOC'" [class.text-orange-600]="item.itemType==='EXPIRED_DOC'"
+                  [class.bg-purple-50]="item.itemType==='HIGH_RISK_OBS'" [class.text-purple-600]="item.itemType==='HIGH_RISK_OBS'">
+                  {{ itemTypeLabel(item.itemType) }}
+                </span>
+              </td>
+              <td class="px-4 py-2 text-center">
+                <button class="text-xs font-medium text-blue-600 hover:text-blue-800 underline" (click)="openTracker('DOCS')">Open Tracker</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- Block 2: Low Coverage Branches -->
+    <!-- ═══════ Row 3: Top Risk Clients ═══════ -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="p-6 pb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Low Coverage Branches</h3>
+      <div class="flex items-center justify-between p-5 pb-3">
+        <h3 class="text-lg font-semibold text-gray-900">Client Risk Table (Top 10)</h3>
       </div>
-      <ui-data-table
-        [columns]="coverageColumns"
-        [data]="lowCoverageBranches"
-        [clickable]="true"
-        (rowClick)="viewBranchDetails($event.row)"
-        emptyMessage="All branches have healthy coverage">
-
-        <ng-template uiTableCell="branch" let-row>
-          <div class="font-medium text-gray-900">{{ row.branchName }}</div>
-          <div class="text-xs text-gray-500">{{ row.clientName }}</div>
-        </ng-template>
-
-        <ng-template uiTableCell="coveragePct" let-row>
-          <div class="flex items-center gap-2">
-            <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all"
-                   [ngClass]="{ 'bg-red-500': row.coveragePct < 50, 'bg-yellow-500': row.coveragePct >= 50 && row.coveragePct < 80, 'bg-green-500': row.coveragePct >= 80 }"
-                   [style.width.%]="row.coveragePct"></div>
-            </div>
-            <span class="text-sm font-semibold"
-                  [ngClass]="{ 'text-red-600': row.coveragePct < 50, 'text-yellow-600': row.coveragePct >= 50 && row.coveragePct < 80, 'text-green-600': row.coveragePct >= 80 }">
-              {{ row.coveragePct }}%
-            </span>
-          </div>
-        </ng-template>
-
-        <ng-template uiTableCell="overdueCount" let-row>
-          <ui-status-badge *ngIf="row.overdueCount > 0" [status]="row.overdueCount + ''"></ui-status-badge>
-          <span *ngIf="row.overdueCount === 0" class="text-sm text-gray-400">0</span>
-        </ng-template>
-
-        <ng-template uiTableCell="highRiskCount" let-row>
-          <ui-status-badge *ngIf="row.highRiskCount > 0" [status]="row.highRiskCount + ''"></ui-status-badge>
-          <span *ngIf="row.highRiskCount === 0" class="text-sm text-gray-400">0</span>
-        </ng-template>
-
-        <ng-template uiTableCell="coverageActions" let-row>
-          <ui-button size="sm" variant="secondary" (clicked)="viewBranchDetails(row)">View</ui-button>
-        </ng-template>
-      </ui-data-table>
+      <div *ngIf="riskLoading" class="flex justify-center py-8">
+        <ui-loading-spinner text="Loading..."></ui-loading-spinner>
+      </div>
+      <div *ngIf="!riskLoading && riskClients.length === 0" class="text-center text-gray-400 py-8">No client data</div>
+      <div *ngIf="!riskLoading && riskClients.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th class="px-4 py-2 text-left">Client</th>
+              <th class="px-4 py-2 text-center">Compliance %</th>
+              <th class="px-4 py-2 text-center">Pending</th>
+              <th class="px-4 py-2 text-center">Reupload</th>
+              <th class="px-4 py-2 text-center">Open Obs.</th>
+              <th class="px-4 py-2 text-center">Expiring</th>
+              <th class="px-4 py-2 text-center"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr *ngFor="let c of riskClients" class="hover:bg-gray-50">
+              <td class="px-4 py-2 font-medium text-gray-900">{{ c.clientName }}</td>
+              <td class="px-4 py-2 text-center">
+                <div class="flex items-center justify-center gap-2">
+                  <div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full"
+                      [class.bg-red-500]="c.compliancePct < 50" [class.bg-yellow-500]="c.compliancePct >= 50 && c.compliancePct < 80" [class.bg-green-500]="c.compliancePct >= 80"
+                      [style.width.%]="c.compliancePct"></div>
+                  </div>
+                  <span class="text-xs font-bold"
+                    [class.text-red-600]="c.compliancePct < 50" [class.text-yellow-600]="c.compliancePct >= 50 && c.compliancePct < 80" [class.text-green-600]="c.compliancePct >= 80">
+                    {{ c.compliancePct }}%
+                  </span>
+                </div>
+              </td>
+              <td class="px-4 py-2 text-center text-gray-600">{{ c.pendingCount }}</td>
+              <td class="px-4 py-2 text-center text-gray-600">{{ c.reuploadCount }}</td>
+              <td class="px-4 py-2 text-center">
+                <span *ngIf="c.openObservations > 0" class="text-red-600 font-bold">{{ c.openObservations }}</span>
+                <span *ngIf="c.openObservations === 0" class="text-gray-400">0</span>
+              </td>
+              <td class="px-4 py-2 text-center text-gray-600">{{ c.expiringCount }}</td>
+              <td class="px-4 py-2 text-center">
+                <button class="text-xs font-medium text-blue-600 hover:text-blue-800 underline" (click)="openClientWorkspace(c.clientId)">Open Workspace</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- Block 3: Pending Documents -->
+    <!-- ═══════ Row 4: Upcoming Audits ═══════ -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="p-6 pb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Pending Documents</h3>
+      <div class="flex items-center justify-between p-5 pb-3">
+        <h3 class="text-lg font-semibold text-gray-900">Upcoming Audits</h3>
+        <button class="text-xs font-medium text-blue-600 hover:underline" (click)="toggleAuditDays()">
+          {{ auditDays === 15 ? 'Show next 7 days' : 'Show next 15 days' }}
+        </button>
       </div>
-      <ui-data-table
-        [columns]="docColumns"
-        [data]="pendingDocuments"
-        emptyMessage="No pending documents">
-
-        <ng-template uiTableCell="documentType" let-row>
-          <div class="font-medium text-gray-900">{{ row.documentType }}</div>
-          <div class="text-xs text-gray-500">{{ row.clientName }} / {{ row.branchName }}</div>
-        </ng-template>
-
-        <ng-template uiTableCell="requestedOn" let-row>
-          <span class="text-sm text-gray-600">{{ row.requestedOn }}</span>
-        </ng-template>
-
-        <ng-template uiTableCell="pendingDays" let-row>
-          <ui-status-badge [status]="row.pendingDays + 'd'"></ui-status-badge>
-        </ng-template>
-
-        <ng-template uiTableCell="docActions" let-row>
-          <div class="flex gap-2">
-            <ui-button size="sm" variant="primary" (clicked)="uploadDocument(row)">Upload</ui-button>
-            <ui-button size="sm" variant="secondary" (clicked)="followUpDocument(row)">Follow Up</ui-button>
-          </div>
-        </ng-template>
-      </ui-data-table>
-    </div>
-
-    <!-- Block 4: Queries Inbox -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="p-6 pb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Queries Inbox</h3>
+      <div *ngIf="auditsLoading" class="flex justify-center py-8">
+        <ui-loading-spinner text="Loading..."></ui-loading-spinner>
       </div>
-      <ui-data-table
-        [columns]="queryColumns"
-        [data]="queries"
-        emptyMessage="No open queries">
-
-        <ng-template uiTableCell="from" let-row>
-          <div class="font-medium text-gray-900">{{ row.fromName }}</div>
-          <div class="text-xs text-gray-500">{{ row.fromRole }}</div>
-        </ng-template>
-
-        <ng-template uiTableCell="subject" let-row>
-          <div class="font-medium text-gray-900">{{ row.subject }}</div>
-          <div class="text-xs text-gray-500">{{ row.clientName }}{{ row.branchName ? ' / ' + row.branchName : '' }}</div>
-        </ng-template>
-
-        <ng-template uiTableCell="ageingDays" let-row>
-          <ui-status-badge [status]="row.ageingDays + 'd'"></ui-status-badge>
-        </ng-template>
-
-        <ng-template uiTableCell="queryStatus" let-row>
-          <ui-status-badge [status]="row.status"></ui-status-badge>
-        </ng-template>
-
-        <ng-template uiTableCell="queryActions" let-row>
-          <div class="flex gap-2">
-            <ui-button size="sm" variant="primary" (clicked)="replyToQuery(row)">Reply</ui-button>
-            <ui-button size="sm" variant="secondary" (clicked)="closeQuery(row)">Close</ui-button>
-          </div>
-        </ng-template>
-      </ui-data-table>
+      <div *ngIf="!auditsLoading && upcomingAudits.length === 0" class="text-center text-gray-400 py-8">No upcoming audits in the next {{ auditDays }} days</div>
+      <div *ngIf="!auditsLoading && upcomingAudits.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th class="px-4 py-2 text-left">Audit</th>
+              <th class="px-4 py-2 text-left">Client</th>
+              <th class="px-4 py-2 text-left">Branch</th>
+              <th class="px-4 py-2 text-left">Auditor</th>
+              <th class="px-4 py-2 text-center">Due Date</th>
+              <th class="px-4 py-2 text-center">Days Until</th>
+              <th class="px-4 py-2 text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr *ngFor="let a of upcomingAudits" class="hover:bg-gray-50">
+              <td class="px-4 py-2">
+                <div class="font-medium text-gray-900">{{ a.auditCode || a.auditType }}</div>
+                <div class="text-xs text-gray-500">{{ a.auditType }}</div>
+              </td>
+              <td class="px-4 py-2 text-gray-900">{{ a.clientName }}</td>
+              <td class="px-4 py-2 text-gray-600">{{ a.branchName || '-' }}</td>
+              <td class="px-4 py-2 text-gray-600">{{ a.auditorName || '-' }}</td>
+              <td class="px-4 py-2 text-center text-gray-600">{{ a.dueDate | date:'mediumDate' }}</td>
+              <td class="px-4 py-2 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
+                  [class.bg-red-100]="a.daysUntil <= 3" [class.text-red-700]="a.daysUntil <= 3"
+                  [class.bg-yellow-100]="a.daysUntil > 3 && a.daysUntil <= 7" [class.text-yellow-700]="a.daysUntil > 3 && a.daysUntil <= 7"
+                  [class.bg-green-100]="a.daysUntil > 7" [class.text-green-700]="a.daysUntil > 7">
+                  {{ a.daysUntil }}d
+                </span>
+              </td>
+              <td class="px-4 py-2 text-center"><ui-status-badge [status]="a.status"></ui-status-badge></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </ng-container>
 </div>

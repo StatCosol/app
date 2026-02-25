@@ -1,3 +1,7 @@
+-- ⚠️  DEPRECATED — DO NOT RUN. This inserts sample/demo compliance returns.
+-- All sample data was purged from the database. Use the Admin UI to create real data.
+--
+-- Original header:
 -- Ad-hoc seed for compliance_returns to populate the compliance-status /returns endpoint
 -- Client: a31032bc-407e-4658-864b-a42bc1bff09e (from CLIENT token)
 -- Branches: Hyderabad (429f5d2f-3951-4712-ba38-22dc0c5ea305), Koduru (96ebf37f-878a-4ce6-ac0b-6d1e95dda58d)

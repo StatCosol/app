@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, EssProfile } from '../ess-api.service';
 
 @Component({
@@ -107,19 +108,29 @@ import { EssApiService, EssProfile } from '../ess-api.service';
     }
   `],
 })
-export class EssProfileComponent implements OnInit {
+export class EssProfileComponent implements OnInit, OnDestroy {
   emp: EssProfile | null = null;
-  loading = true;
+  loading = false;
   error = '';
+  private readonly destroy$ = new Subject<void>();
 
   constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.loading = true;
     this.api.getProfile()
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
-        next: (p) => { this.emp = p; },
-        error: () => { this.error = 'Failed to load profile'; },
+        next: (p) => { this.loading = false; this.emp = p; },
+        error: () => { this.loading = false; this.error = 'Failed to load profile'; },
       });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

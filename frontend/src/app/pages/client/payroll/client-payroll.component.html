@@ -75,7 +75,7 @@
           ></textarea>
         </div>
         <div class="md:col-span-4 flex items-center gap-3">
-          <ui-button variant="primary" size="md" (click)="createInput()" [disabled]="creatingInput">
+          <ui-button variant="primary" size="md" (clicked)="createInput()" [disabled]="creatingInput">
             {{ creatingInput ? 'Creating...' : 'Create Input' }}
           </ui-button>
           <span *ngIf="inputError" class="text-sm text-red-600">{{ inputError }}</span>
@@ -97,12 +97,7 @@
           label="Year"
           [(ngModel)]="filters.periodYear"
           (ngModelChange)="loadInputs()"
-          [options]="[
-            { value: 2024, label: '2024' },
-            { value: 2025, label: '2025' },
-            { value: 2026, label: '2026' },
-            { value: 2027, label: '2027' }
-          ]">
+          [options]="filterYearOptions">
         </ui-form-select>
 
         <ui-form-select
@@ -118,18 +113,11 @@
           label="Status"
           [(ngModel)]="filters.status"
           (ngModelChange)="loadInputs()"
-          [options]="[
-            { value: '', label: 'All Status' },
-            { value: 'DRAFT', label: 'Draft' },
-            { value: 'SUBMITTED', label: 'Submitted' },
-            { value: 'APPROVED', label: 'Approved' },
-            { value: 'REJECTED', label: 'Rejected' },
-            { value: 'COMPLETED', label: 'Completed' }
-          ]">
+          [options]="filterStatusOptions">
         </ui-form-select>
 
         <div class="flex items-end">
-          <ui-button variant="primary" size="md" class="w-full" (click)="loadInputs()">
+          <ui-button variant="primary" size="md" class="w-full" (clicked)="loadInputs()">
             <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
@@ -150,7 +138,7 @@
           <ui-status-badge [status]="row.status"></ui-status-badge>
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
-          <ui-button variant="primary" size="sm" (click)="selectInput(row)">
+          <ui-button variant="primary" size="sm" (clicked)="selectInput(row)">
             View Details
           </ui-button>
         </ng-template>
@@ -172,12 +160,9 @@
               </span>
             </div>
           </div>
-          <button class="btn-secondary" (click)="backToInputsList()">
-            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-            </svg>
+          <ui-button variant="secondary" (clicked)="backToInputsList()">
             Back to List
-          </button>
+          </ui-button>
         </div>
       </div>
 
@@ -231,7 +216,7 @@
               </div>
             </div>
             <div>
-              <button class="btn-secondary" (click)="downloadInputFile(file)">Download</button>
+              <ui-button variant="secondary" (clicked)="downloadInputFile(file)">Download</ui-button>
             </div>
           </div>
         </div>
@@ -247,18 +232,12 @@
       <div class="card" *ngIf="selectedInput.status === 'DRAFT'">
         <h4 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h4>
         <div class="flex gap-3">
-          <button class="btn-primary" (click)="updateStatus('SUBMITTED')" [disabled]="updatingStatus">
-            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            {{ updatingStatus ? 'Processing...' : 'Submit for Approval' }}
-          </button>
-          <button class="btn-secondary text-red-600 border-red-300 hover:bg-red-50" (click)="updateStatus('CANCELLED')" [disabled]="updatingStatus">
-            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-            {{ updatingStatus ? 'Processing...' : 'Cancel' }}
-          </button>
+          <ui-button variant="primary" (clicked)="updateStatus('SUBMITTED')" [disabled]="updatingStatus" [loading]="updatingStatus">
+            Submit for Approval
+          </ui-button>
+          <ui-button variant="secondary" (clicked)="updateStatus('CANCELLED')" [disabled]="updatingStatus" [loading]="updatingStatus">
+            Cancel
+          </ui-button>
         </div>
       </div>
     </div>
@@ -300,7 +279,7 @@
         </ui-form-select>
 
         <div class="flex items-end">
-          <ui-button variant="primary" size="md" class="w-full" (click)="loadRegisters()">
+          <ui-button variant="primary" size="md" class="w-full" (clicked)="loadRegisters()">
             <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
@@ -320,7 +299,7 @@
           <span class="badge badge-info">{{ value }}</span>
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
-          <ui-button variant="primary" size="sm" (click)="downloadRegister(row)">
+          <ui-button variant="primary" size="sm" (clicked)="downloadRegister(row)">
             <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>

@@ -30,6 +30,14 @@ const CrmRequestsComponent = () =>
   import('./requests/crm-requests.component').then((m) => m.CrmRequestsComponent);
 const CrmProfileComponent = () =>
   import('./profile/crm-profile.component').then((m) => m.CrmProfileComponent);
+const CrmBranchDocsReviewComponent = () =>
+  import('./branch-docs-review/crm-branch-docs-review.component').then((m) => m.CrmBranchDocsReviewComponent);
+const CrmReturnsFilingsComponent = () =>
+  import('./returns/crm-returns-filings.component').then((m) => m.CrmReturnsFilingsComponent);
+const CrmComplianceDocsComponent = () =>
+  import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
+const CrmRegistrationsComponent = () =>
+  import('./registrations/crm-registrations.component').then((m) => m.CrmRegistrationsComponent);
 
 export const CRM_ROUTES: Routes = [
   {
@@ -53,6 +61,8 @@ export const CRM_ROUTES: Routes = [
               { path: 'contractors', loadComponent: CrmContractorsComponent },
               { path: 'compliance-tracker', loadComponent: CrmComplianceComponent },
               { path: 'documents', loadComponent: CrmDocumentsComponent },
+              { path: 'compliance-docs', loadComponent: CrmComplianceDocsComponent },
+              { path: 'registrations', loadComponent: CrmRegistrationsComponent },
               { path: 'payroll-status', loadComponent: CrmPayrollStatusComponent },
               { path: '', pathMatch: 'full', redirectTo: 'overview' },
             ],
@@ -60,10 +70,13 @@ export const CRM_ROUTES: Routes = [
         ],
       },
       { path: 'notifications', loadComponent: CrmNotificationsComponent },
+      { path: 'compliance-tracker', loadComponent: CrmComplianceComponent },
       { path: 'helpdesk', loadComponent: CrmRequestsComponent },
       { path: 'requests', redirectTo: 'helpdesk', pathMatch: 'full' },
       { path: 'reports', loadComponent: CrmReportsComponent },
       { path: 'audits', loadComponent: CrmAuditsComponent },
+      { path: 'returns', loadComponent: CrmReturnsFilingsComponent },
+      { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
 
       // ── Legacy redirects ──

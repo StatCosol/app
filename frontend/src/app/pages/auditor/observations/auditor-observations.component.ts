@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { AuditorObservationsService } from '../../../core/auditor-observations.service';
 import {
   PageHeaderComponent,
@@ -29,8 +30,9 @@ import {
   templateUrl: './auditor-observations.component.html',
   styleUrls: ['./auditor-observations.component.scss'],
 })
-export class AuditorObservationsComponent implements OnInit {
-  loading = false;
+export class AuditorObservationsComponent implements OnInit, OnDestroy {
+  loading = true;
+  private destroy$ = new Subject<void>();
   observations: any[] = [];
   categories: any[] = [];
   auditId: string | null = null;
@@ -72,15 +74,20 @@ export class AuditorObservationsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.route.queryParams.subscribe((params) => {
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       this.auditId = params['auditId'] || null;
       this.loadCategories();
       this.loadObservations();
     });
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadCategories() {
-    this.api.listCategories().subscribe({
+    this.api.listCategories().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.categories = res || [];
         this.cdr.detectChanges();
@@ -91,14 +98,16 @@ export class AuditorObservationsComponent implements OnInit {
   loadObservations() {
     this.loading = true;
     this.api.list(this.auditId).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
+        this.loading = false;
         this.observations = res || [];
         this.cdr.detectChanges();
       },
-      error: () => { this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.cdr.detectChanges(); },
     });
   }
 
@@ -143,7 +152,7 @@ export class AuditorObservationsComponent implements OnInit {
     this.saving = true;
 
     if (this.editingId) {
-      this.api.update(this.editingId, this.form).subscribe({
+      this.api.update(this.editingId, this.form).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.saving = false;
           this.cancelForm();
@@ -153,7 +162,7 @@ export class AuditorObservationsComponent implements OnInit {
         error: (err) => { this.saving = false; this.cdr.detectChanges(); alert(err?.error?.message || 'Update failed'); },
       });
     } else {
-      this.api.create(this.form).subscribe({
+      this.api.create(this.form).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.saving = false;
           this.cancelForm();
@@ -168,7 +177,7 @@ export class AuditorObservationsComponent implements OnInit {
   deleteObservation(id: string) {
     if (this.deletingId || !confirm('Delete this observation?')) return;
     this.deletingId = id;
-    this.api.delete(id).subscribe({
+    this.api.delete(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.deletingId = null; this.cdr.detectChanges(); this.loadObservations(); },
       error: () => { this.deletingId = null; this.cdr.detectChanges(); },
     });

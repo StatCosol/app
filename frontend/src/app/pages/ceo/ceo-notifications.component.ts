@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { CeoApiService, CeoNotification } from '../../core/api/ceo.api';
 
@@ -42,10 +43,11 @@ import { CeoApiService, CeoNotification } from '../../core/api/ceo.api';
     </div>
   `,
 })
-export class CeoNotificationsComponent implements OnInit {
+export class CeoNotificationsComponent implements OnInit, OnDestroy {
   items: CeoNotification[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
+  private destroy$ = new Subject<void>();
   actionId: number | null = null;
 
   constructor(private api: CeoApiService, private cdr: ChangeDetectorRef) {}
@@ -54,21 +56,27 @@ export class CeoNotificationsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load(): void {
     this.loading = true;
     this.error = null;
     this.api.getNotifications().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.items = data || []; this.cdr.detectChanges(); },
-      error: () => { this.error = 'Failed to load notifications'; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.items = data || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.error = 'Failed to load notifications'; this.cdr.detectChanges(); },
     });
   }
 
   markRead(n: CeoNotification): void {
     this.actionId = n.id;
-    this.api.markNotificationRead(n.id).subscribe({
+    this.api.markNotificationRead(n.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { n.read = true; this.actionId = null; this.cdr.detectChanges(); },
       error: () => { this.error = 'Failed to mark as read'; this.actionId = null; this.cdr.detectChanges(); },
     });

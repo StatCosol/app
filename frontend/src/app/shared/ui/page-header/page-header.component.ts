@@ -54,4 +54,8 @@ export class PageHeaderComponent {
   @Input() title = '';
   @Input() subtitle = '';
   @Input() breadcrumbs: Breadcrumb[] = [];
+
+  /** Alias so both `subtitle` and `description` work in templates */
+  @Input()
+  set description(val: string) { this.subtitle = val; }
 }

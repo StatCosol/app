@@ -272,29 +272,29 @@ export class ClientBranchesController {
 
     // Get contractors for this branch
     const contractors: any[] = await this.dataSource.query(
-      `SELECT bc.contractor_user_id AS contractor_id, u.name AS contractor_name
-       FROM branch_contractor bc
+      `SELECT bc.contractor_user_id, u.name AS contractor_name
+       FROM branch_contractors bc
        JOIN users u ON u.id = bc.contractor_user_id
        WHERE bc.branch_id = $1 AND u.deleted_at IS NULL
        ORDER BY u.name`,
       [id],
     );
-    const contractorIds = contractors.map((c) => c.contractor_id);
+    const contractorIds = contractors.map((c) => c.contractor_user_id);
 
     // Required doc counts per contractor
     const requiredMap = new Map<string, number>();
     if (contractorIds.length) {
       const reqRows: any[] = await this.dataSource.query(
-        `SELECT contractor_id, COUNT(*) AS cnt
+        `SELECT contractor_user_id, COUNT(*) AS cnt
          FROM contractor_required_documents
          WHERE client_id = $1
-           AND contractor_id = ANY($2)
+           AND contractor_user_id = ANY($2)
            AND is_required = TRUE
            AND (branch_id IS NULL OR branch_id = $3)
-         GROUP BY contractor_id`,
+         GROUP BY contractor_user_id`,
         [clientId, contractorIds, id],
       );
-      reqRows.forEach((r) => requiredMap.set(r.contractor_id, Number(r.cnt)));
+      reqRows.forEach((r) => requiredMap.set(r.contractor_user_id, Number(r.cnt)));
     }
 
     // Document stats per contractor for the month
@@ -305,16 +305,16 @@ export class ClientBranchesController {
     if (contractorIds.length) {
       const docRows: any[] = await this.dataSource.query(
         `SELECT
-           contractor_id,
+           contractor_user_id,
            COUNT(DISTINCT doc_type) AS uploaded_distinct,
            SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_count,
            SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END) AS expired_count
          FROM contractor_documents
          WHERE client_id = $1
-           AND contractor_id = ANY($2)
+           AND contractor_user_id = ANY($2)
            AND (branch_id IS NULL OR branch_id = $3)
            AND created_at >= $4 AND created_at < $5
-         GROUP BY contractor_id`,
+         GROUP BY contractor_user_id`,
         [
           clientId,
           contractorIds,
@@ -324,7 +324,7 @@ export class ClientBranchesController {
         ],
       );
       docRows.forEach((r) =>
-        docStatsMap.set(r.contractor_id, {
+        docStatsMap.set(r.contractor_user_id, {
           uploaded: Number(r.uploaded_distinct),
           rejected: Number(r.rejected_count),
           expired: Number(r.expired_count),
@@ -336,8 +336,8 @@ export class ClientBranchesController {
     let totalRequired = 0;
     let totalUploaded = 0;
     const scored = contractors.map((c) => {
-      const reqCount = requiredMap.get(c.contractor_id) || 0;
-      const stats = docStatsMap.get(c.contractor_id) || {
+      const reqCount = requiredMap.get(c.contractor_user_id) || 0;
+      const stats = docStatsMap.get(c.contractor_user_id) || {
         uploaded: 0,
         rejected: 0,
         expired: 0,
@@ -351,7 +351,7 @@ export class ClientBranchesController {
       totalRequired += reqCount;
       totalUploaded += Math.min(stats.uploaded, reqCount);
       return {
-        contractorId: c.contractor_id,
+        contractorUserId: c.contractor_user_id,
         contractorName: c.contractor_name,
         requiredCount: reqCount,
         uploadedCount: stats.uploaded,

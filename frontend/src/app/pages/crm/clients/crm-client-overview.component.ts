@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 import { CrmService } from '../../../core/crm.service';
 
@@ -69,17 +70,19 @@ interface ClientTab {
     </main>
   `,
 })
-export class CrmClientOverviewComponent implements OnInit {
+export class CrmClientOverviewComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   clientId = '';
   clientName = '';
   clientCode = '';
-  loading = false;
+  loading = true;
   accessDenied = false;
 
   tabs: (ClientTab & { description: string })[] = [
     { label: 'Branches', route: 'branches', icon: '🏢', description: 'Manage branch offices and locations' },
     { label: 'Contractors', route: 'contractors', icon: '👷', description: 'View and manage linked contractors' },
     { label: 'Compliance', route: 'compliance-tracker', icon: '✅', description: 'Track compliance tasks and deadlines' },
+    { label: 'Registrations', route: 'registrations', icon: '📋', description: 'Manage branch registrations & licenses' },
     { label: 'Documents', route: 'documents', icon: '📄', description: 'View contractor documents' },
     { label: 'Payroll', route: 'payroll-status', icon: '💰', description: 'Monitor payroll processing status' },
   ];
@@ -91,7 +94,7 @@ export class CrmClientOverviewComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe((params) => {
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       this.clientId = params.get('clientId') ?? '';
       this.loadClient();
     });
@@ -103,10 +106,12 @@ export class CrmClientOverviewComponent implements OnInit {
     this.accessDenied = false;
 
     this.crmService.getAssignedClientsCached().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (clients) => {
+        this.loading = false;
         const match = (clients || []).find(
           (c: any) => c?.id === this.clientId || c?.clientId === this.clientId,
         );
@@ -119,9 +124,15 @@ export class CrmClientOverviewComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: () => {
+        this.loading = false;
         this.accessDenied = true;
         this.cdr.detectChanges();
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

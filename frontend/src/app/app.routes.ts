@@ -10,7 +10,6 @@ import { CRM_ROUTES } from './pages/crm/crm.routes';
 import { CLIENT_ROUTES } from './pages/client/client.routes';
 import { CONTRACTOR_ROUTES } from './pages/contractor/contractor.routes';
 import { AUDITOR_ROUTES } from './pages/auditor/auditor.routes';
-import { PUBLIC_ROUTES } from './pages/public/public.routes';
 import { PAYROLL_ROUTES } from './pages/payroll/payroll.routes';
 import { BRANCH_ROUTES } from './pages/branch/branch.routes';
 import { ESS_ROUTES } from './pages/ess/ess.routes';
@@ -29,7 +28,5 @@ export const routes: Routes = [
   ...BRANCH_ROUTES,
   ...PAYROLL_ROUTES,
   ...ESS_ROUTES,
-  ...PUBLIC_ROUTES,
-
   { path: '**', redirectTo: '', pathMatch: 'full' },
 ];

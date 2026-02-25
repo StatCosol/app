@@ -10,17 +10,17 @@ export class AuditorObservationsService {
   constructor(private http: HttpClient) {}
 
   listCategories(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/auditor/observations/categories`);
+    return this.http.get(`${this.baseUrl}/api/v1/auditor/observations/categories`);
   }
 
   list(auditId?: string | null): Observable<any> {
     let params = new HttpParams();
     if (auditId) params = params.set('auditId', auditId);
-    return this.http.get(`${this.baseUrl}/api/auditor/observations`, { params });
+    return this.http.get(`${this.baseUrl}/api/v1/auditor/observations`, { params });
   }
 
   getOne(id: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/auditor/observations/${id}`);
+    return this.http.get(`${this.baseUrl}/api/v1/auditor/observations/${id}`);
   }
 
   create(data: {
@@ -31,14 +31,14 @@ export class AuditorObservationsService {
     complianceRequirements?: string;
     elaboration?: string;
   }): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auditor/observations`, data);
+    return this.http.post(`${this.baseUrl}/api/v1/auditor/observations`, data);
   }
 
   update(id: string, data: any): Observable<any> {
-    return this.http.put(`${this.baseUrl}/api/auditor/observations/${id}`, data);
+    return this.http.put(`${this.baseUrl}/api/v1/auditor/observations/${id}`, data);
   }
 
   delete(id: string): Observable<any> {
-    return this.http.delete(`${this.baseUrl}/api/auditor/observations/${id}`);
+    return this.http.delete(`${this.baseUrl}/api/v1/auditor/observations/${id}`);
   }
 }

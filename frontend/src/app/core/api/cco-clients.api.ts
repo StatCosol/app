@@ -34,16 +34,16 @@ export class CcoClientsApi {
   constructor(private http: HttpClient) {}
 
   listClients() {
-    return this.http.get<ClientDto[]>(`${this.baseUrl}/api/cco/clients`);
+    return this.http.get<ClientDto[]>(`${this.baseUrl}/api/v1/cco/clients`);
   }
 
   createClient(payload: CreateClientRequest) {
-    return this.http.post<ClientDto>(`${this.baseUrl}/api/cco/clients`, payload);
+    return this.http.post<ClientDto>(`${this.baseUrl}/api/v1/cco/clients`, payload);
   }
 
   assignClient(clientId: string, payload: AssignClientRequest) {
     return this.http.patch<ClientDto>(
-      `${this.baseUrl}/api/cco/clients/${clientId}/assign`,
+      `${this.baseUrl}/api/v1/cco/clients/${clientId}/assign`,
       payload
     );
   }

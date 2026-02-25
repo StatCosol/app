@@ -1,7 +1,8 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientAuditsService } from '../../../core/client-audits.service';
 import { PageHeaderComponent, DataTableComponent, TableColumn, FormSelectComponent, StatusBadgeComponent } from '../../../shared/ui';
 
@@ -12,8 +13,9 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, FormSelectCompone
   templateUrl: './client-audits.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-audits.component.scss'],
 })
-export class ClientAuditsComponent {
-  loading = false;
+export class ClientAuditsComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
+  loading = true;
   audits: any[] = [];
 
   filters = {
@@ -33,32 +35,61 @@ export class ClientAuditsComponent {
     { key: 'notes', header: 'Notes', sortable: false },
   ];
 
+  // Static options — must NOT be inline arrays in template (new refs every CD cycle → NG0103)
+  readonly yearOptions = [
+    { value: 2024, label: '2024' },
+    { value: 2025, label: '2025' },
+    { value: 2026, label: '2026' },
+    { value: 2027, label: '2027' },
+  ];
+  readonly auditStatusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'PLANNED', label: 'Planned' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'COMPLETED', label: 'Completed' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+  readonly frequencyOptions = [
+    { value: '', label: 'All Frequencies' },
+    { value: 'MONTHLY', label: 'Monthly' },
+    { value: 'QUARTERLY', label: 'Quarterly' },
+    { value: 'HALF_YEARLY', label: 'Half Yearly' },
+    { value: 'YEARLY', label: 'Yearly' },
+  ];
+
   constructor(private api: ClientAuditsService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadAudits();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadAudits() {
     this.loading = true;
     this.api.list(this.filters).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
     ).subscribe({
       next: (res: any) => {
+        this.loading = false;
         this.audits = res || [];
         // Transform data for table display
         this.audits = this.audits.map(audit => ({
           ...audit,
           period: `${audit.periodCode} / ${audit.periodYear}`,
-          auditor: audit.assignedAuditor?.name || '\u2014',
+          auditor: audit.assignedAuditor?.name || '—',
           contractor: audit.contractorUser?.name || 'All',
           dueDate: this.formatDate(audit.dueDate),
-          notes: audit.notes || '\u2014'
+          notes: audit.notes || '—'
         }));
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
-      error: () => { this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.cdr.markForCheck(); },
     });
   }
 

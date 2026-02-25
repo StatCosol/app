@@ -51,25 +51,63 @@ export class HelpdeskService {
     private readonly dataSource: DataSource,
   ) {}
 
-  // --- STUBS for controller compatibility ---
+  // --- Real implementations matching controller contracts ---
   async listTickets(user: any, q: any) {
-    // TODO: Implement actual logic
-    return [];
+    // For CRM users, scope to their assigned clients
+    if (user?.roleCode === 'CRM') {
+      return this.crmListTickets(user, q);
+    }
+    // For CLIENT users, scope to their client
+    if (user?.roleCode === 'CLIENT' && user.clientId) {
+      const qb = this.ticketRepo
+        .createQueryBuilder('t')
+        .where('t.client_id = :clientId', { clientId: user.clientId });
+      if (q?.branchId) qb.andWhere('t.branch_id = :branchId', { branchId: q.branchId });
+      if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
+      if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
+      qb.orderBy('t.created_at', 'DESC');
+      return qb.getMany();
+    }
+    // For ADMIN/PF_TEAM, return all tickets (with optional filters)
+    const qb = this.ticketRepo.createQueryBuilder('t');
+    if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
+    if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
+    if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
+    qb.orderBy('t.created_at', 'DESC');
+    return qb.getMany();
   }
 
   async createTicket(user: any, dto: any) {
-    // TODO: Implement actual logic
-    return { id: 'stub' };
+    return this.clientCreateTicket(user, dto);
   }
 
   async uploadFile(user: any, ticketId: string, file: any) {
-    // TODO: Implement actual logic
-    return { fileId: 'stub' };
+    if (!file) throw new BadRequestException('File is required');
+    const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
+    if (!t) throw new BadRequestException('Ticket not found');
+    if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
+      throw new ForbiddenException('Invalid client');
+    }
+    // Create a system message for the file upload, then attach the file
+    const message = this.msgRepo.create({
+      message: `File uploaded: ${file.originalname ?? file.filename ?? 'file'}`,
+      ticketId,
+      senderUserId: user.id,
+    });
+    const savedMsg = await this.msgRepo.save(message);
+
+    const entity = this.fileRepo.create({
+      messageId: savedMsg.id,
+      fileName: file.originalname ?? file.filename ?? 'file',
+      filePath: file.path ?? file.location ?? '',
+      fileType: file.mimetype ?? 'application/octet-stream',
+      fileSize: file.size ?? 0,
+    });
+    return this.fileRepo.save(entity);
   }
 
   async getMessages(user: any, ticketId: string) {
-    // TODO: Implement actual logic
-    return [];
+    return this.listMessages(user, ticketId);
   }
 
   private async findCrmAssignmentTable(): Promise<{

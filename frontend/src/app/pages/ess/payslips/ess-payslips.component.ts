@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, Payslip } from '../ess-api.service';
 
 @Component({
@@ -100,10 +101,11 @@ import { EssApiService, Payslip } from '../ess-api.service';
     .download-btn svg { width: 16px; height: 16px; }
   `],
 })
-export class EssPayslipsComponent implements OnInit {
+export class EssPayslipsComponent implements OnInit, OnDestroy {
   payslips: Payslip[] = [];
-  loading = true;
+  loading = false;
   downloading = new Set<string>();
+  private readonly destroy$ = new Subject<void>();
 
   private months = [
     '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -113,12 +115,21 @@ export class EssPayslipsComponent implements OnInit {
   constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.loading = true;
     this.api.listPayslips()
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
-        next: (list) => { this.payslips = list; },
-        error: () => { this.payslips = []; },
+        next: (list) => { this.loading = false; this.payslips = list; },
+        error: () => { this.loading = false; this.payslips = []; },
       });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   monthName(m: number): string {
@@ -134,12 +145,17 @@ export class EssPayslipsComponent implements OnInit {
   }
 
   download(p: Payslip): void {
+    if (this.downloading.has(p.id)) return; // prevent double-click
     this.downloading.add(p.id);
     this.cdr.detectChanges();
     this.api.downloadPayslip(p.id)
-      .pipe(finalize(() => { this.downloading.delete(p.id); this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.downloading.delete(p.id); this.cdr.detectChanges(); }),
+      )
       .subscribe({
         next: (blob) => {
+          this.downloading.delete(p.id);
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -148,6 +164,7 @@ export class EssPayslipsComponent implements OnInit {
           window.URL.revokeObjectURL(url);
         },
         error: () => {
+          this.downloading.delete(p.id);
           alert('Failed to download payslip. The file may not be available.');
         },
       });

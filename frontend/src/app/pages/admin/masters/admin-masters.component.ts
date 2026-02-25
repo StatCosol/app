@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { AdminMastersService } from '../../../core/admin-masters.service';
 import { PageHeaderComponent, FormInputComponent, FormSelectComponent, SelectOption, ActionButtonComponent, DataTableComponent, TableColumn, TableCellDirective, StatusBadgeComponent, LoadingSpinnerComponent, EmptyStateComponent } from '../../../shared/ui';
 
@@ -12,9 +13,10 @@ import { PageHeaderComponent, FormInputComponent, FormSelectComponent, SelectOpt
   templateUrl: './admin-masters.component.html',
   styleUrls: ['./admin-masters.component.scss'],
 })
-export class AdminMastersComponent implements OnInit {
+export class AdminMastersComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   activeTab: 'compliance' | 'audit' = 'compliance';
-  loading = false;
+  loading = true;
   saving = false;
   deletingId: string | null = null;
 
@@ -63,6 +65,11 @@ export class AdminMastersComponent implements OnInit {
     this.loadData();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadData() {
     if (this.activeTab === 'compliance') {
       this.loadComplianceMasters();
@@ -76,6 +83,7 @@ export class AdminMastersComponent implements OnInit {
     this.loading = true;
     this.api.listComplianceMasters().pipe(
       timeout(10000),
+      takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
@@ -116,7 +124,7 @@ export class AdminMastersComponent implements OnInit {
     this.saving = true;
 
     if (this.editingComplianceId) {
-      this.api.updateComplianceMaster(this.editingComplianceId, this.complianceForm).subscribe({
+      this.api.updateComplianceMaster(this.editingComplianceId, this.complianceForm).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.saving = false;
           this.cancelComplianceEdit();
@@ -126,7 +134,7 @@ export class AdminMastersComponent implements OnInit {
         error: () => { this.saving = false; this.cdr.detectChanges(); },
       });
     } else {
-      this.api.createComplianceMaster(this.complianceForm).subscribe({
+      this.api.createComplianceMaster(this.complianceForm).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.saving = false;
           this.cancelComplianceEdit();
@@ -142,7 +150,7 @@ export class AdminMastersComponent implements OnInit {
     if (this.deletingId) return;
     if (!confirm('Are you sure you want to delete this compliance master?')) return;
     this.deletingId = id;
-    this.api.deleteComplianceMaster(id).subscribe({
+    this.api.deleteComplianceMaster(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.deletingId = null; this.cdr.detectChanges(); this.loadComplianceMasters(); },
       error: () => { this.deletingId = null; this.cdr.detectChanges(); },
     });
@@ -153,6 +161,7 @@ export class AdminMastersComponent implements OnInit {
     this.loading = true;
     this.api.listAuditCategories().pipe(
       timeout(10000),
+      takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
@@ -179,7 +188,7 @@ export class AdminMastersComponent implements OnInit {
     this.saving = true;
 
     if (this.editingAuditCategoryId) {
-      this.api.updateAuditCategory(this.editingAuditCategoryId, this.auditCategoryForm).subscribe({
+      this.api.updateAuditCategory(this.editingAuditCategoryId, this.auditCategoryForm).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.saving = false;
           this.cancelAuditCategoryEdit();
@@ -189,7 +198,7 @@ export class AdminMastersComponent implements OnInit {
         error: () => { this.saving = false; this.cdr.detectChanges(); },
       });
     } else {
-      this.api.createAuditCategory(this.auditCategoryForm).subscribe({
+      this.api.createAuditCategory(this.auditCategoryForm).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.saving = false;
           this.cancelAuditCategoryEdit();
@@ -205,7 +214,7 @@ export class AdminMastersComponent implements OnInit {
     if (this.deletingId) return;
     if (!confirm('Are you sure you want to delete this audit category?')) return;
     this.deletingId = id;
-    this.api.deleteAuditCategory(id).subscribe({
+    this.api.deleteAuditCategory(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.deletingId = null; this.cdr.detectChanges(); this.loadAuditCategories(); },
       error: () => { this.deletingId = null; this.cdr.detectChanges(); },
     });

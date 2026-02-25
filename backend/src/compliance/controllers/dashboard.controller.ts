@@ -53,7 +53,6 @@ export class AdminRoleDashboardController {
   }
 }
 
-@Controller({ path: 'audi tor/dashboard', version: '1' })
 @Controller({ path: 'auditor/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('AUDITOR')

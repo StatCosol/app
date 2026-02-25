@@ -1,6 +1,8 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
 import { EssApiService } from '../ess-api.service';
 
@@ -285,7 +287,7 @@ interface NavItem {
     }
   `],
 })
-export class EssLayoutComponent implements OnInit {
+export class EssLayoutComponent implements OnInit, OnDestroy {
   userName = '';
   userCode = '';
   initials = '';
@@ -294,6 +296,7 @@ export class EssLayoutComponent implements OnInit {
   sidebarCollapsed = false;
   mobileOpen = false;
   avatarOpen = false;
+  private readonly destroy$ = new Subject<void>();
 
   navItems: NavItem[] = [
     {
@@ -348,13 +351,20 @@ export class EssLayoutComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.api.getCompanyBranding().subscribe({
-      next: (b) => {
-        if (b?.clientName) this.companyName = b.clientName;
-        if (b?.logoUrl) this.companyLogoUrl = b.logoUrl;
-      },
-      error: () => {},
-    });
+    this.api.getCompanyBranding()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (b) => {
+          if (b?.clientName) this.companyName = b.clientName;
+          if (b?.logoUrl) this.companyLogoUrl = b.logoUrl;
+        },
+        error: () => {},
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /** Close avatar dropdown when clicking outside */

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef, HostListener, ViewEncapsulation } from '@angular/core';
+import { Component, ChangeDetectorRef, HostListener, ViewEncapsulation, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -21,13 +21,14 @@ import { AuthService } from '../../../core/auth.service';
         <!-- ═══════ LEFT: LOGIN CARD ═══════ -->
         <div class="card-col">
           <div class="card" [class.card-shake]="errorMsg">
-            <!-- Logo -->
+            <!-- Logo + Heading -->
             <div class="logo-row">
-              <img class="logo-img" src="assets/images/statco-logo.png" alt="StatCo Solutions" />
+              <img class="logo-img" src="assets/images/statco-logo.svg" alt="StatCo Solutions" />
+              <div class="logo-text">
+                <h1 class="heading">Sign in</h1>
+                <p class="sub-heading">Your one-stop employee self-service portal.</p>
+              </div>
             </div>
-
-            <h1 class="heading">Sign in</h1>
-            <p class="sub-heading">Your one-stop employee self-service portal.</p>
 
             <form (ngSubmit)="submit()" autocomplete="on" class="frm">
               <!-- Company Code -->
@@ -114,6 +115,12 @@ import { AuthService } from '../../../core/auth.service';
         <!-- ═══════ RIGHT: ILLUSTRATION PANEL ═══════ -->
         <div class="illust-col">
           <div class="illust-inner">
+            <!-- Brand name -->
+            <div class="illust-brand">
+              <h2 class="illust-brand-name">StatCo Solutions</h2>
+              <p class="illust-brand-tag">Ensuring Compliance, Empowering Success.</p>
+            </div>
+
             <!-- abstract dashboard mockup -->
             <div class="mock-browser">
               <div class="mock-bar">
@@ -272,19 +279,22 @@ import { AuthService } from '../../../core/auth.service';
     }
 
     .logo-row {
-      display: flex; align-items: center;
+      display: flex; align-items: center; gap: 10px;
       margin-bottom: 28px;
     }
     .logo-img {
-      height: 48px; width: auto;
+      height: 48px; width: auto; flex-shrink: 0;
+    }
+    .logo-text {
+      display: flex; flex-direction: column;
     }
 
     .heading {
-      font-size: 32px; font-weight: 900; color: #1a1a1a;
+      font-size: 26px; font-weight: 900; color: #1a1a1a;
       margin: 0; line-height: 1.2;
     }
     .sub-heading {
-      margin: 8px 0 0; font-size: 14px; color: #777; font-weight: 400;
+      margin: 3px 0 0; font-size: 13px; color: #777; font-weight: 400;
     }
 
     .frm { margin-top: 28px; }
@@ -441,6 +451,27 @@ import { AuthService } from '../../../core/auth.service';
       position: relative;
       width: 100%; max-width: 560px;
       animation: fadeIn .6s ease-out .15s both;
+    }
+
+    .illust-brand {
+      text-align: left;
+      margin-bottom: 24px;
+    }
+    .illust-brand-name {
+      margin: 0;
+      font-size: 26px; font-weight: 800;
+      letter-spacing: -.3px;
+      color: #0a1628;
+      text-shadow:
+        1px 1px 0 rgba(14, 58, 110, .25),
+        2px 2px 4px rgba(0, 0, 0, .15),
+        0 0 12px rgba(14, 58, 110, .10);
+    }
+    .illust-brand-tag {
+      margin: 6px 0 0;
+      font-size: 14px; font-weight: 400;
+      color: #5a7a94;
+      font-style: italic;
     }
 
     /* ── Mock browser ── */
@@ -613,7 +644,7 @@ import { AuthService } from '../../../core/auth.service';
     }
   `],
 })
-export class EssLoginComponent {
+export class EssLoginComponent implements OnInit, OnDestroy {
   companyCode = '';
   email = '';
   password = '';
@@ -624,6 +655,8 @@ export class EssLoginComponent {
   capsLockOn = false;
   companyCodeLocked = false;
   currentYear = new Date().getFullYear();
+
+  private popstateHandler = this.onPopState.bind(this);
 
   constructor(
     private auth: AuthService,
@@ -638,6 +671,24 @@ export class EssLoginComponent {
     if (code) {
       this.companyCode = code.toUpperCase();
       this.companyCodeLocked = true;
+    }
+  }
+
+  ngOnInit(): void {
+    // Prevent browser back-button from returning to the previous authenticated page
+    if (!this.auth.isLoggedIn()) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', this.popstateHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('popstate', this.popstateHandler);
+  }
+
+  private onPopState(): void {
+    if (!this.auth.isLoggedIn()) {
+      window.history.pushState(null, '', window.location.href);
     }
   }
 
@@ -667,9 +718,11 @@ export class EssLoginComponent {
       finalize(() => { this.isLoading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: () => {
+        this.isLoading = false;
         this.router.navigateByUrl('/ess/dashboard');
       },
       error: (e) => {
+        this.isLoading = false;
         if (e?.status === 401 || e?.status === 403) {
           this.errorMsg = e?.error?.message || 'Invalid company code, email, or password';
         } else {

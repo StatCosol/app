@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent } from '../../../shared/ui';
 import { ProfileApiService, UserProfile } from '../../../core/api/profile.api';
 
@@ -85,7 +86,8 @@ import { ProfileApiService, UserProfile } from '../../../core/api/profile.api';
   `,
   styleUrls: ['./client-profile.component.scss'],
 })
-export class ClientProfileComponent implements OnInit {
+export class ClientProfileComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   user: UserProfile | null = null;
   loading = false;
   error: string | null = null;
@@ -107,20 +109,28 @@ export class ClientProfileComponent implements OnInit {
     this.loadProfile();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadProfile() {
     this.loading = true;
     this.error = null;
     this.profileApi.getProfile().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (u) => {
+        this.loading = false;
         this.user = u;
         this.editName = u.name || '';
         this.editPhone = u.phone || '';
         this.cdr.detectChanges();
       },
       error: () => {
+        this.loading = false;
         this.error = 'Failed to load profile.';
         this.cdr.detectChanges();
       },
@@ -131,7 +141,7 @@ export class ClientProfileComponent implements OnInit {
     if (this.saving) return;
     this.saving = true;
     this.saveMsg = '';
-    this.profileApi.updateProfile({ name: this.editName, phone: this.editPhone }).subscribe({
+    this.profileApi.updateProfile({ name: this.editName, phone: this.editPhone }).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.saving = false;
         this.saveMsg = 'Profile updated.';
@@ -156,7 +166,7 @@ export class ClientProfileComponent implements OnInit {
     this.changingPassword = true;
     this.pwMsg = '';
     this.pwError = false;
-    this.profileApi.changePassword(this.currentPassword, this.newPassword).subscribe({
+    this.profileApi.changePassword(this.currentPassword, this.newPassword).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.changingPassword = false;
         this.pwMsg = 'Password changed.';

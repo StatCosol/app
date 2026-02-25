@@ -8,9 +8,9 @@ import { RoleHeaderComponent } from '../../../shared/role-header/role-header.com
   imports: [RouterOutlet, RoleHeaderComponent],
   template: `
     <app-role-header [role]="'AUDITOR'" [displayName]="'Auditor User'"></app-role-header>
-    <div class="auditor-content">
+    <main class="role-content auditor-content">
       <router-outlet></router-outlet>
-    </div>
+    </main>
   `,
   styleUrls: ['./auditor-layout.component.scss']
 })

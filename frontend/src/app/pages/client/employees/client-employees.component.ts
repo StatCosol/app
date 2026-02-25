@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { ClientEmployeesService, Employee } from './client-employees.service';
 import {
   PageHeaderComponent,
@@ -139,7 +140,7 @@ import {
   `,
   styles: [
     `
-      .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
       .filter-bar { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
       .total-badge { font-size: 0.8rem; color: #6b7280; margin-bottom: 0.5rem; }
       .name-link {
@@ -165,10 +166,11 @@ import {
     `,
   ],
 })
-export class ClientEmployeesComponent implements OnInit {
+export class ClientEmployeesComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   employees: Employee[] = [];
   total = 0;
-  loading = true;
+  loading = false;
   error = '';
   searchTerm = '';
   activeFilter = '';
@@ -200,6 +202,11 @@ export class ClientEmployeesComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load(): void {
     this.loading = true;
     this.error = '';
@@ -209,14 +216,18 @@ export class ClientEmployeesComponent implements OnInit {
         search: this.searchTerm || undefined,
         isActive: this.activeFilter || undefined,
       })
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: (res) => {
           this.employees = res.data;
           this.total = res.total;
+          this.loading = false;
+          this.cdr.detectChanges();
         },
         error: (e) => {
+          this.loading = false;
           this.error = e?.error?.message || e?.message || 'Failed to load employees';
+          this.cdr.detectChanges();
         },
       });
   }
@@ -240,7 +251,7 @@ export class ClientEmployeesComponent implements OnInit {
 
   confirmDeactivate(emp: Employee): void {
     if (!confirm(`Deactivate ${emp.firstName} ${emp.lastName || ''}?`)) return;
-    this.svc.deactivate(emp.id).subscribe({
+    this.svc.deactivate(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.load(),
       error: (e) => alert(e?.error?.message || 'Failed to deactivate'),
     });

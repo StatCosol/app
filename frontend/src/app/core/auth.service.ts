@@ -16,7 +16,7 @@ export class AuthService {
 
   login(email: string, password: string) {
     return this.http
-      .post<any>(`${environment.apiBaseUrl}/api/auth/login`, { email, password })
+      .post<any>(`${environment.apiBaseUrl}/api/v1/auth/login`, { email, password })
       .pipe(
         tap((res) => {
           localStorage.setItem(this.TOKEN_KEY, res.accessToken);
@@ -28,7 +28,7 @@ export class AuthService {
   /** ESS-specific login: company code + email + password */
   essLogin(companyCode: string, email: string, password: string) {
     return this.http
-      .post<any>(`${environment.apiBaseUrl}/api/auth/ess/login`, { companyCode, email, password })
+      .post<any>(`${environment.apiBaseUrl}/api/v1/auth/ess/login`, { companyCode, email, password })
       .pipe(
         tap((res) => {
           localStorage.setItem(this.TOKEN_KEY, res.accessToken);
@@ -39,7 +39,9 @@ export class AuthService {
 
   /** Call this from UI logout button */
   logout(reason?: string) {
-    const wasEmployee = this.getRoleCode() === 'EMPLOYEE';
+    const wasEmployee =
+      this.getRoleCode() === 'EMPLOYEE' ||
+      window.location.pathname.startsWith('/ess/');
     this.logoutOnce(reason, wasEmployee);
   }
 
@@ -53,6 +55,11 @@ export class AuthService {
     localStorage.removeItem(this.USER_KEY);
 
     const target = toEssLogin ? '/ess/login' : '/login';
+
+    // Replace the current history entry so pressing "Back" won't
+    // return to the previous authenticated page.
+    window.history.replaceState(null, '', target);
+
     this.router.navigate([target], { replaceUrl: true }).finally(() => {
       // allow future logout actions after navigation stabilizes
       setTimeout(() => (this.loggingOut = false), 0);
@@ -105,7 +112,7 @@ export class AuthService {
 
   // ---- Self-service endpoints ----
   fetchMe() {
-    return this.http.get<any>(`${environment.apiBaseUrl}/api/me`).pipe(
+    return this.http.get<any>(`${environment.apiBaseUrl}/api/v1/me`).pipe(
       tap((me) => {
         // Keep localStorage user in sync (for headers/menus)
         const current = this.getUser() || {};
@@ -129,7 +136,7 @@ export class AuthService {
   }
 
   updateMyProfile(payload: { name?: string; mobile?: string | null }) {
-    return this.http.patch<any>(`${environment.apiBaseUrl}/api/me/profile`, payload).pipe(
+    return this.http.patch<any>(`${environment.apiBaseUrl}/api/v1/me/profile`, payload).pipe(
       tap((me) => {
         const current = this.getUser() || {};
         const merged = { ...current, name: me?.name ?? current.name };
@@ -139,6 +146,6 @@ export class AuthService {
   }
 
   changeMyPassword(payload: { currentPassword: string; newPassword: string }) {
-    return this.http.patch<any>(`${environment.apiBaseUrl}/api/me/password`, payload);
+    return this.http.patch<any>(`${environment.apiBaseUrl}/api/v1/me/password`, payload);
   }
 }

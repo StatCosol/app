@@ -164,9 +164,13 @@
 .welcome-banner {
   background: linear-gradient(135deg, #051734 0%, #0a2656 35%, #0e3a7a 65%, #1eb6f7 100%);
   border-radius: 1rem;
-  padding: 2rem 2.5rem;
+  padding: 1.25rem 1rem;
   color: white;
   margin-bottom: 1.5rem;
+
+  @media (min-width: 640px) {
+    padding: 2rem 2.5rem;
+  }
   position: relative;
   overflow: hidden;
   box-shadow:

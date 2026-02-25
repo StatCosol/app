@@ -17,7 +17,6 @@ import { BranchesModule } from '../branches/branches.module';
 import { ContractorService } from './contractor.service';
 import {
   ContractorDocumentsController,
-  CrmContractorDocumentsController,
 } from './contractor-documents.controller';
 import { ContractorDocumentsService } from './contractor-documents.service';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
@@ -35,6 +34,7 @@ import { AssignmentsModule } from '../assignments/assignments.module';
 import { AuditEntity } from '../audits/entities/audit.entity';
 import { AuditsModule } from '../audits/audits.module';
 import { AuthModule } from '../auth/auth.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -55,6 +55,7 @@ import { AuthModule } from '../auth/auth.module';
     AssignmentsModule,
     AuditsModule,
     BranchesModule, // ✅ required (ClientContractorsController uses BranchesService)
+    AiModule,
   ],
   controllers: [
     ContractorController,
@@ -63,7 +64,6 @@ import { AuthModule } from '../auth/auth.module';
     CrmContractorRegistrationController,
     ClientContractorsController,
     ContractorDocumentsController,
-    CrmContractorDocumentsController,
     CrmContractorRequiredDocumentsController,
     ClientContractorRequiredDocumentsController,
   ],

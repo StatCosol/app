@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of, Subscription } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { forkJoin, of, Subject, Subscription } from 'rxjs';
+import { switchMap, takeUntil } from 'rxjs/operators';
 import { catchError, finalize, timeout } from 'rxjs/operators';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
@@ -25,6 +25,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private cdr = inject(ChangeDetectorRef);
   
+  private destroy$ = new Subject<void>();
   private subscriptions = new Subscription();
   private isInitialized = false;
 
@@ -34,7 +35,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
   clientSelectOptions: SelectOption[] = [];
   payrollUserSelectOptions: SelectOption[] = [];
 
-  loading = false;
+  loading = true;
   error = '';
 
   form = {
@@ -61,16 +62,12 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
   }
   
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.subscriptions.unsubscribe();
   }
 
   loadAll(): void {
-    // Prevent concurrent loads
-    if (this.loading) {
-      console.warn('[PayrollAssignments] Load already in progress, skipping...');
-      return;
-    }
-    
     this.loading = true;
     this.error = '';
 
@@ -106,6 +103,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
             switchMap((rows) => of({ assignments: rows })),
           );
         }),
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
           this.cdr.detectChanges();
@@ -194,7 +192,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
     this.loading = true;
     const sub = this.api
       .createAssignment({ clientId, payrollUserId })
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
           this.toast.success('Payroll assignment saved');
@@ -215,7 +213,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
     this.loading = true;
     const sub = this.api
       .unassign(assignment.clientId)
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
           this.toast.success('Payroll assignment removed');

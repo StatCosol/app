@@ -8,14 +8,14 @@ import { RoleHeaderComponent } from '../../../shared/role-header/role-header.com
   imports: [RouterOutlet, RoleHeaderComponent],
   template: `
     <app-role-header [role]="'PAYROLL'" [displayName]="'StatCo Payroll'"></app-role-header>
-    <div class="payroll-content">
+    <main class="role-content payroll-content">
       <router-outlet></router-outlet>
-    </div>
+    </main>
   `,
   styles: [
     `
       .payroll-content {
-        padding: 16px;
+        padding-top: 1.25rem;
       }
     `,
   ],

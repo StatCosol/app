@@ -1,17 +1,61 @@
 /**
- * CRM Dashboard Data Transfer Objects
- * Operational compliance owner view - execution and tracking for assigned clients/branches
+ * CRM Dashboard Data Transfer Objects  (V2 — redesigned)
  */
 
-/** Request filters for CRM dashboard data */
+/* ═══════ V2 KPIs ═══════ */
+export interface CrmKpis {
+  assignedClientsCount: number;
+  compliancePct: number;
+  pendingReviewCount: number;
+  reuploadRequiredCount: number;
+  overdueCount: number;
+  expiring30Count: number;
+  openObservationsCount: number;
+  mcdPendingCount: number;
+}
+
+export interface PriorityItem {
+  itemType: 'OVERDUE_TASK' | 'EXPIRED_DOC' | 'HIGH_RISK_OBS';
+  clientName: string;
+  branchName: string;
+  contractorName: string | null;
+  itemName: string;
+  complianceType: string;
+  daysOverdue: number;
+  refId: string;
+}
+
+export interface RiskClient {
+  clientId: string;
+  clientName: string;
+  compliancePct: number;
+  pendingCount: number;
+  reuploadCount: number;
+  openObservations: number;
+  expiringCount: number;
+}
+
+export interface UpcomingAudit {
+  auditId: string;
+  auditCode: string;
+  auditType: string;
+  clientName: string;
+  branchName: string;
+  auditorName: string;
+  dueDate: string;
+  status: string;
+  daysUntil: number;
+}
+
+/* ═══════ Legacy (kept for backward-compat imports) ═══════ */
+
 export interface CrmFilters {
   clientId?: string;
   branchId?: string;
-  periodFrom?: string; // YYYY-MM-DD
-  periodTo?: string;   // YYYY-MM-DD
+  periodFrom?: string;
+  periodTo?: string;
 }
 
-/** Summary KPI metrics for CRM role */
 export interface CrmSummary {
   assignedClientsCount: number;
   assignedBranchesCount: number;
@@ -21,7 +65,6 @@ export interface CrmSummary {
   openComplianceQueriesCount: number;
 }
 
-/** Compliance item due/overdue */
 export interface ComplianceDueItem {
   refId: string;
   clientId: string;
@@ -30,13 +73,12 @@ export interface ComplianceDueItem {
   branchName: string;
   category: string;
   complianceItem: string;
-  dueDate: string; // YYYY-MM-DD
+  dueDate: string;
   daysOverdue: number;
   risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  status: 'OVERDUE' | 'DUE_SOON' | 'DUE_THIS_MONTH' | 'PENDING' | 'DONE';
+  status: string;
 }
 
-/** Branch with low compliance coverage - risk view */
 export interface LowCoverageBranch {
   clientId: string;
   clientName: string;
@@ -47,19 +89,17 @@ export interface LowCoverageBranch {
   highRiskCount: number;
 }
 
-/** Pending document submission from contractor */
 export interface PendingDocument {
   clientId: string;
   clientName: string;
   branchId: string;
   branchName: string;
   documentType: string;
-  requestedOn: string; // YYYY-MM-DD
+  requestedOn: string;
   pendingDays: number;
-  status: 'REQUESTED' | 'PENDING_REVIEW' | 'REJECTED' | 'APPROVED';
+  status: string;
 }
 
-/** Compliance query/thread */
 export interface ComplianceQuery {
   refId: string;
   fromRole: string;
@@ -70,23 +110,11 @@ export interface ComplianceQuery {
   branchName?: string;
   subject: string;
   ageingDays: number;
-  status: 'OPEN' | 'PENDING_REPLY' | 'RESOLVED' | 'CLOSED';
-  lastUpdated?: string; // ISO date string
+  status: string;
+  lastUpdated?: string;
 }
 
-/** API response wrappers */
-export interface CrmDueCompliancesResponse {
-  items: ComplianceDueItem[];
-}
-
-export interface CrmLowCoverageResponse {
-  items: LowCoverageBranch[];
-}
-
-export interface CrmPendingDocumentsResponse {
-  items: PendingDocument[];
-}
-
-export interface CrmQueriesResponse {
-  items: ComplianceQuery[];
-}
+export interface CrmDueCompliancesResponse { items: ComplianceDueItem[]; }
+export interface CrmLowCoverageResponse { items: LowCoverageBranch[]; }
+export interface CrmPendingDocumentsResponse { items: PendingDocument[]; }
+export interface CrmQueriesResponse { items: ComplianceQuery[]; }

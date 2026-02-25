@@ -89,7 +89,7 @@ export interface ContractorOption {
 @Injectable({ providedIn: 'root' })
 export class AdminClientsService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiBaseUrl}/api/admin`;
+  private apiUrl = `${environment.apiBaseUrl}/api/v1/admin`;
 
   // Client APIs
   getClients(): Observable<Client[]> {

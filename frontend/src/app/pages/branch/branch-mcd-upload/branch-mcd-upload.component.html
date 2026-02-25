@@ -1,0 +1,247 @@
+<div class="page-container">
+  <ui-page-header
+    title="Monthly Compliance Documents"
+    subtitle="Upload and track branch-level monthly compliance submissions">
+  </ui-page-header>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <select class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
+      <option value="MONTHLY">Monthly</option>
+      <option value="QUARTERLY">Quarterly</option>
+      <option value="HALF_YEARLY">Half-Yearly</option>
+      <option value="YEARLY">Yearly</option>
+    </select>
+
+    <select *ngIf="selectedFrequency === 'MONTHLY'" class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
+      <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+    </select>
+
+    <select *ngIf="selectedFrequency === 'QUARTERLY'" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
+      <option *ngFor="let q of quarters" [ngValue]="q.value">{{ q.label }}</option>
+    </select>
+
+    <select *ngIf="selectedFrequency === 'HALF_YEARLY'" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
+      <option *ngFor="let h of halves" [ngValue]="h.value">{{ h.label }}</option>
+    </select>
+
+    <select class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
+      <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+    </select>
+
+    <span class="ml-auto text-xs text-gray-400">
+      Upload window: 1st – 25th of the following month
+    </span>
+  </div>
+
+  <!-- KPI Cards -->
+  <div *ngIf="!loading && kpis" class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-value" [style.color]="compliancePctColor">{{ kpis.compliance_pct }}%</div>
+      <div class="kpi-label">Compliance %</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-blue-600">{{ kpis.submitted + kpis.resubmitted }}</div>
+      <div class="kpi-label">Submitted</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-green-600">{{ kpis.approved }}</div>
+      <div class="kpi-label">Approved</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-orange-500">{{ kpis.reupload_required }}</div>
+      <div class="kpi-label">Reupload Required</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-gray-400">{{ kpis.not_uploaded }}</div>
+      <div class="kpi-label">Not Uploaded</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value text-red-500">{{ kpis.overdue }}</div>
+      <div class="kpi-label">Overdue</div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="space-y-4">
+    <div class="kpi-grid">
+      <div *ngFor="let s of [1,2,3,4,5,6]" class="skeleton skeleton--kpi"></div>
+    </div>
+    <div *ngFor="let s of [1,2,3,4,5,6,7,8]" class="skeleton skeleton--row"></div>
+  </div>
+
+  <!-- Checklist Table grouped by category -->
+  <ng-container *ngIf="!loading">
+    <div *ngIf="groupedChecklist.length === 0" class="text-center py-12 text-gray-400">
+      <svg class="mx-auto w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+      </svg>
+      <p class="text-sm font-medium">No compliance items found for the selected period.</p>
+    </div>
+
+    <div *ngFor="let group of groupedChecklist" class="category-section">
+      <div class="category-header">{{ group.category }}</div>
+
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th style="width: 30%;">Document</th>
+              <th style="width: 12%;">Law Area</th>
+              <th style="width: 15%;">Status</th>
+              <th style="width: 12%;">Version</th>
+              <th style="width: 13%;">Uploaded</th>
+              <th style="width: 18%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of group.items">
+              <td>
+                <div class="font-medium">{{ item.returnName }}</div>
+                <div class="text-xs text-gray-400 mt-0.5">{{ item.returnCode }}</div>
+              </td>
+              <td>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ item.lawArea }}</span>
+              </td>
+              <td>
+                <span class="inline-flex items-center">
+                  <span class="badge-dot" [ngClass]="getStatusColor(item)"></span>
+                  <ui-status-badge [status]="getStatus(item)" size="sm"></ui-status-badge>
+                </span>
+                <ng-container *ngIf="item.document as doc">
+                <div *ngIf="doc.remarks" class="remarks-text">
+                  <strong>Review:</strong> {{ doc.remarks }}
+                </div>
+                <div *ngIf="doc.uploaderRemarks" class="text-xs text-blue-600 italic mt-0.5">
+                  <strong>Uploader:</strong> {{ doc.uploaderRemarks }}
+                </div>
+              </ng-container>
+              </td>
+              <td>
+                <span *ngIf="item.document">v{{ item.document.version }}</span>
+                <span *ngIf="!item.document" class="text-gray-300">—</span>
+              </td>
+              <td>
+                <ng-container *ngIf="item.document as doc">
+                <span *ngIf="doc.uploadedAt" class="text-xs text-gray-500">
+                  {{ doc.uploadedAt | date:'dd MMM yyyy' }}
+                </span>
+              </ng-container>
+                <span *ngIf="!item.document?.uploadedAt" class="text-gray-300">—</span>
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <button
+                    *ngIf="canUpload(item)"
+                    class="btn-outline"
+                    (click)="openUploadModal(item)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                    {{ canReupload(item) ? 'Reupload' : 'Upload' }}
+                  </button>
+                  <button
+                    *ngIf="item.document?.uploadedFileName"
+                    class="btn-outline"
+                    (click)="downloadFile(item)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    View
+                  </button>
+                  <span *ngIf="item.document?.isLocked" class="text-xs text-green-600 font-medium flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    Locked
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Upload Modal -->
+  <ui-modal
+    *ngIf="showUploadModal"
+    [isOpen]="showUploadModal"
+    [title]="'Upload: ' + (uploadTarget?.returnName || '')"
+    size="md"
+    (closed)="closeUploadModal()">
+
+    <div class="space-y-4">
+      <div class="text-sm text-gray-500">
+        <strong>Return Code:</strong> {{ uploadTarget?.returnCode }}<br>
+        <strong>Period:</strong>
+        <span *ngIf="selectedFrequency === 'MONTHLY'">{{ months[selectedMonth - 1]?.label }} {{ selectedYear }}</span>
+        <span *ngIf="selectedFrequency === 'QUARTERLY'">Q{{ selectedQuarter }} {{ selectedYear }}</span>
+        <span *ngIf="selectedFrequency === 'HALF_YEARLY'">H{{ selectedHalf }} {{ selectedYear }}</span>
+        <span *ngIf="selectedFrequency === 'YEARLY'">{{ selectedYear }}</span>
+      </div>
+
+      <!-- Drop zone -->
+      <div
+        class="upload-zone"
+        (drop)="onFileDrop($event)"
+        (dragover)="onDragOver($event)"
+        (click)="fileInput.click()">
+        <input
+          #fileInput
+          type="file"
+          class="file-input"
+          accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls"
+          (change)="onFileSelected($event)">
+
+        <div *ngIf="!selectedFile">
+          <svg class="mx-auto w-10 h-10 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          <p class="text-sm text-gray-500">Drag & drop file here, or <span class="text-blue-600 font-medium">browse</span></p>
+          <p class="text-xs text-gray-400 mt-1">PDF, PNG, JPEG, XLS/XLSX (max 10 MB)</p>
+        </div>
+
+        <div *ngIf="selectedFile" class="flex items-center justify-center gap-2">
+          <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="text-sm font-medium text-gray-700">{{ selectedFile.name }}</span>
+          <span class="text-xs text-gray-400">({{ (selectedFile.size / 1024).toFixed(0) }} KB)</span>
+        </div>
+      </div>
+
+      <!-- Remarks -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Remarks (Optional)</label>
+        <textarea
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          rows="2"
+          [(ngModel)]="uploadRemarks"
+          placeholder="Add any remarks for the reviewer..."></textarea>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex justify-end gap-3 pt-2">
+        <button
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          (click)="closeUploadModal()">
+          Cancel
+        </button>
+        <button
+          class="btn-primary"
+          [disabled]="!selectedFile || uploading"
+          (click)="submitUpload()">
+          <svg *ngIf="uploading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          {{ uploading ? 'Uploading...' : 'Upload Document' }}
+        </button>
+      </div>
+    </div>
+
+    <div slot="footer"></div>
+  </ui-modal>
+</div>

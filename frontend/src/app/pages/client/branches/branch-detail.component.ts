@@ -1,9 +1,12 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { StatusBadgeComponent, LoadingSpinnerComponent } from '../../../shared/ui';
+import { BranchAuditKpiComponent } from '../../../shared/ui/branch-audit-kpi/branch-audit-kpi.component';
+import { AiRiskScoreComponent } from '../../../shared/ui/ai-risk-score/ai-risk-score.component';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { AuthService } from '../../../core/auth.service';
 
@@ -12,7 +15,7 @@ type Tab = 'overview' | 'documents' | 'mcd' | 'contractors' | 'dashboard';
 @Component({
   selector: 'app-branch-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, StatusBadgeComponent, LoadingSpinnerComponent],
+  imports: [CommonModule, FormsModule, RouterModule, StatusBadgeComponent, LoadingSpinnerComponent, BranchAuditKpiComponent, AiRiskScoreComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <!-- Back link -->
@@ -350,6 +353,16 @@ type Tab = 'overview' | 'documents' | 'mcd' | 'contractors' | 'dashboard';
           </ng-container>
 
           <div *ngIf="!dashboardLoading && !dashboard" class="text-center py-10 text-gray-400 text-sm">No dashboard data available</div>
+
+          <!-- Audit KPI Widget -->
+          <div class="mt-5">
+            <app-branch-audit-kpi [branchId]="branchId" [from]="kpiFrom" [to]="kpiTo"></app-branch-audit-kpi>
+          </div>
+
+          <!-- AI Risk Score Widget -->
+          <div class="mt-5">
+            <app-ai-risk-score [branchId]="branchId" [year]="riskYear" [month]="riskMonth"></app-ai-risk-score>
+          </div>
         </div>
       </ng-container>
 
@@ -360,10 +373,11 @@ type Tab = 'overview' | 'documents' | 'mcd' | 'contractors' | 'dashboard';
     </div>
   `,
 })
-export class BranchDetailComponent implements OnInit {
+export class BranchDetailComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   branchId = '';
   branch: any = null;
-  loading = false;
+  loading = true;
   isMasterUser = false;
 
   activeTab: Tab = 'overview';
@@ -405,6 +419,23 @@ export class BranchDetailComponent implements OnInit {
   dashboardLoading = false;
   dashboardMonth = '';
 
+  // Derived widget inputs
+  get kpiFrom(): string {
+    if (!this.dashboardMonth) return '';
+    return this.dashboardMonth.slice(0, 4) + '-01';
+  }
+  get kpiTo(): string {
+    return this.dashboardMonth;
+  }
+  get riskYear(): number {
+    if (!this.dashboardMonth) return 0;
+    return parseInt(this.dashboardMonth.slice(0, 4), 10);
+  }
+  get riskMonth(): number {
+    if (!this.dashboardMonth) return 0;
+    return parseInt(this.dashboardMonth.slice(5, 7), 10);
+  }
+
   private monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   constructor(
@@ -425,14 +456,20 @@ export class BranchDetailComponent implements OnInit {
     this.loadBranch();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadBranch(): void {
     this.loading = true;
     this.svc.getById(this.branchId).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (res) => { this.branch = res; this.cdr.detectChanges(); },
-      error: () => { this.branch = null; },
+      next: (res) => { this.loading = false; this.branch = res; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.branch = null; },
     });
   }
 
@@ -450,11 +487,12 @@ export class BranchDetailComponent implements OnInit {
       category: this.docCategoryFilter || undefined,
       status: this.docStatusFilter || undefined,
     }).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.docsLoading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (res) => { this.documents = res || []; },
-      error: () => { this.documents = []; },
+      next: (res) => { this.docsLoading = false; this.documents = res || []; },
+      error: () => { this.docsLoading = false; this.documents = []; },
     });
   }
 
@@ -476,16 +514,18 @@ export class BranchDetailComponent implements OnInit {
       periodYear: this.uploadCategory === 'COMPLIANCE_MONTHLY' ? this.uploadYear : undefined,
       periodMonth: this.uploadCategory === 'COMPLIANCE_MONTHLY' ? this.uploadMonth : undefined,
     }).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.uploading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: () => {
+        this.uploading = false;
         this.uploadSuccess = true;
         this.uploadDocType = '';
         this.selectedFile = null;
         this.loadDocuments();
         this.loadBranch(); // refresh counts
       },
-      error: (err: any) => { this.uploadError = err?.error?.message || 'Upload failed'; },
+      error: (err: any) => { this.uploading = false; this.uploadError = err?.error?.message || 'Upload failed'; },
     });
   }
 
@@ -497,14 +537,16 @@ export class BranchDetailComponent implements OnInit {
     if (!this.reuploadFile || !this.reuploadTarget) return;
     this.reuploading = true;
     this.svc.reuploadDocument(this.reuploadTarget.id, this.reuploadFile).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.reuploading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: () => {
+        this.reuploading = false;
         this.reuploadTarget = null;
         this.reuploadFile = null;
         this.loadDocuments();
       },
-      error: () => { /* stays open */ },
+      error: () => { this.reuploading = false; /* stays open */ },
     });
   }
 
@@ -513,11 +555,12 @@ export class BranchDetailComponent implements OnInit {
   loadMcd(): void {
     this.mcdLoading = true;
     this.svc.getMcdOverview(this.branchId, 6).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.mcdLoading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (res) => { this.mcdOverview = res || []; },
-      error: () => { this.mcdOverview = []; },
+      next: (res) => { this.mcdLoading = false; this.mcdOverview = res || []; },
+      error: () => { this.mcdLoading = false; this.mcdOverview = []; },
     });
   }
 
@@ -545,11 +588,12 @@ export class BranchDetailComponent implements OnInit {
     this.dashboardLoading = true;
     this.dashboard = null;
     this.svc.getDashboard(this.branchId, this.dashboardMonth || undefined).pipe(
+      takeUntil(this.destroy$),
       timeout(15000),
       finalize(() => { this.dashboardLoading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (res) => { this.dashboard = res; },
-      error: () => { this.dashboard = null; },
+      next: (res) => { this.dashboardLoading = false; this.dashboard = res; },
+      error: () => { this.dashboardLoading = false; this.dashboard = null; },
     });
   }
 }

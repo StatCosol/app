@@ -1,10 +1,12 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { timeout, finalize } from 'rxjs/operators';
+import { timeout, finalize, takeUntil } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
 import { DashboardService } from '../../core/dashboard.service';
+import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
@@ -49,9 +51,16 @@ import {
   templateUrl: './auditor-dashboard.component.html',
   styleUrls: ['./auditor-dashboard.component.scss'],
 })
-export class AuditorDashboardComponent implements OnInit {
-  loading = false;
+export class AuditorDashboardComponent implements OnInit, OnDestroy {
+  loading = true;
   errorMsg: string | null = null;
+
+  private destroy$ = new Subject<void>();
+  private summarySub?: Subscription;
+  private auditsSub?: Subscription;
+  private obsSub?: Subscription;
+  private evidenceSub?: Subscription;
+  private activitySub?: Subscription;
 
   // Filters
   filter: AuditorFilters = {
@@ -144,9 +153,19 @@ export class AuditorDashboardComponent implements OnInit {
     this.loadAllData();
   }
 
+  ngOnDestroy(): void {
+    this.summarySub?.unsubscribe();
+    this.auditsSub?.unsubscribe();
+    this.obsSub?.unsubscribe();
+    this.evidenceSub?.unsubscribe();
+    this.activitySub?.unsubscribe();
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   /** Load clients for filter dropdowns (assigned only) */
   loadReferenceData(): void {
-    this.http.get<any[]>('/api/auditor/clients/assigned').pipe(timeout(10000)).subscribe({
+    this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/auditor/clients/assigned`).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (data) => {
         this.clients = (data || []).map((c: any) => ({ id: c.id, name: c.clientName || c.name }));
         this.cdr.detectChanges();
@@ -166,19 +185,23 @@ export class AuditorDashboardComponent implements OnInit {
 
   /** Load summary KPIs */
   loadSummary(): void {
+    this.summarySub?.unsubscribe();
     this.loading = true;
     this.errorMsg = null;
 
     const params = this.buildFilterParams();
-    this.dashboardService.getAuditorSummary(params).pipe(
+    this.summarySub = this.dashboardService.getAuditorSummary(params).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (data) => {
+        this.loading = false;
         this.summary = data;
         this.cdr.detectChanges();
       },
       error: (_err) => {
+        this.loading = false;
         this.errorMsg = _err?.error?.message || 'Failed to load dashboard summary';
         this.cdr.detectChanges();
       },
@@ -187,8 +210,9 @@ export class AuditorDashboardComponent implements OnInit {
 
   /** Load audits based on active tab */
   loadMyAudits(): void {
+    this.auditsSub?.unsubscribe();
     const params = { ...this.buildFilterParams(), tab: this.auditTab };
-    this.dashboardService.getAuditorAudits(params).pipe(timeout(10000)).subscribe({
+    this.auditsSub = this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.myAudits = response.items;
         this.cdr.detectChanges();
@@ -202,8 +226,9 @@ export class AuditorDashboardComponent implements OnInit {
 
   /** Load observations pending closure */
   loadObservations(): void {
+    this.obsSub?.unsubscribe();
     const params = { ...this.buildFilterParams(), status: 'OPEN' };
-    this.dashboardService.getAuditorObservations(params).pipe(timeout(10000)).subscribe({
+    this.obsSub = this.dashboardService.getAuditorObservations(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.observations = response.items;
         this.cdr.detectChanges();
@@ -217,8 +242,9 @@ export class AuditorDashboardComponent implements OnInit {
 
   /** Load evidence pending */
   loadEvidence(): void {
+    this.evidenceSub?.unsubscribe();
     const params = this.buildFilterParams();
-    this.dashboardService.getAuditorEvidence(params).pipe(timeout(10000)).subscribe({
+    this.evidenceSub = this.dashboardService.getAuditorEvidence(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.evidence = response.items;
         this.cdr.detectChanges();
@@ -232,7 +258,8 @@ export class AuditorDashboardComponent implements OnInit {
 
   /** Load recent activity timeline */
   loadRecentActivities(): void {
-    this.dashboardService.getAuditorActivity().pipe(timeout(10000)).subscribe({
+    this.activitySub?.unsubscribe();
+    this.activitySub = this.dashboardService.getAuditorActivity().pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.recentActivities = response.items;
         this.cdr.detectChanges();

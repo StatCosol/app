@@ -8,9 +8,9 @@ import { RoleHeaderComponent } from '../../../shared/role-header/role-header.com
   imports: [RouterOutlet, RoleHeaderComponent],
   template: `
     <app-role-header [role]="'CCO'" [displayName]="'CCO User'"></app-role-header>
-    <div class="cco-content">
+    <main class="role-content cco-content">
       <router-outlet></router-outlet>
-    </div>
+    </main>
   `,
   styleUrls: ['./cco-layout.component.scss']
 })

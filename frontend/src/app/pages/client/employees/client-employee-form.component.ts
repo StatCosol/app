@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { ClientEmployeesService, Employee } from './client-employees.service';
 import {
   PageHeaderComponent,
@@ -242,7 +243,8 @@ import {
     `,
   ],
 })
-export class ClientEmployeeFormComponent implements OnInit {
+export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   isEdit = false;
   employeeId = '';
   loadingEmployee = false;
@@ -320,13 +322,19 @@ export class ClientEmployeeFormComponent implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadEmployee(): void {
     this.loadingEmployee = true;
     this.svc
       .getById(this.employeeId)
-      .pipe(finalize(() => { this.loadingEmployee = false; this.cdr.detectChanges(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingEmployee = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: (emp) => {
+          this.loadingEmployee = false;
           this.form = { ...emp };
           this.breadcrumbs = [
             { label: 'Employees', route: '/client/employees' },
@@ -335,6 +343,7 @@ export class ClientEmployeeFormComponent implements OnInit {
           ];
         },
         error: () => {
+          this.loadingEmployee = false;
           this.loadError = 'Employee not found or access denied.';
         },
       });
@@ -353,8 +362,9 @@ export class ClientEmployeeFormComponent implements OnInit {
       ? this.svc.update(this.employeeId, this.form)
       : this.svc.create(this.form);
 
-    obs.pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); })).subscribe({
+    obs.pipe(takeUntil(this.destroy$), finalize(() => { this.saving = false; this.cdr.detectChanges(); })).subscribe({
       next: (emp) => {
+        this.saving = false;
         if (this.isEdit) {
           this.successMsg = 'Employee updated successfully';
           setTimeout(() => this.router.navigate(['/client/employees', this.employeeId]), 1000);
@@ -363,6 +373,7 @@ export class ClientEmployeeFormComponent implements OnInit {
         }
       },
       error: (e) => {
+        this.saving = false;
         this.formError = e?.error?.message || e?.message || 'Save failed. Please try again.';
       },
     });

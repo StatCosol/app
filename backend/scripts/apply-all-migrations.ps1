@@ -56,7 +56,9 @@ $migrationFiles = @(
     "20260210_user_type_master_branch.sql",
     "20260211_add_branch_auditor_assignments.sql",
     "20260212_legitx_compliance_returns_audit_reports.sql",
-    "20260217_payroll_statutory_engine.sql"
+    "20260217_payroll_statutory_engine.sql",
+    "20260225_branch_compliance_documents.sql",
+    "20260210_compliance_document_library.sql"
 )
 
 function Invoke-Migration {

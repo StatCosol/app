@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
+import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 
 export type ContractorDocumentCreateDto = {
   clientId?: string; // optional: will default to logged-in user's clientId
@@ -30,6 +31,7 @@ export class ContractorDocumentsService {
     private readonly repo: Repository<ContractorDocumentEntity>,
     @InjectRepository(BranchContractorEntity)
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
+    private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
   async contractorUpload(
@@ -64,7 +66,7 @@ export class ContractorDocumentsService {
     }
 
     const row = this.repo.create({
-      contractorId: user.id,
+      contractorUserId: user.id,
       clientId,
       branchId: dto.branchId,
       docType: dto.docType,
@@ -80,9 +82,10 @@ export class ContractorDocumentsService {
     });
 
     const saved = await this.repo.save(row);
+    this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
     return {
       id: saved.id,
-      contractorId: saved.contractorId,
+      contractorUserId: saved.contractorUserId,
       clientId: saved.clientId,
       branchId: saved.branchId,
       docType: saved.docType,
@@ -106,7 +109,7 @@ export class ContractorDocumentsService {
 
     const qb = this.repo
       .createQueryBuilder('d')
-      .where('d.contractor_id = :contractorId', { contractorId: user.id })
+      .where('d.contractor_user_id = :contractorId', { contractorId: user.id })
       .andWhere('d.client_id = :clientId', { clientId: user.clientId });
 
     if (q?.branchId)
@@ -127,7 +130,7 @@ export class ContractorDocumentsService {
     const rows = await qb.getMany();
     return rows.map((r) => ({
       id: r.id,
-      contractorId: r.contractorId,
+      contractorUserId: r.contractorUserId,
       clientId: r.clientId,
       branchId: r.branchId,
       docType: r.docType,
@@ -157,7 +160,7 @@ export class ContractorDocumentsService {
       .where('d.client_id = :clientId', { clientId: q.clientId });
 
     if (q?.contractorId)
-      qb.andWhere('d.contractor_id = :contractorId', {
+      qb.andWhere('d.contractor_user_id = :contractorId', {
         contractorId: q.contractorId,
       });
     if (q?.branchId)
@@ -177,7 +180,7 @@ export class ContractorDocumentsService {
     const rows = await qb.getMany();
     return rows.map((r) => ({
       id: r.id,
-      contractorId: r.contractorId,
+      contractorUserId: r.contractorUserId,
       clientId: r.clientId,
       branchId: r.branchId,
       docType: r.docType,
@@ -220,6 +223,7 @@ export class ContractorDocumentsService {
     doc.reviewedAt = new Date();
 
     const saved = await this.repo.save(doc);
+    this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
     return {
       id: saved.id,
       status: saved.status,
@@ -245,7 +249,7 @@ export class ContractorDocumentsService {
 
     const doc = await this.repo.findOne({ where: { id } });
     if (!doc) throw new BadRequestException('Document not found');
-    if (doc.contractorId !== user.id || doc.clientId !== user.clientId) {
+    if (doc.contractorUserId !== user.id || doc.clientId !== user.clientId) {
       throw new BadRequestException('Not authorized to modify this document');
     }
 
@@ -272,9 +276,10 @@ export class ContractorDocumentsService {
     doc.expiryDate = null;
 
     const saved = await this.repo.save(doc);
+    this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
     return {
       id: saved.id,
-      contractorId: saved.contractorId,
+      contractorUserId: saved.contractorUserId,
       clientId: saved.clientId,
       branchId: saved.branchId,
       docType: saved.docType,

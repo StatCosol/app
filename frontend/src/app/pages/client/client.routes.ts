@@ -48,6 +48,12 @@ const NominationApprovalsComponent = () =>
   import('./approvals/nomination-approvals.component').then((m) => m.NominationApprovalsComponent);
 const LeaveApprovalsComponent = () =>
   import('./approvals/leave-approvals.component').then((m) => m.LeaveApprovalsComponent);
+const ClientAccessSettingsComponent = () =>
+  import('./settings/client-access-settings.component').then((m) => m.ClientAccessSettingsComponent);
+const ClientComplianceLibraryComponent = () =>
+  import('./compliance/client-compliance-library.component').then((m) => m.ClientComplianceLibraryComponent);
+const ClientRegistrationsComponent = () =>
+  import('./compliance/client-registrations.component').then((m) => m.ClientRegistrationsComponent);
 
 export const CLIENT_ROUTES: Routes = [
   {
@@ -60,19 +66,22 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'branches/:id', loadComponent: BranchDetailComponent },
       { path: 'contractors', loadComponent: ClientContractorsComponent },
       { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent },
-      { path: 'compliance/status', loadComponent: ClientComplianceStatusComponent },
-      { path: 'compliance/mcd', loadComponent: ClientMcdComponent },
+      { path: 'compliance/status', loadComponent: ClientComplianceStatusComponent, runGuardsAndResolvers: 'always' },
+      { path: 'compliance/mcd', loadComponent: ClientMcdComponent, runGuardsAndResolvers: 'always' },
       {
         path: 'compliance/mcd/uploads',
         loadComponent: ClientMcdUploadsComponent,
         canActivate: [branchUserOnlyGuard],
+        runGuardsAndResolvers: 'always',
       },
-      { path: 'compliance/returns', loadComponent: ClientReturnsComponent },
+      { path: 'compliance/returns', loadComponent: ClientReturnsComponent, runGuardsAndResolvers: 'always' },
+      { path: 'compliance/library', loadComponent: ClientComplianceLibraryComponent, runGuardsAndResolvers: 'always' },
       { path: 'payroll', loadComponent: ClientPayrollComponent },
       { path: 'employees', loadComponent: ClientEmployeesComponent },
       { path: 'employees/new', loadComponent: ClientEmployeeFormComponent },
       { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent },
       { path: 'employees/:id/edit', loadComponent: ClientEmployeeFormComponent },
+      { path: 'compliance/registrations', loadComponent: ClientRegistrationsComponent },
       { path: 'registers', loadComponent: ClientRegistersComponent },
       { path: 'audits', loadComponent: ClientAuditsComponent },
       { path: 'queries', loadComponent: ClientQueriesComponent },
@@ -81,6 +90,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'support', loadComponent: ClientSupportComponent },
       { path: 'approvals/nominations', loadComponent: NominationApprovalsComponent },
       { path: 'approvals/leaves', loadComponent: LeaveApprovalsComponent },
+      { path: 'settings/access', loadComponent: ClientAccessSettingsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

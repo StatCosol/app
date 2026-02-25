@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingLeave } from './branch-approvals-api.service';
 
 @Component({
@@ -150,12 +151,13 @@ import { BranchApprovalsApiService, PendingLeave } from './branch-approvals-api.
     .field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
   `],
 })
-export class LeaveApprovalsComponent implements OnInit {
+export class LeaveApprovalsComponent implements OnInit, OnDestroy {
   leaves: PendingLeave[] = [];
   loading = true;
   processing = new Set<string>();
   rejectId = '';
   rejectReason = '';
+  private readonly destroy$ = new Subject<void>();
 
   constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef) {}
 
@@ -163,21 +165,36 @@ export class LeaveApprovalsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load(): void {
     this.loading = true;
     this.api.listPendingLeaves()
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
-        next: (list) => { this.leaves = list; },
-        error: () => { this.leaves = []; },
+        next: (list) => { this.loading = false; this.leaves = list; },
+        error: () => { this.loading = false; this.leaves = []; },
       });
   }
 
   approve(lv: PendingLeave): void {
+    if (this.processing.has(lv.id)) return; // prevent double-click
     this.processing.add(lv.id);
     this.api.approveLeave(lv.id)
-      .pipe(finalize(() => { this.processing.delete(lv.id); this.cdr.detectChanges(); }))
-      .subscribe({ next: () => this.load() });
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.processing.delete(lv.id); this.cdr.detectChanges(); }),
+      )
+      .subscribe({
+        next: () => { this.processing.delete(lv.id); this.load(); },
+        error: () => { this.processing.delete(lv.id); alert('Failed to approve leave application.'); },
+      });
   }
 
   startReject(lv: PendingLeave): void {
@@ -186,10 +203,17 @@ export class LeaveApprovalsComponent implements OnInit {
   }
 
   confirmReject(): void {
+    if (this.processing.has(this.rejectId)) return; // prevent double-click
     this.processing.add(this.rejectId);
     const id = this.rejectId;
     this.api.rejectLeave(id, this.rejectReason.trim())
-      .pipe(finalize(() => { this.processing.delete(id); this.rejectId = ''; this.cdr.detectChanges(); }))
-      .subscribe({ next: () => this.load() });
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.processing.delete(id); this.rejectId = ''; this.cdr.detectChanges(); }),
+      )
+      .subscribe({
+        next: () => { this.processing.delete(this.rejectId); this.rejectId = ''; this.load(); },
+        error: () => { this.processing.delete(this.rejectId); this.rejectId = ''; alert('Failed to reject leave application.'); },
+      });
   }
 }

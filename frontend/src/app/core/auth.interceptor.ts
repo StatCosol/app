@@ -32,7 +32,10 @@ export class AuthInterceptor implements HttpInterceptor {
           }
           if (err.status === 401) {
             this.toast.error('Unauthorized: Please log in again.');
-            this.auth.logoutOnce('401 Unauthorized');
+            const isEss =
+              this.auth.getRoleCode() === 'EMPLOYEE' ||
+              window.location.pathname.startsWith('/ess/');
+            this.auth.logoutOnce('401 Unauthorized', isEss);
           } else if (err.status === 403) {
             this.toast.error('Forbidden: You do not have access to this page.');
           } else {

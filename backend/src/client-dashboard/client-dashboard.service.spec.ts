@@ -14,6 +14,7 @@ const qb = <T>(options: {
     select: () => builder,
     addSelect: () => builder,
     groupBy: () => builder,
+    addGroupBy: () => builder,
     leftJoin: () => builder,
     leftJoinAndSelect: () => builder,
     clone: () => builder,
@@ -69,6 +70,7 @@ describe('ClientDashboardService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
       mockUsersService as any,
     );
 
@@ -83,8 +85,14 @@ describe('ClientDashboardService', () => {
   });
 
   it('computes contractor upload percent with top/bottom lists', async () => {
+    // branch_contractor returns contractor IDs + names (source of truth)
+    const bcRows = [{ contractorId: 'cA', name: 'ACME' }];
     const requiredRows = [{ contractorId: 'cA', expected: '10' }];
     const uploadedRows = [{ contractorId: 'cA', uploaded: '5' }];
+
+    const branchContractorRepo: any = {
+      createQueryBuilder: jest.fn(() => qb({ raws: [bcRows] })),
+    };
 
     const requiredRepo: any = {
       createQueryBuilder: jest.fn(() => qb({ raws: [requiredRows] })),
@@ -94,15 +102,12 @@ describe('ClientDashboardService', () => {
       createQueryBuilder: jest.fn(() => qb({ raws: [uploadedRows] })),
     };
 
-    const usersRepo: any = {
-      find: jest.fn().mockResolvedValue([{ id: 'cA', name: 'ACME' }]),
-    };
-
     const svc = new ClientDashboardService(
       {} as any,
       docsRepo,
       requiredRepo,
-      usersRepo,
+      branchContractorRepo,
+      {} as any,
       mockUsersService as any,
     );
 
@@ -114,7 +119,7 @@ describe('ClientDashboardService', () => {
 
     expect(res.overallPercent).toBe(50);
     expect(res.contractors[0]).toMatchObject({
-      contractorId: 'cA',
+      contractorUserId: 'cA',
       name: 'ACME',
       uploaded: 5,
       expected: 10,
@@ -122,8 +127,8 @@ describe('ClientDashboardService', () => {
     });
     expect(res.top10.length).toBe(1);
     expect(res.bottom10.length).toBe(1);
+    expect(branchContractorRepo.createQueryBuilder).toHaveBeenCalled();
     expect(requiredRepo.createQueryBuilder).toHaveBeenCalled();
     expect(docsRepo.createQueryBuilder).toHaveBeenCalled();
-    expect(usersRepo.find).toHaveBeenCalled();
   });
 });

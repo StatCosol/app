@@ -61,7 +61,12 @@ export class CrmContractorRequiredDocumentsController {
       docType: string;
     },
   ) {
-    return this.svc.add(dto);
+    return this.svc.add({
+      clientId: dto.clientId,
+      contractorUserId: dto.contractorId,
+      branchId: dto.branchId,
+      docType: dto.docType,
+    });
   }
 
   /** POST /api/crm/contractor-required-documents/bulk */
@@ -141,7 +146,12 @@ export class ClientContractorRequiredDocumentsController {
     const clientId = req.user.clientId;
     if (dto.branchId)
       await this.branchAccess.assertBranchAccess(req.user.userId, dto.branchId);
-    return this.svc.add({ clientId, ...dto });
+    return this.svc.add({
+      clientId,
+      contractorUserId: dto.contractorId,
+      branchId: dto.branchId,
+      docType: dto.docType,
+    });
   }
 
   /** POST bulk */

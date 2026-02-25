@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { finalize, timeout, map } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, map, takeUntil, timeout } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth.service';
 import {
@@ -124,10 +125,11 @@ type RegisterRow = {
     </div>
   `,
   styles: [`
-    .page { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
   `],
 })
-export class ClientRegistersComponent implements OnInit {
+export class ClientRegistersComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   rows: RegisterRow[] = [];
   loading = false;
   error = '';
@@ -147,7 +149,7 @@ export class ClientRegistersComponent implements OnInit {
     category: '',
   };
 
-  private base = `${environment.apiBaseUrl}/api/client/payroll/registers-records`;
+  private base = `${environment.apiBaseUrl}/api/v1/client/payroll/registers-records`;
 
   constructor(
     private http: HttpClient,
@@ -160,6 +162,11 @@ export class ClientRegistersComponent implements OnInit {
     this.reload();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   reload(): void {
     this.loading = true;
     this.error = '';
@@ -169,6 +176,7 @@ export class ClientRegistersComponent implements OnInit {
     if (this.q.category?.trim()) p = p.set('category', this.q.category.trim());
 
     this.http.get<any>(this.base, { params: p }).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       map((res) => {
         const arr = Array.isArray(res) ? res : (res?.data ?? []);
@@ -187,13 +195,13 @@ export class ClientRegistersComponent implements OnInit {
       }),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (rows) => { this.rows = rows; this.cdr.detectChanges(); },
-      error: (e) => { this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
+      next: (rows) => { this.loading = false; this.rows = rows; this.cdr.detectChanges(); },
+      error: (e) => { this.loading = false; this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
     });
   }
 
   download(r: RegisterRow): void {
-    this.http.get(`${this.base}/${r.id}/download`, { responseType: 'blob' }).subscribe({
+    this.http.get(`${this.base}/${r.id}/download`, { responseType: 'blob' }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

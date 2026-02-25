@@ -8,6 +8,12 @@
   <!-- Loading State -->
   <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
 
+  <!-- Error State -->
+  <div *ngIf="errorMsg" class="rounded-lg bg-red-50 border border-red-200 p-4 mb-6">
+    <p class="text-sm text-red-800">{{ errorMsg }}</p>
+    <button class="mt-2 text-sm font-medium text-red-600 hover:text-red-500 underline" (click)="reload()">Try Again</button>
+  </div>
+
   <ng-container *ngIf="!loading">
   <!-- KPI Grid -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -42,7 +48,7 @@
         [data]="data.topOverdue"
         emptyMessage="No overdue items">
         <ng-template uiTableCell="count" let-row>
-          <ui-status-badge variant="error">{{ row.count }}</ui-status-badge>
+          <ui-status-badge variant="error" [label]="'' + row.count"></ui-status-badge>
         </ng-template>
       </ui-data-table>
     </div>
@@ -54,7 +60,7 @@
         [data]="data.crmsMostOverdue"
         emptyMessage="No data available">
         <ng-template uiTableCell="overdue" let-row>
-          <ui-status-badge variant="error">{{ row.overdue }}</ui-status-badge>
+          <ui-status-badge variant="error" [label]="'' + row.overdue"></ui-status-badge>
         </ng-template>
       </ui-data-table>
     </div>
@@ -62,8 +68,8 @@
 
   <!-- Actions -->
   <div class="flex flex-wrap gap-3">
-    <ui-button variant="primary">Go to Approvals</ui-button>
-    <ui-button variant="secondary">Go to Overdue List</ui-button>
+    <ui-button variant="primary" (clicked)="goToApprovals()">Go to Approvals</ui-button>
+    <ui-button variant="secondary" (clicked)="goToOverdueList()">Go to Overdue List</ui-button>
   </div>
   </ng-container>
 </div>

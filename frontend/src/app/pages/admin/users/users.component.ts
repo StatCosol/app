@@ -144,17 +144,23 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   private rebuildClientOptions(): void {
-    this.clientOptions = [
+    const opts = [
       { value: null as any, label: 'Select company' },
       ...this.clients.map(c => ({ value: c.id, label: c.clientName }))
     ];
+    this.deferUi(() => {
+      this.clientOptions = opts;
+    });
   }
 
   private rebuildCcoOptions(): void {
-    this.ccoOptions = [
+    const opts = [
       { value: null as any, label: 'Select CCO' },
       ...this.ccoUsers.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }))
     ];
+    this.deferUi(() => {
+      this.ccoOptions = opts;
+    });
   }
 
   isAdminRow(u: UserRow): boolean {
@@ -595,9 +601,10 @@ export class UsersComponent implements OnInit, OnDestroy {
           this.loadUsers();
         },
         error: (e: any) => {
-          // Show backend error in UI for clarity
-          alert(e?.error?.message || 'Failed to create user');
-          this.err = e?.error?.message || 'Failed to create user';
+          // class-validator may return message as string[] — join them
+          const raw = e?.error?.message;
+          const msg = Array.isArray(raw) ? raw.join(', ') : (raw || 'Failed to create user');
+          this.err = msg;
         },
       });
   }

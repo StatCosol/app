@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
@@ -147,7 +147,7 @@ import {
   `,
   styles: [
     `
-      .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -178,50 +178,94 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     periodMonth: null,
   };
 
-  constructor(private payrollApi: PayrollApiService, private api: PayrollRegistersService) {}
+  constructor(private payrollApi: PayrollApiService, private api: PayrollRegistersService, private cdr: ChangeDetectorRef) {}
+
+  private initialLoadDone = false;
 
   ngOnInit(): void {
-    this.payrollApi.getAssignedClients().subscribe({
+    this.payrollApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
       next: (list) => {
         this.clients = list || [];
         this.clientOptions = [
           { value: null, label: 'All Clients' },
           ...this.clients.map((c) => ({ value: c.id, label: c.name })),
         ];
+        this.cdr.markForCheck();
       },
       error: (e) => {
         this.error = `Unable to load clients. ${e?.error?.message || ''}`;
+        this.cdr.markForCheck();
       },
     });
 
+    // Subject-driven reload for user filter changes (skip filter-setup noise)
     this.reload$
       .pipe(
         debounceTime(150),
-        tap(() => { this.loading = true; this.error = ''; }),
-        switchMap(() =>
-          this.api
-            .listRegisters({
-              clientId: this.q.clientId ?? undefined,
-              category: this.q.category?.trim() || undefined,
-              periodYear: this.q.periodYear ?? undefined,
-              periodMonth: this.q.periodMonth ?? undefined,
-            })
-            .pipe(
-              timeout(10000),
-              catchError((e) => {
-                this.error = e?.error?.message || `Unable to load registers. ${e?.message || ''}`;
-                return of([] as RegisterRecordRow[]);
-              }),
-              finalize(() => { this.loading = false; }),
-            ),
-        ),
+        tap(() => {
+          if (!this.initialLoadDone) return;  // skip filter-setup emissions
+          this.loading = true; this.error = '';
+          this.cdr.markForCheck();
+        }),
+        switchMap(() => {
+          if (!this.initialLoadDone) return of(null);  // skip
+          return this.fetchRegisters$();
+        }),
         takeUntil(this.destroy$),
       )
-      .subscribe((rows) => {
-        this.rows = rows || [];
+      .subscribe({
+        next: (rows) => {
+          if (rows !== null) {
+            this.rows = rows || [];
+            this.loading = false;
+            this.cdr.detectChanges();
+          }
+        },
+        error: (err) => {
+          console.error('PayrollRegisters reload$ error:', err);
+          this.loading = false;
+          this.rows = [];
+          this.cdr.detectChanges();
+        },
       });
 
-    this.reload();
+    // Direct initial load — bypasses Subject to avoid cancellation race
+    this.loading = true;
+    this.fetchRegisters$().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (rows) => {
+        this.rows = rows || [];
+        this.loading = false;
+        this.cdr.detectChanges();
+        // Defer initialLoadDone so template-init ngModelChange noise is blocked
+        setTimeout(() => { this.initialLoadDone = true; });
+      },
+      error: (err) => {
+        console.error('PayrollRegisters initial load error:', err);
+        this.loading = false;
+        this.rows = [];
+        this.cdr.detectChanges();
+        setTimeout(() => { this.initialLoadDone = true; });
+      },
+    });
+  }
+
+  private fetchRegisters$() {
+    return this.api
+      .listRegisters({
+        clientId: this.q.clientId ?? undefined,
+        category: this.q.category?.trim() || undefined,
+        periodYear: this.q.periodYear ?? undefined,
+        periodMonth: this.q.periodMonth ?? undefined,
+      })
+      .pipe(
+        timeout(10000),
+        catchError((e) => {
+          this.error = e?.error?.message || `Unable to load registers. ${e?.message || ''}`;
+          this.cdr.markForCheck();
+          return of([] as RegisterRecordRow[]);
+        }),
+        finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
+      );
   }
 
   ngOnDestroy(): void {
@@ -235,14 +279,14 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
   }
 
   download(r: RegisterRecordRow): void {
-    this.api.downloadRegister(r.id).subscribe({
+    this.api.downloadRegister(r.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => this.api.saveBlob(blob, r.fileName || `${r.category}_${r.id}`),
       error: (e) => { this.error = e?.error?.message || 'Download failed'; },
     });
   }
 
   approve(r: RegisterRecordRow): void {
-    this.api.approveRegister(r.id).subscribe({
+    this.api.approveRegister(r.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.reload(),
       error: (e) => { this.error = e?.error?.message || 'Approve failed'; },
     });
@@ -250,7 +294,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
 
   reject(r: RegisterRecordRow): void {
     const reason = prompt('Rejection reason (optional):') ?? '';
-    this.api.rejectRegister(r.id, reason).subscribe({
+    this.api.rejectRegister(r.id, reason).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.reload(),
       error: (e) => { this.error = e?.error?.message || 'Reject failed'; },
     });

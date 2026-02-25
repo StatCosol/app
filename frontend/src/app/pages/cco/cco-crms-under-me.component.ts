@@ -1,13 +1,15 @@
 
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { CcoCrmsService } from '../../core/cco-crms.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { 
   PageHeaderComponent, 
   StatusBadgeComponent, 
   LoadingSpinnerComponent,
+  ActionButtonComponent,
   TableColumn
 } from '../../shared/ui';
 
@@ -18,11 +20,13 @@ import {
     CommonModule, 
     PageHeaderComponent, 
     StatusBadgeComponent, 
-    LoadingSpinnerComponent
+    LoadingSpinnerComponent,
+    ActionButtonComponent
   ],
   templateUrl: './cco-crms-under-me.component.html',
 })
-export class CcoCrmsUnderMeComponent implements OnInit {
+export class CcoCrmsUnderMeComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   crms: any[] = [];
   loading = true;
   error = '';
@@ -39,14 +43,17 @@ export class CcoCrmsUnderMeComponent implements OnInit {
 
   ngOnInit(): void {
     this.ccoCrmsService.list().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (data) => {
+        this.loading = false;
         this.crms = data;
         this.cdr.detectChanges();
       },
       error: (_err) => {
+        this.loading = false;
         this.error = 'Failed to load CRMs.';
         this.cdr.detectChanges();
       },
@@ -56,5 +63,16 @@ export class CcoCrmsUnderMeComponent implements OnInit {
   viewCrm(crm: any) {
     // Placeholder for view action
     this.toast.info('View CRM: ' + crm.name);
+  }
+
+  retry(): void {
+    this.loading = true;
+    this.error = '';
+    this.ngOnInit();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

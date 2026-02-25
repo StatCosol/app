@@ -1,15 +1,16 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { finalize, timeout } from 'rxjs/operators';
-import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, ActionButtonComponent, StatusBadgeComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-cco-notifications',
   standalone: true,
-  imports: [CommonModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent],
+  imports: [CommonModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, ActionButtonComponent, StatusBadgeComponent],
   template: `
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="Notifications (CCO)"
         description="High-priority system threads relevant to CCO"
@@ -33,22 +34,24 @@ import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } fro
             <p class="font-medium" [class.text-gray-500]="n.read">{{ n.subject || 'Notification' }}</p>
             <p class="text-sm text-gray-400">{{ n.createdAt | date:'medium' }}</p>
           </div>
-          <button
+          <ui-button
             *ngIf="!n.read"
-            class="btn-secondary-sm"
+            variant="secondary" size="sm"
             [disabled]="actionId === n.id"
-            (click)="markRead(n)">
-            {{ actionId === n.id ? 'Marking...' : 'Mark Read' }}
-          </button>
-          <span *ngIf="n.read" class="badge badge-success">Read</span>
+            [loading]="actionId === n.id"
+            (clicked)="markRead(n)">
+            Mark Read
+          </ui-button>
+          <ui-status-badge *ngIf="n.read" variant="success" label="Read"></ui-status-badge>
         </div>
       </div>
-    </main>
+    </div>
   `,
 })
-export class CcoNotificationsComponent implements OnInit {
+export class CcoNotificationsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   items: any[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
   actionId: number | null = null;
 
@@ -61,20 +64,28 @@ export class CcoNotificationsComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.error = null;
-    this.http.get<any[]>('/api/notifications/list').pipe(
+    this.http.get<any[]>('/api/v1/notifications/list').pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.items = data || []; this.cdr.detectChanges(); },
-      error: () => { this.error = 'Failed to load notifications'; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.items = data || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.error = 'Failed to load notifications'; this.cdr.detectChanges(); },
     });
   }
 
   markRead(n: any): void {
     this.actionId = n.id;
-    this.http.patch(`/api/notifications/${n.id}/status`, { read: true }).subscribe({
+    this.http.patch(`/api/v1/notifications/${n.id}/status`, { read: true }).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: () => { n.read = true; this.actionId = null; this.cdr.detectChanges(); },
       error: () => { this.error = 'Failed to mark as read'; this.actionId = null; this.cdr.detectChanges(); },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

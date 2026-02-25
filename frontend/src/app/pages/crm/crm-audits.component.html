@@ -1,4 +1,4 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header 
     title="Schedule Audit" 
     description="Create client and contractor audit schedules" 
@@ -22,6 +22,14 @@
             <select [(ngModel)]="model.clientId" name="clientId" required (change)="onClientChange()" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
               <option value="">-- Select Client --</option>
               <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Branch (Optional)</label>
+            <select [(ngModel)]="model.branchId" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <option value="">-- All Branches --</option>
+              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
             </select>
           </div>
 
@@ -80,12 +88,12 @@
             <textarea [(ngModel)]="model.notes" name="notes" rows="3" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"></textarea>
           </div>
 
-          <button type="submit" class="btn-primary w-full" [disabled]="submitting">
+          <ui-button variant="primary" type="submit" [fullWidth]="true" [disabled]="submitting">
             <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
             </svg>
             {{ submitting ? 'Creating...' : 'Create Audit' }}
-          </button>
+          </ui-button>
         </div>
       </div>
     </div>
@@ -100,4 +108,4 @@
     </svg>
     Note: Auditors can view their assigned audits in AuditXpert.
   </div>
-</main>
+</div>

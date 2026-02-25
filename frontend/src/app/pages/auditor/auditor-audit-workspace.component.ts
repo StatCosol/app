@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuditorAuditService, AuditorDocRow, ReuploadRequest } from '../../core/auditor-audit.service';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize } from 'rxjs/operators';
 import { PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
 
 @Component({
@@ -230,10 +232,12 @@ import { PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, Loading
     }
   `]
 })
-export class AuditorAuditWorkspaceComponent implements OnInit {
+export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   activeTab: 'docs' | 'requests' = 'docs';
-  loading = false;
+  loading = true;
   submitting = false;
+
+  private destroy$ = new Subject<void>();
   docs: AuditorDocRow[] = [];
   requests: ReuploadRequest[] = [];
   filters: any = { search: '', clientId: '' };
@@ -244,10 +248,15 @@ export class AuditorAuditWorkspaceComponent implements OnInit {
   remarkForm: any = { text: '', visibility: 'CONTRACTOR_VISIBLE' };
   reuploadForm: any = { reason: '', remarks: '', deadlineDate: '' };
 
-  constructor(private auditService: AuditorAuditService) {}
+  constructor(private auditService: AuditorAuditService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadDocs();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadData() {
@@ -260,28 +269,38 @@ export class AuditorAuditWorkspaceComponent implements OnInit {
 
   loadDocs() {
     this.loading = true;
-    this.auditService.listDocs(this.filters).subscribe({
+    this.auditService.listDocs(this.filters).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loading = false; }),
+    ).subscribe({
       next: (res: any) => {
         this.docs = res.data || [];
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
-        this.docs = [];
         this.loading = false;
+        this.docs = [];
+        this.cdr.detectChanges();
       }
     });
   }
 
   loadRequests() {
     this.loading = true;
-    this.auditService.listReuploadRequests(this.filters).subscribe({
+    this.auditService.listReuploadRequests(this.filters).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loading = false; }),
+    ).subscribe({
       next: (res: any) => {
         this.requests = res.data || [];
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
-        this.requests = [];
         this.loading = false;
+        this.requests = [];
+        this.cdr.detectChanges();
       }
     });
   }
@@ -301,7 +320,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit {
   submitRemark() {
     if (!this.selectedDoc || !this.remarkForm.text) return;
     this.submitting = true;
-    this.auditService.addRemark(this.selectedDoc.id, this.remarkForm).subscribe({
+    this.auditService.addRemark(this.selectedDoc.id, this.remarkForm).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.submitting = false;
         this.remarkModalOpen = false;
@@ -317,7 +336,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit {
   submitReuploadRequest() {
     if (!this.selectedDoc || !this.reuploadForm.reason || !this.reuploadForm.remarks) return;
     this.submitting = true;
-    this.auditService.requestReupload(this.selectedDoc.id, this.reuploadForm).subscribe({
+    this.auditService.requestReupload(this.selectedDoc.id, this.reuploadForm).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.submitting = false;
         this.reuploadModalOpen = false;

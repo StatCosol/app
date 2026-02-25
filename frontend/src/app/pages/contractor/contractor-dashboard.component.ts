@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { timeout, finalize } from 'rxjs/operators';
+import { timeout, finalize, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { DashboardService } from '../../core/dashboard.service';
 import {
   PageHeaderComponent,
@@ -35,10 +36,11 @@ interface UpcomingTask {
   templateUrl: './contractor-dashboard.component.html',
   styleUrls: ['./shared/contractor-theme.scss', './contractor-dashboard.component.scss'],
 })
-export class ContractorDashboardComponent implements OnInit {
+export class ContractorDashboardComponent implements OnInit, OnDestroy {
   data: any = null;
-  loading = true;
+  loading = false;
   errorMsg: string | null = null;
+  private destroy$ = new Subject<void>();
 
   upcomingTasks: UpcomingTask[] = [];
 
@@ -69,6 +71,7 @@ export class ContractorDashboardComponent implements OnInit {
     this.dash
       .contractor()
       .pipe(
+        takeUntil(this.destroy$),
         timeout(10000),
         finalize(() => {
           this.loading = false;
@@ -77,16 +80,27 @@ export class ContractorDashboardComponent implements OnInit {
       )
       .subscribe({
         next: (d) => {
+          this.loading = false;
           this.data = d || null;
           this.buildUpcomingTasks();
           this.computeCompliancePct();
           this.cdr.detectChanges();
         },
         error: (err) => {
+          this.loading = false;
           this.errorMsg = err?.error?.message || 'Failed to load dashboard';
           this.cdr.detectChanges();
         },
       });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  retry(): void {
+    this.ngOnInit();
   }
 
   get overdueTableData(): any[] {

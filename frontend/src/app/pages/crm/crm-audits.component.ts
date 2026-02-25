@@ -1,24 +1,27 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, timeout } from 'rxjs/operators';
 import { AuditsService } from '../../core/audits.service';
 import { CrmClientsApi } from '../../core/api/crm-clients.api';
-import { PageHeaderComponent } from '../../shared/ui';
+import { PageHeaderComponent, ActionButtonComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-crm-audits',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent],
   templateUrl: './crm-audits.component.html',
   styleUrls: ['./crm-audits.component.scss'],
 })
-export class CrmAuditsComponent implements OnInit {
+export class CrmAuditsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   model: any = {
     // NOTE: IDs are UUID strings in the backend
     clientId: '',
+    branchId: '',
     contractorUserId: '',
     frequency: 'MONTHLY',
     auditType: 'CONTRACTOR',
@@ -34,6 +37,7 @@ export class CrmAuditsComponent implements OnInit {
   submitting = false;
 
   clients: any[] = [];
+  branches: any[] = [];
   contractors: any[] = [];
   auditors: any[] = [];
 
@@ -70,7 +74,7 @@ export class CrmAuditsComponent implements OnInit {
 
   loadDropdowns(): void {
     // Load assigned clients
-    this.crmClientsApi.getAssignedClients().subscribe({
+    this.crmClientsApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.clients = data || [];
         this.cdr.detectChanges();
@@ -79,7 +83,7 @@ export class CrmAuditsComponent implements OnInit {
     });
 
     // Load auditors (CRM-accessible endpoint)
-    this.http.get<any[]>(`${this.baseUrl}/api/crm/users/auditors`).pipe(timeout(10000)).subscribe({
+    this.http.get<any[]>(`${this.baseUrl}/api/v1/crm/users/auditors`).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (data) => {
         this.auditors = data || [];
         this.cdr.detectChanges();
@@ -90,11 +94,22 @@ export class CrmAuditsComponent implements OnInit {
 
   onClientChange(): void {
     this.contractors = [];
+    this.branches = [];
     this.model.contractorUserId = '';
+    this.model.branchId = '';
     
     if (this.model.clientId) {
+      // Load branches for selected client
+      this.crmClientsApi.getBranchesForClient(this.model.clientId).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (data) => {
+          this.branches = data || [];
+          this.cdr.detectChanges();
+        },
+        error: (err) => { console.error('Failed to load branches', err); this.cdr.detectChanges(); },
+      });
+
       // Load contractors (CRM-accessible endpoint)
-      this.http.get<any[]>(`${this.baseUrl}/api/crm/users/contractors`).pipe(timeout(10000)).subscribe({
+      this.http.get<any[]>(`${this.baseUrl}/api/v1/crm/users/contractors`).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
         next: (data) => {
           this.contractors = data || [];
           this.cdr.detectChanges();
@@ -122,6 +137,9 @@ export class CrmAuditsComponent implements OnInit {
     if (this.model.contractorUserId) {
       payload.contractorUserId = this.model.contractorUserId;
     }
+    if (this.model.branchId) {
+      payload.branchId = this.model.branchId;
+    }
     if (this.model.dueDate) {
       payload.dueDate = this.model.dueDate;
     }
@@ -129,7 +147,7 @@ export class CrmAuditsComponent implements OnInit {
       payload.notes = this.model.notes;
     }
 
-    this.auditsService.crmCreateAudit(payload).subscribe({
+    this.auditsService.crmCreateAudit(payload).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         this.message = `Audit scheduled successfully — ${res?.auditCode ?? res?.id ?? ''}`;
         this.submitting = false;
@@ -141,5 +159,10 @@ export class CrmAuditsComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

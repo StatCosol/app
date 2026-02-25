@@ -9,8 +9,8 @@ export const roleGuard = (roles: string[]): CanActivateFn => {
 
     // If not logged in, redirect to appropriate login page
     if (!auth.isLoggedIn || !auth.isLoggedIn()) {
-      // Employee routes → ESS login; everything else → main login
-      if (roles.includes('EMPLOYEE')) {
+      // Employee routes or current ESS URL → ESS login; everything else → main login
+      if (roles.includes('EMPLOYEE') || window.location.pathname.startsWith('/ess/')) {
         return router.parseUrl('/ess/login');
       }
       return router.parseUrl('/login');

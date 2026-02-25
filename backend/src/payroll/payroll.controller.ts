@@ -99,18 +99,18 @@ export class PayrollController {
     return this.svc.getAssignedClients(req.user);
   }
 
-  // Simple stub: GET /api/payroll/templates
+  // GET /api/payroll/templates — real DB query
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @Get('templates')
-  listTemplatesStub() {
-    return { items: [], total: 0 };
+  async listTemplates() {
+    return this.svc.listTemplates();
   }
 
-  // Simple stub: GET /api/payroll/payslips
+  // GET /api/payroll/payslips — real DB query
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @Get('payslips')
-  listPayslipsStub() {
-    return { items: [], total: 0 };
+  async listPayslips(@Req() req: any, @Query() q: any) {
+    return this.svc.listPayslips(req.user, q);
   }
 
   // Existing endpoint (kept): GET /api/payroll/registers-records
@@ -442,7 +442,7 @@ export class ClientPayrollTemplateController {
 }
 
 @Controller({ path: 'client/payroll/registers-records', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard, ClientMasterGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class ClientRegistersRecordsController {
   constructor(private readonly svc: PayrollService) {}
@@ -483,12 +483,12 @@ export class ClientRegistersRecordsController {
 export class ClientComponentsEffectiveController {
   constructor(private readonly svc: PayrollService) {}
 
-  @Get('clients/:clientId/components-effective')
+  @Get(':clientId')
   getEffectiveComponents(@Req() req: any, @Param('clientId') clientId: string) {
     return this.svc.getClientEffectiveComponents(req.user, clientId);
   }
 
-  @Post('clients/:clientId/components-effective')
+  @Post(':clientId')
   saveEffectiveComponents(
     @Req() req: any,
     @Param('clientId') clientId: string,
@@ -505,18 +505,35 @@ export class ClientComponentsEffectiveController {
 export class ClientPayslipLayoutController {
   constructor(private readonly svc: PayrollService) {}
 
-  @Get('clients/:clientId/payslip-layout')
+  @Get(':clientId')
   getPayslipLayout(@Req() req: any, @Param('clientId') clientId: string) {
     return this.svc.getClientPayslipLayout(req.user, clientId);
   }
 
-  @Post('clients/:clientId/payslip-layout')
+  @Post(':clientId')
   savePayslipLayout(
     @Req() req: any,
     @Param('clientId') clientId: string,
     @Body() dto: SaveClientPayslipLayoutDto,
   ) {
     return this.svc.saveClientPayslipLayout(req.user, clientId, dto);
+  }
+}
+
+@Controller({ path: 'client/payroll/settings', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('CLIENT')
+export class ClientPayrollSettingsController {
+  constructor(private readonly svc: PayrollService) {}
+
+  @Get()
+  get(@Req() req: any) {
+    return this.svc.clientGetPayrollSettings(req.user);
+  }
+
+  @Post()
+  update(@Req() req: any, @Body() dto: any) {
+    return this.svc.clientUpdatePayrollSettings(req.user, dto);
   }
 }
 

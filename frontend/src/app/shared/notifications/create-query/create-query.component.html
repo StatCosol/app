@@ -33,17 +33,14 @@
         ></textarea>
       </div>
 
-      <button
-        class="btn-primary w-full"
+      <ui-button
+        variant="primary" [fullWidth]="true"
         type="button"
-        (click)="submit()"
+        (clicked)="submit()"
         [disabled]="isSubmitting"
-      >
-        <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-        </svg>
-        {{ isSubmitting ? 'Submitting...' : 'Submit' }}
-      </button>
+        [loading]="isSubmitting">
+        Submit
+      </ui-button>
 
       <div class="alert alert-success" *ngIf="resultText">{{ resultText }}</div>
     </div>

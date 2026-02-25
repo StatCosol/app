@@ -1,12 +1,12 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { AdminUsersApi } from '../../core/api/admin-users.api';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, Observable, of } from 'rxjs';
-import { timeout, catchError, finalize } from 'rxjs/operators';
+import { forkJoin, Observable, of, Subject } from 'rxjs';
+import { timeout, catchError, finalize, takeUntil } from 'rxjs/operators';
 import {
   PageHeaderComponent, ActionButtonComponent, StatCardComponent,
   LoadingSpinnerComponent, DataTableComponent, TableCellDirective,
@@ -24,13 +24,14 @@ import {
   templateUrl: './admin-reports.component.html',
   styleUrls: ['./admin-reports.component.scss'],
 })
-export class AdminReportsComponent implements OnInit {
+export class AdminReportsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   filters = {
     from: '',
     to: '',
   };
 
-  loading = false;
+  loading = true;
   summary: any | null = null;
 
   roleColumns: TableColumn[] = [
@@ -82,6 +83,11 @@ export class AdminReportsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   private applyRouteFilters(): void {
     const qp = this.route.snapshot.queryParamMap;
     const from = qp.get('from');
@@ -115,7 +121,7 @@ export class AdminReportsComponent implements OnInit {
 
 
   downloadUsersReport(): void {
-    const url = `${environment.apiBaseUrl}/api/admin/users/export`;
+    const url = `${environment.apiBaseUrl}/api/v1/admin/users/export`;
     this.downloadBlob(url, 'users-export.xlsx');
   }
 
@@ -125,7 +131,7 @@ export class AdminReportsComponent implements OnInit {
     if (this.filters.from) params.set('from', this.filters.from);
     if (this.filters.to) params.set('to', this.filters.to);
 
-    const url = `${environment.apiBaseUrl}/api/admin/reports/user-activity?${params.toString()}`;
+    const url = `${environment.apiBaseUrl}/api/v1/admin/reports/user-activity?${params.toString()}`;
     this.downloadBlob(url, 'user-activity.xlsx');
   }
 
@@ -135,7 +141,7 @@ export class AdminReportsComponent implements OnInit {
     if (this.filters.from) params.set('from', this.filters.from);
     if (this.filters.to) params.set('to', this.filters.to);
 
-    const url = `${environment.apiBaseUrl}/api/admin/reports/access-logs?${params.toString()}`;
+    const url = `${environment.apiBaseUrl}/api/v1/admin/reports/access-logs?${params.toString()}`;
     this.downloadBlob(url, 'access-logs.xlsx');
   }
 
@@ -145,7 +151,7 @@ export class AdminReportsComponent implements OnInit {
     if (this.filters.from) params.set('from', this.filters.from);
     if (this.filters.to) params.set('to', this.filters.to);
 
-    const url = `${environment.apiBaseUrl}/api/admin/reports/user-registrations?${params.toString()}`;
+    const url = `${environment.apiBaseUrl}/api/v1/admin/reports/user-registrations?${params.toString()}`;
     this.downloadBlob(url, 'user-registrations.xlsx');
   }
 
@@ -155,7 +161,7 @@ export class AdminReportsComponent implements OnInit {
     if (this.filters.from) params.set('from', this.filters.from);
     if (this.filters.to) params.set('to', this.filters.to);
 
-    const url = `${environment.apiBaseUrl}/api/admin/reports/user-deletions?${params.toString()}`;
+    const url = `${environment.apiBaseUrl}/api/v1/admin/reports/user-deletions?${params.toString()}`;
     this.downloadBlob(url, 'user-deletions.xlsx');
   }
 
@@ -165,12 +171,12 @@ export class AdminReportsComponent implements OnInit {
     if (this.filters.from) params.set('from', this.filters.from);
     if (this.filters.to) params.set('to', this.filters.to);
 
-    const url = `${environment.apiBaseUrl}/api/admin/reports/assignments?${params.toString()}`;
+    const url = `${environment.apiBaseUrl}/api/v1/admin/reports/assignments?${params.toString()}`;
     this.downloadBlob(url, 'assignments.xlsx');
   }
 
   private downloadBlob(url: string, fileName: string): void {
-    this.http.get(url, { responseType: 'blob' }).subscribe({
+    this.http.get(url, { responseType: 'blob' }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => {
         const link = document.createElement('a');
         const blobUrl = URL.createObjectURL(blob);
@@ -201,9 +207,10 @@ export class AdminReportsComponent implements OnInit {
     // Load all data in parallel
     forkJoin({
       users: guard(this.api.listUsersSimple(), []),
-      deletions: guard(this.http.get<any[]>(`${environment.apiBaseUrl}/api/admin/reports/user-deletions`, { params }), []),
-      assignments: guard(this.http.get<any[]>(`${environment.apiBaseUrl}/api/admin/reports/assignments`, { params }), []),
+      deletions: guard(this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/reports/user-deletions`, { params }), []),
+      assignments: guard(this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/reports/assignments`, { params }), []),
     }).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (result) => {

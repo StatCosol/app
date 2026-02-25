@@ -27,20 +27,38 @@ async function bootstrap() {
   app.use(helmet());
 
   // CORS configuration for Angular dev server
+  // NOTE:
+  // - In development you may access the backend from multiple devices on the same Wi-Fi.
+  // - IPs change frequently, so we allow all origins in non-production.
+  // - In production, restrict origins via CORS_ORIGINS (comma-separated).
+  const isProd = process.env.NODE_ENV === 'production';
+  const prodAllowedOrigins = (process.env.CORS_ORIGINS || 'https://statcosol.com')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: [
-      'http://localhost:4200',
-      'http://192.168.0.104:4200',
-      'https://statcosol.com',
-    ],
+    origin: (origin, cb) => {
+      // Allow server-to-server / curl / same-origin requests
+      if (!origin) return cb(null, true);
+
+      if (!isProd) {
+        // Dev mode: allow any origin (LAN/mobile testing)
+        return cb(null, true);
+      }
+
+      // Prod: allow only configured origins
+      if (prodAllowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',
-      'Cache-Control',
-      'Pragma',
-      'Expires',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
     ],
   });
 

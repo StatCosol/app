@@ -1,4 +1,4 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header 
     title="CRMs Under Me" 
     description="Manage and monitor your CRM team" 
@@ -14,7 +14,7 @@
     <!-- Error Banner (non-blocking) -->
     <div *ngIf="!loading && error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center justify-between">
       <span>{{ error }}</span>
-      <button (click)="ngOnInit()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+      <button (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
     </div>
 
     <!-- Table -->
@@ -42,7 +42,7 @@
             </td>
             <td class="px-6 py-4 text-sm text-gray-600">{{ crm.lastLogin }}</td>
             <td class="px-6 py-4 text-sm">
-              <button class="btn-primary-sm" (click)="viewCrm(crm)">View</button>
+              <ui-button variant="primary" size="sm" (clicked)="viewCrm(crm)">View</ui-button>
             </td>
           </tr>
           <tr *ngIf="!crms || crms.length === 0">
@@ -57,4 +57,4 @@
       </table>
     </div>
   </div>
-</main>
+</div>

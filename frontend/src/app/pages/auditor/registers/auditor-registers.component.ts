@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { finalize, timeout, map } from 'rxjs/operators';
+import { finalize, timeout, map, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
   PageHeaderComponent,
@@ -124,13 +125,15 @@ type AuditorRegisterRow = {
     </div>
   `,
   styles: [`
-    .page { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
   `],
 })
-export class AuditorRegistersComponent implements OnInit {
+export class AuditorRegistersComponent implements OnInit, OnDestroy {
   rows: AuditorRegisterRow[] = [];
-  loading = false;
+  loading = true;
   error = '';
+
+  private destroy$ = new Subject<void>();
 
   columns: TableColumn[] = [
     { key: 'title', header: 'Title', sortable: true },
@@ -146,7 +149,7 @@ export class AuditorRegistersComponent implements OnInit {
     category: '',
   };
 
-  private base = `${environment.apiBaseUrl}/api/auditor/registers`;
+  private base = `${environment.apiBaseUrl}/api/v1/auditor/registers`;
 
   constructor(
     private http: HttpClient,
@@ -155,6 +158,11 @@ export class AuditorRegistersComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   reload(): void {
@@ -166,6 +174,7 @@ export class AuditorRegistersComponent implements OnInit {
     if (this.q.category?.trim()) p = p.set('category', this.q.category.trim());
 
     this.http.get<any>(this.base, { params: p }).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       map((res) => {
         const arr = Array.isArray(res) ? res : (res?.data ?? []);
@@ -185,13 +194,13 @@ export class AuditorRegistersComponent implements OnInit {
       }),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (rows) => { this.rows = rows; this.cdr.detectChanges(); },
-      error: (e) => { this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
+      next: (rows) => { this.loading = false; this.rows = rows; this.cdr.detectChanges(); },
+      error: (e) => { this.loading = false; this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
     });
   }
 
   download(r: AuditorRegisterRow): void {
-    this.http.get(`${this.base}/${r.id}/download`, { responseType: 'blob' }).subscribe({
+    this.http.get(`${this.base}/${r.id}/download`, { responseType: 'blob' }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

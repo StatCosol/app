@@ -50,7 +50,7 @@ export class AdminUsersApi {
    * Backend: GET /api/admin/users/list
    */
   listUsersSimple() {
-    return this.http.get<UserDto[]>(`${this.baseUrl}/api/admin/users/list`);
+    return this.http.get<UserDto[]>(`${this.baseUrl}/api/v1/admin/users/list`);
   }
 
   /**
@@ -58,7 +58,7 @@ export class AdminUsersApi {
    * Backend: GET /api/admin/users
    */
   listUsers(params?: any) {
-    return this.http.get<UserDirectoryResponse>(`${this.baseUrl}/api/admin/users`, { params });
+    return this.http.get<UserDirectoryResponse>(`${this.baseUrl}/api/v1/admin/users`, { params });
   }
 
   /**
@@ -71,46 +71,46 @@ export class AdminUsersApi {
         httpParams = httpParams.set(key, params[key]);
       }
     }
-    return this.http.get<UserDirectoryResponse>(`${this.baseUrl}/api/admin/users/directory`, { params: httpParams });
+    return this.http.get<UserDirectoryResponse>(`${this.baseUrl}/api/v1/admin/users/directory`, { params: httpParams });
   }
 
   // Roles
   getRoles() {
-    return this.http.get<Role[]>(`${this.baseUrl}/api/admin/roles`);
+    return this.http.get<Role[]>(`${this.baseUrl}/api/v1/admin/roles`);
   }
 
   getRoleById(id: string) {
-    return this.http.get<Role>(`${this.baseUrl}/api/admin/roles/${id}`);
+    return this.http.get<Role>(`${this.baseUrl}/api/v1/admin/roles/${id}`);
   }
 
   // Master data
   getAdminClients() {
-    return this.http.get<any[]>(`${this.baseUrl}/api/admin/clients`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/admin/clients`);
   }
 
   getBranchesForAdminClient(clientId: string) {
-    return this.http.get<any[]>(`${this.baseUrl}/api/admin/clients/${clientId}/branches`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/admin/clients/${clientId}/branches`);
   }
 
   // Dropdown helpers
   getCcoUsers() {
-    return this.http.get<any[]>(`${this.baseUrl}/api/admin/users/cco`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/admin/users/cco`);
   }
 
   getActiveUsersByRole(role: string) {
-    return this.http.get<any[]>(`${this.baseUrl}/api/admin/users/active-by-role/${role}`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/admin/users/active-by-role/${role}`);
   }
 
   createUser(payload: any) {
-    return this.http.post<any>(`${this.baseUrl}/api/admin/users`, payload);
+    return this.http.post<any>(`${this.baseUrl}/api/v1/admin/users`, payload);
   }
 
   deleteUser(userId: string) {
-    return this.http.delete<any>(`${this.baseUrl}/api/admin/users/${userId}`);
+    return this.http.delete<any>(`${this.baseUrl}/api/v1/admin/users/${userId}`);
   }
 
   updateUserStatus(userId: string, isActive: boolean) {
-    return this.http.patch<any>(`${this.baseUrl}/api/admin/users/${userId}/status`, { isActive });
+    return this.http.patch<any>(`${this.baseUrl}/api/v1/admin/users/${userId}/status`, { isActive });
   }
 
   /**
@@ -118,7 +118,7 @@ export class AdminUsersApi {
    * Backend: GET /api/approvals/pending
    */
   getPendingApprovals() {
-    return this.http.get<any[]>(`${this.baseUrl}/api/approvals/pending`);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/approvals/pending`);
   }
 
   /**
@@ -126,6 +126,6 @@ export class AdminUsersApi {
    * Backend: POST /api/approvals/:id/approve
    */
   approveDeletionRequest(requestId: string) {
-    return this.http.post<any>(`${this.baseUrl}/api/approvals/${requestId}/approve`, {});
+    return this.http.post<any>(`${this.baseUrl}/api/v1/approvals/${requestId}/approve`, {});
   }
 }

@@ -1,8 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { timeout, finalize, catchError } from 'rxjs/operators';
+import { forkJoin, of, Subject } from 'rxjs';
+import { timeout, finalize, catchError, takeUntil } from 'rxjs/operators';
 import { PayrollApiService, PayrollSummary, PayrollClient } from './payroll-api.service';
 import { PayrollRunsService, PayrollRunSummary } from './payroll-runs.service';
 import {
@@ -33,12 +33,13 @@ import {
   templateUrl: './payroll-dashboard.component.html',
   styleUrls: ['./payroll-dashboard.component.scss'],
 })
-export class PayrollDashboardComponent implements OnInit {
+export class PayrollDashboardComponent implements OnInit, OnDestroy {
   summary: PayrollSummary | null = null;
   clients: PayrollClient[] = [];
   recentRuns: PayrollRunSummary[] = [];
   error = '';
-  loading = true;
+  loading = false;
+  private readonly destroy$ = new Subject<void>();
 
   runColumns: TableColumn[] = [
     { key: 'clientName', header: 'Client', sortable: true },
@@ -72,15 +73,18 @@ export class PayrollDashboardComponent implements OnInit {
       clients: this.payrollApi.getAssignedClients().pipe(timeout(10000), catchError(() => of([] as PayrollClient[]))),
       runs: this.runsService.listRuns({}).pipe(timeout(10000), catchError(() => of([] as PayrollRunSummary[]))),
     }).pipe(
+      takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res) => {
+        this.loading = false;
         this.summary = res.summary;
         this.clients = res.clients;
         this.recentRuns = (res.runs || []).slice(0, 10);
         this.cdr.detectChanges();
       },
       error: (e) => {
+        this.loading = false;
         this.error = e?.status === 403
           ? 'Payroll APIs are not yet enabled for your role.'
           : `Unable to load payroll data. ${e?.error?.message || e?.message || ''}`;
@@ -100,5 +104,10 @@ export class PayrollDashboardComponent implements OnInit {
 
   goTo(route: string): void {
     this.router.navigateByUrl(route);
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

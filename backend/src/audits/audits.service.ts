@@ -5,13 +5,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { AuditEntity } from './entities/audit.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { ClientsService } from '../clients/clients.service';
 import { UsersService } from '../users/users.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { AuditType, Frequency } from '../common/enums';
+
+export interface BranchAuditKpiItem {
+  periodCode: string;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  open: number;
+  closed: number;
+}
 
 @Injectable()
 export class AuditsService {
@@ -21,6 +31,7 @@ export class AuditsService {
     private readonly clientsService: ClientsService,
     private readonly usersService: UsersService,
     private readonly assignmentsService: AssignmentsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private assertCrm(user: any) {
@@ -129,11 +140,25 @@ export class AuditsService {
       throw new ForbiddenException('Client not assigned to this CRM');
     }
 
+    // Validate branch belongs to client (if provided)
+    let branchId: string | null = null;
+    if (dto.branchId) {
+      const branchRows = await this.dataSource.query(
+        `SELECT id FROM branches WHERE id = $1 AND client_id = $2 AND is_active = TRUE`,
+        [dto.branchId, dto.clientId],
+      );
+      if (!branchRows.length) {
+        throw new BadRequestException('Branch not found or not linked to this client');
+      }
+      branchId = dto.branchId;
+    }
+
     const auditCode = await this.generateAuditCode(Number(dto.periodYear));
 
     const entity = this.repo.create({
       auditCode,
       clientId: dto.clientId,
+      branchId,
       contractorUserId,
       frequency,
       auditType,
@@ -176,6 +201,9 @@ export class AuditsService {
     }
     if (q.contractorUserId) {
       qb.andWhere('a.contractorUserId = :kid', { kid: q.contractorUserId });
+    }
+    if (q.branchId) {
+      qb.andWhere('a.branchId = :bid', { bid: q.branchId });
     }
 
     qb.addSelect(
@@ -264,5 +292,64 @@ export class AuditsService {
     }
 
     return { total, completed, inProgress, planned };
+  }
+
+  // ─── Branch Audit KPI ─────────────────────────────
+
+  private ensurePeriod(p?: string): string {
+    if (!p || !/^\d{4}-\d{2}$/.test(p)) {
+      throw new BadRequestException('Invalid period format. Use YYYY-MM');
+    }
+    return p;
+  }
+
+  async getBranchAuditKpi(branchId: string, from: string, to: string) {
+    const fromP = this.ensurePeriod(from);
+    const toP = this.ensurePeriod(to);
+
+    const rows: BranchAuditKpiItem[] = await this.dataSource.query(
+      `SELECT
+        a.period_code                                                          AS "periodCode",
+        COALESCE(SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 1 ELSE 0 END), 0)::int AS critical,
+        COALESCE(SUM(CASE WHEN ao.risk = 'HIGH'     THEN 1 ELSE 0 END), 0)::int AS high,
+        COALESCE(SUM(CASE WHEN ao.risk = 'MEDIUM'   THEN 1 ELSE 0 END), 0)::int AS medium,
+        COALESCE(SUM(CASE WHEN ao.risk = 'LOW'      THEN 1 ELSE 0 END), 0)::int AS low,
+        COALESCE(SUM(CASE WHEN ao.status NOT IN ('CLOSED','RESOLVED') THEN 1 ELSE 0 END), 0)::int AS open,
+        COALESCE(SUM(CASE WHEN ao.status IN ('CLOSED','RESOLVED')     THEN 1 ELSE 0 END), 0)::int AS closed
+      FROM audit_observations ao
+      JOIN audits a ON a.id = ao.audit_id
+      WHERE a.branch_id = $1
+        AND a.period_code >= $2
+        AND a.period_code <= $3
+      GROUP BY a.period_code
+      ORDER BY a.period_code`,
+      [branchId, fromP, toP],
+    );
+
+    return { branchId, from: fromP, to: toP, items: rows || [] };
+  }
+
+  async getBranchAuditKpiSingle(branchId: string, periodCode: string) {
+    const p = this.ensurePeriod(periodCode);
+
+    const rows: BranchAuditKpiItem[] = await this.dataSource.query(
+      `SELECT
+        a.period_code                                                          AS "periodCode",
+        COALESCE(SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 1 ELSE 0 END), 0)::int AS critical,
+        COALESCE(SUM(CASE WHEN ao.risk = 'HIGH'     THEN 1 ELSE 0 END), 0)::int AS high,
+        COALESCE(SUM(CASE WHEN ao.risk = 'MEDIUM'   THEN 1 ELSE 0 END), 0)::int AS medium,
+        COALESCE(SUM(CASE WHEN ao.risk = 'LOW'      THEN 1 ELSE 0 END), 0)::int AS low,
+        COALESCE(SUM(CASE WHEN ao.status NOT IN ('CLOSED','RESOLVED') THEN 1 ELSE 0 END), 0)::int AS open,
+        COALESCE(SUM(CASE WHEN ao.status IN ('CLOSED','RESOLVED')     THEN 1 ELSE 0 END), 0)::int AS closed
+      FROM audit_observations ao
+      JOIN audits a ON a.id = ao.audit_id
+      WHERE a.branch_id = $1
+        AND a.period_code = $2
+      GROUP BY a.period_code
+      ORDER BY a.period_code`,
+      [branchId, p],
+    );
+
+    return { branchId, period: p, items: rows || [] };
   }
 }

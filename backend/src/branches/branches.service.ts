@@ -197,7 +197,11 @@ export class BranchesService {
       branch.headcount = Number(employeeCount) + Number(contractorCount);
     }
     const saved = await this.branchRepo.save(branch);
-    await this.complianceApplicabilityService.recomputeForBranch(saved.id);
+    try {
+      await this.complianceApplicabilityService.recomputeForBranch(saved.id);
+    } catch (err) {
+      console.error('[BranchesService] recomputeForBranch failed (branch saved OK):', err?.message ?? err);
+    }
     return saved;
   }
 

@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { CcoCrmsService } from '../../core/cco-crms.service';
 
@@ -9,7 +10,7 @@ import { CcoCrmsService } from '../../core/cco-crms.service';
   standalone: true,
   imports: [CommonModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent],
   template: `
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="CRM Performance"
         description="Monitor CRM team performance metrics"
@@ -51,12 +52,13 @@ import { CcoCrmsService } from '../../core/cco-crms.service';
           </table>
         </div>
       </div>
-    </main>
+    </div>
   `,
 })
-export class CcoCrmPerformanceComponent implements OnInit {
+export class CcoCrmPerformanceComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   crms: any[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
 
   constructor(private ccoCrmsService: CcoCrmsService, private cdr: ChangeDetectorRef) {}
@@ -64,11 +66,17 @@ export class CcoCrmPerformanceComponent implements OnInit {
   ngOnInit(): void {
     this.loading = true;
     this.ccoCrmsService.list().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.crms = data || []; this.cdr.detectChanges(); },
-      error: () => { this.error = 'Failed to load CRM data'; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.crms = data || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.error = 'Failed to load CRM data'; this.cdr.detectChanges(); },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

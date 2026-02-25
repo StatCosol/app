@@ -5,13 +5,13 @@
       <label class="filter-group">
         <span class="filter-label">Month</span>
         <select class="filter-select" [(ngModel)]="filters.month" (change)="load()">
-          <option *ngFor="let m of months" [value]="m.value">{{ m.label }}</option>
+          <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Year</span>
         <select class="filter-select" [(ngModel)]="filters.year" (change)="load()">
-          <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+          <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
         </select>
       </label>
       <label class="filter-group">
@@ -29,7 +29,7 @@
         </select>
       </label>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 flex-wrap">
       <button class="toggle-chip" [class.toggle-chip--active]="filters.toggle === 'ALL'" (click)="onToggleChange('ALL')">All</button>
       <button class="toggle-chip toggle-chip--critical" [class.toggle-chip--active]="filters.toggle === 'CRITICAL'" (click)="onToggleChange('CRITICAL')">Critical</button>
       <button class="toggle-chip toggle-chip--pending" [class.toggle-chip--active]="filters.toggle === 'PENDING'" (click)="onToggleChange('PENDING')">Pending</button>
@@ -61,7 +61,7 @@
         <div class="kpi-card kpi-card--clickable" (click)="openDetail('EMPLOYEES')" title="View employee status details">
           <div class="kpi-pill kpi-pill--blue">Employees</div>
           <div class="kpi-value">{{ d.kpis.employees.active || 0 }}</div>
-          <div class="kpi-sub">Active of {{ d.kpis.employees.total || 0 }}</div>
+          <div class="kpi-sub">M {{ d.kpis.employees.male || 0 }} / F {{ d.kpis.employees.female || 0 }} &bull; Active of {{ d.kpis.employees.total || 0 }}</div>
         </div>
         <div class="kpi-card kpi-card--clickable" (click)="openDetail('CONTRACTORS')" title="View contractor upload details">
           <div class="kpi-pill kpi-pill--blue">Contractors</div>
@@ -97,6 +97,63 @@
           <div class="kpi-pill kpi-pill--amber">Pending</div>
           <div class="kpi-value">{{ d.queues.pending.length || 0 }}</div>
           <div class="kpi-sub">Operational</div>
+        </div>
+        <!-- Registration Compliance KPI -->
+        <div *ngIf="regSummary" class="kpi-card kpi-card--clickable" (click)="openDetail('REGISTRATIONS')" title="View registration compliance">
+          <div class="kpi-pill" [ngClass]="{
+            'kpi-pill--green': regSummary.scoreImpact >= 90,
+            'kpi-pill--amber': regSummary.scoreImpact >= 70 && regSummary.scoreImpact < 90,
+            'kpi-pill--red': regSummary.scoreImpact < 70
+          }">Registrations</div>
+          <div class="kpi-value">{{ regSummary.scoreImpact }}%</div>
+          <div class="kpi-sub">{{ regSummary.expired || 0 }} expired &bull; {{ regSummary.expiringSoon || 0 }} expiring</div>
+        </div>
+      </div>
+
+      <!-- ═══════ Registration Compliance Detail ═══════ -->
+      <div *ngIf="activeDetail === 'REGISTRATIONS' && regSummary" class="panel panel--highlight">
+        <div class="panel-header">
+          <div>
+            <p class="panel-eyebrow">Registrations &amp; Licenses</p>
+            <h3 class="panel-title">Compliance Summary</h3>
+          </div>
+          <button type="button" class="ghost-btn" (click)="clearDetails()">Hide</button>
+        </div>
+        <div class="panel-body">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Total</p>
+              <p class="mini-kpi-value text-blue-700">{{ regSummary.total }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Active</p>
+              <p class="mini-kpi-value text-green-600">{{ regSummary.active }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Expiring Soon</p>
+              <p class="mini-kpi-value text-amber-600">{{ regSummary.expiringSoon }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Expired</p>
+              <p class="mini-kpi-value text-red-600">{{ regSummary.expired }}</p>
+            </div>
+          </div>
+          <div *ngIf="regAlerts.length" class="mt-4">
+            <h4 class="text-sm font-semibold text-gray-600 mb-2">Recent Alerts</h4>
+            <div class="space-y-2 max-h-48 overflow-y-auto">
+              <div *ngFor="let a of regAlerts" class="flex items-start gap-2 text-sm p-2 rounded-lg"
+                   [ngClass]="{'bg-red-50': a.priority === 'CRITICAL', 'bg-amber-50': a.priority === 'HIGH', 'bg-yellow-50': a.priority === 'MEDIUM', 'bg-gray-50': a.priority === 'LOW'}">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                      [ngClass]="{'bg-red-200 text-red-800': a.priority === 'CRITICAL', 'bg-amber-200 text-amber-800': a.priority === 'HIGH', 'bg-yellow-200 text-yellow-800': a.priority === 'MEDIUM', 'bg-gray-200 text-gray-700': a.priority === 'LOW'}">
+                  {{ a.priority }}
+                </span>
+                <div>
+                  <p class="font-medium">{{ a.title }}</p>
+                  <p class="text-gray-500 text-xs">{{ a.message }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -138,6 +195,100 @@
           <p class="mini-kpi-sub mt-3">PF/ESI employee-level details are listed below.</p>
         </div>
       </div>
+
+      <!-- ═══════ AI Risk Assessment Section ═══════ -->
+      <div class="ai-risk-section" #aiRiskPanel>
+        <div class="ai-risk-section__header">
+          <div class="flex items-center gap-3">
+            <div class="ai-risk-icon">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h2 class="ai-risk-section__title">AI Risk Assessment</h2>
+              <p class="ai-risk-section__sub">
+                {{ filters.branchId === 'ALL' ? 'Risk overview across all branches' : 'Branch-level compliance risk analysis' }}
+                &bull; {{ months[filters.month - 1]?.label }} {{ filters.year }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- When a specific branch is selected -->
+        <ng-container *ngIf="selectedBranchId">
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-4">
+            <app-ai-risk-score
+              [branchId]="selectedBranchId"
+              [year]="filters.year"
+              [month]="filters.month">
+            </app-ai-risk-score>
+            <app-branch-audit-kpi
+              [branchId]="selectedBranchId"
+              [from]="auditKpiFrom"
+              [to]="auditKpiTo">
+            </app-branch-audit-kpi>
+          </div>
+        </ng-container>
+
+        <!-- When ALL branches — show overview heatmap -->
+        <ng-container *ngIf="!selectedBranchId">
+          <div *ngIf="branchRiskLoading" class="text-sm text-gray-400 py-6 text-center">
+            Calculating risk scores for all branches…
+          </div>
+          <div *ngIf="!branchRiskLoading && branchRiskError" class="text-sm text-red-600 py-4 text-center">
+            {{ branchRiskError }}
+          </div>
+          <div *ngIf="!branchRiskLoading && !branchRiskError && branchRiskOverview.length" class="mt-4">
+            <div class="overflow-x-auto">
+              <table class="risk-overview-table">
+                <thead>
+                  <tr>
+                    <th class="text-left">Branch</th>
+                    <th class="text-center">Risk Score</th>
+                    <th class="text-center">Level</th>
+                    <th class="text-center">Inspection Prob.</th>
+                    <th class="text-center">MCD %</th>
+                    <th class="text-center">Contractor Docs %</th>
+                    <th class="text-center">Audit NCs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let b of branchRiskOverview" class="risk-overview-row">
+                    <td class="font-medium text-gray-900">{{ b.branchName }}</td>
+                    <td class="text-center">
+                      <span class="risk-score-pill" [ngClass]="riskBadgeClass(b.riskLevel)">{{ b.riskScore }}</span>
+                    </td>
+                    <td class="text-center">
+                      <span class="risk-level-badge" [ngClass]="riskBadgeClass(b.riskLevel)">{{ b.riskLevel }}</span>
+                    </td>
+                    <td class="text-center text-gray-700">{{ b.inspectionProbability }}%</td>
+                    <td class="text-center">
+                      <span [class]="b.mcdPercent! >= 80 ? 'text-green-600' : b.mcdPercent! >= 50 ? 'text-amber-600' : 'text-red-600'">
+                        {{ b.mcdPercent }}%
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <span [class]="b.contractorUploadPercentage! >= 80 ? 'text-green-600' : b.contractorUploadPercentage! >= 50 ? 'text-amber-600' : 'text-red-600'">
+                        {{ b.contractorUploadPercentage }}%
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <span [class]="b.auditNcCount! === 0 ? 'text-green-600' : b.auditNcCount! <= 2 ? 'text-amber-600' : 'text-red-600'">
+                        {{ b.auditNcCount }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div *ngIf="!branchRiskLoading && !branchRiskError && !branchRiskOverview.length" class="text-sm text-gray-400 py-6 text-center">
+            No branches available for risk assessment.
+          </div>
+        </ng-container>
+      </div>
+      <!-- ═══════ End AI Risk Assessment ═══════ -->
 
       <!-- PF/ESI & Contractor upload summary cards -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -512,6 +663,73 @@
             </div>
           </div>
           <div class="panel-body space-y-4">
+
+      <!-- ═══════ Compliance Intelligence: Lowest Branches ═══════ -->
+      <div class="panel" *ngIf="lowestBranches.length">
+        <div class="panel-header">
+          <div>
+            <p class="panel-eyebrow">Compliance Intelligence</p>
+            <h3 class="panel-title">Top 10 Lowest Compliance Branches</h3>
+          </div>
+        </div>
+        <div class="panel-body overflow-x-auto">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Branch</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Approved</th>
+                <th class="text-right">Compliance %</th>
+                <th class="text-right">Overdue</th>
+                <th class="text-right">Risk Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let b of lowestBranches">
+                <td>{{ b.branchName }}</td>
+                <td class="text-right">{{ b.total }}</td>
+                <td class="text-right text-green-600">{{ b.approved }}</td>
+                <td class="text-right font-semibold" [ngClass]="{'text-red-600': b.compliancePct < 50, 'text-amber-600': b.compliancePct >= 50 && b.compliancePct < 80, 'text-green-600': b.compliancePct >= 80}">
+                  {{ b.compliancePct }}%
+                </td>
+                <td class="text-right text-red-600">{{ b.overdueCount }}</td>
+                <td class="text-right">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                        [ngClass]="{'bg-red-100 text-red-700': b.riskScore >= 70, 'bg-amber-100 text-amber-700': b.riskScore >= 40 && b.riskScore < 70, 'bg-green-100 text-green-700': b.riskScore < 40}">
+                    {{ b.riskScore }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════ Company-wide compliance trend placeholder ═══════ -->
+      <div class="panel" *ngIf="companyTrend.length">
+        <div class="panel-header">
+          <div>
+            <p class="panel-eyebrow">Compliance Intelligence</p>
+            <h3 class="panel-title">Company-wide Monthly Trend ({{ filters.year }})</h3>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="grid grid-cols-6 sm:grid-cols-12 gap-2 text-center">
+            <div *ngFor="let t of companyTrend" class="flex flex-col items-center">
+              <div class="text-lg font-bold" [ngClass]="{'text-green-600': t.percent >= 80, 'text-amber-600': t.percent >= 50 && t.percent < 80, 'text-red-600': t.percent < 50}">
+                {{ t.percent }}%
+              </div>
+              <div class="text-[10px] text-gray-400">M{{ t.month }}</div>
+              <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                <div class="h-1.5 rounded-full"
+                     [ngClass]="{'bg-green-500': t.percent >= 80, 'bg-amber-400': t.percent >= 50 && t.percent < 80, 'bg-red-500': t.percent < 50}"
+                     [style.width.%]="t.percent">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
             <div class="queue-tabs">
               <div class="queue-tab">Critical ({{ d.queues.critical.length || 0 }})</div>
               <div class="queue-list" *ngIf="d.queues.critical.length; else noCritical">
@@ -546,7 +764,7 @@
     </ng-container>
 
     <ng-template #clientFallback>
-      <div class="card text-center text-gray-600 py-10">
+      <div *ngIf="!errorMsg" class="panel text-center text-gray-600 py-10">
         <div class="flex items-center justify-center mb-3 text-red-500">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

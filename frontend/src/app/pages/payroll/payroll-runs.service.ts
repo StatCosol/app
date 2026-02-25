@@ -24,7 +24,7 @@ export type PayrollRunEmployeeRow = {
 
 @Injectable({ providedIn: 'root' })
 export class PayrollRunsService {
-  private base = `${environment.apiBaseUrl}/api/payroll`;
+  private base = `${environment.apiBaseUrl}/api/v1/payroll`;
 
   constructor(private http: HttpClient) {}
 

@@ -61,17 +61,15 @@ import { AuthService } from '../../../core/auth.service';
                 </div>
               </div>
 
-              <!-- User + Logout -->
-              <div class="flex items-center gap-3">
-                <div class="hidden sm:flex flex-col items-end gap-1">
-                  <div class="text-sm font-semibold text-gray-900">{{ userName }}</div>
-                  <img
-                    [src]="clientLogoUrl || 'assets/images/client-logo.png'"
-                    alt="Client logo"
-                    class="h-8 w-auto"
-                    (error)="onLogoError()"
-                  />
-                </div>
+              <!-- Client Logo + User + Logout -->
+              <div class="flex items-center gap-4">
+                <img
+                  [src]="clientLogoUrl || 'assets/images/statco-logo.svg'"
+                  alt="Client logo"
+                  class="h-10 w-auto hidden sm:block"
+                  (error)="onLogoError()"
+                />
+                <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
                   (click)="logout()"
                   class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -116,7 +114,7 @@ export class ClientLayoutComponent {
   }
 
   onLogoError(): void {
-    this.clientLogoUrl = 'assets/images/client-logo.png';
+    this.clientLogoUrl = 'assets/images/statco-logo.svg';
   }
 
   logout(): void {

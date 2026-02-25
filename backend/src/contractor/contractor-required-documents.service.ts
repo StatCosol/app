@@ -2,10 +2,11 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorRequiredDocumentEntity } from './entities/contractor-required-document.entity';
+import { UserEntity } from '../users/entities/user.entity';
 
 export interface AddRequiredDocDto {
   clientId: string;
-  contractorId: string;
+  contractorUserId: string;
   branchId?: string | null;
   docType: string;
 }
@@ -15,6 +16,8 @@ export class ContractorRequiredDocumentsService {
   constructor(
     @InjectRepository(ContractorRequiredDocumentEntity)
     private readonly repo: Repository<ContractorRequiredDocumentEntity>,
+    @InjectRepository(UserEntity)
+    private readonly usersRepo: Repository<UserEntity>,
   ) {}
 
   /** List all required doc types for a contractor under a client (optionally filtered by branch). */
@@ -22,7 +25,7 @@ export class ContractorRequiredDocumentsService {
     const qb = this.repo
       .createQueryBuilder('r')
       .where('r.client_id = :clientId', { clientId })
-      .andWhere('r.contractor_id = :contractorId', { contractorId })
+      .andWhere('r.contractor_user_id = :contractorId', { contractorId })
       .orderBy('r.doc_type', 'ASC');
 
     if (branchId) {
@@ -39,7 +42,7 @@ export class ContractorRequiredDocumentsService {
     const qb = this.repo
       .createQueryBuilder('r')
       .where('r.client_id = :clientId', { clientId })
-      .orderBy('r.contractor_id', 'ASC')
+      .orderBy('r.contractor_user_id', 'ASC')
       .addOrderBy('r.doc_type', 'ASC');
 
     if (branchId) {
@@ -53,9 +56,19 @@ export class ContractorRequiredDocumentsService {
 
   /** Add a required doc type for a contractor. */
   async add(dto: AddRequiredDocDto) {
-    if (!dto.clientId || !dto.contractorId || !dto.docType?.trim()) {
+    if (!dto.clientId || !dto.contractorUserId || !dto.docType?.trim()) {
       throw new BadRequestException(
-        'clientId, contractorId, and docType are required',
+        'clientId, contractorUserId, and docType are required',
+      );
+    }
+
+    // Validate that the contractorUserId belongs to a CONTRACTOR-role user
+    const contractorUser = await this.usersRepo.findOne({
+      where: { id: dto.contractorUserId },
+    });
+    if (!contractorUser || contractorUser.role !== 'CONTRACTOR') {
+      throw new BadRequestException(
+        `User ${dto.contractorUserId} is not a valid CONTRACTOR user`,
       );
     }
 
@@ -65,7 +78,7 @@ export class ContractorRequiredDocumentsService {
     const existing = await this.repo.findOne({
       where: {
         clientId: dto.clientId,
-        contractorId: dto.contractorId,
+        contractorUserId: dto.contractorUserId,
         branchId: dto.branchId || (null as any),
         docType,
       },
@@ -77,7 +90,7 @@ export class ContractorRequiredDocumentsService {
 
     const entity = this.repo.create({
       clientId: dto.clientId,
-      contractorId: dto.contractorId,
+      contractorUserId: dto.contractorUserId,
       branchId: dto.branchId || null,
       docType,
       isRequired: true,
@@ -103,7 +116,7 @@ export class ContractorRequiredDocumentsService {
     for (const dt of docTypes) {
       const result = await this.add({
         clientId,
-        contractorId,
+        contractorUserId: contractorId,
         branchId: branchId || null,
         docType: dt,
       });

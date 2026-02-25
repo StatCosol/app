@@ -10,6 +10,7 @@ import { AuditObservationEntity } from './entities/audit-observation.entity';
 import { AuditObservationCategoryEntity } from './entities/audit-observation-category.entity';
 import { AuditEntity } from './entities/audit.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 
 @Injectable()
 export class AuditorObservationsService {
@@ -21,6 +22,7 @@ export class AuditorObservationsService {
     @InjectRepository(AuditEntity)
     private readonly auditRepo: Repository<AuditEntity>,
     private readonly assignmentsService: AssignmentsService,
+    private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
   async listCategories() {
@@ -128,7 +130,13 @@ export class AuditorObservationsService {
         : null,
     });
 
-    return this.observationRepo.save(observation);
+    const saved = await this.observationRepo.save(observation);
+
+    // Invalidate risk cache — fetch audit for branchId
+    const audit = await this.auditRepo.findOne({ where: { id: dto.auditId } });
+    if (audit?.branchId) this.riskCache.invalidateBranch(audit.branchId).catch(() => {});
+
+    return saved;
   }
 
   async update(user: any, id: string, dto: any) {
@@ -147,12 +155,19 @@ export class AuditorObservationsService {
     if (dto.evidenceFilePaths !== undefined)
       observation.evidenceFilePaths = JSON.stringify(dto.evidenceFilePaths);
 
-    return this.observationRepo.save(observation);
+    const saved = await this.observationRepo.save(observation);
+
+    // Invalidate risk cache — observation.audit is eager-loaded by getOne
+    if (observation.audit?.branchId) this.riskCache.invalidateBranch(observation.audit.branchId).catch(() => {});
+
+    return saved;
   }
 
   async delete(user: any, id: string) {
     const observation = await this.getOne(user, id);
+    const branchId = observation.audit?.branchId;
     await this.observationRepo.remove(observation);
+    if (branchId) this.riskCache.invalidateBranch(branchId).catch(() => {});
     return { message: 'Observation deleted successfully' };
   }
 }

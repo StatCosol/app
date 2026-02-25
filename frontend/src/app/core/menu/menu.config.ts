@@ -10,6 +10,7 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Payroll Assignments', route: '/admin/payroll-assignments', roles: ['ADMIN'] },
   { label: 'Notifications', route: '/admin/notifications', roles: ['ADMIN'] },
   { label: 'Reports', route: '/admin/reports', roles: ['ADMIN'] },
+  { label: '🤖 AI Hub', route: '/admin/ai-hub', roles: ['ADMIN'] },
 
   // CCO
   { label: 'Dashboard', route: '/cco/dashboard', roles: ['CCO'] },
@@ -33,6 +34,7 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Dashboard', route: '/crm/dashboard', roles: ['CRM'] },
   { label: 'Clients', route: '/crm/clients', roles: ['CRM'] },
   { label: 'Compliance Tracker', route: '/crm/compliance-tracker', roles: ['CRM'] },
+  { label: 'Returns / Filings', route: '/crm/returns', roles: ['CRM'] },
   { label: 'Schedule Audit', route: '/crm/audits', roles: ['CRM'] },
   { label: 'Helpdesk', route: '/crm/helpdesk', roles: ['CRM'] },
   { label: 'Notifications', route: '/crm/notifications', roles: ['CRM'] },

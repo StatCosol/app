@@ -7,6 +7,10 @@ import {
   CRM_DUE_COMPLIANCES_SQL,
   CRM_LOW_COVERAGE_BRANCHES_SQL,
   CRM_QUERIES_SQL,
+  CRM_DASHBOARD_KPI_SQL,
+  CRM_PRIORITY_TODAY_SQL,
+  CRM_TOP_RISK_CLIENTS_SQL,
+  CRM_UPCOMING_AUDITS_SQL,
 } from './sql/crm-dashboard.sql';
 
 export interface CrmSummaryDto {
@@ -152,12 +156,64 @@ export class CrmDashboardService {
 
   /**
    * Get pending documents from contractors
-   * Returns contractor documents awaiting upload
+   * Returns contractor documents awaiting upload/review
    * Scoped to CRM user's assigned clients
    */
   async getPendingDocuments(crmUserId: string, query: any): Promise<any[]> {
-    // Placeholder: Return empty array until contractor_documents schema is implemented
-    // TODO: Implement when contractor document management is added
-    return [];
+    const f = normalizeDateFilters(query);
+    const p = normalizePaging(query);
+
+    try {
+      return await this.db.many(
+        `SELECT
+           cd.id,
+           cd.doc_type       AS "docType",
+           cd.doc_month      AS "docMonth",
+           cd.status,
+           cd.created_at     AS "uploadedAt",
+           cd.branch_id      AS "branchId",
+           b.branch_name     AS "branchName",
+           c.id              AS "clientId",
+           c.client_name     AS "clientName"
+         FROM contractor_documents cd
+         INNER JOIN branches b ON b.id = cd.branch_id
+         INNER JOIN clients c ON c.id = b.client_id
+         INNER JOIN client_assignments_current cac
+           ON cac.client_id = c.id
+           AND cac.assigned_to_user_id = $1
+           AND cac.assignment_type = 'CRM'
+         WHERE cd.status IN ('UPLOADED', 'PENDING_REVIEW')
+           AND ($2::uuid IS NULL OR c.id = $2)
+         ORDER BY cd.created_at DESC
+         LIMIT $3 OFFSET $4`,
+        [crmUserId, f.clientId, p.limit, p.offset],
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     V2 Dashboard methods (redesigned)
+     ═══════════════════════════════════════════════════════════════ */
+
+  /** 8 KPI cards for the redesigned CRM dashboard */
+  async getKpis(crmUserId: string): Promise<any> {
+    return this.db.one(CRM_DASHBOARD_KPI_SQL, [crmUserId]);
+  }
+
+  /** Priority Today — top urgent items across all clients */
+  async getPriorityToday(crmUserId: string, limit = 20): Promise<any[]> {
+    return this.db.many(CRM_PRIORITY_TODAY_SQL, [crmUserId, limit]);
+  }
+
+  /** Top Risk Clients — ranked by compliance % ascending */
+  async getTopRiskClients(crmUserId: string, limit = 10): Promise<any[]> {
+    return this.db.many(CRM_TOP_RISK_CLIENTS_SQL, [crmUserId, limit]);
+  }
+
+  /** Upcoming Audits — scheduled within N days */
+  async getUpcomingAudits(crmUserId: string, days = 15): Promise<any[]> {
+    return this.db.many(CRM_UPCOMING_AUDITS_SQL, [crmUserId, days]);
   }
 }

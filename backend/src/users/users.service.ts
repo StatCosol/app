@@ -1288,7 +1288,10 @@ export class UsersService implements OnModuleInit {
   }
   // --- My Profile (api/me) ---
   async getMe(userId: string) {
-    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    const user = await this.usersRepo.findOne({
+      where: { id: userId },
+      relations: ['client'],
+    });
     if (!user) throw new NotFoundException('User not found');
 
     const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
@@ -1320,6 +1323,8 @@ export class UsersService implements OnModuleInit {
       email: user.email,
       mobile: user.mobile ?? null,
       clientId: user.clientId ?? null,
+      clientName: user.client?.clientName ?? null,
+      clientLogoUrl: user.client?.logoUrl ?? null,
       isActive: user.isActive,
       userType,
       branchIds,

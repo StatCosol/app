@@ -38,13 +38,13 @@ export class ReportsService {
           throw new ForbiddenException('Client missing clientId');
         }
         qb.andWhere('t.clientId = :clientId', {
-          clientId: Number(user.clientId),
+          clientId: user.clientId,
         });
       } else if (role === 'CRM') {
         const assigned = await this.assignmentsService.getAssignedClientsForCrm(
           user.userId,
         );
-        const clientIds = (assigned || []).map((c: any) => Number(c.id));
+        const clientIds = (assigned || []).map((c: any) => c.id);
         if (!clientIds.length) {
           return this.emptySummary();
         }
@@ -54,12 +54,12 @@ export class ReportsService {
       // Explicit filters
       if (q.clientId && role !== 'CLIENT') {
         qb.andWhere('t.clientId = :clientIdFilter', {
-          clientIdFilter: Number(q.clientId),
+          clientIdFilter: q.clientId,
         });
       }
 
       if (q.branchId) {
-        qb.andWhere('t.branchId = :branchId', { branchId: Number(q.branchId) });
+        qb.andWhere('t.branchId = :branchId', { branchId: q.branchId });
       }
 
       if (q.status) {
@@ -131,13 +131,13 @@ export class ReportsService {
           throw new ForbiddenException('Client missing clientId');
         }
         qb.andWhere('t.clientId = :clientId', {
-          clientId: Number(user.clientId),
+          clientId: user.clientId,
         });
       } else if (role === 'CRM') {
         const assigned = await this.assignmentsService.getAssignedClientsForCrm(
           user.userId,
         );
-        const clientIds = (assigned || []).map((c: any) => Number(c.id));
+        const clientIds = (assigned || []).map((c: any) => c.id);
         if (!clientIds.length) {
           return [];
         }
@@ -147,12 +147,12 @@ export class ReportsService {
       // Explicit filters
       if (q.clientId && role !== 'CLIENT') {
         qb.andWhere('t.clientId = :clientIdFilter', {
-          clientIdFilter: Number(q.clientId),
+          clientIdFilter: q.clientId,
         });
       }
 
       if (q.branchId) {
-        qb.andWhere('t.branchId = :branchId', { branchId: Number(q.branchId) });
+        qb.andWhere('t.branchId = :branchId', { branchId: q.branchId });
       }
 
       if (q.from) {
@@ -178,8 +178,8 @@ export class ReportsService {
         .getRawMany();
 
       return rows.map((r: any) => ({
-        id: Number(r.id),
-        clientId: Number(r.clientId),
+        id: r.id,
+        clientId: r.clientId,
         branchName: r.branchName as string | null,
         complianceName: (r.complianceName as string | null) || '',
         dueDate: String(r.dueDate),
@@ -209,13 +209,13 @@ export class ReportsService {
           throw new ForbiddenException('Client missing clientId');
         }
         qb.andWhere('t.clientId = :clientId', {
-          clientId: Number(user.clientId),
+          clientId: user.clientId,
         });
       } else if (role === 'CRM') {
         const assigned = await this.assignmentsService.getAssignedClientsForCrm(
           user.userId,
         );
-        const clientIds = (assigned || []).map((c: any) => Number(c.id));
+        const clientIds = (assigned || []).map((c: any) => c.id);
         if (!clientIds.length) {
           return [];
         }
@@ -225,12 +225,12 @@ export class ReportsService {
       // Explicit filters
       if (q.clientId && role !== 'CLIENT') {
         qb.andWhere('t.clientId = :clientIdFilter', {
-          clientIdFilter: Number(q.clientId),
+          clientIdFilter: q.clientId,
         });
       }
 
       if (q.branchId) {
-        qb.andWhere('t.branchId = :branchId', { branchId: Number(q.branchId) });
+        qb.andWhere('t.branchId = :branchId', { branchId: q.branchId });
       }
 
       if (q.from) {
@@ -256,9 +256,9 @@ export class ReportsService {
         .getRawMany();
 
       const map = new Map<
-        number,
+        string,
         {
-          contractorId: number;
+          contractorId: string;
           contractorName: string;
           submitted: number;
           approved: number;
@@ -267,7 +267,7 @@ export class ReportsService {
       >();
 
       for (const r of rows) {
-        const contractorId = Number(r.contractorId);
+        const contractorId = String(r.contractorId);
         const contractorName = String(r.contractorName);
         const status = String(r.status);
         const count = Number(r.count);

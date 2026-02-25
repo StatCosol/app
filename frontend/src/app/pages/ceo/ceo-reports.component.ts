@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
 
 export interface CeoReport {
@@ -60,21 +61,28 @@ export interface CeoReport {
     </div>
   `,
 })
-export class CeoReportsComponent implements OnInit {
+export class CeoReportsComponent implements OnInit, OnDestroy {
   reports: CeoReport[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
+  private destroy$ = new Subject<void>();
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   ngOnInit(): void {
     this.loading = true;
-    this.http.get<CeoReport[]>('/api/ceo/reports').pipe(
+    this.http.get<CeoReport[]>('/api/v1/ceo/reports').pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.reports = data || []; this.cdr.detectChanges(); },
-      error: () => { this.reports = []; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.reports = data || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.reports = []; this.cdr.detectChanges(); },
     });
   }
 }

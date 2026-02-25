@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { CeoApiService, CeoApproval } from '../../core/api/ceo.api';
 
@@ -71,10 +72,11 @@ import { CeoApiService, CeoApproval } from '../../core/api/ceo.api';
     </div>
   `,
 })
-export class CeoApprovalsComponent implements OnInit {
+export class CeoApprovalsComponent implements OnInit, OnDestroy {
   approvals: CeoApproval[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
+  private destroy$ = new Subject<void>();
   actionId: number | null = null;
 
   constructor(private api: CeoApiService, private cdr: ChangeDetectorRef) {}
@@ -83,21 +85,27 @@ export class CeoApprovalsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load(): void {
     this.loading = true;
     this.error = null;
     this.api.getApprovals().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.approvals = data || []; this.cdr.detectChanges(); },
-      error: (err) => { this.error = 'Failed to load approvals'; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.approvals = data || []; this.cdr.detectChanges(); },
+      error: (err) => { this.loading = false; this.error = 'Failed to load approvals'; this.cdr.detectChanges(); },
     });
   }
 
   approve(id: number): void {
     this.actionId = id;
-    this.api.approve(id).subscribe({
+    this.api.approve(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.actionId = null; this.cdr.detectChanges(); this.load(); },
       error: () => { this.actionId = null; this.error = 'Approve failed'; this.cdr.detectChanges(); },
     });
@@ -107,7 +115,7 @@ export class CeoApprovalsComponent implements OnInit {
     const remarks = prompt('Enter rejection remarks:');
     if (remarks === null) return;
     this.actionId = id;
-    this.api.reject(id, remarks).subscribe({
+    this.api.reject(id, remarks).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.actionId = null; this.cdr.detectChanges(); this.load(); },
       error: () => { this.actionId = null; this.error = 'Reject failed'; this.cdr.detectChanges(); },
     });

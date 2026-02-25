@@ -1,0 +1,204 @@
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1 class="title">Registrations &amp; Licenses</h1>
+      <p class="sub">CRM can add/edit/delete branch registrations. Client &amp; Branch users can view expiry tracking.</p>
+    </div>
+
+    <div class="controls">
+      <select [(ngModel)]="selectedBranchId" (change)="load()">
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      </select>
+
+      <input type="text" placeholder="Search…" [(ngModel)]="q" (input)="applyFilters()" />
+
+      <select [(ngModel)]="statusFilter" (change)="applyFilters()">
+        <option value="all">All Status</option>
+        <option value="ACTIVE">Active</option>
+        <option value="EXPIRING_SOON">Expiring Soon</option>
+        <option value="EXPIRED">Expired</option>
+      </select>
+
+      <button class="btn" (click)="openCreate()" [disabled]="!selectedBranchId">+ Add</button>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="muted" style="padding:12px 0;">Loading…</div>
+
+  <!-- Summary cards -->
+  <div class="strip" *ngIf="!loading">
+    <div class="card">
+      <div class="value" style="color:#059669">{{ active }}</div>
+      <div class="label">Active</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#d97706">{{ expiring }}</div>
+      <div class="label">Expiring Soon</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#dc2626">{{ expired }}</div>
+      <div class="label">Expired</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#2563eb">{{ rows.length }}</div>
+      <div class="label">Total</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="tableWrap" *ngIf="!loading">
+    <table>
+      <thead>
+        <tr>
+          <th>Registration / License</th>
+          <th>Number</th>
+          <th>Authority</th>
+          <th>Issued</th>
+          <th>Expiry</th>
+          <th>Days</th>
+          <th>Status</th>
+          <th>Docs</th>
+          <th style="width:190px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of filtered; trackBy: trackById">
+          <td>
+            <div style="font-weight:700;">{{ r.type || '—' }}</div>
+          </td>
+
+          <td class="mono">{{ r.registrationNumber || '—' }}</td>
+          <td>{{ r.authority || '—' }}</td>
+
+          <td class="muted">
+            <span *ngIf="r.issuedDate">{{ r.issuedDate | date:'dd-MMM-yyyy' }}</span>
+            <span *ngIf="!r.issuedDate">—</span>
+          </td>
+
+          <td [style.color]="r.computedStatus === 'EXPIRED' ? '#dc2626' : (r.computedStatus === 'EXPIRING_SOON' ? '#d97706' : '#0f172a')">
+            <span *ngIf="r.expiryDate">{{ r.expiryDate | date:'dd-MMM-yyyy' }}</span>
+            <span *ngIf="!r.expiryDate">No Expiry</span>
+          </td>
+
+          <td>
+            <span *ngIf="r.daysRemaining !== null && r.daysRemaining !== undefined && r.daysRemaining !== 99999">
+              <span *ngIf="r.daysRemaining >= 0" class="muted">{{ r.daysRemaining }} days</span>
+              <span *ngIf="r.daysRemaining < 0" style="color:#dc2626; font-weight:700;">{{ -r.daysRemaining }} days overdue</span>
+            </span>
+            <span *ngIf="r.daysRemaining === null || r.daysRemaining === undefined || r.daysRemaining === 99999">—</span>
+          </td>
+
+          <td>
+            <span [class]="badgeClass(r.computedStatus)">
+              {{ statusLabel(r.computedStatus) }}
+            </span>
+            <div *ngIf="r.renewedOn" class="muted" style="margin-top:4px;">
+              Renewed: {{ r.renewedOn | date:'dd-MMM-yyyy' }}
+            </div>
+          </td>
+
+          <!-- Documents column -->
+          <td>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <a *ngIf="r.documentUrl" [href]="r.documentUrl" target="_blank" class="btn secondary" style="font-size:11px; padding:4px 8px;">
+                📄 View
+              </a>
+              <span *ngIf="!r.documentUrl" class="muted" style="font-size:11px;">No file</span>
+
+              <a *ngIf="r.renewalDocumentUrl" [href]="r.renewalDocumentUrl" target="_blank" class="btn secondary" style="font-size:11px; padding:4px 8px;">
+                🔄 Renewal
+              </a>
+            </div>
+          </td>
+
+          <!-- Actions column -->
+          <td>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn secondary" (click)="openEdit(r)">Edit</button>
+
+              <label class="btn secondary" style="cursor:pointer; margin:0;">
+                Upload
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="uploadFile($event, r, 'document')" />
+              </label>
+
+              <label class="btn secondary" style="cursor:pointer; margin:0;">
+                Renewal
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="uploadFile($event, r, 'renewal')" />
+              </label>
+
+              <button class="btn danger" (click)="deleteRow(r)" [disabled]="deletingId === r.id">
+                {{ deletingId === r.id ? '…' : 'Delete' }}
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="filtered.length === 0">
+          <td colspan="9" class="muted" style="text-align:center; padding:28px;">
+            No registrations found
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Drawer / Form -->
+  <div class="drawer" *ngIf="showForm">
+    <div class="drawerHead">
+      <div class="drawerTitle">
+        {{ editingId ? 'Edit Registration / License' : 'Add Registration / License' }}
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn secondary" (click)="closeForm()">Cancel</button>
+        <button class="btn" (click)="save()" [disabled]="saving">
+          {{ saving ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <label>Branch *</label>
+        <select [(ngModel)]="form.branchId">
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Registration / License Type *</label>
+        <select [(ngModel)]="form.type">
+          <option value="">Select…</option>
+          <option *ngFor="let t of regTypes" [value]="t">{{ t }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Registration Number</label>
+        <input [(ngModel)]="form.registrationNumber" placeholder="Eg: AP/12345/2026" />
+      </div>
+
+      <div>
+        <label>Issuing Authority</label>
+        <input [(ngModel)]="form.authority" placeholder="Eg: Factories Dept / EPFO / ESIC" />
+      </div>
+
+      <div>
+        <label>Issued Date</label>
+        <input type="date" [(ngModel)]="form.issuedDate" />
+      </div>
+
+      <div>
+        <label>Expiry Date</label>
+        <input type="date" [(ngModel)]="form.expiryDate" />
+        <div class="muted" style="margin-top:6px;">Leave empty if there is no expiry.</div>
+      </div>
+    </div>
+
+    <div class="note">
+      Expiry status is calculated automatically: <b>Expiring Soon</b> means within 30 days, <b>Expired</b> if past expiry date.
+      When you extend the expiry date, the system automatically marks it as renewed.
+    </div>
+  </div>
+
+</div>

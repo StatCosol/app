@@ -17,6 +17,31 @@ import { Roles } from '../auth/roles.decorator';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
 
+// ─── Branch Audit KPI ─────────────────────────────
+@Controller({ path: 'audits/kpi', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT', 'BRANCH', 'AUDITOR')
+export class AuditKpiController {
+  constructor(private readonly svc: AuditsService) {}
+
+  @Get('branch/:branchId')
+  getBranchKpi(
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.svc.getBranchAuditKpi(branchId, from, to);
+  }
+
+  @Get('branch/:branchId/:periodCode')
+  getBranchKpiSingle(
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Param('periodCode') periodCode: string,
+  ) {
+    return this.svc.getBranchAuditKpiSingle(branchId, periodCode);
+  }
+}
+
 @Controller({ path: 'crm/audits', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
@@ -63,9 +88,8 @@ export class ClientAuditsController {
     const branchIds = await this.branchAccess.getUserBranchIds(req.user.userId);
     if (branchIds.length > 0 && rows.length > 0) {
       // Get contractor IDs mapped to user's branches
-      // NOTE: DB table name is `branch_contractor` (singular) as per schema.
       const mapped: { contractor_user_id: string }[] = await this.ds.query(
-        `SELECT DISTINCT contractor_user_id FROM branch_contractor WHERE branch_id = ANY($1)`,
+        `SELECT DISTINCT contractor_user_id FROM branch_contractors WHERE branch_id = ANY($1)`,
         [branchIds],
       );
       const allowedContractors = new Set(

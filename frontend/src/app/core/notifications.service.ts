@@ -68,7 +68,7 @@ export interface NotificationThreadDetails {
 
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
-  private readonly baseUrl = `${environment.apiBaseUrl}/api/notifications`;
+  private readonly baseUrl = `${environment.apiBaseUrl}/api/v1/notifications`;
 
   constructor(private http: HttpClient) {}
 
@@ -198,7 +198,7 @@ export class NotificationsService {
 
     // Admin endpoint returns { rows, total, page, limit } - normalize to { data, total }
     return this.http
-      .get<{ rows?: any[]; data?: any[]; total: number }>(`${environment.apiBaseUrl}/api/admin/notifications`, {
+      .get<{ rows?: any[]; data?: any[]; total: number }>(`${environment.apiBaseUrl}/api/v1/admin/notifications`, {
         params: p,
       })
       .pipe(
@@ -234,5 +234,32 @@ export class NotificationsService {
 
   reopen(threadId: string) {
     return this.http.post<{ status: NotificationStatus }>(`${this.baseUrl}/threads/${threadId}/reopen`, {});
+  }
+
+  /* ── Simple Inbox (notifications/list) for BranchDesk ──── */
+
+  /**
+   * List notifications from the flat inbox (notifications/list endpoint).
+   * Supports branchId filtering for BranchDesk use.
+   */
+  listInbox(params: {
+    branchId?: string;
+    box?: 'INBOX' | 'OUTBOX';
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    let p = new HttpParams();
+    if (params.box) p = p.set('box', params.box);
+    if (params.branchId) p = p.set('branchId', params.branchId);
+    if (params.status) p = p.set('status', params.status);
+    if (params.limit) p = p.set('limit', String(params.limit));
+    if (params.offset) p = p.set('offset', String(params.offset));
+    return this.http.get<any[]>(`${this.baseUrl}/list`, { params: p });
+  }
+
+  /** Mark a notification as read via PATCH */
+  markRead(notificationId: string) {
+    return this.http.patch(`${this.baseUrl}/${notificationId}/status`, { status: 'READ' });
   }
 }

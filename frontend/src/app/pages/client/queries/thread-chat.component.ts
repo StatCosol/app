@@ -1,18 +1,21 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientQueriesService } from '../../../core/client-queries.service';
+import { LoadingSpinnerComponent, ActionButtonComponent } from '../../../shared/ui';
 
 @Component({
   standalone: true,
   selector: 'app-thread-chat',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, ActionButtonComponent],
   templateUrl: './thread-chat.component.html',
   styleUrls: ['./thread-chat.component.scss'],
 })
-export class ThreadChatComponent {
+export class ThreadChatComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
   id!: string;
   loading = false;
   sending = false;
@@ -29,18 +32,25 @@ export class ThreadChatComponent {
     this.load();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load() {
     this.loading = true;
     this.api.getThread(this.id).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res:any) => {
+        this.loading = false;
         this.thread = res?.thread || res;
         this.messages = res?.messages || this.thread?.messages || [];
         this.cdr.detectChanges();
       },
-      error: () => { this.cdr.detectChanges(); }
+      error: () => { this.loading = false; this.cdr.detectChanges(); }
     });
   }
 
@@ -50,7 +60,7 @@ export class ThreadChatComponent {
     this.sending = true;
     const msg = this.reply;
     this.reply = '';
-    this.api.reply(this.id, { message: msg }).subscribe({
+    this.api.reply(this.id, { message: msg }).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.sending = false; this.cdr.detectChanges(); this.load(); },
       error: () => { this.sending = false; this.cdr.detectChanges(); }
     });
@@ -59,7 +69,7 @@ export class ThreadChatComponent {
   resolve() {
     if (this.resolving) return;
     this.resolving = true;
-    this.api.resolveThread(this.id).subscribe({
+    this.api.resolveThread(this.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.resolving = false; this.cdr.detectChanges(); this.load(); },
       error: () => { this.resolving = false; this.cdr.detectChanges(); }
     });

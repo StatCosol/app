@@ -10,6 +10,7 @@ import { EmployeeSequenceEntity } from './entities/employee-sequence.entity';
 import { EmployeeNominationEntity } from './entities/employee-nomination.entity';
 import { EmployeeNominationMemberEntity } from './entities/employee-nomination-member.entity';
 import { EmployeeGeneratedFormEntity } from './entities/employee-generated-form.entity';
+import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 
 @Injectable()
 export class EmployeesService {
@@ -25,6 +26,7 @@ export class EmployeesService {
     @InjectRepository(EmployeeGeneratedFormEntity)
     private readonly formRepo: Repository<EmployeeGeneratedFormEntity>,
     private readonly ds: DataSource,
+    private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
   // ── Employee Code Generator ────────────────────────────────
@@ -132,14 +134,18 @@ export class EmployeesService {
   ): Promise<EmployeeEntity> {
     const emp = await this.findById(clientId, id);
     Object.assign(emp, dto);
-    return this.empRepo.save(emp);
+    const saved = await this.empRepo.save(emp);
+    if (saved.branchId) this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
+    return saved;
   }
 
   async deactivate(clientId: string, id: string): Promise<EmployeeEntity> {
     const emp = await this.findById(clientId, id);
     emp.isActive = false;
     emp.dateOfExit = new Date().toISOString().split('T')[0];
-    return this.empRepo.save(emp);
+    const deactivated = await this.empRepo.save(emp);
+    if (deactivated.branchId) this.riskCache.invalidateBranch(deactivated.branchId).catch(() => {});
+    return deactivated;
   }
 
   // ── Nominations ────────────────────────────────────────────

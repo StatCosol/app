@@ -6,7 +6,7 @@ import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class CcoDashboardService {
   private baseUrl = environment.apiBaseUrl;
-  private dashboardUrl = `${this.baseUrl}/api/cco/dashboard`;
+  private dashboardUrl = `${this.baseUrl}/api/v1/cco/dashboard`;
 
   constructor(private http: HttpClient) {}
 

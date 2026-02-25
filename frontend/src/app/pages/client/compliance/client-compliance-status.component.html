@@ -224,15 +224,7 @@
         label="Status"
         [(ngModel)]="taskStatus"
         (ngModelChange)="onTaskStatusChange()"
-        [options]="[
-          { value: '', label: 'All Statuses' },
-          { value: 'PENDING', label: 'Pending' },
-          { value: 'IN_PROGRESS', label: 'In Progress' },
-          { value: 'SUBMITTED', label: 'Submitted' },
-          { value: 'APPROVED', label: 'Approved' },
-          { value: 'REJECTED', label: 'Rejected' },
-          { value: 'OVERDUE', label: 'Overdue' }
-        ]">
+        [options]="taskStatusOptions">
       </ui-form-select>
 
       <ui-form-select
@@ -240,12 +232,7 @@
         label="Max Rows"
         [(ngModel)]="taskLimit"
         (ngModelChange)="onTaskLimitChange()"
-        [options]="[
-          { value: 50, label: '50 rows' },
-          { value: 100, label: '100 rows' },
-          { value: 200, label: '200 rows' },
-          { value: 500, label: '500 rows' }
-        ]">
+        [options]="taskLimitOptions">
       </ui-form-select>
     </div>
 

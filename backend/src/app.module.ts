@@ -17,7 +17,6 @@ import { AuthModule } from './auth/auth.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { ContractorModule } from './contractor/contractor.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { AssignmentsRotationModule } from './assignments-rotation/assignments-rotation.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { ReportsModule } from './reports/reports.module';
 import { EmailModule } from './email/email.module';
@@ -40,6 +39,9 @@ import { ReturnsModule } from './returns/returns.module';
 import { NominationsModule } from './nominations/nominations.module';
 import { ClientDashboardModule } from './client-dashboard/client-dashboard.module';
 import { EssModule } from './ess/ess.module';
+import { AiModule } from './ai/ai.module';
+import { BranchComplianceModule } from './branch-compliance/branch-compliance.module';
+import { ComplianceDocumentsModule } from './compliance-documents/compliance-documents.module';
 
 @Module({
   imports: [
@@ -59,6 +61,16 @@ import { EssModule } from './ess/ess.module';
         schema: 'public',
         autoLoadEntities: true,
         synchronize: false, // DO NOT CHANGE TO TRUE IN PRODUCTION
+        extra: {
+          // Pool configuration — prevent first-query hangs
+          max: 20,                       // max pool connections
+          min: 2,                        // keep 2 warm connections
+          idleTimeoutMillis: 30000,      // reclaim idle after 30s
+          connectionTimeoutMillis: 5000, // fail fast if DB unreachable (5s)
+        },
+        retryAttempts: 5,
+        retryDelay: 2000,
+        logging: ['error', 'warn'],
       }),
     }),
     ThrottlerModule.forRoot([
@@ -75,7 +87,6 @@ import { EssModule } from './ess/ess.module';
     UsersModule,
     AuthModule,
     AssignmentsModule,
-    AssignmentsRotationModule,
     ContractorModule,
     NotificationsModule,
     ComplianceModule,
@@ -98,6 +109,9 @@ import { EssModule } from './ess/ess.module';
     NominationsModule,
     ClientDashboardModule,
     EssModule,
+    AiModule,
+    BranchComplianceModule,
+    ComplianceDocumentsModule,
   ],
   controllers: [],
   providers: [

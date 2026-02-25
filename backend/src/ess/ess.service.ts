@@ -492,10 +492,10 @@ export class EssService {
   // ── Branch Approval: Nominations ─────────────────────────
   async listPendingNominations(clientId: string, branchId?: string) {
     const qb = this.nomRepo.createQueryBuilder('n')
-      .where('n.client_id = :clientId', { clientId })
+      .where('n.clientId = :clientId', { clientId })
       .andWhere('n.status = :status', { status: 'SUBMITTED' });
-    if (branchId) qb.andWhere('n.branch_id = :branchId', { branchId });
-    qb.orderBy('n.submitted_at', 'ASC');
+    if (branchId) qb.andWhere('n.branchId = :branchId', { branchId });
+    qb.orderBy('n.submittedAt', 'ASC');
     const noms = await qb.getMany();
 
     // Attach members + employee name
@@ -513,7 +513,7 @@ export class EssService {
     if (nomIds.length) {
       const members = await this.nomMemberRepo
         .createQueryBuilder('m')
-        .where('m.nomination_id IN (:...ids)', { ids: nomIds })
+        .where('m.nominationId IN (:...ids)', { ids: nomIds })
         .getMany();
       for (const m of members) (membersMap[m.nominationId] ??= []).push(m);
     }
@@ -550,10 +550,10 @@ export class EssService {
   // ── Branch Approval: Leave Applications ──────────────────
   async listPendingLeaves(clientId: string, branchId?: string) {
     const qb = this.leaveAppRepo.createQueryBuilder('la')
-      .where('la.client_id = :clientId', { clientId })
+      .where('la.clientId = :clientId', { clientId })
       .andWhere('la.status = :status', { status: 'SUBMITTED' });
-    if (branchId) qb.andWhere('la.branch_id = :branchId', { branchId });
-    qb.orderBy('la.applied_at', 'ASC');
+    if (branchId) qb.andWhere('la.branchId = :branchId', { branchId });
+    qb.orderBy('la.appliedAt', 'ASC');
     const apps = await qb.getMany();
 
     const empIds = [...new Set(apps.map((a) => a.employeeId))];

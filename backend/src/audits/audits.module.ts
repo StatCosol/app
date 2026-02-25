@@ -8,6 +8,7 @@ import {
   AuditorAuditsController,
   CrmAuditsController,
   ClientAuditsController,
+  AuditKpiController,
 } from './audits.controller';
 import { AuditorObservationsController } from './auditor-observations.controller';
 import { AuditorObservationsService } from './auditor-observations.service';
@@ -15,6 +16,7 @@ import { ClientsModule } from '../clients/clients.module';
 import { UsersModule } from '../users/users.module';
 import { AssignmentsModule } from '../assignments/assignments.module';
 import { AuthModule } from '../auth/auth.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -27,11 +29,13 @@ import { AuthModule } from '../auth/auth.module';
     UsersModule,
     AssignmentsModule,
     AuthModule,
+    AiModule,
   ],
   controllers: [
     CrmAuditsController,
     AuditorAuditsController,
     ClientAuditsController,
+    AuditKpiController,
     AuditorObservationsController,
   ],
   providers: [AuditsService, AuditorObservationsService],

@@ -18,7 +18,7 @@
       Raise Query
     </button>
     <button
-      (click)="tab='threads'; loadThreads()"
+      (click)="tab='threads'; !loading && loadThreads()"
       [class]="tab === 'threads' ? 'bg-statco-blue text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'"
       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
     >
@@ -59,17 +59,18 @@
               { value: 'TECHNICAL', label: 'Technical', desc: 'Routed to Admin', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }
             ]"
             (click)="form.queryType = qt.value"
-            [class]="form.queryType === qt.value ? 'border-statco-blue bg-statco-blue/5 ring-1 ring-statco-blue/30' : 'border-gray-200 hover:border-gray-300'"
-            class="flex items-center gap-3 p-4 rounded-xl border transition-all text-left"
+            class="flex items-center gap-3 p-4 rounded-xl border transition-all text-left bg-statco-blue"
+            [style.border-color]="form.queryType === qt.value ? 'white' : 'transparent'"
+            [style.box-shadow]="form.queryType === qt.value ? '0 0 0 2px white' : 'none'"
           >
-            <div [class]="form.queryType === qt.value ? 'bg-statco-blue/10 text-statco-blue' : 'bg-gray-100 text-gray-500'" class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-white bg-opacity-20">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" [attr.d]="qt.icon"/>
               </svg>
             </div>
             <div>
-              <div class="text-sm font-medium text-gray-900">{{ qt.label }}</div>
-              <div class="text-xs text-gray-500">{{ qt.desc }}</div>
+              <div class="text-sm font-medium text-white">{{ qt.label }}</div>
+              <div class="text-xs text-gray-300">{{ qt.desc }}</div>
             </div>
           </button>
         </div>

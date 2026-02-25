@@ -35,3 +35,38 @@ export enum AuditType {
   PAYROLL = 'PAYROLL',
   GAP = 'GAP',
 }
+
+export enum ComplianceDocStatus {
+  NOT_UPLOADED = 'NOT_UPLOADED',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  REUPLOAD_REQUIRED = 'REUPLOAD_REQUIRED',
+  RESUBMITTED = 'RESUBMITTED',
+  OVERDUE = 'OVERDUE',
+}
+
+export enum ModuleSource {
+  BRANCHDESK = 'BRANCHDESK',
+  CRM = 'CRM',
+  CONTRACTOR = 'CONTRACTOR',
+  AUDITXPERT = 'AUDITXPERT',
+}
+
+export enum DocumentScope {
+  BRANCH = 'BRANCH',
+  CONTRACTOR = 'CONTRACTOR',
+  COMPANY = 'COMPANY',
+}
+
+export enum LawArea {
+  PF = 'PF',
+  ESI = 'ESI',
+  FACTORY = 'FACTORY',
+  CLRA = 'CLRA',
+  PT = 'PT',
+  LWF = 'LWF',
+  BONUS = 'BONUS',
+  GRATUITY = 'GRATUITY',
+  LABOUR = 'LABOUR',
+  OTHER = 'OTHER',
+}

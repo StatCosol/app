@@ -247,7 +247,7 @@ export class AdminDashboardController {
         const [row] = await this.dataSource.query(
           `SELECT 
              COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END)::float / NULLIF(COUNT(*)::float, 0) * 100 AS compliance
-           FROM assignments
+           FROM client_assignments
            WHERE created_at BETWEEN $1 AND $2`,
           [startDate, endDate],
         );
@@ -363,21 +363,40 @@ export class AdminDashboardController {
     try {
       const [pendingApprovalsRow] = await this.dataSource.query(
         `SELECT COUNT(*)::int AS n FROM approval_requests WHERE status = 'PENDING'`,
-      );
+      ).catch(() => [{ n: 0 }]);
 
       const [overdueTasksRow] = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n FROM assignments WHERE status = 'OVERDUE'`,
-      );
+        `SELECT COUNT(*)::int AS n FROM client_assignments WHERE status = 'OVERDUE_ROTATION'`,
+      ).catch(() => [{ n: 0 }]);
+
+      // Real query: open helpdesk tickets
+      const [openQueriesRow] = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS n FROM helpdesk_tickets WHERE status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT')`,
+      ).catch(() => [{ n: 0 }]);
+
+      // Real query: SLA breaches (tickets where SLA due date has passed and not resolved)
+      const [slaBreachesRow] = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS n FROM helpdesk_tickets
+         WHERE sla_due_at < NOW()
+           AND status NOT IN ('RESOLVED', 'CLOSED')`,
+      ).catch(() => [{ n: 0 }]);
+
+      // Real query: unread notifications
+      const [unreadNotificationsRow] = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS n FROM notifications
+         WHERE read_at IS NULL AND created_at >= $1`,
+        [since],
+      ).catch(() => [{ n: 0 }]);
 
       return {
         clients: await this.safeCountActive('clients'),
         branches: await this.safeCountActive('client_branches'),
         users: await this.safeCount('users'),
-        openQueries: 0,
+        openQueries: openQueriesRow?.n ?? 0,
         overdueTasks: overdueTasksRow?.n ?? 0,
-        slaBreaches: 0,
+        slaBreaches: slaBreachesRow?.n ?? 0,
         pendingApprovals: pendingApprovalsRow?.n ?? 0,
-        unreadNotifications: 0,
+        unreadNotifications: unreadNotificationsRow?.n ?? 0,
       };
     } catch {
       return {
@@ -404,11 +423,15 @@ export class AdminDashboardController {
            u.email,
            COUNT(DISTINCT a.id) as "clientsAssigned",
            COUNT(DISTINCT CASE WHEN a.status IN ('PENDING', 'IN_PROGRESS') THEN a.id END) as "openItems",
-           COUNT(DISTINCT CASE WHEN a.status = 'OVERDUE' THEN a.id END) as overdue,
-           0 as "slaBreaches"
+           COUNT(DISTINCT CASE WHEN a.status = 'OVERDUE_ROTATION' THEN a.id END) as overdue,
+           COALESCE((SELECT COUNT(*)::int FROM helpdesk_tickets ht
+             INNER JOIN clients hc ON hc.id = ht.client_id
+             INNER JOIN client_assignments ha ON ha.client_id = hc.id AND ha.assigned_user_id = u.id AND ha.assignment_type = 'CRM'
+             WHERE ht.sla_due_at < NOW() AND ht.status NOT IN ('RESOLVED','CLOSED')
+           ), 0) as "slaBreaches"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id
-         LEFT JOIN assignments a ON a.crm_id = u.id
+         LEFT JOIN client_assignments a ON a.assigned_user_id = u.id AND a.assignment_type = 'CRM'
          WHERE r.code = 'CRM' AND u.is_active = true AND u.deleted_at IS NULL
          GROUP BY u.id, u.name, u.email
          ORDER BY COUNT(DISTINCT a.id) DESC
@@ -432,10 +455,14 @@ export class AdminDashboardController {
            COUNT(DISTINCT c.id) as "clientsAssigned",
            COUNT(DISTINCT CASE WHEN au.status IN ('PENDING', 'IN_PROGRESS') THEN au.id END) as "openItems",
            COUNT(DISTINCT CASE WHEN au.status = 'OVERDUE' THEN au.id END) as overdue,
-           0 as "slaBreaches"
+           COALESCE((SELECT COUNT(*)::int FROM audits sla_a
+             WHERE sla_a.assigned_auditor_id = u.id
+               AND sla_a.due_date < NOW()
+               AND sla_a.status NOT IN ('COMPLETED', 'CLOSED')
+           ), 0) as "slaBreaches"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id
-         LEFT JOIN audits au ON au.auditor_id = u.id
+         LEFT JOIN audits au ON au.assigned_auditor_id = u.id
          LEFT JOIN clients c ON au.client_id = c.id
          WHERE r.code = 'AUDITOR' AND u.is_active = true AND u.deleted_at IS NULL
          GROUP BY u.id, u.name, u.email

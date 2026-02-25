@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { finalize, timeout, map } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, timeout, map, takeUntil } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import {
   PageHeaderComponent,
@@ -141,13 +142,14 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
     </div>
   `,
   styles: [`
-    .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
   `],
 })
-export class CcoRegistersComponent implements OnInit {
+export class CcoRegistersComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   clients: PayrollClient[] = [];
   rows: RegisterRow[] = [];
-  loading = false;
+  loading = true;
   error = '';
 
   columns: TableColumn[] = [
@@ -173,12 +175,14 @@ export class CcoRegistersComponent implements OnInit {
     periodMonth: null as number | null,
   };
 
-  private base = `${environment.apiBaseUrl}/api/payroll`;
+  private base = `${environment.apiBaseUrl}/api/v1/payroll`;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    this.http.get<any>(`${this.base}/clients`).subscribe({
+    this.http.get<any>(`${this.base}/clients`).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: (list) => { this.clients = list || []; this.cdr.detectChanges(); },
       error: () => { this.clients = []; },
     });
@@ -195,6 +199,7 @@ export class CcoRegistersComponent implements OnInit {
     if (this.q.periodMonth) p = p.set('periodMonth', String(this.q.periodMonth));
 
     this.http.get<any>(`${this.base}/registers`, { params: p }).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       map((res) => {
         const arr = Array.isArray(res) ? res : (res?.data ?? res?.rows ?? []);
@@ -214,13 +219,15 @@ export class CcoRegistersComponent implements OnInit {
       }),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (rows) => { this.rows = rows; this.cdr.detectChanges(); },
-      error: (e) => { this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
+      next: (rows) => { this.loading = false; this.rows = rows; this.cdr.detectChanges(); },
+      error: (e) => { this.loading = false; this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
     });
   }
 
   download(r: RegisterRow): void {
-    this.http.get(`${this.base}/registers/${r.id}/download`, { responseType: 'blob' }).subscribe({
+    this.http.get(`${this.base}/registers/${r.id}/download`, { responseType: 'blob' }).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -242,5 +249,10 @@ export class CcoRegistersComponent implements OnInit {
 
   two(n: any): string {
     return String(Number(n ?? 0)).padStart(2, '0');
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

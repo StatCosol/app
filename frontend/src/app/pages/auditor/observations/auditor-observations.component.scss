@@ -1,9 +1,11 @@
-.page { padding: 20px; max-width: 1200px; margin: 0 auto; }
+.page { padding: 20px; max-width: 1280px; margin: 0 auto; }
 
 .top {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 24px;
 }
 

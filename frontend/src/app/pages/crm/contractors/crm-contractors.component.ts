@@ -1,21 +1,23 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { CrmContractorsService } from '../../../core/crm-contractors.service';
 import { CrmService } from '../../../core/crm.service';
 import { ActivatedRoute } from '@angular/router';
-import { PageHeaderComponent } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent } from '../../../shared/ui';
 
 @Component({
   standalone: true,
   selector: 'app-crm-contractors',
-  imports: [CommonModule, FormsModule, PageHeaderComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
   templateUrl: './crm-contractors.component.html',
   styleUrls: ['./crm-contractors.component.scss'],
 })
-export class CrmContractorsComponent implements OnInit {
-  loading = false;
+export class CrmContractorsComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  loading = true;
   contractors: any[] = [];
   myClients: any[] = [];
   showForm = false;
@@ -40,7 +42,7 @@ export class CrmContractorsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.route.paramMap.subscribe((params) => {
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       this.clientId = params.get('clientId') ?? undefined;
       if (this.clientId) {
         this.form.clientId = this.clientId;
@@ -51,7 +53,7 @@ export class CrmContractorsComponent implements OnInit {
   }
 
   loadMyClients() {
-    this.crmApi.getAssignedClientsCached().subscribe({
+    this.crmApi.getAssignedClientsCached().pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.myClients = res || [];
         this.cdr.detectChanges();
@@ -62,14 +64,16 @@ export class CrmContractorsComponent implements OnInit {
   loadContractors() {
     this.loading = true;
     this.contractorApi.listMyContractors().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res: any) => {
+        this.loading = false;
         this.contractors = res || [];
         this.cdr.detectChanges();
       },
-      error: () => { this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.cdr.detectChanges(); },
     });
   }
 
@@ -114,7 +118,7 @@ export class CrmContractorsComponent implements OnInit {
     }
 
     this.loading = true;
-    this.contractorApi.registerContractor(this.form).subscribe({
+    this.contractorApi.registerContractor(this.form).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.registrationResult = res;
         this.loading = false;
@@ -132,5 +136,10 @@ export class CrmContractorsComponent implements OnInit {
   closeCredentials() {
     this.registrationResult = null;
     this.cancelForm();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

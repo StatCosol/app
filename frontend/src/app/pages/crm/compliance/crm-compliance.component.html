@@ -1,143 +1,632 @@
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <ui-page-header 
-    title="Compliance Workbench (CRM)" 
-    description="Manage and approve compliance tasks" 
-    icon="clipboard-check">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Compliance Tracker"
+    description="Daily workbench — Documents, MCD closure, expiry renewals, and audit observation closures">
   </ui-page-header>
 
-  <!-- Filters -->
-  <div class="card mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-      <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.clientId" (change)="onClientChange()">
-          <option value="">All Clients</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.branchId">
-          <option value="">All Branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status">
-          <option value="">All Status</option>
-          <option>PENDING</option>
-          <option>IN_PROGRESS</option>
-          <option>SUBMITTED</option>
-          <option>APPROVED</option>
-          <option>REJECTED</option>
-          <option>OVERDUE</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
-        <input placeholder="Year" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.year" />
-      </div>
-      <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Month</label>
-        <input placeholder="Month" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.month" />
-      </div>
-      <div class="flex">
-        <button type="button" class="btn-primary w-full" (click)="load()">Search</button>
-      </div>
-    </div>
+  <!-- ══════════════ Tabs ══════════════ -->
+  <div class="border-b border-gray-200 mb-6">
+    <nav class="flex gap-1 -mb-px overflow-x-auto">
+      <button type="button" *ngFor="let tab of [
+        {id:'DOCS',  label:'Documents (Work Queue)'},
+        {id:'MCD',   label:'MCD Tracker'},
+        {id:'EXPIRY',label:'Expiry / Renewals'},
+        {id:'AUDIT_CLOSURES', label:'Audit Closures'},
+        {id:'TASKS', label:'Tasks'}
+      ]"
+        (click)="switchTab(tab.id)"
+        class="whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+        [class.border-statco-blue]="activeTab===tab.id"
+        [class.text-statco-blue]="activeTab===tab.id"
+        [class.border-transparent]="activeTab!==tab.id"
+        [class.text-gray-500]="activeTab!==tab.id"
+        [class.hover:text-gray-700]="activeTab!==tab.id">
+        {{ tab.label }}
+      </button>
+    </nav>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Tasks List -->
-    <div class="card">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Tasks</h3>
+  <!-- ══════════════ Tab 1: Documents (Work Queue) ══════════════ -->
+  <div *ngIf="activeTab==='DOCS'">
+    <!-- KPI Chips -->
+    <div class="flex flex-wrap gap-3 mb-6">
+      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+        [class.bg-yellow-100]="docFilters.status==='UPLOADED'" [class.border-yellow-300]="docFilters.status==='UPLOADED'"
+        [class.bg-white]="docFilters.status!=='UPLOADED'" [class.border-gray-300]="docFilters.status!=='UPLOADED'"
+        (click)="filterDocsByKpi('UPLOADED')">
+        Uploaded <span class="font-bold">{{ docKpis.uploaded || 0 }}</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+        [class.bg-blue-100]="docFilters.status==='PENDING_REVIEW'" [class.border-blue-300]="docFilters.status==='PENDING_REVIEW'"
+        [class.bg-white]="docFilters.status!=='PENDING_REVIEW'" [class.border-gray-300]="docFilters.status!=='PENDING_REVIEW'"
+        (click)="filterDocsByKpi('PENDING_REVIEW')">
+        Pending Review <span class="font-bold">{{ docKpis.pending_review || 0 }}</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+        [class.bg-green-100]="docFilters.status==='APPROVED'" [class.border-green-300]="docFilters.status==='APPROVED'"
+        [class.bg-white]="docFilters.status!=='APPROVED'" [class.border-gray-300]="docFilters.status!=='APPROVED'"
+        (click)="filterDocsByKpi('APPROVED')">
+        Approved <span class="font-bold">{{ docKpis.approved || 0 }}</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+        [class.bg-red-100]="docFilters.status==='REJECTED'" [class.border-red-300]="docFilters.status==='REJECTED'"
+        [class.bg-white]="docFilters.status!=='REJECTED'" [class.border-gray-300]="docFilters.status!=='REJECTED'"
+        (click)="filterDocsByKpi('REJECTED')">
+        Reupload Req. <span class="font-bold">{{ docKpis.reupload_required || 0 }}</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+        [class.bg-orange-100]="docFilters.status==='EXPIRED'" [class.border-orange-300]="docFilters.status==='EXPIRED'"
+        [class.bg-white]="docFilters.status!=='EXPIRED'" [class.border-gray-300]="docFilters.status!=='EXPIRED'"
+        (click)="filterDocsByKpi('EXPIRED')">
+        Expired <span class="font-bold">{{ docKpis.expired || 0 }}</span>
+      </button>
+      <button type="button" *ngIf="docFilters.status"
+        class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
+        (click)="docFilters.status=''; loadDocs()">
+        Clear Filter &times;
+      </button>
+    </div>
+
+    <!-- Doc Filters -->
+    <div class="card mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.clientId" (change)="onClientChange('doc')">
+            <option value="">All Clients</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.branchId">
+            <option value="">All Branches</option>
+            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.status">
+            <option value="">All Status</option>
+            <option>UPLOADED</option>
+            <option>PENDING_REVIEW</option>
+            <option>APPROVED</option>
+            <option>REJECTED</option>
+            <option>EXPIRED</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Contractor</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="docFilters.contractorId">
+            <option value="">All Contractors</option>
+          </select>
+        </div>
+        <div class="flex col-span-2 gap-2">
+          <ui-button variant="primary" (clicked)="loadDocs()" class="flex-1">Search</ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <ui-loading-spinner *ngIf="docLoading" text="Loading documents..."></ui-loading-spinner>
+
+    <!-- Error -->
+    <div *ngIf="docErrorMsg && !docLoading" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+      {{ docErrorMsg }}
+    </div>
+
+    <!-- Docs Table -->
+    <div class="card" *ngIf="!docLoading">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        Document Work Queue
+        <span class="text-sm font-normal text-gray-500 ml-2">({{ docs.length }} records)</span>
+      </h3>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Compliance</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Due</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Assignee</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Document</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Contractor</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Expiry</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+              <th class="px-3 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr
-              *ngFor="let t of tasks"
-              (click)="open(t)"
-              [class.bg-statco-blue-light]="selectedTask?.id === t.id"
-              [class.text-white]="selectedTask?.id === t.id"
-              class="hover:bg-gray-50 cursor-pointer"
-            >
-              <td class="px-4 py-3 text-xs">{{ t.compliance?.complianceName || '-' }}</td>
-              <td class="px-4 py-3 text-xs">{{ t.branch?.branchName || '-' }}</td>
-              <td class="px-4 py-3 text-xs">{{ t.dueDate }}</td>
-              <td class="px-4 py-3 text-xs"><span class="badge-warning">{{ t.status }}</span></td>
-              <td class="px-4 py-3 text-xs">{{ t.assignedTo?.name || '-' }}</td>
-              <td class="px-4 py-3 text-right text-xs">
-                <button
-                  type="button"
-                  class="btn-secondary"
-                  (click)="$event.stopPropagation(); open(t)"
-                >
-                  View
-                </button>
+            <tr *ngFor="let d of docs" class="hover:bg-gray-50">
+              <td class="px-3 py-3 text-xs text-gray-900">{{ d.title || d.fileName || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ d.clientName || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ d.branchName || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ d.contractorName || '-' }}</td>
+              <td class="px-3 py-3 text-xs">
+                <span *ngIf="d.expiryDate" class="text-red-600 font-medium">{{ d.expiryDate | date:'mediumDate' }}</span>
+                <span *ngIf="!d.expiryDate" class="text-gray-400">—</span>
+              </td>
+              <td class="px-3 py-3 text-xs">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  [class.bg-yellow-100]="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                  [class.text-yellow-800]="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                  [class.bg-green-100]="d.status==='APPROVED'"
+                  [class.text-green-800]="d.status==='APPROVED'"
+                  [class.bg-red-100]="d.status==='REJECTED' || d.status==='EXPIRED'"
+                  [class.text-red-800]="d.status==='REJECTED' || d.status==='EXPIRED'">
+                  {{ d.status }}
+                </span>
+              </td>
+              <td class="px-3 py-3 text-right text-xs">
+                <div class="flex items-center justify-end gap-1.5">
+                  <a *ngIf="d.filePath" [href]="'/' + d.filePath" target="_blank"
+                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    View
+                  </a>
+                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                    type="button"
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    [disabled]="reviewingDocId === d.id"
+                    (click)="reviewDoc(d,'APPROVED')">
+                    {{ reviewingDocId === d.id ? '...' : 'Approve' }}
+                  </button>
+                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                    type="button"
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                    [disabled]="reviewingDocId === d.id"
+                    (click)="reviewDoc(d,'REJECTED')">
+                    Reject
+                  </button>
+                </div>
               </td>
             </tr>
-            <tr *ngIf="tasks.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-500 text-sm">No tasks</td>
+            <tr *ngIf="docs.length === 0 && !docLoading">
+              <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No documents found</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
+  </div>
 
-    <!-- Task Detail -->
-    <div class="card" *ngIf="detail">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Task Detail</h3>
-      <div class="space-y-3 mb-4">
-        <div class="flex gap-2"><span class="font-medium text-gray-700">Status:</span> <span class="badge-warning">{{ detail.task?.status }}</span></div>
-        <div><span class="font-medium text-gray-700">Remarks:</span> {{ detail.task?.remarks || '-' }}</div>
-        <div *ngIf="detail.auditReport">
-          <span class="font-medium text-gray-700">Audit Report:</span>
-          <span class="badge-success ml-2">Available from Auditor</span>
+  <!-- ══════════════ Tab 2: MCD Tracker ══════════════ -->
+  <div *ngIf="activeTab==='MCD'">
+    <!-- MCD Filters -->
+    <div class="card mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdYear">
+            <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Month</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdMonth">
+            <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdClientId" (change)="onClientChange('mcd')">
+            <option value="">All Clients</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          </select>
+        </div>
+        <div class="flex col-span-2 gap-2">
+          <ui-button variant="primary" (clicked)="loadMcd()" class="flex-1">Refresh</ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <ui-loading-spinner *ngIf="mcdLoading" text="Loading MCD data..."></ui-loading-spinner>
+
+    <!-- MCD Grid -->
+    <div class="card" *ngIf="!mcdLoading">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        Monthly Compliance Diary — Branch Grid
+        <span class="text-sm font-normal text-gray-500 ml-2">({{ mcdRows.length }} branches)</span>
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Total</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Uploaded</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Pending</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Returned</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Reviewed</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">%</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Finalized</th>
+              <th class="px-3 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let row of mcdRows" class="hover:bg-gray-50">
+              <td class="px-3 py-3 text-xs font-medium text-gray-900">{{ row.branchName || row.branch_name }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ row.clientName || row.client_name }}</td>
+              <td class="px-3 py-3 text-xs text-center">{{ row.totalApplicable || row.total_applicable || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center text-green-700 font-medium">{{ row.uploaded || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center text-yellow-700 font-medium">{{ row.pending || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center text-red-700 font-medium">{{ row.returned || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center">{{ row.reviewed || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center">
+                <div class="flex items-center gap-1 justify-center">
+                  <div class="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full"
+                      [class.bg-green-500]="(row.pct || 0) >= 80"
+                      [class.bg-yellow-500]="(row.pct || 0) >= 50 && (row.pct || 0) < 80"
+                      [class.bg-red-500]="(row.pct || 0) < 50"
+                      [style.width.%]="row.pct || 0">
+                    </div>
+                  </div>
+                  <span class="text-xs">{{ row.pct || 0 }}%</span>
+                </div>
+              </td>
+              <td class="px-3 py-3 text-xs text-center">
+                <span *ngIf="row.finalized" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
+                <span *ngIf="!row.finalized" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">No</span>
+              </td>
+              <td class="px-3 py-3 text-right text-xs">
+                <button *ngIf="!row.finalized"
+                  type="button"
+                  class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-statco-blue rounded-md hover:bg-statco-blue-dark"
+                  [disabled]="finalizingBranchId === (row.branchId || row.branch_id)"
+                  (click)="finalizeMcd(row)">
+                  {{ finalizingBranchId === (row.branchId || row.branch_id) ? 'Finalizing...' : 'Finalize' }}
+                </button>
+                <span *ngIf="row.finalized" class="text-gray-400 text-xs">Locked</span>
+              </td>
+            </tr>
+            <tr *ngIf="mcdRows.length === 0 && !mcdLoading">
+              <td colspan="10" class="px-4 py-8 text-center text-gray-500 text-sm">No MCD data for the selected period</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ Tab 3: Expiry / Renewals ══════════════ -->
+  <div *ngIf="activeTab==='EXPIRY'">
+    <!-- Info banner -->
+    <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+      </svg>
+      <span class="text-sm font-medium">Showing documents expiring within {{ expiryDays }} days. Review and request renewals promptly.</span>
+    </div>
+
+    <!-- Expiry filters -->
+    <div class="card mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Expiring In</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="expiryDays" (change)="loadExpiry()">
+            <option [ngValue]="30">30 Days</option>
+            <option [ngValue]="60">60 Days</option>
+            <option [ngValue]="90">90 Days</option>
+          </select>
+        </div>
+        <div class="flex">
+          <ui-button variant="primary" (clicked)="loadExpiry()" [fullWidth]="true">Refresh</ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <ui-loading-spinner *ngIf="expiryLoading" text="Loading expiring documents..."></ui-loading-spinner>
+
+    <!-- Expiry Docs Table -->
+    <div class="card" *ngIf="!expiryLoading">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        Expiring / Renewal Documents
+        <span class="text-sm font-normal text-gray-500 ml-2">({{ expiryDocs.length }} records)</span>
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Title</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Contractor</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Expiry Date</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+              <th class="px-3 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let d of expiryDocs" class="hover:bg-gray-50">
+              <td class="px-3 py-3 text-xs text-gray-900">{{ d.title || d.fileName || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ d.clientName || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ d.branchName || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ d.contractorName || '-' }}</td>
+              <td class="px-3 py-3 text-xs">
+                <span class="text-red-600 font-medium">{{ d.expiryDate | date:'mediumDate' }}</span>
+              </td>
+              <td class="px-3 py-3 text-xs">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  [class.bg-yellow-100]="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                  [class.text-yellow-800]="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                  [class.bg-green-100]="d.status==='APPROVED'"
+                  [class.text-green-800]="d.status==='APPROVED'"
+                  [class.bg-red-100]="d.status==='REJECTED' || d.status==='EXPIRED'"
+                  [class.text-red-800]="d.status==='REJECTED' || d.status==='EXPIRED'">
+                  {{ d.status }}
+                </span>
+              </td>
+              <td class="px-3 py-3 text-right text-xs">
+                <div class="flex items-center justify-end gap-1.5">
+                  <a *ngIf="d.filePath" [href]="'/' + d.filePath" target="_blank"
+                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    View
+                  </a>
+                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                    type="button"
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                    [disabled]="reviewingDocId === d.id"
+                    (click)="reviewDoc(d,'APPROVED')">
+                    Approve
+                  </button>
+                  <button *ngIf="d.status==='UPLOADED' || d.status==='PENDING_REVIEW'"
+                    type="button"
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                    [disabled]="reviewingDocId === d.id"
+                    (click)="reviewDoc(d,'REJECTED')">
+                    Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="expiryDocs.length === 0 && !expiryLoading">
+              <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No expiring documents</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ Tab 4: Audit Closures ══════════════ -->
+  <div *ngIf="activeTab==='AUDIT_CLOSURES'">
+    <!-- Audit Closures Filter -->
+    <div class="card mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div class="form-group">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="auditClosuresClientId" (change)="onClientChange('audit')">
+            <option value="">All Clients</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+          </select>
+        </div>
+        <div class="flex">
+          <ui-button variant="primary" (clicked)="loadAuditClosures()" [fullWidth]="true">Refresh</ui-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <ui-loading-spinner *ngIf="auditClosuresLoading" text="Loading audit closures..."></ui-loading-spinner>
+
+    <!-- Audit Closures Table -->
+    <div class="card" *ngIf="!auditClosuresLoading">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        Audit Observation Closures
+        <span class="text-sm font-normal text-gray-500 ml-2">({{ auditClosures.length }} audits with observations)</span>
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Audit</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-red-700 uppercase tracking-wider">Critical</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-orange-700 uppercase tracking-wider">Major</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-yellow-700 uppercase tracking-wider">Minor</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Total</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Closed</th>
+              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Closure %</th>
+              <th class="px-3 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let a of auditClosures" class="hover:bg-gray-50">
+              <td class="px-3 py-3 text-xs font-medium text-gray-900">{{ a.auditCode || a.audit_code || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ a.clientName || a.client_name || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-gray-600">{{ a.branchName || a.branch_name || '-' }}</td>
+              <td class="px-3 py-3 text-xs text-center">
+                <span *ngIf="(a.criticalOpen || a.critical_open || 0) > 0" class="font-bold text-red-600">{{ a.criticalOpen || a.critical_open || 0 }}</span>
+                <span *ngIf="!(a.criticalOpen || a.critical_open || 0)" class="text-gray-400">0</span>
+              </td>
+              <td class="px-3 py-3 text-xs text-center">
+                <span *ngIf="(a.majorOpen || a.major_open || 0) > 0" class="font-bold text-orange-600">{{ a.majorOpen || a.major_open || 0 }}</span>
+                <span *ngIf="!(a.majorOpen || a.major_open || 0)" class="text-gray-400">0</span>
+              </td>
+              <td class="px-3 py-3 text-xs text-center">
+                <span *ngIf="(a.minorOpen || a.minor_open || 0) > 0" class="font-bold text-yellow-600">{{ a.minorOpen || a.minor_open || 0 }}</span>
+                <span *ngIf="!(a.minorOpen || a.minor_open || 0)" class="text-gray-400">0</span>
+              </td>
+              <td class="px-3 py-3 text-xs text-center font-medium">{{ a.totalObservations || a.total_observations || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center font-medium text-green-700">{{ a.closedObservations || a.closed_observations || 0 }}</td>
+              <td class="px-3 py-3 text-xs text-center">
+                <div class="flex items-center gap-1 justify-center">
+                  <div class="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full"
+                      [class.bg-green-500]="(a.closurePct || a.closure_pct || 0) >= 80"
+                      [class.bg-yellow-500]="(a.closurePct || a.closure_pct || 0) >= 50 && (a.closurePct || a.closure_pct || 0) < 80"
+                      [class.bg-red-500]="(a.closurePct || a.closure_pct || 0) < 50"
+                      [style.width.%]="a.closurePct || a.closure_pct || 0">
+                    </div>
+                  </div>
+                  <span class="text-xs">{{ a.closurePct || a.closure_pct || 0 }}%</span>
+                </div>
+              </td>
+              <td class="px-3 py-3 text-right text-xs">
+                <button
+                  type="button"
+                  class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  [disabled]="closingObsId === (a.auditId || a.audit_id)"
+                  (click)="closeObservation(a)">
+                  {{ closingObsId === (a.auditId || a.audit_id) ? 'Closing...' : 'Close Obs.' }}
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="auditClosures.length === 0 && !auditClosuresLoading">
+              <td colspan="10" class="px-4 py-8 text-center text-gray-500 text-sm">No audits with observations</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ Tab 5: Tasks (Legacy) ══════════════ -->
+  <div *ngIf="activeTab==='TASKS'">
+    <!-- Loading -->
+    <ui-loading-spinner *ngIf="tasksLoading" text="Loading tasks..."></ui-loading-spinner>
+
+    <!-- Error -->
+    <div *ngIf="tasksErrorMsg && !tasksLoading" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+      {{ tasksErrorMsg }}
+    </div>
+
+    <ng-container *ngIf="!tasksLoading">
+      <!-- Task Filters -->
+      <div class="card mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.clientId" (change)="onClientChange('task')">
+              <option value="">All Clients</option>
+              <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.branchId">
+              <option value="">All Branches</option>
+              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.status">
+              <option value="">All Status</option>
+              <option>PENDING</option>
+              <option>IN_PROGRESS</option>
+              <option>SUBMITTED</option>
+              <option>APPROVED</option>
+              <option>REJECTED</option>
+              <option>OVERDUE</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.year">
+              <option value="">All Years</option>
+              <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Month</label>
+            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.month">
+              <option value="">All Months</option>
+              <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+            </select>
+          </div>
+          <div class="flex">
+            <ui-button variant="primary" (clicked)="loadTasks()" [fullWidth]="true">Search</ui-button>
+          </div>
         </div>
       </div>
 
-      <div class="flex gap-2 mb-4" *ngIf="detail.task?.status === 'SUBMITTED'">
-        <button type="button" class="btn-primary" [disabled]="actionInProgress" (click)="approve()">
-          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-          {{ actionInProgress ? 'Processing...' : 'Approve' }}
-        </button>
-        <button type="button" class="btn-secondary text-red-600 hover:text-red-700 hover:bg-red-50" [disabled]="actionInProgress" (click)="reject()">
-          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-          Reject
-        </button>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Tasks List -->
+        <div class="card">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Tasks</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Compliance</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Due</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Assignee</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr *ngFor="let t of tasks"
+                  (click)="openTask(t)"
+                  [class.bg-statco-blue-light]="selectedTask?.id === t.id"
+                  [class.text-white]="selectedTask?.id === t.id"
+                  class="hover:bg-gray-50 cursor-pointer">
+                  <td class="px-4 py-3 text-xs">{{ t.compliance?.complianceName || '-' }}</td>
+                  <td class="px-4 py-3 text-xs">{{ t.branch?.branchName || '-' }}</td>
+                  <td class="px-4 py-3 text-xs">{{ t.dueDate }}</td>
+                  <td class="px-4 py-3 text-xs"><ui-status-badge [status]="t.status"></ui-status-badge></td>
+                  <td class="px-4 py-3 text-xs">{{ t.assignedTo?.name || '-' }}</td>
+                  <td class="px-4 py-3 text-right text-xs">
+                    <ui-button variant="secondary" size="sm" (clicked)="openTask(t)">View</ui-button>
+                  </td>
+                </tr>
+                <tr *ngIf="tasks.length === 0">
+                  <td colspan="6" class="px-4 py-8 text-center text-gray-500 text-sm">No tasks</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Task Detail -->
+        <div class="card" *ngIf="taskDetail">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Task Detail</h3>
+          <div class="space-y-3 mb-4">
+            <div class="flex gap-2"><span class="font-medium text-gray-700">Status:</span> <ui-status-badge [status]="taskDetail.task?.status"></ui-status-badge></div>
+            <div><span class="font-medium text-gray-700">Remarks:</span> {{ taskDetail.task?.remarks || '-' }}</div>
+            <div *ngIf="taskDetail.auditReport">
+              <span class="font-medium text-gray-700">Audit Report:</span>
+              <ui-status-badge variant="success" label="Available from Auditor"></ui-status-badge>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mb-4" *ngIf="taskDetail.task?.status === 'SUBMITTED'">
+            <ui-button variant="primary" [disabled]="taskActionInProgress" (clicked)="approveTask()">
+              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              {{ taskActionInProgress ? 'Processing...' : 'Approve' }}
+            </ui-button>
+            <ui-button variant="secondary" [disabled]="taskActionInProgress" (clicked)="rejectTask()">
+              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Reject
+            </ui-button>
+          </div>
+
+          <h4 class="text-md font-semibold text-gray-900 mb-2">Evidence</h4>
+          <ul class="space-y-2 mb-4 list-disc list-inside text-sm text-gray-700">
+            <li *ngFor="let e of taskDetail.evidence">
+              <a [href]="('/' + e.filePath)" target="_blank" class="text-statco-blue-light hover:underline">{{ e.fileName }}</a>
+              <span class="text-gray-500 ml-2">({{ e.createdAt | date:'short' }})</span>
+            </li>
+            <li *ngIf="taskDetail.evidence?.length === 0" class="text-gray-500">No evidence</li>
+          </ul>
+
+          <h4 class="text-md font-semibold text-gray-900 mb-2">Comments</h4>
+          <ul class="space-y-2 list-disc list-inside text-sm text-gray-700">
+            <li *ngFor="let c of taskDetail.comments">
+              <span class="font-medium">{{ c.userName || c.user?.name || 'Unknown' }}:</span> {{ c.message }}
+            </li>
+            <li *ngIf="taskDetail.comments?.length === 0" class="text-gray-500">No comments</li>
+          </ul>
+        </div>
       </div>
-
-      <h4 class="text-md font-semibold text-gray-900 mb-2">Evidence</h4>
-      <ul class="space-y-2 mb-4 list-disc list-inside text-sm text-gray-700">
-        <li *ngFor="let e of detail.evidence">
-          <a [href]="('/' + e.filePath)" target="_blank" class="text-statco-blue-light hover:underline">{{ e.fileName }}</a>
-          <span class="text-gray-500 ml-2">({{ e.createdAt | date: 'short' }})</span>
-        </li>
-        <li *ngIf="detail.evidence?.length === 0" class="text-gray-500">No evidence</li>
-      </ul>
-
-      <h4 class="text-md font-semibold text-gray-900 mb-2">Comments</h4>
-      <ul class="space-y-2 list-disc list-inside text-sm text-gray-700">
-        <li *ngFor="let c of detail.comments">
-          <span class="font-medium">{{ c.userName || c.user?.name || 'Unknown' }}:</span> {{ c.message }}
-        </li>
-        <li *ngIf="detail.comments?.length === 0" class="text-gray-500">No comments</li>
-      </ul>
-    </div>
+    </ng-container>
   </div>
-</main>
+</div>

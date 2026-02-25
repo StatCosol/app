@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ToastHostComponent } from './shared/toast/toast-host.component';
+import { IdleTimeoutService } from './core/idle-timeout.service';
 
 @Component({
   selector: 'app-root',
@@ -11,4 +12,8 @@ import { ToastHostComponent } from './shared/toast/toast-host.component';
     <router-outlet></router-outlet>
   `,
 })
-export class App {}
+export class App {
+  constructor(private idleTimeout: IdleTimeoutService) {
+    this.idleTimeout.start();
+  }
+}

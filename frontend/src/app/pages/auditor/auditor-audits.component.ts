@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { finalize, timeout } from 'rxjs/operators';
+import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { AuditsService } from '../../core/audits.service';
 import {
   PageHeaderComponent,
@@ -35,7 +36,7 @@ import {
   templateUrl: './auditor-audits.component.html',
   styleUrls: ['./auditor-audits.component.scss'],
 })
-export class AuditorAuditsComponent implements OnInit {
+export class AuditorAuditsComponent implements OnInit, OnDestroy {
   filters: any = {
     frequency: '',
     status: '',
@@ -71,7 +72,9 @@ export class AuditorAuditsComponent implements OnInit {
 
   audits: any[] = [];
   selectedAudit: any = null;
-  loading = false;
+  loading = true;
+
+  private destroy$ = new Subject<void>();
 
   // Reference data
   clients: Array<{ id: string; name: string }> = [];
@@ -112,8 +115,13 @@ export class AuditorAuditsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadClients(): void {
-    this.http.get<any[]>('/api/auditor/clients/assigned').subscribe({
+    this.http.get<any[]>('/api/v1/auditor/clients/assigned').pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.clients = (data || []).map((c: any) => ({ id: c.id, name: c.clientName || c.name || 'Unknown' }));
         this.clientNameMap = {};
@@ -128,10 +136,12 @@ export class AuditorAuditsComponent implements OnInit {
     this.loading = true;
     const params = { ...this.filters };
     this.auditsService.auditorListAudits(params).pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res) => {
+        this.loading = false;
         this.audits = (res?.data || []).map((a: any) => ({
           ...a,
           clientName: a.client?.clientName || this.clientNameMap[a.clientId] || 'Unknown',
@@ -143,6 +153,7 @@ export class AuditorAuditsComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: () => {
+        this.loading = false;
         this.audits = [];
         this.cdr.detectChanges();
       },

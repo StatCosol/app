@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingNomination } from './branch-approvals-api.service';
 
 @Component({
@@ -146,12 +147,13 @@ import { BranchApprovalsApiService, PendingNomination } from './branch-approvals
     .field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
   `],
 })
-export class NominationApprovalsComponent implements OnInit {
+export class NominationApprovalsComponent implements OnInit, OnDestroy {
   nominations: PendingNomination[] = [];
   loading = true;
   processing = new Set<string>();
   rejectId = '';
   rejectReason = '';
+  private readonly destroy$ = new Subject<void>();
 
   constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef) {}
 
@@ -159,21 +161,36 @@ export class NominationApprovalsComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   load(): void {
     this.loading = true;
     this.api.listPendingNominations()
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      )
       .subscribe({
-        next: (list) => { this.nominations = list; },
-        error: () => { this.nominations = []; },
+        next: (list) => { this.loading = false; this.nominations = list; },
+        error: () => { this.loading = false; this.nominations = []; },
       });
   }
 
   approve(nom: PendingNomination): void {
+    if (this.processing.has(nom.id)) return; // prevent double-click
     this.processing.add(nom.id);
     this.api.approveNomination(nom.id)
-      .pipe(finalize(() => { this.processing.delete(nom.id); this.cdr.detectChanges(); }))
-      .subscribe({ next: () => this.load() });
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.processing.delete(nom.id); this.cdr.detectChanges(); }),
+      )
+      .subscribe({
+        next: () => { this.processing.delete(nom.id); this.load(); },
+        error: () => { this.processing.delete(nom.id); alert('Failed to approve nomination.'); },
+      });
   }
 
   startReject(nom: PendingNomination): void {
@@ -182,9 +199,16 @@ export class NominationApprovalsComponent implements OnInit {
   }
 
   confirmReject(nom: PendingNomination): void {
+    if (this.processing.has(nom.id)) return; // prevent double-click
     this.processing.add(nom.id);
     this.api.rejectNomination(nom.id, this.rejectReason.trim())
-      .pipe(finalize(() => { this.processing.delete(nom.id); this.rejectId = ''; this.cdr.detectChanges(); }))
-      .subscribe({ next: () => this.load() });
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.processing.delete(nom.id); this.rejectId = ''; this.cdr.detectChanges(); }),
+      )
+      .subscribe({
+        next: () => { this.processing.delete(nom.id); this.rejectId = ''; this.load(); },
+        error: () => { this.processing.delete(nom.id); this.rejectId = ''; alert('Failed to reject nomination.'); },
+      });
   }
 }

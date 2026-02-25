@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, StatusBadgeComponent } from '../../shared/ui';
 
@@ -50,14 +51,15 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirectiv
   `,
   styles: [
     `
-      .page { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
     `,
   ],
 })
-export class PayrollClientsComponent implements OnInit {
+export class PayrollClientsComponent implements OnInit, OnDestroy {
   clients: PayrollClient[] = [];
-  loading = true;
+  loading = false;
   error = '';
+  private destroy$ = new Subject<void>();
 
   columns: TableColumn[] = [
     { key: 'name', header: 'Client', sortable: true },
@@ -74,19 +76,27 @@ export class PayrollClientsComponent implements OnInit {
     this.loading = true;
     this.cdr.detectChanges();
     this.payrollApi.getAssignedClients().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (list) => {
+        this.loading = false;
         console.log('PayrollClients loaded:', list);
         this.clients = list || [];
         this.cdr.detectChanges();
       },
       error: (e) => {
+        this.loading = false;
         console.error('PayrollClients error:', e);
         this.error = `Unable to load clients. ${e?.error?.message || e?.message || ''}`;
         this.cdr.detectChanges();
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

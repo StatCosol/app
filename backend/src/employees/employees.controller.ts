@@ -38,7 +38,7 @@ export class ClientEmployeesController {
     if (!clientId) throw new Error('Client context required');
     return this.svc.list(clientId, {
       branchId: query.branchId,
-      isActive: query.isActive === 'false' ? false : undefined,
+      isActive: query.isActive === 'true' ? true : query.isActive === 'false' ? false : undefined,
       search: query.search,
       limit: query.limit ? Number(query.limit) : undefined,
       offset: query.offset ? Number(query.offset) : undefined,

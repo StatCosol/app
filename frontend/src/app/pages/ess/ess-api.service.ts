@@ -147,7 +147,7 @@ export interface Payslip {
 // ─── Service ──────────────────────────────────────────────────
 @Injectable({ providedIn: 'root' })
 export class EssApiService {
-  private readonly base = `${environment.apiBaseUrl}/api/ess`;
+  private readonly base = `${environment.apiBaseUrl}/api/v1/ess`;
 
   constructor(private http: HttpClient) {}
 

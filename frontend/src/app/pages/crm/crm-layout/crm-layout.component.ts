@@ -8,7 +8,13 @@ import { RoleHeaderComponent } from '../../../shared/role-header/role-header.com
   imports: [RouterOutlet, RoleHeaderComponent],
   template: `
     <app-role-header [role]="'CRM'" [displayName]="'CRM User'"></app-role-header>
-    <router-outlet></router-outlet>
+    <main class="role-content crm-content">
+      <router-outlet></router-outlet>
+    </main>
   `,
+  styles: [`
+    :host { display: block; width: 100%; min-height: 100vh; background: #f9fafb; }
+    .crm-content { padding-top: 1.25rem; }
+  `],
 })
 export class CrmLayoutComponent {}

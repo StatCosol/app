@@ -1,8 +1,9 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientQueriesService } from '../../../core/client-queries.service';
 import { AuthService } from '../../../core/auth.service';
 import { PageHeaderComponent, FormInputComponent, LoadingSpinnerComponent, EmptyStateComponent } from '../../../shared/ui';
@@ -14,7 +15,8 @@ import { PageHeaderComponent, FormInputComponent, LoadingSpinnerComponent, Empty
   templateUrl: './client-queries.component.html',
   styleUrls: ['./client-queries.component.scss'],
 })
-export class ClientQueriesComponent {
+export class ClientQueriesComponent implements OnDestroy {
+  private destroy$ = new Subject<void>();
   tab: 'raise'|'threads' = 'raise';
   loading = false;
   submitting = false;
@@ -37,14 +39,21 @@ export class ClientQueriesComponent {
     this.loadThreads();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadThreads() {
+    if (this.loading) return;
     this.loading = true;
     this.api.listMyThreads().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      finalize(() => { this.loading = false; this.cdr.markForCheck(); }),
     ).subscribe({
-      next: (res:any) => { this.threads = res?.data || res || []; this.cdr.detectChanges(); },
-      error: () => { this.cdr.detectChanges(); }
+      next: (res:any) => { this.loading = false; this.threads = res?.data || res || []; this.cdr.markForCheck(); },
+      error: () => { this.loading = false; this.cdr.markForCheck(); }
     });
   }
 
@@ -55,16 +64,16 @@ export class ClientQueriesComponent {
     // ClientId is required for COMPLIANCE/AUDIT routing to assigned CRM/Auditor.
     if ((this.form.queryType === 'COMPLIANCE' || this.form.queryType === 'AUDIT') && !this.form.clientId) return;
     this.submitting = true;
-    this.api.raiseQuery(this.form).subscribe({
+    this.api.raiseQuery(this.form).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.submitting = false;
         this.form.subject = '';
         this.form.message = '';
         this.tab = 'threads';
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
         this.loadThreads();
       },
-      error: () => { this.submitting = false; this.cdr.detectChanges(); }
+      error: () => { this.submitting = false; this.cdr.markForCheck(); }
     });
   }
 

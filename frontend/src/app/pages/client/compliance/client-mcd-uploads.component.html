@@ -34,7 +34,7 @@
     <div class="body">
       <div>Due: {{ task.dueDate || '-' }}</div>
       <div *ngIf="task.window">Window: {{ task.window.start }} → {{ task.window.end }}</div>
-      <div *ngIf="task.lastUploadedAt">Last uploaded: {{ task.lastUploadedAt | date:'medium' }}</div>
+      <div *ngIf="task.lastUploadedAt">Last uploaded: {{ task.lastUploadedAt | date:'short' }}</div>
     </div>
     <div class="badge-row">
       <ui-status-badge [status]="task.status"></ui-status-badge>

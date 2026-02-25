@@ -3,7 +3,7 @@
 .alert.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
 .alert.error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
 .back-btn { margin-bottom: 20px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; }
-.tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+.tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
 .tabs button { padding: 10px 20px; background: none; border: none; cursor: pointer; transition: all 0.15s ease; }
 .tabs button.active { color: #2563eb; border-bottom: 3px solid #2563eb; font-weight: 600; }
 .tabs .tab-link { 
@@ -42,6 +42,7 @@ form input, form select, form textarea {
   margin-bottom: 12px;
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+@media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
 .form-actions { display: flex; gap: 10px; margin-top: 20px; }
 button.primary { background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
 button.primary:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); }
@@ -122,7 +123,7 @@ table th, table td {
   align-items: center;
   justify-content: center;
 }
-.compliance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin: 20px 0; }
+.compliance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin: 20px 0; }
 .compliance-item { display: flex; padding: 12px; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; }
 .compliance-item:hover { background: #f9fafb; border-color: #2563eb; }
 .selected-count { margin-top: 15px; padding: 10px; background: #eff6ff; border-left: 3px solid #2563eb; color: #1e40af; font-weight: 500; }

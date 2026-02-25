@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, StatusBadgeComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
@@ -186,6 +187,7 @@ import { AuthService } from '../../core/auth.service';
           </div>
 
           <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-2">
+            <div *ngIf="createError" class="text-sm text-red-600 mr-auto">{{ createError }}</div>
             <button (click)="closeCreate()" class="px-4 py-2 rounded-lg border border-gray-200 text-sm">Cancel</button>
             <button [disabled]="saving || !create.branchName" (click)="submitCreate()" class="px-4 py-2 rounded-lg bg-statco-blue text-white text-sm font-semibold disabled:opacity-50">
               {{ saving ? 'Saving…' : 'Create' }}
@@ -196,12 +198,14 @@ import { AuthService } from '../../core/auth.service';
 
   `,
 })
-export class ClientBranchesComponent implements OnInit {
+export class ClientBranchesComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   branches: any[] = [];
   filtered: any[] = [];
-  loading = false;
+  loading = true;
   showCreate = false;
   saving = false;
+  createError: string | null = null;
   createdCreds: { email: string; password: string } | null = null;
   create = this.newCreateModel();
 
@@ -221,16 +225,23 @@ export class ClientBranchesComponent implements OnInit {
   ngOnInit(): void {
     this.loading = true;
     this.svc.list().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res) => {
+        this.loading = false;
         this.branches = res || [];
         this.states = [...new Set(this.branches.map((b) => b.stateCode).filter(Boolean))].sort();
         this.applyFilters();
       },
-      error: () => { this.branches = []; this.filtered = []; },
+      error: () => { this.loading = false; this.branches = []; this.filtered = []; },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   applyFilters(): void {
@@ -268,10 +279,11 @@ export class ClientBranchesComponent implements OnInit {
 
     this.saving = true;
     this.createdCreds = null;
+    this.createError = null;
 
     this.svc
       .create(this.create)
-      .pipe(finalize(() => {
+      .pipe(takeUntil(this.destroy$), finalize(() => {
         this.saving = false;
         this.cdr.detectChanges();
       }))
@@ -293,7 +305,7 @@ export class ClientBranchesComponent implements OnInit {
           }
         },
         error: (err) => {
-          console.error('Failed to create branch', err);
+          this.createError = err?.error?.message || 'Failed to create branch. Please try again.';
         },
       });
   }

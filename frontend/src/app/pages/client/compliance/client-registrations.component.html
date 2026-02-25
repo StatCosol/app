@@ -1,0 +1,66 @@
+<div class="page-container">
+
+  <div class="page-header">
+    <h2>Registrations & Licenses</h2>
+
+    <select [(ngModel)]="selectedBranchId" (change)="load()">
+      <option *ngFor="let b of branches" [value]="b.id">
+        {{ b.name }}
+      </option>
+    </select>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-strip">
+    <div class="card green">
+      <h3>{{ active }}</h3>
+      <p>Active</p>
+    </div>
+
+    <div class="card orange">
+      <h3>{{ expiring }}</h3>
+      <p>Expiring Soon</p>
+    </div>
+
+    <div class="card red">
+      <h3>{{ expired }}</h3>
+      <p>Expired</p>
+    </div>
+
+    <div class="card blue">
+      <h3>{{ registrations.length }}</h3>
+      <p>Total</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table class="table" *ngIf="!loading">
+    <thead>
+      <tr>
+        <th>Registration</th>
+        <th>Number</th>
+        <th>Authority</th>
+        <th>Issued</th>
+        <th>Expiry</th>
+        <th>Days</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of filtered">
+        <td>{{ r.type }}</td>
+        <td>{{ r.registrationNumber }}</td>
+        <td>{{ r.authority }}</td>
+        <td>{{ r.issuedDate | date:'dd-MMM-yyyy' }}</td>
+        <td>{{ r.expiryDate | date:'dd-MMM-yyyy' }}</td>
+        <td>{{ r.daysRemaining }}</td>
+        <td>{{ r.computedStatus }}</td>
+      </tr>
+
+      <tr *ngIf="filtered.length === 0">
+        <td colspan="7">No registrations found</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>

@@ -14,10 +14,11 @@ export class AdminPayrollClientSettingsController {
     private readonly settingsRepo: Repository<PayrollClientSettings>,
   ) {}
 
-  // Base list: return empty list to satisfy generic checks
+  // GET all payroll client settings from DB
   @Get(['client-settings', 'payroll-client-settings'])
   async listSettings() {
-    return { items: [] };
+    const items = await this.settingsRepo.find();
+    return { items };
   }
 
   @Get(['client-settings/:clientId', 'payroll-client-settings/:clientId'])

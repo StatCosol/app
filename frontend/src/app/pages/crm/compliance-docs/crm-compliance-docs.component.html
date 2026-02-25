@@ -1,0 +1,155 @@
+<div class="page">
+  <ui-page-header
+    title="Compliance Document Library"
+    subtitle="Upload and manage compliance documents for this client">
+  </ui-page-header>
+
+  <!-- Toggle upload form -->
+  <div class="mb-4">
+    <button class="btn-upload" (click)="toggleUploadForm()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      {{ showUploadForm ? 'Cancel' : 'Upload Document' }}
+    </button>
+  </div>
+
+  <!-- Upload form -->
+  <div *ngIf="showUploadForm" class="upload-card">
+    <h3 class="text-sm font-semibold text-gray-800 mb-3">Upload New Document</h3>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Category *</label>
+        <select class="input-sm" [(ngModel)]="form.category" (ngModelChange)="onCategoryChange()">
+          <option value="">Select category</option>
+          <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
+        </select>
+      </div>
+
+      <div class="form-group" *ngIf="subCategories.length > 0">
+        <label>Sub-Category</label>
+        <select class="input-sm" [(ngModel)]="form.subCategory">
+          <option value="">Select</option>
+          <option *ngFor="let sc of subCategories" [value]="sc.code">{{ sc.label }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Title *</label>
+        <input class="input-sm" type="text" [(ngModel)]="form.title" placeholder="Document title" />
+      </div>
+
+      <div class="form-group">
+        <label>Branch (optional)</label>
+        <input class="input-sm" type="text" [(ngModel)]="form.branchId" placeholder="Branch ID (leave empty for all)" />
+      </div>
+
+      <div class="form-group">
+        <label>Year</label>
+        <select class="input-sm" [(ngModel)]="form.periodYear">
+          <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Month</label>
+        <select class="input-sm" [(ngModel)]="form.periodMonth">
+          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Period Label</label>
+        <input class="input-sm" type="text" [(ngModel)]="form.periodLabel" placeholder="e.g. Apr-2026" />
+      </div>
+    </div>
+
+    <div class="form-group mb-3">
+      <label>Description</label>
+      <textarea class="input-sm" [(ngModel)]="form.description" placeholder="Optional description..."></textarea>
+    </div>
+
+    <div class="file-drop mb-3" [class.has-file]="!!selectedFile" (click)="fileInput.click()">
+      <input #fileInput type="file" hidden (change)="onFileSelected($event)"
+        accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.zip" />
+      <div *ngIf="!selectedFile" class="text-sm text-gray-500">
+        <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        Click to select a file (PDF, PNG, JPG, XLSX, ZIP — max 10MB)
+      </div>
+      <div *ngIf="selectedFile" class="text-sm text-green-700 font-medium">
+        {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
+      </div>
+    </div>
+
+    <button class="btn-upload" [disabled]="uploading || !selectedFile || !form.category || !form.title" (click)="upload()">
+      <svg *ngIf="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+      </svg>
+      {{ uploading ? 'Uploading...' : 'Upload Document' }}
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex flex-wrap items-end gap-3 mb-4">
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Category</label>
+      <select class="input-sm" [(ngModel)]="filters.category" (ngModelChange)="loadDocuments()">
+        <option value="">All</option>
+        <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Search</label>
+      <input class="input-sm" type="text" [(ngModel)]="filters.search" placeholder="Search titles..."
+        (keyup.enter)="loadDocuments()" />
+    </div>
+  </div>
+
+  <!-- Loading & Empty -->
+  <ui-loading-spinner *ngIf="loading" text="Loading documents..."></ui-loading-spinner>
+  <ui-empty-state *ngIf="!loading && documents.length === 0"
+    title="No documents yet"
+    description="Upload compliance documents for this client using the button above.">
+  </ui-empty-state>
+
+  <!-- Documents table -->
+  <div *ngIf="!loading && documents.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Category</th>
+          <th>Period</th>
+          <th>File</th>
+          <th>Uploaded</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let doc of documents">
+          <td class="font-medium text-gray-900">{{ doc.title }}</td>
+          <td>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{{ getCategoryLabel(doc.category) }}</span>
+            <span *ngIf="doc.subCategory" class="ml-1 text-xs text-gray-500">{{ doc.subCategory }}</span>
+          </td>
+          <td class="text-gray-600">
+            {{ doc.periodLabel || (doc.periodYear ? (doc.periodMonth ? monthOptions[(doc.periodMonth || 1) - 1]?.label + ' ' : '') + doc.periodYear : '—') }}
+          </td>
+          <td class="text-gray-500 text-xs">
+            {{ doc.fileName }}<br/>
+            <span class="text-gray-400">{{ formatFileSize(doc.fileSize) }}</span>
+          </td>
+          <td class="text-gray-500 text-xs">{{ doc.createdAt | date:'mediumDate' }}</td>
+          <td>
+            <a class="action-link mr-3" [href]="getDownloadUrl(doc.id)" target="_blank">Download</a>
+            <span class="delete-link" (click)="deleteDoc(doc)">Delete</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

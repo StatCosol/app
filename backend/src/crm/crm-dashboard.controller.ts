@@ -120,4 +120,37 @@ export class CrmDashboardController {
     );
     return { items: toCamel(rows) };
   }
+
+  /* ═══════ V2 Dashboard Endpoints (redesigned) ═══════ */
+
+  /** GET /api/v1/crm/dashboard/kpis — 8 KPI cards */
+  @Get('kpis')
+  async getKpis(@Req() req) {
+    const data = await this.dashboardService.getKpis(req.user.id);
+    return toCamel(data);
+  }
+
+  /** GET /api/v1/crm/dashboard/priority-today — urgent items */
+  @Get('priority-today')
+  async getPriorityToday(@Req() req, @Query() query: any) {
+    const limit = Math.min(parseInt(query.limit, 10) || 20, 50);
+    const rows = await this.dashboardService.getPriorityToday(req.user.id, limit);
+    return { items: toCamel(rows) };
+  }
+
+  /** GET /api/v1/crm/dashboard/top-risk-clients — ranked by compliance */
+  @Get('top-risk-clients')
+  async getTopRiskClients(@Req() req, @Query() query: any) {
+    const limit = Math.min(parseInt(query.limit, 10) || 10, 50);
+    const rows = await this.dashboardService.getTopRiskClients(req.user.id, limit);
+    return { items: toCamel(rows) };
+  }
+
+  /** GET /api/v1/crm/dashboard/upcoming-audits — next N days */
+  @Get('upcoming-audits')
+  async getUpcomingAudits(@Req() req, @Query() query: any) {
+    const days = Math.min(parseInt(query.days, 10) || 15, 90);
+    const rows = await this.dashboardService.getUpcomingAudits(req.user.id, days);
+    return { items: toCamel(rows) };
+  }
 }

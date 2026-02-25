@@ -4,6 +4,7 @@ import { BranchEntity } from './entities/branch.entity';
 import { BranchContractorEntity } from './entities/branch-contractor.entity';
 import { BranchApplicableComplianceEntity } from './entities/branch-applicable-compliance.entity';
 import { BranchDocumentEntity } from './entities/branch-document.entity';
+import { BranchRegistrationEntity } from './entities/branch-registration.entity';
 import { BranchesController } from './branches.controller';
 import { BranchesCommonController } from './branches-common.controller';
 import { CrmBranchesController } from './crm-branches.controller';
@@ -12,9 +13,11 @@ import { CrmBranchCompliancesController } from './crm-branch-compliances.control
 import {
   ClientBranchDocumentsController,
   CrmBranchDocumentsController,
+  CrmBranchRegistrationsController,
 } from './branch-documents.controller';
 import { BranchesService } from './branches.service';
 import { BranchDocumentsService } from './branch-documents.service';
+import { BranchRegistrationsService } from './branch-registrations.service';
 import { ClientsModule } from '../clients/clients.module';
 import { ChecklistsModule } from '../checklists/checklists.module';
 import { UsersModule } from '../users/users.module';
@@ -24,6 +27,9 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuthModule } from '../auth/auth.module';
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
 import { ApprovalRequestEntity } from '../admin/entities/approval-request.entity';
+import { RegistrationAlertEntity } from './entities/registration-alert.entity';
+import { BranchRegistrationReminderService } from './branch-registration-reminder.service';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -32,6 +38,8 @@ import { ApprovalRequestEntity } from '../admin/entities/approval-request.entity
       BranchContractorEntity,
       BranchApplicableComplianceEntity,
       BranchDocumentEntity,
+      BranchRegistrationEntity,
+      RegistrationAlertEntity,
       ComplianceMasterEntity,
       ApprovalRequestEntity,
     ]),
@@ -42,6 +50,7 @@ import { ApprovalRequestEntity } from '../admin/entities/approval-request.entity
     CompliancesModule,
     AuditLogsModule,
     AuthModule,
+    EmailModule,
   ],
   controllers: [
     BranchesController,
@@ -51,8 +60,9 @@ import { ApprovalRequestEntity } from '../admin/entities/approval-request.entity
     CrmBranchCompliancesController,
     ClientBranchDocumentsController,
     CrmBranchDocumentsController,
+    CrmBranchRegistrationsController,
   ],
-  providers: [BranchesService, BranchDocumentsService],
+  providers: [BranchesService, BranchDocumentsService, BranchRegistrationsService, BranchRegistrationReminderService],
   exports: [BranchesService],
 })
 export class BranchesModule {}

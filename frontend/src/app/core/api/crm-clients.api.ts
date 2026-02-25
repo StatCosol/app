@@ -78,20 +78,20 @@ export class CrmClientsApi {
 
   /** Returns only clients assigned to the current CRM user */
   getAssignedClients() {
-    return this.http.get<ClientDto[]>(`${this.baseUrl}/api/crm/clients/assigned`);
+    return this.http.get<ClientDto[]>(`${this.baseUrl}/api/v1/crm/clients/assigned`);
   }
 
   /** Returns branches for a given client, scoped to current CRM user */
   getBranchesForClient(clientId: string) {
     return this.http.get<BranchDto[]>(
-      `${this.baseUrl}/api/crm/clients/${clientId}/branches`,
+      `${this.baseUrl}/api/v1/crm/clients/${clientId}/branches`,
     );
   }
 
   /** Creates a branch for the given client, scoped to current CRM user */
   createBranch(clientId: string, payload: CreateBranchRequest) {
     return this.http.post<BranchDto>(
-      `${this.baseUrl}/api/crm/clients/${clientId}/branches`,
+      `${this.baseUrl}/api/v1/crm/clients/${clientId}/branches`,
       payload,
     );
   }
@@ -99,7 +99,7 @@ export class CrmClientsApi {
   /** Updates a branch (CRM-scoped by client assignment) */
   updateBranch(branchId: string, payload: Partial<CreateBranchRequest>) {
     return this.http.patch<BranchDto>(
-      `${this.baseUrl}/api/crm/branches/${branchId}`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}`,
       payload,
     );
   }
@@ -107,28 +107,28 @@ export class CrmClientsApi {
   /** Deletes a branch (CRM-scoped by client assignment) */
   deleteBranch(branchId: string) {
     return this.http.delete<{ message: string }>(
-      `${this.baseUrl}/api/crm/branches/${branchId}`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}`,
     );
   }
 
   /** Lists contractors for a branch (CRM-scoped) */
   listBranchContractors(branchId: string) {
     return this.http.get<BranchContractorDto[]>(
-      `${this.baseUrl}/api/crm/branches/${branchId}/contractors`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}/contractors`,
     );
   }
 
   /** Contractor-centric view: branches for a contractor (within assigned client scope) */
   getContractorBranches(contractorId: string) {
     return this.http.get<ContractorBranchesDto>(
-      `${this.baseUrl}/api/crm/contractors/${contractorId}/branches`,
+      `${this.baseUrl}/api/v1/crm/contractors/${contractorId}/branches`,
     );
   }
 
   /** Replace branches for a contractor (within assigned client scope) */
   setContractorBranches(contractorId: string, branchIds: string[]) {
     return this.http.put<{ message: string; contractorId: string; branchIds: string[] }>(
-      `${this.baseUrl}/api/crm/contractors/${contractorId}/branches`,
+      `${this.baseUrl}/api/v1/crm/contractors/${contractorId}/branches`,
       { branchIds },
     );
   }
@@ -136,7 +136,7 @@ export class CrmClientsApi {
   /** Links a contractor user to a branch (CRM-scoped) */
   addBranchContractor(branchId: string, userId: string) {
     return this.http.post<{ id: string; message: string }>(
-      `${this.baseUrl}/api/crm/branches/${branchId}/contractors`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}/contractors`,
       { userId },
     );
   }
@@ -144,21 +144,21 @@ export class CrmClientsApi {
   /** Unlinks a contractor user from a branch (CRM-scoped) */
   removeBranchContractor(branchId: string, userId: string) {
     return this.http.delete<{ message: string }>(
-      `${this.baseUrl}/api/crm/branches/${branchId}/contractors/${userId}`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}/contractors/${userId}`,
     );
   }
 
   /** Lists full compliance master list with applicability flags for a branch */
   listBranchCompliances(branchId: string) {
     return this.http.get<BranchComplianceSummaryDto[]>(
-      `${this.baseUrl}/api/crm/branches/${branchId}/compliances`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}/compliances`,
     );
   }
 
   /** Saves the selected compliance mappings for a branch */
   saveBranchCompliances(branchId: string, complianceIds: string[]) {
     return this.http.post<{ ok: boolean; count: number }>(
-      `${this.baseUrl}/api/crm/branches/${branchId}/compliances`,
+      `${this.baseUrl}/api/v1/crm/branches/${branchId}/compliances`,
       { complianceIds },
     );
   }
@@ -185,7 +185,7 @@ export class CrmClientsApi {
     }
 
     return this.http.get<{ data: ComplianceWorkItemDto[]; total: number }>(
-      `${this.baseUrl}/api/crm/compliance`,
+      `${this.baseUrl}/api/v1/crm/compliance`,
       { params: query },
     );
   }

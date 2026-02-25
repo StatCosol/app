@@ -81,10 +81,10 @@
         <textarea [(ngModel)]="complianceForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
       </div>
       <div class="flex gap-3">
-        <ui-button variant="primary" (click)="saveCompliance()" [disabled]="saving">
+        <ui-button variant="primary" (clicked)="saveCompliance()" [disabled]="saving">
           {{ saving ? 'Saving...' : (editingComplianceId ? 'Update' : 'Create') }}
         </ui-button>
-        <ui-button variant="secondary" *ngIf="editingComplianceId" (click)="cancelComplianceEdit()">Cancel</ui-button>
+        <ui-button variant="secondary" *ngIf="editingComplianceId" (clicked)="cancelComplianceEdit()">Cancel</ui-button>
       </div>
     </div>
 
@@ -128,8 +128,8 @@
         
         <ng-template uiTableCell="actions" let-row>
           <div class="flex gap-2">
-            <ui-button variant="secondary" size="sm" (click)="editCompliance(row)">Edit</ui-button>
-            <ui-button variant="danger" size="sm" (click)="deleteCompliance(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="editCompliance(row)">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="deleteCompliance(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
           </div>
         </ng-template>
       </ui-data-table>
@@ -158,13 +158,13 @@
         </div>
       </div>
       <div class="flex gap-2">
-        <ui-button variant="primary" (click)="saveAuditCategory()" [disabled]="saving">
+        <ui-button variant="primary" (clicked)="saveAuditCategory()" [disabled]="saving">
           <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
           </svg>
           {{ saving ? 'Saving...' : (editingAuditCategoryId ? 'Update' : 'Create') }}
         </ui-button>
-        <ui-button variant="secondary" *ngIf="editingAuditCategoryId" (click)="cancelAuditCategoryEdit()">Cancel</ui-button>
+        <ui-button variant="secondary" *ngIf="editingAuditCategoryId" (clicked)="cancelAuditCategoryEdit()">Cancel</ui-button>
       </div>
     </div>
 
@@ -191,8 +191,8 @@
         
         <ng-template uiTableCell="actions" let-row>
           <div class="flex gap-2">
-            <ui-button variant="secondary" size="sm" (click)="editAuditCategory(row)">Edit</ui-button>
-            <ui-button variant="danger" size="sm" (click)="deleteAuditCategory(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="editAuditCategory(row)">Edit</ui-button>
+            <ui-button variant="danger" size="sm" (clicked)="deleteAuditCategory(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
           </div>
         </ng-template>
       </ui-data-table>

@@ -11,17 +11,26 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Chart from 'chart.js/auto';
 import { RouterModule } from '@angular/router';
-import { Subject, Subscription } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { Subject, Subscription, of } from 'rxjs';
+import { catchError, finalize, takeUntil } from 'rxjs/operators';
 import { LegitxDashboardService } from '../../../core/legitx-dashboard.service';
 import { DashboardService } from '../../../core/dashboard.service';
-import { PfEsiSummaryResponse, ContractorUploadSummaryResponse, PfPendingEmployee, EsiPendingEmployee } from './client-dashboard.types';
+import { PfEsiSummaryResponse, ContractorUploadSummaryResponse } from './client-dashboard.types';
 import { forkJoin } from 'rxjs';
 import {
   LegitxDashboardResponse,
   LegitxQueueItem,
   LegitxToggle,
 } from './legitx-dashboard.dto';
+import { AiRiskApi, AiRiskBranchResponse } from '../../../core/api/ai-risk.api';
+import { AiRiskScoreComponent } from '../../../shared/ui/ai-risk-score/ai-risk-score.component';
+import { BranchAuditKpiComponent } from '../../../shared/ui/branch-audit-kpi/branch-audit-kpi.component';
+import {
+  BranchComplianceDocService,
+  LowestBranch,
+  ComplianceTrendPoint,
+} from '../../../core/branch-compliance-doc.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 // Skeleton loading handled via CSS (no spinner component needed)
 
 type ChartKey =
@@ -33,19 +42,10 @@ type ChartKey =
   | 'employeeStatus'
   | 'docsBucket';
 
-type DetailKey =
-  | 'EMPLOYEES'
-  | 'CONTRACTORS'
-  | 'PAYROLL'
-  | 'BRANCHES'
-  | 'COMPLIANCE'
-  | 'AUDIT'
-  | 'RISK';
-
 @Component({
   standalone: true,
   selector: 'app-client-dashboard',
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })
@@ -57,25 +57,45 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   @ViewChild('payrollDonutChart') payrollDonutChart?: ElementRef<HTMLCanvasElement>;
   @ViewChild('employeeStatusChart') employeeStatusChart?: ElementRef<HTMLCanvasElement>;
   @ViewChild('docsBucketChart') docsBucketChart?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('payrollDetails') payrollDetails?: ElementRef<HTMLDivElement>;
-  @ViewChild('compliancePanel') compliancePanel?: ElementRef<HTMLDivElement>;
-  @ViewChild('auditPanel') auditPanel?: ElementRef<HTMLDivElement>;
-  @ViewChild('branchPanel') branchPanel?: ElementRef<HTMLDivElement>;
-  @ViewChild('contractorPanel') contractorPanel?: ElementRef<HTMLDivElement>;
-  @ViewChild('employeePanel') employeePanel?: ElementRef<HTMLDivElement>;
-  @ViewChild('riskPanel') riskPanel?: ElementRef<HTMLDivElement>;
+
+  // Panel ViewChild refs for scroll-to-detail
+  @ViewChild('payrollDetails') payrollDetails?: ElementRef;
+  @ViewChild('contractorPanel') contractorPanel?: ElementRef;
+  @ViewChild('employeePanel') employeePanel?: ElementRef;
+  @ViewChild('branchPanel') branchPanel?: ElementRef;
+  @ViewChild('compliancePanel') compliancePanel?: ElementRef;
+  @ViewChild('auditPanel') auditPanel?: ElementRef;
+  @ViewChild('aiRiskPanel') aiRiskPanel?: ElementRef;
 
   loading = false;
   errorMsg = '';
   data: LegitxDashboardResponse | null = null;
   pfEsiSummary: PfEsiSummaryResponse | null = null;
   contractorSummary: ContractorUploadSummaryResponse | null = null;
-  activeDetail: DetailKey | null = null;
-  showPfModal = false;
-  showEsiModal = false;
 
   branches: Array<{ id: string | number; name: string }> = [];
   contractors: Array<{ id: string | number; name: string; branchId?: string | number }> = [];
+  filteredContractorList: Array<{ id: string | number; name: string; branchId?: string | number }> = [];
+
+  // ── Detail panel state ──
+  activeDetail: string | null = null;
+  showPfModal = false;
+  showEsiModal = false;
+
+  // ── AI Risk Assessment state ──
+  branchRiskLoading = false;
+  branchRiskError = '';
+  branchRiskOverview: AiRiskBranchResponse[] = [];
+  auditKpiFrom = '';
+  auditKpiTo = '';
+
+  // ── Compliance Intelligence ──
+  lowestBranches: LowestBranch[] = [];
+  companyTrend: ComplianceTrendPoint[] = [];
+
+  // ── Registration Compliance ──
+  regSummary: { total: number; active: number; expiringSoon: number; expired: number; scoreImpact: number } | null = null;
+  regAlerts: any[] = [];
 
   filters = {
     month: new Date().getMonth() + 1,
@@ -108,6 +128,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private charts: Partial<Record<ChartKey, Chart>> = {};
   private viewReady = false;
   private loadSub?: Subscription;
+  private riskSub?: Subscription;
   private readonly destroy$ = new Subject<void>();
 
   // Safe fallbacks so template accessors stay non-null/defined
@@ -127,9 +148,16 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     gray: '#9ca3af',
   };
 
+  get selectedBranchId(): string {
+    return this.filters.branchId !== 'ALL' ? String(this.filters.branchId) : '';
+  }
+
   constructor(
     private legitx: LegitxDashboardService,
     private dashboard: DashboardService,
+    private aiRisk: AiRiskApi,
+    private complianceDocs: BranchComplianceDocService,
+    private clientBranches: ClientBranchesService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -146,6 +174,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   ngOnDestroy(): void {
     this.loadSub?.unsubscribe();
+    this.riskSub?.unsubscribe();
     this.destroy$.next();
     this.destroy$.complete();
     this.destroyCharts();
@@ -166,14 +195,34 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
         contractorId: this.filters.contractorId,
         toggle: this.filters.toggle,
       }),
-      pfEsi: this.dashboard.getClientPfEsiSummary({ month: monthStr, branchId: branchIdParam }),
-      contractor: this.dashboard.getClientContractorUploadSummary({ month: monthStr, branchId: branchIdParam }),
+      pfEsi: this.dashboard.getClientPfEsiSummary({ month: monthStr, branchId: branchIdParam }).pipe(
+        catchError(() => of(null as PfEsiSummaryResponse | null)),
+      ),
+      contractor: this.dashboard.getClientContractorUploadSummary({ month: monthStr, branchId: branchIdParam }).pipe(
+        catchError(() => of(null as ContractorUploadSummaryResponse | null)),
+      ),
+      lowestBranches: this.complianceDocs.getLowestBranches({ year: this.filters.year, limit: 10 }).pipe(
+        catchError(() => of([] as LowestBranch[])),
+      ),
+      companyTrend: this.complianceDocs.getCompanyTrend({ year: this.filters.year }).pipe(
+        catchError(() => of([] as ComplianceTrendPoint[])),
+      ),
+      regSummary: this.clientBranches.getRegistrationSummary(branchIdParam).pipe(
+        catchError(() => of(null)),
+      ),
+      regAlerts: this.clientBranches.getRegistrationAlerts(branchIdParam).pipe(
+        catchError(() => of([])),
+      ),
     })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
           this.cdr.markForCheck();
+          // Defer chart render one tick so Angular can add canvases to the DOM
+          if (this.data && this.viewReady) {
+            setTimeout(() => this.renderAllCharts(), 0);
+          }
         }),
       )
       .subscribe({
@@ -181,11 +230,23 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
           this.data = res.legitx;
           this.pfEsiSummary = res.pfEsi;
           this.contractorSummary = res.contractor;
+          this.lowestBranches = res.lowestBranches || [];
+          this.companyTrend = res.companyTrend || [];
+          this.regSummary = res.regSummary;
+          this.regAlerts = res.regAlerts || [];
           this.branches = res.legitx.meta?.branches ?? [];
           this.contractors = res.legitx.meta?.contractors ?? [];
-          if (this.viewReady) {
-            this.renderAllCharts();
-          }
+          this.updateFilteredContractors();
+          // Compute audit KPI date range (YYYY-MM format required by backend)
+          const y = this.filters.year;
+          const m = this.filters.month;
+          this.auditKpiFrom = `${y}-${this.two(m)}`;
+          this.auditKpiTo = `${y}-${this.two(m)}`;
+
+          this.loadBranchRiskOverview();
+
+          // Charts must be rendered AFTER loading=false so that *ngIf reveals canvases.
+          // finalize() sets loading=false; we defer chart render to the next tick.
           this.cdr.markForCheck();
         },
         error: () => {
@@ -203,6 +264,8 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     if (this.filters.branchId === 'ALL') {
       this.filters.contractorId = 'ALL';
     }
+    this.updateFilteredContractors();
+    this.activeDetail = null;
     this.load();
   }
 
@@ -215,57 +278,45 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.load();
   }
 
-  openDetail(detail: DetailKey): void {
-    if (!this.data) return;
+  filteredContractors(): Array<{ id: string | number; name: string; branchId?: string | number }> {
+    return this.filteredContractorList;
+  }
+
+  private updateFilteredContractors(): void {
+    if (this.filters.branchId === 'ALL') {
+      this.filteredContractorList = this.contractors;
+    } else {
+      this.filteredContractorList = this.contractors.filter(
+        (c) => String(c.branchId) === String(this.filters.branchId),
+      );
+    }
+  }
+
+  openDetail(detail: string): void {
     this.activeDetail = detail;
-    this.cdr.markForCheck();
     setTimeout(() => this.scrollToDetail(detail), 50);
   }
 
   clearDetails(): void {
     this.activeDetail = null;
-    this.cdr.markForCheck();
   }
 
   togglePfModal(): void {
     this.showPfModal = !this.showPfModal;
-    this.cdr.markForCheck();
   }
 
   toggleEsiModal(): void {
     this.showEsiModal = !this.showEsiModal;
-    this.cdr.markForCheck();
   }
 
-  private scrollToDetail(detail: DetailKey): void {
-    const el = this.getDetailElement(detail);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  private getDetailElement(detail: DetailKey): HTMLElement | null {
-    switch (detail) {
-      case 'PAYROLL':
-        return this.payrollDetails?.nativeElement ?? null;
-      case 'COMPLIANCE':
-        return this.compliancePanel?.nativeElement ?? null;
-      case 'AUDIT':
-        return this.auditPanel?.nativeElement ?? null;
-      case 'BRANCHES':
-        return this.branchPanel?.nativeElement ?? null;
-      case 'CONTRACTORS':
-        return this.contractorPanel?.nativeElement ?? null;
-      case 'EMPLOYEES':
-        return this.employeePanel?.nativeElement ?? null;
-      case 'RISK':
-        return this.riskPanel?.nativeElement ?? null;
-      default:
-        return null;
+  riskBadgeClass(level: string): string {
+    switch (level?.toUpperCase()) {
+      case 'LOW':      return 'badge-low';
+      case 'MEDIUM':   return 'badge-medium';
+      case 'HIGH':     return 'badge-high';
+      case 'CRITICAL': return 'badge-critical';
+      default:         return 'badge-low';
     }
-  }
-
-  filteredContractors() {
-    if (this.filters.branchId === 'ALL') return this.contractors;
-    return this.contractors.filter((c) => String(c.branchId) === String(this.filters.branchId));
   }
 
   queueBadgeClass(item: LegitxQueueItem): string {
@@ -282,6 +333,65 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private isCriticalType(type: string): boolean {
     const criticalTypes = ['SHOWCAUSE', 'INSPECTION_FAILED', 'LICENSE_EXPIRED', 'LOW_BRANCH_COMPLIANCE'];
     return criticalTypes.includes(type?.toUpperCase?.() || '');
+  }
+
+  private scrollToDetail(detail: string): void {
+    const refMap: Record<string, ElementRef | undefined> = {
+      PAYROLL: this.payrollDetails,
+      CONTRACTORS: this.contractorPanel,
+      EMPLOYEES: this.employeePanel,
+      BRANCHES: this.branchPanel,
+      COMPLIANCE: this.compliancePanel,
+      AUDIT: this.auditPanel,
+      RISK: this.aiRiskPanel,
+    };
+    const el = refMap[detail];
+    if (el?.nativeElement) {
+      el.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  private loadBranchRiskOverview(): void {
+    this.riskSub?.unsubscribe();
+    if (this.filters.branchId !== 'ALL') {
+      this.branchRiskOverview = [];
+      return;
+    }
+    if (!this.branches.length) {
+      this.branchRiskOverview = [];
+      return;
+    }
+    this.branchRiskLoading = true;
+    this.branchRiskError = '';
+
+    const calls = this.branches.map(b =>
+      this.aiRisk.getBranchRisk(String(b.id), this.filters.year, this.filters.month).pipe(
+        catchError(() => of(null as AiRiskBranchResponse | null)),
+      ),
+    );
+
+    this.riskSub = forkJoin(calls)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.branchRiskLoading = false; this.cdr.markForCheck(); }),
+      )
+      .subscribe({
+        next: (results) => {
+          this.branchRiskOverview = results
+            .filter((r): r is AiRiskBranchResponse => r !== null)
+            .map(r => ({
+            ...r,
+            mcdPercent: r.mcdPercent ?? r.inputs?.mcdPercent ?? 0,
+            contractorUploadPercentage: r.contractorUploadPercentage ?? r.inputs?.contractorUploadPercentage ?? 0,
+            auditNcCount: r.auditNcCount ?? ((r.inputs?.auditCriticalNC ?? 0) + (r.inputs?.auditHighNC ?? 0) + (r.inputs?.auditMediumNC ?? 0)),
+          })).sort((a, b) => b.riskScore - a.riskScore);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.branchRiskError = 'Unable to load branch risk overview.';
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   private renderAllCharts(): void {

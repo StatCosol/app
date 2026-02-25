@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
@@ -22,6 +22,7 @@ export class AuthService {
     private readonly usersRepo: Repository<UserEntity>,
     private readonly usersService: UsersService,
     private readonly jwt: JwtService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async login(dto: LoginDto) {
@@ -49,7 +50,19 @@ export class AuthService {
 
     const role = await this.usersService.getRoleById(user.roleId);
 
-    const tokens = await this.issueTokens(user.id, role.code, user);
+    // Resolve branch mappings for CLIENT users
+    let branchIds: string[] = [];
+    let isMasterUser = false;
+    if (role.code === 'CLIENT') {
+      const rows: { branch_id: string }[] = await this.dataSource.query(
+        `SELECT branch_id FROM user_branches WHERE user_id = $1`,
+        [user.id],
+      );
+      branchIds = rows.map((r) => r.branch_id);
+      isMasterUser = branchIds.length === 0;
+    }
+
+    const tokens = await this.issueTokens(user.id, role.code, user, branchIds);
 
     return {
       accessToken: tokens.accessToken,
@@ -63,8 +76,11 @@ export class AuthService {
         name: user.name,
         clientId: user.clientId ?? null,
         clientName: user.client?.clientName ?? null,
+        clientLogoUrl: (user.client as any)?.logoUrl ?? null,
         crmId: (user as any).crmId ?? null,
         userType: user.userType ?? null,
+        isMasterUser,
+        branchIds,
         employeeId: (user as any).employeeId ?? null,
       },
     };
@@ -144,7 +160,18 @@ export class AuthService {
     }
 
     const roleCode = await this.usersService.getUserRoleCode(user.id);
-    const tokens = await this.issueTokens(user.id, roleCode, user);
+
+    // Re-resolve branchIds for CLIENT users on refresh
+    let branchIds: string[] = [];
+    if (roleCode === 'CLIENT') {
+      const rows: { branch_id: string }[] = await this.dataSource.query(
+        `SELECT branch_id FROM user_branches WHERE user_id = $1`,
+        [user.id],
+      );
+      branchIds = rows.map((r) => r.branch_id);
+    }
+
+    const tokens = await this.issueTokens(user.id, roleCode, user, branchIds);
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -193,6 +220,7 @@ export class AuthService {
     userId: string,
     roleCode: string,
     user?: UserEntity,
+    branchIds?: string[],
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const basePayload = {
       sub: userId,
@@ -200,6 +228,7 @@ export class AuthService {
       email: user?.email,
       name: user?.name,
       clientId: user?.clientId ?? null,
+      branchIds: branchIds ?? [],
     } as const;
 
     const accessToken = await this.jwt.signAsync({

@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ClientEntity } from '../../clients/entities/client.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { AuditType, Frequency } from '../../common/enums';
 
@@ -33,6 +34,13 @@ export class AuditEntity {
   @ManyToOne(() => ClientEntity, { eager: false })
   @JoinColumn({ name: 'client_id' })
   client?: ClientEntity;
+
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId: string | null;
+
+  @ManyToOne(() => BranchEntity, { eager: false })
+  @JoinColumn({ name: 'branch_id' })
+  branch?: BranchEntity | null;
 
   @Column({ name: 'contractor_user_id', type: 'uuid', nullable: true })
   contractorUserId: string | null;

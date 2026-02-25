@@ -1,6 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { finalize, timeout } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 import { CeoApiService, CeoOversightSummary } from '../../../core/api/ceo.api';
 
@@ -52,21 +53,28 @@ import { CeoApiService, CeoOversightSummary } from '../../../core/api/ceo.api';
     </div>
   `,
 })
-export class CeoCcoOversightComponent implements OnInit {
+export class CeoCcoOversightComponent implements OnInit, OnDestroy {
   summary: any[] = [];
-  loading = false;
+  loading = true;
   error: string | null = null;
+  private destroy$ = new Subject<void>();
 
   constructor(private api: CeoApiService, private cdr: ChangeDetectorRef) {}
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
   ngOnInit(): void {
     this.loading = true;
     this.api.getOversightSummary().pipe(
+      takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.summary = data?.ccoSummary || []; this.cdr.detectChanges(); },
-      error: () => { this.error = 'Failed to load oversight data'; this.cdr.detectChanges(); },
+      next: (data) => { this.loading = false; this.summary = data?.ccoSummary || []; this.cdr.detectChanges(); },
+      error: () => { this.loading = false; this.error = 'Failed to load oversight data'; this.cdr.detectChanges(); },
     });
   }
 }

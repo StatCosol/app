@@ -43,7 +43,7 @@ export interface ComplianceTaskRow {
 }
 
 export interface ContractorImpactRow {
-  contractorId: string;
+  contractorUserId: string;
   contractorName: string;
   branchId: string | null;
   branchName: string | null;
