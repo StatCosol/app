@@ -1,6 +1,8 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Logger, Query, UseGuards } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import {
   ADMIN_DASHBOARD_SUMMARY_SQL,
   ADMIN_ESCALATIONS_SQL,
@@ -8,7 +10,9 @@ import {
 } from '../admin/sql/admin-dashboard.sql';
 
 @Controller({ path: 'admin/dashboard', version: '1' })
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminDashboardController {
+  private readonly logger = new Logger(AdminDashboardController.name);
   constructor(private readonly dataSource: DataSource) {}
 
   // Frontend (DashboardService.admin()) calls GET /api/admin/dashboard.
@@ -62,7 +66,7 @@ export class AdminDashboardController {
         .map((s: any) => s.state_code)
         .filter((code: string | null) => code !== null);
     } catch (error) {
-      console.error('Error fetching states:', error);
+      this.logger.error('Error fetching states:', error);
       return []; // Return empty array on error
     }
   }
@@ -132,7 +136,7 @@ export class AdminDashboardController {
         systemHealth: systemHealth,
       };
     } catch (error) {
-      console.error('Dashboard summary error:', error);
+      this.logger.error('Dashboard summary error:', error);
       // Fallback response matching AdminDashboardSummaryDto
       return {
         clients: 0,
@@ -172,7 +176,7 @@ export class AdminDashboardController {
         to ? new Date(to) : null,
       ]);
     } catch (error) {
-      console.error('Error fetching escalations:', error);
+      this.logger.error('Error fetching escalations:', error);
       return [];
     }
   }
@@ -189,7 +193,7 @@ export class AdminDashboardController {
         stateCode || null,
       ]);
     } catch (error) {
-      console.error('Error fetching assignments attention:', error);
+      this.logger.error('Error fetching assignments attention:', error);
       return [];
     }
   }
@@ -224,7 +228,8 @@ export class AdminDashboardController {
         pending: pendingRow?.n ?? 0,
         overdue: overdueRow?.n ?? 0,
       };
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to fetch rotation metrics', error);
       return { completed: 0, pending: 0, overdue: 0 };
     }
   }
@@ -254,7 +259,8 @@ export class AdminDashboardController {
 
         values.push(Math.round(row?.compliance ?? 0));
       }
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to fetch SLA trend', error);
       return { values: Array(10).fill(0) };
     }
 
@@ -325,7 +331,7 @@ export class AdminDashboardController {
         failedJobs24h: failedJobsCount,
       };
     } catch (error) {
-      console.error('Error fetching system health:', error);
+      this.logger.error('Error fetching system health:', error);
       return {
         inactiveUsers15d: 0,
         unassignedClients: 0,
@@ -398,7 +404,8 @@ export class AdminDashboardController {
         pendingApprovals: pendingApprovalsRow?.n ?? 0,
         unreadNotifications: unreadNotificationsRow?.n ?? 0,
       };
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to fetch KPI cards', error);
       return {
         clients: await this.safeCountActive('clients'),
         branches: await this.safeCountActive('client_branches'),
@@ -438,7 +445,8 @@ export class AdminDashboardController {
          LIMIT 10`,
       );
       return rows;
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to fetch CRM load', error);
       return [];
     }
   }
@@ -470,7 +478,8 @@ export class AdminDashboardController {
          LIMIT 10`,
       );
       return rows;
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to fetch auditor load', error);
       return [];
     }
   }
@@ -498,10 +507,255 @@ export class AdminDashboardController {
         [since],
       );
       return rows;
-    } catch {
+    } catch (error) {
+      this.logger.error('Failed to fetch attention items', error);
       return [];
     }
   }
+
+  // ───── Governance Layer Endpoints ─────
+
+  @Roles('ADMIN', 'CEO', 'CCO')
+  @Get('assignment-summary')
+  async getAssignmentSummary() {
+    try {
+      const [row] = await this.dataSource.query(`
+        SELECT
+          (SELECT COUNT(*)::int FROM clients
+           WHERE (is_deleted = false OR is_deleted IS NULL)
+             AND (is_active = true OR is_active IS NULL)) AS "totalClients",
+
+          (SELECT COUNT(*)::int FROM clients
+           WHERE (is_deleted = false OR is_deleted IS NULL)
+             AND (is_active = true OR is_active IS NULL)
+             AND assigned_crm_id IS NOT NULL) AS "crmAssigned",
+
+          (SELECT COUNT(*)::int FROM clients
+           WHERE (is_deleted = false OR is_deleted IS NULL)
+             AND (is_active = true OR is_active IS NULL)
+             AND assigned_crm_id IS NULL) AS "crmUnassigned",
+
+          (SELECT COUNT(*)::int FROM clients
+           WHERE (is_deleted = false OR is_deleted IS NULL)
+             AND (is_active = true OR is_active IS NULL)
+             AND assigned_auditor_id IS NOT NULL) AS "auditorAssigned",
+
+          (SELECT COUNT(*)::int FROM clients
+           WHERE (is_deleted = false OR is_deleted IS NULL)
+             AND (is_active = true OR is_active IS NULL)
+             AND assigned_auditor_id IS NULL) AS "auditorUnassigned"
+      `);
+      return row;
+    } catch (error) {
+      this.logger.error('Error fetching assignment summary:', error);
+      return {
+        totalClients: 0,
+        crmAssigned: 0,
+        crmUnassigned: 0,
+        auditorAssigned: 0,
+        auditorUnassigned: 0,
+      };
+    }
+  }
+
+  @Roles('ADMIN', 'CEO', 'CCO')
+  @Get('unassigned-clients')
+  async getUnassignedClients() {
+    try {
+      const rows = await this.dataSource.query(`
+        SELECT
+          c.id AS "clientId",
+          c.client_name AS "clientName",
+          COALESCE(bc.cnt, 0)::int AS "branchCount",
+          (c.assigned_crm_id IS NOT NULL) AS "hasCrm",
+          EXISTS(
+            SELECT 1 FROM client_users cu
+            JOIN users u ON cu.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
+            WHERE cu.client_id = c.id AND r.code = 'PAYROLL'
+              AND u.is_active = true AND u.deleted_at IS NULL
+          ) AS "hasPayrollUser",
+          EXISTS(
+            SELECT 1 FROM client_users cu
+            JOIN users u ON cu.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
+            WHERE cu.client_id = c.id AND r.code = 'CLIENT'
+              AND u.is_active = true AND u.deleted_at IS NULL
+          ) AS "hasMasterUser"
+        FROM clients c
+        LEFT JOIN (
+          SELECT clientid, COUNT(*)::int AS cnt
+          FROM client_branches
+          WHERE (isactive = true OR isactive IS NULL)
+            AND (isdeleted = false OR isdeleted IS NULL)
+          GROUP BY clientid
+        ) bc ON bc.clientid = c.id
+        WHERE (c.is_deleted = false OR c.is_deleted IS NULL)
+          AND (c.is_active = true OR c.is_active IS NULL)
+          AND (
+            c.assigned_crm_id IS NULL
+            OR c.assigned_auditor_id IS NULL
+            OR NOT EXISTS(
+              SELECT 1 FROM client_users cu
+              JOIN users u ON cu.user_id = u.id
+              JOIN roles r ON u.role_id = r.id
+              WHERE cu.client_id = c.id AND r.code = 'PAYROLL'
+                AND u.is_active = true AND u.deleted_at IS NULL
+            )
+            OR NOT EXISTS(
+              SELECT 1 FROM client_users cu
+              JOIN users u ON cu.user_id = u.id
+              JOIN roles r ON u.role_id = r.id
+              WHERE cu.client_id = c.id AND r.code = 'CLIENT'
+                AND u.is_active = true AND u.deleted_at IS NULL
+            )
+          )
+        ORDER BY c.client_name
+      `);
+      return rows;
+    } catch (error) {
+      this.logger.error('Error fetching unassigned clients:', error);
+      return [];
+    }
+  }
+
+  @Roles('ADMIN', 'CEO', 'CCO')
+  @Get('audit-summary')
+  async getAuditSummary() {
+    try {
+      const rows = await this.dataSource.query(`
+        SELECT
+          c.id AS "clientId",
+          c.client_name AS "clientName",
+          MAX(CASE WHEN a.status = 'COMPLETED' THEN a.due_date END) AS "lastAuditDate",
+          MIN(CASE WHEN a.status IN ('PLANNED','IN_PROGRESS') AND a.due_date >= CURRENT_DATE THEN a.due_date END) AS "nextDueDate",
+          CASE
+            WHEN EXISTS(
+              SELECT 1 FROM audits oa
+              WHERE oa.client_id = c.id
+                AND oa.status IN ('PLANNED','IN_PROGRESS')
+                AND oa.due_date < CURRENT_DATE
+            ) THEN 'OVERDUE'
+            WHEN EXISTS(
+              SELECT 1 FROM audits pa
+              WHERE pa.client_id = c.id
+                AND pa.status IN ('PLANNED','IN_PROGRESS')
+            ) THEN 'ON_TRACK'
+            ELSE 'NO_AUDITS'
+          END AS "status",
+          COALESCE((
+            SELECT COUNT(*)::int FROM audits ca
+            WHERE ca.client_id = c.id
+              AND ca.status IN ('PLANNED','IN_PROGRESS')
+              AND ca.due_date < CURRENT_DATE
+          ), 0) AS "overdueCount"
+        FROM clients c
+        LEFT JOIN audits a ON a.client_id = c.id
+        WHERE (c.is_deleted = false OR c.is_deleted IS NULL)
+          AND (c.is_active = true OR c.is_active IS NULL)
+        GROUP BY c.id, c.client_name
+        ORDER BY
+          CASE
+            WHEN EXISTS(SELECT 1 FROM audits oa WHERE oa.client_id = c.id AND oa.status IN ('PLANNED','IN_PROGRESS') AND oa.due_date < CURRENT_DATE) THEN 0
+            ELSE 1
+          END,
+          c.client_name
+      `);
+      return rows;
+    } catch (error) {
+      this.logger.error('Error fetching audit summary:', error);
+      return [];
+    }
+  }
+
+  @Roles('ADMIN', 'CEO', 'CCO')
+  @Get('risk-alerts')
+  async getRiskAlerts() {
+    try {
+      const activeClientFilter = `(is_deleted = false OR is_deleted IS NULL) AND (is_active = true OR is_active IS NULL)`;
+
+      const [auditOverdueRow] = await this.dataSource.query(`
+        SELECT COUNT(DISTINCT c.id)::int AS n
+        FROM clients c
+        JOIN audits a ON a.client_id = c.id
+        WHERE ${activeClientFilter}
+          AND a.status IN ('PLANNED','IN_PROGRESS')
+          AND a.due_date < CURRENT_DATE
+      `);
+
+      const [noCrmRow] = await this.dataSource.query(`
+        SELECT COUNT(*)::int AS n FROM clients
+        WHERE ${activeClientFilter} AND assigned_crm_id IS NULL
+      `);
+
+      const [noPayrollRow] = await this.dataSource.query(`
+        SELECT COUNT(*)::int AS n FROM clients c
+        WHERE ${activeClientFilter}
+          AND NOT EXISTS(
+            SELECT 1 FROM client_users cu
+            JOIN users u ON cu.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
+            WHERE cu.client_id = c.id AND r.code = 'PAYROLL'
+              AND u.is_active = true AND u.deleted_at IS NULL
+          )
+      `);
+
+      const [zeroBranchesRow] = await this.dataSource.query(`
+        SELECT COUNT(*)::int AS n FROM clients c
+        WHERE ${activeClientFilter}
+          AND NOT EXISTS(
+            SELECT 1 FROM client_branches cb
+            WHERE cb.clientid = c.id
+              AND (cb.isactive = true OR cb.isactive IS NULL)
+              AND (cb.isdeleted = false OR cb.isdeleted IS NULL)
+          )
+      `);
+
+      const firstOfMonth = new Date();
+      firstOfMonth.setDate(1);
+      firstOfMonth.setHours(0, 0, 0, 0);
+
+      // Check if compliance_documents table exists before querying
+      const [tableExists] = await this.dataSource.query(`
+        SELECT COUNT(*)::int AS n
+        FROM information_schema.tables
+        WHERE table_name = 'compliance_documents'
+      `);
+
+      let noMcdUploads = 0;
+      if (tableExists?.n > 0) {
+        const [noMcdRow] = await this.dataSource.query(`
+          SELECT COUNT(*)::int AS n FROM clients c
+          WHERE ${activeClientFilter}
+            AND NOT EXISTS(
+              SELECT 1 FROM compliance_documents cd
+              WHERE cd.client_id = c.id
+                AND cd.uploaded_at >= $1
+            )
+        `, [firstOfMonth]);
+        noMcdUploads = noMcdRow?.n ?? 0;
+      }
+
+      return {
+        auditOverdue: auditOverdueRow?.n ?? 0,
+        noCrm: noCrmRow?.n ?? 0,
+        noPayroll: noPayrollRow?.n ?? 0,
+        zeroBranches: zeroBranchesRow?.n ?? 0,
+        noMcdUploads,
+      };
+    } catch (error) {
+      this.logger.error('Error fetching risk alerts:', error);
+      return {
+        auditOverdue: 0,
+        noCrm: 0,
+        noPayroll: 0,
+        zeroBranches: 0,
+        noMcdUploads: 0,
+      };
+    }
+  }
+
+  // ───── Private Helpers ─────
 
   private async safeCount(table: string): Promise<number> {
     try {
@@ -509,7 +763,8 @@ export class AdminDashboardController {
         `SELECT COUNT(*)::int AS n FROM ${table}`,
       );
       return row?.n ?? 0;
-    } catch {
+    } catch (error) {
+      this.logger.error(`Failed to count ${table}`, error);
       return 0;
     }
   }

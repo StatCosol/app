@@ -159,7 +159,9 @@ export class BranchNotificationsComponent implements OnInit {
     if (!n.read) {
       n.read = true;
       this.unreadCount = Math.max(0, this.unreadCount - 1);
-      this.notifSvc.markRead(n.id).subscribe();
+      this.notifSvc.markRead(n.id).subscribe({
+        error: () => { /* silently ignore mark-read failures */ }
+      });
       this.cdr.markForCheck();
     }
   }

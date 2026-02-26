@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -31,7 +32,7 @@ export class AdminApprovalsController {
 
   @Post(':id/approve')
   async approve(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('notes') notes: string,
     @Req() req: any,
   ) {
@@ -41,7 +42,7 @@ export class AdminApprovalsController {
 
   @Post(':id/reject')
   async reject(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('notes') notes: string,
     @Req() req: any,
   ) {

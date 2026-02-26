@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminActionsService } from './admin-actions.service';
@@ -16,7 +17,7 @@ import { AdminReassignDto } from './dto/admin-reassign.dto';
  * ⚠️ Transaction-safe: Uses TypeORM transactions with pessimistic locking
  */
 @Controller({ path: 'admin/actions', version: '1' })
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminActionsController {
   constructor(private readonly svc: AdminActionsService) {}

@@ -17,6 +17,7 @@ import { UserDirectoryQueryDto } from './dto/user-directory-query.dto';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { ClientUserEntity } from '../clients/entities/client-user.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 // BranchContractorEntity removed from directory query (table absent); use user_branches join table instead
 
 export type ListUsersPagedArgs = {
@@ -117,6 +118,7 @@ export class UsersService implements OnModuleInit {
     @InjectRepository(BranchEntity)
     private branchesRepo: Repository<BranchEntity>,
     private dataSource: DataSource,
+    private auditLogs: AuditLogsService,
   ) {}
 
   async onModuleInit() {
@@ -178,6 +180,16 @@ export class UsersService implements OnModuleInit {
         code: 'EMPLOYEE',
         name: 'Employee Self-Service',
         description: 'View payslips, apply leave, manage nominations',
+      },
+      {
+        code: 'PAYROLL',
+        name: 'Payroll Manager',
+        description: 'Processes payroll, generates PF/ESI returns, manages payslips',
+      },
+      {
+        code: 'PF_TEAM',
+        name: 'PF & ESI Team',
+        description: 'Manages PF ECR generation, ESI returns, and statutory submissions',
       },
     ];
 
@@ -249,7 +261,7 @@ export class UsersService implements OnModuleInit {
       );
       if (alreadyMigrated || sample.length === 0) return;
 
-      console.log('[UsersService] Regenerating user codes to new format...');
+      this.logger.log('Regenerating user codes to new format...');
 
       // Raw SQL avoids query-builder column-mapping issues
       const rows: Array<{
@@ -295,10 +307,10 @@ export class UsersService implements OnModuleInit {
         );
       }
 
-      console.log(`[UsersService] Regenerated ${rows.length} user codes.`);
+      this.logger.log(`Regenerated ${rows.length} user codes.`);
     } catch (err) {
       // Log but never crash the app — code regeneration is non-critical
-      console.error('[UsersService] Failed to regenerate user codes:', err);
+      this.logger.error('Failed to regenerate user codes:', err);
     }
   }
 
@@ -333,6 +345,39 @@ export class UsersService implements OnModuleInit {
     const role = await this.rolesRepo.findOne({ where: { id: roleId } });
     if (!role) throw new NotFoundException(`Role not found for id: ${roleId}`);
     return role;
+  }
+
+  async findRoleByCode(code: string): Promise<RoleEntity | null> {
+    return this.rolesRepo.findOne({ where: { code } });
+  }
+
+  /**
+   * Create an ESS (EMPLOYEE) user record linked to an employee.
+   */
+  async createEssUser(dto: {
+    userCode: string;
+    roleId: string;
+    roleCode: string;
+    name: string;
+    email: string;
+    passwordHash: string;
+    clientId: string;
+    employeeId: string;
+  }): Promise<UserEntity> {
+    const user = this.usersRepo.create({
+      userCode: dto.userCode,
+      roleId: dto.roleId,
+      role: dto.roleCode,
+      name: dto.name,
+      email: dto.email.toLowerCase(),
+      mobile: null,
+      passwordHash: dto.passwordHash,
+      isActive: true,
+      clientId: dto.clientId,
+      employeeId: dto.employeeId,
+      userType: null,
+    });
+    return this.usersRepo.save(user);
   }
 
   async listRoles(): Promise<RoleEntity[]> {
@@ -592,7 +637,97 @@ export class UsersService implements OnModuleInit {
         .add(branchIds);
     }
 
+    // Audit log for user creation
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: saved.id,
+      action: 'CREATE',
+      performedBy: null,
+      performedRole: 'ADMIN',
+      afterJson: {
+        id: saved.id,
+        name: saved.name,
+        email: saved.email,
+        role: role.code,
+        userType,
+        clientId: dto.clientId ?? null,
+      },
+    });
+
     return { id: saved.id, message: 'User created', userType };
+  }
+
+  /**
+   * Create a MASTER CLIENT user within an existing transaction.
+   * Used by ClientsService.create() to atomically create client + master user.
+   */
+  async createMasterUserForClient(
+    manager: import('typeorm').EntityManager,
+    args: {
+      name: string;
+      email: string;
+      mobile?: string | null;
+      password: string;
+      clientId: string;
+    },
+  ): Promise<{ id: string; email: string; userCode: string }> {
+    const email = args.email.trim().toLowerCase();
+    const name = args.name.trim();
+
+    // Resolve CLIENT role
+    const clientRole = await this.rolesRepo.findOne({ where: { code: 'CLIENT' } });
+    if (!clientRole) throw new NotFoundException('CLIENT role not found');
+
+    // Check duplicate email within the transaction
+    const existingEmail = await manager.findOne(UserEntity, { where: { email } });
+    if (existingEmail) throw new BadRequestException('Email already exists');
+
+    // Enforce single MASTER per client
+    const existingMaster = await manager.findOne(UserEntity, {
+      where: { clientId: args.clientId, userType: 'MASTER', isActive: true },
+    });
+    if (existingMaster) {
+      throw new BadRequestException(
+        'A master user already exists for this client. Each client can have only one master user.',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(args.password, 10);
+    const userCode = await this.generateUserCode('CLIENT', name, args.clientId);
+
+    const user = manager.create(UserEntity, {
+      userCode,
+      roleId: clientRole.id,
+      role: 'CLIENT',
+      name,
+      email,
+      mobile: args.mobile ?? null,
+      passwordHash,
+      isActive: true,
+      clientId: args.clientId,
+      userType: 'MASTER',
+    });
+
+    const saved = await manager.save(UserEntity, user);
+
+    // Audit log for master user creation
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: saved.id,
+      action: 'CREATE',
+      performedBy: null,
+      performedRole: 'ADMIN',
+      afterJson: {
+        id: saved.id,
+        name: saved.name,
+        email: saved.email,
+        role: 'CLIENT',
+        userType: 'MASTER',
+        clientId: args.clientId,
+      },
+    });
+
+    return { id: saved.id, email: saved.email, userCode: saved.userCode };
   }
 
   // ✅ SAFE: no passwordHash exposure
@@ -686,15 +821,15 @@ export class UsersService implements OnModuleInit {
 
     // Debug: Log the generated SQL
     const sqlQuery = qb.getSql();
-    console.log('[listUsersPaged] Generated SQL:', sqlQuery);
-    console.log('[listUsersPaged] Parameters:', qb.getParameters());
+    this.logger.debug('[listUsersPaged] Generated SQL:', sqlQuery);
+    this.logger.debug('[listUsersPaged] Parameters:', qb.getParameters());
 
     const [users, total]: [UserEntity[], number] = await qb
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();
 
-    console.log(`[listUsersPaged] Found ${users.length} users, total: ${total}`);
+    this.logger.debug(`[listUsersPaged] Found ${users.length} users, total: ${total}`);
 
     // include roleCode in items for easier frontend use
     const roles = await this.rolesRepo.find();
@@ -742,9 +877,127 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException('You cannot change your own status');
     }
 
+    // Block deactivating CRM/AUDITOR users who have active client assignments
+    if (!isActive && (roleCode === 'CRM' || roleCode === 'AUDITOR')) {
+      const activeAssignments: Array<{ cnt: string }> =
+        await this.dataSource.query(
+          `SELECT COUNT(*) AS cnt FROM client_assignments_current
+           WHERE assigned_to_user_id = $1`,
+          [userId],
+        );
+      const count = Number(activeAssignments[0]?.cnt ?? 0);
+      if (count > 0) {
+        throw new BadRequestException(
+          `Cannot deactivate ${roleCode} user — they have ${count} active client assignment(s). Unassign them first.`,
+        );
+      }
+    }
+
+    const previousStatus = user.isActive;
     user.isActive = isActive;
     await this.usersRepo.save(user);
+
+    // Audit log
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: userId,
+      action: 'STATUS_CHANGE',
+      performedBy: currentUserId ?? null,
+      performedRole: 'ADMIN',
+      beforeJson: { isActive: previousStatus },
+      afterJson: { isActive, roleCode, name: user.name },
+    });
+
     return { message: 'User status updated' };
+  }
+
+  /**
+   * Update user profile fields (name, email, mobile).
+   * Does NOT allow password change or role change from here.
+   */
+  async updateUser(
+    userId: string,
+    dto: { name?: string; email?: string; mobile?: string },
+    currentUserId?: string,
+  ) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
+    const roleCode = role?.code;
+
+    // Prevent editing ADMIN or CEO users by other admins
+    if (
+      (roleCode === 'ADMIN' || roleCode === 'CEO') &&
+      currentUserId !== userId
+    ) {
+      throw new BadRequestException(
+        'Admin or CEO users can only be edited by themselves',
+      );
+    }
+
+    if (dto.name !== undefined) user.name = dto.name;
+    if (dto.email !== undefined) user.email = dto.email.toLowerCase();
+    if (dto.mobile !== undefined) user.mobile = dto.mobile ?? null;
+
+    const saved = await this.usersRepo.save(user);
+
+    // Audit log
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: userId,
+      action: 'UPDATE',
+      performedBy: currentUserId ?? null,
+      performedRole: 'ADMIN',
+      beforeJson: { name: user.name, email: user.email, mobile: user.mobile },
+      afterJson: { name: saved.name, email: saved.email, mobile: saved.mobile },
+    });
+
+    return {
+      id: saved.id,
+      name: saved.name,
+      email: saved.email,
+      mobile: saved.mobile,
+      message: 'User updated',
+    };
+  }
+
+  /**
+   * Admin-triggered password reset. Generates a new password for the user.
+   * Cannot be used for CEO or ADMIN users.
+   */
+  async adminResetPassword(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
+    const roleCode = role?.code;
+
+    if (roleCode === 'ADMIN' || roleCode === 'CEO') {
+      throw new BadRequestException(
+        'Cannot reset ADMIN or CEO password from Admin panel',
+      );
+    }
+
+    // Auto-generate a password
+    const newPassword = `Reset@${Math.floor(1000 + Math.random() * 9000)}`;
+    const bcrypt = await import('bcryptjs');
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    user.passwordHash = hashed;
+    await this.usersRepo.save(user);
+
+    // Audit log
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: userId,
+      action: 'PASSWORD_RESET',
+      performedBy: null,
+      performedRole: 'ADMIN',
+      afterJson: { resetFor: user.email, roleCode },
+    });
+
+    return { message: 'Password reset', userId, newPassword };
   }
 
   // ---- Auth helpers ----
@@ -939,12 +1192,12 @@ export class UsersService implements OnModuleInit {
     `;
     const dataParams = [...params, limit, offset];
 
-    console.log('[getUserDirectory] SQL:', dataSql.replace(/\s+/g, ' ').trim());
-    console.log('[getUserDirectory] Params:', dataParams);
+    this.logger.debug('[getUserDirectory] SQL:', dataSql.replace(/\s+/g, ' ').trim());
+    this.logger.debug('[getUserDirectory] Params:', dataParams);
 
     const dataRows: any[] = await this.dataSource.query(dataSql, dataParams);
 
-    console.log(
+    this.logger.debug(
       `[getUserDirectory] DB returned ${dataRows.length} rows, total=${total}`,
     );
 
@@ -974,7 +1227,7 @@ export class UsersService implements OnModuleInit {
       }));
 
     if (dataRows.length !== items.length) {
-      console.warn(
+      this.logger.warn(
         `[getUserDirectory] JS filter removed ${dataRows.length - items.length} deleted users that SQL missed!`,
       );
     }
@@ -1013,7 +1266,7 @@ export class UsersService implements OnModuleInit {
 
   // ✅ NEW: Used for dropdown lists (CCO screen)
   async listActiveUsersByRoleCode(roleCode: string, clientId?: string) {
-    console.log(
+    this.logger.debug(
       `[listActiveUsersByRoleCode] Looking for role: ${roleCode}, clientId: ${clientId}`,
     );
     const role = await this.rolesRepo.findOne({ where: { code: roleCode } });
@@ -1032,7 +1285,7 @@ export class UsersService implements OnModuleInit {
       withDeleted: false,
     });
 
-    console.log(
+    this.logger.debug(
       `[listActiveUsersByRoleCode] Found ${users.length} users with roleCode=${roleCode}`,
     );
     const result = users.map((u) => ({
@@ -1043,7 +1296,7 @@ export class UsersService implements OnModuleInit {
       roleCode,
       isActive: u.isActive,
     }));
-    console.log(
+    this.logger.debug(
       `[listActiveUsersByRoleCode] Returning ${result.length} users`,
       result.map((u) => ({
         id: u.id,

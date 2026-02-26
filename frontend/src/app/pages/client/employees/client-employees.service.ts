@@ -116,6 +116,13 @@ export class ClientEmployeesService {
     );
   }
 
+  /** Create ESS login for an employee */
+  provisionEss(employeeId: string, password?: string): Observable<any> {
+    const body: any = {};
+    if (password) body.password = password;
+    return this.http.post(`${this.base}/${employeeId}/provision-ess`, body);
+  }
+
   private mapEmployee(r: any): Employee {
     return {
       id: r?.id ?? '',

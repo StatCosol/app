@@ -44,6 +44,27 @@ export class ClientEntity {
   @Column({ name: 'logo_url', type: 'varchar', length: 500, nullable: true })
   logoUrl: string | null;
 
+  @Column({ name: 'registered_address', type: 'text', nullable: true })
+  registeredAddress: string | null;
+
+  @Column({ name: 'state', type: 'varchar', length: 50, nullable: true })
+  state: string | null;
+
+  @Column({ name: 'industry', type: 'varchar', length: 100, nullable: true })
+  industry: string | null;
+
+  @Column({ name: 'primary_contact_name', type: 'varchar', length: 255, nullable: true })
+  primaryContactName: string | null;
+
+  @Column({ name: 'primary_contact_email', type: 'varchar', length: 255, nullable: true })
+  primaryContactEmail: string | null;
+
+  @Column({ name: 'primary_contact_mobile', type: 'varchar', length: 20, nullable: true })
+  primaryContactMobile: string | null;
+
+  @Column({ name: 'company_code', type: 'varchar', length: 30, nullable: true })
+  companyCode: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

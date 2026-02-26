@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil, timeout, finalize } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } from '../../core/api/crm-clients.api';
+import { ClientBranchesService } from '../../core/client-branches.service';
 
 @Component({
   selector: 'app-crm-client-branches',
@@ -49,6 +50,26 @@ import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } fr
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">State *</label>
+              <select name="stateCode" [(ngModel)]="newBranch.stateCode" required
+                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option *ngFor="let s of states" [value]="s.code">{{ s.label }} ({{ s.code }})</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Establishment Type *</label>
+              <select name="establishmentType" [(ngModel)]="newBranch.establishmentType" required
+                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option *ngFor="let t of establishmentTypes" [value]="t.code">{{ t.label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">&nbsp;</label>
+              <div class="text-xs text-gray-400 pt-3">State rules will apply automatically</div>
             </div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -122,14 +143,23 @@ import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } fr
 
       <!-- Branches Table -->
       <div *ngIf="!isLoading && branches.length > 0" class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <!-- Month selector for compliance % -->
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+          <label class="text-xs font-medium text-gray-500 uppercase">Compliance Month:</label>
+          <input type="month" [(ngModel)]="selectedMonth" (change)="loadCompliancePercent()"
+                 class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm px-2 py-1" />
+        </div>
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estb. Type</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employees</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Compliance %</th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -142,6 +172,8 @@ import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } fr
                   {{ b.branchType }}
                 </span>
               </td>
+              <td class="px-4 py-3 text-sm text-gray-600">{{ b.stateCode || '—' }}</td>
+              <td class="px-4 py-3 text-sm text-gray-600">{{ b.establishmentType || '—' }}</td>
               <td class="px-4 py-3 text-sm text-gray-600">{{ b.address || '—' }}</td>
               <td class="px-4 py-3 text-sm text-gray-600">{{ b.employeeCount }}</td>
               <td class="px-4 py-3 text-sm">
@@ -149,6 +181,10 @@ import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } fr
                       [ngClass]="b.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
                   {{ b.status }}
                 </span>
+              </td>
+              <td class="px-4 py-3 text-sm">
+                <span class="font-black" [style.color]="$any(b).completionPercent < 50 ? '#dc2626' : $any(b).completionPercent < 80 ? '#d97706' : '#16a34a'">{{ $any(b).completionPercent ?? 0 }}%</span>
+                <div class="text-xs text-gray-400">{{ $any(b).uploaded ?? 0 }}/{{ $any(b).totalApplicable ?? 0 }}</div>
               </td>
               <td class="px-4 py-3 text-sm">
                 <div class="flex gap-2">
@@ -195,6 +231,23 @@ import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } fr
                 <option value="INACTIVE">Inactive</option>
               </select>
             </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">State *</label>
+              <select name="editStateCode" [(ngModel)]="editingBranch.stateCode" required
+                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option *ngFor="let s of states" [value]="s.code">{{ s.label }} ({{ s.code }})</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Establishment Type *</label>
+              <select name="editEstablishmentType" [(ngModel)]="editingBranch.establishmentType" required
+                      class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option *ngFor="let t of establishmentTypes" [value]="t.code">{{ t.label }}</option>
+              </select>
+            </div>
+            <div></div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -414,6 +467,11 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
   isLoading = true;
   err = '';
 
+  selectedMonth = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  })();
+
    newBranch: CreateBranchRequest = {
      branchName: '',
      branchType: 'HO',
@@ -421,6 +479,8 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
      employeeCount: 0,
      contractorCount: 0,
      status: 'ACTIVE',
+     stateCode: 'TG',
+     establishmentType: 'BRANCH',
      branchUserName: '',
      branchUserEmail: '',
      branchUserPassword: '',
@@ -446,6 +506,22 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
   saveEditContractorBranchesLoading = false;
   editContractorBranchesError = '';
 
+  states = [
+    { code: 'AP', label: 'Andhra Pradesh' },
+    { code: 'TG', label: 'Telangana' },
+    { code: 'TN', label: 'Tamil Nadu' },
+    { code: 'KA', label: 'Karnataka' },
+  ];
+
+  establishmentTypes = [
+    { code: 'FACTORY', label: 'Factory' },
+    { code: 'ESTABLISHMENT', label: 'Establishment' },
+    { code: 'WAREHOUSE', label: 'Warehouse' },
+    { code: 'SHOP', label: 'Shop' },
+    { code: 'HO', label: 'Head Office (HO)' },
+    { code: 'BRANCH', label: 'Branch Office' },
+  ];
+
   compliancesBranch: BranchDto | null = null;
   compliances: any[] = [];
   compliancesLoading = false;
@@ -458,6 +534,7 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private crmClientsApi: CrmClientsApi,
+    private clientBranchesApi: ClientBranchesService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -499,6 +576,7 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
       next: (branches) => {
         this.isLoading = false;
         this.branches = branches || [];
+        this.loadCompliancePercent();
         this.cdr.detectChanges();
       },
       error: (e) => {
@@ -514,6 +592,25 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.cdr.detectChanges();
       },
+    });
+  }
+
+  loadCompliancePercent(): void {
+    if (!this.branches.length) return;
+    this.clientBranchesApi.getComplianceCompletion(this.selectedMonth).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (res: any) => {
+        const map = new Map<string, any>((res.items || []).map((x: any) => [x.branchId, x]));
+        this.branches = this.branches.map((b: any) => ({
+          ...b,
+          completionPercent: (map.get(b.id) as any)?.completionPercent ?? 0,
+          uploaded: (map.get(b.id) as any)?.uploaded ?? 0,
+          totalApplicable: (map.get(b.id) as any)?.totalApplicable ?? 0,
+        }));
+        this.cdr.detectChanges();
+      },
+      error: () => { /* silently ignore */ }
     });
   }
 
@@ -533,6 +630,8 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
       employeeCount: this.newBranch.employeeCount ?? 0,
       contractorCount: this.newBranch.contractorCount ?? 0,
       status: this.newBranch.status || 'ACTIVE',
+      stateCode: this.newBranch.stateCode || 'TG',
+      establishmentType: this.newBranch.establishmentType || 'BRANCH',
       branchUserName: this.newBranch.branchUserName?.trim() || undefined,
       branchUserEmail: this.newBranch.branchUserEmail?.trim() || undefined,
       branchUserPassword: this.newBranch.branchUserPassword?.trim() || undefined,
@@ -554,6 +653,8 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
         this.newBranch.contractorCount = 0;
         this.newBranch.branchType = 'HO';
         this.newBranch.status = 'ACTIVE';
+        this.newBranch.stateCode = 'TG';
+        this.newBranch.establishmentType = 'BRANCH';
         this.newBranch.branchUserName = '';
         this.newBranch.branchUserEmail = '';
         this.newBranch.branchUserPassword = '';
@@ -589,6 +690,8 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
       employeeCount: this.editingBranch.employeeCount,
       contractorCount: this.editingBranch.contractorCount,
       status: this.editingBranch.status,
+      stateCode: (this.editingBranch as any).stateCode,
+      establishmentType: (this.editingBranch as any).establishmentType,
     };
 
     this.crmClientsApi.updateBranch(this.editingBranch.id, payload).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({

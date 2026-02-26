@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -19,7 +20,7 @@ type AuditLogsQuery = {
 };
 
 @Controller({ path: 'admin/audit-logs', version: '1' })
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminAuditLogsController {
   constructor(private readonly auditLogs: AuditLogsService) {}

@@ -72,7 +72,6 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    console.log('PayrollClients ngOnInit - loading clients');
     this.loading = true;
     this.cdr.detectChanges();
     this.payrollApi.getAssignedClients().pipe(
@@ -82,7 +81,6 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (list) => {
         this.loading = false;
-        console.log('PayrollClients loaded:', list);
         this.clients = list || [];
         this.cdr.detectChanges();
       },

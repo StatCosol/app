@@ -97,6 +97,10 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   regSummary: { total: number; active: number; expiringSoon: number; expired: number; scoreImpact: number } | null = null;
   regAlerts: any[] = [];
 
+  // ── Company Compliance Intelligence ──
+  companySummary: any = null;
+  exportingPack = false;
+
   filters = {
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
@@ -213,6 +217,9 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       regAlerts: this.clientBranches.getRegistrationAlerts(branchIdParam).pipe(
         catchError(() => of([])),
       ),
+      companySummary: this.clientBranches.getComplianceSummary(monthStr).pipe(
+        catchError(() => of(null)),
+      ),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -234,6 +241,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
           this.companyTrend = res.companyTrend || [];
           this.regSummary = res.regSummary;
           this.regAlerts = res.regAlerts || [];
+          this.companySummary = res.companySummary;
           this.branches = res.legitx.meta?.branches ?? [];
           this.contractors = res.legitx.meta?.contractors ?? [];
           this.updateFilteredContractors();
@@ -299,6 +307,30 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
 
   clearDetails(): void {
     this.activeDetail = null;
+  }
+
+  downloadExportPack(): void {
+    const monthStr = `${this.filters.year}-${this.two(this.filters.month)}`;
+    this.exportingPack = true;
+    this.cdr.markForCheck();
+
+    this.clientBranches.getExportPack(monthStr).subscribe({
+      next: (data: any) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `statcompy-report-${monthStr}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.exportingPack = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.exportingPack = false;
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   togglePfModal(): void {

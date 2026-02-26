@@ -89,6 +89,9 @@ export class NotificationEntity {
   @Column({ name: 'is_archived', type: 'boolean', default: false })
   isArchived: boolean;
 
+  @Column({ name: 'source_key', type: 'text', nullable: true })
+  sourceKey: string | null;
+
   @OneToMany(() => NotificationMessageEntity, (m) => m.notification)
   messages?: NotificationMessageEntity[];
 

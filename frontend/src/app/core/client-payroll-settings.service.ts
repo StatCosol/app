@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 
 export type ClientPayrollAccessSettings = {
   clientId: string;
+  allowBranchPayrollAccess: boolean;
   allowBranchWageRegisters: boolean;
   allowBranchSalaryRegisters: boolean;
 };

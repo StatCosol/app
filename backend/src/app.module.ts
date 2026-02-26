@@ -42,6 +42,11 @@ import { EssModule } from './ess/ess.module';
 import { AiModule } from './ai/ai.module';
 import { BranchComplianceModule } from './branch-compliance/branch-compliance.module';
 import { ComplianceDocumentsModule } from './compliance-documents/compliance-documents.module';
+import { CalendarModule } from './calendar/calendar.module';
+import { RiskModule } from './risk/risk.module';
+import { SlaModule } from './sla/sla.module';
+import { EscalationsModule } from './escalations/escalations.module';
+import { MonthlyDocumentsModule } from './monthly-documents/monthly-documents.module';
 
 @Module({
   imports: [
@@ -112,6 +117,11 @@ import { ComplianceDocumentsModule } from './compliance-documents/compliance-doc
     AiModule,
     BranchComplianceModule,
     ComplianceDocumentsModule,
+    CalendarModule,
+    RiskModule,
+    SlaModule,
+    EscalationsModule,
+    MonthlyDocumentsModule,
   ],
   controllers: [],
   providers: [

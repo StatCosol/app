@@ -7,7 +7,11 @@ import {
   TaskStatusDto,
   LoadRowDto,
   AttentionItemDto,
-  SlaTrendDto
+  SlaTrendDto,
+  AssignmentSummaryDto,
+  UnassignedClientDto,
+  AuditSummaryDto,
+  RiskAlertsDto,
 } from './admin-dashboard.dto';
 
 @Injectable({ providedIn: 'root' })
@@ -58,5 +62,23 @@ export class AdminDashboardService {
 
   getAvailableStates(): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/states`);
+  }
+
+  // ───── Governance Layer ─────
+
+  getAssignmentSummary(): Observable<AssignmentSummaryDto> {
+    return this.http.get<AssignmentSummaryDto>(`${this.base}/assignment-summary`);
+  }
+
+  getUnassignedClients(): Observable<UnassignedClientDto[]> {
+    return this.http.get<UnassignedClientDto[]>(`${this.base}/unassigned-clients`);
+  }
+
+  getAuditSummary(): Observable<AuditSummaryDto[]> {
+    return this.http.get<AuditSummaryDto[]>(`${this.base}/audit-summary`);
+  }
+
+  getRiskAlerts(): Observable<RiskAlertsDto> {
+    return this.http.get<RiskAlertsDto>(`${this.base}/risk-alerts`);
   }
 }

@@ -11,9 +11,14 @@ import {
   AdminDashboardSummaryDto,
   TaskStatusDto,
   LoadRowDto,
-  AttentionItemDto
+  AttentionItemDto,
+  AssignmentSummaryDto,
+  RiskAlertsDto,
+  AuditSummaryDto,
 } from './dashboard/admin-dashboard.dto';
 import { ToastService } from '../../shared/toast/toast.service';
+import { LowestBranchesComponent } from '../../shared/compliance/lowest-branches.component';
+import { RiskRankingComponent } from '../../shared/compliance/risk-ranking.component';
 import {
   StatCardComponent,
   LoadingSpinnerComponent,
@@ -46,6 +51,8 @@ type Range = '7d' | '30d' | '90d';
     StatusBadgeComponent,
     FormSelectComponent,
     FormInputComponent,
+    LowestBranchesComponent,
+    RiskRankingComponent,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss'],
@@ -82,6 +89,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   crmLoad: LoadRowDto[] = [];
   auditorLoad: LoadRowDto[] = [];
   attention: AttentionItemDto[] = [];
+
+  // Governance Layer state
+  assignmentSummary: AssignmentSummaryDto | null = null;
+  riskAlerts: RiskAlertsDto | null = null;
+  auditSummary: AuditSummaryDto[] = [];
+
+  auditSummaryColumns: TableColumn[] = [
+    { key: 'clientName', header: 'Client', sortable: true },
+    { key: 'status', header: 'Status', sortable: true, width: '120px', align: 'center' },
+    { key: 'overdueCount', header: 'Overdue', sortable: true, width: '100px', align: 'center' },
+    { key: 'lastAuditDate', header: 'Last Audit', sortable: true, width: '130px' },
+    { key: 'nextDueDate', header: 'Next Due', sortable: true, width: '130px' },
+  ];
 
   // Table column definitions
   escalationColumns: TableColumn[] = [
@@ -155,6 +175,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       crmLoad: this.dash.getCrmLoad().pipe(timeout(8000), catchError(() => of([] as LoadRowDto[]))),
       auditorLoad: this.dash.getAuditorLoad().pipe(timeout(8000), catchError(() => of([] as LoadRowDto[]))),
       attention: this.dash.getAttention(this.dateRange).pipe(timeout(8000), catchError(() => of([] as AttentionItemDto[]))),
+      assignmentSummary: this.dash.getAssignmentSummary().pipe(timeout(8000), catchError(() => of(null as AssignmentSummaryDto | null))),
+      riskAlerts: this.dash.getRiskAlerts().pipe(timeout(8000), catchError(() => of(null as RiskAlertsDto | null))),
+      auditSummary: this.dash.getAuditSummary().pipe(timeout(8000), catchError(() => of([] as AuditSummaryDto[]))),
     })
     .pipe(
       takeUntil(this.destroy$),
@@ -181,6 +204,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.crmLoad = res.crmLoad ?? [];
         this.auditorLoad = res.auditorLoad ?? [];
         this.attention = res.attention ?? [];
+        this.assignmentSummary = res.assignmentSummary ?? null;
+        this.riskAlerts = res.riskAlerts ?? null;
+        this.auditSummary = res.auditSummary ?? [];
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -194,6 +220,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.crmLoad = [];
         this.auditorLoad = [];
         this.attention = [];
+        this.assignmentSummary = null;
+        this.riskAlerts = null;
+        this.auditSummary = [];
         this.cdr.markForCheck();
       }
     });

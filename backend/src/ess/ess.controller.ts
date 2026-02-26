@@ -180,3 +180,50 @@ export class BranchApprovalsController {
     return this.svc.rejectLeave(id, req.user?.id, body?.reason);
   }
 }
+
+// ─── Leave Policy Management Controller ───────────────────────
+// Allows CLIENT (master) users to manage leave policies and
+// initialize leave balances for their employees.
+@Controller({ path: 'leave-management', version: '1' })
+@Roles('CLIENT')
+export class LeaveManagementController {
+  constructor(private readonly svc: EssService) {}
+
+  @Get('policies')
+  listPolicies(@Req() req: any) {
+    const clientId = req.user?.clientId;
+    if (!clientId) throw new Error('Client context required');
+    return this.svc.listClientLeavePolicies(clientId);
+  }
+
+  @Post('policies')
+  createPolicy(@Req() req: any, @Body() body: any) {
+    const clientId = req.user?.clientId;
+    if (!clientId) throw new Error('Client context required');
+    return this.svc.createLeavePolicy(clientId, body);
+  }
+
+  @Put('policies/:id')
+  updatePolicy(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    const clientId = req.user?.clientId;
+    if (!clientId) throw new Error('Client context required');
+    return this.svc.updateLeavePolicy(clientId, id, body);
+  }
+
+  @Post('seed-defaults')
+  @Roles('ADMIN', 'CLIENT')
+  seedDefaults(@Req() req: any) {
+    const clientId = req.user?.clientId;
+    if (!clientId) throw new Error('Client context required');
+    return this.svc.seedDefaultLeavePolicies(clientId);
+  }
+
+  @Post('initialize-balances')
+  @Roles('ADMIN', 'CLIENT')
+  initializeBalances(@Req() req: any, @Body() body: { year?: number }) {
+    const clientId = req.user?.clientId;
+    if (!clientId) throw new Error('Client context required');
+    const year = body.year || new Date().getFullYear();
+    return this.svc.initializeLeaveBalances(clientId, year);
+  }
+}

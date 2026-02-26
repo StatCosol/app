@@ -38,6 +38,16 @@ const CrmComplianceDocsComponent = () =>
   import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
 const CrmRegistrationsComponent = () =>
   import('./registrations/crm-registrations.component').then((m) => m.CrmRegistrationsComponent);
+const ComplianceCalendarComponent = () =>
+  import('../../shared/calendar/compliance-calendar.component').then((m) => m.ComplianceCalendarComponent);
+// Phase-2: const HeatmapComponent = () =>
+//   import('../../shared/risk/heatmap.component').then((m) => m.HeatmapComponent);
+const SlaTrackerComponent = () =>
+  import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
+// Phase-2: const RiskTrendComponent = () =>
+//   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
+const EscalationsComponent = () =>
+  import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
 
 export const CRM_ROUTES: Routes = [
   {
@@ -78,6 +88,11 @@ export const CRM_ROUTES: Routes = [
       { path: 'returns', loadComponent: CrmReturnsFilingsComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
+      { path: 'calendar', loadComponent: ComplianceCalendarComponent },
+      // Phase-2: { path: 'heatmap', loadComponent: HeatmapComponent },
+      { path: 'sla', loadComponent: SlaTrackerComponent },
+      // Phase-2: { path: 'risk-trend', loadComponent: RiskTrendComponent },
+      { path: 'escalations', loadComponent: EscalationsComponent },
 
       // ── Legacy redirects ──
       { path: 'contractors', redirectTo: 'clients', pathMatch: 'full' },

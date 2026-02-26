@@ -13,6 +13,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AdminMastersService } from './admin-masters.service';
+import { CreateComplianceMasterDto } from './dto/create-compliance-master.dto';
+import { UpdateComplianceMasterDto } from './dto/update-compliance-master.dto';
+import { CreateAuditCategoryDto } from './dto/create-audit-category.dto';
+import { UpdateAuditCategoryDto } from './dto/update-audit-category.dto';
 
 @Controller({ path: 'admin/masters', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -32,14 +36,14 @@ export class AdminMastersController {
   }
 
   @Post('compliances')
-  createComplianceMaster(@Body() dto: any) {
+  createComplianceMaster(@Body() dto: CreateComplianceMasterDto) {
     return this.service.createComplianceMaster(dto);
   }
 
   @Put('compliances/:id')
   updateComplianceMaster(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: any,
+    @Body() dto: UpdateComplianceMasterDto,
   ) {
     return this.service.updateComplianceMaster(id, dto);
   }
@@ -56,14 +60,14 @@ export class AdminMastersController {
   }
 
   @Post('audit-categories')
-  createAuditCategory(@Body() dto: { name: string; description?: string }) {
+  createAuditCategory(@Body() dto: CreateAuditCategoryDto) {
     return this.service.createAuditCategory(dto);
   }
 
   @Put('audit-categories/:id')
   updateAuditCategory(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: any,
+    @Body() dto: UpdateAuditCategoryDto,
   ) {
     return this.service.updateAuditCategory(id, dto);
   }

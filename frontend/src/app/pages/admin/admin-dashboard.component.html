@@ -159,6 +159,94 @@
       </a>
     </div>
 
+    <!-- Assignment Visibility KPI Cards -->
+    <div *ngIf="assignmentSummary" class="mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-3">Assignment Visibility</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <ui-stat-card
+          label="Total Clients"
+          [value]="assignmentSummary.totalClients"
+          description="Active portfolio"
+          color="primary">
+        </ui-stat-card>
+
+        <ui-stat-card
+          label="CRM Assigned"
+          [value]="assignmentSummary.crmAssigned"
+          description="Have CRM owner"
+          color="success">
+        </ui-stat-card>
+
+        <a class="block" [routerLink]="['/admin/governance/unassigned']">
+          <ui-stat-card
+            label="CRM Missing"
+            [value]="assignmentSummary.crmUnassigned"
+            description="No CRM assigned"
+            [color]="assignmentSummary.crmUnassigned > 0 ? 'error' : 'success'"
+            class="h-full">
+          </ui-stat-card>
+        </a>
+
+        <ui-stat-card
+          label="Auditor Assigned"
+          [value]="assignmentSummary.auditorAssigned"
+          description="Have auditor"
+          color="success">
+        </ui-stat-card>
+
+        <a class="block" [routerLink]="['/admin/governance/unassigned']">
+          <ui-stat-card
+            label="Auditor Missing"
+            [value]="assignmentSummary.auditorUnassigned"
+            description="No auditor assigned"
+            [color]="assignmentSummary.auditorUnassigned > 0 ? 'error' : 'success'"
+            class="h-full">
+          </ui-stat-card>
+        </a>
+      </div>
+    </div>
+
+    <!-- Risk Alert Panel -->
+    <div *ngIf="riskAlerts" class="mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-3">Risk Alerts</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <ui-stat-card
+          label="Audit Overdue"
+          [value]="riskAlerts.auditOverdue"
+          description="Clients with overdue audits"
+          [color]="riskAlerts.auditOverdue > 0 ? 'error' : 'success'">
+        </ui-stat-card>
+
+        <ui-stat-card
+          label="No CRM"
+          [value]="riskAlerts.noCrm"
+          description="Clients without CRM"
+          [color]="riskAlerts.noCrm > 0 ? 'error' : 'success'">
+        </ui-stat-card>
+
+        <ui-stat-card
+          label="No Payroll"
+          [value]="riskAlerts.noPayroll"
+          description="Clients without payroll user"
+          [color]="riskAlerts.noPayroll > 0 ? 'warning' : 'success'">
+        </ui-stat-card>
+
+        <ui-stat-card
+          label="0 Branches"
+          [value]="riskAlerts.zeroBranches"
+          description="Clients with no branches"
+          [color]="riskAlerts.zeroBranches > 0 ? 'warning' : 'success'">
+        </ui-stat-card>
+
+        <ui-stat-card
+          label="No MCD Uploads"
+          [value]="riskAlerts.noMcdUploads"
+          description="No uploads this month"
+          [color]="riskAlerts.noMcdUploads > 0 ? 'warning' : 'success'">
+        </ui-stat-card>
+      </div>
+    </div>
+
     <!-- Data Tables -->
     <div class="space-y-6">
       <!-- Escalations Queue -->
@@ -239,6 +327,43 @@
         </ui-data-table>
       </div>
 
+      <!-- Audit Status Summary -->
+      <div *ngIf="auditSummary.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between p-6 pb-4">
+          <h3 class="text-lg font-semibold text-gray-900">Audit Status by Client</h3>
+          <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
+            {{ auditSummary.length }} clients
+          </span>
+        </div>
+        <ui-data-table
+          [columns]="auditSummaryColumns"
+          [data]="auditSummary"
+          emptyMessage="No audit data available">
+
+          <ng-template uiTableCell="clientName" let-row>
+            <div class="font-medium text-gray-900">{{ row.clientName }}</div>
+          </ng-template>
+
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="row.status"></ui-status-badge>
+          </ng-template>
+
+          <ng-template uiTableCell="overdueCount" let-row>
+            <span [class]="row.overdueCount > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'">
+              {{ row.overdueCount }}
+            </span>
+          </ng-template>
+
+          <ng-template uiTableCell="lastAuditDate" let-row>
+            <span class="text-sm text-gray-600">{{ row.lastAuditDate ? (row.lastAuditDate | date:'mediumDate') : '—' }}</span>
+          </ng-template>
+
+          <ng-template uiTableCell="nextDueDate" let-row>
+            <span class="text-sm text-gray-600">{{ row.nextDueDate ? (row.nextDueDate | date:'mediumDate') : '—' }}</span>
+          </ng-template>
+        </ui-data-table>
+      </div>
+
       <!-- System Health -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
@@ -274,6 +399,12 @@
       </div>
     </div>
   </ng-container>
+
+  <!-- Lowest Branch Compliance Widget -->
+  <app-lowest-branches></app-lowest-branches>
+
+  <!-- Risk Ranking Widget -->
+  <app-risk-ranking></app-risk-ranking>
 
   <ng-template #adminFallback>
     <div *ngIf="!loading" class="bg-white rounded-xl border border-gray-200 shadow-sm p-10 text-center">

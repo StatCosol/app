@@ -673,4 +673,55 @@ export class NotificationsService {
 
     return { status: 'SENT', notificationId: saved.id };
   }
+
+  /* ─── System Notifications (cron / auto-generated) ─── */
+
+  /**
+   * Create a system notification with dedup via source_key.
+   * Returns existing record if already created (idempotent).
+   */
+  async createSystemNotification(input: {
+    clientId: string;
+    sourceKey: string;
+    subject: string;
+    message: string;
+    branchId?: string;
+    queryType?: string;
+    priority?: number;
+  }): Promise<NotificationEntity> {
+    // Dedup: if source_key already exists for this client, skip
+    const existing = await this.threadsRepo.findOne({
+      where: { clientId: input.clientId, sourceKey: input.sourceKey } as any,
+    });
+    if (existing) return existing;
+
+    const adminUserId = await this.findAnyAdminUserId();
+
+    return this.dataSource.transaction(async (manager) => {
+      const thread = manager.create(NotificationEntity, {
+        subject: input.subject,
+        queryType: input.queryType || 'COMPLIANCE',
+        priority: input.priority ?? 1, // 1 = high
+        status: 'OPEN',
+        createdByUserId: adminUserId,
+        createdByRole: 'SYSTEM',
+        clientId: input.clientId,
+        branchId: input.branchId ?? null,
+        assignedToUserId: adminUserId,
+        assignedToRole: 'ADMIN',
+        sourceKey: input.sourceKey,
+      } as any);
+      const saved = await manager.save(NotificationEntity, thread);
+
+      const msg = manager.create(NotificationMessageEntity, {
+        notificationId: saved.id,
+        senderUserId: adminUserId,
+        message: input.message,
+        attachmentPath: null,
+      });
+      await manager.save(NotificationMessageEntity, msg);
+
+      return saved;
+    });
+  }
 }

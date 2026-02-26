@@ -157,6 +157,8 @@ export class RoleHeaderComponent implements OnInit {
     CLIENT: 'LegitX',
     CONTRACTOR: 'ConTrack',
     PAYROLL: 'PayDek',
+    EMPLOYEE: 'Employee',
+    PF_TEAM: 'PF Team',
   };
 
   constructor(

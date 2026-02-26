@@ -33,6 +33,18 @@ const AiPayrollComponent = () =>
   import('./ai/ai-payroll.component').then((m) => m.AiPayrollComponent);
 const AiConfigComponent = () =>
   import('./ai/ai-config.component').then((m) => m.AiConfigComponent);
+// Phase-2: const HeatmapComponent = () =>
+//   import('../../shared/risk/heatmap.component').then((m) => m.HeatmapComponent);
+const SlaTrackerComponent = () =>
+  import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
+// Phase-2: const RiskTrendComponent = () =>
+//   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
+const EscalationsComponent = () =>
+  import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
+const AdminAuditLogsComponent = () =>
+  import('./audit-logs/admin-audit-logs.component').then((m) => m.AdminAuditLogsComponent);
+const UnassignedClientsComponent = () =>
+  import('./governance/unassigned-clients.component').then((m) => m.UnassignedClientsComponent);
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -56,6 +68,12 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'ai-audit', loadComponent: AiAuditComponent },
       { path: 'ai-payroll', loadComponent: AiPayrollComponent },
       { path: 'ai-config', loadComponent: AiConfigComponent },
+      // Phase-2: { path: 'heatmap', loadComponent: HeatmapComponent },
+      { path: 'sla', loadComponent: SlaTrackerComponent },
+      // Phase-2: { path: 'risk-trend', loadComponent: RiskTrendComponent },
+      { path: 'escalations', loadComponent: EscalationsComponent },
+      { path: 'audit-logs', loadComponent: AdminAuditLogsComponent },
+      { path: 'governance/unassigned', loadComponent: UnassignedClientsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

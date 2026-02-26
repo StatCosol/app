@@ -12,6 +12,8 @@ export interface BranchDto {
   employeeCount: number;
   contractorCount: number;
   status: string;
+  stateCode?: string;
+  establishmentType?: 'FACTORY' | 'ESTABLISHMENT' | 'WAREHOUSE' | 'SHOP' | 'HO' | 'BRANCH';
   createdAt?: string;
 }
 
@@ -22,6 +24,8 @@ export interface CreateBranchRequest {
   employeeCount?: number;
   contractorCount?: number;
   status?: string;
+  stateCode?: 'AP' | 'TG' | 'TN' | 'KA';
+  establishmentType?: 'FACTORY' | 'ESTABLISHMENT' | 'WAREHOUSE' | 'SHOP' | 'HO' | 'BRANCH';
   branchUserName?: string;
   branchUserEmail?: string;
   branchUserPassword?: string;

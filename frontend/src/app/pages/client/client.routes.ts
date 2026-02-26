@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from '../../core/role.guard';
 import { branchUserOnlyGuard } from '../../core/branch-user-only.guard';
+import { branchPayrollAccessGuard } from '../../core/branch-payroll-access.guard';
 
 const ClientLayoutComponent = () =>
   import('./client-layout/client-layout.component').then((m) => m.ClientLayoutComponent);
@@ -54,6 +55,22 @@ const ClientComplianceLibraryComponent = () =>
   import('./compliance/client-compliance-library.component').then((m) => m.ClientComplianceLibraryComponent);
 const ClientRegistrationsComponent = () =>
   import('./compliance/client-registrations.component').then((m) => m.ClientRegistrationsComponent);
+const ComplianceCalendarComponent = () =>
+  import('../../shared/calendar/compliance-calendar.component').then((m) => m.ComplianceCalendarComponent);
+// Phase-2: const HeatmapComponent = () =>
+//   import('../../shared/risk/heatmap.component').then((m) => m.HeatmapComponent);
+const SlaTrackerComponent = () =>
+  import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
+// Phase-2: const RiskTrendComponent = () =>
+//   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
+const EscalationsComponent = () =>
+  import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
+const BranchComplianceItemsComponent = () =>
+  import('../../shared/branch-compliance/branch-compliance-items.component').then((m) => m.BranchComplianceItemsComponent);
+const BranchComplianceComponent = () =>
+  import('../../shared/compliance/branch-compliance.component').then(m => m.BranchComplianceComponent);
+const MonthlyUploadsComponent = () =>
+  import('../../shared/uploads/monthly-uploads.component').then(m => m.MonthlyUploadsComponent);
 
 export const CLIENT_ROUTES: Routes = [
   {
@@ -76,7 +93,7 @@ export const CLIENT_ROUTES: Routes = [
       },
       { path: 'compliance/returns', loadComponent: ClientReturnsComponent, runGuardsAndResolvers: 'always' },
       { path: 'compliance/library', loadComponent: ClientComplianceLibraryComponent, runGuardsAndResolvers: 'always' },
-      { path: 'payroll', loadComponent: ClientPayrollComponent },
+      { path: 'payroll', loadComponent: ClientPayrollComponent, canActivate: [branchPayrollAccessGuard] },
       { path: 'employees', loadComponent: ClientEmployeesComponent },
       { path: 'employees/new', loadComponent: ClientEmployeeFormComponent },
       { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent },
@@ -91,6 +108,14 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'approvals/nominations', loadComponent: NominationApprovalsComponent },
       { path: 'approvals/leaves', loadComponent: LeaveApprovalsComponent },
       { path: 'settings/access', loadComponent: ClientAccessSettingsComponent },
+      { path: 'branches/:branchId/compliance-items', loadComponent: BranchComplianceItemsComponent },
+      { path: 'branch-compliance', loadComponent: BranchComplianceComponent },
+      { path: 'monthly-uploads', loadComponent: MonthlyUploadsComponent },
+      { path: 'calendar', loadComponent: ComplianceCalendarComponent },
+      // Phase-2: { path: 'heatmap', loadComponent: HeatmapComponent },
+      { path: 'sla', loadComponent: SlaTrackerComponent },
+      // Phase-2: { path: 'risk-trend', loadComponent: RiskTrendComponent },
+      { path: 'escalations', loadComponent: EscalationsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

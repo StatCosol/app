@@ -11,7 +11,7 @@ export class ApprovalRequestEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 50, name: 'request_type' })
   requestType: string; // DELETE_BRANCH, DELETE_CONTRACTOR, DELETE_USER, PAYROLL_FINALIZATION
 
   @Column({ type: 'uuid', name: 'requester_user_id' })
@@ -32,7 +32,7 @@ export class ApprovalRequestEntity {
   @Column({ type: 'text', nullable: true })
   reason: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', name: 'approver_notes', nullable: true })
   approverNotes: string | null;
 
   @Column({ type: 'timestamptz', name: 'approved_at', nullable: true })

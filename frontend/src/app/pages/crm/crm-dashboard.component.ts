@@ -12,6 +12,8 @@ import {
 import { Subject } from 'rxjs';
 import { takeUntil, timeout, retry } from 'rxjs/operators';
 import { CrmKpis, PriorityItem, RiskClient, UpcomingAudit } from './crm-dashboard.dto';
+import { LowestBranchesComponent } from '../../shared/compliance/lowest-branches.component';
+import { RiskRankingComponent } from '../../shared/compliance/risk-ranking.component';
 
 @Component({
   selector: 'app-crm-dashboard',
@@ -22,6 +24,8 @@ import { CrmKpis, PriorityItem, RiskClient, UpcomingAudit } from './crm-dashboar
     StatCardComponent,
     LoadingSpinnerComponent,
     StatusBadgeComponent,
+    LowestBranchesComponent,
+    RiskRankingComponent,
   ],
   templateUrl: './crm-dashboard.component.html',
   styleUrls: ['./crm-dashboard.component.scss'],

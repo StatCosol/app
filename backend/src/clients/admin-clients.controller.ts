@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -69,6 +70,25 @@ export class AdminClientsController {
       req.user?.userId,
       req.user?.roleCode,
     );
+  }
+
+  @Put('clients/:id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateClientDto,
+    @Req() req: any,
+  ) {
+    return this.clientsService.update(
+      id,
+      dto,
+      req.user?.userId,
+      req.user?.roleCode,
+    );
+  }
+
+  @Get('clients/:id/readiness')
+  readinessCheck(@Param('id', ParseUUIDPipe) id: string) {
+    return this.clientsService.getReadinessCheck(id);
   }
 
   @Delete('clients/:id')

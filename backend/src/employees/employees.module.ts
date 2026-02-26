@@ -8,6 +8,8 @@ import { EmployeeGeneratedFormEntity } from './entities/employee-generated-form.
 import { EmployeesService } from './employees.service';
 import { ClientEmployeesController } from './employees.controller';
 import { AiModule } from '../ai/ai.module';
+import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { AiModule } from '../ai/ai.module';
       EmployeeGeneratedFormEntity,
     ]),
     AiModule,
+    AuthModule,
+    UsersModule,
   ],
   controllers: [ClientEmployeesController],
   providers: [EmployeesService],

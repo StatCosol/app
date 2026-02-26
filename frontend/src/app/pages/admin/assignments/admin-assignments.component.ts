@@ -386,8 +386,9 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
 
     const clientId = this.form.clientId;
 
-    // Block accidental duplicate assign when not editing
-    if (!this.isEditMode && this.assignmentByClientId[clientId]) {
+    // Block accidental duplicate assign when not editing — only if someone is actually assigned
+    const existing = this.assignmentByClientId[clientId];
+    if (!this.isEditMode && existing && (existing.crmId || existing.auditorId)) {
       this.toast.warning('Client already has an assignment. Use Edit to update.');
       return;
     }

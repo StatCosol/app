@@ -1,0 +1,97 @@
+<div class="page">
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="title-row">
+      <h1 class="title">Escalations</h1>
+      <div class="stats">
+        <span class="stat-pill stat-open">{{ openCount }} Open</span>
+        <span class="stat-pill stat-ack">{{ ackCount }} Acknowledged</span>
+        <span class="stat-pill stat-closed">{{ closedCount }} Closed</span>
+      </div>
+    </div>
+
+    <!-- ── Controls ── -->
+    <div class="controls">
+      <select *ngIf="!isBranchUser && branches.length"
+              [(ngModel)]="selectedBranch"
+              (ngModelChange)="load()"
+              class="select">
+        <option value="">All Branches</option>
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.branchname || b.name }}</option>
+      </select>
+
+      <select [(ngModel)]="selectedStatus"
+              (ngModelChange)="load()"
+              class="select">
+        <option value="">All Statuses</option>
+        <option value="OPEN">Open</option>
+        <option value="ACK">Acknowledged</option>
+        <option value="CLOSED">Closed</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ── Loading ── -->
+  <div *ngIf="loading" class="loading">Loading escalations…</div>
+
+  <!-- ── Table ── -->
+  <div class="table-wrap" *ngIf="!loading && filtered.length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>Created</th>
+          <th>Branch</th>
+          <th>Risk Score</th>
+          <th>Reason</th>
+          <th>Overdue SLAs</th>
+          <th>Status</th>
+          <th style="width:220px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let it of filtered" [class]="'row-' + severityClass(it.riskScore)">
+          <td class="date-cell">{{ it.createdAt | date:'dd-MMM-yyyy' }}</td>
+          <td>{{ it.branchId }}</td>
+          <td>
+            <div class="score-cell">
+              <span class="score-value" [ngClass]="severityClass(it.riskScore)">{{ it.riskScore }}%</span>
+              <span class="severity-tag" [ngClass]="severityClass(it.riskScore)">{{ severityClass(it.riskScore) }}</span>
+            </div>
+          </td>
+          <td class="reason-cell">{{ it.reason }}</td>
+          <td class="overdue-cell">
+            <span *ngIf="it.slaOverdueCount > 0" class="overdue-badge">{{ it.slaOverdueCount }}</span>
+            <span *ngIf="!it.slaOverdueCount" class="no-overdue">—</span>
+          </td>
+          <td>
+            <span class="badge" [ngClass]="it.status">{{ it.status }}</span>
+          </td>
+          <td>
+            <div class="action-btns">
+              <button class="btn btn-ack"
+                      (click)="updateStatus(it, 'ACK')"
+                      [disabled]="it.status === 'ACK' || it.status === 'CLOSED'">
+                Acknowledge
+              </button>
+              <button class="btn btn-close"
+                      (click)="updateStatus(it, 'CLOSED')"
+                      [disabled]="it.status === 'CLOSED'">
+                Close
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Empty ── -->
+  <div *ngIf="!loading && filtered.length === 0" class="empty">
+    <svg class="empty-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+    <p>No escalations found</p>
+    <p class="empty-sub">All clear — no open escalations matching your filters.</p>
+  </div>
+</div>

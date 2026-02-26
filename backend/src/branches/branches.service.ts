@@ -200,7 +200,7 @@ export class BranchesService {
     try {
       await this.complianceApplicabilityService.recomputeForBranch(saved.id);
     } catch (err) {
-      console.error('[BranchesService] recomputeForBranch failed (branch saved OK):', err?.message ?? err);
+      this.logger.error('recomputeForBranch failed (branch saved OK):', err?.message ?? err);
     }
     return saved;
   }
@@ -321,7 +321,7 @@ export class BranchesService {
 
       return { message: 'Branch soft-deleted' };
     } catch (err) {
-      console.error('Error deleting branch:', err);
+      this.logger.error('Error deleting branch:', err);
       throw new BadRequestException(err?.message || 'Failed to delete branch');
     }
   }
@@ -545,7 +545,7 @@ export class BranchesService {
       }
       return { ok: true };
     } catch (err) {
-      console.error('Error saving applicable compliances:', err);
+      this.logger.error('Error saving applicable compliances:', err);
       if (err instanceof NotFoundException) throw err;
       throw new BadRequestException(
         err?.message || 'Failed to save applicable compliances',

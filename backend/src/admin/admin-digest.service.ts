@@ -308,7 +308,7 @@ export class AdminDigestService {
 
   private escapeHtml(value: any): string {
     const safe = value === null || value === undefined ? '-' : String(value);
-    return safe.replace(/[&<>"]/g, (char) => {
+    return safe.replace(/[&<>"']/g, (char) => {
       switch (char) {
         case '&':
           return '&amp;';
@@ -318,6 +318,8 @@ export class AdminDigestService {
           return '&gt;';
         case '"':
           return '&quot;';
+        case "'":
+          return '&#39;';
         default:
           return char;
       }

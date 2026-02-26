@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull } from 'typeorm';
+import { Repository, DataSource, IsNull, EntityManager } from 'typeorm';
 import {
   ClientAssignmentCurrentEntity,
   AssignmentType,
@@ -64,6 +64,25 @@ export class AssignmentsService {
         `${type} is already assigned for this client`,
       );
     }
+  }
+
+  /**
+   * Keep the denormalised assigned_crm_id / assigned_auditor_id columns on the
+   * clients table in sync so that dashboard queries (which read those columns
+   * directly) reflect the latest assignment state.
+   */
+  private async syncClientAssignmentColumn(
+    manager: EntityManager,
+    clientId: string,
+    assignmentType: AssignmentType,
+    userId: string | null,
+  ) {
+    const col =
+      assignmentType === 'CRM' ? 'assigned_crm_id' : 'assigned_auditor_id';
+    await manager.query(
+      `UPDATE clients SET ${col} = $1 WHERE id = $2`,
+      [userId, clientId],
+    );
   }
 
   async getCurrent(clientId: string, assignmentType?: AssignmentType) {
@@ -135,17 +154,27 @@ export class AssignmentsService {
         { endDate: now },
       );
 
-      // Insert new history row
+      // Insert new history row (audit trail for both assign & unassign)
       const hist = historyRepo.create({
         clientId: input.clientId,
         assignmentType: input.assignmentType,
         assignedToUserId: input.assignedToUserId ?? null,
         startDate: now,
-        endDate: null,
+        endDate: input.assignedToUserId ? null : now, // close immediately if unassigning
         changedByUserId: input.actorUserId ?? null,
         changeReason: input.changeReason ?? null,
       });
       await historyRepo.save(hist);
+
+      // If unassigning (null user), remove the current row entirely
+      if (!input.assignedToUserId) {
+        if (current) {
+          await currentRepo.remove(current);
+        }
+        // Sync denormalised column on clients table
+        await this.syncClientAssignmentColumn(manager, input.clientId, input.assignmentType, null);
+        return { clientId: input.clientId, assignmentType: input.assignmentType, assignedToUserId: null } as any;
+      }
 
       // Upsert current assignment
       const upsert = currentRepo.create({
@@ -165,6 +194,9 @@ export class AssignmentsService {
           ['client_id', 'assignment_type'],
         )
         .execute();
+
+      // Sync denormalised column on clients table
+      await this.syncClientAssignmentColumn(manager, input.clientId, input.assignmentType, input.assignedToUserId);
 
       const updated = await currentRepo.findOneOrFail({
         where: {
@@ -346,7 +378,8 @@ export class AssignmentsService {
       rec.status = rec.crmId || rec.auditorId ? 'ASSIGNED' : 'PENDING';
     }
 
-    return Array.from(map.values());
+    // Filter out fully-unassigned (ghost) rows where both CRM and auditor are null
+    return Array.from(map.values()).filter(r => r.crmId || r.auditorId);
   }
 
   async getAssignmentHistory(clientId?: string) {

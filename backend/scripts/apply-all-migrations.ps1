@@ -58,7 +58,13 @@ $migrationFiles = @(
     "20260212_legitx_compliance_returns_audit_reports.sql",
     "20260217_payroll_statutory_engine.sql",
     "20260225_branch_compliance_documents.sql",
-    "20260210_compliance_document_library.sql"
+    "20260210_compliance_document_library.sql",
+    "20260226_sla_tasks.sql",
+    "20260226_escalations.sql",
+    "20260226_branch_risk_snapshots.sql",
+    "20260226_sla_source_key.sql",
+    "20260226_compliance_items_rules.sql",
+    "20260226_compliance_master_states.sql"
 )
 
 function Invoke-Migration {

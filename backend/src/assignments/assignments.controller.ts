@@ -11,6 +11,7 @@ import {
   Delete,
   ParseUUIDPipe,
   Put,
+  Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -24,6 +25,7 @@ import { ChangeAssignmentDto } from './dto/change-assignment.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AssignmentsController {
+  private readonly logger = new Logger(AssignmentsController.name);
   constructor(private assignmentsService: AssignmentsService) {}
 
   // --- Compatibility endpoints for the existing Angular Admin UI ---
@@ -119,13 +121,13 @@ export class AssignmentsController {
 
   @Get()
   async getAll() {
-    console.log('[AssignmentsController] GET /api/admin/assignments');
+    this.logger.log('GET /api/admin/assignments');
     return this.assignmentsService.getCurrentAssignmentsGrouped();
   }
 
   @Post()
   async create(@Body() dto: CreateAssignmentDto, @Request() req) {
-    console.log('[AssignmentsController] POST /api/admin/assignments', dto);
+    this.logger.log('POST /api/admin/assignments', dto);
     return this.assignmentsService.createAssignment(
       dto,
       req.user.userId,

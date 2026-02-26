@@ -626,4 +626,151 @@ export class EssService {
     await this.leaveAppRepo.save(app);
     return { ok: true };
   }
+
+  // ── Leave Policy Management ──────────────────────────────
+
+  async listClientLeavePolicies(clientId: string) {
+    return this.leavePolicyRepo.find({
+      where: { clientId },
+      order: { leaveType: 'ASC' },
+    });
+  }
+
+  async createLeavePolicy(clientId: string, dto: any) {
+    const policy = this.leavePolicyRepo.create({
+      clientId,
+      branchId: dto.branchId || null,
+      leaveType: dto.leaveType,
+      leaveName: dto.leaveName,
+      accrualMethod: dto.accrualMethod || 'MONTHLY',
+      accrualRate: dto.accrualRate ?? '0',
+      carryForwardLimit: dto.carryForwardLimit ?? '0',
+      yearlyLimit: dto.yearlyLimit ?? '0',
+      allowNegative: dto.allowNegative ?? false,
+      minNoticeDays: dto.minNoticeDays ?? 0,
+      maxDaysPerRequest: dto.maxDaysPerRequest ?? '0',
+      requiresDocument: dto.requiresDocument ?? false,
+      isActive: true,
+    });
+    return this.leavePolicyRepo.save(policy);
+  }
+
+  async updateLeavePolicy(clientId: string, id: string, dto: any) {
+    const policy = await this.leavePolicyRepo.findOne({ where: { id, clientId } });
+    if (!policy) throw new NotFoundException('Leave policy not found');
+    Object.assign(policy, dto);
+    return this.leavePolicyRepo.save(policy);
+  }
+
+  /**
+   * Seeds default leave policies (CL, SL, EL) for a client.
+   * Skips if policies already exist.
+   */
+  async seedDefaultLeavePolicies(clientId: string) {
+    const existing = await this.leavePolicyRepo.count({ where: { clientId } });
+    if (existing > 0) {
+      return { message: 'Leave policies already exist for this client', count: existing };
+    }
+
+    const defaults = [
+      {
+        leaveType: 'CL',
+        leaveName: 'Casual Leave',
+        accrualMethod: 'YEARLY',
+        accrualRate: '12',
+        yearlyLimit: '12',
+        carryForwardLimit: '0',
+        allowNegative: false,
+        maxDaysPerRequest: '3',
+      },
+      {
+        leaveType: 'SL',
+        leaveName: 'Sick Leave',
+        accrualMethod: 'YEARLY',
+        accrualRate: '12',
+        yearlyLimit: '12',
+        carryForwardLimit: '6',
+        allowNegative: false,
+        maxDaysPerRequest: '7',
+        requiresDocument: true,
+        minNoticeDays: 0,
+      },
+      {
+        leaveType: 'EL',
+        leaveName: 'Earned Leave / Privilege Leave',
+        accrualMethod: 'MONTHLY',
+        accrualRate: '1.25',
+        yearlyLimit: '15',
+        carryForwardLimit: '30',
+        allowNegative: false,
+        maxDaysPerRequest: '15',
+        minNoticeDays: 7,
+      },
+    ];
+
+    const policies = defaults.map((d) =>
+      this.leavePolicyRepo.create({ ...d, clientId, isActive: true }),
+    );
+    await this.leavePolicyRepo.save(policies);
+    return { message: 'Default leave policies seeded', count: policies.length };
+  }
+
+  /**
+   * Initialize leave balances for all active employees of a client
+   * for the given year based on existing leave policies.
+   */
+  async initializeLeaveBalances(clientId: string, year: number) {
+    const policies = await this.leavePolicyRepo.find({
+      where: { clientId, isActive: true },
+    });
+    if (!policies.length) {
+      throw new BadRequestException('No leave policies found. Please seed or create policies first.');
+    }
+
+    const employees = await this.empRepo.find({
+      where: { clientId, isActive: true },
+    });
+    if (!employees.length) {
+      return { message: 'No active employees found', initialized: 0 };
+    }
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const emp of employees) {
+      for (const policy of policies) {
+        // Skip if balance already exists
+        const existing = await this.leaveBalRepo.findOne({
+          where: { employeeId: emp.id, year, leaveType: policy.leaveType },
+        });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        const entitled = parseFloat(policy.yearlyLimit) || 0;
+        const bal = this.leaveBalRepo.create({
+          employeeId: emp.id,
+          clientId,
+          leaveType: policy.leaveType,
+          year,
+          opening: String(entitled),
+          accrued: '0',
+          used: '0',
+          lapsed: '0',
+          available: String(entitled),
+        });
+        await this.leaveBalRepo.save(bal);
+        created++;
+      }
+    }
+
+    return {
+      message: `Leave balances initialized for ${year}`,
+      created,
+      skipped,
+      employees: employees.length,
+      policies: policies.length,
+    };
+  }
 }

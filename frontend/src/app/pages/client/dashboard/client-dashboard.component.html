@@ -110,6 +110,47 @@
         </div>
       </div>
 
+      <!-- ═══════ Company Compliance Intelligence Banner ═══════ -->
+      <div *ngIf="companySummary && !selectedBranchId" class="panel" style="border-left:4px solid #2563eb;">
+        <div class="panel-header">
+          <div class="flex items-center gap-2">
+            <span style="font-size:20px;">🤖</span>
+            <div>
+              <p class="panel-eyebrow">AI Summary</p>
+              <h3 class="panel-title">Company Compliance Intelligence — {{ companySummary.month }}</h3>
+            </div>
+          </div>
+          <button class="ghost-btn" (click)="downloadExportPack()" [disabled]="exportingPack">
+            {{ exportingPack ? 'Generating…' : '📥 Export Report Pack' }}
+          </button>
+        </div>
+        <div class="panel-body">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Avg Inspection Prob.</p>
+              <p class="mini-kpi-value" [ngClass]="{'text-red-600': companySummary.avgInspectionProbability >= 70, 'text-amber-600': companySummary.avgInspectionProbability >= 40, 'text-green-600': companySummary.avgInspectionProbability < 40}">
+                {{ companySummary.avgInspectionProbability }}%
+              </p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">Upload Completion</p>
+              <p class="mini-kpi-value text-blue-700">{{ companySummary.avgCompletionPercent }}%</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">HIGH Risk</p>
+              <p class="mini-kpi-value text-amber-600">{{ companySummary.highRiskBranches }}</p>
+            </div>
+            <div class="mini-kpi">
+              <p class="mini-kpi-label">CRITICAL Risk</p>
+              <p class="mini-kpi-value text-red-600">{{ companySummary.criticalBranches }}</p>
+            </div>
+          </div>
+          <div *ngIf="companySummary.highlights?.length" class="space-y-1">
+            <p *ngFor="let h of companySummary.highlights" class="text-sm text-gray-600">• {{ h }}</p>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══════ Registration Compliance Detail ═══════ -->
       <div *ngIf="activeDetail === 'REGISTRATIONS' && regSummary" class="panel panel--highlight">
         <div class="panel-header">

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { SlaComplianceResolverService } from '../compliances/sla-compliance-resolver.service';
+import { SlaComplianceScheduleService } from '../compliances/sla-compliance-schedule.service';
 
-type ModuleType = 'REGISTRATION' | 'MCD' | 'RETURNS';
+type ModuleType = 'REGISTRATION' | 'MCD' | 'RETURNS' | string;
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 interface CalendarItem {
@@ -17,7 +19,11 @@ interface CalendarItem {
 
 @Injectable()
 export class CalendarService {
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    private readonly resolver: SlaComplianceResolverService,
+    private readonly schedule: SlaComplianceScheduleService,
+  ) {}
 
   async getCalendar(params: {
     clientId: string;
@@ -54,14 +60,10 @@ export class CalendarService {
       items.push(...regItems);
     }
 
-    // ── 2) MCD upload window (config-based, no DB table needed) ──
-    if (!module || module === 'MCD') {
-      items.push(...this.buildMcdWindowItems(from, to));
-    }
-
-    // ── 3) Returns due dates (config-based placeholders) ──
-    if (!module || module === 'RETURNS') {
-      items.push(...this.buildReturnItems(from, to));
+    // ── 2) Compliance-driven items (MCD, Returns, etc.) from compliance_rules ──
+    if (!module || module !== 'REGISTRATION') {
+      const complianceItems = await this.buildComplianceItems(clientId, filterBranchIds, start, end, module || null);
+      items.push(...complianceItems);
     }
 
     // Attach branch names
@@ -132,86 +134,143 @@ export class CalendarService {
     });
   }
 
-  // ── MCD upload window (20th–25th of each month) ──
-  private buildMcdWindowItems(from: string, to: string): CalendarItem[] {
+  // ── Compliance-driven calendar items (resolver-based, state-specific) ──
+  private async buildComplianceItems(
+    clientId: string,
+    branchIds: string[] | null,
+    start: Date,
+    end: Date,
+    moduleFilter: string | null,
+  ): Promise<CalendarItem[]> {
     const items: CalendarItem[] = [];
-    const start = new Date(from);
-    const end = new Date(to);
 
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-    const limit = new Date(end.getFullYear(), end.getMonth() + 1, 0);
-
-    while (cursor <= limit) {
-      const y = cursor.getFullYear();
-      const m = cursor.getMonth();
-      const open = new Date(y, m, 20);
-      const close = new Date(y, m, 25);
-
-      if (open >= start && open <= end) {
-        items.push({
-          date: this.toISODate(open),
-          title: 'MCD Upload Window Opens (20th)',
-          module: 'MCD',
-          priority: 'MEDIUM',
-          branchId: null,
-          branchName: null,
-          entityId: null,
-          meta: { window: 'OPEN' },
-        });
-      }
-      if (close >= start && close <= end) {
-        items.push({
-          date: this.toISODate(close),
-          title: 'MCD Upload Window Closes (25th)',
-          module: 'MCD',
-          priority: 'HIGH',
-          branchId: null,
-          branchName: null,
-          entityId: null,
-          meta: { window: 'CLOSE' },
-        });
-      }
-
-      cursor.setMonth(cursor.getMonth() + 1);
+    // Fetch branch IDs to process
+    let branchSql = `SELECT id FROM client_branches
+                     WHERE clientid = $1 AND isdeleted = false AND status = 'ACTIVE'`;
+    const branchParams: any[] = [clientId];
+    if (branchIds?.length) {
+      branchParams.push(branchIds);
+      branchSql += ` AND id = ANY($${branchParams.length}::uuid[])`;
     }
+    const branchRows: any[] = await this.ds.query(branchSql, branchParams);
+
+    // Get months in range
+    const months = this.monthsBetween(start, end);
+
+    for (const row of branchRows) {
+      const bid: string = row.id;
+
+      // Resolve applicable rules for this branch (state/type specificity)
+      let applicable;
+      try {
+        const result = await this.resolver.getApplicableRules(bid);
+        applicable = result.applicable;
+      } catch {
+        continue; // branch not found or error — skip
+      }
+
+      for (const month of months) {
+        const entries = this.schedule.buildMonthSchedule({
+          branch: {} as any,
+          applicable,
+          month,
+        });
+
+        for (const s of entries) {
+          // Apply module filter
+          if (moduleFilter && s.module !== moduleFilter) continue;
+
+          // Due-day items
+          if (s.dueDate) {
+            const dt = new Date(s.dueDate);
+            if (dt < start || dt > end) continue;
+
+            items.push({
+              date: s.dueDate,
+              title: s.name,
+              module: s.module as ModuleType,
+              priority: s.priority as Priority,
+              branchId: bid,
+              branchName: null,
+              entityId: null,
+              meta: { code: s.code, ruleId: s.ruleId },
+            });
+          }
+
+          // Window items
+          if (s.windowOpen && s.windowClose) {
+            const openDt = new Date(s.windowOpen);
+            const closeDt = new Date(s.windowClose);
+
+            if (openDt >= start && openDt <= end) {
+              items.push({
+                date: s.windowOpen,
+                title: `${s.name} – Opens`,
+                module: s.module as ModuleType,
+                priority: s.priority as Priority,
+                branchId: bid,
+                branchName: null,
+                entityId: null,
+                meta: { code: s.code, ruleId: s.ruleId, window: 'OPEN' },
+              });
+            }
+
+            if (closeDt >= start && closeDt <= end) {
+              items.push({
+                date: s.windowClose,
+                title: `${s.name} – Closes`,
+                module: s.module as ModuleType,
+                priority: this.escalatePriority(s.priority as Priority),
+                branchId: bid,
+                branchName: null,
+                entityId: null,
+                meta: { code: s.code, ruleId: s.ruleId, window: 'CLOSE' },
+              });
+            }
+          }
+        }
+      }
+    }
+
     return items;
   }
 
-  // ── Returns / Filings reminders (config-based placeholders) ──
-  private buildReturnItems(from: string, to: string): CalendarItem[] {
-    const items: CalendarItem[] = [];
-    const start = new Date(from);
-    const end = new Date(to);
-
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-    const limit = new Date(end.getFullYear(), end.getMonth() + 1, 0);
-
-    while (cursor <= limit) {
-      const y = cursor.getFullYear();
-      const m = cursor.getMonth();
-
-      const pushIfIn = (dt: Date, title: string, priority: Priority) => {
-        if (dt >= start && dt <= end) {
-          items.push({
-            date: this.toISODate(dt),
-            title,
-            module: 'RETURNS',
-            priority,
-            branchId: null,
-            branchName: null,
-            entityId: null,
-            meta: {},
-          });
-        }
-      };
-
-      pushIfIn(new Date(y, m, 15), 'PF Payment Due (15th)', 'HIGH');
-      pushIfIn(new Date(y, m, 15), 'ESI Payment Due (15th)', 'HIGH');
-      pushIfIn(new Date(y, m, 20), 'PT Payment Due (20th)', 'MEDIUM');
-
-      cursor.setMonth(cursor.getMonth() + 1);
+  /** Build YYYY-MM list for a date range */
+  private monthsBetween(start: Date, end: Date): string[] {
+    const out: string[] = [];
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    const lim = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cur <= lim) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      out.push(`${y}-${m}`);
+      cur.setMonth(cur.getMonth() + 1);
     }
-    return items;
+    return out;
+  }
+
+  /** Render title_template with {open}, {close}, {due} placeholders */
+  private renderTitle(
+    template: string | null,
+    itemName: string,
+    vars: Record<string, string>,
+  ): string {
+    if (!template) return itemName;
+    let result = template;
+    for (const [key, val] of Object.entries(vars)) {
+      result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), val);
+    }
+    return result;
+  }
+
+  /** Bump priority one level for window-close events */
+  private escalatePriority(p: Priority): Priority {
+    switch (p) {
+      case 'LOW': return 'MEDIUM';
+      case 'MEDIUM': return 'HIGH';
+      case 'HIGH': return 'CRITICAL';
+      default: return 'CRITICAL';
+    }
   }
 
   // ── Helpers ──

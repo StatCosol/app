@@ -1,0 +1,120 @@
+<div class="page">
+  <!-- Header -->
+  <div class="head">
+    <div>
+      <h1 class="title">Monthly Uploads</h1>
+      <div class="sub">
+        Unified upload page for MCD &amp; Returns filings.
+        <span *ngIf="stateCode"> State: <b>{{ stateCode }}</b></span>
+        <span *ngIf="establishmentType"> &bull; Type: <b>{{ establishmentType }}</b></span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <input type="month" [(ngModel)]="month" (change)="load()" />
+      <select [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1">
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="muted" style="padding: 12px 0;">Loading compliance items…</div>
+
+  <!-- Overall Progress -->
+  <ng-container *ngIf="!loading && allItems.length > 0">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <span class="muted">Upload Progress</span>
+      <span style="font-weight: 800; font-size: 13px;">{{ overallProgress }}%</span>
+    </div>
+    <div class="progress-bar">
+      <div
+        class="progress-fill"
+        [class.green]="overallProgress >= 80"
+        [class.amber]="overallProgress < 80"
+        [style.width.%]="overallProgress"
+      ></div>
+    </div>
+  </ng-container>
+
+  <!-- Side-by-side Cards -->
+  <div class="card-grid" *ngIf="!loading">
+
+    <!-- MCD Card -->
+    <div class="section" *ngIf="mcdItems.length > 0">
+      <div class="section-head">
+        <span class="section-title">MCD</span>
+        <span class="section-badge mcd">{{ computeProgress(mcdItems).uploaded }}/{{ mcdItems.length }}</span>
+      </div>
+
+      <div
+        *ngFor="let it of mcdItems"
+        class="item"
+        [class.item-focus]="focusCode === it.code"
+      >
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div class="item-name">{{ it.name }}</div>
+            <div class="item-meta">{{ it.code }} &bull; {{ it.frequency }} &bull; <span [class]="'badge ' + it.priority">{{ it.priority }}</span></div>
+          </div>
+        </div>
+
+        <!-- Uploaded docs -->
+        <div *ngIf="docsByCode[it.code]?.length" class="upload-row" style="flex-wrap: wrap;">
+          <div class="doc-chip" *ngFor="let d of docsByCode[it.code]">
+            {{ d.fileName }}
+            <button (click)="deleteDoc(d)" title="Delete">&times;</button>
+          </div>
+        </div>
+
+        <!-- Upload input -->
+        <div class="upload-row">
+          <input type="file" (change)="onFileSelected($event, it)" style="font-size: 12px;" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Returns Card -->
+    <div class="section" *ngIf="returnsItems.length > 0">
+      <div class="section-head">
+        <span class="section-title">Returns &amp; Filings</span>
+        <span class="section-badge returns">{{ computeProgress(returnsItems).uploaded }}/{{ returnsItems.length }}</span>
+      </div>
+
+      <div
+        *ngFor="let it of returnsItems"
+        class="item"
+        [class.item-focus]="focusCode === it.code"
+      >
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div class="item-name">{{ it.name }}</div>
+            <div class="item-meta">{{ it.code }} &bull; {{ it.frequency }} &bull; <span [class]="'badge ' + it.priority">{{ it.priority }}</span></div>
+          </div>
+        </div>
+
+        <!-- Uploaded docs -->
+        <div *ngIf="docsByCode[it.code]?.length" class="upload-row" style="flex-wrap: wrap;">
+          <div class="doc-chip" *ngFor="let d of docsByCode[it.code]">
+            {{ d.fileName }}
+            <button (click)="deleteDoc(d)" title="Delete">&times;</button>
+          </div>
+        </div>
+
+        <!-- Upload input -->
+        <div class="upload-row">
+          <input type="file" (change)="onFileSelected($event, it)" style="font-size: 12px;" />
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Empty state -->
+  <div class="section" *ngIf="!loading && mcdItems.length === 0 && returnsItems.length === 0" style="margin-top: 16px;">
+    <div class="empty-state">
+      No applicable compliance items for this branch and month.<br />
+      <span class="muted">Try a different month or check branch configuration.</span>
+    </div>
+  </div>
+</div>

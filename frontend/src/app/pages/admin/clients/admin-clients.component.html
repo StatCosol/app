@@ -49,76 +49,327 @@
 
       <!-- Create Client Form -->
       <form (ngSubmit)="createClient()" *ngIf="!selectedClient" class="space-y-6">
-        <ui-form-input
-          label="Company Name"
-          [(ngModel)]="clientForm.clientName"
-          name="clientName"
-          placeholder="Enter company name"
-          [required]="true">
-        </ui-form-input>
+        <!-- Section 1: Company Info -->
+        <div>
+          <h4 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Company Information</h4>
+          <ui-form-input
+            label="Company Name"
+            [(ngModel)]="clientForm.clientName"
+            name="clientName"
+            placeholder="Enter company name"
+            [required]="true">
+          </ui-form-input>
+        </div>
 
-        <ui-button variant="primary" type="submit" [disabled]="!clientForm.clientName">
-          Create Client
+        <!-- Section 2: Master Client User -->
+        <div class="border-t border-gray-200 pt-4">
+          <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Master Client User</h4>
+          <p class="text-xs text-gray-500 mb-3">
+            The master user will be the primary login for the client portal.
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ui-form-input
+              label="Full Name"
+              [(ngModel)]="clientForm.masterUserName"
+              name="masterUserName"
+              placeholder="e.g., Rajesh Kumar"
+              [required]="true">
+            </ui-form-input>
+            <ui-form-input
+              label="Email Address"
+              type="email"
+              [(ngModel)]="clientForm.masterUserEmail"
+              name="masterUserEmail"
+              placeholder="master@company.com"
+              [required]="true">
+            </ui-form-input>
+            <ui-form-input
+              label="Mobile (optional)"
+              [(ngModel)]="clientForm.masterUserMobile"
+              name="masterUserMobile"
+              placeholder="10-digit mobile">
+            </ui-form-input>
+            <ui-form-input
+              label="Login Password"
+              [type]="showMasterPassword ? 'text' : 'password'"
+              [(ngModel)]="clientForm.masterUserPassword"
+              name="masterUserPassword"
+              placeholder="Minimum 6 characters"
+              [required]="true">
+            </ui-form-input>
+          </div>
+          <label class="flex items-center gap-2 mt-2 cursor-pointer text-sm text-gray-600">
+            <input type="checkbox" [(ngModel)]="showMasterPassword" [ngModelOptions]="{standalone: true}" class="rounded border-gray-300" />
+            Show password
+          </label>
+        </div>
+
+        <!-- Created Master User Credentials Banner -->
+        <div *ngIf="createdMasterUser" class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <h4 class="text-sm font-semibold text-green-800 mb-1">Master User Created</h4>
+              <p class="text-sm text-green-700">
+                <strong>Email:</strong> {{ createdMasterUser.email }}
+                &nbsp;|&nbsp;
+                <strong>Password:</strong> {{ createdMasterUser.password }}
+              </p>
+              <p class="text-xs text-green-600 mt-1">Save these credentials now; the password will not be shown again.</p>
+            </div>
+            <button type="button" (click)="createdMasterUser = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+          </div>
+        </div>
+
+        <ui-button variant="primary" type="submit"
+          [disabled]="!clientForm.clientName || !clientForm.masterUserName || !clientForm.masterUserEmail || !clientForm.masterUserPassword || loading">
+          {{ loading ? 'Registering...' : 'Register Client' }}
         </ui-button>
       </form>
 
-      <!-- Client Info Display -->
-      <div *ngIf="selectedClient" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-lg p-6">
-        <div>
-          <div class="text-sm text-gray-500 mb-1">Client Code</div>
-          <div class="text-base font-medium text-gray-900">{{ selectedClient.clientCode || '-' }}</div>
-        </div>
-        <div>
-          <div class="text-sm text-gray-500 mb-1">Name</div>
-          <div class="text-base font-medium text-gray-900">{{ selectedClient.clientName }}</div>
-        </div>
-        <div>
-          <div class="text-sm text-gray-500 mb-1">Code</div>
-          <div class="text-base font-medium text-gray-900">{{ selectedClient.clientCode }}</div>
-        </div>
-        <div>
-          <div class="text-sm text-gray-500 mb-1">Status</div>
-          <ui-status-badge [status]="selectedClient.status || 'ACTIVE'"></ui-status-badge>
+      <!-- Client Info Display / Edit -->
+      <div *ngIf="selectedClient">
+        <form (ngSubmit)="saveClientDetails()" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+            <div>
+              <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Client Code</label>
+              <div class="text-base font-medium text-gray-900 dark:text-white">{{ selectedClient.clientCode || '-' }}</div>
+            </div>
+            <div>
+              <label class="block text-sm text-gray-500 dark:text-gray-400 mb-1">Status</label>
+              <ui-status-badge [status]="selectedClient.status || 'ACTIVE'"></ui-status-badge>
+            </div>
+            <ui-form-input
+              label="Company Name"
+              [(ngModel)]="editClientForm.clientName"
+              name="editClientName"
+              placeholder="Enter company name"
+              [required]="true">
+            </ui-form-input>
+            <ui-form-input
+              label="Company Code (ESS)"
+              [(ngModel)]="editClientForm.companyCode"
+              name="editCompanyCode"
+              placeholder="e.g., VEDH">
+            </ui-form-input>
+            <ui-form-input
+              label="Industry"
+              [(ngModel)]="editClientForm.industry"
+              name="editIndustry"
+              placeholder="e.g., Manufacturing">
+            </ui-form-input>
+            <ui-form-select
+              label="State"
+              [(ngModel)]="editClientForm.state"
+              [options]="stateSelectOptions"
+              name="editState"
+              placeholder="Select state">
+            </ui-form-select>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registered Address</label>
+              <textarea
+                [(ngModel)]="editClientForm.registeredAddress"
+                name="editAddress"
+                rows="2"
+                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
+                placeholder="Enter registered address"></textarea>
+            </div>
+            <ui-form-input
+              label="Primary Contact Name"
+              [(ngModel)]="editClientForm.primaryContactName"
+              name="editContactName"
+              placeholder="Contact person name">
+            </ui-form-input>
+            <ui-form-input
+              label="Primary Contact Email"
+              [(ngModel)]="editClientForm.primaryContactEmail"
+              name="editContactEmail"
+              placeholder="email@example.com">
+            </ui-form-input>
+            <ui-form-input
+              label="Primary Contact Mobile"
+              [(ngModel)]="editClientForm.primaryContactMobile"
+              name="editContactMobile"
+              placeholder="10-digit mobile">
+            </ui-form-input>
+          </div>
+          <div class="flex gap-3">
+            <ui-button variant="primary" type="submit" [disabled]="savingClient">
+              {{ savingClient ? 'Saving...' : 'Save Changes' }}
+            </ui-button>
+            <ui-button variant="secondary" (clicked)="loadReadinessCheck()" [disabled]="loadingReadiness">
+              {{ loadingReadiness ? 'Checking...' : 'Readiness Check' }}
+            </ui-button>
+          </div>
+        </form>
+
+        <!-- Readiness Checklist -->
+        <div *ngIf="readinessResult" class="mt-6 bg-white dark:bg-gray-800 border rounded-lg p-5">
+          <h4 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 text-lg">
+            <span [class]="readinessResult.ready ? 'text-green-600' : 'text-amber-600'">
+              {{ readinessResult.ready ? '✅' : '⚠️' }}
+            </span>
+            Go-Live Readiness: {{ readinessResult.ready ? 'READY' : 'NOT READY' }}
+          </h4>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Master User -->
+            <div class="flex items-center justify-between p-3 rounded-lg"
+                 [class]="readinessResult.checks?.masterUser?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.masterUser?.ok ? 'text-green-500' : 'text-red-500'" class="text-lg">
+                  {{ readinessResult.checks?.masterUser?.ok ? '✓' : '✗' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.masterUser?.ok ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'">
+                    Master User
+                  </div>
+                  <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.masterUser?.count || 0 }}</div>
+                </div>
+              </div>
+              <a *ngIf="!readinessResult.checks?.masterUser?.ok"
+                 [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'CLIENT',clientId:selectedClient.id}"
+                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Master User</a>
+            </div>
+
+            <!-- Branches -->
+            <div class="flex items-center justify-between p-3 rounded-lg"
+                 [class]="readinessResult.checks?.branches?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.branches?.ok ? 'text-green-500' : 'text-red-500'" class="text-lg">
+                  {{ readinessResult.checks?.branches?.ok ? '✓' : '✗' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.branches?.ok ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'">
+                    Branches
+                  </div>
+                  <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.branches?.count || 0 }}</div>
+                </div>
+              </div>
+              <a *ngIf="!readinessResult.checks?.branches?.ok && selectedClient"
+                 [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
+                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Branch</a>
+            </div>
+
+            <!-- Branch Users -->
+            <div class="flex items-center justify-between p-3 rounded-lg"
+                 [class]="readinessResult.checks?.branchUsers?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.branchUsers?.ok ? 'text-green-500' : 'text-red-500'" class="text-lg">
+                  {{ readinessResult.checks?.branchUsers?.ok ? '✓' : '✗' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.branchUsers?.ok ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'">
+                    Branch Users Mapped
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    Mapped: {{ readinessResult.checks?.branchUsers?.count || 0 }}
+                    <span *ngIf="readinessResult.checks?.branchUsers?.unmappedUsers > 0" class="text-amber-600 ml-1">
+                      ({{ readinessResult.checks?.branchUsers?.unmappedUsers }} unmapped)
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <a *ngIf="!readinessResult.checks?.branchUsers?.ok && selectedClient"
+                 [routerLink]="['/admin/clients', selectedClient.id, 'branches']"
+                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Map Branch Users</a>
+            </div>
+
+            <!-- Payroll User -->
+            <div class="flex items-center justify-between p-3 rounded-lg"
+                 [class]="readinessResult.checks?.payrollUser?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.payrollUser?.ok ? 'text-green-500' : 'text-red-500'" class="text-lg">
+                  {{ readinessResult.checks?.payrollUser?.ok ? '✓' : '✗' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.payrollUser?.ok ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'">
+                    Payroll User
+                  </div>
+                  <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.payrollUser?.count || 0 }}</div>
+                </div>
+              </div>
+              <a *ngIf="!readinessResult.checks?.payrollUser?.ok"
+                 [routerLink]="['/admin/users']" [queryParams]="{action:'create',role:'PAYROLL',clientId:selectedClient.id}"
+                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Create Payroll User</a>
+            </div>
+
+            <!-- CRM Assigned -->
+            <div class="flex items-center justify-between p-3 rounded-lg"
+                 [class]="readinessResult.checks?.crmAssigned?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.crmAssigned?.ok ? 'text-green-500' : 'text-red-500'" class="text-lg">
+                  {{ readinessResult.checks?.crmAssigned?.ok ? '✓' : '✗' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.crmAssigned?.ok ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'">
+                    CRM Assigned
+                  </div>
+                </div>
+              </div>
+              <a *ngIf="!readinessResult.checks?.crmAssigned?.ok"
+                 [routerLink]="['/admin/assignments']"
+                 class="text-xs text-indigo-600 hover:text-indigo-800 underline">Assign CRM</a>
+            </div>
+
+            <!-- Compliances Configured -->
+            <div class="flex items-center justify-between p-3 rounded-lg"
+                 [class]="readinessResult.checks?.masters?.compliances?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.masters?.compliances?.ok ? 'text-green-500' : 'text-red-500'" class="text-lg">
+                  {{ readinessResult.checks?.masters?.compliances?.ok ? '✓' : '✗' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.masters?.compliances?.ok ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'">
+                    Compliances Configured
+                  </div>
+                  <div class="text-xs text-gray-500">Count: {{ readinessResult.checks?.masters?.compliances?.count || 0 }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Storage Writable -->
+            <div class="flex items-center justify-between p-3 rounded-lg md:col-span-2"
+                 [class]="readinessResult.checks?.storage?.ok ? 'bg-green-50 dark:bg-green-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20'">
+              <div class="flex items-center gap-2">
+                <span [class]="readinessResult.checks?.storage?.ok ? 'text-green-500' : 'text-yellow-500'" class="text-lg">
+                  {{ readinessResult.checks?.storage?.ok ? '✓' : '⚠' }}
+                </span>
+                <div>
+                  <div class="text-sm font-medium" [class]="readinessResult.checks?.storage?.ok ? 'text-green-800 dark:text-green-300' : 'text-yellow-800 dark:text-yellow-300'">
+                    Upload Storage
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    Path: {{ readinessResult.checks?.storage?.path || 'uploads/' }} —
+                    {{ readinessResult.checks?.storage?.writable ? 'Writable ✓' : 'Not Writable ✗' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- CLIENT USERS SECTION -->
+    <!-- MASTER CLIENT USER (Read-Only Display) -->
     <div class="card mt-6" *ngIf="selectedClient">
-      <h3 class="text-xl font-semibold text-gray-900 mb-6">
-        Client Users for {{ selectedClient.clientName }}
-      </h3>
+      <h3 class="text-xl font-semibold text-gray-900 mb-4">Master Client User</h3>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <ui-form-select
-          label="Select existing Client User"
-          [(ngModel)]="selectedClientUserId"
-          [options]="clientUserSelectOptions"
-          placeholder="Select user"
-          [disabled]="loading || availableClientUsers.length === 0">
-        </ui-form-select>
-
-        <div class="flex items-end">
-          <ui-button variant="primary" [fullWidth]="true" (clicked)="linkClientUser()" [disabled]="loading || !selectedClientUserId">
-            Link User
-          </ui-button>
+      <div *ngIf="clientUsers.length > 0">
+        <div *ngFor="let u of clientUsers"
+             class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 mb-2">
+          <div>
+            <div class="font-medium text-gray-900">{{ u.name }}</div>
+            <div class="text-sm text-gray-500">{{ u.email }}</div>
+            <div class="text-sm text-gray-500" *ngIf="u.mobile">{{ u.mobile }}</div>
+          </div>
+          <ui-status-badge variant="success" size="sm">MASTER</ui-status-badge>
         </div>
       </div>
 
-      <ui-data-table
-        *ngIf="clientUsers.length > 0"
-        [columns]="clientUsersColumns"
-        [data]="clientUsers">
-
-        <ng-template uiTableCell="action" let-row>
-          <ui-button variant="danger" size="sm" (clicked)="unlinkClientUser(row)">Unlink</ui-button>
-        </ng-template>
-      </ui-data-table>
-
       <ui-empty-state
         *ngIf="clientUsers.length === 0"
-        title="No client users linked"
-        description="No client users linked to this company yet.">
+        title="No master user linked"
+        description="This client has no master user. Create one from the Users section.">
       </ui-empty-state>
     </div>
 

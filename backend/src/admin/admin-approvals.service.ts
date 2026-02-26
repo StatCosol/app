@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApprovalRequestEntity } from './entities/approval-request.entity';
@@ -41,6 +41,12 @@ export class AdminApprovalsService {
       throw new NotFoundException('Approval request not found');
     }
 
+    if (req.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Cannot approve a request with status '${req.status}'. Only PENDING requests can be approved.`,
+      );
+    }
+
     const actionResult = await this.executeApprovedAction(req, approverUserId);
 
     req.status = 'APPROVED';
@@ -58,6 +64,12 @@ export class AdminApprovalsService {
 
     if (!req) {
       throw new NotFoundException('Approval request not found');
+    }
+
+    if (req.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Cannot reject a request with status '${req.status}'. Only PENDING requests can be rejected.`,
+      );
     }
 
     const actionResult = await this.executeRejectedAction(

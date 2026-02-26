@@ -1,6 +1,7 @@
 
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { CcoCrmsService } from '../../core/cco-crms.service';
@@ -39,7 +40,7 @@ export class CcoCrmsUnderMeComponent implements OnInit, OnDestroy {
     { key: 'actions', header: 'Actions', sortable: false },
   ];
 
-  constructor(private ccoCrmsService: CcoCrmsService, private toast: ToastService, private cdr: ChangeDetectorRef) {}
+  constructor(private ccoCrmsService: CcoCrmsService, private toast: ToastService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.ccoCrmsService.list().pipe(
@@ -61,8 +62,7 @@ export class CcoCrmsUnderMeComponent implements OnInit, OnDestroy {
   }
 
   viewCrm(crm: any) {
-    // Placeholder for view action
-    this.toast.info('View CRM: ' + crm.name);
+    this.router.navigate(['/cco/crms', crm.id]);
   }
 
   retry(): void {

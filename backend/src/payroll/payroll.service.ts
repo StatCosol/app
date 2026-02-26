@@ -225,12 +225,14 @@ export class PayrollService {
   }
 
   private async getClientAccessToggles(clientId: string): Promise<{
+    allowBranchPayrollAccess: boolean;
     allowBranchWageRegisters: boolean;
     allowBranchSalaryRegisters: boolean;
   }> {
     const row = await this.clientSettingsRepo.findOne({ where: { clientId } });
     const s = (row?.settings || {}) as Record<string, any>;
     return {
+      allowBranchPayrollAccess: s.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: s.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: s.allowBranchSalaryRegisters === true,
     };
@@ -254,6 +256,7 @@ export class PayrollService {
 
     const next = {
       ...(existing?.settings || {}),
+      allowBranchPayrollAccess: dto?.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: dto?.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: dto?.allowBranchSalaryRegisters === true,
     };
@@ -956,6 +959,15 @@ export class PayrollService {
 
   async clientListRegistersRecords(user: any, q: any) {
     this.ensureClientOrBranchUser(user);
+
+    // Enforce top-level payroll access toggle for branch users
+    if (user.userType === 'BRANCH') {
+      const toggles = await this.getClientAccessToggles(user.clientId);
+      if (!toggles.allowBranchPayrollAccess) {
+        throw new ForbiddenException('Payroll access has not been enabled for branch users');
+      }
+    }
+
     const qb = this.rrRepo
       .createQueryBuilder('r')
       .where('r.client_id = :cid', { cid: user.clientId })
@@ -1422,6 +1434,15 @@ export class PayrollService {
    */
   async downloadRegisterForClient(user: any, registerId: string) {
     this.ensureClientOrBranchUser(user);
+
+    // Enforce top-level payroll access toggle for branch users
+    if (user.userType === 'BRANCH') {
+      const branchToggles = await this.getClientAccessToggles(user.clientId);
+      if (!branchToggles.allowBranchPayrollAccess) {
+        throw new ForbiddenException('Payroll access has not been enabled for branch users');
+      }
+    }
+
     const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
     if (!row) throw new BadRequestException('Register not found');
     if (row.clientId !== user.clientId)

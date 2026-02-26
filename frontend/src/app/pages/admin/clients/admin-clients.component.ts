@@ -43,8 +43,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   clients: Client[] = [];
   selectedClient: Client | null = null;
   clientForm = {
-    clientName: ''
+    clientName: '',
+    masterUserName: '',
+    masterUserEmail: '',
+    masterUserMobile: '',
+    masterUserPassword: '',
   };
+  showMasterPassword = false;
+  createdMasterUser: { email: string; password: string } | null = null;
 
   // Branch section
   branches: Branch[] = [];
@@ -139,6 +145,21 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loading = true;
   error = '';
   success = '';
+
+  // Client edit form
+  editClientForm = {
+    clientName: '',
+    companyCode: '',
+    industry: '',
+    state: '',
+    registeredAddress: '',
+    primaryContactName: '',
+    primaryContactEmail: '',
+    primaryContactMobile: '',
+  };
+  savingClient = false;
+  loadingReadiness = false;
+  readinessResult: any = null;
 
   // Table columns
   allClientsColumns: TableColumn[] = [
@@ -289,12 +310,38 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Validate master user fields
+    const mu = this.clientForm;
+    if (!mu.masterUserName.trim()) {
+      this.error = 'Master user name is required';
+      return;
+    }
+    if (!mu.masterUserEmail.trim()) {
+      this.error = 'Master user email is required';
+      return;
+    }
+    if (!mu.masterUserPassword || mu.masterUserPassword.length < 6) {
+      this.error = 'Master user password must be at least 6 characters';
+      return;
+    }
+
     this.loading = true;
     this.error = '';
     this.success = '';
+    this.createdMasterUser = null;
 
-    this.service.createClient({ clientName: name }).pipe(
-      timeout(8000),
+    const payload: any = {
+      clientName: name,
+      masterUserName: mu.masterUserName.trim(),
+      masterUserEmail: mu.masterUserEmail.trim(),
+      masterUserPassword: mu.masterUserPassword,
+    };
+    if (mu.masterUserMobile.trim()) {
+      payload.masterUserMobile = mu.masterUserMobile.trim();
+    }
+
+    this.service.createClient(payload).pipe(
+      timeout(12000),
       catchError((err) => {
         console.error('Create client error:', err);
         this.error = err.error?.message || 'Failed to create client';
@@ -304,8 +351,21 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       finalize(() => this.loading = false)
     ).subscribe({
       next: (res) => {
-        this.success = 'Client created successfully';
-        this.clientForm.clientName = '';
+        this.success = 'Client registered successfully';
+        // Show master user credentials banner
+        if (res.masterUserEmail) {
+          this.createdMasterUser = {
+            email: res.masterUserEmail,
+            password: mu.masterUserPassword,
+          };
+        }
+        this.clientForm = {
+          clientName: '',
+          masterUserName: '',
+          masterUserEmail: '',
+          masterUserMobile: '',
+          masterUserPassword: '',
+        };
         this.loadClients();
         if (res.id) {
           this.openClient(res.id);
@@ -367,10 +427,10 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (client) => {
         this.selectedClient = client;
+        this.populateEditForm(client);
         this.activeTab = tab || 'branches';
         this.loadBranches();
         this.loadClientUsers(client.id);
-        this.loadAvailableClientUsers();
       },
       error: () => {
       },
@@ -876,5 +936,66 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       fn();
       this.cdr.detectChanges();
     }, 0);
+  }
+
+  // ── Client Edit + Readiness ────────────────────────────────
+  private populateEditForm(client: Client) {
+    this.editClientForm = {
+      clientName: client.clientName || '',
+      companyCode: (client as any).companyCode || '',
+      industry: (client as any).industry || '',
+      state: (client as any).state || '',
+      registeredAddress: (client as any).registeredAddress || '',
+      primaryContactName: (client as any).primaryContactName || '',
+      primaryContactEmail: (client as any).primaryContactEmail || '',
+      primaryContactMobile: (client as any).primaryContactMobile || '',
+    };
+    this.readinessResult = null;
+  }
+
+  saveClientDetails() {
+    if (!this.selectedClient) return;
+    this.savingClient = true;
+    this.error = '';
+    this.success = '';
+
+    this.service.updateClient(this.selectedClient.id, this.editClientForm).pipe(
+      timeout(8000),
+      catchError((err) => {
+        this.error = err.error?.message || 'Failed to update client';
+        return of(null);
+      }),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.savingClient = false;
+        this.cdr.detectChanges();
+      }),
+    ).subscribe((res) => {
+      if (res) {
+        this.success = 'Client details updated';
+        this.selectedClient = { ...this.selectedClient!, ...res };
+      }
+    });
+  }
+
+  loadReadinessCheck() {
+    if (!this.selectedClient) return;
+    this.loadingReadiness = true;
+    this.cdr.detectChanges();
+
+    this.service.getReadinessCheck(this.selectedClient.id).pipe(
+      timeout(8000),
+      catchError((err) => {
+        this.error = 'Failed to load readiness check';
+        return of(null);
+      }),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.loadingReadiness = false;
+        this.cdr.detectChanges();
+      }),
+    ).subscribe((res) => {
+      this.readinessResult = res;
+    });
   }
 }

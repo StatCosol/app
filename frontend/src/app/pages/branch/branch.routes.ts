@@ -27,6 +27,22 @@ const BranchMcdUploadComponent = () =>
   import('./branch-mcd-upload/branch-mcd-upload.component').then((m) => m.BranchMcdUploadComponent);
 const BranchReturnsFilingsComponent = () =>
   import('./branch-returns-filings/branch-returns-filings.component').then((m) => m.BranchReturnsFilingsComponent);
+const ComplianceCalendarComponent = () =>
+  import('../../shared/calendar/compliance-calendar.component').then((m) => m.ComplianceCalendarComponent);
+// Phase-2: const HeatmapComponent = () =>
+//   import('../../shared/risk/heatmap.component').then((m) => m.HeatmapComponent);
+const SlaTrackerComponent = () =>
+  import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
+// Phase-2: const RiskTrendComponent = () =>
+//   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
+const EscalationsComponent = () =>
+  import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
+const BranchComplianceItemsComponent = () =>
+  import('../../shared/branch-compliance/branch-compliance-items.component').then((m) => m.BranchComplianceItemsComponent);
+const BranchComplianceComponent = () =>
+  import('../../shared/compliance/branch-compliance.component').then(m => m.BranchComplianceComponent);
+const MonthlyUploadsComponent = () =>
+  import('../../shared/uploads/monthly-uploads.component').then(m => m.MonthlyUploadsComponent);
 export const BRANCH_ROUTES: Routes = [
   {
     path: 'branch',
@@ -52,6 +68,14 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'reports',            loadComponent: BranchReportsComponent },
       { path: 'notifications',      loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk',           loadComponent: BranchHelpdeskComponent },
+      { path: 'compliance-items',     loadComponent: BranchComplianceItemsComponent },
+      { path: 'compliance',              loadComponent: BranchComplianceComponent },
+      { path: 'monthly-uploads',      loadComponent: MonthlyUploadsComponent },
+      { path: 'calendar',            loadComponent: ComplianceCalendarComponent },
+      // Phase-2: { path: 'heatmap',             loadComponent: HeatmapComponent },
+      { path: 'sla',                 loadComponent: SlaTrackerComponent },
+      // Phase-2: { path: 'risk-trend',          loadComponent: RiskTrendComponent },
+      { path: 'escalations',          loadComponent: EscalationsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

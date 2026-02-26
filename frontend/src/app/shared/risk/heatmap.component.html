@@ -1,0 +1,77 @@
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1 class="title">Compliance Risk Heatmap</h1>
+      <p class="subtitle">State-wise &amp; branch-wise risk exposure view</p>
+    </div>
+    <div class="stats">
+      <span class="stat stat-high">🔴 {{ highCount }} High</span>
+      <span class="stat stat-medium">🟠 {{ mediumCount }} Medium</span>
+      <span class="stat stat-low">🟢 {{ lowCount }} Low</span>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <select *ngIf="isCrm && clients.length" [(ngModel)]="selectedClientId" (change)="load()" class="ctrl-select">
+      <option *ngFor="let c of clients" [value]="c.clientId || c.id">{{ c.companyName || c.name || 'Client' }}</option>
+    </select>
+
+    <input type="month" [(ngModel)]="month" (change)="load()" class="ctrl-input" />
+
+    <input
+      type="text"
+      [(ngModel)]="searchTerm"
+      (input)="onSearch()"
+      placeholder="Search branch…"
+      class="ctrl-input search-input"
+    />
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    Loading risk data…
+  </div>
+
+  <!-- States & Branches -->
+  <div *ngIf="!loading && stateKeys.length > 0" class="states-container">
+    <div *ngFor="let state of stateKeys" class="state-group">
+      <div class="state-header">
+        <span class="state-name">{{ state }}</span>
+        <span class="state-count">{{ grouped[state].length }} branch{{ grouped[state].length > 1 ? 'es' : '' }}</span>
+      </div>
+
+      <div class="branches-grid">
+        <div
+          *ngFor="let b of grouped[state]"
+          class="branch-card"
+          [ngClass]="b.riskLevel"
+        >
+          <div class="branch-top">
+            <span class="branch-name">{{ b.branchName }}</span>
+            <span class="risk-badge" [ngClass]="b.riskLevel">{{ b.riskLevel }}</span>
+          </div>
+          <div class="branch-bottom">
+            <span class="branch-city" *ngIf="b.city">{{ b.city }}</span>
+            <span class="risk-score">{{ b.riskScore }}%</span>
+          </div>
+          <!-- Visual risk bar -->
+          <div class="risk-bar-bg">
+            <div class="risk-bar-fill" [ngClass]="b.riskLevel" [style.width.%]="b.riskScore"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="!loading && stateKeys.length === 0" class="empty">
+    <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+    </svg>
+    <p>No branch data available for this period.</p>
+  </div>
+</div>

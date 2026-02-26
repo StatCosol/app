@@ -91,6 +91,7 @@ export class EmployeesService {
     clientId: string,
     filters: {
       branchId?: string;
+      branchIds?: string[];
       isActive?: boolean;
       search?: string;
       limit?: number;
@@ -103,6 +104,8 @@ export class EmployeesService {
 
     if (filters.branchId) {
       qb.andWhere('e.branchId = :branchId', { branchId: filters.branchId });
+    } else if (filters.branchIds?.length) {
+      qb.andWhere('e.branchId IN (:...branchIds)', { branchIds: filters.branchIds });
     }
     if (filters.isActive !== undefined) {
       qb.andWhere('e.isActive = :isActive', { isActive: filters.isActive });

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +16,7 @@ import { UserEntity } from '../users/entities/user.entity';
 
 @Injectable()
 export class ClientsService {
+  private readonly logger = new Logger(ClientsService.name);
   // Returns client list with aggregates for controller
   async listWithAggregates() {
     return this.listClients();
@@ -30,10 +32,19 @@ export class ClientsService {
   ) {}
 
   async create(dto: CreateClientDto, createdBy?: string, createdRole?: string) {
-    console.log('[ClientsService.create] Received DTO:', {
+    this.logger.log('[create] Received DTO:', {
       clientCode: dto.clientCode,
       clientName: dto.clientName,
     });
+
+    // ── Validate master user field group completeness ───────
+    const hasMasterFields = !!(dto.masterUserName || dto.masterUserEmail || dto.masterUserPassword);
+    const hasAllMasterFields = !!(dto.masterUserName && dto.masterUserEmail && dto.masterUserPassword);
+    if (hasMasterFields && !hasAllMasterFields) {
+      throw new BadRequestException(
+        'masterUserName, masterUserEmail, and masterUserPassword are all required when creating a master user',
+      );
+    }
 
     const trimmedCode = (dto.clientCode || '').trim();
     const clientCode = trimmedCode || `C${Date.now()}`;
@@ -107,7 +118,7 @@ export class ClientsService {
         );
     }
 
-    const client = this.repo.create({
+    const clientData = {
       clientCode,
       clientName: dto.clientName,
       status: 'ACTIVE',
@@ -115,16 +126,91 @@ export class ClientsService {
       isDeleted: false,
       assignedCrmId: dto.assignedCrmId ?? null,
       assignedAuditorId: dto.assignedAuditorId ?? null,
-    });
+      registeredAddress: dto.registeredAddress ?? null,
+      state: dto.state ?? null,
+      industry: dto.industry ?? null,
+      primaryContactName: dto.primaryContactName ?? null,
+      primaryContactEmail: dto.primaryContactEmail ?? null,
+      primaryContactMobile: dto.primaryContactMobile ?? null,
+      companyCode: dto.companyCode ?? null,
+    };
 
-    console.log('[ClientsService.create] Created entity:', {
+    // ── Atomic transaction: create client + master user together ──
+    if (hasAllMasterFields) {
+      const result = await this.dataSource.transaction(async (manager) => {
+        const clientRepo = manager.getRepository(ClientEntity);
+        const clientUserRepo = manager.getRepository(ClientUserEntity);
+
+        const client = clientRepo.create(clientData);
+        let saved;
+        try {
+          saved = await clientRepo.save(client);
+        } catch (err: any) {
+          if (err.code === '23505' && err.detail?.includes('client_code')) {
+            throw new BadRequestException(
+              'Client code already exists. Please use a unique code.',
+            );
+          }
+          throw err;
+        }
+
+        // Create master user within the same transaction
+        const masterUser = await this.usersService.createMasterUserForClient(
+          manager,
+          {
+            name: dto.masterUserName!,
+            email: dto.masterUserEmail!,
+            mobile: dto.masterUserMobile ?? null,
+            password: dto.masterUserPassword!,
+            clientId: saved.id,
+          },
+        );
+
+        // Link master user in client_users join table
+        const clientUserLink = clientUserRepo.create({
+          clientId: saved.id,
+          userId: masterUser.id,
+        });
+        await clientUserRepo.save(clientUserLink);
+
+        return { saved, masterUser };
+      });
+
+      this.logger.log('[create] Saved client + master user to DB:', {
+        clientCode: result.saved.clientCode,
+        clientName: result.saved.clientName,
+        masterUserId: result.masterUser.id,
+        masterUserEmail: result.masterUser.email,
+      });
+
+      await this.auditLogs.log({
+        entityType: 'CLIENT',
+        entityId: result.saved.id,
+        action: 'CREATE',
+        performedBy: createdBy ?? null,
+        performedRole: createdRole ?? null,
+        afterJson: result.saved,
+      });
+
+      return {
+        id: result.saved.id,
+        message: 'Client created with master user',
+        masterUserId: result.masterUser.id,
+        masterUserEmail: result.masterUser.email,
+      };
+    }
+
+    // ── Legacy path: create client without master user ──────
+    const client = this.repo.create(clientData);
+
+    this.logger.log('[create] Created entity:', {
       clientCode: client.clientCode,
       clientName: client.clientName,
     });
     let saved;
     try {
       saved = await this.repo.save(client);
-    } catch (err) {
+    } catch (err: any) {
       // Handle duplicate client_code error
       if (
         err.code === '23505' &&
@@ -137,7 +223,7 @@ export class ClientsService {
       }
       throw err;
     }
-    console.log('[ClientsService.create] Saved to DB:', {
+    this.logger.log('[create] Saved to DB:', {
       clientCode: saved.clientCode,
       clientName: saved.clientName,
     });
@@ -204,6 +290,164 @@ export class ClientsService {
 
   async getClientDetails(clientId: string) {
     return this.getOrFail(clientId);
+  }
+
+  async update(
+    clientId: string,
+    dto: Partial<CreateClientDto>,
+    updatedBy?: string,
+    updatedRole?: string,
+  ) {
+    const client = await this.getOrFail(clientId);
+    const before = { ...client } as unknown as Record<string, unknown>;
+
+    // Only update provided fields
+    if (dto.clientName !== undefined) client.clientName = dto.clientName;
+    if (dto.registeredAddress !== undefined)
+      client.registeredAddress = dto.registeredAddress ?? null;
+    if (dto.state !== undefined) client.state = dto.state ?? null;
+    if (dto.industry !== undefined) client.industry = dto.industry ?? null;
+    if (dto.primaryContactName !== undefined)
+      client.primaryContactName = dto.primaryContactName ?? null;
+    if (dto.primaryContactEmail !== undefined)
+      client.primaryContactEmail = dto.primaryContactEmail ?? null;
+    if (dto.primaryContactMobile !== undefined)
+      client.primaryContactMobile = dto.primaryContactMobile ?? null;
+    if (dto.companyCode !== undefined)
+      client.companyCode = dto.companyCode ?? null;
+    if (dto.status !== undefined) client.status = dto.status;
+
+    const saved = await this.repo.save(client);
+
+    await this.auditLogs.log({
+      entityType: 'CLIENT',
+      entityId: saved.id,
+      action: 'UPDATE',
+      performedBy: updatedBy ?? null,
+      performedRole: updatedRole ?? null,
+      beforeJson: before,
+      afterJson: saved as unknown as Record<string, unknown>,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Returns a readiness checklist for a given client — everything needed for
+   * go-live, with pass/fail per item and detailed counts.
+   */
+  async getReadinessCheck(clientId: string) {
+    const client = await this.getOrFail(clientId);
+
+    // 1) Master user exists?
+    const masterUserRows: Array<{ cnt: string }> = await this.dataSource.query(
+      `SELECT COUNT(*) AS cnt FROM users
+       WHERE client_id = $1 AND user_type = 'MASTER'
+         AND deleted_at IS NULL AND is_active = true`,
+      [clientId],
+    );
+    const masterUserCount = Number(masterUserRows[0]?.cnt ?? 0);
+
+    // 2) At least 1 branch?
+    const branchRows: Array<{ cnt: string }> = await this.dataSource.query(
+      `SELECT COUNT(*) AS cnt FROM client_branches
+       WHERE clientid = $1 AND isdeleted = false`,
+      [clientId],
+    );
+    const branchCount = Number(branchRows[0]?.cnt ?? 0);
+
+    // 3) Branch users mapped? + unmapped count
+    const branchUserMappedRows: Array<{ cnt: string }> =
+      await this.dataSource.query(
+        `SELECT COUNT(DISTINCT u.id) AS cnt FROM users u
+         JOIN user_branches ub ON ub.user_id = u.id
+         WHERE u.client_id = $1 AND u.user_type = 'BRANCH'
+           AND u.deleted_at IS NULL AND u.is_active = true`,
+        [clientId],
+      );
+    const branchUsersMapped = Number(branchUserMappedRows[0]?.cnt ?? 0);
+
+    const totalBranchUserRows: Array<{ cnt: string }> =
+      await this.dataSource.query(
+        `SELECT COUNT(*) AS cnt FROM users
+         WHERE client_id = $1 AND user_type = 'BRANCH'
+           AND deleted_at IS NULL AND is_active = true`,
+        [clientId],
+      );
+    const totalBranchUsers = Number(totalBranchUserRows[0]?.cnt ?? 0);
+    const unmappedUsers = Math.max(0, totalBranchUsers - branchUsersMapped);
+
+    // 4) Payroll user exists?
+    const payrollRows: Array<{ cnt: string }> = await this.dataSource.query(
+      `SELECT COUNT(*) AS cnt FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE u.client_id = $1 AND UPPER(r.code) = 'PAYROLL'
+         AND u.deleted_at IS NULL AND u.is_active = true`,
+      [clientId],
+    );
+    const payrollCount = Number(payrollRows[0]?.cnt ?? 0);
+
+    // 5) CRM assigned?
+    const crmRows: Array<{ cnt: string }> = await this.dataSource.query(
+      `SELECT COUNT(*) AS cnt FROM client_assignments_current
+       WHERE client_id = $1 AND assignment_type = 'CRM'
+         AND assigned_to_user_id IS NOT NULL`,
+      [clientId],
+    );
+    const hasCrmAssignment = Number(crmRows[0]?.cnt ?? 0) > 0;
+
+    // 6) Compliance masters configured? (at least 1 applicable compliance)
+    const complianceRows: Array<{ cnt: string }> = await this.dataSource.query(
+      `SELECT COUNT(*) AS cnt FROM branch_applicable_compliances bac
+       JOIN client_branches cb ON cb.id = bac.branch_id
+       WHERE cb.clientid = $1 AND cb.isdeleted = false`,
+      [clientId],
+    );
+    const complianceCount = Number(complianceRows[0]?.cnt ?? 0);
+
+    // 7) Storage / upload directory writable?
+    let storageOk = false;
+    const uploadPath = 'uploads/';
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const dir = path.join(process.cwd(), uploadPath);
+      fs.accessSync(dir, fs.constants.W_OK);
+      storageOk = true;
+    } catch {
+      storageOk = false;
+    }
+
+    const checks = {
+      masterUser: { ok: masterUserCount > 0, count: masterUserCount },
+      branches: { ok: branchCount > 0, count: branchCount },
+      branchUsers: {
+        ok: branchUsersMapped > 0,
+        count: branchUsersMapped,
+        unmappedUsers,
+      },
+      payrollUser: { ok: payrollCount > 0, count: payrollCount },
+      crmAssigned: { ok: hasCrmAssignment },
+      masters: {
+        compliances: { ok: complianceCount > 0, count: complianceCount },
+      },
+      storage: { ok: storageOk, path: uploadPath, writable: storageOk },
+    };
+
+    const ready =
+      checks.masterUser.ok &&
+      checks.branches.ok &&
+      checks.branchUsers.ok &&
+      checks.payrollUser.ok &&
+      checks.crmAssigned.ok &&
+      checks.masters.compliances.ok;
+
+    return {
+      clientId,
+      clientName: client.clientName,
+      ready,
+      checks,
+    };
   }
 
   async assignCrmAuditor(

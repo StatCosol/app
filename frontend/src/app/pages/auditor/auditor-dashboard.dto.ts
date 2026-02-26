@@ -51,6 +51,7 @@ export interface AuditorObservationPending {
 
 /** Evidence/Document pending submission */
 export interface AuditorEvidencePending {
+  id: string;
   auditId: string;
   clientId: string;
   clientName: string;

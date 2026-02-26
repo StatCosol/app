@@ -11,6 +11,7 @@ import { ClientComplianceDocsController } from './controllers/client-compliance-
 import { AuditorComplianceDocsController } from './controllers/auditor-compliance-docs.controller';
 import { AdminComplianceDocsController } from './controllers/admin-compliance-docs.controller';
 import { AuthModule } from '../auth/auth.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuthModule } from '../auth/auth.module';
       ComplianceReturnMasterEntity,
     ]),
     AuthModule,
+    EmailModule,
   ],
   controllers: [
     BranchComplianceDocsController,

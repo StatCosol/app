@@ -3,20 +3,23 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { PayrollTemplate } from '../payroll/entities/payroll-template.entity';
 import { PayrollTemplateComponent } from '../payroll/entities/payroll-template-component.entity';
 import { PayrollClientTemplate } from '../payroll/entities/payroll-client-template.entity';
+import { CreatePayrollTemplateDto, UpdatePayrollTemplateDto } from './dto/payroll-template.dto';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
-@UseGuards(RolesGuard)
 @Controller({ path: 'admin/payroll', version: '1' })
 export class AdminPayrollTemplatesController {
   constructor(
@@ -38,7 +41,7 @@ export class AdminPayrollTemplatesController {
   }
 
   @Get(['templates/:id', 'payroll-templates/:id'])
-  async getTemplate(@Param('id') id: string) {
+  async getTemplate(@Param('id', ParseUUIDPipe) id: string) {
     return this.templateRepo.findOne({
       where: { id },
       relations: ['components'],
@@ -46,19 +49,28 @@ export class AdminPayrollTemplatesController {
   }
 
   @Post(['templates', 'payroll-templates'])
-  async createTemplate(@Body() dto: any) {
+  async createTemplate(@Body() dto: CreatePayrollTemplateDto) {
     const template = this.templateRepo.create({
       name: dto.name,
+      fileName: dto.fileName,
+      filePath: dto.filePath,
+      fileType: dto.fileType ?? null,
       version: dto.version,
       is_active: dto.is_active ?? true,
-      components: dto.components,
     });
     return this.templateRepo.save(template);
   }
 
   @Patch(['templates/:id', 'payroll-templates/:id'])
-  async updateTemplate(@Param('id') id: string, @Body() dto: any) {
-    await this.templateRepo.update(id, dto);
+  async updateTemplate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePayrollTemplateDto) {
+    const updateData: Partial<PayrollTemplate> = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.fileName !== undefined) updateData.fileName = dto.fileName;
+    if (dto.filePath !== undefined) updateData.filePath = dto.filePath;
+    if (dto.fileType !== undefined) updateData.fileType = dto.fileType;
+    if (dto.version !== undefined) updateData.version = dto.version;
+    if (dto.is_active !== undefined) updateData.is_active = dto.is_active;
+    await this.templateRepo.update(id, updateData);
     return this.getTemplate(id);
   }
 
@@ -77,7 +89,7 @@ export class AdminPayrollTemplatesController {
   }
 
   @Get(['templates/client/:clientId', 'payroll-templates/client/:clientId'])
-  async getClientTemplate(@Param('clientId') clientId: string) {
+  async getClientTemplate(@Param('clientId', ParseUUIDPipe) clientId: string) {
     return this.clientTemplateRepo.find({
       where: { client_id: clientId },
       relations: ['template'],

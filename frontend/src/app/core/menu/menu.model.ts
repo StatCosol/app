@@ -6,7 +6,9 @@ export type RoleCode =
   | 'AUDITOR'
   | 'CLIENT'
   | 'CONTRACTOR'
-  | 'PAYROLL';
+  | 'PAYROLL'
+  | 'EMPLOYEE'
+  | 'PF_TEAM';
 
 export interface MenuItem {
   label: string;

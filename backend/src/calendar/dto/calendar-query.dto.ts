@@ -13,5 +13,9 @@ export class CalendarQueryDto {
 
   @IsOptional()
   @IsString()
+  clientId?: string; // required for CRM / ADMIN / CCO / CEO
+
+  @IsOptional()
+  @IsString()
   module?: 'REGISTRATION' | 'MCD' | 'RETURNS';
 }

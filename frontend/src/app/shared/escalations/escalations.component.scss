@@ -1,0 +1,261 @@
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+/* ── Header ── */
+.header {
+  margin-bottom: 20px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stat-open { background: #fee2e2; color: #991b1b; }
+.stat-ack  { background: #fef3c7; color: #92400e; }
+.stat-closed { background: #dcfce7; color: #166534; }
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  background: #fff;
+  color: #0f172a;
+  min-width: 160px;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: #6366f1;
+  }
+}
+
+/* ── Loading ── */
+.loading {
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  background: #f8fafc;
+  padding: 12px 14px;
+  border-bottom: 2px solid #f1f5f9;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f8fafc;
+  font-size: 13px;
+  color: #334155;
+}
+
+.row-HIGH { border-left: 3px solid #ef4444; }
+.row-MEDIUM { border-left: 3px solid #f59e0b; }
+.row-LOW { border-left: 3px solid #22c55e; }
+
+.date-cell {
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 12px;
+}
+
+/* ── Score / Severity ── */
+.score-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-value {
+  font-weight: 800;
+  font-size: 14px;
+
+  &.HIGH    { color: #dc2626; }
+  &.MEDIUM  { color: #d97706; }
+  &.LOW     { color: #16a34a; }
+}
+
+.severity-tag {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+
+  &.HIGH   { background: #fee2e2; color: #991b1b; }
+  &.MEDIUM { background: #fef3c7; color: #92400e; }
+  &.LOW    { background: #dcfce7; color: #166534; }
+}
+
+.reason-cell {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overdue-cell {
+  text-align: center;
+}
+
+.overdue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.no-overdue {
+  color: #cbd5e1;
+}
+
+/* ── Status badge ── */
+.badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.OPEN   { background: #fee2e2; color: #991b1b; }
+.ACK    { background: #fef3c7; color: #92400e; }
+.CLOSED { background: #dcfce7; color: #166534; }
+
+/* ── Action buttons ── */
+.action-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.btn-ack {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+
+  &:hover:not(:disabled) {
+    background: #fde68a;
+  }
+}
+
+.btn-close {
+  background: #0f172a;
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: #1e293b;
+  }
+}
+
+/* ── Empty state ── */
+.empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: #94a3b8;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  opacity: 0.5;
+}
+
+.empty p {
+  margin: 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.empty-sub {
+  font-size: 12px;
+  font-weight: 400 !important;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .title-row { flex-direction: column; align-items: flex-start; }
+  .controls { flex-direction: column; }
+  .select { width: 100%; }
+}

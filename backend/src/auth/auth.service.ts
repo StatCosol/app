@@ -14,6 +14,7 @@ import { EssLoginDto } from './dto/ess-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwt: JwtService,
     private readonly dataSource: DataSource,
+    private readonly emailService: EmailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -196,8 +198,23 @@ export class AuthService {
       { expiresIn: '1h' },
     );
 
-    // TODO: integrate email service; for now return token for dev usage.
-    return { resetToken };
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const bodyHtml = `
+      <p>You requested a password reset for your StatCo account.</p>
+      <p>Click the link below to reset your password (valid for 1 hour):</p>
+      <p><a href="${resetLink}" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">Reset Password</a></p>
+      <p style="color:#888;font-size:13px;">If you did not request this, you can safely ignore this email.</p>
+    `;
+
+    await this.emailService.send(
+      user.email,
+      'Password Reset — StatCo Solutions',
+      'Password Reset',
+      bodyHtml,
+    );
+
+    return { ok: true };
   }
 
   async resetPassword(dto: ResetPasswordDto) {

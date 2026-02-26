@@ -481,8 +481,6 @@ export class UsersComponent implements OnInit, OnDestroy {
         ),
       );
 
-      console.log('[UsersComponent] directory response', res);
-
       const items = Array.isArray(res?.items) ? res.items : [];
       const filtered = items.filter((u: any) => !this.isDeletedUser(u));
       this.users = filtered.map((u: any) => this.ensureProtectedActive(this.normalizeUserRow(u)));
@@ -493,7 +491,6 @@ export class UsersComponent implements OnInit, OnDestroy {
       clearTimeout(safetyTimer);
       this.isLoading = false;
       const duration = Date.now() - startedAt;
-      console.log(`[UsersComponent] loadUsers completed in ${duration}ms`);
       this.cdr.detectChanges();
     }
   }

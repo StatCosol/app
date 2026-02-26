@@ -1,0 +1,149 @@
+<div class="page">
+  <div class="head">
+    <div>
+      <h1 class="title">Branch Compliance</h1>
+      <div class="sub">
+        Showing applicable rules for this branch only.
+        <span *ngIf="stateCode">State: <b>{{ stateCode }}</b></span>
+        <span *ngIf="establishmentType"> &bull; Type: <b>{{ establishmentType }}</b></span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <input type="month" [(ngModel)]="month" (change)="load()" />
+
+      <select [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length===1">
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      </select>
+
+      <select [(ngModel)]="module" (change)="load()">
+        <option value="ALL">All</option>
+        <option value="RETURNS">Returns</option>
+        <option value="MCD">MCD</option>
+      </select>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="muted" style="padding:8px 0;">Loading…</div>
+
+  <div class="cards" *ngIf="!loading">
+    <div class="card">
+      <div class="k">Total Applicable Items</div>
+      <div class="v">{{ total }}</div>
+    </div>
+    <div class="card">
+      <div class="k">Returns</div>
+      <div class="v">{{ returnsCount }}</div>
+    </div>
+    <div class="card">
+      <div class="k">MCD</div>
+      <div class="v">{{ mcdCount }}</div>
+    </div>
+    <div class="card">
+      <div class="k">High/Critical</div>
+      <div class="v">{{ highCritical }}</div>
+    </div>
+    <div class="card" style="border-left:4px solid #3b82f6;">
+      <div class="k">Upload Completion</div>
+      <div class="v">{{ completionPercent }}%</div>
+      <div class="muted" style="margin-top:4px;">{{ uploaded }}/{{ totalApplicableCodes }} items uploaded</div>
+    </div>
+    <div class="card" [style.border-left]="'4px solid ' + (riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#eab308':'#22c55e')">
+      <div class="k">Inspection Probability</div>
+      <div class="v" [style.color]="riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#92400e':'#166534'">{{ inspectionProbability }}%</div>
+      <div class="muted" style="margin-top:4px;">
+        <span [class]="'badge ' + riskLevel">{{ riskLevel }}</span>
+        <span style="margin-left:6px;">{{ riskReasons[0] || '—' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Trend Graph -->
+  <app-compliance-trend *ngIf="!loading && branchId" [branchId]="branchId" [months]="6"></app-compliance-trend>
+
+  <!-- Smart Action Plan -->
+  <div *ngIf="!loading && branchId && actionPlan.length > 0"
+       style="background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:18px;">🎯</span>
+      <span style="font-size:15px;font-weight:800;color:#0f172a;">What To Fix — Action Plan</span>
+      <span *ngIf="actionPlanLoading" class="muted" style="margin-left:8px;">Loading…</span>
+    </div>
+
+    <div *ngFor="let a of actionPlan; let i = index"
+         style="display:flex;gap:12px;padding:12px 0;"
+         [style.border-top]="i > 0 ? '1px solid #f1f5f9' : 'none'">
+      <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:#fff;"
+           [style.background]="a.priority==='CRITICAL'?'#dc2626':a.priority==='HIGH'?'#f97316':a.priority==='MEDIUM'?'#eab308':a.priority==='LOW'?'#22c55e':'#94a3b8'">
+        {{ i + 1 }}
+      </div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span [class]="'badge ' + a.priority" style="font-size:10px;padding:2px 8px;">{{ a.priority }}</span>
+          <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">{{ a.category }}</span>
+        </div>
+        <div style="font-size:13px;color:#1e293b;line-height:1.5;">{{ a.text }}</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;font-style:italic;">
+          💡 {{ a.impact }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Forecast + Summary Row ═══════ -->
+  <div *ngIf="!loading && branchId" class="cards" style="grid-template-columns:1fr 1fr;">
+    <app-risk-forecast [branchId]="branchId"></app-risk-forecast>
+    <app-compliance-summary [branchId]="branchId" [month]="month"></app-compliance-summary>
+  </div>
+
+  <!-- ═══════ Inspection Simulation Panel ═══════ -->
+  <app-risk-simulator *ngIf="!loading && branchId" [branchId]="branchId" [month]="month"></app-risk-simulator>
+
+  <div class="tbl" *ngIf="!loading">
+    <table>
+      <thead>
+        <tr>
+          <th>Module</th>
+          <th>Compliance Item</th>
+          <th>Due / Window</th>
+          <th>Priority</th>
+          <th style="width:180px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let it of items">
+          <td>{{ it.module }}</td>
+
+          <td>
+            <div style="font-weight:900;">{{ it.name }}</div>
+            <div class="muted" style="margin-top:4px;">
+              Code: {{ it.code }} &bull; Frequency: {{ it.frequency }}
+            </div>
+          </td>
+
+          <td>
+            <div *ngIf="it.dueDate">
+              <b>Due:</b> {{ it.dueDate }}
+            </div>
+            <div *ngIf="it.windowOpen && it.windowClose">
+              <b>Window:</b> {{ it.windowOpen }} &rarr; {{ it.windowClose }}
+            </div>
+          </td>
+
+          <td>
+            <span [class]="badgeClass(it.priority)">{{ it.priority }}</span>
+          </td>
+
+          <td>
+            <button class="btn" (click)="upload(it)">Upload</button>
+            <button class="btn2" style="margin-left:8px;" (click)="load()">Refresh</button>
+          </td>
+        </tr>
+
+        <tr *ngIf="items.length===0">
+          <td colspan="5" class="muted" style="text-align:center;padding:20px;">No applicable items for this selection</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

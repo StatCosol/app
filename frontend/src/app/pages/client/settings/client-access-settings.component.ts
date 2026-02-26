@@ -45,20 +45,30 @@ import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../..
 
         <div class="space-y-4">
           <label class="flex items-start gap-3">
-            <input type="checkbox" [(ngModel)]="model.allowBranchWageRegisters" [disabled]="!isMaster || saving" />
+            <input type="checkbox" [(ngModel)]="model.allowBranchPayrollAccess" [disabled]="!isMaster || saving" />
             <span>
-              <div class="font-semibold text-gray-900">Allow Wage Registers for BranchDesk</div>
-              <div class="text-xs text-gray-500">If OFF, wage-related registers will be hidden and download will be blocked for branch users.</div>
+              <div class="font-semibold text-gray-900">Allow Payroll Access for BranchDesk</div>
+              <div class="text-xs text-gray-500">If OFF, the entire Payroll section will be hidden for branch users. They won't see payroll inputs, registers, or any payroll data.</div>
             </span>
           </label>
 
-          <label class="flex items-start gap-3">
-            <input type="checkbox" [(ngModel)]="model.allowBranchSalaryRegisters" [disabled]="!isMaster || saving" />
-            <span>
-              <div class="font-semibold text-gray-900">Allow Salary Registers for BranchDesk</div>
-              <div class="text-xs text-gray-500">If OFF, salary-related registers will be hidden and download will be blocked for branch users.</div>
-            </span>
-          </label>
+          <div [class.opacity-50]="!model.allowBranchPayrollAccess" [class.pointer-events-none]="!model.allowBranchPayrollAccess" class="ml-6 space-y-4 border-l-2 border-gray-200 pl-4">
+            <label class="flex items-start gap-3">
+              <input type="checkbox" [(ngModel)]="model.allowBranchWageRegisters" [disabled]="!isMaster || saving || !model.allowBranchPayrollAccess" />
+              <span>
+                <div class="font-semibold text-gray-900">Allow Wage Registers</div>
+                <div class="text-xs text-gray-500">If OFF, wage-related registers will be hidden and download will be blocked for branch users.</div>
+              </span>
+            </label>
+
+            <label class="flex items-start gap-3">
+              <input type="checkbox" [(ngModel)]="model.allowBranchSalaryRegisters" [disabled]="!isMaster || saving || !model.allowBranchPayrollAccess" />
+              <span>
+                <div class="font-semibold text-gray-900">Allow Salary Registers</div>
+                <div class="text-xs text-gray-500">If OFF, salary-related registers will be hidden and download will be blocked for branch users.</div>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="mt-6 flex items-center gap-3">
@@ -79,6 +89,7 @@ export class ClientAccessSettingsComponent implements OnInit {
 
   model: ClientPayrollAccessSettings = {
     clientId: '',
+    allowBranchPayrollAccess: false,
     allowBranchWageRegisters: false,
     allowBranchSalaryRegisters: false,
   };
@@ -106,6 +117,7 @@ export class ClientAccessSettingsComponent implements OnInit {
         next: (res) => {
           this.model = {
             clientId: res?.clientId || this.auth.getUser()?.clientId || '',
+            allowBranchPayrollAccess: res?.allowBranchPayrollAccess === true,
             allowBranchWageRegisters: res?.allowBranchWageRegisters === true,
             allowBranchSalaryRegisters: res?.allowBranchSalaryRegisters === true,
           };
@@ -122,6 +134,7 @@ export class ClientAccessSettingsComponent implements OnInit {
     this.saving = true;
     this.svc
       .update({
+        allowBranchPayrollAccess: this.model.allowBranchPayrollAccess,
         allowBranchWageRegisters: this.model.allowBranchWageRegisters,
         allowBranchSalaryRegisters: this.model.allowBranchSalaryRegisters,
       })

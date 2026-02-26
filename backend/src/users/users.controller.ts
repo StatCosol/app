@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -154,13 +155,6 @@ export class UsersController {
     return this.service.listActiveUsersByRoleCode('CLIENT');
   }
 
-  // TEMP diagnostic: dump raw DB state for all users
-  @Get('users/debug-deleted')
-  async debugDeleted() {
-    const rows = await this.service.debugGetAllUsersRaw();
-    return rows;
-  }
-
   // Advanced directory: global search + filters + pagination + optional grouping by client
   @Get('users/directory')
   getDirectory(@Query() q: any) {
@@ -171,6 +165,20 @@ export class UsersController {
   @Post('users')
   createUser(@Body() dto: CreateUserDto) {
     return this.service.createUser(dto);
+  }
+
+  @Put('users/:id')
+  updateUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { name?: string; email?: string; mobile?: string },
+    @Req() req: any,
+  ) {
+    return this.service.updateUser(id, dto, req.user?.userId);
+  }
+
+  @Post('users/:id/reset-password')
+  resetPassword(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.adminResetPassword(id);
   }
 
   @Delete('users/:id')

@@ -11,6 +11,7 @@ import { MeController } from './me.controller';
 import { CcoUsersController } from './cco-users.controller';
 import { CrmUsersController } from './crm-users.controller';
 import { ApprovalsController } from './approvals.controller';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ApprovalsController } from './approvals.controller';
       ClientEntity,
       BranchEntity,
     ]),
+    AuditLogsModule,
   ],
   controllers: [
     UsersController,

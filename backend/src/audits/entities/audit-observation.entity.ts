@@ -29,7 +29,7 @@ export class AuditObservationEntity {
   @JoinColumn({ name: 'category_id' })
   category?: AuditObservationCategoryEntity;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: 'int', name: 'sequence_number', nullable: true })
   sequenceNumber: number | null;
 
   // DTSS Format: 4 sections
@@ -39,7 +39,7 @@ export class AuditObservationEntity {
   @Column({ type: 'text', nullable: true })
   consequences: string | null; // What could happen if not addressed
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', name: 'compliance_requirements', nullable: true })
   complianceRequirements: string | null; // What law/rule requires this
 
   @Column({ type: 'text', nullable: true })
@@ -54,7 +54,7 @@ export class AuditObservationEntity {
   @Column({ type: 'uuid', name: 'recorded_by_user_id' })
   recordedByUserId: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', name: 'evidence_file_paths', nullable: true })
   evidenceFilePaths: string | null; // JSON array of file paths
 
   @CreateDateColumn({ name: 'created_at' })

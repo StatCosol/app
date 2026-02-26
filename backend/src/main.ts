@@ -2,15 +2,16 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import helmet from 'helmet';
 import * as bodyParser from 'body-parser';
 import { UsersService } from './users/users.service';
 import { DataSource } from 'typeorm';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: ['error', 'warn'],
+    logger: ['log', 'error', 'warn'],
   });
 
   // Global validation
@@ -72,7 +73,7 @@ async function bootstrap() {
   });
 
   app.use((req, res, next) => {
-    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    logger.debug(`${req.method} ${req.url}`);
     res.setHeader(
       'Cache-Control',
       'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -105,16 +106,16 @@ async function bootstrap() {
              current_user as db_user,
              current_setting('search_path') as search_path
     `);
-    console.log('[DB CHECK]', r);
-    console.log(
+    logger.log('[DB CHECK]', r);
+    logger.log(
       '[TABLE CHECK]',
       await ds.query("select to_regclass('public.compliance_master') as reg"),
     );
   } catch (err) {
-    console.warn('[DB CHECK] failed', err);
+    logger.warn('[DB CHECK] failed', err);
   }
 
   await app.listen(3000, '0.0.0.0');
-  console.log(`Server running on http://0.0.0.0:3000`);
+  logger.log('Server running on http://0.0.0.0:3000');
 }
 void bootstrap();

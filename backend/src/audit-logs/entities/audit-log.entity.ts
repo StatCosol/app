@@ -23,7 +23,10 @@ export type AuditAction =
   | 'UNASSIGN'
   | 'ROTATE'
   | 'DELETE_REQUEST'
-  | 'DELETE_REJECT';
+  | 'DELETE_REJECT'
+  | 'STATUS_CHANGE'
+  | 'PASSWORD_RESET'
+  | 'MASTER_DATA_UPDATED';
 
 @Entity('audit_logs')
 @Index(['entityType', 'entityId'])

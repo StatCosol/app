@@ -362,7 +362,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   constructor(private payrollApi: PayrollApiService, private runsApi: PayrollRunsService, private setupApi: PayrollSetupApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    console.log('PayrollRuns ngOnInit - loading clients and runs');
 
     // Subscribe to reload$ for user-triggered filter changes (debounced)
     this.reload$
@@ -373,7 +372,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (rows) => {
-          console.log('PayrollRuns loaded:', rows);
           this.runs = rows || [];
           this.loadingRuns = false;
           this.cdr.detectChanges();
@@ -421,7 +419,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       });
     this.payrollApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
       next: (list) => {
-        console.log('PayrollRuns clients loaded:', list);
         this.clients = list || [];
         this.clientOptions = [
           { value: null, label: 'Select client' },
@@ -437,7 +434,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     // Direct initial load — not through the Subject so filter setup can't cancel it
     this.fetchRuns$().pipe(takeUntil(this.destroy$)).subscribe({
       next: (rows) => {
-        console.log('PayrollRuns initial load:', rows);
         this.runs = rows || [];
         this.loadingRuns = false;
         this.cdr.detectChanges();
@@ -464,7 +460,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   reloadRuns(): void {
     // Skip reloads triggered by filter setup if initial load hasn't finished
     if (!this.initialLoadDone) return;
-    console.log('PayrollRuns reloadRuns called with filters:', this.filters);
     this.reload$.next();
   }
 

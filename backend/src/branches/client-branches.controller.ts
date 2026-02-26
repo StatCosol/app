@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -146,7 +147,7 @@ export class ClientBranchesController {
 
   /** GET /api/client/branches/:id — branch detail with counts */
   @Get(':id')
-  async detail(@Req() req: any, @Param('id') id: string) {
+  async detail(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
     const clientId = req.user.clientId;
     const branch = await this.service.findById(id);
     if (branch.clientId !== clientId) {
@@ -207,7 +208,7 @@ export class ClientBranchesController {
   @Get(':id/dashboard')
   async dashboard(
     @Req() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Query('month') month?: string,
   ) {
     const clientId = req.user.clientId;

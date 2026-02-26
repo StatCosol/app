@@ -10,6 +10,14 @@ export interface Client {
   status?: string;
   branchesCount?: number;
   totalEmployees?: number;
+  registeredAddress?: string;
+  state?: string;
+  industry?: string;
+  primaryContactName?: string;
+  primaryContactEmail?: string;
+  primaryContactMobile?: string;
+  companyCode?: string;
+  logoUrl?: string;
 }
 
 export interface Branch {
@@ -100,12 +108,30 @@ export class AdminClientsService {
     return this.http.get<Client>(`${this.apiUrl}/clients/${id}`);
   }
 
-  createClient(payload: { clientName: string }): Observable<any> {
+  createClient(payload: {
+    clientName: string;
+    masterUserName?: string;
+    masterUserEmail?: string;
+    masterUserMobile?: string;
+    masterUserPassword?: string;
+  }): Observable<any> {
     return this.http.post(`${this.apiUrl}/clients`, payload);
+  }
+
+  updateClient(id: string, payload: Partial<Client>): Observable<any> {
+    return this.http.put(`${this.apiUrl}/clients/${id}`, payload);
   }
 
   deleteClient(id: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/clients/${id}`);
+  }
+
+  restoreClient(id: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/clients/${id}/restore`, {});
+  }
+
+  getReadinessCheck(clientId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/clients/${clientId}/readiness`);
   }
 
   // Branch contractor APIs

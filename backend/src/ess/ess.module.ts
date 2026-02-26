@@ -14,7 +14,7 @@ import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employ
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { EssService } from './ess.service';
-import { EssController, BranchApprovalsController } from './ess.controller';
+import { EssController, BranchApprovalsController, LeaveManagementController } from './ess.controller';
 
 @Module({
   imports: [
@@ -34,7 +34,7 @@ import { EssController, BranchApprovalsController } from './ess.controller';
       ClientEntity,
     ]),
   ],
-  controllers: [EssController, BranchApprovalsController],
+  controllers: [EssController, BranchApprovalsController, LeaveManagementController],
   providers: [EssService],
   exports: [EssService],
 })

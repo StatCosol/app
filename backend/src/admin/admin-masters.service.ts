@@ -117,6 +117,9 @@ export class AdminMastersService {
   }
 
   async deleteAuditCategory(id: string) {
+    const category = await this.auditCategoryRepo.findOne({ where: { id } });
+    if (!category) throw new NotFoundException('Audit category not found');
+
     await this.auditCategoryRepo.delete(id);
     return { message: 'Audit category deleted successfully' };
   }

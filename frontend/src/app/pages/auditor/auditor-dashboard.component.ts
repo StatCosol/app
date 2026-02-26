@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import { timeout, finalize, takeUntil } from 'rxjs/operators';
 import { Subject, Subscription } from 'rxjs';
 import { DashboardService } from '../../core/dashboard.service';
+import { AuditorObservationsService } from '../../core/auditor-observations.service';
 import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
@@ -142,6 +143,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   constructor(
     private dashboardService: DashboardService,
+    private observationsService: AuditorObservationsService,
     private toast: ToastService,
     private router: Router,
     private http: HttpClient,
@@ -310,8 +312,16 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   /** Follow-up on observation */
   followUpObservation(obs: AuditorObservationPending): void {
-    // TODO: Send follow-up notification
-    this.toast.info('Follow-up sent for: ' + obs.title);
+    this.observationsService.update(obs.observationId, { status: 'FOLLOW_UP' }).pipe(
+      takeUntil(this.destroy$),
+      timeout(10000),
+    ).subscribe({
+      next: () => {
+        this.toast.success('Follow-up sent for: ' + obs.title);
+        this.loadObservations();
+      },
+      error: () => this.toast.error('Failed to send follow-up'),
+    });
   }
 
   /** Update observation status */
@@ -321,20 +331,45 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   /** Close observation */
   closeObservation(obs: AuditorObservationPending): void {
-    // TODO: Open close confirmation modal
-    this.toast.info('Close observation: ' + obs.title);
+    if (!confirm(`Close observation "${obs.title}"? This action cannot be undone.`)) return;
+    this.observationsService.update(obs.observationId, { status: 'CLOSED' }).pipe(
+      takeUntil(this.destroy$),
+      timeout(10000),
+    ).subscribe({
+      next: () => {
+        this.toast.success('Observation closed: ' + obs.title);
+        this.loadObservations();
+        this.loadSummary();
+      },
+      error: () => this.toast.error('Failed to close observation'),
+    });
   }
 
   /** Remind for pending evidence */
   remindEvidence(ev: AuditorEvidencePending): void {
-    // TODO: Send reminder notification
-    this.toast.info('Reminder sent for: ' + ev.evidenceName);
+    this.http.post(`${environment.apiBaseUrl}/api/v1/auditor/dashboard/evidence/${ev.id}/remind`, {}).pipe(
+      takeUntil(this.destroy$),
+      timeout(10000),
+    ).subscribe({
+      next: () => this.toast.success('Reminder sent for: ' + ev.evidenceName),
+      error: () => this.toast.error('Failed to send reminder'),
+    });
   }
 
   /** Mark evidence as not required */
   markNotRequired(ev: AuditorEvidencePending): void {
-    // TODO: Update evidence status
-    this.toast.info('Marked not required: ' + ev.evidenceName);
+    if (!confirm(`Mark "${ev.evidenceName}" as not required?`)) return;
+    this.http.patch(`${environment.apiBaseUrl}/api/v1/auditor/dashboard/evidence/${ev.id}/status`, { status: 'NOT_REQUIRED' }).pipe(
+      takeUntil(this.destroy$),
+      timeout(10000),
+    ).subscribe({
+      next: () => {
+        this.toast.success('Marked not required: ' + ev.evidenceName);
+        this.loadEvidence();
+        this.loadSummary();
+      },
+      error: () => this.toast.error('Failed to update evidence status'),
+    });
   }
 
   // KPI Card Drill-down Handlers

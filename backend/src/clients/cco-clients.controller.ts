@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   Patch,
   Post,
@@ -19,6 +20,7 @@ import { AssignClientDto } from './dto/assign-client.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CCO', 'ADMIN')
 export class CcoClientsController {
+  private readonly logger = new Logger(CcoClientsController.name);
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
@@ -33,7 +35,7 @@ export class CcoClientsController {
 
   @Post()
   create(@Body() dto: CreateClientDto) {
-    console.log('[CcoClientsController.create] POST /api/cco/clients', dto);
+    this.logger.log('POST /api/cco/clients', dto);
     return this.clientsService.create(dto);
   }
 

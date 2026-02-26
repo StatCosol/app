@@ -82,3 +82,39 @@ export interface AttentionItemDto {
 export interface SlaTrendDto {
   values: number[];
 }
+
+// ───── Governance Layer DTOs ─────
+
+export interface AssignmentSummaryDto {
+  totalClients: number;
+  crmAssigned: number;
+  crmUnassigned: number;
+  auditorAssigned: number;
+  auditorUnassigned: number;
+}
+
+export interface UnassignedClientDto {
+  clientId: string;
+  clientName: string;
+  branchCount: number;
+  hasCrm: boolean;
+  hasPayrollUser: boolean;
+  hasMasterUser: boolean;
+}
+
+export interface AuditSummaryDto {
+  clientId: string;
+  clientName: string;
+  lastAuditDate: string | null;
+  nextDueDate: string | null;
+  status: 'OVERDUE' | 'ON_TRACK' | 'NO_AUDITS';
+  overdueCount: number;
+}
+
+export interface RiskAlertsDto {
+  auditOverdue: number;
+  noCrm: number;
+  noPayroll: number;
+  zeroBranches: number;
+  noMcdUploads: number;
+}

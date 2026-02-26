@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AccessPolicyService } from './policies/access-policy.service';
 import { BranchAccessService } from './branch-access.service';
 import { LegitxReadOnlyGuard } from './policies/legitx-readonly.guard';
+import { EmailModule } from '../email/email.module';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -16,6 +17,7 @@ import { JwtStrategy } from './jwt.strategy';
 @Module({
   imports: [
     UsersModule,
+    EmailModule,
     TypeOrmModule.forFeature([UserEntity]),
     PassportModule,
     ConfigModule,

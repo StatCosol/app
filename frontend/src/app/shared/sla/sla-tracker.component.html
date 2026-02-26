@@ -1,0 +1,78 @@
+<div class="page">
+  <!-- Header -->
+  <div class="head">
+    <div>
+      <h1 class="title">SLA Tracker</h1>
+      <p class="subtitle">Track open / overdue compliance tasks branch-wise.</p>
+    </div>
+
+    <div class="controls">
+      <select [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1" class="ctrl-select">
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      </select>
+
+      <select [(ngModel)]="module" (change)="load()" class="ctrl-select">
+        <option value="ALL">All Modules</option>
+        <option value="REGISTRATION">Registrations</option>
+        <option value="MCD">MCD</option>
+        <option value="RETURNS">Returns</option>
+        <option value="AUDIT">Audit</option>
+      </select>
+
+      <select [(ngModel)]="status" (change)="load()" class="ctrl-select">
+        <option value="OPEN">Open</option>
+        <option value="IN_PROGRESS">In Progress</option>
+        <option value="OVERDUE">Overdue</option>
+        <option value="CLOSED">Closed</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    Loading…
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" *ngIf="!loading">
+    <table>
+      <thead>
+        <tr>
+          <th>Due</th>
+          <th>Module</th>
+          <th>Task</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let it of items">
+          <td class="date-cell">{{ it.dueDate }}</td>
+          <td><span class="module-tag" [ngClass]="it.module">{{ it.module }}</span></td>
+          <td class="title-cell">{{ it.title }}</td>
+          <td><span class="priority-tag" [ngClass]="it.priority">{{ it.priority }}</span></td>
+          <td><span class="status-badge" [ngClass]="it.status">{{ it.status }}</span></td>
+          <td>
+            <div class="actions">
+              <button
+                class="btn btn-progress"
+                (click)="setStatus(it, 'IN_PROGRESS')"
+                [disabled]="it.status === 'IN_PROGRESS' || it.status === 'CLOSED'"
+              >In Progress</button>
+              <button
+                class="btn btn-close"
+                (click)="setStatus(it, 'CLOSED')"
+                [disabled]="it.status === 'CLOSED'"
+              >Close</button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="items.length === 0">
+          <td colspan="6" class="empty-cell">No tasks found</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

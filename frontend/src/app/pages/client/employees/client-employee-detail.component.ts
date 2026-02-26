@@ -71,6 +71,9 @@ type DetailTab = 'profile' | 'nominations' | 'forms';
             </div>
             <div class="header-actions">
               <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
+              <ui-button *ngIf="emp.isActive && emp.email" variant="secondary" [disabled]="provisioningEss" (clicked)="provisionEssLogin()">
+                {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
+              </ui-button>
               <ui-button *ngIf="emp.isActive" variant="danger" (clicked)="confirmDeactivate()">Deactivate</ui-button>
             </div>
           </div>
@@ -401,6 +404,11 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
   formGenMsg = '';
   formGenError = false;
 
+  // ESS Provisioning
+  provisioningEss = false;
+  essResult: any = null;
+  essError = '';
+
   formTypes = [
     { label: 'PF Form 2', value: 'PF_FORM_2' },
     { label: 'ESI Form 1', value: 'ESI_FORM_1' },
@@ -457,6 +465,34 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
     this.svc.deactivate(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadEmployee(),
       error: (e) => alert(e?.error?.message || 'Failed to deactivate'),
+    });
+  }
+
+  provisionEssLogin(): void {
+    if (!this.emp || !this.emp.email) return;
+    if (!confirm(`Create ESS login for ${this.emp.firstName} ${this.emp.lastName || ''}?\nEmail: ${this.emp.email}`)) return;
+    this.provisioningEss = true;
+    this.essResult = null;
+    this.essError = '';
+    this.cdr.detectChanges();
+
+    this.svc.provisionEss(this.employeeId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.provisioningEss = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => {
+        this.provisioningEss = false;
+        this.essResult = res;
+        const msg = res.generatedPassword
+          ? `ESS login created!\nEmail: ${res.email}\nPassword: ${res.generatedPassword}\n\nPlease share these credentials with the employee.`
+          : `ESS login created for ${res.email}`;
+        alert(msg);
+      },
+      error: (e) => {
+        this.provisioningEss = false;
+        this.essError = e?.error?.message || 'Failed to create ESS login';
+        alert(this.essError);
+      },
     });
   }
 
