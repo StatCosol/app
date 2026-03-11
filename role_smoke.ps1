@@ -18,22 +18,28 @@ function Try-Login($email, $passwordCandidates) {
   $lastStatus = 401
   foreach ($pw in $passwordCandidates) {
     if (-not $pw) { continue }
-    try {
-      $resp = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType "application/json" -Body (@{ email = $email; password = $pw } | ConvertTo-Json) -ErrorAction Stop
-      $token = Get-Token $resp
-      if ($token) {
-        return @{ ok = $true; token = $token; password = $pw; status = 200 }
+    $attempt = 0
+    while ($attempt -lt 5) {
+      $attempt++
+      try {
+        $resp = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType "application/json" -Body (@{ email = $email; password = $pw } | ConvertTo-Json) -ErrorAction Stop
+        $token = Get-Token $resp
+        if ($token) {
+          return @{ ok = $true; token = $token; password = $pw; status = 200 }
+        }
+        $lastStatus = 401
+        break
+      } catch {
+        $status = 0
+        try { $status = [int]$_.Exception.Response.StatusCode } catch { $status = 0 }
+        if ($status -eq 429) {
+          $lastStatus = 429
+          Start-Sleep -Seconds 4
+          continue
+        }
+        if ($status -gt 0) { $lastStatus = $status }
+        break
       }
-      $lastStatus = 401
-    } catch {
-      $status = 0
-      try { $status = [int]$_.Exception.Response.StatusCode } catch { $status = 0 }
-      if ($status -eq 429) {
-        $lastStatus = 429
-        Start-Sleep -Seconds 4
-        continue
-      }
-      if ($status -gt 0) { $lastStatus = $status }
     }
     Start-Sleep -Milliseconds 300
   }
@@ -77,13 +83,13 @@ $roles = @(
   },
   @{
     role = 'PAYROLL'
-    email = $(if ($env:SMOKE_PAYROLL_EMAIL) { $env:SMOKE_PAYROLL_EMAIL } else { 'madan.kallepalli@gmail.com' })
+    email = $(if ($env:SMOKE_PAYROLL_EMAIL) { $env:SMOKE_PAYROLL_EMAIL } else { 'payroll_audit@statcosol.com' })
     passwords = @($env:SMOKE_PAYROLL_PASSWORD, 'Statco@123')
-    paths = @('/payroll/dashboard', '/payroll/runs', '/payroll/engine/rule-sets')
+    paths = @('/payroll/dashboard', '/payroll/runs', '/payroll/queries')
   },
   @{
     role = 'AUDITOR'
-    email = $(if ($env:SMOKE_AUDITOR_EMAIL) { $env:SMOKE_AUDITOR_EMAIL } else { 'payroll_audit@statcosol.com' })
+    email = $(if ($env:SMOKE_AUDITOR_EMAIL) { $env:SMOKE_AUDITOR_EMAIL } else { 'compliance@statcosol.com' })
     passwords = @($env:SMOKE_AUDITOR_PASSWORD, 'Statco@123')
     paths = @('/auditor/dashboard/summary', '/auditor/observations', '/auditor/audits')
   },
@@ -95,7 +101,7 @@ $roles = @(
   },
   @{
     role = 'CCO'
-    email = $(if ($env:SMOKE_CCO_EMAIL) { $env:SMOKE_CCO_EMAIL } else { 'compliance@statcosol.com' })
+    email = $(if ($env:SMOKE_CCO_EMAIL) { $env:SMOKE_CCO_EMAIL } else { 'crm_india@statcosol.com' })
     passwords = @($env:SMOKE_CCO_PASSWORD, 'Statco@123')
     paths = @('/cco/dashboard', '/cco/oversight', '/cco/controls')
   },
@@ -112,7 +118,7 @@ $lines += "ROLE SMOKE TEST $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 $lines += "======================================================="
 
 foreach ($r in $roles) {
-  Start-Sleep -Milliseconds 250
+  Start-Sleep -Milliseconds 1500
   $login = Try-Login $r.email $r.passwords
   if (-not $login.ok) {
     $lines += "LOGIN_FAIL [$($login.status)] $($r.role) $($r.email)"
