@@ -185,8 +185,15 @@ if (-not $token) {
 if (-not $ClientId) {
   $clients = Invoke-JsonApi -Method "GET" -Url "$BaseUrl/payroll/clients" -Token $token
   $arr = Get-DataArray -Json $clients.json
-  if ($clients.ok -and @($arr).Count -gt 0) {
-    $ClientId = [string]$arr[0].id
+  if ((@($arr).Count -eq 0) -and $clients.raw) {
+    # Fallback: sometimes response parsing can differ by shell/runtime.
+    $parsedRaw = Try-ParseJson -Raw $clients.raw
+    $arr = Get-DataArray -Json $parsedRaw
+  }
+  $firstClient = @($arr) | Where-Object { $_ -and $_.id } | Select-Object -First 1
+  $is2xx = ($clients.status -ge 200 -and $clients.status -lt 300)
+  if ($is2xx -and $firstClient) {
+    $ClientId = [string]$firstClient.id
     Add-Check -Name "Resolve Client" -Ok $true -Status $clients.status -Details "clientId=$ClientId"
   } else {
     Add-Check -Name "Resolve Client" -Ok $false -Status $clients.status -Details ($clients.raw -replace "`r?`n"," ")
