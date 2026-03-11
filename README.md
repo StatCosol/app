@@ -266,3 +266,5 @@ All code is complete, compiled, and documented. Begin testing using the provided
 ---
 
 *For detailed information, see the appropriate guide based on your role in `START_HERE.md`*
+
+setup check: initialize remote main/develop branches on 2026-03-11
