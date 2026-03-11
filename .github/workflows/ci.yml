@@ -143,7 +143,7 @@ jobs:
       - name: Wait for health
         run: |
           for i in {1..40}; do
-            if curl -sf http://localhost:3000/api/v1/health >/dev/null; then
+            if curl -sf http://localhost:3000/api/health >/dev/null || curl -sf http://localhost:3000/api/v1/health >/dev/null; then
               echo "Backend is healthy"
               exit 0
             fi
@@ -154,7 +154,7 @@ jobs:
 
       - name: Run PayDek transition smoke
         shell: pwsh
-        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api/v1" -AdminEmail "admin@statcosol.com" -AdminPassword "Admin@123" -OutFile "$PWD/paydek_transition_results_ci.txt"
+        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api" -AdminEmail "admin@statcosol.com" -AdminPassword "Admin@123" -OutFile "$PWD/paydek_transition_results_ci.txt"
 
       - name: Upload smoke artifacts
         if: always()
