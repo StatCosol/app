@@ -25,8 +25,10 @@ const CcoEscalationsComponent = () =>
   import('./escalations/cco-escalations.component').then((m) => m.CcoEscalationsComponent);
 const CcoRiskHeatmapComponent = () =>
   import('./heatmap/cco-risk-heatmap.component').then((m) => m.CcoRiskHeatmapComponent);
-const CcoControlsComponent = () =>
-  import('./controls/cco-controls.component').then((m) => m.CcoControlsComponent);
+const CcoControlsRegisterPageComponent = () =>
+  import('./controls/cco-controls-register-page.component').then(
+    (m) => m.CcoControlsRegisterPageComponent,
+  );
 
 export const CCO_ROUTES: Routes = [
   {
@@ -43,7 +45,7 @@ export const CCO_ROUTES: Routes = [
       { path: 'crm-performance', loadComponent: CcoCrmPerformanceComponent },
       { path: 'escalations', loadComponent: CcoEscalationsComponent },
       { path: 'risk-heatmap', loadComponent: CcoRiskHeatmapComponent },
-      { path: 'controls', loadComponent: CcoControlsComponent },
+      { path: 'controls', loadComponent: CcoControlsRegisterPageComponent },
       { path: 'registers', loadComponent: CcoRegistersComponent },
       { path: 'notifications', loadComponent: CcoNotificationsComponent },
       { path: 'profile', loadComponent: CcoProfileComponent },

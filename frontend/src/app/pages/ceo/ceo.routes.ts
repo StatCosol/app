@@ -15,8 +15,10 @@ const CeoOversightComponent = () =>
   import('./oversight/ceo-cco-oversight.component').then(
     (m) => m.CeoCcoOversightComponent,
   );
-const CeoReportsComponent = () =>
-  import('./ceo-reports.component').then((m) => m.CeoReportsComponent);
+const CeoExecutiveReportsPageComponent = () =>
+  import('./ceo-executive-reports-page.component').then(
+    (m) => m.CeoExecutiveReportsPageComponent,
+  );
 const CeoNotificationsComponent = () =>
   import('./ceo-notifications.component').then((m) => m.CeoNotificationsComponent);
 const CeoProfileComponent = () =>
@@ -40,7 +42,7 @@ export const CEO_ROUTES: Routes = [
       { path: 'oversight', loadComponent: CeoOversightComponent },
       { path: 'branches', loadComponent: CeoBranchesComponent },
       { path: 'branches/:branchId', loadComponent: CeoBranchDetailComponent },
-      { path: 'reports', loadComponent: CeoReportsComponent },
+      { path: 'reports', loadComponent: CeoExecutiveReportsPageComponent },
       { path: 'registers', loadComponent: CeoRegistersComponent },
       { path: 'notifications', loadComponent: CeoNotificationsComponent },
       { path: 'profile', loadComponent: CeoProfileComponent },
