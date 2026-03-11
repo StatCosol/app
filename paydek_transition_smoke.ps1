@@ -302,7 +302,14 @@ $employeeCount = 0
 if ($runNow -and $runNow.employeeCount -ne $null) { $employeeCount = [int]$runNow.employeeCount }
 
 if ($EnsureEmployeeUpload -and $employeeCount -le 0) {
-  $tmpCsv = Join-Path $env:TEMP "paydek_smoke_employees.csv"
+  $tempRoot = $env:TEMP
+  if ([string]::IsNullOrWhiteSpace($tempRoot)) {
+    $tempRoot = [System.IO.Path]::GetTempPath()
+  }
+  if ([string]::IsNullOrWhiteSpace($tempRoot)) {
+    $tempRoot = "."
+  }
+  $tmpCsv = Join-Path $tempRoot "paydek_smoke_employees.csv"
   @(
     "Employee Code,Name,Designation,UAN,ESIC,Gross,Total Deductions,Net Salary,Monthly CTC",
     "SMK001,Smoke Employee,Operator,100000000001,2000000001,25000,2500,22500,28000"
