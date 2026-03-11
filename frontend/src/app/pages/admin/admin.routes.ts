@@ -15,9 +15,19 @@ const AdminAssignmentsComponent = () =>
   import('./assignments/admin-assignments.component').then((m) => m.AdminAssignmentsComponent);
 const AdminNotificationsComponent = () =>
   import('./notifications/admin-notifications.component').then((m) => m.AdminNotificationsComponent);
+const AdminDigestComponent = () =>
+  import('./digest/admin-digest.component').then((m) => m.AdminDigestComponent);
 const AdminPayrollAssignmentsComponent = () =>
   import('./payroll-assignments/admin-payroll-assignments.component').then(
     (m) => m.AdminPayrollAssignmentsComponent,
+  );
+const AdminPayrollTemplatesPageComponent = () =>
+  import('./payroll-templates/admin-payroll-templates-page.component').then(
+    (m) => m.AdminPayrollTemplatesPageComponent,
+  );
+const AdminPayrollClientSettingsComponent = () =>
+  import('./payroll-client-settings/admin-payroll-client-settings.component').then(
+    (m) => m.AdminPayrollClientSettingsComponent,
   );
 const AdminMastersComponent = () =>
   import('./masters/admin-masters.component').then((m) => m.AdminMastersComponent);
@@ -33,18 +43,28 @@ const AiPayrollComponent = () =>
   import('./ai/ai-payroll.component').then((m) => m.AiPayrollComponent);
 const AiConfigComponent = () =>
   import('./ai/ai-config.component').then((m) => m.AiConfigComponent);
-// Phase-2: const HeatmapComponent = () =>
-//   import('../../shared/risk/heatmap.component').then((m) => m.HeatmapComponent);
 const SlaTrackerComponent = () =>
   import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
-// Phase-2: const RiskTrendComponent = () =>
-//   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
+const HeatmapComponent = () =>
+  import('../../shared/risk/heatmap.component').then((m) => m.HeatmapComponent);
+const RiskTrendComponent = () =>
+  import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
 const EscalationsComponent = () =>
   import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
 const AdminAuditLogsComponent = () =>
   import('./audit-logs/admin-audit-logs.component').then((m) => m.AdminAuditLogsComponent);
 const UnassignedClientsComponent = () =>
   import('./governance/unassigned-clients.component').then((m) => m.UnassignedClientsComponent);
+const AdminGovernanceControlComponent = () =>
+  import('./governance/admin-governance-control.component').then(
+    (m) => m.AdminGovernanceControlComponent,
+  );
+const AdminArchiveComponent = () =>
+  import('./archive/admin-archive.component').then((m) => m.AdminArchiveComponent);
+const ApplicabilityListComponent = () =>
+  import('./applicability/applicability-list.component').then((m) => m.ApplicabilityListComponent);
+const BranchApplicabilityComponent = () =>
+  import('./applicability/branch-applicability.component').then((m) => m.BranchApplicabilityComponent);
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -60,20 +80,27 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'clients/:id/:tab', loadComponent: AdminClientsComponent },
       { path: 'assignments', loadComponent: AdminAssignmentsComponent },
       { path: 'payroll-assignments', loadComponent: AdminPayrollAssignmentsComponent },
+      { path: 'payroll/templates', loadComponent: AdminPayrollTemplatesPageComponent },
+      { path: 'payroll/client-settings', loadComponent: AdminPayrollClientSettingsComponent },
       { path: 'masters', loadComponent: AdminMastersComponent },
       { path: 'approvals', loadComponent: AdminApprovalsComponent },
       { path: 'notifications', loadComponent: AdminNotificationsComponent },
+      { path: 'digest', loadComponent: AdminDigestComponent },
       { path: 'ai-hub', loadComponent: AiDashboardComponent },
       { path: 'ai-risk', loadComponent: AiRiskComponent },
       { path: 'ai-audit', loadComponent: AiAuditComponent },
       { path: 'ai-payroll', loadComponent: AiPayrollComponent },
       { path: 'ai-config', loadComponent: AiConfigComponent },
-      // Phase-2: { path: 'heatmap', loadComponent: HeatmapComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },
-      // Phase-2: { path: 'risk-trend', loadComponent: RiskTrendComponent },
+      { path: 'heatmap', loadComponent: HeatmapComponent },
+      { path: 'risk-trend', loadComponent: RiskTrendComponent },
       { path: 'escalations', loadComponent: EscalationsComponent },
       { path: 'audit-logs', loadComponent: AdminAuditLogsComponent },
+      { path: 'governance', loadComponent: AdminGovernanceControlComponent },
       { path: 'governance/unassigned', loadComponent: UnassignedClientsComponent },
+      { path: 'archive', loadComponent: AdminArchiveComponent },
+      { path: 'applicability', loadComponent: ApplicabilityListComponent },
+      { path: 'branches/:branchId/applicability', loadComponent: BranchApplicabilityComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },
