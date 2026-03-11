@@ -137,8 +137,38 @@ if (Get-Command "curl.exe" -ErrorAction SilentlyContinue) {
 }
 
 # 1) Login
-$login = Invoke-JsonApi -Method "POST" -Url "$BaseUrl/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
-Add-Check -Name "Admin Login" -Ok $login.ok -Status $login.status -Details ($login.raw -replace "`r?`n"," ")
+$baseCandidates = New-Object System.Collections.Generic.List[string]
+$normalizedBase = ($BaseUrl.TrimEnd('/'))
+$baseCandidates.Add($normalizedBase)
+if ($normalizedBase -match '/api$') {
+  $baseCandidates.Add("$normalizedBase/v1")
+} elseif ($normalizedBase -match '/api/v1$') {
+  $baseCandidates.Add(($normalizedBase -replace '/api/v1$', '/api'))
+}
+$baseCandidates = @($baseCandidates | Select-Object -Unique)
+
+$login = $null
+$resolvedBaseUrl = $null
+foreach ($candidateBase in $baseCandidates) {
+  $tryLogin = Invoke-JsonApi -Method "POST" -Url "$candidateBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
+  if ($tryLogin.ok) {
+    $login = $tryLogin
+    $resolvedBaseUrl = $candidateBase
+    break
+  }
+  if ($tryLogin.status -ne 404) {
+    $login = $tryLogin
+    $resolvedBaseUrl = $candidateBase
+    break
+  }
+}
+if (-not $login) {
+  $login = Invoke-JsonApi -Method "POST" -Url "$normalizedBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
+  $resolvedBaseUrl = $normalizedBase
+}
+
+$BaseUrl = $resolvedBaseUrl
+Add-Check -Name "Admin Login" -Ok $login.ok -Status $login.status -Details ("baseUrl=$BaseUrl " + ($login.raw -replace "`r?`n"," "))
 if (-not $login.ok) {
   ($results | Set-Content $OutFile)
   throw "Admin login failed."
