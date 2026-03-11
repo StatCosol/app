@@ -16,6 +16,12 @@ VALUES
  ('CONTRACTOR','Contractor')
 ON CONFLICT DO NOTHING;
 
+-- Insert one baseline client so payroll/admin smoke can resolve at least one client
+INSERT INTO clients (client_code, client_name, status, is_active)
+VALUES
+ ('SMKBASE', 'Smoke Baseline Client', 'ACTIVE', true)
+ON CONFLICT (client_code) DO NOTHING;
+
 
 -- Insert ADMIN user
 INSERT INTO users (role_id, user_code, name, email, mobile, password_hash)

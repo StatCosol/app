@@ -1,11 +1,12 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Test } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
+import { EmailService } from '../email/email.service';
 
 jest.mock('bcryptjs', () => ({ compare: jest.fn().mockResolvedValue(true) }));
 
@@ -15,7 +16,9 @@ describe('AuthService.login', () => {
 
   beforeEach(async () => {
     const qb: any = {
+      leftJoin: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       getOne: jest.fn(),
@@ -31,6 +34,9 @@ describe('AuthService.login', () => {
         { provide: UsersService, useValue: { getRoleById: jest.fn() } },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
         { provide: getRepositoryToken(UserEntity), useValue: usersRepo },
+        { provide: getDataSourceToken(), useValue: {} },
+        { provide: DataSource, useValue: {} },
+        { provide: EmailService, useValue: { sendMail: jest.fn() } },
       ],
     }).compile();
 
@@ -56,6 +62,7 @@ describe('AuthService.login', () => {
     employeeId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    lastLoginAt: null,
     branches: [],
     ...overrides,
   });

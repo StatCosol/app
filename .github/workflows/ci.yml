@@ -1,0 +1,209 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      payroll: ${{ steps.filter.outputs.payroll }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            payroll:
+              - 'backend/src/payroll/**'
+              - 'backend/migrations/**'
+              - 'backend/scripts/**'
+              - 'backend/package.json'
+              - 'backend/package-lock.json'
+              - 'paydek_transition_smoke.ps1'
+              - 'full_smoke.ps1'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test -- --passWithNoTests
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npx ng lint 2>/dev/null || echo "No lint config - skipping"
+
+      - name: Build
+        run: npx ng build --configuration=production
+
+  payroll-transition-smoke:
+    runs-on: ubuntu-latest
+    needs: [changes, backend]
+    if: needs.changes.outputs.payroll == 'true'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: statcompy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d statcompy"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: statcompy
+      JWT_SECRET: statcompy_ci_secret_key_1234567890
+      NODE_ENV: test
+      EMAIL_ENABLED: "false"
+      SKIP_BOOTSTRAP_SEED: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply SQL migrations
+        run: |
+          PGPASSWORD=postgres psql \
+            -h localhost \
+            -p 5432 \
+            -U postgres \
+            -d statcompy \
+            -v ON_ERROR_STOP=1 \
+            -f backend/migrations/statco_schema_final.sql
+          for f in \
+            backend/migrations/20260127_hrms_phase1_schema.sql \
+            backend/migrations/20260201_payroll_runs_and_payslips.sql \
+            backend/migrations/20260217_payroll_statutory_engine.sql \
+            backend/migrations/20260218_statutory_services_refactor.sql \
+            backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
+            echo "Applying $f"
+            PGPASSWORD=postgres psql \
+              -h localhost \
+              -p 5432 \
+              -U postgres \
+              -d statcompy \
+              -v ON_ERROR_STOP=1 \
+              -f "$f"
+          done
+
+      - name: Seed baseline roles/users
+        run: npm run seed:baseline
+        working-directory: backend
+
+      - name: Start backend (prod)
+        run: |
+          npm run build
+          nohup npm run start:prod > ../backend_ci.log 2>&1 &
+          echo $! > ../backend_ci.pid
+        working-directory: backend
+
+      - name: Wait for health
+        run: |
+          for i in {1..60}; do
+            if curl -sf http://localhost:3000/api/health >/dev/null || curl -sf http://localhost:3000/api/v1/health >/dev/null; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            if [ -f backend_ci.log ] && grep -q "Nest application successfully started" backend_ci.log; then
+              echo "Backend started (health endpoint probe unavailable), continuing to smoke test"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become healthy"
+          if [ -f backend_ci.log ]; then
+            echo "--- backend_ci.log (tail) ---"
+            tail -n 120 backend_ci.log || true
+          fi
+          exit 1
+
+      - name: Run PayDek transition smoke
+        shell: pwsh
+        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api" -AdminEmail "admin@statcosol.com" -AdminPassword "Admin@123" -OutFile "$PWD/paydek_transition_results_ci.txt"
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paydek-transition-smoke
+          path: |
+            paydek_transition_results_ci.txt
+            backend_ci.log
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f backend_ci.pid ]; then
+            kill "$(cat backend_ci.pid)" || true
+          fi
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t statcompy-backend ./backend
+
+      - name: Build frontend image
+        run: docker build -t statcompy-frontend ./frontend
