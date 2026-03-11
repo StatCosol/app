@@ -25,9 +25,9 @@ const AdminPayrollTemplatesPageComponent = () =>
   import('./payroll-templates/admin-payroll-templates-page.component').then(
     (m) => m.AdminPayrollTemplatesPageComponent,
   );
-const AdminPayrollClientSettingsComponent = () =>
-  import('./payroll-client-settings/admin-payroll-client-settings.component').then(
-    (m) => m.AdminPayrollClientSettingsComponent,
+const AdminPayrollClientSettingsPageComponent = () =>
+  import('./payroll-client-settings/admin-payroll-client-settings-page.component').then(
+    (m) => m.AdminPayrollClientSettingsPageComponent,
   );
 const AdminMastersComponent = () =>
   import('./masters/admin-masters.component').then((m) => m.AdminMastersComponent);
@@ -81,7 +81,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'assignments', loadComponent: AdminAssignmentsComponent },
       { path: 'payroll-assignments', loadComponent: AdminPayrollAssignmentsComponent },
       { path: 'payroll/templates', loadComponent: AdminPayrollTemplatesPageComponent },
-      { path: 'payroll/client-settings', loadComponent: AdminPayrollClientSettingsComponent },
+      { path: 'payroll/client-settings', loadComponent: AdminPayrollClientSettingsPageComponent },
       { path: 'masters', loadComponent: AdminMastersComponent },
       { path: 'approvals', loadComponent: AdminApprovalsComponent },
       { path: 'notifications', loadComponent: AdminNotificationsComponent },
