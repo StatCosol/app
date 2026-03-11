@@ -102,6 +102,7 @@ jobs:
       JWT_SECRET: statcompy_ci_secret_key_1234567890
       NODE_ENV: test
       EMAIL_ENABLED: "false"
+      SKIP_BOOTSTRAP_SEED: "true"
     steps:
       - uses: actions/checkout@v4
 
