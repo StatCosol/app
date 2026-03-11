@@ -7,8 +7,6 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
 import * as bodyParser from 'body-parser';
-import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { UsersService } from './users/users.service';
 import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -29,11 +27,7 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter
-  app.useGlobalFilters(new GlobalExceptionFilter());
-
-  // Standard response wrapper
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  // Global filter/interceptor hooks can be wired here when shared modules are present.
 
   // Secure headers
   app.use(helmet());
