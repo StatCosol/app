@@ -17,9 +17,11 @@ describe('AuthService.login', () => {
   beforeEach(async () => {
     const qb: any = {
       leftJoin: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn(),
+      addSelect: jest.fn().mockReturnThis(),
+      getOne: jest.fn(),
     };
 
     usersRepo = {
@@ -42,25 +44,31 @@ describe('AuthService.login', () => {
     (usersRepo as any).__qb = qb;
   });
 
-  const buildRawUser = (overrides: Record<string, any> = {}) => ({
-    u_id: 'user-1',
-    u_role_id: 'role-1',
-    u_name: 'Test User',
-    u_email: 'test@example.com',
-    u_mobile: null,
-    u_password_hash: 'hash',
-    u_is_active: true,
-    u_client_id: null,
-    u_deleted_at: null,
-    c_client_code: null,
-    c_client_name: null,
+  const buildUser = (overrides: Partial<UserEntity> = {}): UserEntity => ({
+    id: 'user-1',
+    roleId: 'role-1',
+    role: 'ADMIN',
+    userCode: 'U1',
+    name: 'Test User',
+    email: 'test@example.com',
+    mobile: null,
+    passwordHash: 'hash',
+    isActive: true,
+    userType: null,
+    clientId: null,
+    client: undefined,
+    deletedAt: null,
+    ownerCcoId: null,
+    employeeId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastLoginAt: null,
+    branches: [],
     ...overrides,
   });
 
   it('rejects inactive users', async () => {
-    usersRepo.__qb.getRawOne.mockResolvedValue(
-      buildRawUser({ u_is_active: false }),
-    );
+    usersRepo.__qb.getOne.mockResolvedValue(buildUser({ isActive: false }));
 
     await expect(
       service.login({ email: 'test@example.com', password: 'x' } as any),
@@ -68,8 +76,8 @@ describe('AuthService.login', () => {
   });
 
   it('rejects soft-deleted users', async () => {
-    usersRepo.__qb.getRawOne.mockResolvedValue(
-      buildRawUser({ u_deleted_at: new Date().toISOString() }),
+    usersRepo.__qb.getOne.mockResolvedValue(
+      buildUser({ deletedAt: new Date() }),
     );
 
     await expect(
