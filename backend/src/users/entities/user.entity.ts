@@ -56,7 +56,15 @@ export class UserEntity {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'user_type', type: 'varchar', length: 10, nullable: true })
+  @Column({
+    name: 'user_type',
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   userType: string | null; // 'MASTER' | 'BRANCH' | null (non-CLIENT users)
 
   @Index('IDX_USERS_CLIENTID')
@@ -76,7 +84,14 @@ export class UserEntity {
 
   // Link to employees table for EMPLOYEE role (ESS)
   @Index('IDX_USERS_EMPLOYEEID')
-  @Column({ name: 'employee_id', type: 'uuid', nullable: true })
+  @Column({
+    name: 'employee_id',
+    type: 'uuid',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   employeeId: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -85,7 +100,14 @@ export class UserEntity {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
-  @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'last_login_at',
+    type: 'timestamptz',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   lastLoginAt: Date | null;
 
   @ManyToMany(() => BranchEntity, { cascade: false })
