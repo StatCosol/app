@@ -129,13 +129,11 @@ jobs:
             -v ON_ERROR_STOP=1 \
             -f backend/migrations/statco_schema_final.sql
           for f in \
-            backend/migrations/obsolete/20260127_hrms_phase1_schema.sql \
+            backend/migrations/20260127_hrms_phase1_schema.sql \
             backend/migrations/20260201_payroll_runs_and_payslips.sql \
             backend/migrations/20260217_payroll_statutory_engine.sql \
             backend/migrations/20260218_statutory_services_refactor.sql \
-            backend/migrations/20260305_payroll_rules_clientid_effective_dating.sql \
-            backend/migrations/20260306_new_hr_payroll_tables.sql \
-            backend/migrations/20260310_payroll_setup_tabs_fields.sql; do
+            backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
             echo "Applying $f"
             PGPASSWORD=postgres psql \
               -h localhost \
