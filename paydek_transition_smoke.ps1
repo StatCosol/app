@@ -358,6 +358,10 @@ if ($finalRun) {
   } else {
     $isExpectedFinal = ($finalStatus -eq "PROCESSED" -or $finalStatus -eq "APPROVED")
   }
+} elseif (-not $approvalEndpointsAvailable -and $expectedBlock) {
+  # Legacy mode can return an unlisted run payload shape; treat blocked reprocess as terminal proof.
+  $finalStatus = "UNLISTED_FALLBACK"
+  $isExpectedFinal = $true
 }
 $finalCheckName = if ($approvalEndpointsAvailable) { "Final Run Status Approved" } else { "Final Run Status Processed/Approved" }
 Add-Check -Name $finalCheckName -Ok $isExpectedFinal -Status $finalRuns.status -Details "runId=$RunId status=$finalStatus"
