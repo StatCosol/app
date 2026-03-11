@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$base = "http://localhost:3000/api/v1"
+$base = if ($env:SMOKE_BASE -and $env:SMOKE_BASE.Trim()) { $env:SMOKE_BASE.Trim() } else { "http://localhost:3000/api/v1" }
 $outFile = "c:\Users\statc\OneDrive\Desktop\statcompy\role_smoke_results.txt"
 
 function Get-Token($payload) {
