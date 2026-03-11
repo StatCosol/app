@@ -41,12 +41,14 @@ export class BranchSafetyApiService {
     const legacyUrl = `${this.legacyBase}/branch/${branchId}/safety/required`;
     const masterUrl = `${this.base}/branch/safety-documents/master`;
 
-    return this.http.get<SafetyRequiredDoc[]>(primaryUrl, { params }).pipe(
-      catchError((primaryErr: any) => {
-        if (!this.isNotFound(primaryErr)) return throwError(() => primaryErr);
-        return this.http.get<SafetyRequiredDoc[]>(legacyUrl, { params }).pipe(
-          catchError((legacyErr: any) => {
-            if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
+    // Prefer non-versioned route first; current backend maps under /api/*
+    // and keeps /api/v1 only on some deployments.
+    return this.http.get<SafetyRequiredDoc[]>(legacyUrl, { params }).pipe(
+      catchError((legacyErr: any) => {
+        if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
+        return this.http.get<SafetyRequiredDoc[]>(primaryUrl, { params }).pipe(
+          catchError((primaryErr: any) => {
+            if (!this.isNotFound(primaryErr)) return throwError(() => primaryErr);
             // Last fallback for older deployments: build "required" list from safety master.
             return this.http.get<SafetyMasterRow[]>(masterUrl).pipe(
               map((rows) => (rows || []).map((row) => this.toRequiredDoc(row))),
@@ -66,10 +68,10 @@ export class BranchSafetyApiService {
 
     const primaryUrl = `${this.base}/branch/${branchId}/safety/upload`;
     const legacyUrl = `${this.legacyBase}/branch/${branchId}/safety/upload`;
-    return this.http.post(primaryUrl, fd).pipe(
-      catchError((primaryErr: any) => {
-        if (!this.isNotFound(primaryErr)) return throwError(() => primaryErr);
-        return this.http.post(legacyUrl, fd);
+    return this.http.post(legacyUrl, fd).pipe(
+      catchError((legacyErr: any) => {
+        if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
+        return this.http.post(primaryUrl, fd);
       }),
     );
   }
@@ -80,10 +82,10 @@ export class BranchSafetyApiService {
     const primaryUrl = `${this.base}/branch/${branchId}/safety/status`;
     const legacyUrl = `${this.legacyBase}/branch/${branchId}/safety/status`;
 
-    return this.http.get(primaryUrl, { params }).pipe(
-      catchError((primaryErr: any) => {
-        if (!this.isNotFound(primaryErr)) return throwError(() => primaryErr);
-        return this.http.get(legacyUrl, { params });
+    return this.http.get(legacyUrl, { params }).pipe(
+      catchError((legacyErr: any) => {
+        if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
+        return this.http.get(primaryUrl, { params });
       }),
     );
   }
