@@ -119,8 +119,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Apply SQL migrations
-        shell: pwsh
-        run: ./backend/scripts/apply-all-migrations.ps1 -DbHost localhost -DbPort 5432 -Database statcompy -User postgres -Password postgres
+        run: |
+          PGPASSWORD=postgres psql \
+            -h localhost \
+            -p 5432 \
+            -U postgres \
+            -d statcompy \
+            -v ON_ERROR_STOP=1 \
+            -f backend/migrations/statco_schema_final.sql
 
       - name: Seed baseline roles/users
         run: npm run seed:baseline
