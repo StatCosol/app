@@ -60,6 +60,7 @@ describe('AuthService.login', () => {
     employeeId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    lastLoginAt: null,
     branches: [],
     ...overrides,
   });
