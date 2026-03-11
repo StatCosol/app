@@ -122,6 +122,13 @@ export class UsersService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (process.env.SKIP_BOOTSTRAP_SEED === 'true') {
+      this.logger.warn(
+        'Skipping UsersService module seed/init due to SKIP_BOOTSTRAP_SEED=true',
+      );
+      return;
+    }
+
     // Ensure base roles exist
     await this.seedRolesIfEmpty();
     // Ensure there is at least one admin user for initial login
@@ -184,12 +191,14 @@ export class UsersService implements OnModuleInit {
       {
         code: 'PAYROLL',
         name: 'Payroll Manager',
-        description: 'Processes payroll, generates PF/ESI returns, manages payslips',
+        description:
+          'Processes payroll, generates PF/ESI returns, manages payslips',
       },
       {
         code: 'PF_TEAM',
         name: 'PF & ESI Team',
-        description: 'Manages PF ECR generation, ESI returns, and statutory submissions',
+        description:
+          'Manages PF ECR generation, ESI returns, and statutory submissions',
       },
     ];
 
@@ -501,6 +510,14 @@ export class UsersService implements OnModuleInit {
     const role = await this.rolesRepo.findOne({ where: { id: dto.roleId } });
     if (!role) throw new BadRequestException('Invalid roleId');
 
+    // CLIENT MASTER users must be created via the Client Registration flow (createMasterUserForClient)
+    // CLIENT BRANCH users are allowed here (auto-created when adding a branch)
+    if (role.code === 'CLIENT' && dto.userType !== 'BRANCH') {
+      throw new BadRequestException(
+        'Client master users cannot be created from this endpoint. Use the Client Registration page instead.',
+      );
+    }
+
     await this.enforceLimits(role.code);
 
     // Validate clientId for CLIENT and CONTRACTOR role users (client-scoped logins)
@@ -547,11 +564,15 @@ export class UsersService implements OnModuleInit {
     }
 
     const existing = await this.usersRepo.findOne({
-      where: { email },
+      where: { email, deletedAt: IsNull() },
     });
     if (existing) throw new BadRequestException('Email already exists');
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    // Auto-generate password if not provided: Us@<4-digit random><year>
+    const plainPassword =
+      dto.password ||
+      `Us@${Math.floor(1000 + Math.random() * 9000)}${new Date().getFullYear()}`;
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
 
     const userCode = await this.generateUserCode(
       role.code,
@@ -654,7 +675,13 @@ export class UsersService implements OnModuleInit {
       },
     });
 
-    return { id: saved.id, message: 'User created', userType };
+    return {
+      id: saved.id,
+      message: 'User created',
+      userType,
+      // Return auto-generated password so admin can share credentials
+      ...(dto.password ? {} : { generatedPassword: plainPassword }),
+    };
   }
 
   /**
@@ -675,11 +702,15 @@ export class UsersService implements OnModuleInit {
     const name = args.name.trim();
 
     // Resolve CLIENT role
-    const clientRole = await this.rolesRepo.findOne({ where: { code: 'CLIENT' } });
+    const clientRole = await this.rolesRepo.findOne({
+      where: { code: 'CLIENT' },
+    });
     if (!clientRole) throw new NotFoundException('CLIENT role not found');
 
     // Check duplicate email within the transaction
-    const existingEmail = await manager.findOne(UserEntity, { where: { email } });
+    const existingEmail = await manager.findOne(UserEntity, {
+      where: { email, deletedAt: IsNull() },
+    });
     if (existingEmail) throw new BadRequestException('Email already exists');
 
     // Enforce single MASTER per client
@@ -819,17 +850,10 @@ export class UsersService implements OnModuleInit {
       );
     }
 
-    // Debug: Log the generated SQL
-    const sqlQuery = qb.getSql();
-    this.logger.debug('[listUsersPaged] Generated SQL:', sqlQuery);
-    this.logger.debug('[listUsersPaged] Parameters:', qb.getParameters());
-
     const [users, total]: [UserEntity[], number] = await qb
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();
-
-    this.logger.debug(`[listUsersPaged] Found ${users.length} users, total: ${total}`);
 
     // include roleCode in items for easier frontend use
     const roles = await this.rolesRepo.find();
@@ -1069,36 +1093,15 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  // TEMP: Diagnostic method to see raw DB state
-  async debugGetAllUsersRaw(): Promise<any[]> {
-    return this.dataSource.query(`
-      SELECT
-        u.id,
-        u.name,
-        u.email,
-        u.is_active,
-        u.deleted_at,
-        u.user_type,
-        u.client_id,
-        r.code AS role_code,
-        c.client_name,
-        c.is_deleted AS client_is_deleted,
-        c.status AS client_status
-      FROM users u
-      LEFT JOIN roles r ON r.id = u.role_id
-      LEFT JOIN clients c ON c.id = u.client_id
-      ORDER BY u.created_at DESC
-      LIMIT 30
-    `);
-  }
-
   // Advanced directory: global search + filters + pagination + optional grouping by client
   async getUserDirectory(q: UserDirectoryQueryDto): Promise<any> {
     const page = Math.max(1, Number(q.page || 1));
     const limit = Math.min(100, Math.max(1, Number(q.limit || 25)));
     const offset = (page - 1) * limit;
 
-    const roleCode = String(q.roleCode ?? '').trim().toUpperCase();
+    const roleCode = String(q.roleCode ?? '')
+      .trim()
+      .toUpperCase();
     const clientId = q.clientId ? String(q.clientId) : undefined;
     const status = String(q.status ?? 'all').toUpperCase();
     const search = String(q.search ?? '').trim();
@@ -1192,7 +1195,10 @@ export class UsersService implements OnModuleInit {
     `;
     const dataParams = [...params, limit, offset];
 
-    this.logger.debug('[getUserDirectory] SQL:', dataSql.replace(/\s+/g, ' ').trim());
+    this.logger.debug(
+      '[getUserDirectory] SQL:',
+      dataSql.replace(/\s+/g, ' ').trim(),
+    );
     this.logger.debug('[getUserDirectory] Params:', dataParams);
 
     const dataRows: any[] = await this.dataSource.query(dataSql, dataParams);
@@ -1489,7 +1495,6 @@ export class UsersService implements OnModuleInit {
   ) {
     const qb = this.deletionRepo
       .createQueryBuilder('r')
-      .where('r.status = :status', { status: 'PENDING' })
       .andWhere(
         `(
           (r.requiredApproverUserId IS NULL AND r.requiredApproverRole = :role)
@@ -1503,13 +1508,15 @@ export class UsersService implements OnModuleInit {
     const rows = await qb.getMany();
 
     // Enrich with friendly labels for UI (entity + requester)
+    const cleanEmail = (e: string) =>
+      e ? e.replace(/#deleted#\d+/g, '').replace(/#deleted#/g, '') : e;
     const result: any[] = [];
     for (const r of rows) {
       let entityLabel: string | null = null;
       if (r.entityType === 'USER') {
         const u = await this.usersRepo.findOne({ where: { id: r.entityId } });
         if (u) {
-          entityLabel = `${u.name} (${u.email})`;
+          entityLabel = `${u.name} (${cleanEmail(u.email)})`;
         }
       } else if (r.entityType === 'CLIENT') {
         const c = await this.clientsRepo.findOne({ where: { id: r.entityId } });
@@ -1517,7 +1524,7 @@ export class UsersService implements OnModuleInit {
           entityLabel = `${c.clientName} (${c.clientCode})`;
         }
       }
-      const requestedBy = await this.usersRepo.findOne({
+      const requestedByUser = await this.usersRepo.findOne({
         where: { id: r.requestedByUserId },
       });
 
@@ -1525,16 +1532,18 @@ export class UsersService implements OnModuleInit {
         id: r.id,
         entityType: r.entityType,
         entityId: r.entityId,
-        requestedByUserId: r.requestedByUserId,
-        requiredApproverRole: r.requiredApproverRole,
-        requiredApproverUserId: r.requiredApproverUserId,
         status: r.status,
-        requestedAt: r.requestedAt,
-        resolvedAt: r.status !== 'PENDING' ? r.updatedAt : null,
         remarks: r.remarks ?? null,
         entityLabel,
-        requestedByUserName: requestedBy?.name ?? null,
-        requestedByUserEmail: requestedBy?.email ?? null,
+        requestedBy: requestedByUser
+          ? {
+              id: requestedByUser.id,
+              name: requestedByUser.name,
+              email: cleanEmail(requestedByUser.email),
+            }
+          : null,
+        createdAt: r.requestedAt,
+        updatedAt: r.updatedAt ?? null,
       });
     }
     return result;
@@ -1661,7 +1670,11 @@ export class UsersService implements OnModuleInit {
       if (!client) {
         throw new NotFoundException('Client not found');
       }
+      client.isDeleted = true;
+      client.isActive = false;
       client.status = 'INACTIVE';
+      client.deletedAt = new Date();
+      client.deletedBy = approverUserId;
       await this.clientsRepo.save(client);
     }
 
@@ -1702,5 +1715,106 @@ export class UsersService implements OnModuleInit {
     await this.deletionRepo.save(req);
 
     return { ok: true };
+  }
+
+  async updateUserFromPortal(
+    userId: string,
+    dto: {
+      fullName?: string;
+      email?: string;
+      role?: string;
+      password?: string;
+      isActive?: boolean;
+      mobile?: string;
+    },
+    currentUserId?: string,
+  ) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const currentRole = await this.rolesRepo.findOne({
+      where: { id: user.roleId },
+    });
+    const currentRoleCode = currentRole?.code ?? null;
+
+    if (
+      (currentRoleCode === 'ADMIN' || currentRoleCode === 'CEO') &&
+      currentUserId !== userId
+    ) {
+      throw new BadRequestException(
+        'Admin or CEO users can only be edited by themselves',
+      );
+    }
+
+    const before = {
+      name: user.name,
+      email: user.email,
+      mobile: user.mobile,
+      roleId: user.roleId,
+      role: user.role,
+      isActive: user.isActive,
+    };
+
+    if (dto.fullName !== undefined) {
+      user.name = dto.fullName.trim();
+    }
+
+    if (dto.email !== undefined) {
+      user.email = dto.email.trim().toLowerCase();
+    }
+
+    if (dto.mobile !== undefined) {
+      user.mobile = dto.mobile?.trim() || null;
+    }
+
+    if (dto.role !== undefined) {
+      const nextRoleCode = dto.role.trim().toUpperCase();
+      const nextRole = await this.rolesRepo.findOne({
+        where: { code: nextRoleCode },
+      });
+      if (!nextRole) {
+        throw new BadRequestException(`Invalid role: ${dto.role}`);
+      }
+      user.roleId = nextRole.id;
+      user.role = nextRole.code;
+    }
+
+    if (dto.password !== undefined && dto.password.trim()) {
+      const passwordHash = await bcrypt.hash(dto.password.trim(), 10);
+      user.passwordHash = passwordHash;
+    }
+
+    if (typeof dto.isActive === 'boolean') {
+      user.isActive = dto.isActive;
+    }
+
+    const saved = await this.usersRepo.save(user);
+
+    await this.auditLogs.log({
+      entityType: 'USER',
+      entityId: saved.id,
+      action: 'UPDATE',
+      performedBy: currentUserId ?? null,
+      performedRole: 'ADMIN',
+      beforeJson: before,
+      afterJson: {
+        name: saved.name,
+        email: saved.email,
+        mobile: saved.mobile,
+        roleId: saved.roleId,
+        role: saved.role,
+        isActive: saved.isActive,
+      },
+    });
+
+    return {
+      id: saved.id,
+      fullName: saved.name,
+      email: saved.email,
+      mobile: saved.mobile,
+      role: saved.role,
+      isActive: saved.isActive,
+      message: 'User updated',
+    };
   }
 }
