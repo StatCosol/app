@@ -78,7 +78,9 @@ $roles = @(
     paths = @(
       '/client/dashboard',
       '/branch-approvals/leaves',
-      '/client/attendance/summary?year=2026&month=3'
+      '/client/attendance/summary?year=2026&month=3',
+      '/client/attendance/mismatches?year=2026&month=3',
+      '/client/attendance/lop-preview?year=2026&month=3'
     )
   },
   @{
