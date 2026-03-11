@@ -192,6 +192,13 @@ if (-not $ClientId) {
   }
   $firstClient = @($arr) | Where-Object { $_ -and $_.id } | Select-Object -First 1
   $is2xx = ($clients.status -ge 200 -and $clients.status -lt 300)
+  if (-not $firstClient -and $is2xx -and $clients.raw) {
+    # Last-resort fallback for array parsing edge cases.
+    $m = [regex]::Match([string]$clients.raw, '"id"\s*:\s*"([^"]+)"')
+    if ($m.Success -and $m.Groups.Count -gt 1) {
+      $firstClient = [pscustomobject]@{ id = $m.Groups[1].Value }
+    }
+  }
   if ($is2xx -and $firstClient) {
     $ClientId = [string]$firstClient.id
     Add-Check -Name "Resolve Client" -Ok $true -Status $clients.status -Details "clientId=$ClientId"
