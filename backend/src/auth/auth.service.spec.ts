@@ -6,7 +6,6 @@ import { DataSource, Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
-import { RefreshTokenEntity } from './entities/refresh-token.entity';
 import { EmailService } from '../email/email.service';
 
 jest.mock('bcryptjs', () => ({ compare: jest.fn().mockResolvedValue(true) }));
@@ -33,7 +32,6 @@ describe('AuthService.login', () => {
         { provide: UsersService, useValue: { getRoleById: jest.fn() } },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
         { provide: getRepositoryToken(UserEntity), useValue: usersRepo },
-        { provide: getRepositoryToken(RefreshTokenEntity), useValue: {} },
         { provide: getDataSourceToken(), useValue: {} },
         { provide: DataSource, useValue: {} },
         { provide: EmailService, useValue: { sendMail: jest.fn() } },
@@ -62,7 +60,6 @@ describe('AuthService.login', () => {
     employeeId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    lastLoginAt: null,
     branches: [],
     ...overrides,
   });
