@@ -13,8 +13,10 @@ const AdminClientsComponent = () =>
   import('./clients/admin-clients.component').then((m) => m.AdminClientsComponent);
 const AdminAssignmentsComponent = () =>
   import('./assignments/admin-assignments.component').then((m) => m.AdminAssignmentsComponent);
-const AdminNotificationsComponent = () =>
-  import('./notifications/admin-notifications.component').then((m) => m.AdminNotificationsComponent);
+const AdminHelpdeskCenterPageComponent = () =>
+  import('./notifications/admin-helpdesk-center-page.component').then(
+    (m) => m.AdminHelpdeskCenterPageComponent,
+  );
 const AdminDigestComponent = () =>
   import('./digest/admin-digest.component').then((m) => m.AdminDigestComponent);
 const AdminPayrollAssignmentsComponent = () =>
@@ -55,9 +57,9 @@ const AdminAuditLogsComponent = () =>
   import('./audit-logs/admin-audit-logs.component').then((m) => m.AdminAuditLogsComponent);
 const UnassignedClientsComponent = () =>
   import('./governance/unassigned-clients.component').then((m) => m.UnassignedClientsComponent);
-const AdminGovernanceControlComponent = () =>
-  import('./governance/admin-governance-control.component').then(
-    (m) => m.AdminGovernanceControlComponent,
+const AdminGovernanceControlPageComponent = () =>
+  import('./governance/admin-governance-control-page.component').then(
+    (m) => m.AdminGovernanceControlPageComponent,
   );
 const AdminArchiveComponent = () =>
   import('./archive/admin-archive.component').then((m) => m.AdminArchiveComponent);
@@ -84,7 +86,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'payroll/client-settings', loadComponent: AdminPayrollClientSettingsPageComponent },
       { path: 'masters', loadComponent: AdminMastersComponent },
       { path: 'approvals', loadComponent: AdminApprovalsComponent },
-      { path: 'notifications', loadComponent: AdminNotificationsComponent },
+      { path: 'notifications', loadComponent: AdminHelpdeskCenterPageComponent },
       { path: 'digest', loadComponent: AdminDigestComponent },
       { path: 'ai-hub', loadComponent: AiDashboardComponent },
       { path: 'ai-risk', loadComponent: AiRiskComponent },
@@ -96,7 +98,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'risk-trend', loadComponent: RiskTrendComponent },
       { path: 'escalations', loadComponent: EscalationsComponent },
       { path: 'audit-logs', loadComponent: AdminAuditLogsComponent },
-      { path: 'governance', loadComponent: AdminGovernanceControlComponent },
+      { path: 'governance', loadComponent: AdminGovernanceControlPageComponent },
       { path: 'governance/unassigned', loadComponent: UnassignedClientsComponent },
       { path: 'archive', loadComponent: AdminArchiveComponent },
       { path: 'applicability', loadComponent: ApplicabilityListComponent },
