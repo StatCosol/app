@@ -86,6 +86,28 @@ function Invoke-JsonApi {
   }
 }
 
+function Invoke-JsonApiWithRetry {
+  param(
+    [string]$Method,
+    [string]$Url,
+    [string]$Token = "",
+    $Body = $null,
+    [int]$MaxAttempts = 4
+  )
+
+  $attempt = 0
+  while ($attempt -lt $MaxAttempts) {
+    $result = Invoke-JsonApi -Method $Method -Url $Url -Token $Token -Body $Body
+    if ($result.ok -or $result.status -ne 429 -or $attempt -ge ($MaxAttempts - 1)) {
+      return $result
+    }
+    Start-Sleep -Milliseconds (500 * ($attempt + 1))
+    $attempt++
+  }
+
+  return $result
+}
+
 function Invoke-CurlUpload {
   param(
     [string]$Url,
@@ -145,28 +167,6 @@ if ($normalizedBase -match '/api$') {
 } elseif ($normalizedBase -match '/api/v1$') {
   $baseCandidates.Add(($normalizedBase -replace '/api/v1$', '/api'))
 }
-
-function Invoke-JsonApiWithRetry {
-  param(
-    [string]$Method,
-    [string]$Url,
-    [string]$Token = "",
-    $Body = $null,
-    [int]$MaxAttempts = 4
-  )
-
-  $attempt = 0
-  while ($attempt -lt $MaxAttempts) {
-    $result = Invoke-JsonApi -Method $Method -Url $Url -Token $Token -Body $Body
-    if ($result.ok -or $result.status -ne 429 -or $attempt -ge ($MaxAttempts - 1)) {
-      return $result
-    }
-    Start-Sleep -Milliseconds (500 * ($attempt + 1))
-    $attempt++
-  }
-
-  return $result
-}
 $baseCandidates = @($baseCandidates | Select-Object -Unique)
 
 $login = $null
@@ -208,14 +208,12 @@ if (-not $ClientId) {
   $clients = Invoke-JsonApi -Method "GET" -Url "$BaseUrl/payroll/clients" -Token $token
   $arr = Get-DataArray -Json $clients.json
   if ((@($arr).Count -eq 0) -and $clients.raw) {
-    # Fallback: sometimes response parsing can differ by shell/runtime.
     $parsedRaw = Try-ParseJson -Raw $clients.raw
     $arr = Get-DataArray -Json $parsedRaw
   }
   $firstClient = @($arr) | Where-Object { $_ -and $_.id } | Select-Object -First 1
   $is2xx = ($clients.status -ge 200 -and $clients.status -lt 300)
   if (-not $firstClient -and $is2xx -and $clients.raw) {
-    # Last-resort fallback for array parsing edge cases.
     $m = [regex]::Match([string]$clients.raw, '"id"\s*:\s*"([^"]+)"')
     if ($m.Success -and $m.Groups.Count -gt 1) {
       $firstClient = [pscustomobject]@{ id = $m.Groups[1].Value }
@@ -381,7 +379,6 @@ if ($finalRun) {
     $isExpectedFinal = ($finalStatus -eq "PROCESSED" -or $finalStatus -eq "APPROVED")
   }
 } elseif (-not $approvalEndpointsAvailable -and $expectedBlock) {
-  # Legacy mode can return an unlisted run payload shape; treat blocked reprocess as terminal proof.
   $finalStatus = "UNLISTED_FALLBACK"
   $isExpectedFinal = $true
 }
