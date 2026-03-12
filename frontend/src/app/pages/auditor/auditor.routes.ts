@@ -15,6 +15,10 @@ const AuditorAuditWorkspaceComponent = () =>
   import('./auditor-audit-workspace.component').then((m) => m.AuditorAuditWorkspaceComponent);
 const AuditorRegistersComponent = () =>
   import('./registers/auditor-registers.component').then((m) => m.AuditorRegistersComponent);
+const AuditorReportBuilderPageComponent = () =>
+  import('./reports/auditor-report-builder-page.component').then(
+    (m) => m.AuditorReportBuilderPageComponent,
+  );
 export const AUDITOR_ROUTES: Routes = [
   {
     path: 'auditor',
@@ -27,6 +31,7 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'observations', loadComponent: AuditorObservationsComponent },
       { path: 'registers', loadComponent: AuditorRegistersComponent },
       { path: 'compliance', loadComponent: AuditorComplianceComponent },
+      { path: 'reports/:auditId/builder', loadComponent: AuditorReportBuilderPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },
