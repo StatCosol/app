@@ -1,0 +1,245 @@
+<div class="page-container">
+  <ui-page-header
+    title="Renewals Workspace"
+    subtitle="Expiry queue, owner assignment, follow-up reminders, and renewal review actions in one workspace">
+    <ui-button variant="secondary" size="sm" (clicked)="load(page)">Refresh</ui-button>
+  </ui-page-header>
+
+  <div class="summary-grid">
+    <ui-stat-card label="Overdue" [value]="kpis.overdue" color="error"></ui-stat-card>
+    <ui-stat-card label="Due Soon" [value]="kpis.dueSoon" color="warning"></ui-stat-card>
+    <ui-stat-card label="This Month" [value]="kpis.thisMonth" color="info"></ui-stat-card>
+    <ui-stat-card label="Completed" [value]="kpis.completed" color="success"></ui-stat-card>
+  </div>
+
+  <div class="summary-grid summary-grid--mini">
+    <div class="summary-card">
+      <div class="summary-value">{{ total }}</div>
+      <div class="summary-label">Queue Size</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value">{{ viewItems.length }}</div>
+      <div class="summary-label">Current Page Items</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value">{{ ownerAssignedCount }}</div>
+      <div class="summary-label">Owner Assigned</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value">{{ reminderSentCount }}</div>
+      <div class="summary-label">Reminder Sent</div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-field">
+      <label>Month</label>
+      <input type="month" class="filter-input" [(ngModel)]="month" />
+    </div>
+    <div class="filter-field">
+      <label>Client</label>
+      <input type="text" class="filter-input" [(ngModel)]="clientId" placeholder="Client ID" />
+    </div>
+    <div class="filter-field">
+      <label>Branch</label>
+      <input type="text" class="filter-input" [(ngModel)]="branchId" placeholder="Branch ID" />
+    </div>
+    <div class="filter-field filter-field--wide">
+      <label>Search</label>
+      <input
+        type="text"
+        class="filter-input"
+        [(ngModel)]="q"
+        placeholder="Search title, act, remarks"
+        (keyup.enter)="load(1)" />
+    </div>
+    <div class="filter-field">
+      <label>Sort</label>
+      <select class="filter-input" [(ngModel)]="sortMode" (change)="load(page)">
+        <option value="DUE_ASC">Due Date - Earliest</option>
+        <option value="DUE_DESC">Due Date - Latest</option>
+        <option value="UPDATED_DESC">Last Updated</option>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <ui-button variant="primary" size="sm" (clicked)="load(1)">Apply</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()">Reset</ui-button>
+    </div>
+  </div>
+
+  <section class="branch-board" *ngIf="branchPendingRows.length">
+    <div class="panel-head">
+      <h3>Branch-wise Pending View</h3>
+      <span>Click branch row to filter queue</span>
+    </div>
+    <div class="table-wrap">
+      <table class="queue-table queue-table--compact">
+        <thead>
+          <tr>
+            <th>Branch</th>
+            <th>Total</th>
+            <th>Pending</th>
+            <th>Completed</th>
+            <th>Overdue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of branchPendingRows; trackBy: trackById" (click)="focusBranchPending(row.branchId)">
+            <td>{{ branchLabel(row) }}</td>
+            <td>{{ row.total }}</td>
+            <td>{{ row.pending }}</td>
+            <td>{{ row.completed }}</td>
+            <td><span class="danger">{{ row.overdue }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="tab-strip">
+    <button
+      *ngFor="let t of tabs"
+      type="button"
+      class="tab-btn"
+      [class.active]="tab === t"
+      (click)="setTab(t)">
+      {{ t === 'DUE_SOON' ? 'Due Soon' : t === 'THIS_MONTH' ? 'This Month' : (t | titlecase) }}
+    </button>
+  </div>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading renewals workspace..."></ui-loading-spinner>
+
+  <ui-empty-state
+    *ngIf="!loading && !viewItems.length"
+    title="No renewals found"
+    description="No renewal items match the current queue filters.">
+  </ui-empty-state>
+
+  <div class="workspace-grid" *ngIf="!loading && viewItems.length">
+    <section class="queue-panel">
+      <div class="panel-head">
+        <h3>Renewal Queue</h3>
+        <span>Page {{ page }}</span>
+      </div>
+      <div class="table-wrap">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>Renewal</th>
+              <th>Due</th>
+              <th>Status</th>
+              <th>Reference</th>
+              <th>Owner</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let item of viewItems; trackBy: trackById"
+              [class.active]="selectedItem?.id === item.id"
+              (click)="selectItem(item)">
+              <td>
+                <div class="row-title">{{ item.title }}</div>
+                <div class="row-meta">{{ item.clientName }} - {{ item.branchName }}</div>
+                <div class="row-meta">Act: {{ item.act || '-' }}</div>
+              </td>
+              <td>
+                <div>{{ item.dueDate | date: 'dd MMM yyyy' }}</div>
+                <div [class]="dueClass(item)">{{ dueText(item) }}</div>
+              </td>
+              <td>
+                <ui-status-badge [status]="item.status" size="sm"></ui-status-badge>
+              </td>
+              <td>
+                <span class="reference-chip">{{ referenceFor(item) }}</span>
+              </td>
+              <td>
+                <div>{{ ownerFor(item) }}</div>
+                <div class="row-meta" *ngIf="lastReminderFor(item)">Reminder: {{ lastReminderFor(item) | date: 'dd MMM, HH:mm' }}</div>
+              </td>
+              <td>
+                <div class="action-row" (click)="$event.stopPropagation()">
+                  <ui-button variant="secondary" size="sm" (clicked)="assignOwner(item)" [disabled]="actionBusy">Assign</ui-button>
+                  <ui-button variant="ghost" size="sm" (clicked)="sendReminder(item)" [disabled]="actionBusy">Remind</ui-button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-row">
+        <ui-button variant="secondary" size="sm" [disabled]="!hasPreviousPage()" (clicked)="goToPreviousPage()">Previous</ui-button>
+        <span>Showing page {{ page }} of {{ totalPages() }}</span>
+        <ui-button variant="secondary" size="sm" [disabled]="!hasNextPage()" (clicked)="goToNextPage()">Next</ui-button>
+      </div>
+    </section>
+
+    <aside class="detail-panel" *ngIf="selectedItem as item">
+      <div class="panel-head">
+        <h3>Renewal Detail</h3>
+        <ui-status-badge [status]="item.status" size="sm"></ui-status-badge>
+      </div>
+
+      <div class="detail-body">
+        <h4>{{ item.title }}</h4>
+        <div class="meta-grid">
+          <div><span>Client</span><strong>{{ item.clientName }}</strong></div>
+          <div><span>Branch</span><strong>{{ item.branchName }}</strong></div>
+          <div><span>Act</span><strong>{{ item.act || '-' }}</strong></div>
+          <div><span>Due Date</span><strong>{{ item.dueDate | date: 'dd MMM yyyy' }}</strong></div>
+          <div><span>Reference</span><strong>{{ referenceFor(item) }}</strong></div>
+          <div><span>Assigned Owner</span><strong>{{ ownerFor(item) }}</strong></div>
+          <div><span>Last Reminder</span><strong>{{ lastReminderFor(item) ? (lastReminderFor(item) | date: 'dd MMM yyyy, HH:mm') : '-' }}</strong></div>
+          <div><span>Last Updated</span><strong>{{ item.lastUpdatedAt | date: 'dd MMM yyyy, HH:mm' }}</strong></div>
+        </div>
+
+        <div class="workflow">
+          <div
+            *ngFor="let step of workflowSteps(item)"
+            [class]="workflowStepClass(step.state)">
+            {{ step.label }}
+          </div>
+        </div>
+
+        <div class="checklist">
+          <div class="check-item" *ngFor="let check of detailChecklist(item)">
+            <div>
+              <span class="check-label">{{ check.label }}</span>
+              <small class="check-note">{{ check.note }}</small>
+            </div>
+            <strong [class.check-pass]="check.done" [class.check-fail]="!check.done">{{ check.done ? 'Done' : 'Pending' }}</strong>
+          </div>
+        </div>
+
+        <div class="remarks-box" *ngIf="item.remarks">
+          <div class="remarks-title">Latest Remarks</div>
+          <p>{{ item.remarks }}</p>
+        </div>
+
+        <div class="actions-block">
+          <ui-button variant="primary" size="sm" (clicked)="approve(item)" [disabled]="actionBusy || item.status === 'APPROVED'">
+            Approve
+          </ui-button>
+          <ui-button variant="secondary" size="sm" (clicked)="returnForUpdate(item)" [disabled]="actionBusy">
+            Return
+          </ui-button>
+          <ui-button variant="danger" size="sm" (clicked)="reject(item)" [disabled]="actionBusy || item.status === 'REJECTED'">
+            Reject
+          </ui-button>
+          <a *ngIf="item.evidenceUrl" [href]="item.evidenceUrl" target="_blank" class="evidence-link">Open Evidence</a>
+        </div>
+
+        <div class="timeline">
+          <h5>Status and Follow-up Timeline</h5>
+          <div class="timeline-empty" *ngIf="!selectedTimeline.length">No timeline events captured yet.</div>
+          <div *ngFor="let ev of selectedTimeline" class="timeline-event">
+            <div class="timeline-title">{{ ev.title }}</div>
+            <div class="timeline-time">{{ ev.timestamp | date: 'dd MMM yyyy, HH:mm' }}</div>
+            <div class="timeline-note" *ngIf="ev.note">{{ ev.note }}</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
