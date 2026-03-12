@@ -43,6 +43,10 @@ const EscalationsComponent = () =>
   import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
 const AdminAuditLogsComponent = () =>
   import('./audit-logs/admin-audit-logs.component').then((m) => m.AdminAuditLogsComponent);
+const AdminGovernanceControlPageComponent = () =>
+  import('./governance/admin-governance-control-page.component').then(
+    (m) => m.AdminGovernanceControlPageComponent,
+  );
 const UnassignedClientsComponent = () =>
   import('./governance/unassigned-clients.component').then((m) => m.UnassignedClientsComponent);
 
@@ -73,6 +77,7 @@ export const ADMIN_ROUTES: Routes = [
       // Phase-2: { path: 'risk-trend', loadComponent: RiskTrendComponent },
       { path: 'escalations', loadComponent: EscalationsComponent },
       { path: 'audit-logs', loadComponent: AdminAuditLogsComponent },
+      { path: 'governance', loadComponent: AdminGovernanceControlPageComponent },
       { path: 'governance/unassigned', loadComponent: UnassignedClientsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
