@@ -1795,7 +1795,7 @@ export class PayrollService {
     await archive.finalize();
   }
 
-  // ── Register Approval ──────────────────────────────────
+  // -- Register Approval ----------------------------------
 
   /**
    * Approve a register. PAYROLL or ADMIN only.
@@ -1844,7 +1844,7 @@ export class PayrollService {
     };
   }
 
-  // ── Auditor Register Access ────────────────────────────
+  // -- Auditor Register Access ----------------------------
 
   /**
    * List registers for AUDITOR. Only registers belonging to clients
@@ -1954,7 +1954,7 @@ export class PayrollService {
           y: Number(q.year),
         });
       }
-      qb.orderBy('p.created_at', 'DESC').take(200);
+      qb.orderBy('p.generated_at', 'DESC').take(200);
       const items = await qb.getMany();
       return { items, total: items.length };
     } catch {

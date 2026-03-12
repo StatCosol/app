@@ -16,28 +16,44 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
-// ─── Branch Audit KPI ─────────────────────────────
-@Controller({ path: 'audits/kpi', version: '1' })
+// --- Branch Audit KPI -----------------------------
+@ApiTags('Audits')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'audit-kpi', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT', 'BRANCH', 'AUDITOR')
 export class AuditKpiController {
-  constructor(private readonly svc: AuditsService) {}
+  constructor(
+    private readonly svc: AuditsService,
+    private readonly branchAccess: BranchAccessService,
+  ) {}
 
+  @ApiOperation({ summary: 'Get Branch Kpi' })
   @Get('branch/:branchId')
-  getBranchKpi(
+  async getBranchKpi(
+    @Req() req: any,
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Query('from') from: string,
     @Query('to') to: string,
   ) {
+    if (req.user.roleCode === 'CLIENT' || req.user.roleCode === 'BRANCH') {
+      await this.branchAccess.assertBranchAccess(req.user.userId, branchId);
+    }
     return this.svc.getBranchAuditKpi(branchId, from, to);
   }
 
+  @ApiOperation({ summary: 'Get Branch Kpi Single' })
   @Get('branch/:branchId/:periodCode')
-  getBranchKpiSingle(
+  async getBranchKpiSingle(
+    @Req() req: any,
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Param('periodCode') periodCode: string,
   ) {
+    if (req.user.roleCode === 'CLIENT' || req.user.roleCode === 'BRANCH') {
+      await this.branchAccess.assertBranchAccess(req.user.userId, branchId);
+    }
     return this.svc.getBranchAuditKpiSingle(branchId, periodCode);
   }
 }

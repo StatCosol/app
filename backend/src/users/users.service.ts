@@ -386,7 +386,16 @@ export class UsersService implements OnModuleInit {
       employeeId: dto.employeeId,
       userType: null,
     });
-    return this.usersRepo.save(user);
+    const saved = await this.usersRepo.save(user);
+
+    // employee_id is hidden from regular ORM writes in some environments,
+    // so persist the ESS link explicitly for auth/ESS lookups.
+    await this.usersRepo.manager.query(
+      `UPDATE users SET employee_id = $1 WHERE id = $2`,
+      [dto.employeeId, saved.id],
+    );
+
+    return this.findById(saved.id);
   }
 
   async listRoles(): Promise<RoleEntity[]> {
@@ -1033,7 +1042,12 @@ export class UsersService implements OnModuleInit {
   }
 
   async findById(id: string) {
-    return this.usersRepo.findOne({ where: { id } });
+    return this.usersRepo
+      .createQueryBuilder('user')
+      .addSelect('user.userType')
+      .addSelect('user.employeeId')
+      .where('user.id = :id', { id })
+      .getOne();
   }
 
   async validateLogin(email: string, plainPassword: string) {

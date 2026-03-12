@@ -145,12 +145,34 @@ if ($normalizedBase -match '/api$') {
 } elseif ($normalizedBase -match '/api/v1$') {
   $baseCandidates.Add(($normalizedBase -replace '/api/v1$', '/api'))
 }
+
+function Invoke-JsonApiWithRetry {
+  param(
+    [string]$Method,
+    [string]$Url,
+    [string]$Token = "",
+    $Body = $null,
+    [int]$MaxAttempts = 4
+  )
+
+  $attempt = 0
+  while ($attempt -lt $MaxAttempts) {
+    $result = Invoke-JsonApi -Method $Method -Url $Url -Token $Token -Body $Body
+    if ($result.ok -or $result.status -ne 429 -or $attempt -ge ($MaxAttempts - 1)) {
+      return $result
+    }
+    Start-Sleep -Milliseconds (500 * ($attempt + 1))
+    $attempt++
+  }
+
+  return $result
+}
 $baseCandidates = @($baseCandidates | Select-Object -Unique)
 
 $login = $null
 $resolvedBaseUrl = $null
 foreach ($candidateBase in $baseCandidates) {
-  $tryLogin = Invoke-JsonApi -Method "POST" -Url "$candidateBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
+  $tryLogin = Invoke-JsonApiWithRetry -Method "POST" -Url "$candidateBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
   if ($tryLogin.ok) {
     $login = $tryLogin
     $resolvedBaseUrl = $candidateBase
@@ -163,7 +185,7 @@ foreach ($candidateBase in $baseCandidates) {
   }
 }
 if (-not $login) {
-  $login = Invoke-JsonApi -Method "POST" -Url "$normalizedBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
+  $login = Invoke-JsonApiWithRetry -Method "POST" -Url "$normalizedBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
   $resolvedBaseUrl = $normalizedBase
 }
 

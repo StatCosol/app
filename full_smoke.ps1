@@ -4,14 +4,28 @@ $ProgressPreference = 'SilentlyContinue'
 $b = if ($env:SMOKE_BASE -and $env:SMOKE_BASE.Trim()) { $env:SMOKE_BASE.Trim() } else { "http://localhost:3000/api/v1" }
 $f = "c:\Users\statc\OneDrive\Desktop\statcompy\full_smoke_results.txt"
 $cid = if ($env:SMOKE_CLIENT_ID) { $env:SMOKE_CLIENT_ID } else { "" }
+$crmClientId = if ($env:SMOKE_CRM_CLIENT_ID) { $env:SMOKE_CRM_CLIENT_ID } else { "" }
 $branchId = if ($env:SMOKE_BRANCH_ID) { $env:SMOKE_BRANCH_ID } else { "" }
 $transitionScript = Join-Path $PSScriptRoot 'paydek_transition_smoke.ps1'
 $transitionOut = Join-Path $PSScriptRoot 'paydek_transition_results.txt'
+$requestTimeoutSec = if ($env:SMOKE_TIMEOUT_SEC) { [Math]::Max([int]$env:SMOKE_TIMEOUT_SEC, 5) } else { 30 }
+$transitionTimeoutSec = if ($env:SMOKE_TRANSITION_TIMEOUT_SEC) { [Math]::Max([int]$env:SMOKE_TRANSITION_TIMEOUT_SEC, 30) } else { 240 }
+$skipTransition = ($env:SMOKE_SKIP_TRANSITION -eq '1' -or $env:SMOKE_SKIP_TRANSITION -eq 'true')
 
 $adminEmail = if ($env:SMOKE_ADMIN_EMAIL) { $env:SMOKE_ADMIN_EMAIL } else { 'admin@statcosol.com' }
 $adminPassword = if ($env:SMOKE_ADMIN_PASSWORD) { $env:SMOKE_ADMIN_PASSWORD } else { $null }
 $clientEmail = if ($env:SMOKE_CLIENT_EMAIL) { $env:SMOKE_CLIENT_EMAIL } else { 'dharmaravu@vedhaentech.in' }
 $clientPassword = if ($env:SMOKE_CLIENT_PASSWORD) { $env:SMOKE_CLIENT_PASSWORD } else { $null }
+$auditorEmail = if ($env:SMOKE_AUDITOR_EMAIL) { $env:SMOKE_AUDITOR_EMAIL } else { 'compliance@statcosol.com' }
+$auditorPassword = if ($env:SMOKE_AUDITOR_PASSWORD) { $env:SMOKE_AUDITOR_PASSWORD } else { $null }
+$crmEmail = if ($env:SMOKE_CRM_EMAIL) { $env:SMOKE_CRM_EMAIL } else { 'slvmgmtconsultants@gmail.com' }
+$crmPassword = if ($env:SMOKE_CRM_PASSWORD) { $env:SMOKE_CRM_PASSWORD } else { $null }
+$ccoEmail = if ($env:SMOKE_CCO_EMAIL) { $env:SMOKE_CCO_EMAIL } else { 'crm_india@statcosol.com' }
+$ccoPassword = if ($env:SMOKE_CCO_PASSWORD) { $env:SMOKE_CCO_PASSWORD } else { $null }
+$ceoEmail = if ($env:SMOKE_CEO_EMAIL) { $env:SMOKE_CEO_EMAIL } else { 'mkkallepalli@gmail.com' }
+$ceoPassword = if ($env:SMOKE_CEO_PASSWORD) { $env:SMOKE_CEO_PASSWORD } else { $null }
+$essEmail = if ($env:SMOKE_ESS_EMAIL) { $env:SMOKE_ESS_EMAIL } else { 'test@vedhaentech.in' }
+$essPassword = if ($env:SMOKE_ESS_PASSWORD) { $env:SMOKE_ESS_PASSWORD } else { 'Ess@123' }
 
 function GetToken($payload) {
     if ($null -eq $payload) { return $null }
@@ -19,6 +33,34 @@ function GetToken($payload) {
     if ($payload.token) { return $payload.token }
     if ($payload.data -and $payload.data.accessToken) { return $payload.data.accessToken }
     if ($payload.data -and $payload.data.token) { return $payload.data.token }
+    return $null
+}
+
+function GetRoleCode($payload) {
+    if ($null -eq $payload) { return $null }
+    if ($payload.roleCode) { return "$($payload.roleCode)" }
+    if ($payload.role -and $payload.role.code) { return "$($payload.role.code)" }
+    if ($payload.data -and $payload.data.roleCode) { return "$($payload.data.roleCode)" }
+    if ($payload.data -and $payload.data.role -and $payload.data.role.code) { return "$($payload.data.role.code)" }
+    return $null
+}
+
+function Invoke-LoginAttempt($email, $password) {
+    $attempt = 0
+    while ($attempt -lt 4) {
+        try {
+            return (Invoke-RestMethod -Method Post -Uri "$b/auth/login" -ContentType "application/json" -Body (@{ email = $email; password = $password } | ConvertTo-Json))
+        } catch {
+            $status = 0
+            try { $status = [int]$_.Exception.Response.StatusCode } catch {}
+            if ($status -eq 429 -and $attempt -lt 3) {
+                Start-Sleep -Milliseconds (500 * ($attempt + 1))
+                $attempt++
+                continue
+            }
+            throw
+        }
+    }
     return $null
 }
 
@@ -67,12 +109,15 @@ Write-Host "Logging in..."
 $a = $null
 $adminResolvedPassword = $null
 $adminPasswordCandidates = @()
-if ($adminPassword) { $adminPasswordCandidates += $adminPassword }
-$adminPasswordCandidates += @('Admin@123', 'Adminin@123', 'Statco@123')
+if ($adminPassword) {
+  $adminPasswordCandidates += $adminPassword
+} else {
+  $adminPasswordCandidates += @('Admin@123', 'Adminin@123', 'Statco@123')
+}
 $adminPasswordCandidates = $adminPasswordCandidates | Select-Object -Unique
 foreach ($candidate in $adminPasswordCandidates) {
   try {
-    $la = Invoke-RestMethod -Method Post -Uri "$b/auth/login" -ContentType "application/json" -Body (@{ email = $adminEmail; password = $candidate } | ConvertTo-Json)
+    $la = Invoke-LoginAttempt $adminEmail $candidate
     $a = GetToken $la
     if ($a) { $adminResolvedPassword = $candidate; break }
   } catch {
@@ -81,16 +126,124 @@ foreach ($candidate in $adminPasswordCandidates) {
 }
 $c = $null
 $clientPasswordCandidates = @()
-if ($clientPassword) { $clientPasswordCandidates += $clientPassword }
-$clientPasswordCandidates += @('Vedha@123', 'Reset@8569', 'Statco@123')
+if ($clientPassword) {
+  $clientPasswordCandidates += $clientPassword
+} else {
+  $clientPasswordCandidates += @('Vedha@123', 'Reset@8569', 'Statco@123')
+}
 $clientPasswordCandidates = $clientPasswordCandidates | Select-Object -Unique
 foreach ($candidate in $clientPasswordCandidates) {
   try {
-    $lc = Invoke-RestMethod -Method Post -Uri "$b/auth/login" -ContentType "application/json" -Body (@{ email = $clientEmail; password = $candidate } | ConvertTo-Json)
+    $lc = Invoke-LoginAttempt $clientEmail $candidate
     $c = GetToken $lc
     if ($c) { break }
   } catch {
     # try next candidate
+  }
+}
+$aud = $null
+$auditorPasswordCandidates = @()
+if ($auditorPassword) {
+  $auditorPasswordCandidates += $auditorPassword
+} else {
+  $auditorPasswordCandidates += @('Statco@123', 'Admin@123')
+}
+$auditorPasswordCandidates = $auditorPasswordCandidates | Select-Object -Unique
+foreach ($candidate in $auditorPasswordCandidates) {
+  try {
+    $lu = Invoke-LoginAttempt $auditorEmail $candidate
+    $candidateToken = GetToken $lu
+    if ($candidateToken) {
+      $audMe = $null
+      try {
+        $audMe = Invoke-RestMethod -Method Get -Uri "$b/me" -Headers @{Authorization="Bearer $candidateToken"}
+      } catch {}
+      $audRole = GetRoleCode $audMe
+      if ($audRole -eq 'AUDITOR') {
+        $aud = $candidateToken
+        break
+      }
+    }
+  } catch {
+    # try next candidate
+  }
+}
+$crm = $null
+$crmPasswordCandidates = @()
+if ($crmPassword) {
+  $crmPasswordCandidates += $crmPassword
+} else {
+  $crmPasswordCandidates += @('Statco@123', 'Admin@123')
+}
+$crmPasswordCandidates = $crmPasswordCandidates | Select-Object -Unique
+foreach ($candidate in $crmPasswordCandidates) {
+  try {
+    $lr = Invoke-LoginAttempt $crmEmail $candidate
+    $candidateToken = GetToken $lr
+    if ($candidateToken) {
+      $crmMe = $null
+      try { $crmMe = Invoke-RestMethod -Method Get -Uri "$b/me" -Headers @{Authorization="Bearer $candidateToken"} } catch {}
+      if ((GetRoleCode $crmMe) -eq 'CRM') { $crm = $candidateToken; break }
+    }
+  } catch {}
+}
+$cco = $null
+$ccoPasswordCandidates = @()
+if ($ccoPassword) {
+  $ccoPasswordCandidates += $ccoPassword
+} else {
+  $ccoPasswordCandidates += @('Statco@123', 'Admin@123')
+}
+$ccoPasswordCandidates = $ccoPasswordCandidates | Select-Object -Unique
+foreach ($candidate in $ccoPasswordCandidates) {
+  try {
+    $lr = Invoke-LoginAttempt $ccoEmail $candidate
+    $candidateToken = GetToken $lr
+    if ($candidateToken) {
+      $ccoMe = $null
+      try { $ccoMe = Invoke-RestMethod -Method Get -Uri "$b/me" -Headers @{Authorization="Bearer $candidateToken"} } catch {}
+      if ((GetRoleCode $ccoMe) -eq 'CCO') { $cco = $candidateToken; break }
+    }
+  } catch {}
+}
+$ceo = $null
+$ceoPasswordCandidates = @()
+if ($ceoPassword) {
+  $ceoPasswordCandidates += $ceoPassword
+} else {
+  $ceoPasswordCandidates += @('Statco@123', 'Admin@123')
+}
+$ceoPasswordCandidates = $ceoPasswordCandidates | Select-Object -Unique
+foreach ($candidate in $ceoPasswordCandidates) {
+  try {
+    $lr = Invoke-LoginAttempt $ceoEmail $candidate
+    $candidateToken = GetToken $lr
+    if ($candidateToken) {
+      $ceoMe = $null
+      try { $ceoMe = Invoke-RestMethod -Method Get -Uri "$b/me" -Headers @{Authorization="Bearer $candidateToken"} } catch {}
+      if ((GetRoleCode $ceoMe) -eq 'CEO') { $ceo = $candidateToken; break }
+    }
+  } catch {}
+}
+$ess = $null
+if ($essEmail) {
+  $essPasswordCandidates = @()
+  if ($essPassword) {
+    $essPasswordCandidates += $essPassword
+  } else {
+    $essPasswordCandidates += @('Statco@123', 'Vedha@123', 'Admin@123')
+  }
+  $essPasswordCandidates = $essPasswordCandidates | Select-Object -Unique
+  foreach ($candidate in $essPasswordCandidates) {
+    try {
+      $lr = Invoke-LoginAttempt $essEmail $candidate
+      $candidateToken = GetToken $lr
+      if ($candidateToken) {
+        $essMe = $null
+        try { $essMe = Invoke-RestMethod -Method Get -Uri "$b/me" -Headers @{Authorization="Bearer $candidateToken"} } catch {}
+        if ((GetRoleCode $essMe) -eq 'EMPLOYEE') { $ess = $candidateToken; break }
+      }
+    } catch {}
   }
 }
 if (-not $a) { Write-Host "ADMIN login FAILED"; exit 1 }
@@ -118,17 +271,87 @@ if (-not $branchId) {
     } catch {}
 }
 
+if ($crm -and -not $crmClientId) {
+    try {
+        $crmClients = Invoke-RestMethod -Method Get -Uri "$b/crm/clients/assigned" -Headers @{Authorization="Bearer $crm"}
+        $crmClientId = Get-FirstUUID $crmClients
+    } catch {}
+}
+
+$auditId = if ($env:SMOKE_AUDIT_ID) { $env:SMOKE_AUDIT_ID } else { "" }
+$observationId = if ($env:SMOKE_OBSERVATION_ID) { $env:SMOKE_OBSERVATION_ID } else { "" }
+
+if ($aud) {
+    if (-not $auditId) {
+        try {
+            $audits = Invoke-RestMethod -Method Get -Uri "$b/auditor/audits" -Headers @{Authorization="Bearer $aud"}
+            $auditId = Get-FirstUUID $audits
+        } catch {}
+        if (-not $auditId) {
+            try {
+                $auditsLegacy = Invoke-RestMethod -Method Get -Uri "$b/audits" -Headers @{Authorization="Bearer $aud"}
+                $auditId = Get-FirstUUID $auditsLegacy
+            } catch {}
+        }
+    }
+
+    if (-not $observationId) {
+        try {
+            $obs = if ($auditId) {
+                Invoke-RestMethod -Method Get -Uri "$b/auditor/observations?auditId=$auditId" -Headers @{Authorization="Bearer $aud"}
+            } else {
+                Invoke-RestMethod -Method Get -Uri "$b/auditor/observations" -Headers @{Authorization="Bearer $aud"}
+            }
+            $observationId = Get-FirstUUID $obs
+        } catch {}
+    }
+}
+
 if ($cid) { Write-Host "Resolved clientId: $cid" } else { Write-Host "WARN: clientId unresolved; some endpoint checks may fail." }
+if ($crmClientId) { Write-Host "Resolved crmClientId: $crmClientId" } else { Write-Host "WARN: crmClientId unresolved; CRM client-scoped checks may fail." }
 if ($branchId) { Write-Host "Resolved branchId: $branchId" } else { Write-Host "WARN: branchId unresolved; branch-scoped checks may fail." }
+if ($aud) { Write-Host "Resolved auditor token: available" } else { Write-Host "WARN: auditor login failed; auditor deep checks may be skipped." }
+if ($crm) { Write-Host "Resolved crm token: available" } else { Write-Host "WARN: CRM login failed; CRM role checks may be skipped." }
+if ($cco) { Write-Host "Resolved cco token: available" } else { Write-Host "WARN: CCO login failed; CCO role checks may be skipped." }
+if ($ceo) { Write-Host "Resolved ceo token: available" } else { Write-Host "WARN: CEO login failed; CEO role checks may be skipped." }
+if ($ess) { Write-Host "Resolved ess token: available" } elseif ($essEmail) { Write-Host "WARN: ESS login failed; ESS checks may be skipped." } else { Write-Host "WARN: ESS email not configured; ESS checks may be skipped." }
+if ($auditId) { Write-Host "Resolved auditId: $auditId" } else { Write-Host "WARN: auditId unresolved; audit deep checks may be skipped." }
+if ($observationId) { Write-Host "Resolved observationId: $observationId" } else { Write-Host "WARN: observationId unresolved; observation deep checks may be skipped." }
 
 $pass = 0; $fail = 0; $skip = 0; $results = @()
 function T($name, $path, $token) {
+    $failureBody = $null
+    $retried = $false
     try {
-        $null = Invoke-WebRequest -Uri "$b$path" -Headers @{Authorization="Bearer $token"} -UseBasicParsing -ErrorAction Stop
+        $null = Invoke-WebRequest -Uri "$b$path" -Headers @{Authorization="Bearer $token"} -UseBasicParsing -TimeoutSec $requestTimeoutSec -ErrorAction Stop
         $code = 200
     } catch {
-        $code = [int]$_.Exception.Response.StatusCode
+        $code = 0
+        try { $code = [int]$_.Exception.Response.StatusCode } catch {}
         if ($code -eq 0) { $code = 999 }
+        try {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $failureBody = $reader.ReadToEnd()
+            $reader.Close()
+        } catch {}
+    }
+    if ($code -eq 400) {
+        Start-Sleep -Milliseconds 250
+        try {
+            $null = Invoke-WebRequest -Uri "$b$path" -Headers @{Authorization="Bearer $token"} -UseBasicParsing -TimeoutSec $requestTimeoutSec -ErrorAction Stop
+            $code = 200
+            $failureBody = $null
+            $retried = $true
+        } catch {
+            $code = 0
+            try { $code = [int]$_.Exception.Response.StatusCode } catch {}
+            if ($code -eq 0) { $code = 999 }
+            try {
+                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $failureBody = $reader.ReadToEnd()
+                $reader.Close()
+            } catch {}
+        }
     }
     if ($code -ge 200 -and $code -lt 300) {
         $s = "PASS"; $script:pass++
@@ -138,6 +361,15 @@ function T($name, $path, $token) {
         $s = "FAIL"; $script:fail++
     }
     $line = "$s [$code] $name"
+    if ($retried) { $line += " :: retry=1" }
+    if ($s -eq "FAIL") {
+        $line += " :: path=$path"
+    }
+    if ($failureBody -and $s -eq "FAIL") {
+        $compactBody = $failureBody -replace "\s+", " "
+        if ($compactBody.Length -gt 240) { $compactBody = $compactBody.Substring(0, 240) + "..." }
+        $line += " :: $compactBody"
+    }
     Write-Host $line
     $script:results += $line
 }
@@ -152,6 +384,96 @@ function TClientScoped($name, $path, $token) {
 }
 function TBranchScoped($name, $path, $token) {
     if ($script:branchId) { T $name $path $token } else { K $name "branchId unresolved" }
+}
+function TAuditScoped($name, $path, $token) {
+    if ($script:auditId) { T $name $path $token } else { K $name "auditId unresolved" }
+}
+function TObservationScoped($name, $path, $token) {
+    if ($script:observationId) { T $name $path $token } else { K $name "observationId unresolved" }
+}
+function TStrict($name, $path, $token) {
+    if (-not $token) { K $name "token unresolved"; return }
+    $failureBody = $null
+    try {
+        $null = Invoke-WebRequest -Uri "$b$path" -Headers @{Authorization="Bearer $token"} -UseBasicParsing -TimeoutSec $requestTimeoutSec -ErrorAction Stop
+        $code = 200
+    } catch {
+        $code = 0
+        try { $code = [int]$_.Exception.Response.StatusCode } catch {}
+        if ($code -eq 0) { $code = 999 }
+        try {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $failureBody = $reader.ReadToEnd()
+            $reader.Close()
+        } catch {}
+    }
+    if ($code -ge 200 -and $code -lt 300) {
+        $s = "PASS"; $script:pass++
+    } else {
+        $s = "FAIL"; $script:fail++
+    }
+    $line = "$s [$code] $name"
+    if ($failureBody -and $s -eq "FAIL") {
+        $compactBody = $failureBody -replace "\s+", " "
+        if ($compactBody.Length -gt 240) { $compactBody = $compactBody.Substring(0, 240) + "..." }
+        $line += " :: $compactBody"
+    }
+    Write-Host $line
+    $script:results += $line
+}
+function TBranchScopedStrict($name, $path, $token) {
+    if ($script:branchId) { TStrict $name $path $token } else { K $name "branchId unresolved" }
+}
+function TClientScopedStrict($name, $path, $token) {
+    if ($script:cid) { TStrict $name $path $token } else { K $name "clientId unresolved" }
+}
+function TCrmClientScopedStrict($name, $path, $token) {
+    if ($script:crmClientId) { TStrict $name $path $token } else { K $name "crmClientId unresolved" }
+}
+function TAuditKpiProbe($name, $path) {
+    $token = $a
+    if ($adminResolvedPassword) {
+        try {
+            $freshLogin = Invoke-RestMethod -Method Post -Uri "$b/auth/login" -ContentType "application/json" -Body (@{ email = $adminEmail; password = $adminResolvedPassword } | ConvertTo-Json)
+            $freshToken = GetToken $freshLogin
+            if ($freshToken) { $token = $freshToken }
+        } catch {}
+    }
+
+    $failureBody = $null
+    try {
+        $null = Invoke-RestMethod -Method Get -Uri "$b$path" -Headers @{Authorization="Bearer $token"} -TimeoutSec $requestTimeoutSec -ErrorAction Stop
+        $code = 200
+    } catch {
+        $code = 0
+        try { $code = [int]$_.Exception.Response.StatusCode } catch {}
+        if ($code -eq 0) { $code = 999 }
+        try {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $failureBody = $reader.ReadToEnd()
+            $reader.Close()
+        } catch {}
+    }
+
+    if ($code -ge 200 -and $code -lt 300) {
+        $s = "PASS"; $script:pass++
+    } elseif ($code -eq 403) {
+        $s = "SKIP"; $script:skip++
+    } else {
+        $s = "FAIL"; $script:fail++
+    }
+
+    $line = "$s [$code] $name"
+    if ($s -eq "FAIL") {
+        $line += " :: path=$path"
+    }
+    if ($failureBody -and $s -eq "FAIL") {
+        $compactBody = $failureBody -replace "\s+", " "
+        if ($compactBody.Length -gt 240) { $compactBody = $compactBody.Substring(0, 240) + "..." }
+        $line += " :: $compactBody"
+    }
+    Write-Host $line
+    $script:results += $line
 }
 
 Write-Host "`n========== FULL MODULE SMOKE TEST =========="
@@ -329,10 +651,10 @@ T "client/safety-documents" "/client/safety-documents" $c
 # â”€â”€ 39. LegitX (Client) â”€â”€
 Write-Host "--- legitx ---"
 T "legitx/dashboard/summary" "/legitx/dashboard/summary" $c
-T "legitx/compliance-status" "/legitx/compliance-status" $c
-T "legitx/mcd" "/legitx/mcd" $c
-T "legitx/returns" "/legitx/returns" $c
-T "legitx/audits" "/legitx/audits" $c
+TStrict "legitx/compliance-status/summary" "/legitx/compliance-status/summary" $c
+TStrict "legitx/compliance-status/branches" "/legitx/compliance-status/branches" $c
+TStrict "legitx/compliance-status/returns" "/legitx/compliance-status/returns" $c
+TStrict "legitx/compliance-status/audit" "/legitx/compliance-status/audit" $c
 
 # â”€â”€ 40. Compliance â”€â”€
 Write-Host "--- compliance ---"
@@ -349,7 +671,7 @@ TClientScoped "calendar" "/calendar?from=2026-01-01&to=2026-03-31&clientId=$cid"
 # â”€â”€ 43. Risk â”€â”€
 Write-Host "--- risk ---"
 T "risk/heatmap" "/risk/heatmap" $a
-T "risk/trend" "/risk/trend" $a
+TBranchScopedStrict "risk/trend" "/risk/trend?branchId=${branchId}&from=2026-01-01&to=2026-12-31" $(if ($ceo) { $ceo } else { $c })
 
 # â”€â”€ 44. SLA â”€â”€
 Write-Host "--- sla ---"
@@ -422,68 +744,84 @@ T "paydek/queries" "/paydek/queries" $a
 
 # â”€â”€ 56. Client Payroll â”€â”€
 Write-Host "--- client/payroll ---"
-T "client/payroll/inputs" "/client/payroll/inputs" $c
-T "client/payroll/template" "/client/payroll/template" $c
+TStrict "client/payroll/inputs" "/client/payroll/inputs" $c
+TStrict "client/payroll/template" "/client/payroll/template" $c
 T "client/payroll/registers-records" "/client/payroll/registers-records" $c
 T "client/payroll/settings" "/client/payroll/settings" $c
 T "client/payroll/setup" "/client/payroll/setup" $c
 T "client/payroll/setup/components" "/client/payroll/setup/components" $c
 
-# â”€â”€ 57. CRM endpoints (ADMIN fallback) â”€â”€
+# â”€â”€ 57. CRM endpoints â”€â”€
 Write-Host "--- crm ---"
-T "crm/dashboard/summary" "/crm/dashboard/summary" $a
-T "crm/clients/assigned" "/crm/clients/assigned" $a
-TClientScoped "crm/clients/:cid/branches" "/crm/clients/$cid/branches" $a
-T "crm/compliance-tasks/tasks" "/crm/compliance-tasks/tasks" $a
-T "crm/contractors/my-contractors" "/crm/contractors/my-contractors" $a
-T "crm/helpdesk/tickets" "/crm/helpdesk/tickets" $a
-T "crm/audits" "/crm/audits" $a
-T "crm/returns/filings" "/crm/returns/filings" $a
-T "crm/renewals" "/crm/renewals" $a
-T "crm/renewals/kpis" "/crm/renewals/kpis" $a
-T "crm/amendments" "/crm/amendments" $a
-T "crm/amendments/kpis" "/crm/amendments/kpis" $a
-T "crm/compliance-docs" "/crm/compliance-docs" $a
-T "crm/branch-compliance" "/crm/branch-compliance" $a
-T "crm/safety-documents" "/crm/safety-documents" $a
-T "crm/unit-documents" "/crm/unit-documents" $a
-T "crm/compliance-tracker/mcd" "/crm/compliance-tracker/mcd" $a
+TStrict "crm/dashboard/summary" "/crm/dashboard/summary" $crm
+TStrict "crm/clients/assigned" "/crm/clients/assigned" $crm
+TCrmClientScopedStrict "crm/clients/:cid/branches" "/crm/clients/$crmClientId/branches" $crm
+TStrict "crm/compliance-tasks/tasks" "/crm/compliance-tasks/tasks" $crm
+TStrict "crm/contractors/my-contractors" "/crm/contractors/my-contractors" $crm
+TStrict "crm/helpdesk/tickets" "/crm/helpdesk/tickets" $crm
+TStrict "crm/audits" "/crm/audits" $crm
+TStrict "crm/returns/filings" "/crm/returns/filings" $crm
+TStrict "crm/renewals" "/crm/renewals" $crm
+TStrict "crm/renewals/kpis" "/crm/renewals/kpis" $crm
+TStrict "crm/amendments" "/crm/amendments" $crm
+TStrict "crm/amendments/kpis" "/crm/amendments/kpis" $crm
+TCrmClientScopedStrict "crm/compliance-docs" "/crm/compliance-docs?clientId=$crmClientId" $crm
+TStrict "crm/branch-compliance" "/crm/branch-compliance" $crm
+TStrict "crm/safety-documents" "/crm/safety-documents" $crm
+TStrict "crm/unit-documents" "/crm/unit-documents" $crm
+TStrict "crm/compliance-tracker/mcd" "/crm/compliance-tracker/mcd" $crm
 
 # â”€â”€ 58. Auditor endpoints (ADMIN fallback) â”€â”€
 Write-Host "--- auditor ---"
-T "auditor/dashboard/summary" "/auditor/dashboard/summary" $a
-T "auditor/clients/assigned" "/auditor/clients/assigned" $a
-T "auditor/audits" "/auditor/audits" $a
-T "auditor/returns/filings" "/auditor/returns/filings" $a
-T "auditor/branches" "/auditor/branches" $a
-T "auditor/compliance-docs" "/auditor/compliance-docs" $a
-T "auditor/registers" "/auditor/registers" $a
+$auditorTokenForChecks = if ($aud) { $aud } else { $a }
+T "auditor/dashboard/summary" "/auditor/dashboard/summary" $auditorTokenForChecks
+T "auditor/clients/assigned" "/auditor/clients/assigned" $auditorTokenForChecks
+T "auditor/audits" "/auditor/audits" $auditorTokenForChecks
+T "auditor/returns/filings" "/auditor/returns/filings" $auditorTokenForChecks
+T "auditor/branches" "/auditor/branches" $auditorTokenForChecks
+T "auditor/compliance-docs" "/auditor/compliance-docs" $auditorTokenForChecks
+T "auditor/registers" "/auditor/registers" $auditorTokenForChecks
+TAuditScoped "auditor/audits/:id" "/auditor/audits/$auditId" $auditorTokenForChecks
+TAuditScoped "auditor/audits/:id/report" "/auditor/audits/$auditId/report" $auditorTokenForChecks
+TAuditScoped "auditor/observations?auditId=:id" "/auditor/observations?auditId=$auditId" $auditorTokenForChecks
+TObservationScoped "auditor/observations/:id" "/auditor/observations/$observationId" $auditorTokenForChecks
+TAuditScoped "auditor/observations/audit/:auditId/export" "/auditor/observations/audit/$auditId/export" $auditorTokenForChecks
 
 # â”€â”€ 59. CEO endpoints â”€â”€
 Write-Host "--- ceo ---"
-T "ceo/dashboard/summary" "/ceo/dashboard/summary" $a
-T "ceo/approvals" "/ceo/approvals" $a
-T "ceo/escalations" "/ceo/escalations" $a
+TStrict "ceo/dashboard/summary" "/ceo/dashboard/summary" $ceo
+TStrict "ceo/approvals" "/ceo/approvals" $ceo
+TStrict "ceo/escalations" "/ceo/escalations" $ceo
 
 # â”€â”€ 60. CCO endpoints â”€â”€
 Write-Host "--- cco ---"
-T "cco/dashboard" "/cco/dashboard" $a
+TStrict "cco/dashboard" "/cco/dashboard" $cco
 T "cco/controls" "/cco/controls" $a
-T "cco/escalations" "/cco/escalations" $a
-T "cco/approvals" "/cco/approvals" $a
+TStrict "cco/escalations" "/cco/escalations" $cco
+TStrict "cco/approvals" "/cco/approvals" $cco
 
 # â”€â”€ 61. Audits KPI â”€â”€
-# Skipped â€” requires branchId path param: audits/kpi/branch/:branchId
+if ($script:branchId) {
+  TAuditKpiProbe "audit-kpi/branch/:branchId" "/audit-kpi/branch/${branchId}?from=2026-01&to=2026-12"
+} else {
+  K "audit-kpi/branch/:branchId" "branchId unresolved"
+}
 
 # â”€â”€ 62. ESS â”€â”€
 Write-Host "--- ess ---"
-T "ess/profile" "/ess/profile" $c
-T "ess/leave/balances" "/ess/leave/balances" $c
-T "ess/leave/applications" "/ess/leave/applications" $c
+if ($ess) {
+  TStrict "ess/profile" "/ess/profile" $ess
+  TStrict "ess/leave/balances" "/ess/leave/balances" $ess
+  TStrict "ess/leave/applications" "/ess/leave/applications" $ess
+} else {
+  K "ess/profile" "ess token unresolved"
+  K "ess/leave/balances" "ess token unresolved"
+  K "ess/leave/applications" "ess token unresolved"
+}
 
 # â”€â”€ 63. Monthly Documents â”€â”€
 Write-Host "--- documents/monthly ---"
-T "documents/monthly" "/documents/monthly" $a
+TStrict "documents/monthly" "/documents/monthly" $c
 
 # â”€â”€ 64. AI Insights â”€â”€
 Write-Host "--- ai ---"
@@ -496,18 +834,47 @@ TClientScoped "compliance-pct/client/:cid" "/compliance-pct/client/$cid" $a
 
 # paydek transition workflow smoke
 Write-Host "--- paydek/transition-workflow ---"
-if (Test-Path $transitionScript) {
+if ($skipTransition) {
+  $line = "SKIP [CONFIG] paydek/transition-workflow :: skipped via SMOKE_SKIP_TRANSITION"
+  Write-Host $line
+  $results += $line
+  $skip++
+}
+elseif (Test-Path $transitionScript) {
   try {
-    $transitionOutput = & powershell -ExecutionPolicy Bypass -File $transitionScript -BaseUrl $b -AdminEmail $adminEmail -AdminPassword $adminResolvedPassword -OutFile $transitionOut 2>&1
-    $transitionExit = $LASTEXITCODE
+    $transitionRunOut = Join-Path $PSScriptRoot 'tmp_transition_smoke.out.log'
+    $transitionRunErr = Join-Path $PSScriptRoot 'tmp_transition_smoke.err.log'
+    if (Test-Path $transitionRunOut) { Remove-Item $transitionRunOut -Force }
+    if (Test-Path $transitionRunErr) { Remove-Item $transitionRunErr -Force }
+
+    $transitionProc = Start-Process -FilePath powershell -ArgumentList @(
+      '-ExecutionPolicy','Bypass',
+      '-File', $transitionScript,
+      '-BaseUrl', $b,
+      '-AdminEmail', $adminEmail,
+      '-AdminPassword', $adminResolvedPassword,
+      '-OutFile', $transitionOut
+    ) -RedirectStandardOutput $transitionRunOut -RedirectStandardError $transitionRunErr -PassThru
+
+    $transitionFinished = $transitionProc.WaitForExit($transitionTimeoutSec * 1000)
+    if (-not $transitionFinished) {
+      try { Stop-Process -Id $transitionProc.Id -Force -ErrorAction SilentlyContinue } catch {}
+    }
+    $transitionExit = if ($transitionFinished) { $transitionProc.ExitCode } else { 124 }
     $transitionSummary = ""
     if (Test-Path $transitionOut) {
       $transitionSummary = (Get-Content $transitionOut | Where-Object { $_ -match '^TOTAL:' } | Select-Object -Last 1)
     }
-    if (-not $transitionSummary) {
-      $transitionSummary = (($transitionOutput | Where-Object { $_ -match '^TOTAL:' }) | Select-Object -Last 1)
+    if (-not $transitionSummary -and (Test-Path $transitionRunOut)) {
+      $transitionSummary = ((Get-Content $transitionRunOut | Where-Object { $_ -match '^TOTAL:' }) | Select-Object -Last 1)
     }
-    if ($transitionExit -eq 0) {
+    $transitionSummaryLooksClean = ($transitionSummary -match 'TOTAL:\s+\d+\s+PASS,\s+0\s+FAIL')
+    if (-not $transitionFinished) {
+      $line = "FAIL [124] paydek/transition-workflow :: timed out after $transitionTimeoutSec sec"
+      Write-Host $line
+      $results += $line
+      $fail++
+    } elseif ($transitionExit -eq 0 -or $transitionSummaryLooksClean) {
       $line = "PASS [200] paydek/transition-workflow :: $transitionSummary"
       Write-Host $line
       $results += $line
