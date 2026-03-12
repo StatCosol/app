@@ -49,6 +49,10 @@ const NominationApprovalsComponent = () =>
   import('./approvals/nomination-approvals.component').then((m) => m.NominationApprovalsComponent);
 const LeaveApprovalsComponent = () =>
   import('./approvals/leave-approvals.component').then((m) => m.LeaveApprovalsComponent);
+const ClientAttendanceReviewPageComponent = () =>
+  import('./attendance/client-attendance-review-page.component').then(
+    (m) => m.ClientAttendanceReviewPageComponent,
+  );
 const ClientAccessSettingsComponent = () =>
   import('./settings/client-access-settings.component').then((m) => m.ClientAccessSettingsComponent);
 const ClientComplianceLibraryComponent = () =>
@@ -107,6 +111,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'support', loadComponent: ClientSupportComponent },
       { path: 'approvals/nominations', loadComponent: NominationApprovalsComponent },
       { path: 'approvals/leaves', loadComponent: LeaveApprovalsComponent },
+      { path: 'attendance', loadComponent: ClientAttendanceReviewPageComponent },
       { path: 'settings/access', loadComponent: ClientAccessSettingsComponent },
       { path: 'branches/:branchId/compliance-items', loadComponent: BranchComplianceItemsComponent },
       { path: 'branch-compliance', loadComponent: BranchComplianceComponent },
