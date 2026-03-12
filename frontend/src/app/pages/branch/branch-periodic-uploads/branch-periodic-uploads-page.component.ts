@@ -507,6 +507,14 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
           this.applyFilters();
           this.hydrateSelection(returnCode);
         },
+        error: () => {
+          this.checklist = [];
+          this.filteredChecklist = [];
+          this.selectedItem = null;
+          this.timeline = [];
+          this.toast.error('Upload succeeded, but checklist refresh failed. Reload to sync the latest status.');
+          this.cdr.detectChanges();
+        },
       });
   }
 
