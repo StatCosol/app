@@ -8,6 +8,7 @@ export interface CeoApproval {
   entityId: string;
   status: string;
   remarks?: string;
+  entityLabel?: string;
   requestedBy?: { id: string; name: string; email: string };
   requestedTo?: { id: string; name: string };
   createdAt?: string;
@@ -29,9 +30,30 @@ export interface CeoOversightSummary {
 export interface CeoNotification {
   id: number;
   subject?: string;
-  status?: string;
+  body?: string;
   createdAt?: string;
-  read?: boolean;
+  read: boolean;
+}
+
+export interface CeoReportPack {
+  id: string;
+  title: string;
+  description?: string;
+  metrics: Record<string, any>;
+}
+
+export interface CeoReportsSummary {
+  period: string;
+  generatedAt: string;
+  packs: CeoReportPack[];
+}
+
+export interface CeoReportPreview {
+  type: string;
+  title: string;
+  period: string;
+  columns: Array<{ key: string; label: string }>;
+  rows: any[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -78,7 +100,34 @@ export class CeoApiService {
     return this.http.get<CeoNotification[]>('/api/v1/ceo/notifications');
   }
 
-  markNotificationRead(id: number): Observable<any> {
+  markNotificationRead(id: string | number): Observable<any> {
     return this.http.post(`/api/v1/ceo/notifications/${id}/read`, {});
+  }
+
+  getReportsSummary(period?: string): Observable<CeoReportsSummary> {
+    const params: any = {};
+    if (period) params.period = period;
+    return this.http.get<CeoReportsSummary>('/api/v1/ceo/reports/summary', { params });
+  }
+
+  getReportPreview(type: string, period?: string): Observable<CeoReportPreview> {
+    const params: any = { type };
+    if (period) params.period = period;
+    return this.http.get<CeoReportPreview>('/api/v1/ceo/reports/preview', { params });
+  }
+
+  exportReportCsv(type: string, period?: string): Observable<Blob> {
+    const params: any = { type, format: 'csv' };
+    if (period) params.period = period;
+    return this.http.get('/api/v1/ceo/reports/export', {
+      params,
+      responseType: 'blob',
+    });
+  }
+
+  getReportPdfLink(type: string, period?: string): Observable<{ downloadUrl: string }> {
+    const params: any = { type, format: 'pdf' };
+    if (period) params.period = period;
+    return this.http.get<{ downloadUrl: string }>('/api/v1/ceo/reports/export', { params });
   }
 }

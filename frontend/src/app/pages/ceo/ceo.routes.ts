@@ -3,8 +3,10 @@ import { roleGuard } from '../../core/role.guard';
 
 const CeoLayoutComponent = () =>
   import('./ceo-layout/ceo-layout.component').then((m) => m.CeoLayoutComponent);
-const CeoDashboardComponent = () =>
-  import('./ceo-dashboard.component').then((m) => m.CeoDashboardComponent);
+const CeoExecutiveDashboardPageComponent = () =>
+  import('./ceo-executive-dashboard-page.component').then(
+    (m) => m.CeoExecutiveDashboardPageComponent,
+  );
 const CeoApprovalsComponent = () =>
   import('./ceo-approvals.component').then((m) => m.CeoApprovalsComponent);
 const CeoEscalationsComponent = () =>
@@ -13,8 +15,10 @@ const CeoOversightComponent = () =>
   import('./oversight/ceo-cco-oversight.component').then(
     (m) => m.CeoCcoOversightComponent,
   );
-const CeoReportsComponent = () =>
-  import('./ceo-reports.component').then((m) => m.CeoReportsComponent);
+const CeoExecutiveReportsPageComponent = () =>
+  import('./ceo-executive-reports-page.component').then(
+    (m) => m.CeoExecutiveReportsPageComponent,
+  );
 const CeoNotificationsComponent = () =>
   import('./ceo-notifications.component').then((m) => m.CeoNotificationsComponent);
 const CeoProfileComponent = () =>
@@ -28,11 +32,11 @@ export const CEO_ROUTES: Routes = [
     loadComponent: CeoLayoutComponent,
     canActivate: [roleGuard(['CEO'])],
     children: [
-      { path: 'dashboard', loadComponent: CeoDashboardComponent },
+      { path: 'dashboard', loadComponent: CeoExecutiveDashboardPageComponent },
       { path: 'approvals', loadComponent: CeoApprovalsComponent },
       { path: 'escalations', loadComponent: CeoEscalationsComponent },
       { path: 'oversight', loadComponent: CeoOversightComponent },
-      { path: 'reports', loadComponent: CeoReportsComponent },
+      { path: 'reports', loadComponent: CeoExecutiveReportsPageComponent },
       { path: 'registers', loadComponent: CeoRegistersComponent },
       { path: 'notifications', loadComponent: CeoNotificationsComponent },
       { path: 'profile', loadComponent: CeoProfileComponent },
