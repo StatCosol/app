@@ -1,4 +1,4 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     title="Contractor Dashboard"
     description="Your task overview and compliance status"
@@ -35,27 +35,195 @@
 
   <ng-container *ngIf="!loading && data">
     <!-- KPI Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="contractor-kpi contractor-kpi--slate cursor-pointer" (click)="goToTasks('')">
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Required Docs</div>
+        <div class="text-3xl font-bold text-gray-900">{{ totalRequiredDocs }}</div>
+        <div class="text-xs text-gray-500 mt-1">total compliance tasks</div>
+      </div>
       <div class="contractor-kpi contractor-kpi--amber cursor-pointer" (click)="goToTasks('DUE_TODAY')">
         <div class="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">Due Today</div>
-        <div class="text-3xl font-bold text-gray-900">{{ data.dueTodayCount || 0 }}</div>
+        <div class="text-3xl font-bold text-gray-900">{{ dueTodayCount }}</div>
         <div class="text-xs text-gray-500 mt-1">tasks due today</div>
       </div>
       <div class="contractor-kpi contractor-kpi--red cursor-pointer" (click)="goToTasks('OVERDUE')">
         <div class="text-xs font-semibold uppercase tracking-wider text-red-600 mb-1">Overdue</div>
-        <div class="text-3xl font-bold text-gray-900">{{ data.overdueCount || 0 }}</div>
+        <div class="text-3xl font-bold text-gray-900">{{ overdueCount }}</div>
         <div class="text-xs text-gray-500 mt-1">require attention</div>
       </div>
       <div class="contractor-kpi contractor-kpi--indigo cursor-pointer" (click)="goToTasks('IN_PROGRESS')">
         <div class="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">In Progress</div>
-        <div class="text-3xl font-bold text-gray-900">{{ data.inProgressCount || 0 }}</div>
+        <div class="text-3xl font-bold text-gray-900">{{ inProgressCount }}</div>
         <div class="text-xs text-gray-500 mt-1">being worked on</div>
       </div>
       <div class="contractor-kpi contractor-kpi--teal cursor-pointer" (click)="goToTasks('SUBMITTED')">
         <div class="text-xs font-semibold uppercase tracking-wider text-teal-600 mb-1">Awaiting Approval</div>
-        <div class="text-3xl font-bold text-gray-900">{{ data.awaitingApprovalCount || 0 }}</div>
+        <div class="text-3xl font-bold text-gray-900">{{ awaitingApprovalCount }}</div>
         <div class="text-xs text-gray-500 mt-1">under CRM review</div>
       </div>
+    </div>
+
+    <div class="contractor-card p-4 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-semibold text-gray-900">Operational Guardrails</h3>
+        <span class="text-xs text-gray-500">{{ dashboardGuardrails.length }} active</span>
+      </div>
+      <div *ngIf="dashboardGuardrails.length; else noGuardrails" class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+        <button
+          type="button"
+          *ngFor="let g of dashboardGuardrails"
+          class="text-left rounded-lg border px-3 py-2"
+          [ngClass]="{
+            'border-red-200 bg-red-50': g.severity === 'CRITICAL',
+            'border-amber-200 bg-amber-50': g.severity === 'HIGH',
+            'border-orange-200 bg-orange-50': g.severity === 'MEDIUM'
+          }"
+          (click)="goToTasks(g.statusFilter)">
+          <div class="text-xs font-semibold text-gray-700">{{ g.severity }}</div>
+          <div class="text-sm font-semibold text-gray-900 mt-1">{{ g.title }}</div>
+          <div class="text-xs text-gray-600 mt-1">{{ g.detail }}</div>
+        </button>
+      </div>
+      <ng-template #noGuardrails>
+        <div class="text-sm text-gray-600 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+          No immediate operational guardrails breached.
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Dashboard Upgrade Widgets -->
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-6">
+      <div class="contractor-kpi contractor-kpi--amber">
+        <div class="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">Expiring Licenses</div>
+        <div class="text-3xl font-bold text-gray-900">{{ expiringLicenseCount }}</div>
+        <div class="text-xs text-gray-500 mt-1">within 45 days</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--indigo">
+        <div class="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-1">Pending Uploads</div>
+        <div class="text-3xl font-bold text-gray-900">{{ pendingUploadsCount }}</div>
+        <div class="text-xs text-gray-500 mt-1">open upload actions</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--red">
+        <div class="text-xs font-semibold uppercase tracking-wider text-red-600 mb-1">Rejected Docs</div>
+        <div class="text-3xl font-bold text-gray-900">{{ rejectedDocsCount }}</div>
+        <div class="text-xs text-gray-500 mt-1">need rework</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--teal">
+        <div class="text-xs font-semibold uppercase tracking-wider text-teal-600 mb-1">Onboarding Pending</div>
+        <div class="text-3xl font-bold text-gray-900">{{ workerOnboardingPendingCount }}</div>
+        <div class="text-xs text-gray-500 mt-1">worker onboarding tasks</div>
+      </div>
+      <div class="contractor-kpi contractor-kpi--slate">
+        <div class="text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Mapping Summary</div>
+        <div class="text-3xl font-bold text-gray-900">{{ mappedBranches.length }}</div>
+        <div class="text-xs text-gray-500 mt-1">active branch mappings</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div class="contractor-card p-4">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">Expiring Licenses</h4>
+        <div *ngIf="expiringLicensesPreview.length; else noExpiring" class="space-y-2">
+          <button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
+                  *ngFor="let item of expiringLicensesPreview" (click)="openTask(item)">
+            <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
+            <div class="text-[11px] text-gray-600">{{ item.branchName }} | {{ item.dueDate | date: 'mediumDate' }}</div>
+          </button>
+        </div>
+        <ng-template #noExpiring>
+          <div class="text-xs text-gray-500">No expiring license items found.</div>
+        </ng-template>
+      </div>
+
+      <div class="contractor-card p-4">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">Pending Uploads</h4>
+        <div *ngIf="pendingUploadsPreview.length; else noPendingUploads" class="space-y-2">
+          <button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                  *ngFor="let item of pendingUploadsPreview" (click)="openTask(item)">
+            <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
+            <div class="text-[11px] text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
+          </button>
+        </div>
+        <ng-template #noPendingUploads>
+          <div class="text-xs text-gray-500">No pending uploads.</div>
+        </ng-template>
+      </div>
+
+      <div class="contractor-card p-4">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">Rejected Docs</h4>
+        <div *ngIf="rejectedItemsPreview.length; else noRejectedDocs" class="space-y-2">
+          <button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                  *ngFor="let item of rejectedItemsPreview" (click)="openTask(item)">
+            <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
+            <div class="text-[11px] text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
+          </button>
+        </div>
+        <ng-template #noRejectedDocs>
+          <div class="text-xs text-gray-500">No rejected docs right now.</div>
+        </ng-template>
+      </div>
+
+      <div class="contractor-card p-4">
+        <h4 class="text-sm font-semibold text-gray-900 mb-2">Branch / Client Mapping</h4>
+        <div class="space-y-2 text-xs text-gray-700">
+          <div class="flex justify-between">
+            <span>Client</span>
+            <strong class="text-gray-900">{{ mappedClient }}</strong>
+          </div>
+          <div class="flex justify-between">
+            <span>Mapped branches</span>
+            <strong class="text-gray-900">{{ mappedBranches.length }}</strong>
+          </div>
+          <div class="pt-2 border-t border-gray-100">
+            <div class="text-[11px] text-gray-500 mb-1">Branch list</div>
+            <div class="flex flex-wrap gap-1">
+              <span
+                *ngFor="let branch of mappedBranches"
+                class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px]">
+                {{ branch }}
+              </span>
+              <span *ngIf="!mappedBranches.length" class="text-[11px] text-gray-500">No mapped branches</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="contractor-card mb-6">
+      <div class="mb-4">
+        <h3 class="text-base font-semibold text-gray-900">Branch-wise Status Board</h3>
+        <p class="text-xs text-gray-500 mt-0.5">Open and risk load by branch</p>
+      </div>
+      <div class="overflow-x-auto" *ngIf="branchStatusBoard.length; else noBranchBoard">
+        <table class="min-w-full text-xs">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="py-2 px-2 text-left font-semibold text-gray-600">Branch</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Total</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Pending</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Rejected</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Overdue</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Approved</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of branchStatusBoard" class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-2 px-2 font-medium text-gray-900">{{ row.branchName }}</td>
+              <td class="py-2 px-2 text-center">{{ row.total }}</td>
+              <td class="py-2 px-2 text-center text-indigo-700">{{ row.pending }}</td>
+              <td class="py-2 px-2 text-center text-red-700">{{ row.rejected }}</td>
+              <td class="py-2 px-2 text-center text-amber-700">{{ row.overdue }}</td>
+              <td class="py-2 px-2 text-center text-green-700">{{ row.approved }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noBranchBoard>
+        <ui-empty-state
+          title="No branch status data"
+          description="Branch board will appear once tasks are available.">
+        </ui-empty-state>
+      </ng-template>
     </div>
 
     <!-- Compliance Progress + Upcoming Tasks -->
@@ -153,5 +321,55 @@
         </ng-template>
       </ui-data-table>
     </div>
+
+    <!-- Monthly Score Trend -->
+    <div class="contractor-card" *ngIf="scoreTrend.length > 0">
+      <div class="mb-4">
+        <h3 class="text-base font-semibold text-gray-900">Monthly Score Trend</h3>
+        <p class="text-xs text-gray-500 mt-0.5">Compliance document score over the last 6 months</p>
+      </div>
+
+      <!-- Bar Chart -->
+      <div class="flex items-end gap-2 h-40 mb-4" style="min-height: 10rem;">
+        <div *ngFor="let pt of scoreTrend" class="flex-1 flex flex-col items-center gap-1">
+          <span class="text-xs font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}</span>
+          <div class="w-full rounded-t-md transition-all duration-300"
+               [ngClass]="getScoreColor(pt.score)"
+               [style.height.%]="pt.score"
+               [title]="'Score: ' + pt.score + '% | NC: ' + pt.ncPoints + ' | Risk: ' + pt.auditRiskPoints">
+          </div>
+          <span class="text-[10px] text-gray-500 mt-1">{{ formatMonth(pt.month) }}</span>
+        </div>
+      </div>
+
+      <!-- Trend Details Table -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="py-2 px-2 text-left font-semibold text-gray-600">Month</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Score</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Upload %</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">NC Points</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Missing</th>
+              <th class="py-2 px-2 text-center font-semibold text-gray-600">Audit Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let pt of scoreTrend" class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-2 px-2 font-medium text-gray-900">{{ formatMonth(pt.month) }}</td>
+              <td class="py-2 px-2 text-center">
+                <span class="font-bold" [ngClass]="getScoreTextColor(pt.score)">{{ pt.score }}%</span>
+              </td>
+              <td class="py-2 px-2 text-center text-blue-700">{{ pt.uploadedPercent }}%</td>
+              <td class="py-2 px-2 text-center" [class.text-red-600]="pt.ncPoints > 0">{{ pt.ncPoints }}</td>
+              <td class="py-2 px-2 text-center" [class.text-amber-600]="pt.missingCount > 0">{{ pt.missingCount }}</td>
+              <td class="py-2 px-2 text-center" [class.text-red-600]="pt.auditRiskPoints > 0">{{ pt.auditRiskPoints }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </ng-container>
 </div>
+
