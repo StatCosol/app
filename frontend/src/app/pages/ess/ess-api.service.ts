@@ -144,6 +144,56 @@ export interface Payslip {
   generatedAt: string;
 }
 
+export interface EssAttendanceRecord {
+  date: string;
+  status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'ON_LEAVE' | 'HOLIDAY' | 'WEEK_OFF' | string;
+  checkIn: string | null;
+  checkOut: string | null;
+  workedHours: string | null;
+  overtimeHours: string | null;
+  remarks: string | null;
+  source: string | null;
+}
+
+export interface EssAttendanceResponse {
+  month: string;
+  daysInMonth: number;
+  records: EssAttendanceRecord[];
+}
+
+export interface EssAttendanceSummary {
+  month: string;
+  daysInMonth: number;
+  recordedDays: number;
+  workedDays: number;
+  present: number;
+  absent: number;
+  halfDay: number;
+  onLeave: number;
+  holidays: number;
+  weekOff: number;
+}
+
+export interface EssHoliday {
+  date: string;
+  status: string;
+  label: string;
+}
+
+export interface EssDocument {
+  id: string;
+  docType: string;
+  docName: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string | null;
+  expiryDate: string | null;
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category: 'IDENTITY' | 'STATUTORY' | 'EMPLOYMENT' | 'BANK' | 'OTHER' | string;
+}
+
 // ─── Service ──────────────────────────────────────────────────
 @Injectable({ providedIn: 'root' })
 export class EssApiService {
@@ -159,6 +209,10 @@ export class EssApiService {
   // Profile
   getProfile(): Observable<EssProfile> {
     return this.http.get<EssProfile>(`${this.base}/profile`);
+  }
+
+  updateProfile(data: Partial<EssProfile>): Observable<EssProfile> {
+    return this.http.patch<EssProfile>(`${this.base}/profile`, data);
   }
 
   // Statutory (PF/ESI details)
@@ -228,6 +282,46 @@ export class EssApiService {
 
   downloadPayslip(id: string): Observable<Blob> {
     return this.http.get(`${this.base}/payslips/${id}/download`, {
+      responseType: 'blob',
+    });
+  }
+
+  // Attendance + Holiday
+  getAttendance(month?: string): Observable<EssAttendanceResponse> {
+    const params = month ? `?month=${encodeURIComponent(month)}` : '';
+    return this.http.get<EssAttendanceResponse>(`${this.base}/attendance${params}`);
+  }
+
+  getAttendanceSummary(month?: string): Observable<EssAttendanceSummary> {
+    const params = month ? `?month=${encodeURIComponent(month)}` : '';
+    return this.http.get<EssAttendanceSummary>(`${this.base}/attendance/summary${params}`);
+  }
+
+  getHolidays(month?: string): Observable<{ month: string; items: EssHoliday[] }> {
+    const params = month ? `?month=${encodeURIComponent(month)}` : '';
+    return this.http.get<{ month: string; items: EssHoliday[] }>(`${this.base}/holidays${params}`);
+  }
+
+  // Document vault
+  getDocuments(filters?: {
+    category?: string;
+    year?: number;
+    q?: string;
+  }): Observable<{ total: number; items: EssDocument[] }> {
+    const query = new URLSearchParams();
+    if (filters?.category) query.set('category', filters.category);
+    if (filters?.year) query.set('year', String(filters.year));
+    if (filters?.q) query.set('q', filters.q);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return this.http.get<{ total: number; items: EssDocument[] }>(`${this.base}/documents${suffix}`);
+  }
+
+  getDocumentById(id: string): Observable<EssDocument> {
+    return this.http.get<EssDocument>(`${this.base}/documents/${id}`);
+  }
+
+  downloadDocument(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/documents/${id}/download`, {
       responseType: 'blob',
     });
   }
