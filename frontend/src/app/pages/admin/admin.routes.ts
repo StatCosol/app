@@ -13,8 +13,10 @@ const AdminClientsComponent = () =>
   import('./clients/admin-clients.component').then((m) => m.AdminClientsComponent);
 const AdminAssignmentsComponent = () =>
   import('./assignments/admin-assignments.component').then((m) => m.AdminAssignmentsComponent);
-const AdminNotificationsComponent = () =>
-  import('./notifications/admin-notifications.component').then((m) => m.AdminNotificationsComponent);
+const AdminHelpdeskCenterPageComponent = () =>
+  import('./notifications/admin-helpdesk-center-page.component').then(
+    (m) => m.AdminHelpdeskCenterPageComponent,
+  );
 const AdminPayrollAssignmentsComponent = () =>
   import('./payroll-assignments/admin-payroll-assignments.component').then(
     (m) => m.AdminPayrollAssignmentsComponent,
@@ -62,7 +64,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'payroll-assignments', loadComponent: AdminPayrollAssignmentsComponent },
       { path: 'masters', loadComponent: AdminMastersComponent },
       { path: 'approvals', loadComponent: AdminApprovalsComponent },
-      { path: 'notifications', loadComponent: AdminNotificationsComponent },
+      { path: 'notifications', loadComponent: AdminHelpdeskCenterPageComponent },
       { path: 'ai-hub', loadComponent: AiDashboardComponent },
       { path: 'ai-risk', loadComponent: AiRiskComponent },
       { path: 'ai-audit', loadComponent: AiAuditComponent },
