@@ -403,7 +403,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   private autoExpandCompliance(): void {
     const url = this.router.url;
     const complianceGroup = this.navItems.find(i => i.children);
-    if (complianceGroup && url.includes('/branch/compliance')) {
+    if (complianceGroup && (url.includes('/branch/compliance') || url.includes('/branch/uploads'))) {
       complianceGroup.expanded = true;
     }
   }
@@ -454,6 +454,7 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         children: [
           { label: 'Branch Compliance',    route: '/branch/compliance',              icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Monthly Uploads',      route: '/branch/monthly-uploads',         icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Periodic Uploads',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Registrations',        route: '/branch/registrations',           icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Compliance Calendar',  route: '/branch/calendar',                icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'SLA Tracker',          route: '/branch/sla',                     icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
