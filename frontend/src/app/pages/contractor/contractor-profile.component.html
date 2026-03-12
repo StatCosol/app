@@ -1,36 +1,163 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <!-- Page Header using PageHeaderComponent -->
-  <ui-page-header 
-    title="My Profile" 
-    description="Your profile information and account details" 
+  <ui-page-header
+    title="Company Profile & Statutory Identity"
+    description="Manage contractor identity, statutory records, contacts, and served branches"
     icon="user">
   </ui-page-header>
 
-  <div class="card">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div>
-        <label class="block text-sm font-medium text-gray-500 mb-1">Name</label>
-        <p class="text-base text-gray-900">{{ user?.name || '-' }}</p>
+  <ui-loading-spinner *ngIf="loading" text="Loading contractor profile..."></ui-loading-spinner>
+
+  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
+
+  <ng-container *ngIf="!loading">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <article class="workspace-card stat-card">
+        <div class="stat-label">Profile Completeness</div>
+        <div class="stat-value" [class.text-amber-700]="profileCompletenessPct < 80">{{ profileCompletenessPct }}%</div>
+      </article>
+      <article class="workspace-card stat-card">
+        <div class="stat-label">Served Branches</div>
+        <div class="stat-value">{{ servedBranchesCount }}</div>
+      </article>
+      <article class="workspace-card stat-card">
+        <div class="stat-label">Statutory Missing</div>
+        <div class="stat-value text-red-700">{{ statutoryMissingCount }}</div>
+      </article>
+      <article class="workspace-card stat-card">
+        <div class="stat-label">Expiring / Expired</div>
+        <div class="stat-value text-amber-700">{{ statutoryExpiringCount }}</div>
+      </article>
+    </div>
+
+    <section class="workspace-card mb-6">
+      <h3 class="workspace-title">Profile Guardrails</h3>
+      <div *ngIf="profileGuardrails.length; else clearGuardrails" class="space-y-2 mt-4">
+        <div *ngFor="let issue of profileGuardrails" class="guardrail-row">
+          {{ issue }}
+        </div>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-500 mb-1">Email</label>
-        <p class="text-base text-gray-900">{{ user?.email || '-' }}</p>
+      <ng-template #clearGuardrails>
+        <div class="guardrail-clear mt-4">No active profile guardrails.</div>
+      </ng-template>
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+      <section class="workspace-card xl:col-span-2">
+        <h3 class="workspace-title">Company Information</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <label class="field">
+            <span>Company / Contractor Name</span>
+            <input type="text" [(ngModel)]="form.name" [class.field-invalid]="!isNameValid" />
+          </label>
+          <label class="field">
+            <span>Contact Mobile</span>
+            <input type="text" [(ngModel)]="form.mobile" [class.field-invalid]="!isMobileValid" />
+          </label>
+          <div class="field">
+            <span>Email</span>
+            <input type="text" [value]="profile?.email || '-'" disabled />
+          </div>
+          <div class="field">
+            <span>Client</span>
+            <input type="text" [value]="profile?.clientName || '-'" disabled />
+          </div>
+          <div class="field">
+            <span>Role</span>
+            <input type="text" [value]="profile?.roleCode || 'CONTRACTOR'" disabled />
+          </div>
+          <div class="field">
+            <span>Served Branches</span>
+            <input type="text" [value]="servedBranchesCount" disabled />
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button
+            type="button"
+            class="btn-primary"
+            [disabled]="saving || !canSaveProfile"
+            (click)="saveProfile()">
+            {{ saving ? 'Saving...' : 'Save Profile' }}
+          </button>
+        </div>
+      </section>
+
+      <section class="workspace-card">
+        <h3 class="workspace-title">Served Branches</h3>
+        <div class="branch-list mt-4 mb-4">
+          <div *ngFor="let b of branches" class="branch-pill">
+            {{ b?.branchName || b?.name || b?.id }}
+          </div>
+          <div class="text-sm text-gray-500" *ngIf="!branches.length">
+            No branch mappings found.
+          </div>
+        </div>
+        <ui-data-table [columns]="servedBranchColumns" [data]="servedBranchRows" emptyMessage="No branch status rows">
+          <ng-template uiTableCell="riskBand" let-row>
+            <span [class]="riskBandClass(row.riskBand)">{{ row.riskBand }}</span>
+          </ng-template>
+        </ui-data-table>
+      </section>
+    </div>
+
+    <div class="workspace-card mb-6">
+      <h3 class="workspace-title">Statutory Identity</h3>
+      <div class="stat-summary mt-3">
+        <span class="identity-chip identity-chip--ok">Available: {{ statutoryRows.length - statutoryMissingCount - statutoryExpiringCount }}</span>
+        <span class="identity-chip identity-chip--warn">Expiring: {{ statutoryExpiringCount }}</span>
+        <span class="identity-chip identity-chip--missing">Missing: {{ statutoryMissingCount }}</span>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-500 mb-1">Role</label>
-        <p class="text-base text-gray-900">{{ user?.roleCode || 'CONTRACTOR' }}</p>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-500 mb-1">Client</label>
-        <p class="text-base text-gray-900">{{ user?.clientName || '-' }}</p>
+      <div class="stat-grid mt-4">
+        <div class="stat-item" *ngFor="let row of statutoryRows">
+          <div class="stat-item__head">
+            <h4>{{ row.label }}</h4>
+            <ui-status-badge [status]="row.status"></ui-status-badge>
+          </div>
+          <div class="stat-item__value">{{ row.value }}</div>
+          <div class="stat-item__meta">
+            <span>Expiry: {{ row.expiryDate ? (row.expiryDate | date: 'mediumDate') : '-' }}</span>
+            <span>Updated: {{ row.updatedAt ? (row.updatedAt | date: 'mediumDate') : '-' }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="alert alert-info mt-6">
-      <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-      Profile details are managed by your StatCo administrator. If anything looks incorrect, please raise a query from the Support page.
+    <div class="workspace-card mb-6">
+      <h3 class="workspace-title">Contact Persons & Signatory</h3>
+      <ui-data-table [columns]="contactColumns" [data]="primaryContactRows">
+        <ng-template uiTableCell="isSignatory" let-row>
+          <span class="chip chip--signatory">{{ row.isSignatory }}</span>
+        </ng-template>
+      </ui-data-table>
     </div>
-  </div>
+
+    <div class="workspace-card">
+      <h3 class="workspace-title">Recent Documents</h3>
+      <ui-data-table [columns]="docColumns" [data]="topRecentDocuments" emptyMessage="No contractor documents found">
+        <ng-template uiTableCell="title" let-row>
+          <div class="font-medium text-gray-900">{{ row.title }}</div>
+          <div class="text-xs text-gray-500">{{ row.branch?.branchName || row.branchName || '-' }}</div>
+        </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status || 'PENDING_REVIEW'"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="expiryDate" let-row>
+          <span
+            [class.text-red-600]="isExpired(row.expiryDate)"
+            [class.text-amber-600]="!isExpired(row.expiryDate) && isExpiringSoon(row.expiryDate)">
+            {{ row.expiryDate ? (row.expiryDate | date:'mediumDate') : '-' }}
+          </span>
+        </ng-template>
+        <ng-template uiTableCell="updatedAt" let-row>
+          {{ row.updatedAt ? (row.updatedAt | date:'medium') : '-' }}
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <ui-empty-state
+      *ngIf="!profile"
+      title="No profile data"
+      description="Contractor profile is not available right now."
+      icon="user">
+    </ui-empty-state>
+  </ng-container>
 </div>

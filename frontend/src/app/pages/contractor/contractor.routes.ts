@@ -19,8 +19,10 @@ const ContractorTaskDetailComponent = () =>
   import('./tasks/task-detail/contractor-task-detail.component').then(
     (m) => m.ContractorTaskDetailComponent,
   );
-const ContractorProfileComponent = () =>
-  import('./contractor-profile.component').then((m) => m.ContractorProfileComponent);
+const ContractorProfileIdentityPageComponent = () =>
+  import('./contractor-profile-identity-page.component').then(
+    (m) => m.ContractorProfileIdentityPageComponent,
+  );
 const ContractorReuploadRequestsComponent = () =>
   import('./contractor-reupload-requests.component').then(
     (m) => m.ContractorReuploadRequestsComponent,
@@ -39,7 +41,7 @@ export const CONTRACTOR_ROUTES: Routes = [
       { path: 'reupload-requests', loadComponent: ContractorReuploadRequestsComponent },
       { path: 'tasks', loadComponent: ContractorTasksComponent },
       { path: 'tasks/:id', loadComponent: ContractorTaskDetailComponent },
-      { path: 'profile', loadComponent: ContractorProfileComponent },
+      { path: 'profile', loadComponent: ContractorProfileIdentityPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },
