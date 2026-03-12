@@ -27,6 +27,10 @@ const BranchMcdUploadComponent = () =>
   import('./branch-mcd-upload/branch-mcd-upload.component').then((m) => m.BranchMcdUploadComponent);
 const BranchReturnsFilingsComponent = () =>
   import('./branch-returns-filings/branch-returns-filings.component').then((m) => m.BranchReturnsFilingsComponent);
+const BranchPeriodicUploadsPageComponent = () =>
+  import('./branch-periodic-uploads/branch-periodic-uploads-page.component').then(
+    (m) => m.BranchPeriodicUploadsPageComponent,
+  );
 const ComplianceCalendarComponent = () =>
   import('../../shared/calendar/compliance-calendar.component').then((m) => m.ComplianceCalendarComponent);
 // Phase-2: const HeatmapComponent = () =>
@@ -53,15 +57,17 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'employees',          loadComponent: BranchEmployeesComponent },
       { path: 'contractors',        loadComponent: BranchContractorsComponent },
       { path: 'monthly-compliance', loadComponent: BranchMcdComponent },
+      { path: 'uploads',            loadComponent: BranchPeriodicUploadsPageComponent, runGuardsAndResolvers: 'always' },
+      { path: 'uploads/:periodicity', loadComponent: BranchPeriodicUploadsPageComponent, runGuardsAndResolvers: 'always' },
       // ── Compliance Document pages (frequency-specific) ──
       { path: 'compliance/monthly',     loadComponent: BranchMcdUploadComponent, runGuardsAndResolvers: 'always' },
-      { path: 'compliance/quarterly',   loadComponent: BranchReturnsFilingsComponent, data: { frequency: 'QUARTERLY' }, runGuardsAndResolvers: 'always' },
-      { path: 'compliance/half-yearly', loadComponent: BranchReturnsFilingsComponent, data: { frequency: 'HALF_YEARLY' }, runGuardsAndResolvers: 'always' },
-      { path: 'compliance/yearly',      loadComponent: BranchReturnsFilingsComponent, data: { frequency: 'YEARLY' }, runGuardsAndResolvers: 'always' },
+      { path: 'compliance/quarterly',   redirectTo: 'uploads/quarterly',   pathMatch: 'full' },
+      { path: 'compliance/half-yearly', redirectTo: 'uploads/half-yearly', pathMatch: 'full' },
+      { path: 'compliance/yearly',      redirectTo: 'uploads/yearly',      pathMatch: 'full' },
       // Legacy aliases
       { path: 'mcd-upload',         redirectTo: 'compliance/monthly',     pathMatch: 'full' },
-      { path: 'returns-filings',    redirectTo: 'compliance/yearly',      pathMatch: 'full' },
-      { path: 'compliance/annual',  redirectTo: 'compliance/yearly',      pathMatch: 'full' },
+      { path: 'returns-filings',    redirectTo: 'uploads/yearly',         pathMatch: 'full' },
+      { path: 'compliance/annual',  redirectTo: 'uploads/yearly',         pathMatch: 'full' },
       { path: 'registrations',      loadComponent: BranchRegistrationsComponent },
       { path: 'audit-observations', loadComponent: BranchAuditObservationsComponent },
       { path: 'documents',          loadComponent: BranchDocumentsComponent },
