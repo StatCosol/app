@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Repository } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -20,6 +21,8 @@ import { CreatePayrollTemplateDto, UpdatePayrollTemplateDto } from './dto/payrol
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
+@ApiTags('Admin')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/payroll', version: '1' })
 export class AdminPayrollTemplatesController {
   constructor(
@@ -31,6 +34,7 @@ export class AdminPayrollTemplatesController {
     private readonly clientTemplateRepo: Repository<PayrollClientTemplate>,
   ) {}
 
+  @ApiOperation({ summary: 'List Templates' })
   @Get(['templates', 'payroll-templates'])
   async listTemplates() {
     const items = await this.templateRepo.find({
@@ -40,6 +44,7 @@ export class AdminPayrollTemplatesController {
     return { items, total: items.length };
   }
 
+  @ApiOperation({ summary: 'Get Template' })
   @Get(['templates/:id', 'payroll-templates/:id'])
   async getTemplate(@Param('id', ParseUUIDPipe) id: string) {
     return this.templateRepo.findOne({
@@ -48,6 +53,7 @@ export class AdminPayrollTemplatesController {
     });
   }
 
+  @ApiOperation({ summary: 'Create Template' })
   @Post(['templates', 'payroll-templates'])
   async createTemplate(@Body() dto: CreatePayrollTemplateDto) {
     const template = this.templateRepo.create({
@@ -61,6 +67,7 @@ export class AdminPayrollTemplatesController {
     return this.templateRepo.save(template);
   }
 
+  @ApiOperation({ summary: 'Update Template' })
   @Patch(['templates/:id', 'payroll-templates/:id'])
   async updateTemplate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePayrollTemplateDto) {
     const updateData: Partial<PayrollTemplate> = {};
@@ -74,6 +81,7 @@ export class AdminPayrollTemplatesController {
     return this.getTemplate(id);
   }
 
+  @ApiOperation({ summary: 'Assign Template To Client' })
   @Post(['templates/assign', 'payroll-templates/assign'])
   async assignTemplateToClient(
     @Body()
@@ -88,6 +96,7 @@ export class AdminPayrollTemplatesController {
     return this.clientTemplateRepo.save(assignment);
   }
 
+  @ApiOperation({ summary: 'Get Client Template' })
   @Get(['templates/client/:clientId', 'payroll-templates/client/:clientId'])
   async getClientTemplate(@Param('clientId', ParseUUIDPipe) clientId: string) {
     return this.clientTemplateRepo.find({
@@ -97,6 +106,7 @@ export class AdminPayrollTemplatesController {
   }
 
   // GET /api/admin/payroll/runs — real DB query
+  @ApiOperation({ summary: 'List Runs' })
   @Get('runs')
   async listRuns() {
     try {
