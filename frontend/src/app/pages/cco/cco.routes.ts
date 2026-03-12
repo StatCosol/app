@@ -7,8 +7,10 @@ const CcoDashboardComponent = () =>
   import('./cco-dashboard.component').then((m) => m.CcoDashboardComponent);
 const CcoApprovalsComponent = () =>
   import('./cco-approvals.component').then((m) => m.CcoApprovalsComponent);
-const CcoOversightComponent = () =>
-  import('./cco-oversight.component').then((m) => m.CcoOversightComponent);
+const CcoOversightExceptionPageComponent = () =>
+  import('./oversight/cco-oversight-exception-page.component').then(
+    (m) => m.CcoOversightExceptionPageComponent,
+  );
 const CcoCrmsUnderMeComponent = () =>
   import('./cco-crms-under-me.component').then((m) => m.CcoCrmsUnderMeComponent);
 const CcoCrmPerformanceComponent = () =>
@@ -30,7 +32,7 @@ export const CCO_ROUTES: Routes = [
     children: [
       { path: 'dashboard', loadComponent: CcoDashboardComponent },
       { path: 'approvals', loadComponent: CcoApprovalsComponent },
-      { path: 'oversight', loadComponent: CcoOversightComponent },
+      { path: 'oversight', loadComponent: CcoOversightExceptionPageComponent },
       { path: 'crms-under-me', loadComponent: CcoCrmsUnderMeComponent },
       { path: 'crm-performance', loadComponent: CcoCrmPerformanceComponent },
       { path: 'registers', loadComponent: CcoRegistersComponent },
