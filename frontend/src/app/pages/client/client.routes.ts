@@ -37,8 +37,10 @@ const ClientEmployeeDetailComponent = () =>
   import('./employees/client-employee-detail.component').then((m) => m.ClientEmployeeDetailComponent);
 const ClientAuditsComponent = () =>
   import('./audits/client-audits.component').then((m) => m.ClientAuditsComponent);
-const ClientRegistersComponent = () =>
-  import('./registers/client-registers.component').then((m) => m.ClientRegistersComponent);
+const ClientRegistersDownloadPageComponent = () =>
+  import('./registers/client-registers-download-page.component').then(
+    (m) => m.ClientRegistersDownloadPageComponent,
+  );
 const ClientReturnsComponent = () =>
   import('./compliance/client-returns.component').then((m) => m.ClientReturnsComponent);
 const ClientMcdComponent = () =>
@@ -99,7 +101,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent },
       { path: 'employees/:id/edit', loadComponent: ClientEmployeeFormComponent },
       { path: 'compliance/registrations', loadComponent: ClientRegistrationsComponent },
-      { path: 'registers', loadComponent: ClientRegistersComponent },
+      { path: 'registers', loadComponent: ClientRegistersDownloadPageComponent },
       { path: 'audits', loadComponent: ClientAuditsComponent },
       { path: 'queries', loadComponent: ClientQueriesComponent },
       { path: 'queries/:id', loadComponent: ThreadChatComponent },
