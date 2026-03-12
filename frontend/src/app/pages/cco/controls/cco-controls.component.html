@@ -1,0 +1,345 @@
+﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Controls Register"
+    subtitle="Owner, evidence, and effectiveness tracking for SLA, threshold, and reminder controls">
+    <div class="flex flex-wrap gap-2">
+      <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="addControl('SLA')">+ SLA</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="addControl('THRESHOLD')">+ Threshold</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="addControl('REMINDER')">+ Reminder</ui-button>
+    </div>
+  </ui-page-header>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading controls register..."></ui-loading-spinner>
+
+  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+    {{ error }}
+  </div>
+
+  <div *ngIf="!loading" class="space-y-4">
+    <section class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <article class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="text-xs text-gray-500 font-medium uppercase">Total Controls</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ kpiTotal }}</div>
+      </article>
+      <article class="bg-green-50 border border-green-200 rounded-xl p-4">
+        <div class="text-xs text-green-700 font-medium uppercase">Active</div>
+        <div class="text-2xl font-bold text-green-700 mt-1">{{ kpiActive }}</div>
+      </article>
+      <article class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <div class="text-xs text-orange-700 font-medium uppercase">High / Critical</div>
+        <div class="text-2xl font-bold text-orange-700 mt-1">{{ kpiHighRisk }}</div>
+      </article>
+      <article class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="text-xs text-amber-700 font-medium uppercase">Needs Review</div>
+        <div class="text-2xl font-bold text-amber-700 mt-1">{{ kpiNeedsReview }}</div>
+      </article>
+      <article class="bg-rose-50 border border-rose-200 rounded-xl p-4">
+        <div class="text-xs text-rose-700 font-medium uppercase">Critical Attention</div>
+        <div class="text-2xl font-bold text-rose-700 mt-1">{{ kpiCriticalAttention }}</div>
+      </article>
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-6">
+      <section class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-gray-200 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-900">Controls Table</h3>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <input
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search name/scope/type..."
+              [(ngModel)]="search"
+              (ngModelChange)="applyFilters()" />
+            <select
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              [(ngModel)]="typeFilter"
+              (ngModelChange)="applyFilters()">
+              <option value="ALL">All Types</option>
+              <option value="SLA">SLA</option>
+              <option value="THRESHOLD">Threshold</option>
+              <option value="REMINDER">Reminder</option>
+            </select>
+            <select
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              [(ngModel)]="statusFilter"
+              (ngModelChange)="applyFilters()">
+              <option value="ALL">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+            <select
+              class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              [(ngModel)]="severityFilter"
+              (ngModelChange)="applyFilters()">
+              <option value="ALL">All Severity</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto" *ngIf="filteredControls.length; else noControls">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Control</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Severity</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Updated</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr
+                *ngFor="let row of filteredControls; trackBy: trackByKey"
+                (click)="selectControl(row)"
+                class="hover:bg-gray-50 cursor-pointer"
+                [class.bg-blue-50]="selected?.key === row.key">
+                <td class="px-4 py-3">
+                  <div class="font-medium text-gray-900">{{ row.name }}</div>
+                  <div class="text-xs text-gray-500">{{ row.scope }}</div>
+                </td>
+                <td class="px-4 py-3 text-gray-700">{{ row.type }}</td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" [class]="severityClass(row.severity)">
+                    {{ row.severity }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <ui-status-badge [status]="row.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
+                </td>
+                <td class="px-4 py-3 text-xs text-gray-500">{{ row.updatedAt | date: 'medium' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noControls>
+          <ui-empty-state
+            title="No controls found"
+            description="No controls match the current filters.">
+          </ui-empty-state>
+        </ng-template>
+      </section>
+
+      <section class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-gray-200">
+          <h3 class="text-sm font-semibold text-gray-900">Control Detail</h3>
+        </div>
+
+        <div *ngIf="selected as row; else noSelection" class="p-4 space-y-5">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h4 class="text-base font-semibold text-gray-900">{{ row.name }}</h4>
+              <p class="text-xs text-gray-500 mt-1">{{ row.type }} | {{ row.scope }}</p>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" [class]="severityClass(row.severity)">
+              {{ row.severity }}
+            </span>
+          </div>
+
+          <!-- Base Rule Editor -->
+          <div class="rounded-xl border border-gray-200 p-3 space-y-3">
+            <div class="flex items-center justify-between">
+              <h5 class="text-sm font-semibold text-gray-900">Rule Configuration</h5>
+              <div class="flex gap-2">
+                <ui-button variant="secondary" size="sm" (clicked)="toggleSelectedStatus()">
+                  {{ row.isActive ? 'Set Inactive' : 'Set Active' }}
+                </ui-button>
+                <ui-button
+                  variant="primary"
+                  size="sm"
+                  [loading]="savingBase"
+                  [disabled]="baseValidationIssues.length > 0"
+                  (clicked)="saveBaseRule()">
+                  Save Rule
+                </ui-button>
+              </div>
+            </div>
+
+            <div *ngIf="row.type === 'SLA'" class="grid grid-cols-2 gap-2">
+              <label class="col-span-2 text-xs font-medium text-gray-600">
+                Scope
+                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.scope" placeholder="Global or function scope" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Priority
+                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.priority">
+                  <option value="LOW">Low</option>
+                  <option value="NORMAL">Normal</option>
+                  <option value="HIGH">High</option>
+                </select>
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Target Hours
+                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.targetHours" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Esc L1 Hours
+                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.escalationLevel1Hours" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Esc L2 Hours
+                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.escalationLevel2Hours" />
+              </label>
+            </div>
+
+            <div *ngIf="row.type === 'THRESHOLD'" class="grid grid-cols-2 gap-2">
+              <label class="text-xs font-medium text-gray-600">
+                Type
+                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.type">
+                  <option value="OVERDUE_COUNT">Overdue Count</option>
+                  <option value="COMPLIANCE_PERCENT">Compliance Percent</option>
+                  <option value="AUDIT_SCORE">Audit Score</option>
+                </select>
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Value
+                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.value" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Window Days
+                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.windowDays" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Severity
+                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.severity">
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+              </label>
+            </div>
+
+            <div *ngIf="row.type === 'REMINDER'" class="grid grid-cols-2 gap-2">
+              <label class="col-span-2 text-xs font-medium text-gray-600">
+                Scope
+                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reminderForm.scope" placeholder="Global or function scope" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Days Before Due
+                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reminderForm.daysBeforeDue" />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Notify Roles (comma separated)
+                <input
+                  class="mt-1 w-full rounded-lg border-gray-300 text-sm"
+                  [ngModel]="reminderForm.notifyRoles.join(', ')"
+                  (ngModelChange)="onReminderRolesChange($event)" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Control Register Metadata -->
+          <div class="rounded-xl border border-gray-200 p-3 space-y-3">
+            <div class="flex items-center justify-between">
+              <h5 class="text-sm font-semibold text-gray-900">Control Register Metadata</h5>
+              <ui-button
+                variant="primary"
+                size="sm"
+                [loading]="savingMeta"
+                [disabled]="metaValidationIssues.length > 0"
+                (clicked)="saveMeta()">
+                Save Metadata
+              </ui-button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="col-span-2 text-xs font-medium text-gray-600">
+                Control Owner
+                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.owner" placeholder="Owner name / function" />
+              </label>
+              <label class="col-span-2 text-xs font-medium text-gray-600">
+                Evidence
+                <textarea class="mt-1 w-full rounded-lg border-gray-300 text-sm" rows="2" [(ngModel)]="meta.evidence" placeholder="Evidence description / references"></textarea>
+              </label>
+              <label class="col-span-2 text-xs font-medium text-gray-600">
+                Evidence Link
+                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.evidenceLink" placeholder="https://..." />
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Design Effectiveness
+                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.designEffectiveness">
+                  <option value="NOT_REVIEWED">Not Reviewed</option>
+                  <option value="EFFECTIVE">Effective</option>
+                  <option value="NEEDS_IMPROVEMENT">Needs Improvement</option>
+                  <option value="NOT_EFFECTIVE">Not Effective</option>
+                </select>
+              </label>
+              <label class="text-xs font-medium text-gray-600">
+                Operating Effectiveness
+                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.operatingEffectiveness">
+                  <option value="NOT_REVIEWED">Not Reviewed</option>
+                  <option value="EFFECTIVE">Effective</option>
+                  <option value="NEEDS_IMPROVEMENT">Needs Improvement</option>
+                  <option value="NOT_EFFECTIVE">Not Effective</option>
+                </select>
+              </label>
+              <label class="col-span-2 text-xs font-medium text-gray-600">
+                Review Note
+                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reviewNote" placeholder="What changed in this review?" />
+              </label>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full font-semibold" [class]="effectClass(meta.designEffectiveness)">
+                Design: {{ meta.designEffectiveness.replace('_', ' ') }}
+              </span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full font-semibold" [class]="effectClass(meta.operatingEffectiveness)">
+                Operating: {{ meta.operatingEffectiveness.replace('_', ' ') }}
+              </span>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-gray-200 p-3">
+            <h5 class="text-sm font-semibold text-gray-900 mb-2">Validation Guardrails</h5>
+            <div *ngIf="guardrailIssues.length; else guardrailsClear" class="space-y-1">
+              <div
+                *ngFor="let issue of guardrailIssues"
+                class="text-xs rounded-md border border-amber-200 bg-amber-50 text-amber-700 px-2 py-1">
+                {{ issue }}
+              </div>
+            </div>
+            <ng-template #guardrailsClear>
+              <div class="text-xs rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 px-2 py-1">
+                No guardrail blockers. This control is ready to save.
+              </div>
+            </ng-template>
+          </div>
+
+          <!-- Review History -->
+          <div class="rounded-xl border border-gray-200 p-3">
+            <h5 class="text-sm font-semibold text-gray-900 mb-2">Review History</h5>
+            <div *ngIf="selectedHistory.length; else noHistory" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+              <article *ngFor="let event of selectedHistory" class="border border-gray-200 rounded-lg p-2">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-semibold text-gray-700">{{ event.action }}</span>
+                  <span class="text-[11px] text-gray-500">{{ event.at | date: 'medium' }}</span>
+                </div>
+                <p class="text-xs text-gray-600 mt-1">{{ event.note }}</p>
+                <div class="text-[11px] text-gray-400 mt-1">By {{ event.by }}</div>
+              </article>
+            </div>
+            <ng-template #noHistory>
+              <ui-empty-state
+                title="No history entries"
+                description="Save metadata updates to build control review history.">
+              </ui-empty-state>
+            </ng-template>
+          </div>
+        </div>
+
+        <ng-template #noSelection>
+          <div class="p-6">
+            <ui-empty-state
+              title="Select a control"
+              description="Choose a row from the controls table to manage owner, evidence, effectiveness, and review history.">
+            </ui-empty-state>
+          </div>
+        </ng-template>
+      </section>
+    </div>
+  </div>
+</div>
+

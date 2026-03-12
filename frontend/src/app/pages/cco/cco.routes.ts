@@ -19,6 +19,10 @@ const CcoProfileComponent = () =>
   import('./cco-profile.component').then((m) => m.CcoProfileComponent);
 const CcoRegistersComponent = () =>
   import('./registers/cco-registers.component').then((m) => m.CcoRegistersComponent);
+const CcoControlsRegisterPageComponent = () =>
+  import('./controls/cco-controls-register-page.component').then(
+    (m) => m.CcoControlsRegisterPageComponent,
+  );
 
 export const CCO_ROUTES: Routes = [
   {
@@ -33,6 +37,7 @@ export const CCO_ROUTES: Routes = [
       { path: 'oversight', loadComponent: CcoOversightComponent },
       { path: 'crms-under-me', loadComponent: CcoCrmsUnderMeComponent },
       { path: 'crm-performance', loadComponent: CcoCrmPerformanceComponent },
+      { path: 'controls', loadComponent: CcoControlsRegisterPageComponent },
       { path: 'registers', loadComponent: CcoRegistersComponent },
       { path: 'notifications', loadComponent: CcoNotificationsComponent },
       { path: 'profile', loadComponent: CcoProfileComponent },
