@@ -1,0 +1,502 @@
+<div class="page-wrap">
+  <header class="page-head">
+    <div>
+      <h1>Branch Registrations Workspace</h1>
+      <p>Track licenses, renewal due alerts, and raise apply/amend/renew/closure requests.</p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="openRequestModal('APPLY')">
+      + New Registration Request
+    </button>
+  </header>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span class="label">Total</span>
+      <strong>{{ totalCount }}</strong>
+      <span class="sub">Registrations</span>
+    </article>
+    <article class="summary-card summary-card--ok">
+      <span class="label">Active</span>
+      <strong>{{ activeCount }}</strong>
+      <span class="sub">Operational</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">Expiring Soon</span>
+      <strong>{{ expiringCount }}</strong>
+      <span class="sub">Renewal due in 30 days</span>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <span class="label">Expired</span>
+      <strong>{{ expiredCount }}</strong>
+      <span class="sub">Immediate action required</span>
+    </article>
+    <article class="summary-card">
+      <span class="label">Open Requests</span>
+      <strong>{{ openRequestCount }}</strong>
+      <span class="sub">With CRM/Admin</span>
+    </article>
+    <article class="summary-card">
+      <span class="label">Amendment Requests</span>
+      <strong>{{ amendmentRequestCount }}</strong>
+      <span class="sub">Change history</span>
+    </article>
+    <article class="summary-card">
+      <span class="label">Closure Requests</span>
+      <strong>{{ closureRequestCount }}</strong>
+      <span class="sub">Closure tracking</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">Renewal Alerts</span>
+      <strong>{{ alertCount }}</strong>
+      <span class="sub">System generated</span>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <span class="label">High Priority Alerts</span>
+      <strong>{{ highPriorityAlertCount }}</strong>
+      <span class="sub">High/Critical</span>
+    </article>
+  </section>
+
+  <section class="alert-strip" *ngIf="expiringCount > 0 || expiredCount > 0">
+    <div class="alert-strip__icon">!</div>
+    <div class="alert-strip__text">
+      <strong>Expiry Alert:</strong>
+      {{ expiringCount }} expiring soon and {{ expiredCount }} expired registrations need follow-up.
+    </div>
+  </section>
+
+  <section class="filters card">
+    <div class="status-tabs">
+      <button
+        type="button"
+        *ngFor="let tab of statusTabs"
+        [class.active]="statusFilter === tab"
+        (click)="setStatusFilter(tab)"
+      >
+        {{ tab === 'ALL' ? 'All' : statusLabel(tab) }}
+      </button>
+    </div>
+
+    <div class="filter-row">
+      <label>
+        Type
+        <select [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All Types</option>
+          <option *ngFor="let t of typeOptions" [value]="t">{{ t }}</option>
+        </select>
+      </label>
+      <label class="search-box">
+        Search
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="applyFilters()"
+          placeholder="Type, number, authority"
+        />
+      </label>
+      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+    </div>
+
+    <div class="type-tabs">
+      <button
+        type="button"
+        *ngFor="let tab of typeTabs"
+        [class.active]="typeFilter === tab"
+        (click)="setTypeTab(tab)"
+      >
+        {{ tab === 'ALL' ? 'All Types' : tab }}
+      </button>
+    </div>
+  </section>
+
+  <div *ngIf="loading" class="loader">Loading registrations workspace...</div>
+  <div *ngIf="!loading && !filteredRegistrations.length" class="empty-state">
+    No registrations found for this branch.
+  </div>
+
+  <section *ngIf="!loading && filteredRegistrations.length" class="workspace-grid">
+    <article class="card list-pane">
+      <div class="section-head">
+        <h2>Registration List</h2>
+        <span>{{ filteredRegistrations.length }} items</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Registration No.</th>
+              <th>Authority</th>
+              <th>Expiry</th>
+              <th>Days</th>
+              <th>Status</th>
+              <th>Docs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let row of filteredRegistrations; trackBy: trackRegistration"
+              [class.selected]="selectedRegistration?.id === row.id"
+              (click)="selectRegistration(row)"
+            >
+              <td class="strong">{{ row.type }}</td>
+              <td class="mono">{{ row.registrationNumber || '-' }}</td>
+              <td>{{ row.authority || '-' }}</td>
+              <td>{{ row.expiryDate ? (row.expiryDate | date:'dd MMM yyyy') : 'No expiry' }}</td>
+              <td>{{ daysText(row) }}</td>
+              <td><span [class]="statusClass(row.computedStatus)">{{ statusLabel(row.computedStatus) }}</span></td>
+              <td>
+                <div class="doc-meter">
+                  <span>{{ documentCompletion(row) }}%</span>
+                  <div class="bar"><i [style.width.%]="documentCompletion(row)"></i></div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <aside class="detail-stack" *ngIf="selectedRegistration as reg">
+      <article class="card">
+        <div class="section-head">
+          <h2>Registration Detail</h2>
+          <span [class]="statusClass(reg.computedStatus)">{{ statusLabel(reg.computedStatus) }}</span>
+        </div>
+
+        <div class="kv-grid">
+          <div><span>Type</span><strong>{{ reg.type }}</strong></div>
+          <div><span>Number</span><strong class="mono">{{ reg.registrationNumber || '-' }}</strong></div>
+          <div><span>Authority</span><strong>{{ reg.authority || '-' }}</strong></div>
+          <div><span>Issued Date</span><strong>{{ reg.issuedDate ? (reg.issuedDate | date:'dd MMM yyyy') : '-' }}</strong></div>
+          <div><span>Expiry Date</span><strong>{{ reg.expiryDate ? (reg.expiryDate | date:'dd MMM yyyy') : 'No expiry' }}</strong></div>
+          <div><span>Days Remaining</span><strong>{{ daysText(reg) }}</strong></div>
+          <div><span>Last Renewed</span><strong>{{ reg.renewedOn ? (reg.renewedOn | date:'dd MMM yyyy') : '-' }}</strong></div>
+          <div><span>Linked Alerts</span><strong>{{ selectedAlerts.length }}</strong></div>
+        </div>
+
+        <div class="remarks" *ngIf="reg.remarks">
+          <strong>Latest remarks</strong>
+          <p>{{ reg.remarks }}</p>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="btn btn-secondary" (click)="openRequestModal('RENEW')">Request Renewal</button>
+          <button type="button" class="btn btn-secondary" (click)="openRequestModal('AMEND')">Request Amendment</button>
+          <button type="button" class="btn btn-secondary" (click)="openRequestModal('CLOSE')">Request Closure</button>
+          <button type="button" class="btn btn-ghost" (click)="exportSelectedSummary()">Export Summary</button>
+        </div>
+
+        <div class="file-row">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            [disabled]="!reg.documentUrl"
+            (click)="openFile(reg.documentUrl)"
+          >
+            Open Primary Document
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            [disabled]="!reg.renewalDocumentUrl"
+            (click)="openFile(reg.renewalDocumentUrl)"
+          >
+            Open Renewal Document
+          </button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Expiry Tracker</h2>
+          <span>{{ expiringTrackerRows.length + overdueTrackerRows.length }} watched</span>
+        </div>
+        <div class="tracker-grid">
+          <div>
+            <strong class="tracker-title">Upcoming</strong>
+            <div class="tracker-list" *ngIf="expiringTrackerRows.length; else noUpcoming">
+              <button
+                type="button"
+                class="tracker-item"
+                *ngFor="let item of expiringTrackerRows"
+                (click)="selectRegistration(item)"
+              >
+                <span>{{ item.type }}</span>
+                <small>{{ daysText(item) }}</small>
+              </button>
+            </div>
+            <ng-template #noUpcoming>
+              <div class="empty-mini">No upcoming expiries.</div>
+            </ng-template>
+          </div>
+          <div>
+            <strong class="tracker-title">Overdue</strong>
+            <div class="tracker-list" *ngIf="overdueTrackerRows.length; else noOverdue">
+              <button
+                type="button"
+                class="tracker-item tracker-item--bad"
+                *ngFor="let item of overdueTrackerRows"
+                (click)="selectRegistration(item)"
+              >
+                <span>{{ item.type }}</span>
+                <small>{{ daysText(item) }}</small>
+              </button>
+            </div>
+            <ng-template #noOverdue>
+              <div class="empty-mini">No overdue registrations.</div>
+            </ng-template>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Document Checklist</h2>
+          <span>{{ documentCompletion(reg) }}% complete</span>
+        </div>
+        <ul class="checklist">
+          <li *ngFor="let item of documentChecklist(reg)">
+            <i [class.ok]="item.done">{{ item.done ? 'OK' : '--' }}</i>
+            <span>{{ item.label }}</span>
+          </li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Request History</h2>
+          <span>{{ visibleSelectedRequests.length }} linked requests</span>
+        </div>
+        <div class="status-tabs status-tabs--compact">
+          <button
+            type="button"
+            *ngFor="let tab of requestActionTabs"
+            [class.active]="requestActionFilter === tab"
+            (click)="setRequestActionFilter(tab)"
+          >
+            {{ tab === 'ALL' ? 'All Actions' : tab }}
+          </button>
+        </div>
+        <div class="request-list" *ngIf="visibleSelectedRequests.length; else noRequests">
+          <div class="request-item" *ngFor="let req of visibleSelectedRequests; trackBy: trackRequest">
+            <div>
+              <strong>{{ req.action }} request</strong>
+              <p>{{ req.ticketRef }} | {{ req.createdAt ? (req.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
+              <p>{{ req.registrationType || '-' }} | {{ req.authority || '-' }} | Ref: {{ req.referenceNumber || '-' }}</p>
+            </div>
+            <div class="request-meta">
+              <span [class]="requestStatusClass(req.status)">{{ requestStatusText(req.status) }}</span>
+              <span class="pill">Age {{ requestAgeLabel(req) }}</span>
+              <span [class]="requestSlaClass(req)">SLA {{ requestSlaText(req) }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noRequests>
+          <div class="empty-mini">No requests linked to this registration.</div>
+        </ng-template>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Amendment History</h2>
+          <span>{{ selectedAmendmentRequests.length }} entries</span>
+        </div>
+        <div class="request-list" *ngIf="selectedAmendmentRequests.length; else noAmendments">
+          <div class="request-item" *ngFor="let req of selectedAmendmentRequests; trackBy: trackRequest">
+            <div>
+              <strong>{{ req.ticketRef }}</strong>
+              <p>{{ req.notes || 'No notes' }}</p>
+              <p>Authority: {{ req.authority || '-' }} | Ref: {{ req.referenceNumber || '-' }}</p>
+            </div>
+            <div class="request-meta">
+              <span [class]="requestStatusClass(req.status)">{{ requestStatusText(req.status) }}</span>
+              <span class="pill">Age {{ requestAgeLabel(req) }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noAmendments>
+          <div class="empty-mini">No amendment history for this registration.</div>
+        </ng-template>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Closure Tracking</h2>
+          <span>{{ selectedClosureRequests.length }} requests</span>
+        </div>
+        <div class="closure-summary" *ngIf="latestClosureRequest as latest">
+          <div>
+            <strong>Current Stage</strong>
+            <p>{{ closureStageLabel }}</p>
+          </div>
+          <div>
+            <strong>Latest Ticket</strong>
+            <p>{{ latest.ticketRef }}</p>
+          </div>
+          <div>
+            <strong>SLA</strong>
+            <p [class]="requestSlaClass(latest)">SLA {{ requestSlaText(latest) }}</p>
+          </div>
+        </div>
+        <div class="request-list" *ngIf="selectedClosureRequests.length; else noClosures">
+          <div class="request-item" *ngFor="let req of selectedClosureRequests; trackBy: trackRequest">
+            <div>
+              <strong>{{ req.ticketRef }}</strong>
+              <p>{{ req.createdAt ? (req.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
+              <p>{{ req.notes || 'No notes' }}</p>
+            </div>
+            <div class="request-meta">
+              <span [class]="requestStatusClass(req.status)">{{ requestStatusText(req.status) }}</span>
+              <span class="pill">Age {{ requestAgeLabel(req) }}</span>
+              <span [class]="requestSlaClass(req)">SLA {{ requestSlaText(req) }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noClosures>
+          <div class="empty-mini">No closure requests for this registration.</div>
+        </ng-template>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Status Timeline</h2>
+          <span>{{ selectedTimeline.length }} events</span>
+        </div>
+        <div class="empty-mini" *ngIf="!selectedTimeline.length">No timeline data available.</div>
+        <div class="timeline" *ngIf="selectedTimeline.length">
+          <div class="timeline-item" *ngFor="let event of selectedTimeline">
+            <i [class.req]="!!event.statusTo"></i>
+            <div>
+              <strong>{{ event.title }}</strong>
+              <p>{{ event.createdAt | date:'dd MMM yyyy, hh:mm a' }}</p>
+              <small *ngIf="event.statusTo">Status: {{ event.statusTo }}</small>
+              <small *ngIf="event.comment">{{ event.comment }}</small>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Renewal Alerts</h2>
+          <span>{{ selectedAlerts.length }} alerts</span>
+        </div>
+        <div class="request-list" *ngIf="selectedAlerts.length; else noAlerts">
+          <div class="request-item" *ngFor="let alert of selectedAlerts; trackBy: trackAlert">
+            <div>
+              <strong>{{ alert.title }}</strong>
+              <p>{{ alert.message }}</p>
+              <p>{{ alert.createdAt ? (alert.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
+            </div>
+            <div class="request-meta">
+              <span class="pill">{{ alertTypeText(alert.alertType) }}</span>
+              <span [class]="alertPriorityClass(alert)">{{ alert.priority }}</span>
+              <button type="button" class="btn btn-ghost btn-sm" (click)="openRenewalFromAlert(alert)">Renew</button>
+            </div>
+          </div>
+        </div>
+        <ng-template #noAlerts>
+          <div class="empty-mini">No alerts linked to this registration.</div>
+        </ng-template>
+      </article>
+    </aside>
+  </section>
+</div>
+
+<div class="modal-backdrop" *ngIf="requestModalOpen" (click)="closeRequestModal()"></div>
+<section class="modal-panel" *ngIf="requestModalOpen">
+  <header>
+    <h3>Registration Request Wizard</h3>
+    <button type="button" (click)="closeRequestModal()">X</button>
+  </header>
+
+  <div class="stepper">
+    <span [class.active]="wizardStep >= 1">1. Request Type</span>
+    <span [class.active]="wizardStep >= 2">2. Details</span>
+    <span [class.active]="wizardStep >= 3">3. Checklist</span>
+  </div>
+
+  <div class="modal-body" *ngIf="wizardStep === 1">
+    <label>
+      Action
+      <select [(ngModel)]="requestModel.action">
+        <option *ngFor="let action of actions" [value]="action">{{ action }}</option>
+      </select>
+    </label>
+
+    <label *ngIf="requestModel.action !== 'APPLY'">
+      Registration
+      <select [(ngModel)]="requestModel.registrationId" (ngModelChange)="onRequestRegistrationChange($event)">
+        <option value="">Select registration</option>
+        <option *ngFor="let reg of registrations" [value]="reg.id">
+          {{ reg.type }} - {{ reg.registrationNumber || 'No number' }}
+        </option>
+      </select>
+    </label>
+
+    <label *ngIf="requestModel.action === 'APPLY'">
+      Registration Type
+      <input type="text" [(ngModel)]="requestModel.registrationType" placeholder="Example: Factory License" />
+    </label>
+  </div>
+
+  <div class="modal-body" *ngIf="wizardStep === 2">
+    <label>
+      Authority
+      <input type="text" [(ngModel)]="requestModel.authority" placeholder="Issuing authority" />
+    </label>
+    <label>
+      Reference Number
+      <input type="text" [(ngModel)]="requestModel.referenceNumber" placeholder="Reference / existing number" />
+    </label>
+    <label>
+      Target Expiry Date
+      <input type="date" [(ngModel)]="requestModel.targetExpiryDate" />
+    </label>
+    <label>
+      Notes
+      <textarea [(ngModel)]="requestModel.notes" rows="4" placeholder="Details for CRM review"></textarea>
+    </label>
+  </div>
+
+  <div class="modal-body" *ngIf="wizardStep === 3">
+    <div class="doc-check-grid">
+      <label><input type="checkbox" [(ngModel)]="requestModel.documents.authorityForm" /> Authority form ready</label>
+      <label><input type="checkbox" [(ngModel)]="requestModel.documents.previousLicense" /> Previous license available</label>
+      <label><input type="checkbox" [(ngModel)]="requestModel.documents.identityProof" /> Identity proof ready</label>
+      <label><input type="checkbox" [(ngModel)]="requestModel.documents.amendmentProof" /> Amendment/closure proof ready</label>
+    </div>
+
+    <div class="review-box">
+      <strong>Submission Preview</strong>
+      <p>Action: {{ requestModel.action }}</p>
+      <p>Registration Type: {{ requestModel.registrationType || '-' }}</p>
+      <p>Authority: {{ requestModel.authority || '-' }}</p>
+      <p>Reference Number: {{ requestModel.referenceNumber || '-' }}</p>
+      <p>Target Expiry: {{ requestModel.targetExpiryDate || '-' }}</p>
+    </div>
+  </div>
+
+  <footer>
+    <button type="button" class="btn btn-ghost" [disabled]="wizardStep === 1 || requestSaving" (click)="previousStep()">Back</button>
+    <button
+      type="button"
+      class="btn btn-secondary"
+      *ngIf="wizardStep < 3"
+      [disabled]="requestSaving"
+      (click)="nextStep()"
+    >
+      Next
+    </button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      *ngIf="wizardStep === 3"
+      [disabled]="requestSaving"
+      (click)="submitRequest()"
+    >
+      {{ requestSaving ? 'Submitting...' : 'Submit Request' }}
+    </button>
+  </footer>
+</section>
