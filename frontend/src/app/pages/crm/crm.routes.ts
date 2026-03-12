@@ -20,6 +20,8 @@ const CrmNotificationsComponent = () =>
   import('./notifications/crm-notifications.component').then((m) => m.CrmNotificationsComponent);
 const CrmAuditsComponent = () =>
   import('./crm-audits.component').then((m) => m.CrmAuditsComponent);
+const CrmAuditManagementPageComponent = () =>
+  import('./audits/crm-audit-management-page.component').then((m) => m.CrmAuditManagementPageComponent);
 const CrmContractorsComponent = () =>
   import('./contractors/crm-contractors.component').then((m) => m.CrmContractorsComponent);
 const CrmPayrollStatusComponent = () =>
@@ -88,7 +90,7 @@ export const CRM_ROUTES: Routes = [
       { path: 'helpdesk', loadComponent: CrmRequestsComponent },
       { path: 'requests', redirectTo: 'helpdesk', pathMatch: 'full' },
       { path: 'reports', loadComponent: CrmReportsComponent },
-      { path: 'audits', loadComponent: CrmAuditsComponent },
+      { path: 'audits', loadComponent: CrmAuditManagementPageComponent },
       { path: 'returns', loadComponent: CrmReturnsFilingsComponent },
       { path: 'amendments', loadComponent: CrmAmendmentsWorkspacePageComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
