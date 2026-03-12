@@ -25,9 +25,19 @@ export class UserEntity {
   @Column({ name: 'user_code', type: 'varchar', length: 30 })
   userCode: string;
 
-  // Legacy denormalized role code column (not nullable in DB); keep in sync with Role entity
-  @Column({ name: 'role', type: 'varchar', length: 50, default: '' })
-  role: string;
+  // Legacy denormalized role code column.
+  // Some environments do not have this physical column anymore, so keep it
+  // non-selected/non-mutating to avoid runtime query failures.
+  @Column({
+    name: 'role',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
+  role: string | null;
 
   @Column()
   name: string;
@@ -46,7 +56,15 @@ export class UserEntity {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'user_type', type: 'varchar', length: 10, nullable: true })
+  @Column({
+    name: 'user_type',
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   userType: string | null; // 'MASTER' | 'BRANCH' | null (non-CLIENT users)
 
   @Index('IDX_USERS_CLIENTID')
@@ -66,7 +84,14 @@ export class UserEntity {
 
   // Link to employees table for EMPLOYEE role (ESS)
   @Index('IDX_USERS_EMPLOYEEID')
-  @Column({ name: 'employee_id', type: 'uuid', nullable: true })
+  @Column({
+    name: 'employee_id',
+    type: 'uuid',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
   employeeId: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -74,6 +99,16 @@ export class UserEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
+
+  @Column({
+    name: 'last_login_at',
+    type: 'timestamptz',
+    nullable: true,
+    select: false,
+    insert: false,
+    update: false,
+  })
+  lastLoginAt: Date | null;
 
   @ManyToMany(() => BranchEntity, { cascade: false })
   @JoinTable({

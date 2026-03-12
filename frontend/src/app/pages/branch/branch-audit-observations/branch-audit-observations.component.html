@@ -1,0 +1,314 @@
+<div class="page-wrap">
+  <header class="page-head">
+    <div>
+      <h1>Audit Observations Closure Workspace</h1>
+      <p>Branch response, CAPA tracking, evidence upload, and reviewer verification visibility.</p>
+    </div>
+  </header>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span class="label">Total</span>
+      <strong>{{ totalCount }}</strong>
+      <span class="sub">Filtered observations</span>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <span class="label">Open</span>
+      <strong>{{ openCount }}</strong>
+      <span class="sub">Needs response</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">In Progress</span>
+      <strong>{{ inProgressCount }}</strong>
+      <span class="sub">CAPA in execution</span>
+    </article>
+    <article class="summary-card summary-card--ok">
+      <span class="label">Closed</span>
+      <strong>{{ closedCount }}</strong>
+      <span class="sub">Verified complete</span>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <span class="label">Overdue</span>
+      <strong>{{ overdueCount }}</strong>
+      <span class="sub">Past due date</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">Closure Cases</span>
+      <strong>{{ closureCaseCount }}</strong>
+      <span class="sub">Active + historical</span>
+    </article>
+    <article class="summary-card">
+      <span class="label">Ready For Verification</span>
+      <strong>{{ readyForVerificationCount }}</strong>
+      <span class="sub">Awaiting reviewer</span>
+    </article>
+  </section>
+
+  <section class="filters card">
+    <div class="chip-row">
+      <button type="button" [class.active]="statusFilter==='ALL'" (click)="setStatusFilter('ALL')">All</button>
+      <button type="button" [class.active]="statusFilter==='OPEN'" (click)="setStatusFilter('OPEN')">Open</button>
+      <button type="button" [class.active]="statusFilter==='IN_PROGRESS'" (click)="setStatusFilter('IN_PROGRESS')">In Progress</button>
+      <button type="button" [class.active]="statusFilter==='CLOSED'" (click)="setStatusFilter('CLOSED')">Closed</button>
+    </div>
+
+    <div class="filter-row">
+      <label>
+        Severity
+        <select [(ngModel)]="severityFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="MAJOR">Major</option>
+          <option value="MINOR">Minor</option>
+        </select>
+      </label>
+      <label class="search-box">
+        Search
+        <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Ref, category, description" />
+      </label>
+      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+    </div>
+  </section>
+
+  <div *ngIf="loading" class="loader">Loading audit observations...</div>
+  <div *ngIf="!loading && !filteredObservations.length" class="empty-state">No observations available for this branch.</div>
+
+  <section *ngIf="!loading && filteredObservations.length" class="workspace-grid">
+    <article class="card list-pane">
+      <div class="section-head">
+        <h2>Observation Queue</h2>
+        <span>{{ filteredObservations.length }} items</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Due</th>
+              <th>Severity</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let obs of filteredObservations; trackBy: trackObservation"
+              [class.selected]="selectedObservation?.id === obs.id"
+              (click)="selectObservation(obs)"
+            >
+              <td class="mono strong">{{ obs.observationRef }}</td>
+              <td>{{ obs.category }}</td>
+              <td class="truncate">{{ obs.description }}</td>
+              <td>
+                <span [class]="dueBadgeClass(obs.dueDateIso, obs.status === 'CLOSED')">
+                  {{ dueBadgeText(obs.dueDateIso, obs.status === 'CLOSED') }}
+                </span>
+                <div class="due-text" [class.overdue]="dueClass(obs).includes('bad')">{{ dueText(obs) }}</div>
+              </td>
+              <td><span [class]="badgeClass(obs.severity)">{{ badgeLabel(obs.severity) }}</span></td>
+              <td><span [class]="badgeClass(obs.status)">{{ badgeLabel(obs.status) }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <aside class="detail-stack" *ngIf="selectedObservation as obs">
+      <article class="card">
+        <div class="section-head">
+          <h2>Observation Detail</h2>
+          <span [class]="badgeClass(obs.status)">{{ badgeLabel(obs.status) }}</span>
+        </div>
+        <div class="kv-grid">
+          <div><span>Reference</span><strong class="mono">{{ obs.observationRef }}</strong></div>
+          <div><span>Severity</span><strong><span [class]="badgeClass(obs.severity)">{{ badgeLabel(obs.severity) }}</span></strong></div>
+          <div><span>Raised Date</span><strong>{{ obs.raisedDate }}</strong></div>
+          <div><span>Due Date</span><strong><span [class]="dueBadgeClass(obs.dueDateIso, obs.status === 'CLOSED')">{{ dueBadgeText(obs.dueDateIso, obs.status === 'CLOSED') }}</span></strong></div>
+          <div><span>Assigned Auditor</span><strong>{{ obs.assignedTo }}</strong></div>
+          <div><span>Verification Status</span><strong><span [class]="badgeClass(auditorVerificationStatus)">{{ badgeLabel(auditorVerificationStatus) }}</span></strong></div>
+        </div>
+        <div class="verification-note">{{ auditorVerificationLabel }}</div>
+        <div class="description-box">
+          <strong>Description</strong>
+          <p>{{ obs.description }}</p>
+        </div>
+        <div class="description-box" *ngIf="obs.complianceRequirements">
+          <strong>Compliance Requirement</strong>
+          <p>{{ obs.complianceRequirements }}</p>
+        </div>
+        <div class="description-box" *ngIf="obs.consequences">
+          <strong>Consequence</strong>
+          <p>{{ obs.consequences }}</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Closure Response</h2>
+          <span>{{ activeCase ? activeCase.ticketRef : 'New case' }}</span>
+        </div>
+        <div class="form-grid">
+          <label>
+            Root Cause
+            <textarea rows="2" [(ngModel)]="draft.rootCause" placeholder="Root cause analysis"></textarea>
+          </label>
+          <label>
+            Corrective Action
+            <textarea rows="3" [(ngModel)]="draft.correctiveAction" placeholder="Corrective / preventive action plan"></textarea>
+          </label>
+          <label>
+            Action Owner
+            <input type="text" [(ngModel)]="draft.actionOwner" placeholder="Responsible person" />
+          </label>
+          <div class="owner-suggestions" *ngIf="ownerSuggestions.length">
+            <span>Quick Assign</span>
+            <div class="owner-chip-row">
+              <button type="button" *ngFor="let owner of ownerSuggestions" (click)="applyOwner(owner)">{{ owner }}</button>
+            </div>
+          </div>
+          <label>
+            Target Due Date
+            <input type="date" [(ngModel)]="draft.targetDueDate" />
+          </label>
+          <div [class]="targetDueAlertClass">{{ targetDueAlertText }}</div>
+          <label>
+            CAPA Status
+            <select [(ngModel)]="draft.capaStatus">
+              <option value="OPEN">OPEN</option>
+              <option value="IN_PROGRESS">IN_PROGRESS</option>
+              <option value="READY_FOR_VERIFICATION">READY_FOR_VERIFICATION</option>
+              <option value="CLOSED">CLOSED</option>
+            </select>
+          </label>
+          <div class="capa-status-row">
+            <span>Quick Move</span>
+            <div class="owner-chip-row">
+              <button type="button" [class.active]="isCapaStatus('OPEN')" (click)="setCapaStatus('OPEN')">OPEN</button>
+              <button type="button" [class.active]="isCapaStatus('IN_PROGRESS')" (click)="setCapaStatus('IN_PROGRESS')">IN_PROGRESS</button>
+              <button type="button" [class.active]="isCapaStatus('READY_FOR_VERIFICATION')" (click)="setCapaStatus('READY_FOR_VERIFICATION')">READY_FOR_VERIFICATION</button>
+              <button type="button" [class.active]="isCapaStatus('CLOSED')" (click)="setCapaStatus('CLOSED')">CLOSED</button>
+            </div>
+          </div>
+          <label>
+            Closure Recommendation
+            <input type="text" [(ngModel)]="draft.closureRecommendation" placeholder="Recommend close / keep open" />
+          </label>
+          <label class="span-2">
+            Branch Notes
+            <textarea rows="2" [(ngModel)]="draft.notes" placeholder="Progress update for reviewer"></textarea>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="btn btn-primary" [disabled]="saving || uploading" (click)="submitClosureResponse()">
+            {{ saving ? 'Submitting...' : (activeCase ? 'Update Closure Case' : 'Create Closure Case') }}
+          </button>
+          <button type="button" class="btn btn-secondary" [disabled]="saving || uploading" (click)="addComment()">Add Progress Comment</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Evidence Upload</h2>
+          <span>{{ selectedEvidenceFiles.length }} selected</span>
+        </div>
+        <div class="upload-row">
+          <input type="file" multiple (change)="onEvidenceSelected($event)" />
+          <span class="hint">Attach up to 5 files. Files are posted to the closure case thread.</span>
+        </div>
+        <div class="file-list" *ngIf="selectedEvidenceFiles.length">
+          <div class="file-item" *ngFor="let file of selectedEvidenceFiles; let i = index">
+            <span>{{ file.name }}</span>
+            <div class="file-actions">
+              <button type="button" (click)="previewSelectedEvidence(file)">Preview</button>
+              <button type="button" (click)="removeEvidence(i)">Remove</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Case History</h2>
+          <span>{{ selectedCases.length }} cases</span>
+        </div>
+        <div class="case-list" *ngIf="selectedCases.length; else noCase">
+          <div class="case-item" *ngFor="let c of selectedCases; trackBy: trackCase">
+            <div>
+              <strong>{{ c.ticketRef }}</strong>
+              <p>{{ c.createdAt ? (c.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
+              <div class="case-meta-row" *ngIf="dueForCase(c)">
+                <span [class]="dueBadgeClass(dueForCase(c), c.capaStatus === 'CLOSED')">
+                  {{ dueBadgeText(dueForCase(c), c.capaStatus === 'CLOSED') }}
+                </span>
+                <span [class]="caseDueClass(c)">{{ caseDueText(c) }}</span>
+              </div>
+              <div class="case-evidence" *ngIf="c.evidenceFiles.length">
+                <button type="button" *ngFor="let f of c.evidenceFiles" (click)="previewCaseEvidence(f, c)">
+                  {{ f }}
+                </button>
+              </div>
+            </div>
+            <div class="case-badges">
+              <span [class]="badgeClass(c.capaStatus)">{{ badgeLabel(c.capaStatus) }}</span>
+              <span [class]="badgeClass(c.status)">{{ badgeLabel(c.status) }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noCase><div class="empty-mini">No closure cases yet for this observation.</div></ng-template>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Timeline</h2>
+          <span>{{ selectedTimeline.length }} events</span>
+        </div>
+        <div class="timeline" *ngIf="selectedTimeline.length; else noTimeline">
+          <div class="timeline-item" *ngFor="let event of selectedTimeline">
+            <div class="timeline-dot"></div>
+            <div class="timeline-body">
+              <div class="timeline-head">
+                <strong>{{ event.title }}</strong>
+                <span>{{ event.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
+              </div>
+              <div class="timeline-meta">
+                <span *ngIf="event.actorRole" class="badge badge--muted">{{ badgeLabel(event.actorRole) }}</span>
+                <span *ngIf="event.statusTo" [class]="badgeClass(event.statusTo)">{{ badgeLabel(event.statusTo) }}</span>
+                <span *ngIf="event.attachmentsCount" class="badge badge--good">{{ event.attachmentsCount }} attachment</span>
+              </div>
+              <p *ngIf="event.comment">{{ event.comment }}</p>
+            </div>
+          </div>
+        </div>
+        <ng-template #noTimeline><div class="empty-mini">No timeline events available.</div></ng-template>
+      </article>
+    </aside>
+  </section>
+</div>
+
+<div class="preview-backdrop" *ngIf="showEvidencePreview && evidencePreviewData">
+  <div class="preview-modal">
+    <div class="preview-head">
+      <div>
+        <strong>{{ evidencePreviewData.fileName }}</strong>
+        <span>{{ evidencePreviewData.uploadedAt ? (evidencePreviewData.uploadedAt | date:'dd MMM yyyy, hh:mm a') : 'Preview only' }}</span>
+      </div>
+      <button type="button" class="btn btn-ghost" (click)="closeEvidencePreview()">Close</button>
+    </div>
+    <div class="preview-meta">
+      <span [class]="badgeClass(evidencePreviewData.status)">{{ badgeLabel(evidencePreviewData.status) }}</span>
+      <span *ngIf="evidencePreviewData.fileSize">{{ evidencePreviewData.fileSize }} bytes</span>
+      <span *ngIf="evidencePreviewData.mimeType">{{ evidencePreviewData.mimeType }}</span>
+    </div>
+    <div class="preview-body">
+      <p *ngIf="evidencePreviewData.rejectionReason">Reason: {{ evidencePreviewData.rejectionReason }}</p>
+      <p *ngIf="!evidencePreviewData.url">No inline file URL is available for this evidence item. The file name is tracked in the case history.</p>
+      <iframe *ngIf="evidencePreviewData.url" [src]="evidencePreviewData.url"></iframe>
+    </div>
+    <div class="preview-actions">
+      <button type="button" class="btn btn-secondary" [disabled]="!evidencePreviewData.url" (click)="downloadEvidencePreview()">Open File</button>
+    </div>
+  </div>
+</div>

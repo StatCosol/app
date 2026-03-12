@@ -20,6 +20,8 @@ const CrmNotificationsComponent = () =>
   import('./notifications/crm-notifications.component').then((m) => m.CrmNotificationsComponent);
 const CrmAuditsComponent = () =>
   import('./crm-audits.component').then((m) => m.CrmAuditsComponent);
+const CrmAuditManagementPageComponent = () =>
+  import('./audits/crm-audit-management-page.component').then((m) => m.CrmAuditManagementPageComponent);
 const CrmContractorsComponent = () =>
   import('./contractors/crm-contractors.component').then((m) => m.CrmContractorsComponent);
 const CrmPayrollStatusComponent = () =>
@@ -34,6 +36,10 @@ const CrmBranchDocsReviewComponent = () =>
   import('./branch-docs-review/crm-branch-docs-review.component').then((m) => m.CrmBranchDocsReviewComponent);
 const CrmReturnsFilingsComponent = () =>
   import('./returns/crm-returns-filings.component').then((m) => m.CrmReturnsFilingsComponent);
+const CrmAmendmentsWorkspacePageComponent = () =>
+  import('./amendments/crm-amendments-workspace-page.component').then(
+    (m) => m.CrmAmendmentsWorkspacePageComponent,
+  );
 const CrmComplianceDocsComponent = () =>
   import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
 const CrmRegistrationsComponent = () =>
@@ -84,8 +90,9 @@ export const CRM_ROUTES: Routes = [
       { path: 'helpdesk', loadComponent: CrmRequestsComponent },
       { path: 'requests', redirectTo: 'helpdesk', pathMatch: 'full' },
       { path: 'reports', loadComponent: CrmReportsComponent },
-      { path: 'audits', loadComponent: CrmAuditsComponent },
+      { path: 'audits', loadComponent: CrmAuditManagementPageComponent },
       { path: 'returns', loadComponent: CrmReturnsFilingsComponent },
+      { path: 'amendments', loadComponent: CrmAmendmentsWorkspacePageComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent },

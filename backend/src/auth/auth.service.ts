@@ -32,9 +32,22 @@ export class AuthService {
 
     const user = await this.usersRepo
       .createQueryBuilder('u')
-      .leftJoinAndSelect('u.client', 'c')
+      .leftJoin('u.client', 'c')
+      .select([
+        'u.id',
+        'u.roleId',
+        'u.name',
+        'u.email',
+        'u.mobile',
+        'u.passwordHash',
+        'u.isActive',
+        'u.clientId',
+        'u.deletedAt',
+        'c.id',
+        'c.clientCode',
+        'c.clientName',
+      ])
       .where('LOWER(u.email) = LOWER(:email)', { email })
-      .addSelect('u.passwordHash')
       .getOne();
 
     if (!user) throw new UnauthorizedException('Invalid credentials');
@@ -80,7 +93,10 @@ export class AuthService {
         clientName: user.client?.clientName ?? null,
         clientLogoUrl: (user.client as any)?.logoUrl ?? null,
         crmId: (user as any).crmId ?? null,
-        userType: user.userType ?? null,
+        userType:
+          role.code === 'CLIENT'
+            ? (user.userType ?? (isMasterUser ? 'MASTER' : 'BRANCH'))
+            : (user.userType ?? null),
         isMasterUser,
         branchIds,
         employeeId: (user as any).employeeId ?? null,
@@ -98,9 +114,22 @@ export class AuthService {
 
     const user = await this.usersRepo
       .createQueryBuilder('u')
-      .leftJoinAndSelect('u.client', 'c')
+      .leftJoin('u.client', 'c')
+      .select([
+        'u.id',
+        'u.roleId',
+        'u.name',
+        'u.email',
+        'u.mobile',
+        'u.passwordHash',
+        'u.isActive',
+        'u.clientId',
+        'u.deletedAt',
+        'c.id',
+        'c.clientCode',
+        'c.clientName',
+      ])
       .where('LOWER(u.email) = LOWER(:email)', { email })
-      .addSelect('u.passwordHash')
       .getOne();
 
     if (!user) throw new UnauthorizedException('Invalid credentials');
@@ -178,6 +207,11 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
+  }
+
+  // Backward-compatible logout endpoint for controller wiring.
+  async logout(_: { refreshToken?: string }) {
+    return { ok: true };
   }
 
   async requestPasswordReset(dto: RequestPasswordResetDto) {
