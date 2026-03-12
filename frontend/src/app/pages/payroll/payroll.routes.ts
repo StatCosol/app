@@ -9,6 +9,10 @@ const PayrollClientsComponent = () =>
   import('./payroll-clients.component').then((m) => m.PayrollClientsComponent);
 const PayrollRunsComponent = () =>
   import('./payroll-runs.component').then((m) => m.PayrollRunsComponent);
+const PayrollRuleSetsPageComponent = () =>
+  import('./payroll-rule-sets-page.component').then(
+    (m) => m.PayrollRuleSetsPageComponent,
+  );
 const PayrollRegistersComponent = () =>
   import('./payroll-registers.component').then((m) => m.PayrollRegistersComponent);
 const PayrollProfileComponent = () =>
@@ -26,6 +30,7 @@ export const PAYROLL_ROUTES: Routes = [
       { path: 'clients', loadComponent: PayrollClientsComponent },
       { path: 'runs', loadComponent: PayrollRunsComponent },
       { path: 'setup', loadComponent: PayrollSetupComponent },
+      { path: 'rule-sets', loadComponent: PayrollRuleSetsPageComponent },
       { path: 'registers', loadComponent: PayrollRegistersComponent },
       { path: 'profile', loadComponent: PayrollProfileComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
