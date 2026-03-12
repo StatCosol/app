@@ -11,8 +11,10 @@ const AuditorComplianceComponent = () =>
   import('./auditor-compliance.component').then((m) => m.AuditorComplianceComponent);
 const AuditorObservationsComponent = () =>
   import('./observations/auditor-observations.component').then((m) => m.AuditorObservationsComponent);
-const AuditorAuditWorkspaceComponent = () =>
-  import('./auditor-audit-workspace.component').then((m) => m.AuditorAuditWorkspaceComponent);
+const AuditorAuditCockpitPageComponent = () =>
+  import('./audit-cockpit/auditor-audit-cockpit-page.component').then(
+    (m) => m.AuditorAuditCockpitPageComponent,
+  );
 const AuditorRegistersComponent = () =>
   import('./registers/auditor-registers.component').then((m) => m.AuditorRegistersComponent);
 export const AUDITOR_ROUTES: Routes = [
@@ -22,8 +24,9 @@ export const AUDITOR_ROUTES: Routes = [
     canActivate: [roleGuard(['AUDITOR'])],
     children: [
       { path: 'dashboard', loadComponent: AuditorDashboardComponent },
+      { path: 'audits/:auditId/workspace', loadComponent: AuditorAuditCockpitPageComponent },
       { path: 'audits', loadComponent: AuditorAuditsComponent },
-      { path: 'audit-workspace', loadComponent: AuditorAuditWorkspaceComponent },
+      { path: 'audit-workspace', loadComponent: AuditorAuditCockpitPageComponent },
       { path: 'observations', loadComponent: AuditorObservationsComponent },
       { path: 'registers', loadComponent: AuditorRegistersComponent },
       { path: 'compliance', loadComponent: AuditorComplianceComponent },
