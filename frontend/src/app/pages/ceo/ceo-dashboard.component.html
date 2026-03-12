@@ -1,68 +1,255 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     title="CEO Dashboard"
-    description="Executive approvals and escalations overview"
+    description="Executive view of risk, closure trend, and business health"
     icon="chart-bar">
   </ui-page-header>
 
-  <!-- Loading State -->
-  <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
+  <ui-loading-spinner *ngIf="loading" text="Loading executive dashboard..."></ui-loading-spinner>
 
-  <!-- Error Banner -->
   <div *ngIf="!loading && errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
     <span>{{ errorMsg }}</span>
     <button (click)="loadAll()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
   </div>
 
   <ng-container *ngIf="!loading">
-    <!-- KPI Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-    <ui-stat-card
-      [value]="pendingApprovals"
-      label="Pending Approvals"
-      color="primary"
-      (click)="goToApprovals()"
-      class="cursor-pointer">
-    </ui-stat-card>
-
-    <ui-stat-card
-      [value]="escalations"
-      label="Escalations"
-      color="error"
-      (click)="goToEscalations()"
-      class="cursor-pointer">
-    </ui-stat-card>
-
-    <ui-stat-card
-      [value]="compliancePending"
-      label="Compliance Pending"
-      color="warning">
-    </ui-stat-card>
-
-    <ui-stat-card
-      [value]="overdue"
-      label="Overdue Items"
-      color="info">
-    </ui-stat-card>
-  </div>
-
-  <!-- Quick Actions -->
-  <div class="card">
-    <h3 class="card-title mb-4">Quick Actions</h3>
-    <div class="flex flex-wrap gap-3">
-      <ui-button variant="primary" (clicked)="goToApprovals()">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        Review Approvals
-      </ui-button>
-      <ui-button variant="secondary" (clicked)="goToEscalations()">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-        </svg>
-        Manage Escalations
-      </ui-button>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div class="card">
+        <div class="text-xs text-gray-500">Total Clients</div>
+        <div class="text-2xl font-semibold text-gray-900 mt-1">{{ summary.totalClients }}</div>
+        <div class="text-xs text-gray-500">{{ summary.totalBranches }} branches</div>
+      </div>
+      <div class="card cursor-pointer" (click)="goToApprovals()">
+        <div class="text-xs text-gray-500">Pending Approvals</div>
+        <div class="text-2xl font-semibold text-amber-600 mt-1">{{ summary.pendingApprovals }}</div>
+        <div class="text-xs text-gray-500">Click to review queue</div>
+      </div>
+      <div class="card">
+        <div class="text-xs text-gray-500">Active Audits</div>
+        <div class="text-2xl font-semibold text-gray-900 mt-1">{{ summary.activeAudits }}</div>
+        <div class="text-xs text-gray-500">Current active cycle</div>
+      </div>
+      <div class="card">
+        <div class="text-xs text-gray-500">Overdue Compliances</div>
+        <div class="text-2xl font-semibold text-red-600 mt-1">{{ summary.overdueCompliances }}</div>
+        <div class="text-xs text-gray-500">Needs immediate closure</div>
+      </div>
+      <div class="card">
+        <div class="text-xs text-gray-500">Team Size</div>
+        <div class="text-2xl font-semibold text-gray-900 mt-1">{{ summary.teamSize }}</div>
+        <div class="text-xs text-gray-500">CCO / CRM / Auditor</div>
+      </div>
+      <div class="card">
+        <div class="text-xs text-gray-500">Compliance Score (30d)</div>
+        <div class="text-2xl font-semibold mt-1" [style.color]="complianceColor">{{ summary.complianceScore30d | number:'1.0-1' }}%</div>
+        <div class="text-xs text-gray-500">Rolling monthly score</div>
+      </div>
     </div>
-  </div>
+
+    <div class="card mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="card-title">Executive Guardrails</h3>
+        <span class="text-xs text-gray-500">{{ executiveGuardrails.length }} active alerts</span>
+      </div>
+      <div *ngIf="executiveGuardrails.length; else noExecutiveGuardrails" class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <article
+          *ngFor="let item of executiveGuardrails"
+          class="rounded-xl border px-4 py-3"
+          [class]="guardrailClass(item.severity)">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold tracking-wide">{{ item.severity }}</div>
+            <ui-button variant="secondary" size="sm" (clicked)="openGuardrail(item.route)">{{ item.actionLabel }}</ui-button>
+          </div>
+          <div class="text-sm font-semibold text-gray-900 mt-2">{{ item.title }}</div>
+          <div class="text-xs text-gray-700 mt-1">{{ item.detail }}</div>
+        </article>
+      </div>
+      <ng-template #noExecutiveGuardrails>
+        <ui-empty-state
+          title="No active executive alerts"
+          description="No guardrail breaches are currently detected in approvals, escalations, or closures.">
+        </ui-empty-state>
+      </ng-template>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="card-title">Overall Compliance Rate</h3>
+          <span class="text-lg font-semibold" [style.color]="complianceColor">{{ governance.overallComplianceRate | number:'1.0-1' }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+          <div class="h-2.5 rounded-full" [style.width.%]="governance.overallComplianceRate" [style.background]="complianceColor"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3 text-sm">
+          <div>
+            <div class="text-green-600 font-semibold">{{ governance.compliantItems }}</div>
+            <div class="text-xs text-gray-500">Compliant</div>
+          </div>
+          <div>
+            <div class="text-amber-600 font-semibold">{{ governance.dueSoonItems }}</div>
+            <div class="text-xs text-gray-500">Due Soon</div>
+          </div>
+          <div>
+            <div class="text-red-600 font-semibold">{{ governance.overdueItems }}</div>
+            <div class="text-xs text-gray-500">Overdue</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="card-title">Audit Completion (90d)</h3>
+          <span class="text-lg font-semibold" [style.color]="auditCompletionColor">{{ governance.auditCompletionRate90d | number:'1.0-1' }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+          <div class="h-2.5 rounded-full" [style.width.%]="governance.auditCompletionRate90d" [style.background]="auditCompletionColor"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3 text-sm">
+          <div>
+            <div class="text-green-600 font-semibold">{{ governance.completedAudits }}</div>
+            <div class="text-xs text-gray-500">Closed</div>
+          </div>
+          <div>
+            <div class="text-blue-600 font-semibold">{{ governance.pendingAudits }}</div>
+            <div class="text-xs text-gray-500">Open</div>
+          </div>
+          <div>
+            <div class="text-red-600 font-semibold">{{ governance.criticalObservations }}</div>
+            <div class="text-xs text-gray-500">Critical Obs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-6" *ngIf="complianceTrend.length > 0">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="card-title">Monthly Compliance Trend</h3>
+        <span class="text-xs text-gray-500">Last {{ complianceTrend.length }} months</span>
+      </div>
+      <ui-data-table [columns]="auditClosureColumns" [data]="complianceTrend">
+        <ng-template uiTableCell="month" let-row>
+          {{ formatMonth(row.month) }}
+        </ng-template>
+        <ng-template uiTableCell="completedAudits" let-row>
+          {{ row.completedAudits }} / {{ row.totalAudits }}
+        </ng-template>
+        <ng-template uiTableCell="openAudits" let-row>
+          {{ row.overdueItems }}
+        </ng-template>
+        <ng-template uiTableCell="closureRate" let-row>
+          <span [style.color]="getTrendColor(row.complianceRate)" class="font-semibold">{{ row.complianceRate | number:'1.0-1' }}%</span>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="card-title">Top 10 Risk Clients</h3>
+          <span class="text-xs text-gray-500">By overdue count</span>
+        </div>
+        <ui-data-table
+          *ngIf="topOverdueClients.length > 0"
+          [columns]="clientOverviewColumns"
+          [data]="topOverdueClients"
+          emptyMessage="No clients with overdue items">
+          <ng-template uiTableCell="overdueCount" let-row>
+            <span class="font-semibold" [ngClass]="{ 'text-red-600': row.overdueCount > 0, 'text-green-600': row.overdueCount === 0 }">{{ row.overdueCount }}</span>
+          </ng-template>
+          <ng-template uiTableCell="crmName" let-row>
+            {{ row.crmName || '-' }}
+          </ng-template>
+        </ui-data-table>
+        <ui-empty-state
+          *ngIf="topOverdueClients.length === 0"
+          title="No overdue clients"
+          description="All clients are within compliance thresholds">
+        </ui-empty-state>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title mb-2">Branch Ranking</h3>
+        <p class="text-xs text-gray-500 mb-4">Top and bottom branch exposure for management review</p>
+
+        <h4 class="text-sm font-semibold text-red-700 mb-2">Top Risk Branches</h4>
+        <ui-data-table [columns]="branchRankingColumns" [data]="topRiskBranches" emptyMessage="No branch data">
+          <ng-template uiTableCell="riskScore" let-row>
+            <span class="font-semibold" [style.color]="getRiskColor(row.riskScore)">{{ row.riskScore | number:'1.0-1' }}%</span>
+          </ng-template>
+          <ng-template uiTableCell="complianceRate" let-row>
+            {{ row.complianceRate | number:'1.0-1' }}%
+          </ng-template>
+        </ui-data-table>
+
+        <h4 class="text-sm font-semibold text-green-700 mt-5 mb-2">Best Performing Branches</h4>
+        <ui-data-table [columns]="branchRankingColumns" [data]="bottomRiskBranches" emptyMessage="No branch data">
+          <ng-template uiTableCell="riskScore" let-row>
+            <span class="font-semibold" [style.color]="getRiskColor(row.riskScore)">{{ row.riskScore | number:'1.0-1' }}%</span>
+          </ng-template>
+          <ng-template uiTableCell="complianceRate" let-row>
+            {{ row.complianceRate | number:'1.0-1' }}%
+          </ng-template>
+        </ui-data-table>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="card-title">Team Performance</h3>
+          <span class="text-xs text-gray-500">{{ teamPerformance.length }} members</span>
+        </div>
+        <ui-data-table [columns]="teamColumns" [data]="teamPerformance" emptyMessage="No team performance data">
+          <ng-template uiTableCell="overdueCount" let-row>
+            <span [ngClass]="{ 'text-red-600 font-semibold': row.overdueCount > 0 }">{{ row.overdueCount }}</span>
+          </ng-template>
+          <ng-template uiTableCell="complianceScore" let-row>
+            <span [style.color]="getTrendColor(row.complianceScore)" class="font-semibold">{{ row.complianceScore | number:'1.0-1' }}%</span>
+          </ng-template>
+        </ui-data-table>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title mb-2">Audit Closure Trend</h3>
+        <p class="text-xs text-gray-500 mb-4">Monthly closure percentage for board reporting</p>
+        <ui-data-table [columns]="auditClosureColumns" [data]="auditClosureTrend" emptyMessage="No closure trend data">
+          <ng-template uiTableCell="month" let-row>
+            {{ formatMonth(row.month) }}
+          </ng-template>
+          <ng-template uiTableCell="closureRate" let-row>
+            <span class="font-semibold" [style.color]="getTrendColor(row.closureRate)">{{ row.closureRate | number:'1.0-1' }}%</span>
+          </ng-template>
+        </ui-data-table>
+      </div>
+    </div>
+
+    <div class="card mb-6" *ngIf="escalations.length > 0">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="card-title">Pending Escalations</h3>
+        <ui-button variant="secondary" size="sm" (clicked)="goToEscalations()">View all</ui-button>
+      </div>
+      <ui-data-table [columns]="escalationColumns" [data]="escalations">
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="createdAt" let-row>
+          {{ row.createdAt | date:'mediumDate' }}
+        </ng-template>
+        <ng-template uiTableCell="entityName" let-row>
+          {{ row.entityName || '-' }}
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title mb-4">Quick Actions</h3>
+      <div class="flex flex-wrap gap-3">
+        <ui-button variant="primary" (clicked)="goToApprovals()">Review Approvals</ui-button>
+        <ui-button variant="secondary" (clicked)="goToEscalations()">Manage Escalations</ui-button>
+        <ui-button variant="secondary" (clicked)="goToOversight()">Open Oversight</ui-button>
+        <ui-button variant="secondary" (clicked)="exportCSV()">Export Summary CSV</ui-button>
+      </div>
+    </div>
   </ng-container>
 </div>
