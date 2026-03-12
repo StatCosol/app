@@ -58,6 +58,24 @@ function Hit($role, $path, $token) {
   }
 }
 
+function Resolve-ClientBranchId($token) {
+  try {
+    $resp = Invoke-RestMethod -Method Get -Uri "$base/client/branches" -Headers @{ Authorization = "Bearer $token" } -ErrorAction Stop
+    if ($resp -is [System.Array] -and $resp.Count -gt 0 -and $resp[0].id) { return "$($resp[0].id)" }
+    if ($resp.data -and $resp.data.Count -gt 0 -and $resp.data[0].id) { return "$($resp.data[0].id)" }
+    if ($resp.items -and $resp.items.Count -gt 0 -and $resp.items[0].id) { return "$($resp.items[0].id)" }
+  } catch {}
+  return $null
+}
+
+function Resolve-Path($path, $context) {
+  $resolved = $path
+  foreach ($k in $context.Keys) {
+    $resolved = $resolved.Replace("{$k}", [string]$context[$k])
+  }
+  return $resolved
+}
+
 $roles = @(
   @{
     role = 'ADMIN'
@@ -80,7 +98,12 @@ $roles = @(
       '/branch-approvals/leaves',
       '/client/attendance/summary?year=2026&month=3',
       '/client/attendance/mismatches?year=2026&month=3',
-      '/client/attendance/lop-preview?year=2026&month=3'
+      '/client/attendance/lop-preview?year=2026&month=3',
+      '/branch/uploads/pending?branchId={branchId}',
+      '/branch/{branchId}/safety/required',
+      '/branch/{branchId}/safety/status?month=2026-03',
+      '/branch/safety-documents/master',
+      '/client/branches/{branchId}/registrations'
     )
   },
   @{
@@ -127,8 +150,23 @@ foreach ($r in $roles) {
     continue
   }
   $lines += "LOGIN_OK $($r.role) $($r.email) (password=$($login.password))"
+  $context = @{}
+  if ($r.role -eq 'CLIENT') {
+    $branchId = Resolve-ClientBranchId $login.token
+    if ($branchId) {
+      $context.branchId = $branchId
+      $lines += "CTX CLIENT branchId=$branchId"
+    } else {
+      $lines += "CTX_WARN CLIENT branchId not resolved"
+    }
+  }
   foreach ($p in $r.paths) {
-    $lines += Hit $r.role $p $login.token
+    $resolvedPath = Resolve-Path $p $context
+    if ($resolvedPath -match '\{[a-zA-Z0-9_]+\}') {
+      $lines += "SKIP [UNRESOLVED_TOKEN] $($r.role) $p"
+      continue
+    }
+    $lines += Hit $r.role $resolvedPath $login.token
   }
 }
 
