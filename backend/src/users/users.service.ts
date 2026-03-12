@@ -395,7 +395,9 @@ export class UsersService implements OnModuleInit {
       [dto.employeeId, saved.id],
     );
 
-    return this.findById(saved.id);
+    const created = await this.findById(saved.id);
+    if (!created) throw new Error('Failed to retrieve created user');
+    return created;
   }
 
   async listRoles(): Promise<RoleEntity[]> {
@@ -1041,7 +1043,7 @@ export class UsersService implements OnModuleInit {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string): Promise<UserEntity | null> {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.userType')

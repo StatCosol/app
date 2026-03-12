@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
 import { UserEntity } from '../users/entities/user.entity';
+import { RefreshTokenEntity } from './entities/refresh-token.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AccessPolicyService } from './policies/access-policy.service';
 import { BranchAccessService } from './branch-access.service';
@@ -18,14 +19,19 @@ import { JwtStrategy } from './jwt.strategy';
   imports: [
     UsersModule,
     EmailModule,
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, RefreshTokenEntity]),
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: 60 * 60 * 24 },
+        // Access token: short-lived (15 min default; override via JWT_ACCESS_EXPIRES_SEC)
+        signOptions: {
+          expiresIn: Number(
+            config.get<string>('JWT_ACCESS_EXPIRES_SEC', '900'),
+          ),
+        },
       }),
     }),
   ],

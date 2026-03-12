@@ -6,6 +6,8 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
+import { ToastService } from '../toast/toast.service';
+import { ConfirmDialogService } from '../ui/confirm-dialog/confirm-dialog.service';
 
 interface ComplianceItem {
   code: string;
@@ -92,6 +94,8 @@ export class MonthlyUploadsComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -106,8 +110,15 @@ export class MonthlyUploadsComponent implements OnInit, OnDestroy {
     const mapped = this.auth.getBranchIds();
     if (mapped?.length) {
       if (!this.branchId) this.branchId = mapped[0];
-      this.branches = [{ id: mapped[0], name: 'My Branch' }];
+      this.branches = mapped.map(id => ({ id, name: 'Branch' }));
       this.load();
+      this.api.list().subscribe({
+        next: (b: any[]) => {
+          const nameMap = new Map((b || []).map((x: any) => [x.id, x.name || x.branchName || x.title || 'Branch']));
+          this.branches = mapped.map(id => ({ id, name: nameMap.get(id) || 'Branch' }));
+          this.cdr.markForCheck();
+        },
+      });
       return;
     }
 
@@ -188,19 +199,19 @@ export class MonthlyUploadsComponent implements OnInit, OnDestroy {
         this.loadDocs();
       },
       error: (err: any) => {
-        alert(err?.error?.message || 'Upload failed');
+        this.toast.error(err?.error?.message || 'Upload failed');
         input.value = '';
       }
     });
   }
 
-  deleteDoc(doc: UploadedDoc): void {
-    if (!confirm('Delete "' + doc.fileName + '"?')) return;
+  async deleteDoc(doc: UploadedDoc): Promise<void> {
+    if (!(await this.dialog.confirm('Delete Document', `Delete "${doc.fileName}"?`, { variant: 'danger', confirmText: 'Delete' }))) return;
     this.api.deleteMonthlyDocument(doc.id).pipe(
       takeUntil(this.destroy$),
     ).subscribe({
       next: () => this.loadDocs(),
-      error: (err: any) => alert(err?.error?.message || 'Delete failed'),
+      error: (err: any) => this.toast.error(err?.error?.message || 'Delete failed'),
     });
   }
 

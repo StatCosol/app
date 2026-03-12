@@ -14,9 +14,31 @@ import { UserEntity } from '../users/entities/user.entity';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5-minute cache
+
+interface CacheEntry {
+  data: any;
+  expiresAt: number;
+}
 
 @Injectable()
 export class ClientDashboardService {
+  private readonly cache = new Map<string, CacheEntry>();
+
+  private getCached<T>(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    return entry.data as T;
+  }
+
+  private setCache(key: string, data: any): void {
+    this.cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
+
   constructor(
     @InjectRepository(EmployeeEntity)
     private readonly employees: Repository<EmployeeEntity>,
@@ -62,7 +84,7 @@ export class ClientDashboardService {
       branchIds = allowedBranchIds;
     }
 
-    return { clientId: me.clientId as string, branchIds };
+    return { clientId: me.clientId, branchIds };
   }
 
   private computePendingDays(date?: string | Date | null) {
@@ -74,6 +96,10 @@ export class ClientDashboardService {
 
   async getPfEsiSummary(user: any, dto: ClientDashboardQueryDto) {
     const scope = await this.resolveScope(user, dto.branchId);
+    const cacheKey = `pfesi:${scope.clientId}:${scope.branchIds.join(',')}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
     const baseQb = this.employees
       .createQueryBuilder('e')
       .where('e.client_id = :clientId', { clientId: scope.clientId })
@@ -115,7 +141,9 @@ export class ClientDashboardService {
       pfRegistered: false,
       uanAvailable: !!r.uan,
       uan: r.uan || null,
-      pendingDays: this.computePendingDays(r.pfApplicableFrom || r.dateOfJoining),
+      pendingDays: this.computePendingDays(
+        r.pfApplicableFrom || r.dateOfJoining,
+      ),
     }));
 
     const esiRegistered = await baseQb
@@ -148,10 +176,12 @@ export class ClientDashboardService {
       esiRegistered: false,
       ipNumberAvailable: !!r.ipNumber,
       ipNumber: r.ipNumber || null,
-      pendingDays: this.computePendingDays(r.esiApplicableFrom || r.dateOfJoining),
+      pendingDays: this.computePendingDays(
+        r.esiApplicableFrom || r.dateOfJoining,
+      ),
     }));
 
-    return {
+    const result = {
       pf: {
         registered: pfRegistered,
         notRegisteredApplicable: pfPending.length,
@@ -163,10 +193,16 @@ export class ClientDashboardService {
         pendingEmployees: esiPending,
       },
     };
+    this.setCache(cacheKey, result);
+    return result;
   }
 
   async getContractorUploadSummary(user: any, dto: ClientDashboardQueryDto) {
     const scope = await this.resolveScope(user, dto.branchId);
+    const cacheKey = `contractor:${scope.clientId}:${scope.branchIds.join(',')}:${dto.month}`;
+    const cached = this.getCached(cacheKey);
+    if (cached) return cached;
+
     const { start, end } = this.parseMonth(dto.month);
 
     // ─── 1. Use branch_contractor as the source of truth for contractor IDs & names ───
@@ -175,7 +211,7 @@ export class ClientDashboardService {
       .createQueryBuilder('bc')
       .leftJoin('users', 'u', 'u.id = bc.contractor_user_id')
       .select('bc.contractor_user_id', 'contractorId')
-      .addSelect('COALESCE(u.name, u.email, \'Contractor\')', 'name')
+      .addSelect("COALESCE(u.name, u.email, 'Contractor')", 'name')
       .where('bc.client_id = :clientId', { clientId: scope.clientId });
 
     if (scope.branchIds.length) {
@@ -192,7 +228,9 @@ export class ClientDashboardService {
 
     // Authoritative contractor IDs → names map (only real CONTRACTOR users)
     const nameMap = new Map<string, string>();
-    bcRows.forEach((r: any) => nameMap.set(String(r.contractorId), String(r.name)));
+    bcRows.forEach((r: any) =>
+      nameMap.set(String(r.contractorId), String(r.name)),
+    );
 
     const contractorIds = Array.from(nameMap.keys());
     if (!contractorIds.length) {
@@ -206,15 +244,22 @@ export class ClientDashboardService {
       .addSelect('COUNT(*)', 'expected')
       .where('r.client_id = :clientId', { clientId: scope.clientId })
       .andWhere('r.is_required = TRUE')
-      .andWhere('r.contractor_user_id IN (:...contractorIds)', { contractorIds });
+      .andWhere('r.contractor_user_id IN (:...contractorIds)', {
+        contractorIds,
+      });
 
     if (scope.branchIds.length) {
-      reqQb.andWhere('(r.branch_id IS NULL OR r.branch_id IN (:...branchIds))', {
-        branchIds: scope.branchIds,
-      });
+      reqQb.andWhere(
+        '(r.branch_id IS NULL OR r.branch_id IN (:...branchIds))',
+        {
+          branchIds: scope.branchIds,
+        },
+      );
     }
 
-    const requiredRows = await reqQb.groupBy('r.contractor_user_id').getRawMany();
+    const requiredRows = await reqQb
+      .groupBy('r.contractor_user_id')
+      .getRawMany();
     const requiredMap = new Map<string, number>();
     requiredRows.forEach((r: any) =>
       requiredMap.set(String(r.contractorId), Number(r.expected || 0)),
@@ -230,7 +275,9 @@ export class ClientDashboardService {
         'uploaded',
       )
       .where('d.client_id = :clientId', { clientId: scope.clientId })
-      .andWhere('d.contractor_user_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('d.contractor_user_id IN (:...contractorIds)', {
+        contractorIds,
+      })
       .andWhere(
         '(d.doc_month = :monthStr OR (d.doc_month IS NULL AND d.created_at >= :start AND d.created_at < :end))',
         { monthStr, start, end },
@@ -242,7 +289,9 @@ export class ClientDashboardService {
       });
     }
 
-    const uploadedRows = await uploadedQb.groupBy('d.contractor_user_id').getRawMany();
+    const uploadedRows = await uploadedQb
+      .groupBy('d.contractor_user_id')
+      .getRawMany();
     const uploadedMap = new Map<string, number>();
     uploadedRows.forEach((r: any) =>
       uploadedMap.set(String(r.contractorId), Number(r.uploaded || 0)),
@@ -257,7 +306,8 @@ export class ClientDashboardService {
       const uploaded = uploadedMap.get(id) ?? 0;
       totalExpected += expected;
       totalUploaded += uploaded;
-      const percent = expected > 0 ? Math.round((uploaded / expected) * 100) : 0;
+      const percent =
+        expected > 0 ? Math.round((uploaded / expected) * 100) : 0;
       return {
         contractorUserId: id,
         name: nameMap.get(id) ?? 'Contractor',
@@ -267,13 +317,12 @@ export class ClientDashboardService {
       };
     });
 
-    const overallPercent = totalExpected > 0
-      ? Math.round((totalUploaded / totalExpected) * 100)
-      : 0;
+    const overallPercent =
+      totalExpected > 0 ? Math.round((totalUploaded / totalExpected) * 100) : 0;
 
     const sorted = [...contractors].sort((a, b) => b.percent - a.percent);
 
-    return {
+    const result = {
       overallPercent,
       contractors,
       top10: sorted.slice(0, 10),
@@ -281,5 +330,7 @@ export class ClientDashboardService {
         .sort((a, b) => a.percent - b.percent)
         .slice(0, 10),
     };
+    this.setCache(cacheKey, result);
+    return result;
   }
 }

@@ -59,6 +59,6 @@ ALTER TABLE audits ADD COLUMN IF NOT EXISTS branch_id UUID NULL;
 CREATE INDEX IF NOT EXISTS idx_audits_branch_id ON audits(branch_id);
 
 -- Note: We skip foreign key constraint to avoid issues if branches table uses different naming.
--- If needed, run:  ALTER TABLE audits ADD CONSTRAINT fk_audits_branch FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL;
+-- If needed, run:  ALTER TABLE audits ADD CONSTRAINT fk_audits_branch FOREIGN KEY (branch_id) REFERENCES client_branches(id) ON DELETE SET NULL;
 
 -- Done

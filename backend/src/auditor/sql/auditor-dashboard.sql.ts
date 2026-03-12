@@ -59,18 +59,18 @@ WITH my_audits AS (
 SELECT
   a.id AS audit_id,
   a.client_id,
-  c.name AS client_name,
+  c.client_name AS client_name,
   a.branch_id,
-  b.name AS branch_name,
+  b.branchname AS branch_name,
   a.audit_type,
-  a.audit_name,
+  a.audit_code AS audit_name,
   a.due_date,
   a.status,
-  a.progress_pct,
-  a.last_updated_at
+  a.score AS progress_pct,
+  a.updated_at AS last_updated_at
 FROM my_audits a
 LEFT JOIN clients c ON c.id = a.client_id
-LEFT JOIN branches b ON b.id = a.branch_id
+LEFT JOIN client_branches b ON b.id = a.branch_id
 WHERE
   (
     ($6::text = 'ACTIVE' AND a.status IN ('ASSIGNED','IN_PROGRESS'))
@@ -80,7 +80,7 @@ WHERE
         AND a.due_date < (CURRENT_DATE + ($5::int || ' days')::interval))
     OR ($6::text = 'COMPLETED' AND a.status IN ('COMPLETED','SUBMITTED'))
   )
-ORDER BY a.due_date ASC, a.last_updated_at DESC
+ORDER BY a.due_date ASC, a.updated_at DESC
 LIMIT $7 OFFSET $8;
 `;
 
@@ -91,6 +91,8 @@ LIMIT $7 OFFSET $8;
 export const AUDITOR_OBSERVATIONS_SQL = `
 WITH my_audits AS (
   SELECT a.id
+  FROM audits a
+  WHERE a.assigned_auditor_id = $1::uuid
     AND ($2::uuid IS NULL OR a.client_id = $2)
 ),
 base AS (
@@ -99,9 +101,8 @@ base AS (
     o.audit_id,
     a.client_id,
     a.branch_id,
-    o.title,
+    o.observation AS title,
     o.risk,
-    o.owner_role,
     o.status,
     (CURRENT_DATE - o.created_at::date) AS ageing_days,
     o.created_at
@@ -113,18 +114,17 @@ SELECT
   b.observation_id,
   b.audit_id,
   b.client_id,
-  c.name AS client_name,
+  c.client_name AS client_name,
   b.branch_id,
-  br.name AS branch_name,
+  br.branchname AS branch_name,
   b.title,
   b.risk,
-  b.owner_role,
   b.status,
   b.ageing_days,
   b.created_at
 FROM base b
 LEFT JOIN clients c ON c.id = b.client_id
-LEFT JOIN branches br ON br.id = b.branch_id
+LEFT JOIN client_branches br ON br.id = b.branch_id
 WHERE ($3::text IS NULL OR b.status = $3)
   AND ($4::text IS NULL OR b.risk = $4)
 ORDER BY b.risk DESC, b.ageing_days DESC
@@ -139,15 +139,15 @@ export const AUDITOR_REPORTS_SQL = `
 SELECT
   a.id AS audit_id,
   a.client_id,
-  c.name AS client_name,
+  c.client_name AS client_name,
   a.branch_id,
-  b.name AS branch_name,
+  b.branchname AS branch_name,
   a.due_date,
   a.status,
-  a.last_updated_at
+  a.updated_at AS last_updated_at
 FROM audits a
 LEFT JOIN clients c ON c.id = a.client_id
-LEFT JOIN branches b ON b.id = a.branch_id
+LEFT JOIN client_branches b ON b.id = a.branch_id
 WHERE a.assigned_auditor_id = $1
   AND (
     ($2::text = 'PENDING_SUBMISSION' AND a.status = 'COMPLETED')
@@ -157,8 +157,6 @@ WHERE a.assigned_auditor_id = $1
   AND ($3::uuid IS NULL OR a.client_id = $3)
   AND ($4::date IS NULL OR a.due_date >= $4)
   AND ($5::date IS NULL OR a.due_date <= $5)
-ORDER BY a.due_date ASC, a.last_updated_at DESC
-LIMIT $6 OFFSET $7
-ORDER BY a.due_date ASC
-LIMIT 200;
+ORDER BY a.due_date ASC, a.updated_at DESC
+LIMIT $6 OFFSET $7;
 `;

@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { AiRequestEntity } from './ai-request.entity';
 
 export type DocCheckResult = 'PASS' | 'WARN' | 'FAIL' | 'PENDING';
@@ -17,10 +24,20 @@ export class AiDocumentCheckEntity {
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
-  @Column({ name: 'document_type', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'document_type',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   documentType: string | null;
 
-  @Column({ name: 'document_name', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'document_name',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   documentName: string | null;
 
   @Column({ type: 'jsonb', default: '[]' })

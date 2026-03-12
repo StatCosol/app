@@ -1,0 +1,23 @@
+StatComPy migration run report
+Date: 2026-03-10
+Database: statcompy
+
+Applied successfully: 69
+Failed: 16
+
+- 20260127_hrms_phase1_schema.sql :: column "contractor_id" referenced in foreign key constraint does not exist
+- 20260202_perf_and_scope_indexes.sql :: column "from_user_id" does not exist
+- 20260203_payroll_templates_and_settings.sql :: column "template_id" does not exist
+- 20260205_audit_observations_update.sql :: column "title" does not exist
+- 20260206_governance_model_complete_schema.sql :: column "assignment_type" does not exist
+- 20260207_entity_schema_reconciliation.sql :: cannot alter type of a column used by a view or rule
+- 20260208_seed_compliance_tasks.sql :: column "branch_code" of relation "branches" does not exist
+- 20260209_audit_workflow_schema.sql :: column "contractor_id" does not exist
+- 20260210_contractor_required_documents.sql :: column "contractor_id" does not exist
+- 20260217_legitx_compliance_status_indexes.sql :: column "contractor_id" does not exist
+- 20260220_contractor_doc_month_and_dashboard_enhancements.sql :: column "contractor_id" does not exist
+- 20260220_ess_employee_self_service.sql :: column "is_system" of relation "roles" does not exist
+- 20260222_rename_contractor_id_to_contractor_user_id.sql :: column "contractor_id" does not exist
+- 20260226_ensure_payroll_employee_roles.sql :: column "description" of relation "roles" does not exist
+- 20260227_crm_unit_documents.sql :: column "unit_id" does not exist
+- 20260306_sprint1_v2_seed.sql :: duplicate key value violates unique constraint "uq_sdm_code"
