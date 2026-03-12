@@ -27,8 +27,10 @@ const ClientContractorsBranchComponent = () =>
   import('./contractors/client-contractors-branch.component').then(
     (m) => m.ClientContractorsBranchComponent,
   );
-const ClientPayrollComponent = () =>
-  import('./payroll/client-payroll.component').then((m) => m.ClientPayrollComponent);
+const ClientPayrollMonitoringPageComponent = () =>
+  import('./payroll/client-payroll-monitoring-page.component').then(
+    (m) => m.ClientPayrollMonitoringPageComponent,
+  );
 const ClientEmployeesComponent = () =>
   import('./employees/client-employees.component').then((m) => m.ClientEmployeesComponent);
 const ClientEmployeeFormComponent = () =>
@@ -93,7 +95,7 @@ export const CLIENT_ROUTES: Routes = [
       },
       { path: 'compliance/returns', loadComponent: ClientReturnsComponent, runGuardsAndResolvers: 'always' },
       { path: 'compliance/library', loadComponent: ClientComplianceLibraryComponent, runGuardsAndResolvers: 'always' },
-      { path: 'payroll', loadComponent: ClientPayrollComponent, canActivate: [branchPayrollAccessGuard] },
+      { path: 'payroll', loadComponent: ClientPayrollMonitoringPageComponent, canActivate: [branchPayrollAccessGuard] },
       { path: 'employees', loadComponent: ClientEmployeesComponent },
       { path: 'employees/new', loadComponent: ClientEmployeeFormComponent },
       { path: 'employees/:id', loadComponent: ClientEmployeeDetailComponent },
