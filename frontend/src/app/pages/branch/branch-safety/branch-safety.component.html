@@ -1,0 +1,326 @@
+﻿<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Branch Safety Compliance Matrix</h1>
+      <p>Track required safety records by periodicity, upload evidence, and monitor incident/training/committee records.</p>
+    </div>
+    <div class="head-metrics">
+      <strong>{{ completenessPct }}%</strong>
+      <span>Upload completeness</span>
+    </div>
+  </header>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span class="label">Required</span>
+      <strong>{{ totalRequired }}</strong>
+      <span class="sub">Selected scope</span>
+    </article>
+    <article class="summary-card summary-card--ok">
+      <span class="label">Uploaded</span>
+      <strong>{{ uploadedCount }}</strong>
+      <span class="sub">Available for review</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">Missing</span>
+      <strong>{{ missingCount }}</strong>
+      <span class="sub">Need upload/reupload</span>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <span class="label">Expired</span>
+      <strong>{{ expiredCount }}</strong>
+      <span class="sub">Requires replacement</span>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span class="label">Safety Score</span>
+      <strong>{{ safetyScore?.overallScore ?? '-' }}<ng-container *ngIf="safetyScore">%</ng-container></strong>
+      <span class="sub">Branch score snapshot</span>
+    </article>
+  </section>
+
+  <section class="card filters">
+    <div class="chip-row">
+      <button
+        *ngFor="let tab of periodicityTabs"
+        type="button"
+        [class.active]="activePeriodicity === tab.value"
+        (click)="setPeriodicity(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <div class="filter-row">
+      <label>
+        Category
+        <select [(ngModel)]="categoryFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+      </label>
+
+      <label>
+        Status
+        <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All</option>
+          <option value="MISSING">Missing</option>
+          <option value="UPLOADED">Uploaded</option>
+          <option value="EXPIRED">Expired</option>
+        </select>
+      </label>
+
+      <label class="search-box">
+        Search
+        <input
+          type="search"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="applyFilters()"
+          placeholder="Search document/category"
+        />
+      </label>
+
+      <button class="btn btn-ghost" type="button" (click)="clearFilters()">Reset</button>
+    </div>
+  </section>
+
+  <div *ngIf="loading" class="loader">Loading safety workspace...</div>
+
+  <div *ngIf="!loading && !filteredRequirements.length" class="empty-state">
+    No safety requirements found for current filters.
+  </div>
+
+  <section *ngIf="!loading && filteredRequirements.length" class="workspace-grid">
+    <article class="card list-pane">
+      <header class="section-head">
+        <h2>Required Safety Records</h2>
+        <span>{{ filteredRequirements.length }} items</span>
+      </header>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Category</th>
+              <th>Periodicity</th>
+              <th>Status</th>
+              <th>Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let row of filteredRequirements; trackBy: trackRequirement"
+              [class.selected]="selectedRequirement?.docMasterId === row.docMasterId"
+              (click)="selectRequirement(row)"
+            >
+              <td>
+                <div class="strong">{{ row.documentName }}</div>
+                <div class="minor" *ngIf="row.isMandatory">Mandatory</div>
+              </td>
+              <td>{{ row.category || '-' }}</td>
+              <td>{{ periodicityLabel(row.frequency) }}</td>
+              <td>
+                <span [class]="statusClass(row.status)">{{ row.status }}</span>
+              </td>
+              <td>
+                <span [class]="dueClass(row.daysToExpiry)">{{ dueText(row.daysToExpiry) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <aside class="detail-stack">
+      <article class="card" *ngIf="selectedRequirement as selected; else noSelection">
+        <header class="section-head">
+          <h2>{{ selected.documentName }}</h2>
+          <span [class]="statusClass(selected.status)">{{ selected.status }}</span>
+        </header>
+
+        <div class="kv-grid">
+          <div>
+            <span>Category</span>
+            <strong>{{ selected.category || '-' }}</strong>
+          </div>
+          <div>
+            <span>Periodicity</span>
+            <strong>{{ periodicityLabel(selected.frequency) }}</strong>
+          </div>
+          <div>
+            <span>Mandatory</span>
+            <strong>{{ selected.isMandatory ? 'Yes' : 'No' }}</strong>
+          </div>
+          <div>
+            <span>Last Uploaded</span>
+            <strong>{{ formatDate(selected.lastUploadedAt) }}</strong>
+          </div>
+          <div>
+            <span>Expiry</span>
+            <strong>{{ dueText(selected.daysToExpiry) }}</strong>
+          </div>
+          <div>
+            <span>Upload Status</span>
+            <strong>{{ selected.uploadStatus || '-' }}</strong>
+          </div>
+        </div>
+
+        <div class="action-row" *ngIf="selected.latestDocument">
+          <button class="btn btn-secondary" type="button" (click)="downloadLatest()">Download latest file</button>
+        </div>
+
+        <hr />
+
+        <h3>{{ selected.uploadId ? 'Reupload Safety Record' : 'Upload Safety Record' }}</h3>
+        <div class="form-grid">
+          <label class="span-2 upload-row">
+            <span>File</span>
+            <input type="file" (change)="onFileSelect($event)" />
+            <small class="hint" *ngIf="selectedFile">Selected: {{ selectedFile.name }}</small>
+          </label>
+
+          <label class="span-2">
+            Remarks
+            <textarea
+              rows="3"
+              [(ngModel)]="uploadRemarks"
+              placeholder="Add context for reviewer (optional)"
+            ></textarea>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-primary" type="button" [disabled]="uploading || !selectedFile" (click)="uploadForSelectedRequirement()">
+            {{ uploading ? 'Uploading...' : (selected.uploadId ? 'Reupload File' : 'Upload File') }}
+          </button>
+        </div>
+      </article>
+
+      <ng-template #noSelection>
+        <article class="card empty-mini">Select a required item to view details and upload evidence.</article>
+      </ng-template>
+
+      <article class="card">
+        <header class="section-head">
+          <h2>Missing Documents</h2>
+          <span>{{ missingItems.length }} in current view</span>
+        </header>
+        <ul class="alert-list" *ngIf="missingItems.length; else noMissing">
+          <li *ngFor="let item of missingItems">
+            <span class="strong">{{ item.documentName }}</span>
+            <small>{{ item.category }} · {{ periodicityLabel(item.frequency) }}</small>
+          </li>
+        </ul>
+        <ng-template #noMissing>
+          <div class="empty-mini">No missing documents in the selected filter.</div>
+        </ng-template>
+      </article>
+
+      <article class="card">
+        <header class="section-head">
+          <h2>Expiry Reminders</h2>
+          <span>{{ expiryAlerts.length }} alerts</span>
+        </header>
+        <ul class="alert-list" *ngIf="expiryAlerts.length; else noExpiry">
+          <li *ngFor="let alert of expiryAlerts">
+            <span class="strong">{{ alert.documentName }}</span>
+            <small>
+              {{ alert.category || alert.documentType }} ·
+              {{ alert.daysRemaining <= 0 ? 'Expired' : (alert.daysRemaining + 'd left') }}
+            </small>
+          </li>
+        </ul>
+        <ng-template #noExpiry>
+          <div class="empty-mini">No expiring records in this view.</div>
+        </ng-template>
+      </article>
+    </aside>
+  </section>
+
+  <section class="tracker-grid" *ngIf="!loading">
+    <article class="card">
+      <header class="section-head">
+        <h2>Incident Log</h2>
+        <span>{{ incidentLogs.length }} records</span>
+      </header>
+      <div class="mini-table" *ngIf="incidentLogs.length; else noIncident">
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let doc of incidentLogs; trackBy: trackDocument">
+              <td>{{ doc.documentName }}</td>
+              <td>{{ formatDate(doc.createdAt) }}</td>
+              <td>{{ doc.status }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noIncident>
+        <div class="empty-mini">No incident records available yet.</div>
+      </ng-template>
+    </article>
+
+    <article class="card">
+      <header class="section-head">
+        <h2>Training Tracker</h2>
+        <span>{{ trainingLogs.length }} records</span>
+      </header>
+      <div class="mini-table" *ngIf="trainingLogs.length; else noTraining">
+        <table>
+          <thead>
+            <tr>
+              <th>Record</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let doc of trainingLogs; trackBy: trackDocument">
+              <td>{{ doc.documentName }}</td>
+              <td>{{ formatDate(doc.createdAt) }}</td>
+              <td>{{ doc.status }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noTraining>
+        <div class="empty-mini">No training records available yet.</div>
+      </ng-template>
+    </article>
+
+    <article class="card">
+      <header class="section-head">
+        <h2>Safety Committee Records</h2>
+        <span>{{ committeeRecords.length }} records</span>
+      </header>
+      <div class="mini-table" *ngIf="committeeRecords.length; else noCommittee">
+        <table>
+          <thead>
+            <tr>
+              <th>Record</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let doc of committeeRecords; trackBy: trackDocument">
+              <td>{{ doc.documentName }}</td>
+              <td>{{ formatDate(doc.createdAt) }}</td>
+              <td>{{ doc.status }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noCommittee>
+        <div class="empty-mini">No committee records available yet.</div>
+      </ng-template>
+    </article>
+  </section>
+</div>
+

@@ -15,6 +15,8 @@ const BranchRegistrationsComponent = () =>
   import('./branch-registrations/branch-registrations.component').then((m) => m.BranchRegistrationsComponent);
 const BranchAuditObservationsComponent = () =>
   import('./branch-audit-observations/branch-audit-observations.component').then((m) => m.BranchAuditObservationsComponent);
+const BranchSafetyComponent = () =>
+  import('./branch-safety/branch-safety.component').then((m) => m.BranchSafetyComponent);
 const BranchDocumentsComponent = () =>
   import('./branch-documents/branch-documents.component').then((m) => m.BranchDocumentsComponent);
 const BranchReportsComponent = () =>
@@ -64,6 +66,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'compliance/annual',  redirectTo: 'compliance/yearly',      pathMatch: 'full' },
       { path: 'registrations',      loadComponent: BranchRegistrationsComponent },
       { path: 'audit-observations', loadComponent: BranchAuditObservationsComponent },
+      { path: 'safety',             loadComponent: BranchSafetyComponent },
       { path: 'documents',          loadComponent: BranchDocumentsComponent },
       { path: 'reports',            loadComponent: BranchReportsComponent },
       { path: 'notifications',      loadComponent: BranchNotificationsComponent },
