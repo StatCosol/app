@@ -19,8 +19,10 @@ const ClientSupportComponent = () =>
   import('./client-support.component').then((m) => m.ClientSupportComponent);
 const ClientBranchesComponent = () =>
   import('./client-branches.component').then((m) => m.ClientBranchesComponent);
-const BranchDetailComponent = () =>
-  import('./branches/branch-detail.component').then((m) => m.BranchDetailComponent);
+const ClientBranchDetailWorkspacePageComponent = () =>
+  import('./branches/client-branch-detail-workspace-page.component').then(
+    (m) => m.ClientBranchDetailWorkspacePageComponent,
+  );
 const ClientContractorsComponent = () =>
   import('./contractors/client-contractors.component').then((m) => m.ClientContractorsComponent);
 const ClientContractorsBranchComponent = () =>
@@ -80,7 +82,7 @@ export const CLIENT_ROUTES: Routes = [
     children: [
       { path: 'dashboard', loadComponent: ClientDashboardComponent },
       { path: 'branches', loadComponent: ClientBranchesComponent },
-      { path: 'branches/:id', loadComponent: BranchDetailComponent },
+      { path: 'branches/:branchId', loadComponent: ClientBranchDetailWorkspacePageComponent },
       { path: 'contractors', loadComponent: ClientContractorsComponent },
       { path: 'contractors/branch/:branchId', loadComponent: ClientContractorsBranchComponent },
       { path: 'compliance/status', loadComponent: ClientComplianceStatusComponent, runGuardsAndResolvers: 'always' },
