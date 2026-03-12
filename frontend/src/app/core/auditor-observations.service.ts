@@ -30,6 +30,9 @@ export class AuditorObservationsService {
     consequences?: string;
     complianceRequirements?: string;
     elaboration?: string;
+    clause?: string;
+    recommendation?: string;
+    risk?: string;
   }): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/v1/auditor/observations`, data);
   }
@@ -40,5 +43,24 @@ export class AuditorObservationsService {
 
   delete(id: string): Observable<any> {
     return this.http.delete(`${this.baseUrl}/api/v1/auditor/observations/${id}`);
+  }
+
+  verifyObservationClosure(id: string, remarks?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/v1/auditor/observations/${id}/verify`, {
+      remarks: remarks || undefined,
+    });
+  }
+
+  reopenObservation(id: string, remarks?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/v1/auditor/observations/${id}/reopen`, {
+      remarks: remarks || undefined,
+    });
+  }
+
+  exportAuditObservationsPdf(auditId: string): Observable<Blob> {
+    return this.http.get(
+      `${this.baseUrl}/api/v1/auditor/observations/audit/${auditId}/export`,
+      { responseType: 'blob' },
+    );
   }
 }

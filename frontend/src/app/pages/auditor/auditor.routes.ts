@@ -9,8 +9,10 @@ const AuditorAuditsComponent = () =>
   import('./auditor-audits.component').then((m) => m.AuditorAuditsComponent);
 const AuditorComplianceComponent = () =>
   import('./auditor-compliance.component').then((m) => m.AuditorComplianceComponent);
-const AuditorObservationsComponent = () =>
-  import('./observations/auditor-observations.component').then((m) => m.AuditorObservationsComponent);
+const AuditorObservationsVerificationPageComponent = () =>
+  import('./observations/auditor-observations-verification-page.component').then(
+    (m) => m.AuditorObservationsVerificationPageComponent,
+  );
 const AuditorAuditWorkspaceComponent = () =>
   import('./auditor-audit-workspace.component').then((m) => m.AuditorAuditWorkspaceComponent);
 const AuditorRegistersComponent = () =>
@@ -24,7 +26,7 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'dashboard', loadComponent: AuditorDashboardComponent },
       { path: 'audits', loadComponent: AuditorAuditsComponent },
       { path: 'audit-workspace', loadComponent: AuditorAuditWorkspaceComponent },
-      { path: 'observations', loadComponent: AuditorObservationsComponent },
+      { path: 'observations', loadComponent: AuditorObservationsVerificationPageComponent },
       { path: 'registers', loadComponent: AuditorRegistersComponent },
       { path: 'compliance', loadComponent: AuditorComplianceComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
