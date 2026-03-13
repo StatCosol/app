@@ -107,7 +107,10 @@ export class LegitxDashboardService {
     return { scope, kpis, charts, queues, meta };
   }
 
-  private parseScope(query: any, clientId?: string | null): LegitxDashboardScope {
+  private parseScope(
+    query: any,
+    clientId?: string | null,
+  ): LegitxDashboardScope {
     const now = new Date();
     const month = this.toInt(query.month, now.getMonth() + 1);
     const year = this.toInt(query.year, now.getFullYear());
@@ -122,7 +125,14 @@ export class LegitxDashboardService {
     const toggle = ['ALL', 'CRITICAL', 'PENDING'].includes(query.toggle)
       ? (query.toggle as LegitxToggle)
       : 'ALL';
-    return { month, year, branchId, contractorId, clientId: clientId ?? null, toggle };
+    return {
+      month,
+      year,
+      branchId,
+      contractorId,
+      clientId: clientId ?? null,
+      toggle,
+    };
   }
 
   private toInt(value: any, fallback: number): number {
@@ -204,7 +214,9 @@ export class LegitxDashboardService {
       branchFilter.push(`e.client_id = $${params.length}`);
     }
 
-    const whereBase = branchFilter.length ? `AND ${branchFilter.join(' AND ')}` : '';
+    const whereBase = branchFilter.length
+      ? `AND ${branchFilter.join(' AND ')}`
+      : '';
 
     // Derive HR snapshot from the employees table:
     //  - total / male / female / active: employees whose date_of_joining <= end-of-month and (date_of_exit IS NULL or date_of_exit >= start-of-month)
@@ -250,7 +262,9 @@ export class LegitxDashboardService {
       branchFilter.push(`e.client_id = $${params.length}`);
     }
 
-    const whereExtra = branchFilter.length ? `AND ${branchFilter.join(' AND ')}` : '';
+    const whereExtra = branchFilter.length
+      ? `AND ${branchFilter.join(' AND ')}`
+      : '';
 
     // Derive per-month stats from the employees table
     // For each of the 6 months, count active employees in that month,
@@ -277,11 +291,7 @@ export class LegitxDashboardService {
       joiners: number;
       left: number;
       absconded: number;
-    }>(
-      unionParts.join(' UNION ALL ') + ' ORDER BY year, month',
-      params,
-      [],
-    );
+    }>(unionParts.join(' UNION ALL ') + ' ORDER BY year, month', params, []);
 
     const labels: string[] = [];
     const active: number[] = [];
@@ -357,7 +367,9 @@ export class LegitxDashboardService {
       conditions.push(`contractor_user_id = $${params.length}`);
     }
 
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
 
     const rows = await this.safeMany<{ status: string; count: number }>(
       `SELECT status, COUNT(*)::int AS count
@@ -392,7 +404,11 @@ export class LegitxDashboardService {
     };
 
     const params: any[] = [scope.year, scope.month];
-    const whereRuns: string[] = [`status NOT IN ('CANCELLED')`, `period_year = $1`, `period_month = $2`];
+    const whereRuns: string[] = [
+      `status NOT IN ('CANCELLED')`,
+      `period_year = $1`,
+      `period_month = $2`,
+    ];
 
     if (scope.clientId) {
       params.push(scope.clientId);
@@ -466,7 +482,9 @@ export class LegitxDashboardService {
       compConditions.push(`bc.branch_id = $${compParams.length}`);
     }
 
-    const compWhere = compConditions.length ? `WHERE ${compConditions.join(' AND ')}` : '';
+    const compWhere = compConditions.length
+      ? `WHERE ${compConditions.join(' AND ')}`
+      : '';
 
     const row = await this.safeOne(
       `SELECT
@@ -500,7 +518,9 @@ export class LegitxDashboardService {
     const maxKey = months[0].key;
 
     const trendParams: any[] = [minKey, maxKey];
-    const trendConditions = ['(EXTRACT(YEAR FROM created_at)::int * 12 + EXTRACT(MONTH FROM created_at)::int) BETWEEN $1 AND $2'];
+    const trendConditions = [
+      '(EXTRACT(YEAR FROM created_at)::int * 12 + EXTRACT(MONTH FROM created_at)::int) BETWEEN $1 AND $2',
+    ];
 
     if (scope.clientId) {
       trendParams.push(scope.clientId);
@@ -599,11 +619,7 @@ export class LegitxDashboardService {
       done: number;
       pending: number;
       overdue: number;
-    }>(
-      mcdSql,
-      opsParams,
-      [],
-    );
+    }>(mcdSql, opsParams, []);
 
     if (rows.length) {
       return {
@@ -667,7 +683,9 @@ export class LegitxDashboardService {
     } else if (scope.branchId) {
       // Audits are at client level (no branch_id column); resolve clientId from the selected branch
       params.push(scope.branchId);
-      conditions.push(`a.client_id = (SELECT clientid FROM client_branches WHERE id = $${params.length} LIMIT 1)`);
+      conditions.push(
+        `a.client_id = (SELECT clientid FROM client_branches WHERE id = $${params.length} LIMIT 1)`,
+      );
     }
 
     const row = await this.safeOne(

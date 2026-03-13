@@ -1,38 +1,6 @@
 @use '../../shared/dashboard.scss' as dashboard;
 
-/* KPI tiles now use shared ui-stat-card; keep minimal alignment helpers */
-/* Keep KPI tiles aligned */
-.grid .block {
-  height: 100%;
-}
-
-/* Force dark background + white text for dashboard KPI cards (ui-stat-card) */
-:host ::ng-deep .dashboard-kpi ui-stat-card > div {
-  background: #0a2250 !important;
-  border-color: #0a2250 !important;
-  color: #fff !important;
-}
-
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-sm,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-3xl,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-gray-500,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-gray-900,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-info-600,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-success-600,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-warning-600,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-error-600,
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-gray-600 {
-  color: #fff !important;
-}
-
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .text-white\/90 {
-  color: #fff !important;
-}
-
-:host ::ng-deep .dashboard-kpi ui-stat-card > div .p-3 {
-  background: rgba(255,255,255,0.12) !important;
-  color: #fff !important;
-}
+/* KPI tiles now use branch-style shared classes */
 .banner {
   margin: 10px 0 14px;
   padding: 10px 12px;

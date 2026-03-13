@@ -3,13 +3,17 @@ import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Reports')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'reports/assignments', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssignmentReportController {
   constructor(private readonly ds: DataSource) {}
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Health' })
   @Get('health')
   health() {
     const sql = `

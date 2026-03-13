@@ -1,11 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, In, Repository, DataSource } from 'typeorm';
 import { ComplianceTask, TaskStatus } from './entities/compliance-task.entity';
+import { ComplianceMcdItem } from './entities/compliance-mcd-item.entity';
+import { DocumentReuploadRequest } from './entities/document-reupload-request.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { UserEntity } from '../users/entities/user.entity';
+import { CronLoggerService } from '../common/services/cron-logger.service';
 
 @Injectable()
 export class ComplianceCronService {
@@ -14,10 +17,16 @@ export class ComplianceCronService {
   constructor(
     @InjectRepository(ComplianceTask)
     private readonly tasks: Repository<ComplianceTask>,
+    @InjectRepository(ComplianceMcdItem)
+    private readonly mcdItems: Repository<ComplianceMcdItem>,
+    @InjectRepository(DocumentReuploadRequest)
+    private readonly reuploadReqRepo: Repository<DocumentReuploadRequest>,
     @InjectRepository(UserEntity)
     private readonly users: Repository<UserEntity>,
     private readonly notifications: NotificationsService,
     private readonly email: EmailService,
+    private readonly dataSource: DataSource,
+    private readonly cronLogger: CronLoggerService,
   ) {}
 
   private toDateOnly(d: Date): string {
@@ -27,67 +36,128 @@ export class ComplianceCronService {
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  private async findAdminUserId(): Promise<string | null> {
+    const admin = await this.users
+      .createQueryBuilder('u')
+      .innerJoin('u.role', 'r')
+      .where('r.code = :code', { code: 'ADMIN' })
+      .andWhere('u.isActive = true')
+      .andWhere('u.deletedAt IS NULL')
+      .orderBy('u.createdAt', 'ASC')
+      .getOne();
+    return admin?.id ?? null;
+  }
+
   @Cron('0 30 1 * * *')
   async markOverdueAndNotify() {
-    const today = this.toDateOnly(new Date());
+    const logId = await this.cronLogger.start(
+      'compliance:markOverdueAndNotify',
+    );
+    try {
+      const today = this.toDateOnly(new Date());
 
-    const due = await this.tasks
-      .createQueryBuilder('t')
-      .where('t.dueDate < :today', { today })
-      .andWhere('t.status IN (:...st)', {
-        st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
-      })
-      .getMany();
+      const due = await this.tasks
+        .createQueryBuilder('t')
+        .where('t.dueDate < :today', { today })
+        .andWhere('t.status IN (:...st)', {
+          st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
+        })
+        .getMany();
 
-    if (!due.length) {
-      return;
-    }
+      if (!due.length) {
+        return;
+      }
 
-    await this.tasks
-      .createQueryBuilder()
-      .update()
-      .set({ status: 'OVERDUE' as TaskStatus })
-      .where('dueDate < :today', { today })
-      .andWhere('status IN (:...st)', {
-        st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
-      })
-      .execute();
+      await this.tasks
+        .createQueryBuilder()
+        .update()
+        .set({ status: 'OVERDUE' as TaskStatus })
+        .where('dueDate < :today', { today })
+        .andWhere('status IN (:...st)', {
+          st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
+        })
+        .execute();
 
-    for (const t of due) {
-      // TODO: Implement notification ticket for CRM and contractor overdue tasks
-      // Existing email logic remains
-      const taskId = t.id;
-      const clientId = t.clientId;
-      const branchId = t.branchId;
-      if (t.assignedByUserId) {
-        const crm = await this.users.findOne({
-          where: { id: t.assignedByUserId },
-        });
-        if (crm?.email) {
-          await this.email.send(
-            crm.email,
-            `Task Overdue #${taskId}`,
-            'Compliance Task Overdue',
-            `Task #${taskId} is overdue as of ${today}. Please follow up with the contractor.`,
-          );
+      for (const t of due) {
+        const taskId = t.id;
+        const clientId = t.clientId;
+        const branchId = t.branchId;
+
+        // Notify CRM via notification ticket
+        if (t.assignedByUserId) {
+          try {
+            await this.notifications.createTicket(t.assignedByUserId, 'CRM', {
+              queryType: 'COMPLIANCE',
+              subject: `Task Overdue #${taskId}`,
+              message: `Compliance task #${taskId} is overdue as of ${today}. Please follow up with the contractor.`,
+              clientId: clientId ? String(clientId) : undefined,
+              branchId: branchId ? String(branchId) : undefined,
+            });
+          } catch (e) {
+            this.logger.warn(
+              `Failed to create overdue notification for CRM on task #${taskId}: ${e.message}`,
+            );
+          }
+        }
+
+        // Notify contractor via notification ticket
+        if (t.assignedToUserId) {
+          try {
+            await this.notifications.createTicket(
+              t.assignedToUserId,
+              'CONTRACTOR',
+              {
+                queryType: 'COMPLIANCE',
+                subject: `Task Overdue #${taskId}`,
+                message: `Compliance task #${taskId} is overdue. Please upload evidence and submit immediately.`,
+                clientId: clientId ? String(clientId) : undefined,
+                branchId: branchId ? String(branchId) : undefined,
+              },
+            );
+          } catch (e) {
+            this.logger.warn(
+              `Failed to create overdue notification for contractor on task #${taskId}: ${e.message}`,
+            );
+          }
+        }
+
+        // Existing email logic remains
+        if (t.assignedByUserId) {
+          const crm = await this.users.findOne({
+            where: { id: t.assignedByUserId },
+          });
+          if (crm?.email) {
+            await this.email.send(
+              crm.email,
+              `Task Overdue #${taskId}`,
+              'Compliance Task Overdue',
+              `Task #${taskId} is overdue as of ${today}. Please follow up with the contractor.`,
+            );
+          }
+        }
+        if (t.assignedToUserId) {
+          const contractor = await this.users.findOne({
+            where: { id: t.assignedToUserId },
+          });
+          if (contractor?.email) {
+            await this.email.send(
+              contractor.email,
+              `Task Overdue #${taskId}`,
+              'Compliance Task Overdue',
+              `Task #${taskId} is overdue. Please upload evidence and submit immediately.`,
+            );
+          }
         }
       }
-      if (t.assignedToUserId) {
-        const contractor = await this.users.findOne({
-          where: { id: t.assignedToUserId },
-        });
-        if (contractor?.email) {
-          await this.email.send(
-            contractor.email,
-            `Task Overdue #${taskId}`,
-            'Compliance Task Overdue',
-            `Task #${taskId} is overdue. Please upload evidence and submit immediately.`,
-          );
-        }
-      }
-    }
 
-    this.logger.log(`Marked overdue + notified for ${due.length} tasks`);
+      this.logger.log(`Marked overdue + notified for ${due.length} tasks`);
+      await this.cronLogger.succeed(logId, due.length);
+    } catch (err) {
+      await this.cronLogger.fail(logId, err);
+      this.logger.error(
+        `markOverdueAndNotify failed: ${(err as Error).message}`,
+      );
+    }
   }
 
   @Cron('0 0 1 * * *')
@@ -115,7 +185,25 @@ export class ComplianceCronService {
 
     for (const t of dueSoon) {
       if (!t.assignedToUserId) continue;
-      // TODO: Implement notification ticket for due soon contractor
+
+      try {
+        await this.notifications.createTicket(
+          t.assignedToUserId,
+          'CONTRACTOR',
+          {
+            queryType: 'COMPLIANCE',
+            subject: `Task Due Soon #${t.id}`,
+            message: `Compliance task #${t.id} is due on ${threeDaysAheadStr}. Please upload evidence and submit before the deadline.`,
+            clientId: t.clientId ? String(t.clientId) : undefined,
+            branchId: t.branchId ? String(t.branchId) : undefined,
+          },
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Failed to create due-soon notification for task #${t.id}: ${e.message}`,
+        );
+      }
+
       await this.tasks.update({ id: t.id }, { lastNotifiedAt: new Date() });
     }
 
@@ -131,15 +219,323 @@ export class ComplianceCronService {
     for (const t of dueToday) {
       const clientId = t.clientId;
       const branchId = t.branchId;
-      // TODO: Implement notification ticket for due today contractor and CRM
+
+      // Notify contractor
+      if (t.assignedToUserId) {
+        try {
+          await this.notifications.createTicket(
+            t.assignedToUserId,
+            'CONTRACTOR',
+            {
+              queryType: 'COMPLIANCE',
+              subject: `Task Due Today #${t.id}`,
+              message: `Compliance task #${t.id} is due today (${todayStr}). Please submit before end of day.`,
+              clientId: clientId ? String(clientId) : undefined,
+              branchId: branchId ? String(branchId) : undefined,
+            },
+          );
+        } catch (e) {
+          this.logger.warn(
+            `Failed to create due-today notification for contractor on task #${t.id}: ${e.message}`,
+          );
+        }
+      }
+
+      // Notify CRM
+      if (t.assignedByUserId) {
+        try {
+          await this.notifications.createTicket(t.assignedByUserId, 'CRM', {
+            queryType: 'COMPLIANCE',
+            subject: `Task Due Today #${t.id}`,
+            message: `Compliance task #${t.id} is due today (${todayStr}). Please follow up with the contractor.`,
+            clientId: clientId ? String(clientId) : undefined,
+            branchId: branchId ? String(branchId) : undefined,
+          });
+        } catch (e) {
+          this.logger.warn(
+            `Failed to create due-today notification for CRM on task #${t.id}: ${e.message}`,
+          );
+        }
+      }
     }
 
     // 3) Three days overdue -> escalate to ADMIN
-    // TODO: Implement admin escalation logic for overdue tasks
-    // Existing email logic remains
+    const overdueEscalation = await this.tasks
+      .createQueryBuilder('t')
+      .where('t.dueDate = :threeDaysAgo', { threeDaysAgo: threeDaysAgoStr })
+      .andWhere('t.status = :overdue', { overdue: 'OVERDUE' })
+      .getMany();
+
+    for (const t of overdueEscalation) {
+      try {
+        // Escalate to admin — use a system-level notification
+        const adminId = await this.findAdminUserId();
+        if (adminId) {
+          await this.notifications.createTicket(adminId, 'ADMIN', {
+            queryType: 'COMPLIANCE',
+            subject: `Escalation: Task Overdue 3+ Days #${t.id}`,
+            message: `Compliance task #${t.id} has been overdue for 3+ days (due ${t.dueDate}). Requires immediate admin attention.`,
+            clientId: t.clientId ? String(t.clientId) : undefined,
+            branchId: t.branchId ? String(t.branchId) : undefined,
+          });
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Failed to create escalation notification for task #${t.id}: ${e.message}`,
+        );
+      }
+    }
 
     this.logger.log(
       `SLA reminders processed: ${dueSoon.length} due-soon, ${dueToday.length} due-today tasks`,
     );
+  }
+
+  /* ═══════ Reupload Reminders (daily 09:30) ═══════ */
+
+  @Cron('0 30 9 * * *')
+  async sendReuploadReminders() {
+    const now = new Date();
+    const adminId = await this.findAdminUserId();
+
+    // OPEN requests older than 2 days → remind target + CRM
+    const openCutoff = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const openOld = await this.reuploadReqRepo.find({
+      where: { status: 'OPEN' as any, updatedAt: LessThan(openCutoff) } as any,
+      take: 200,
+      order: { updatedAt: 'ASC' },
+    });
+
+    for (const r of openOld) {
+      // Notify CRM
+      try {
+        await this.notifications.createTicket(
+          adminId || r.requestedByUserId,
+          'CRM',
+          {
+            queryType: 'COMPLIANCE',
+            subject: `Reminder: Reupload Pending — Doc #${r.documentId}`,
+            message: `Pending reupload (${r.targetRole}) for ${r.documentType || 'document'} since ${r.updatedAt?.toISOString().slice(0, 10)}.`,
+            clientId: r.clientId ? String(r.clientId) : undefined,
+          },
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Reupload reminder (CRM) failed for ${r.id}: ${e.message}`,
+        );
+      }
+
+      // Notify target user (contractor gets direct notification)
+      if (r.targetRole === 'CONTRACTOR' && r.contractorUserId) {
+        try {
+          await this.notifications.createTicket(
+            r.contractorUserId,
+            'CONTRACTOR',
+            {
+              queryType: 'COMPLIANCE',
+              subject: `Reminder: Reupload Pending — Doc #${r.documentId}`,
+              message: `You have a pending reupload for ${r.documentType || 'document'}. Please upload and submit before the deadline.`,
+              clientId: r.clientId ? String(r.clientId) : undefined,
+            },
+          );
+        } catch (e) {
+          this.logger.warn(
+            `Reupload reminder (CONTRACTOR) failed for ${r.id}: ${(e as Error)?.message}`,
+          );
+        }
+      }
+    }
+
+    // SUBMITTED requests older than 1 day → remind auditor + CRM
+    const submittedCutoff = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+    const submittedOld = await this.reuploadReqRepo.find({
+      where: {
+        status: 'SUBMITTED' as any,
+        updatedAt: LessThan(submittedCutoff),
+      } as any,
+      take: 200,
+      order: { updatedAt: 'ASC' },
+    });
+
+    for (const r of submittedOld) {
+      // Notify CRM
+      try {
+        await this.notifications.createTicket(
+          adminId || r.requestedByUserId,
+          'CRM',
+          {
+            queryType: 'COMPLIANCE',
+            subject: `Reminder: Verification Pending — Doc #${r.documentId}`,
+            message: `Reupload submitted for ${r.documentType || 'document'} (${r.targetRole}). Please ensure auditor verifies.`,
+            clientId: r.clientId ? String(r.clientId) : undefined,
+          },
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Reupload verification reminder (CRM) failed for ${r.id}: ${e.message}`,
+        );
+      }
+
+      // Notify auditor who requested it
+      if (r.requestedByUserId) {
+        try {
+          await this.notifications.createTicket(
+            r.requestedByUserId,
+            'AUDITOR',
+            {
+              queryType: 'COMPLIANCE',
+              subject: `Reminder: Verification Pending — Doc #${r.documentId}`,
+              message: `Reupload submitted for ${r.documentType || 'document'} — please verify.`,
+              clientId: r.clientId ? String(r.clientId) : undefined,
+            },
+          );
+        } catch {
+          /* non-blocking */
+        }
+      }
+    }
+
+    this.logger.log(
+      `Reupload reminders sent: OPEN=${openOld.length}, SUBMITTED=${submittedOld.length}`,
+    );
+  }
+
+  /* ═══════ MCD Reminders (daily 10:00) ═══════ */
+
+  @Cron('0 0 10 * * *')
+  async sendMcdReminders() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth() + 1;
+    const dayOfMonth = now.getUTCDate();
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const daysLeft = daysInMonth - dayOfMonth;
+
+    // Only send reminders when <= 5 days left in the month
+    if (daysLeft > 5) return;
+
+    try {
+      // Find branches with PENDING MCD items for this month
+      const pendingBranches: any[] = await this.dataSource.query(
+        `SELECT
+           ct.branch_id   AS "branchId",
+           b.branchname   AS "branchName",
+           ct.client_id   AS "clientId",
+           COUNT(mci.id)  AS "pendingCount",
+           cac.assigned_to_user_id AS "crmUserId"
+         FROM compliance_tasks ct
+         JOIN compliance_mcd_items mci ON mci.task_id = ct.id
+         JOIN client_branches b ON b.id = ct.branch_id
+         LEFT JOIN client_assignments_current cac
+           ON cac.client_id = ct.client_id
+           AND cac.assignment_type = 'CRM'
+         WHERE ct.period_year = $1
+           AND ct.period_month = $2
+           AND mci.status IN ('PENDING', 'RETURNED')
+         GROUP BY ct.branch_id, b.branchname, ct.client_id, cac.assigned_to_user_id`,
+        [year, month],
+      );
+
+      for (const row of pendingBranches) {
+        if (!row.crmUserId) continue;
+
+        try {
+          await this.notifications.createTicket(row.crmUserId, 'CRM', {
+            queryType: 'COMPLIANCE',
+            subject: `MCD Reminder: ${row.branchName}`,
+            message: `Branch "${row.branchName}" has ${row.pendingCount} pending MCD items for ${year}-${String(month).padStart(2, '0')}. ${daysLeft} days left in the month.`,
+            clientId: String(row.clientId),
+            branchId: String(row.branchId),
+          });
+        } catch (e) {
+          this.logger.warn(
+            `MCD reminder failed for branch ${row.branchId}: ${e.message}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `MCD reminders sent for ${pendingBranches.length} branches`,
+      );
+    } catch (e) {
+      this.logger.error(`MCD reminders cron error: ${e.message}`);
+    }
+  }
+
+  /* ═══════ MCD Escalation (1st of month at 08:00) ═══════ */
+
+  @Cron('0 0 8 1 * *')
+  async escalateOverdueMcd() {
+    const now = new Date();
+    // Escalate previous month's incomplete MCD
+    let prevMonth = now.getUTCMonth(); // 0-based, so this is previous month (1-based)
+    let prevYear = now.getUTCFullYear();
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+
+    try {
+      const adminId = await this.findAdminUserId();
+      if (!adminId) return;
+
+      const incompleteBranches: any[] = await this.dataSource.query(
+        `SELECT
+           ct.branch_id   AS "branchId",
+           b.branchname   AS "branchName",
+           ct.client_id   AS "clientId",
+           COUNT(mci.id)  AS "pendingCount",
+           cac.assigned_to_user_id AS "crmUserId"
+         FROM compliance_tasks ct
+         JOIN compliance_mcd_items mci ON mci.task_id = ct.id
+         JOIN client_branches b ON b.id = ct.branch_id
+         LEFT JOIN client_assignments_current cac
+           ON cac.client_id = ct.client_id
+           AND cac.assignment_type = 'CRM'
+         WHERE ct.period_year = $1
+           AND ct.period_month = $2
+           AND mci.status IN ('PENDING', 'RETURNED', 'REJECTED')
+         GROUP BY ct.branch_id, b.branchname, ct.client_id, cac.assigned_to_user_id`,
+        [prevYear, prevMonth],
+      );
+
+      for (const row of incompleteBranches) {
+        // Escalate to admin
+        try {
+          await this.notifications.createTicket(adminId, 'ADMIN', {
+            queryType: 'COMPLIANCE',
+            subject: `MCD Escalation: ${row.branchName} (${prevYear}-${String(prevMonth).padStart(2, '0')})`,
+            message: `Branch "${row.branchName}" has ${row.pendingCount} incomplete MCD items from last month. Requires admin intervention.`,
+            clientId: String(row.clientId),
+            branchId: String(row.branchId),
+          });
+        } catch (e) {
+          this.logger.warn(
+            `MCD escalation failed for branch ${row.branchId}: ${e.message}`,
+          );
+        }
+
+        // Also notify CRM
+        if (row.crmUserId) {
+          try {
+            await this.notifications.createTicket(row.crmUserId, 'CRM', {
+              queryType: 'COMPLIANCE',
+              subject: `MCD Overdue Escalation: ${row.branchName}`,
+              message: `Branch "${row.branchName}" has ${row.pendingCount} incomplete MCD items from ${prevYear}-${String(prevMonth).padStart(2, '0')}. This has been escalated to admin.`,
+              clientId: String(row.clientId),
+              branchId: String(row.branchId),
+            });
+          } catch {
+            /* non-blocking */
+          }
+        }
+      }
+
+      this.logger.log(
+        `MCD escalation: ${incompleteBranches.length} branches escalated`,
+      );
+    } catch (e) {
+      this.logger.error(`MCD escalation cron error: ${e.message}`);
+    }
   }
 }

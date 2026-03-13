@@ -105,10 +105,10 @@ filtered_clients AS (
     )
 ),
 filtered_branches AS (
-  SELECT b.id, b.client_id
-  FROM branches b
-  JOIN filtered_clients fc ON fc.id = b.client_id
-  WHERE b.is_active = TRUE
+  SELECT b.id, b.clientid AS client_id
+  FROM client_branches b
+  JOIN filtered_clients fc ON fc.id = b.clientid
+  WHERE b.isactive = TRUE AND b.isdeleted = FALSE
 ),
 overdue_audits AS (
   SELECT COUNT(*) AS cnt
@@ -133,8 +133,9 @@ unread_notifs AS (
   SELECT COUNT(*) AS cnt
   FROM notifications n
   JOIN filtered_clients fc ON fc.id = n.client_id
-  WHERE n.to_role = 'ADMIN'
-    AND n.status = 'UNREAD'
+  WHERE n.assigned_to_role = 'ADMIN'
+    AND n.read_at IS NULL
+    AND n.status IN ('OPEN','IN_PROGRESS')
     AND ($3::date IS NULL OR n.created_at::date >= $3)
     AND ($4::date IS NULL OR n.created_at::date <= $4)
 ),
@@ -292,16 +293,35 @@ assignment_escalations AS (
     NULL::uuid AS branch_id,
     'ASSIGNMENT'::text AS issue_type,
     'ROTATION_OVERDUE'::text AS reason,
-    ca.assignment_type AS owner_role,
+    'CRM' AS owner_role,
     u.name AS owner_name,
-    (CURRENT_DATE - ca.rotation_due_on) AS days_delayed,
+    (CURRENT_DATE - ca.crm_assigned_to) AS days_delayed,
     COALESCE(ca.updated_at, ca.created_at) AS last_updated_at,
     ca.id::text AS ref_id
   FROM client_assignments ca
   JOIN filtered_clients c ON c.id = ca.client_id
-  JOIN users u ON u.id = ca.assigned_user_id
+  JOIN users u ON u.id = ca.crm_user_id
   WHERE ca.status = 'ACTIVE'
-    AND ca.rotation_due_on < CURRENT_DATE
+    AND ca.crm_assigned_to IS NOT NULL
+    AND ca.crm_assigned_to < CURRENT_DATE
+  UNION ALL
+  SELECT
+    c.id AS client_id,
+    c.name AS client_name,
+    NULL::uuid AS branch_id,
+    'ASSIGNMENT'::text AS issue_type,
+    'ROTATION_OVERDUE'::text AS reason,
+    'AUDITOR' AS owner_role,
+    u.name AS owner_name,
+    (CURRENT_DATE - ca.auditor_assigned_to) AS days_delayed,
+    COALESCE(ca.updated_at, ca.created_at) AS last_updated_at,
+    ca.id::text AS ref_id
+  FROM client_assignments ca
+  JOIN filtered_clients c ON c.id = ca.client_id
+  JOIN users u ON u.id = ca.auditor_user_id
+  WHERE ca.status = 'ACTIVE'
+    AND ca.auditor_assigned_to IS NOT NULL
+    AND ca.auditor_assigned_to < CURRENT_DATE
 )
 SELECT *
 FROM (
@@ -419,19 +439,36 @@ active_assignments AS (
   SELECT
     ca.id,
     ca.client_id,
-    ca.assignment_type,
-    ca.assigned_user_id,
+    'CRM'::text AS assignment_type,
+    ca.crm_user_id AS assigned_user_id,
     u.name AS assigned_to,
-    ca.assigned_on,
-    ca.rotation_due_on,
+    ca.crm_assigned_from AS assigned_on,
+    ca.crm_assigned_to AS rotation_due_on,
     CASE
-      WHEN ca.rotation_due_on < CURRENT_DATE THEN 'OVERDUE_ROTATION'
+      WHEN ca.crm_assigned_to IS NOT NULL AND ca.crm_assigned_to < CURRENT_DATE THEN 'OVERDUE_ROTATION'
       ELSE 'ACTIVE'
-    END AS status
+    END AS computed_status
   FROM client_assignments ca
-  JOIN users u ON u.id = ca.assigned_user_id
+  JOIN users u ON u.id = ca.crm_user_id
   JOIN filtered_clients c ON c.id = ca.client_id
-  WHERE ca.status = 'ACTIVE'
+  WHERE ca.status = 'ACTIVE' AND ca.crm_user_id IS NOT NULL
+  UNION ALL
+  SELECT
+    ca.id,
+    ca.client_id,
+    'AUDITOR'::text AS assignment_type,
+    ca.auditor_user_id AS assigned_user_id,
+    u.name AS assigned_to,
+    ca.auditor_assigned_from AS assigned_on,
+    ca.auditor_assigned_to AS rotation_due_on,
+    CASE
+      WHEN ca.auditor_assigned_to IS NOT NULL AND ca.auditor_assigned_to < CURRENT_DATE THEN 'OVERDUE_ROTATION'
+      ELSE 'ACTIVE'
+    END AS computed_status
+  FROM client_assignments ca
+  JOIN users u ON u.id = ca.auditor_user_id
+  JOIN filtered_clients c ON c.id = ca.client_id
+  WHERE ca.status = 'ACTIVE' AND ca.auditor_user_id IS NOT NULL
 )
 SELECT
   aa.id AS assignment_id,
@@ -442,10 +479,10 @@ SELECT
   aa.assigned_on,
   aa.rotation_due_on,
   (CURRENT_DATE - aa.rotation_due_on) AS days_overdue,
-  aa.status
+  aa.computed_status AS status
 FROM active_assignments aa
 JOIN filtered_clients c ON c.id = aa.client_id
-WHERE aa.status <> 'ACTIVE'
+WHERE aa.computed_status <> 'ACTIVE'
 ORDER BY days_overdue DESC
 LIMIT 200;
 `;
@@ -459,7 +496,7 @@ SELECT
   (SELECT COUNT(*) 
    FROM users 
    WHERE is_active = TRUE 
-     AND last_login_at < (now() - interval '15 days')
+     AND updated_at < (now() - interval '15 days')
   ) AS inactive_users_15d,
   
   (SELECT COUNT(*)
@@ -486,8 +523,9 @@ SELECT
   
   (SELECT COUNT(*)
    FROM notifications n
-   WHERE n.context_type = 'SYSTEM'
-     AND n.status = 'UNREAD'
+   WHERE n.query_type = 'SYSTEM'
+     AND n.read_at IS NULL
+     AND n.status IN ('OPEN','IN_PROGRESS')
      AND n.created_at >= (now() - interval '7 days')
   ) AS failed_notifications_7d;
 `;

@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS ai_configurations (
 CREATE TABLE IF NOT EXISTS ai_risk_assessments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES clients(id),
-  branch_id UUID REFERENCES branches(id),                 -- NULL = client-level
+  branch_id UUID REFERENCES client_branches(id),                 -- NULL = client-level
   assessment_type VARCHAR(50) NOT NULL DEFAULT 'COMPLIANCE', -- COMPLIANCE | PAYROLL | CONTRACTOR | AUDIT
   
   -- Scoring
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS ai_audit_observations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   audit_id UUID REFERENCES audits(id),
   client_id UUID NOT NULL REFERENCES clients(id),
-  branch_id UUID REFERENCES branches(id),
+  branch_id UUID REFERENCES client_branches(id),
   
   -- Input
   finding_type VARCHAR(100),                              -- PF_SHORT_REMITTANCE, ESI_DELAY, etc
@@ -108,7 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_obs_status ON ai_audit_observations(status);
 CREATE TABLE IF NOT EXISTS ai_payroll_anomalies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES clients(id),
-  branch_id UUID REFERENCES branches(id),
+  branch_id UUID REFERENCES client_branches(id),
   employee_id UUID,
   payroll_run_id UUID,
   
@@ -136,7 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_anomaly_status ON ai_payroll_anomalies(status);
 CREATE TABLE IF NOT EXISTS ai_document_analyses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES clients(id),
-  branch_id UUID REFERENCES branches(id),
+  branch_id UUID REFERENCES client_branches(id),
   document_type VARCHAR(100),                              -- PF_CHALLAN, ESI_CONTRIBUTION, LICENSE, INSURANCE
   file_name VARCHAR(500),
   file_url TEXT,
@@ -168,7 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_doc_analysis_type ON ai_document_analyses(documen
 CREATE TABLE IF NOT EXISTS ai_insights (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES clients(id),
-  branch_id UUID REFERENCES branches(id),
+  branch_id UUID REFERENCES client_branches(id),
   
   insight_type VARCHAR(100) NOT NULL,                      -- COMPLIANCE_PREDICTION, CONTRACTOR_RISK, PAYROLL_TREND, INSPECTION_ALERT
   category VARCHAR(50) DEFAULT 'GENERAL',                  -- COMPLIANCE | PAYROLL | AUDIT | CONTRACTOR | MCD

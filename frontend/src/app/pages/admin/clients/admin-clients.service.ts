@@ -36,9 +36,10 @@ export interface Branch {
   // Total headcount (can be derived from employeeCount + contractorCount)
   headcount?: number;
 
-  // Branch user auto-creation fields
-  branchUserName?: string;
-  branchUserEmail?: string;
+  // Branch desk user fields (required for new branches)
+  branchUserName: string;
+  branchUserEmail: string;
+  branchUserMobile: string;
   branchUserPassword?: string;
 }
 
@@ -167,6 +168,16 @@ export class AdminClientsService {
     });
   }
 
+  // Update a user's details (name, email, mobile)
+  updateUser(userId: string, payload: { name?: string; email?: string; mobile?: string }): Observable<any> {
+    return this.http.put(`${this.apiUrl}/users/${userId}`, payload);
+  }
+
+  // Admin-triggered password reset — returns { newPassword }
+  resetUserPassword(userId: string): Observable<{ newPassword: string }> {
+    return this.http.post<{ newPassword: string }>(`${this.apiUrl}/users/${userId}/reset-password`, {});
+  }
+
   // All active CONTRACTOR-role users for a specific client (dropdown options)
   getContractorUsers(clientId: string): Observable<ContractorOption[]> {
     return this.http.get<ContractorOption[]>(`${this.apiUrl}/users`, {
@@ -212,5 +223,16 @@ export class AdminClientsService {
 
   recomputeBranchCompliances(branchId: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/branches/${branchId}/compliances/recompute`, {});
+  }
+
+  // ── Logo upload ──────────────────────────────────────────
+  uploadLogo(clientId: string, file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post(`${this.apiUrl}/clients/${clientId}/logo`, fd);
+  }
+
+  uploadSvgCode(clientId: string, svgCode: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/clients/${clientId}/logo-svg`, { svgCode });
   }
 }

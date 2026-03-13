@@ -9,7 +9,7 @@ export const roleGuard = (roles: string[]): CanActivateFn => {
 
     // If not logged in, redirect to appropriate login page
     if (!auth.isLoggedIn || !auth.isLoggedIn()) {
-      // Employee routes or current ESS URL → ESS login; everything else → main login
+      // Employee routes or current ESS URL -> ESS login; everything else -> main login
       if (roles.includes('EMPLOYEE') || window.location.pathname.startsWith('/ess/')) {
         return router.parseUrl('/ess/login');
       }
@@ -18,11 +18,14 @@ export const roleGuard = (roles: string[]): CanActivateFn => {
 
     const role = auth.getRoleCode();
 
-    // If role not allowed, redirect
+    // If role not allowed, redirect to the correct dashboard for the user's actual role
     if (!roles.includes(role)) {
-      if (role === 'EMPLOYEE') {
-        return router.parseUrl('/ess/login');
+      // Use the centralized redirect map from AuthService
+      const redirectPath = auth.getRoleRedirectPath(role);
+      if (redirectPath) {
+        return router.parseUrl(redirectPath);
       }
+      // Unknown role — go to login
       return router.parseUrl('/login');
     }
 

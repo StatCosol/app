@@ -32,13 +32,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // If user is already authenticated, redirect to their dashboard
     if (this.auth.isLoggedIn()) {
-      const role = this.auth.getRoleCode();
-      const redirects: Record<string, string> = {
-        ADMIN: '/admin', CEO: '/ceo', CCO: '/cco', CRM: '/crm',
-        AUDITOR: '/auditor', CLIENT: this.auth.isBranchUser() ? '/branch' : '/client',
-        CONTRACTOR: '/contractor', PAYROLL: '/payroll', EMPLOYEE: '/ess',
-      };
-      this.router.navigateByUrl(redirects[role] || '/login');
+      this.redirectByRole();
       return;
     }
 
@@ -65,21 +59,15 @@ export class LoginComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: () => {
         this.isLoading = false;
-        // Route based on role
-          const role = this.auth.getRoleCode();
-          const roleRedirects: Record<string, string> = {
-            ADMIN: '/admin',
-            CEO: '/ceo',
-            CCO: '/cco',
-            CRM: '/crm',
-            AUDITOR: '/auditor',
-            CLIENT: this.auth.isBranchUser() ? '/branch' : '/client',
-            CONTRACTOR: '/contractor',
-            PAYROLL: '/payroll',
-            EMPLOYEE: '/ess',
-          };
 
-          this.router.navigateByUrl(roleRedirects[role] || '/login');
+        this.auth.fetchMe().subscribe({
+          next: () => {
+            this.redirectByRole();
+          },
+          error: () => {
+            this.redirectByRole();
+          }
+        });
       },
       error: (e) => {
         this.isLoading = false;
@@ -91,6 +79,25 @@ export class LoginComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  /**
+   * Single redirect method used by both ngOnInit (already logged in)
+   * and submit success. Uses the centralized getRoleRedirectPath() from AuthService.
+   */
+  private redirectByRole(): void {
+    const role = this.auth.getRoleCode();
+    const redirectPath = this.auth.getRoleRedirectPath(role);
+
+    if (!redirectPath) {
+      // Unknown / invalid role — show error and logout
+      this.error = `Unrecognized role "${role}". Please contact your administrator.`;
+      this.auth.logoutOnce('invalid role');
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.router.navigateByUrl(redirectPath);
   }
 
   ngOnDestroy(): void {
