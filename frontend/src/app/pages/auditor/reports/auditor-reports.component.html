@@ -1,0 +1,120 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Audit Reports"
+    description="Review, generate, and export audit reports"
+    icon="document-report">
+  </ui-page-header>
+
+  <!-- Loading -->
+  <ui-loading-spinner *ngIf="loading" text="Loading reports..."></ui-loading-spinner>
+
+  <ng-container *ngIf="!loading">
+    <!-- Filter bar -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="relative w-56">
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="applyFilter()"
+          placeholder="Search audits..."
+          class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+        <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <ui-form-select
+        label="Status"
+        [options]="statusOptions"
+        [(ngModel)]="statusFilter"
+        (ngModelChange)="onStatusFilterChange($event)"
+        class="w-48">
+      </ui-form-select>
+      <button (click)="exportAll()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export All
+      </button>
+      <div class="text-sm text-gray-500">
+        {{ filteredReports.length }} report{{ filteredReports.length !== 1 ? 's' : '' }}
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="text-xs text-gray-500 font-medium uppercase">Total</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ reports.length }}</div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="text-xs text-amber-600 font-medium uppercase">Pending</div>
+        <div class="text-2xl font-bold text-amber-700 mt-1">{{ countByStatus('PENDING_SUBMISSION') }}</div>
+      </div>
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div class="text-xs text-blue-600 font-medium uppercase">Submitted</div>
+        <div class="text-2xl font-bold text-blue-700 mt-1">{{ countByStatus('SUBMITTED') }}</div>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+        <div class="text-xs text-green-600 font-medium uppercase">Approved</div>
+        <div class="text-2xl font-bold text-green-700 mt-1">{{ countByStatus('APPROVED') }}</div>
+      </div>
+    </div>
+
+    <!-- Reports Table -->
+    <div class="card" *ngIf="filteredReports.length > 0">
+      <ui-data-table [columns]="columns" [data]="filteredReports">
+        <ng-template uiTableCell="auditName" let-row>
+          <div class="font-medium text-gray-900">{{ row.auditName || 'Audit' }}</div>
+          <div class="text-xs text-gray-500">{{ row.auditId | slice:0:8 }}</div>
+        </ng-template>
+        <ng-template uiTableCell="clientName" let-row>
+          {{ row.clientName || '—' }}
+        </ng-template>
+        <ng-template uiTableCell="branchName" let-row>
+          {{ row.branchName || '—' }}
+        </ng-template>
+        <ng-template uiTableCell="dueDate" let-row>
+          <span [class.text-red-600]="isPastDue(row.dueDate)">
+            {{ row.dueDate | date:'mediumDate' }}
+          </span>
+        </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex items-center gap-2 justify-center">
+            <ui-button
+              variant="secondary"
+              size="sm"
+              [loading]="isExporting(row.auditId)"
+              [disabled]="isExporting(row.auditId)"
+              (clicked)="exportPdf(row.auditId)">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              PDF
+            </ui-button>
+            <ui-button
+              variant="secondary"
+              size="sm"
+              [routerLink]="['/auditor/observations']"
+              [queryParams]="{ auditId: row.auditId }">
+              View
+            </ui-button>
+            <ui-button
+              variant="primary"
+              size="sm"
+              [routerLink]="['/auditor/reports', row.auditId, 'builder']">
+              Builder
+            </ui-button>
+          </div>
+        </ng-template>
+      </ui-data-table>
+    </div>
+
+    <ui-empty-state
+      *ngIf="filteredReports.length === 0"
+      title="No reports found"
+      [description]="statusFilter ? 'No reports match this filter. Try changing the status filter.' : 'Completed audits and their reports will appear here.'"
+      icon="document">
+    </ui-empty-state>
+  </ng-container>
+</div>

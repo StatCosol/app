@@ -30,6 +30,7 @@ import { BranchAccessService } from '../auth/branch-access.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { CreateBranchRegistrationDto } from './dto/create-branch-registration.dto';
 import { UpdateBranchRegistrationDto } from './dto/update-branch-registration.dto';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /* ── File upload config ───────────────────── */
 
@@ -85,13 +86,12 @@ const registrationStorage = diskStorage({
 const registrationUploadOptions = {
   storage: registrationStorage,
   fileFilter: (req: any, file: any, cb: any) => {
-    const allowed = [
-      'application/pdf',
-      'image/png',
-      'image/jpeg',
-    ];
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
     if (!allowed.includes(file.mimetype)) {
-      return cb(new BadRequestException('File type not allowed (PDF/PNG/JPEG only)'), false);
+      return cb(
+        new BadRequestException('File type not allowed (PDF/PNG/JPEG only)'),
+        false,
+      );
     }
     cb(null, true);
   },
@@ -102,6 +102,8 @@ const registrationUploadOptions = {
    CLIENT: Branch Document Endpoints
    ============================================================ */
 
+@ApiTags('Branches')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'client/branches', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
@@ -113,6 +115,7 @@ export class ClientBranchDocumentsController {
   ) {}
 
   /** GET /api/client/branches/:id/documents */
+  @ApiOperation({ summary: 'List Docs' })
   @Get(':id/documents')
   async listDocs(
     @Param('id', ParseUUIDPipe) id: string,
@@ -132,6 +135,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** POST /api/client/branches/:id/documents/upload — branch users only */
+  @ApiOperation({ summary: 'Upload Doc' })
   @Post(':id/documents/upload')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async uploadDoc(
@@ -156,6 +160,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** PUT /api/client/branches/documents/:docId/reupload — branch users only */
+  @ApiOperation({ summary: 'Reupload Doc' })
   @Put('documents/:docId/reupload')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async reuploadDoc(
@@ -175,6 +180,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** GET /api/client/branches/:id/mcd?year=2026&month=1 — single month */
+  @ApiOperation({ summary: 'Mcd Schedule' })
   @Get(':id/mcd')
   async mcdSchedule(
     @Param('id', ParseUUIDPipe) id: string,
@@ -190,6 +196,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** GET /api/v1/client/branches/:id/registrations — branch registrations */
+  @ApiOperation({ summary: 'List Registrations' })
   @Get(':id/registrations')
   async listRegistrations(
     @Param('id', ParseUUIDPipe) id: string,
@@ -200,6 +207,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** GET /api/v1/client/branches/:id/registration-summary — summary + compliance score */
+  @ApiOperation({ summary: 'Registration Summary' })
   @Get(':id/registration-summary')
   async registrationSummary(
     @Param('id', ParseUUIDPipe) id: string,
@@ -210,12 +218,14 @@ export class ClientBranchDocumentsController {
   }
 
   /** GET /api/v1/client/branches/registration-summary — client-wide summary */
+  @ApiOperation({ summary: 'Client Registration Summary' })
   @Get('registration-summary')
   async clientRegistrationSummary(@Req() req: any) {
     return this.regSvc.getRegistrationSummary(req.user.clientId);
   }
 
   /** GET /api/v1/client/branches/registration-alerts — in-app alerts */
+  @ApiOperation({ summary: 'Registration Alerts' })
   @Get('registration-alerts')
   async registrationAlerts(
     @Req() req: any,
@@ -225,6 +235,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** GET /api/v1/client/branches/:id/audit-observations — observations for branch */
+  @ApiOperation({ summary: 'List Audit Observations' })
   @Get(':id/audit-observations')
   async listAuditObservations(
     @Param('id', ParseUUIDPipe) id: string,
@@ -235,6 +246,7 @@ export class ClientBranchDocumentsController {
   }
 
   /** GET /api/client/branches/:id/mcd/overview — last 6 months */
+  @ApiOperation({ summary: 'Mcd Overview' })
   @Get(':id/mcd/overview')
   async mcdOverview(
     @Param('id', ParseUUIDPipe) id: string,
@@ -264,6 +276,7 @@ export class CrmBranchDocumentsController {
   ) {}
 
   /** GET /api/crm/branch-documents?branchId=...&category=...&status=... */
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(
     @Req() req: any,
@@ -294,6 +307,7 @@ export class CrmBranchDocumentsController {
   }
 
   /** PUT /api/crm/branch-documents/:docId/review */
+  @ApiOperation({ summary: 'Review' })
   @Put(':docId/review')
   async review(
     @Param('docId', ParseUUIDPipe) docId: string,
@@ -327,6 +341,7 @@ export class CrmBranchRegistrationsController {
   ) {}
 
   /** GET /api/v1/crm/branch-registrations?branchId=...&clientId=... */
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(
     @Req() req: any,
@@ -347,6 +362,7 @@ export class CrmBranchRegistrationsController {
   }
 
   /** POST /api/v1/crm/branch-registrations */
+  @ApiOperation({ summary: 'Create' })
   @Post()
   async create(@Body() dto: CreateBranchRegistrationDto, @Req() req: any) {
     const clientId = req.user.clientId || dto.branchId; // CRM uses query context
@@ -356,6 +372,7 @@ export class CrmBranchRegistrationsController {
   }
 
   /** POST /api/v1/crm/branch-registrations/for-client/:clientId */
+  @ApiOperation({ summary: 'Create For Client' })
   @Post('for-client/:clientId')
   async createForClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -373,6 +390,7 @@ export class CrmBranchRegistrationsController {
   }
 
   /** PATCH /api/v1/crm/branch-registrations/:id/for-client/:clientId */
+  @ApiOperation({ summary: 'Update' })
   @Patch(':id/for-client/:clientId')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -391,6 +409,7 @@ export class CrmBranchRegistrationsController {
   }
 
   /** DELETE /api/v1/crm/branch-registrations/:id/for-client/:clientId */
+  @ApiOperation({ summary: 'Remove' })
   @Delete(':id/for-client/:clientId')
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
@@ -408,6 +427,7 @@ export class CrmBranchRegistrationsController {
   }
 
   /** POST /api/v1/crm/branch-registrations/:id/for-client/:clientId/upload */
+  @ApiOperation({ summary: 'Upload Registration File' })
   @Post(':id/for-client/:clientId/upload')
   @UseInterceptors(FileInterceptor('file', registrationUploadOptions))
   async uploadRegistrationFile(
@@ -426,10 +446,17 @@ export class CrmBranchRegistrationsController {
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
     const uploadField = field === 'renewal' ? 'renewal' : 'document';
-    return this.regSvc.uploadFile(id, file, clientId, req.user.userId, uploadField as any);
+    return this.regSvc.uploadFile(
+      id,
+      file,
+      clientId,
+      req.user.userId,
+      uploadField as any,
+    );
   }
 
   /** GET /api/v1/crm/branch-registrations/summary/:clientId?branchId=... */
+  @ApiOperation({ summary: 'Summary' })
   @Get('summary/:clientId')
   async summary(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -447,6 +474,7 @@ export class CrmBranchRegistrationsController {
   }
 
   /** GET /api/v1/crm/branch-registrations/alerts/:clientId?branchId=... */
+  @ApiOperation({ summary: 'Alerts' })
   @Get('alerts/:clientId')
   async alerts(
     @Param('clientId', ParseUUIDPipe) clientId: string,

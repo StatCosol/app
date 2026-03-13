@@ -1,355 +1,154 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+﻿import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { Subject, of } from 'rxjs';
+import { catchError, finalize, takeUntil } from 'rxjs/operators';
+
 import {
-  PayrollSetupApiService,
-  PayrollClientSetup,
-  PayrollComponent as PComp,
   ComponentRule,
+  PayrollClientSetup,
+  PayrollComponent,
+  PayrollSetupApiService,
 } from './payroll-setup-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
-import {
-  PageHeaderComponent,
-  DataTableComponent,
-  TableColumn,
-  TableCellDirective,
-  LoadingSpinnerComponent,
-  EmptyStateComponent,
-  StatusBadgeComponent,
-  ActionButtonComponent,
-  ModalComponent,
-  FormInputComponent,
-  FormSelectComponent,
-} from '../../shared/ui';
 import { ToastService } from '../../shared/toast/toast.service';
+
+type SetupTab =
+  | 'statutory'
+  | 'pay-cycle'
+  | 'leave-policy'
+  | 'attendance'
+  | 'deductions';
+
+interface PayrollSetupViewModel extends PayrollClientSetup {
+  updatedAt?: string;
+}
+
+interface LocalSetupAddon {
+  effectiveFrom: string;
+  cycleStartDay: number;
+  payoutDay: number;
+  lockDay: number;
+  arrearMode: 'CURRENT' | 'NEXT';
+
+  leaveAccrualPerMonth: number;
+  maxCarryForward: number;
+  allowCarryForward: boolean;
+  lopMode: 'PRORATED' | 'FULL_DAY';
+
+  attendanceSource: 'MANUAL' | 'BIOMETRIC' | 'INTEGRATION';
+  attendanceCutoffDay: number;
+  graceMinutes: number;
+  autoLockAttendance: boolean;
+  syncEnabled: boolean;
+
+  enableLoanRecovery: boolean;
+  enableAdvanceRecovery: boolean;
+  defaultDeductionCapPct: number;
+  recoveryOrder: string;
+}
 
 @Component({
   selector: 'app-payroll-setup',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    PageHeaderComponent,
-    DataTableComponent,
-    TableCellDirective,
-    LoadingSpinnerComponent,
-    EmptyStateComponent,
-    StatusBadgeComponent,
-    ActionButtonComponent,
-    ModalComponent,
-    FormInputComponent,
-    FormSelectComponent,
-  ],
-  template: `
-    <div class="page">
-      <ui-page-header
-        title="Client Payroll Setup"
-        description="Configure payroll components, rules, and statutory settings per client"
-        icon="settings">
-      </ui-page-header>
-
-      <!-- Client Selector -->
-      <div class="client-bar">
-        <ui-form-select
-          label="Select Client"
-          [options]="clientOptions"
-          [(ngModel)]="selectedClientId"
-          (ngModelChange)="onClientChange()">
-        </ui-form-select>
-      </div>
-
-      <ui-loading-spinner *ngIf="loading" text="Loading..." size="lg"></ui-loading-spinner>
-
-      <ng-container *ngIf="!loading && selectedClientId">
-        <!-- Tabs -->
-        <div class="tabs">
-          <button
-            *ngFor="let t of tabs"
-            class="tab"
-            [class.active]="activeTab === t.key"
-            (click)="activeTab = t.key">
-            {{ t.label }}
-          </button>
-        </div>
-
-        <!-- Statutory Settings Tab -->
-        <div *ngIf="activeTab === 'settings'" class="card">
-          <h3 class="card-title">Statutory Settings</h3>
-          <div class="form-grid">
-            <div class="toggle-row">
-              <label><input type="checkbox" [(ngModel)]="setup.pfEnabled"> PF Enabled</label>
-              <label><input type="checkbox" [(ngModel)]="setup.esiEnabled"> ESI Enabled</label>
-              <label><input type="checkbox" [(ngModel)]="setup.ptEnabled"> PT Enabled</label>
-              <label><input type="checkbox" [(ngModel)]="setup.lwfEnabled"> LWF Enabled</label>
-            </div>
-            <ui-form-input label="PF Employer Rate (%)" type="number" [(ngModel)]="setup.pfEmployerRate"></ui-form-input>
-            <ui-form-input label="PF Employee Rate (%)" type="number" [(ngModel)]="setup.pfEmployeeRate"></ui-form-input>
-            <ui-form-input label="ESI Employer Rate (%)" type="number" [(ngModel)]="setup.esiEmployerRate"></ui-form-input>
-            <ui-form-input label="ESI Employee Rate (%)" type="number" [(ngModel)]="setup.esiEmployeeRate"></ui-form-input>
-            <ui-form-input label="PF Wage Ceiling" type="number" [(ngModel)]="setup.pfWageCeiling"></ui-form-input>
-            <ui-form-input label="ESI Wage Ceiling" type="number" [(ngModel)]="setup.esiWageCeiling"></ui-form-input>
-            <ui-form-select label="Pay Cycle" [options]="payCycleOptions" [(ngModel)]="setup.payCycle"></ui-form-select>
-          </div>
-          <div class="form-actions">
-            <ui-button
-              variant="primary"
-              [disabled]="savingSetup"
-              [loading]="savingSetup"
-              (clicked)="saveSettings()">
-              Save Settings
-            </ui-button>
-          </div>
-          <div *ngIf="setupMsg" class="msg" [class.error]="setupError">{{ setupMsg }}</div>
-        </div>
-
-        <!-- Components Tab -->
-        <div *ngIf="activeTab === 'components'">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="card-title">Payroll Components</h3>
-            <ui-button variant="primary" (clicked)="openCompForm()">+ Add Component</ui-button>
-          </div>
-
-          <ui-data-table
-            [columns]="compColumns"
-            [data]="components"
-            [loading]="loadingComps"
-            emptyMessage="No components configured.">
-
-            <ng-template uiTableCell="name" let-row>
-              <div class="font-semibold">{{ row.name }}</div>
-              <div class="text-xs text-gray-500">{{ row.code }}</div>
-            </ng-template>
-
-            <ng-template uiTableCell="type" let-row>
-              <ui-status-badge [status]="row.componentType"></ui-status-badge>
-            </ng-template>
-
-            <ng-template uiTableCell="flags" let-row>
-              <span *ngIf="row.affectsPfWage" class="flag">PF</span>
-              <span *ngIf="row.affectsEsiWage" class="flag">ESI</span>
-              <span *ngIf="row.isTaxable" class="flag tax">Tax</span>
-              <span *ngIf="row.isRequired" class="flag req">Req</span>
-            </ng-template>
-
-            <ng-template uiTableCell="actions" let-row>
-              <div class="flex gap-2">
-                <button class="text-xs text-blue-600 hover:underline" (click)="openCompForm(row)">Edit</button>
-                <button class="text-xs text-blue-600 hover:underline" (click)="showRules(row)">Rules</button>
-                <button class="text-xs text-red-600 hover:underline" (click)="deleteComp(row)">Del</button>
-              </div>
-            </ng-template>
-          </ui-data-table>
-        </div>
-
-        <!-- Rules Panel -->
-        <div *ngIf="activeTab === 'rules' && selectedComp" class="card">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="card-title">Rules: {{ selectedComp.name }} ({{ selectedComp.code }})</h3>
-            <div class="flex gap-2">
-              <ui-button variant="secondary" (clicked)="activeTab = 'components'">Back</ui-button>
-              <ui-button variant="primary" (clicked)="openRuleForm()">+ Add Rule</ui-button>
-            </div>
-          </div>
-
-          <ui-loading-spinner *ngIf="loadingRules" text="Loading rules..."></ui-loading-spinner>
-
-          <div *ngFor="let rule of rules" class="rule-card">
-            <div class="rule-header">
-              <span class="font-semibold">{{ rule.ruleType }}</span>
-              <span *ngIf="rule.ruleType === 'FIXED'"> = {{ rule.fixedAmount }}</span>
-              <span *ngIf="rule.ruleType === 'PERCENTAGE'"> = {{ rule.percentage }}% of {{ rule.baseComponent }}</span>
-              <span *ngIf="rule.ruleType === 'SLAB'"> ({{ rule.slabs?.length || 0 }} slabs)</span>
-              <button class="text-xs text-red-600 hover:underline ml-4" (click)="deleteRule(rule)">Delete</button>
-            </div>
-            <div *ngIf="rule.slabs?.length" class="slabs-table">
-              <div class="slab-row header">
-                <span>From</span><span>To</span><span>%</span><span>Fixed</span>
-              </div>
-              <div *ngFor="let s of rule.slabs" class="slab-row">
-                <span>{{ s.fromAmount }}</span>
-                <span>{{ s.toAmount ?? '∞' }}</span>
-                <span>{{ s.slabPct ?? '-' }}</span>
-                <span>{{ s.slabFixed ?? '-' }}</span>
-              </div>
-            </div>
-          </div>
-
-          <ui-empty-state
-            *ngIf="!loadingRules && rules.length === 0"
-            title="No Rules"
-            description="Add a rule to define how this component is calculated.">
-          </ui-empty-state>
-        </div>
-      </ng-container>
-
-      <!-- Component Form Modal -->
-      <ui-modal *ngIf="showCompModal" [title]="editingComp ? 'Edit Component' : 'Add Component'" (closed)="showCompModal = false">
-        <div class="form-grid">
-          <ui-form-input label="Code *" [(ngModel)]="compForm.code" [disabled]="editingComp"></ui-form-input>
-          <ui-form-input label="Name *" [(ngModel)]="compForm.name"></ui-form-input>
-          <ui-form-select label="Type *" [options]="compTypeOptions" [(ngModel)]="compForm.componentType"></ui-form-select>
-          <ui-form-input label="Display Order" type="number" [(ngModel)]="compForm.displayOrder"></ui-form-input>
-          <div class="toggle-row col-span-2">
-            <label><input type="checkbox" [(ngModel)]="compForm.affectsPfWage"> Affects PF Wage</label>
-            <label><input type="checkbox" [(ngModel)]="compForm.affectsEsiWage"> Affects ESI Wage</label>
-            <label><input type="checkbox" [(ngModel)]="compForm.isTaxable"> Taxable</label>
-            <label><input type="checkbox" [(ngModel)]="compForm.isRequired"> Required</label>
-          </div>
-        </div>
-        <div *ngIf="compFormError" class="form-error">{{ compFormError }}</div>
-        <div class="form-actions">
-          <ui-button variant="secondary" (clicked)="showCompModal = false">Cancel</ui-button>
-          <ui-button
-            variant="primary"
-            [disabled]="savingComp"
-            [loading]="savingComp"
-            (clicked)="saveComp()">
-            Save
-          </ui-button>
-        </div>
-      </ui-modal>
-
-      <!-- Rule Form Modal -->
-      <ui-modal *ngIf="showRuleModal" title="Add Rule" (closed)="showRuleModal = false">
-        <div class="form-grid">
-          <ui-form-select label="Rule Type *" [options]="ruleTypeOptions" [(ngModel)]="ruleForm.ruleType"></ui-form-select>
-          <ui-form-input label="Priority" type="number" [(ngModel)]="ruleForm.priority"></ui-form-input>
-          <ui-form-input *ngIf="ruleForm.ruleType === 'FIXED'" label="Fixed Amount" type="number" [(ngModel)]="ruleForm.fixedAmount"></ui-form-input>
-          <ui-form-input *ngIf="ruleForm.ruleType === 'PERCENTAGE'" label="Base Component Code" [(ngModel)]="ruleForm.baseComponent"></ui-form-input>
-          <ui-form-input *ngIf="ruleForm.ruleType === 'PERCENTAGE'" label="Percentage" type="number" [(ngModel)]="ruleForm.percentage"></ui-form-input>
-        </div>
-        <div *ngIf="ruleFormError" class="form-error">{{ ruleFormError }}</div>
-        <div class="form-actions">
-          <ui-button variant="secondary" (clicked)="showRuleModal = false">Cancel</ui-button>
-          <ui-button
-            variant="primary"
-            [disabled]="savingRule"
-            [loading]="savingRule"
-            (clicked)="saveRule()">
-            Save Rule
-          </ui-button>
-        </div>
-      </ui-modal>
-    </div>
-  `,
-  styles: [
-    `
-      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
-      .client-bar { margin-bottom: 1.5rem; max-width: 400px; }
-      .tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 1rem; }
-      .tab { padding: 0.5rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: #6b7280; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -2px; background: none; border-top: none; border-left: none; border-right: none; }
-      .tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
-      .card { background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1rem; }
-      .card-title { font-size: 1rem; font-weight: 600; margin: 0 0 1rem; }
-      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-      .toggle-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-      .toggle-row label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; }
-      .col-span-2 { grid-column: span 2; }
-      .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
-      .form-error { color: #dc2626; font-size: 0.85rem; margin: 0.5rem 0; }
-      .msg { font-size: 0.85rem; color: #059669; margin-top: 0.75rem; }
-      .msg.error { color: #dc2626; }
-      .flag { display: inline-block; padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 4px; background: #eef2ff; color: #4f46e5; margin-right: 0.25rem; }
-      .flag.tax { background: #fef2f2; color: #dc2626; }
-      .flag.req { background: #f0fdf4; color: #16a34a; }
-      .rule-card { border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.5rem; }
-      .rule-header { font-size: 0.875rem; }
-      .slabs-table { margin-top: 0.5rem; font-size: 0.8rem; }
-      .slab-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem; padding: 0.25rem 0; border-bottom: 1px solid #f3f4f6; }
-      .slab-row.header { font-weight: 600; border-bottom-color: #d1d5db; }
-      @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .col-span-2 { grid-column: span 1; } }
-    `,
-  ],
+  imports: [CommonModule, FormsModule],
+  templateUrl: './payroll-setup.component.html',
+  styleUrls: ['./payroll-setup.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PayrollSetupComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
-  clients: PayrollClient[] = [];
-  clientOptions: { label: string; value: string }[] = [];
+  private readonly destroy$ = new Subject<void>();
+
+  loading = true;
   selectedClientId = '';
-  loading = false;
+  clients: PayrollClient[] = [];
 
-  activeTab = 'settings';
-  tabs = [
-    { key: 'settings', label: 'Statutory Settings' },
-    { key: 'components', label: 'Components' },
+  activeTab: SetupTab = 'statutory';
+  readonly tabs: Array<{ key: SetupTab; label: string }> = [
+    { key: 'statutory', label: 'Statutory Config' },
+    { key: 'pay-cycle', label: 'Pay Cycle' },
+    { key: 'leave-policy', label: 'Leave / Pay Policy' },
+    { key: 'attendance', label: 'Attendance Config' },
+    { key: 'deductions', label: 'Deductions / Recovery' },
   ];
 
-  // Setup
-  setup: any = {};
-  savingSetup = false;
-  setupMsg = '';
-  setupError = false;
+  setup: PayrollSetupViewModel = this.defaultSetup();
+  addon: LocalSetupAddon = this.defaultAddon();
 
-  payCycleOptions = [
-    { label: 'Monthly', value: 'MONTHLY' },
-    { label: 'Weekly', value: 'WEEKLY' },
-    { label: 'Bi-Weekly', value: 'BIWEEKLY' },
-  ];
+  sectionMessages: Record<SetupTab, { text: string; error: boolean }> = {
+    statutory: { text: '', error: false },
+    'pay-cycle': { text: '', error: false },
+    'leave-policy': { text: '', error: false },
+    attendance: { text: '', error: false },
+    deductions: { text: '', error: false },
+  };
 
-  // Components
-  components: PComp[] = [];
-  loadingComps = false;
+  savingSection: Record<SetupTab, boolean> = {
+    statutory: false,
+    'pay-cycle': false,
+    'leave-policy': false,
+    attendance: false,
+    deductions: false,
+  };
+
+  sectionValidation: Record<SetupTab, string[]> = {
+    statutory: [],
+    'pay-cycle': [],
+    'leave-policy': [],
+    attendance: [],
+    deductions: [],
+  };
+
+  sectionSnapshots: Record<SetupTab, string> = {
+    statutory: '',
+    'pay-cycle': '',
+    'leave-policy': '',
+    attendance: '',
+    deductions: '',
+  };
+
+  readonly payCycleOptions = ['MONTHLY', 'WEEKLY', 'BIWEEKLY'];
+  readonly attendanceSources = ['MANUAL', 'BIOMETRIC', 'INTEGRATION'] as const;
+  readonly lopModes = ['PRORATED', 'FULL_DAY'] as const;
+
+  // Components and deduction rules
+  loadingComponents = false;
+  components: PayrollComponent[] = [];
+  componentSearch = '';
+  selectedComponent: PayrollComponent | null = null;
+
+  loadingRules = false;
+  rules: ComponentRule[] = [];
+
   showCompModal = false;
   editingComp = false;
-  compForm: any = {};
-  compFormError = '';
   savingComp = false;
-  selectedComp: PComp | null = null;
+  compFormError = '';
+  compForm: Partial<PayrollComponent> = {};
 
-  compColumns: TableColumn[] = [
-    { key: 'name', header: 'Component', sortable: true },
-    { key: 'type', header: 'Type', width: '120px' },
-    { key: 'flags', header: 'Flags', width: '180px' },
-    { key: 'actions', header: '', width: '160px', align: 'center' },
-  ];
-
-  compTypeOptions = [
-    { label: 'Earning', value: 'EARNING' },
-    { label: 'Deduction', value: 'DEDUCTION' },
-    { label: 'Employer', value: 'EMPLOYER' },
-    { label: 'Info', value: 'INFO' },
-  ];
-
-  // Rules
-  rules: ComponentRule[] = [];
-  loadingRules = false;
   showRuleModal = false;
-  ruleForm: any = {};
-  ruleFormError = '';
   savingRule = false;
+  ruleFormError = '';
+  ruleForm: Partial<ComponentRule> = {};
 
-  ruleTypeOptions = [
-    { label: 'Fixed', value: 'FIXED' },
-    { label: 'Percentage', value: 'PERCENTAGE' },
-    { label: 'Slab', value: 'SLAB' },
-    { label: 'Formula', value: 'FORMULA' },
-  ];
+  readonly compTypeOptions = ['EARNING', 'DEDUCTION', 'EMPLOYER', 'INFO'];
+  readonly ruleTypeOptions = ['FIXED', 'PERCENTAGE', 'SLAB', 'FORMULA'];
 
   constructor(
-    private setupApi: PayrollSetupApiService,
-    private payrollApi: PayrollApiService,
-    private cdr: ChangeDetectorRef,
-    private toast: ToastService,
+    private readonly setupApi: PayrollSetupApiService,
+    private readonly payrollApi: PayrollApiService,
+    private readonly toast: ToastService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.payrollApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (list) => {
-        this.clients = list;
-        this.clientOptions = [
-          { label: '-- Select --', value: '' },
-          ...list.map((c) => ({ label: c.name || c.clientCode || c.id, value: c.id })),
-        ];
-        this.cdr.detectChanges();
-      },
-      error: (e) => {
-        console.error('PayrollSetup error loading clients:', e);
-        this.toast.error(e?.error?.message || 'Unable to load clients');
-        this.cdr.detectChanges();
-      },
-    });
+    this.loadClients();
   }
 
   ngOnDestroy(): void {
@@ -357,156 +156,820 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  onClientChange() {
+  get filteredComponents(): PayrollComponent[] {
+    const q = this.componentSearch.trim().toLowerCase();
+    if (!q) return this.components;
+    return this.components.filter((c) => {
+      const text = `${c.code} ${c.name} ${c.componentType}`.toLowerCase();
+      return text.includes(q);
+    });
+  }
+
+  formatDate(input?: string | null): string {
+    if (!input) return '-';
+    const d = new Date(input);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  onClientChange(): void {
     if (!this.selectedClientId) return;
+
     this.loading = true;
-    this.setupApi.getSetup(this.selectedClientId).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (res: any) => {
-        this.loading = false;
-        this.setup = {
-          pfEnabled: res.pfEnabled ?? res.pf_enabled ?? true,
-          esiEnabled: res.esiEnabled ?? res.esi_enabled ?? true,
-          ptEnabled: res.ptEnabled ?? res.pt_enabled ?? false,
-          lwfEnabled: res.lwfEnabled ?? res.lwf_enabled ?? false,
-          pfEmployerRate: res.pfEmployerRate ?? res.pf_employer_rate ?? 12,
-          pfEmployeeRate: res.pfEmployeeRate ?? res.pf_employee_rate ?? 12,
-          esiEmployerRate: res.esiEmployerRate ?? res.esi_employer_rate ?? 3.25,
-          esiEmployeeRate: res.esiEmployeeRate ?? res.esi_employee_rate ?? 0.75,
-          pfWageCeiling: res.pfWageCeiling ?? res.pf_wage_ceiling ?? 15000,
-          esiWageCeiling: res.esiWageCeiling ?? res.esi_wage_ceiling ?? 21000,
-          payCycle: res.payCycle ?? res.pay_cycle ?? 'MONTHLY',
-        };
+    this.clearMessages();
+    this.setup = this.defaultSetup();
+    this.addon = this.defaultAddon();
+    this.resetSectionSnapshots();
+    this.clearValidationIssues();
+    this.components = [];
+    this.selectedComponent = null;
+    this.rules = [];
+
+    this.setupApi
+      .getSetup(this.selectedClientId)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of({ clientId: this.selectedClientId, exists: false })),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe((raw) => {
+        this.setup = this.mapSetup(raw);
+        this.addon = this.mapAddon(raw);
+        this.clearValidationIssues();
+        this.refreshSectionSnapshots();
         this.loadComponents();
-      },
-      error: () => {
-        this.loading = false;
-        this.setup = {
-          pfEnabled: true, esiEnabled: true, ptEnabled: false, lwfEnabled: false,
-          pfEmployerRate: 12, pfEmployeeRate: 12,
-          esiEmployerRate: 3.25, esiEmployeeRate: 0.75,
-          pfWageCeiling: 15000, esiWageCeiling: 21000, payCycle: 'MONTHLY',
-        };
-        this.loadComponents();
-      },
-    });
+      });
   }
 
-  saveSettings() {
-    this.savingSetup = true;
-    this.setupMsg = '';
-    this.setupApi.saveSetup(this.selectedClientId, this.setup).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.savingSetup = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: () => { this.savingSetup = false; this.setupMsg = 'Settings saved'; this.setupError = false; },
-      error: (e) => { this.savingSetup = false; this.setupMsg = e?.error?.message || 'Save failed'; this.setupError = true; },
-    });
+  isSectionDirty(tab: SetupTab): boolean {
+    return this.captureSectionSnapshot(tab) !== this.sectionSnapshots[tab];
   }
 
-  loadComponents() {
-    this.loadingComps = true;
-    this.setupApi.listComponents(this.selectedClientId).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.loadingComps = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (list) => { this.loadingComps = false; this.components = list; },
-      error: (e) => {
-        this.loadingComps = false;
-        this.components = [];
-        const msg = e?.error?.message || 'Failed to load components';
-        this.toast.error(msg);
-      },
-    });
+  sectionIssueCount(tab: SetupTab): number {
+    return this.sectionValidation[tab].length;
   }
 
-  openCompForm(comp?: PComp) {
+  sectionContext(tab: SetupTab): string {
+    const status = this.isSectionDirty(tab) ? 'Unsaved changes' : 'Saved';
+    const issueCount = this.sectionIssueCount(tab);
+    const issueText = issueCount ? ` · ${issueCount} issue${issueCount > 1 ? 's' : ''}` : '';
+    return `Effective ${this.formatDate(this.addon.effectiveFrom)} · Last update ${this.formatDate(this.setup.updatedAt)} · ${status}${issueText}`;
+  }
+
+  saveStatutory(): void {
+    if (!this.selectedClientId) return;
+    const errors = this.validateStatutory();
+    this.setValidationIssues('statutory', errors);
+    if (errors.length) {
+      this.setSectionMessage('statutory', errors[0], true);
+      this.toast.error(errors[0]);
+      return;
+    }
+
+    this.savingSection.statutory = true;
+    const payload: Partial<PayrollClientSetup> = {
+      pfEnabled: this.setup.pfEnabled,
+      esiEnabled: this.setup.esiEnabled,
+      ptEnabled: this.setup.ptEnabled,
+      lwfEnabled: this.setup.lwfEnabled,
+      pfEmployerRate: this.setup.pfEmployerRate,
+      pfEmployeeRate: this.setup.pfEmployeeRate,
+      esiEmployerRate: this.setup.esiEmployerRate,
+      esiEmployeeRate: this.setup.esiEmployeeRate,
+      pfWageCeiling: this.setup.pfWageCeiling,
+      esiWageCeiling: this.setup.esiWageCeiling,
+    };
+
+    this.setupApi
+      .saveSetup(this.selectedClientId, payload)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingSection.statutory = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (saved) => {
+          this.setup = this.mapSetup(saved || this.setup);
+          this.addon = this.mapAddon(saved || this.setup);
+          this.setValidationIssues('statutory', []);
+          this.refreshSectionSnapshots();
+          this.setSectionMessage('statutory', 'Statutory configuration saved.');
+          this.toast.success('Statutory configuration saved');
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Unable to save statutory configuration';
+          this.setSectionMessage('statutory', msg, true);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  savePayCycle(): void {
+    if (!this.selectedClientId) return;
+    const errors = this.validatePayCycle();
+    this.setValidationIssues('pay-cycle', errors);
+    if (errors.length) {
+      this.setSectionMessage('pay-cycle', errors[0], true);
+      this.toast.error(errors[0]);
+      return;
+    }
+
+    this.savingSection['pay-cycle'] = true;
+    this.setupApi
+      .saveSetup(this.selectedClientId, {
+        payCycle: this.setup.payCycle,
+        effectiveFrom: this.addon.effectiveFrom || undefined,
+        cycleStartDay: this.addon.cycleStartDay,
+        payoutDay: this.addon.payoutDay,
+        lockDay: this.addon.lockDay,
+        arrearMode: this.addon.arrearMode,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingSection['pay-cycle'] = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (saved) => {
+          this.setup = this.mapSetup(saved || this.setup);
+          this.addon = this.mapAddon(saved || this.setup);
+          this.setValidationIssues('pay-cycle', []);
+          this.refreshSectionSnapshots();
+          this.setSectionMessage('pay-cycle', 'Pay cycle settings saved.');
+          this.toast.success('Pay cycle settings saved');
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Unable to save pay cycle settings';
+          this.setSectionMessage('pay-cycle', msg, true);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  saveLeavePolicy(): void {
+    if (!this.selectedClientId) return;
+    const errors = this.validateLeavePolicy();
+    this.setValidationIssues('leave-policy', errors);
+    if (errors.length) {
+      this.setSectionMessage('leave-policy', errors[0], true);
+      this.toast.error(errors[0]);
+      return;
+    }
+
+    this.savingSection['leave-policy'] = true;
+    this.setupApi
+      .saveSetup(this.selectedClientId, {
+        leaveAccrualPerMonth: this.addon.leaveAccrualPerMonth,
+        maxCarryForward: this.addon.maxCarryForward,
+        allowCarryForward: this.addon.allowCarryForward,
+        lopMode: this.addon.lopMode,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingSection['leave-policy'] = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (saved) => {
+          this.setup = this.mapSetup(saved || this.setup);
+          this.addon = this.mapAddon(saved || this.setup);
+          this.setValidationIssues('leave-policy', []);
+          this.refreshSectionSnapshots();
+          this.setSectionMessage('leave-policy', 'Leave and pay policy saved.');
+          this.toast.success('Leave policy saved');
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Unable to save leave/pay policy';
+          this.setSectionMessage('leave-policy', msg, true);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  saveAttendanceConfig(): void {
+    if (!this.selectedClientId) return;
+    const errors = this.validateAttendance();
+    this.setValidationIssues('attendance', errors);
+    if (errors.length) {
+      this.setSectionMessage('attendance', errors[0], true);
+      this.toast.error(errors[0]);
+      return;
+    }
+
+    this.savingSection.attendance = true;
+    this.setupApi
+      .saveSetup(this.selectedClientId, {
+        attendanceSource: this.addon.attendanceSource,
+        attendanceCutoffDay: this.addon.attendanceCutoffDay,
+        graceMinutes: this.addon.graceMinutes,
+        autoLockAttendance: this.addon.autoLockAttendance,
+        syncEnabled: this.addon.syncEnabled,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingSection.attendance = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (saved) => {
+          this.setup = this.mapSetup(saved || this.setup);
+          this.addon = this.mapAddon(saved || this.setup);
+          this.setValidationIssues('attendance', []);
+          this.refreshSectionSnapshots();
+          this.setSectionMessage('attendance', 'Attendance configuration saved.');
+          this.toast.success('Attendance config saved');
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Unable to save attendance configuration';
+          this.setSectionMessage('attendance', msg, true);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  saveDeductionsConfig(): void {
+    if (!this.selectedClientId) return;
+    const errors = this.validateDeductions();
+    this.setValidationIssues('deductions', errors);
+    if (errors.length) {
+      this.setSectionMessage('deductions', errors[0], true);
+      this.toast.error(errors[0]);
+      return;
+    }
+
+    this.savingSection.deductions = true;
+    this.setupApi
+      .saveSetup(this.selectedClientId, {
+        enableLoanRecovery: this.addon.enableLoanRecovery,
+        enableAdvanceRecovery: this.addon.enableAdvanceRecovery,
+        defaultDeductionCapPct: this.addon.defaultDeductionCapPct,
+        recoveryOrder: this.addon.recoveryOrder.trim(),
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingSection.deductions = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (saved) => {
+          this.setup = this.mapSetup(saved || this.setup);
+          this.addon = this.mapAddon(saved || this.setup);
+          this.setValidationIssues('deductions', []);
+          this.refreshSectionSnapshots();
+          this.setSectionMessage('deductions', 'Deduction/recovery preferences saved.');
+          this.toast.success('Deductions preferences saved');
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Unable to save deduction/recovery preferences';
+          this.setSectionMessage('deductions', msg, true);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  // Components and rules ------------------------------------------------------
+
+  loadComponents(): void {
+    if (!this.selectedClientId) return;
+    this.loadingComponents = true;
+
+    this.setupApi
+      .listComponents(this.selectedClientId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingComponents = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.components = rows || [];
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to load payroll components'),
+      });
+  }
+
+  openCompForm(component?: PayrollComponent): void {
     this.compFormError = '';
-    if (comp) {
+    if (component) {
       this.editingComp = true;
-      this.compForm = { ...comp };
+      this.compForm = { ...component };
     } else {
       this.editingComp = false;
-      this.compForm = { componentType: 'EARNING', displayOrder: this.components.length };
+      this.compForm = {
+        code: '',
+        name: '',
+        componentType: 'EARNING',
+        displayOrder: this.components.length + 1,
+        affectsPfWage: false,
+        affectsEsiWage: false,
+        isTaxable: false,
+        isRequired: false,
+      };
     }
     this.showCompModal = true;
   }
 
-  saveComp() {
+  saveComp(): void {
+    if (!this.selectedClientId) return;
     if (!this.compForm.code?.trim() || !this.compForm.name?.trim()) {
       this.compFormError = 'Code and Name are required';
       return;
     }
+
     this.savingComp = true;
-    const obs = this.editingComp
-      ? this.setupApi.updateComponent(this.selectedClientId, this.compForm.id, this.compForm)
+    const req$ = this.editingComp
+      ? this.setupApi.updateComponent(
+          this.selectedClientId,
+          String(this.compForm.id),
+          this.compForm,
+        )
       : this.setupApi.createComponent(this.selectedClientId, this.compForm);
-    obs.pipe(takeUntil(this.destroy$), finalize(() => { this.savingComp = false; this.cdr.detectChanges(); })).subscribe({
-      next: () => { this.savingComp = false; this.showCompModal = false; this.loadComponents(); },
-      error: (e) => {
-        this.savingComp = false;
-        this.compFormError = e?.error?.message || 'Save failed';
-        this.toast.error(this.compFormError);
-      },
-    });
+
+    req$
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingComp = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.showCompModal = false;
+          this.toast.success(this.editingComp ? 'Component updated' : 'Component created');
+          this.loadComponents();
+        },
+        error: (err) => {
+          const msg = err?.error?.message || 'Failed to save component';
+          this.compFormError = msg;
+          this.toast.error(msg);
+        },
+      });
   }
 
-  deleteComp(comp: PComp) {
-    if (!confirm(`Delete component "${comp.name}"?`)) return;
-    this.setupApi.deleteComponent(this.selectedClientId, comp.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => this.loadComponents(),
-      error: (e) => alert(e?.error?.message || 'Delete failed'),
-    });
+  async deleteComp(component: PayrollComponent): Promise<void> {
+    if (!this.selectedClientId) return;
+    const ok = window.confirm(`Delete component "${component.name}"?`);
+    if (!ok) return;
+
+    this.setupApi
+      .deleteComponent(this.selectedClientId, component.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Component deleted');
+          if (this.selectedComponent?.id === component.id) {
+            this.selectedComponent = null;
+            this.rules = [];
+          }
+          this.loadComponents();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to delete component'),
+      });
   }
 
-  showRules(comp: PComp) {
-    this.selectedComp = comp;
-    this.activeTab = 'rules';
+  openRules(component: PayrollComponent): void {
+    this.selectedComponent = component;
     this.loadRules();
   }
 
-  loadRules() {
-    if (!this.selectedComp) return;
+  loadRules(): void {
+    if (!this.selectedClientId || !this.selectedComponent) return;
     this.loadingRules = true;
-    this.setupApi.listRules(this.selectedClientId, this.selectedComp.id).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.loadingRules = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (list) => { this.loadingRules = false; this.rules = list; },
-      error: (e) => {
-        this.loadingRules = false;
-        this.rules = [];
-        this.toast.error(e?.error?.message || 'Failed to load rules');
-      },
-    });
+
+    this.setupApi
+      .listRules(this.selectedClientId, this.selectedComponent.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingRules = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.rules = rows || [];
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to load component rules'),
+      });
   }
 
-  openRuleForm() {
+  openRuleForm(): void {
+    if (!this.selectedComponent) {
+      this.toast.error('Select a component first');
+      return;
+    }
     this.ruleFormError = '';
-    this.ruleForm = { ruleType: 'FIXED', priority: 0 };
+    this.ruleForm = {
+      ruleType: 'FIXED',
+      priority: 0,
+      fixedAmount: null,
+      percentage: null,
+      baseComponent: '',
+      formula: '',
+    };
     this.showRuleModal = true;
   }
 
-  saveRule() {
-    if (!this.ruleForm.ruleType) { this.ruleFormError = 'Rule type is required'; return; }
-    if (!this.selectedComp) return;
+  saveRule(): void {
+    if (!this.selectedClientId || !this.selectedComponent) return;
+    if (!this.ruleForm.ruleType) {
+      this.ruleFormError = 'Rule type is required';
+      return;
+    }
+    if (this.ruleForm.ruleType === 'FIXED' && this.ruleForm.fixedAmount === null) {
+      this.ruleFormError = 'Fixed amount is required for FIXED rule';
+      return;
+    }
+    if (this.ruleForm.ruleType === 'PERCENTAGE' && (this.ruleForm.percentage === null || !this.ruleForm.baseComponent)) {
+      this.ruleFormError = 'Percentage and Base Component are required';
+      return;
+    }
+
     this.savingRule = true;
-    this.setupApi.createRule(this.selectedClientId, this.selectedComp.id, this.ruleForm).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.savingRule = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: () => { this.savingRule = false; this.showRuleModal = false; this.loadRules(); },
-      error: (e) => { this.savingRule = false; this.ruleFormError = e?.error?.message || 'Save failed'; },
+    this.setupApi
+      .createRule(this.selectedClientId, this.selectedComponent.id, this.ruleForm)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingRule = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.showRuleModal = false;
+          this.toast.success('Rule added');
+          this.loadRules();
+        },
+        error: (err) => {
+          this.ruleFormError = err?.error?.message || 'Failed to save rule';
+          this.toast.error(this.ruleFormError);
+        },
+      });
+  }
+
+  async deleteRule(rule: ComponentRule): Promise<void> {
+    if (!this.selectedClientId || !this.selectedComponent) return;
+    const ok = window.confirm('Delete this rule?');
+    if (!ok) return;
+
+    this.setupApi
+      .deleteRule(this.selectedClientId, this.selectedComponent.id, rule.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Rule deleted');
+          this.loadRules();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to delete rule'),
+      });
+  }
+
+  // Helpers -------------------------------------------------------------------
+
+  ruleSummary(rule: ComponentRule): string {
+    if (rule.ruleType === 'FIXED') return `Fixed: ${rule.fixedAmount ?? 0}`;
+    if (rule.ruleType === 'PERCENTAGE') return `Percent: ${rule.percentage ?? 0}% of ${rule.baseComponent || '-'}`;
+    if (rule.ruleType === 'FORMULA') return `Formula: ${rule.formula || '-'}`;
+    if (rule.ruleType === 'SLAB') return `Slabs: ${rule.slabs?.length || 0}`;
+    return '-';
+  }
+
+  private loadClients(): void {
+    this.loading = true;
+    this.payrollApi
+      .getAssignedClients()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.clients = rows || [];
+          if (this.clients.length && !this.selectedClientId) {
+            this.selectedClientId = this.clients[0].id;
+            this.onClientChange();
+          }
+        },
+        error: () => this.toast.error('Failed to load payroll clients'),
+      });
+  }
+
+  private mapSetup(raw: any): PayrollSetupViewModel {
+    const defaults = this.defaultSetup();
+    return {
+      clientId: String(raw?.clientId || this.selectedClientId || ''),
+      pfEnabled: this.boolOrDefault(raw?.pfEnabled ?? raw?.pf_enabled, defaults.pfEnabled),
+      esiEnabled: this.boolOrDefault(raw?.esiEnabled ?? raw?.esi_enabled, defaults.esiEnabled),
+      ptEnabled: this.boolOrDefault(raw?.ptEnabled ?? raw?.pt_enabled, defaults.ptEnabled),
+      lwfEnabled: this.boolOrDefault(raw?.lwfEnabled ?? raw?.lwf_enabled, defaults.lwfEnabled),
+      pfEmployerRate: this.numberOrDefault(raw?.pfEmployerRate ?? raw?.pf_employer_rate, defaults.pfEmployerRate),
+      pfEmployeeRate: this.numberOrDefault(raw?.pfEmployeeRate ?? raw?.pf_employee_rate, defaults.pfEmployeeRate),
+      esiEmployerRate: this.numberOrDefault(raw?.esiEmployerRate ?? raw?.esi_employer_rate, defaults.esiEmployerRate),
+      esiEmployeeRate: this.numberOrDefault(raw?.esiEmployeeRate ?? raw?.esi_employee_rate, defaults.esiEmployeeRate),
+      pfWageCeiling: this.numberOrDefault(raw?.pfWageCeiling ?? raw?.pf_wage_ceiling, defaults.pfWageCeiling),
+      esiWageCeiling: this.numberOrDefault(raw?.esiWageCeiling ?? raw?.esi_wage_ceiling, defaults.esiWageCeiling),
+      payCycle: String(raw?.payCycle ?? raw?.pay_cycle ?? defaults.payCycle),
+      effectiveFrom: String(raw?.effectiveFrom ?? raw?.effective_from ?? defaults.effectiveFrom),
+      cycleStartDay: this.numberOrDefault(raw?.cycleStartDay ?? raw?.cycle_start_day, defaults.cycleStartDay),
+      payoutDay: this.numberOrDefault(raw?.payoutDay ?? raw?.payout_day, defaults.payoutDay),
+      lockDay: this.numberOrDefault(raw?.lockDay ?? raw?.lock_day, defaults.lockDay),
+      arrearMode: String(raw?.arrearMode ?? raw?.arrear_mode ?? defaults.arrearMode) as 'CURRENT' | 'NEXT',
+      leaveAccrualPerMonth: this.numberOrDefault(
+        raw?.leaveAccrualPerMonth ?? raw?.leave_accrual_per_month,
+        defaults.leaveAccrualPerMonth,
+      ),
+      maxCarryForward: this.numberOrDefault(raw?.maxCarryForward ?? raw?.max_carry_forward, defaults.maxCarryForward),
+      allowCarryForward: this.boolOrDefault(
+        raw?.allowCarryForward ?? raw?.allow_carry_forward,
+        defaults.allowCarryForward,
+      ),
+      lopMode: String(raw?.lopMode ?? raw?.lop_mode ?? defaults.lopMode) as 'PRORATED' | 'FULL_DAY',
+      attendanceSource: String(
+        raw?.attendanceSource ?? raw?.attendance_source ?? defaults.attendanceSource,
+      ) as 'MANUAL' | 'BIOMETRIC' | 'INTEGRATION',
+      attendanceCutoffDay: this.numberOrDefault(
+        raw?.attendanceCutoffDay ?? raw?.attendance_cutoff_day,
+        defaults.attendanceCutoffDay,
+      ),
+      graceMinutes: this.numberOrDefault(raw?.graceMinutes ?? raw?.grace_minutes, defaults.graceMinutes),
+      autoLockAttendance: this.boolOrDefault(
+        raw?.autoLockAttendance ?? raw?.auto_lock_attendance,
+        defaults.autoLockAttendance,
+      ),
+      syncEnabled: this.boolOrDefault(raw?.syncEnabled ?? raw?.sync_enabled, defaults.syncEnabled),
+      enableLoanRecovery: this.boolOrDefault(
+        raw?.enableLoanRecovery ?? raw?.enable_loan_recovery,
+        defaults.enableLoanRecovery,
+      ),
+      enableAdvanceRecovery: this.boolOrDefault(
+        raw?.enableAdvanceRecovery ?? raw?.enable_advance_recovery,
+        defaults.enableAdvanceRecovery,
+      ),
+      defaultDeductionCapPct: this.numberOrDefault(
+        raw?.defaultDeductionCapPct ?? raw?.default_deduction_cap_pct,
+        defaults.defaultDeductionCapPct,
+      ),
+      recoveryOrder: String(raw?.recoveryOrder ?? raw?.recovery_order ?? defaults.recoveryOrder),
+      updatedAt: raw?.updatedAt || raw?.updated_at || '',
+    };
+  }
+
+  private mapAddon(raw: any): LocalSetupAddon {
+    const mapped = this.mapSetup(raw);
+    return {
+      effectiveFrom: mapped.effectiveFrom,
+      cycleStartDay: mapped.cycleStartDay,
+      payoutDay: mapped.payoutDay,
+      lockDay: mapped.lockDay,
+      arrearMode: mapped.arrearMode,
+      leaveAccrualPerMonth: mapped.leaveAccrualPerMonth,
+      maxCarryForward: mapped.maxCarryForward,
+      allowCarryForward: mapped.allowCarryForward,
+      lopMode: mapped.lopMode,
+      attendanceSource: mapped.attendanceSource,
+      attendanceCutoffDay: mapped.attendanceCutoffDay,
+      graceMinutes: mapped.graceMinutes,
+      autoLockAttendance: mapped.autoLockAttendance,
+      syncEnabled: mapped.syncEnabled,
+      enableLoanRecovery: mapped.enableLoanRecovery,
+      enableAdvanceRecovery: mapped.enableAdvanceRecovery,
+      defaultDeductionCapPct: mapped.defaultDeductionCapPct,
+      recoveryOrder: mapped.recoveryOrder,
+    };
+  }
+
+  private validateStatutory(): string[] {
+    const errors: string[] = [];
+    if (this.setup.pfEmployerRate < 0 || this.setup.pfEmployerRate > 100) errors.push('PF employer rate must be between 0 and 100');
+    if (this.setup.pfEmployeeRate < 0 || this.setup.pfEmployeeRate > 100) errors.push('PF employee rate must be between 0 and 100');
+    if (this.setup.esiEmployerRate < 0 || this.setup.esiEmployerRate > 100) errors.push('ESI employer rate must be between 0 and 100');
+    if (this.setup.esiEmployeeRate < 0 || this.setup.esiEmployeeRate > 100) errors.push('ESI employee rate must be between 0 and 100');
+    if (this.setup.pfWageCeiling <= 0) errors.push('PF wage ceiling must be positive');
+    if (this.setup.esiWageCeiling <= 0) errors.push('ESI wage ceiling must be positive');
+    return errors;
+  }
+
+  private validatePayCycle(): string[] {
+    const errors: string[] = [];
+    if (!this.payCycleOptions.includes(this.setup.payCycle)) errors.push('Select a valid pay cycle');
+    if (this.addon.cycleStartDay < 1 || this.addon.cycleStartDay > 31) errors.push('Cycle start day must be between 1 and 31');
+    if (this.addon.payoutDay < 1 || this.addon.payoutDay > 31) errors.push('Payout day must be between 1 and 31');
+    if (this.addon.lockDay < 1 || this.addon.lockDay > 31) errors.push('Payroll lock day must be between 1 and 31');
+    return errors;
+  }
+
+  private validateLeavePolicy(): string[] {
+    const errors: string[] = [];
+    if (this.addon.leaveAccrualPerMonth < 0 || this.addon.leaveAccrualPerMonth > 5) errors.push('Leave accrual per month should be between 0 and 5');
+    if (this.addon.maxCarryForward < 0 || this.addon.maxCarryForward > 120) errors.push('Max carry forward should be between 0 and 120');
+    return errors;
+  }
+
+  private validateAttendance(): string[] {
+    const errors: string[] = [];
+    if (this.addon.attendanceCutoffDay < 1 || this.addon.attendanceCutoffDay > 31) errors.push('Attendance cutoff day must be between 1 and 31');
+    if (this.addon.graceMinutes < 0 || this.addon.graceMinutes > 180) errors.push('Grace minutes should be between 0 and 180');
+    return errors;
+  }
+
+  private validateDeductions(): string[] {
+    const errors: string[] = [];
+    if (this.addon.defaultDeductionCapPct < 0 || this.addon.defaultDeductionCapPct > 100) {
+      errors.push('Default deduction cap must be between 0 and 100');
+    }
+    if (!this.addon.recoveryOrder.trim()) {
+      errors.push('Recovery order must be provided');
+    }
+    return errors;
+  }
+
+  private setSectionMessage(tab: SetupTab, text: string, error = false): void {
+    this.sectionMessages[tab] = { text, error };
+  }
+
+  private clearMessages(): void {
+    this.tabs.forEach((tab) => {
+      this.sectionMessages[tab.key] = { text: '', error: false };
     });
   }
 
-  deleteRule(rule: ComponentRule) {
-    if (!this.selectedComp || !confirm('Delete this rule?')) return;
-    this.setupApi.deleteRule(this.selectedClientId, this.selectedComp.id, rule.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => this.loadRules(),
-      error: (e) => alert(e?.error?.message || 'Delete failed'),
+  private setValidationIssues(tab: SetupTab, issues: string[]): void {
+    this.sectionValidation[tab] = issues;
+  }
+
+  private clearValidationIssues(): void {
+    this.tabs.forEach((tab) => {
+      this.sectionValidation[tab.key] = [];
     });
+  }
+
+  private resetSectionSnapshots(): void {
+    this.tabs.forEach((tab) => {
+      this.sectionSnapshots[tab.key] = '';
+    });
+  }
+
+  private refreshSectionSnapshots(): void {
+    this.tabs.forEach((tab) => {
+      this.sectionSnapshots[tab.key] = this.captureSectionSnapshot(tab.key);
+    });
+  }
+
+  private captureSectionSnapshot(tab: SetupTab): string {
+    if (tab === 'statutory') {
+      return JSON.stringify({
+        pfEnabled: this.setup.pfEnabled,
+        esiEnabled: this.setup.esiEnabled,
+        ptEnabled: this.setup.ptEnabled,
+        lwfEnabled: this.setup.lwfEnabled,
+        pfEmployerRate: this.setup.pfEmployerRate,
+        pfEmployeeRate: this.setup.pfEmployeeRate,
+        esiEmployerRate: this.setup.esiEmployerRate,
+        esiEmployeeRate: this.setup.esiEmployeeRate,
+        pfWageCeiling: this.setup.pfWageCeiling,
+        esiWageCeiling: this.setup.esiWageCeiling,
+      });
+    }
+
+    if (tab === 'pay-cycle') {
+      return JSON.stringify({
+        payCycle: this.setup.payCycle,
+        effectiveFrom: this.addon.effectiveFrom,
+        cycleStartDay: this.addon.cycleStartDay,
+        payoutDay: this.addon.payoutDay,
+        lockDay: this.addon.lockDay,
+        arrearMode: this.addon.arrearMode,
+      });
+    }
+
+    if (tab === 'leave-policy') {
+      return JSON.stringify({
+        leaveAccrualPerMonth: this.addon.leaveAccrualPerMonth,
+        maxCarryForward: this.addon.maxCarryForward,
+        allowCarryForward: this.addon.allowCarryForward,
+        lopMode: this.addon.lopMode,
+      });
+    }
+
+    if (tab === 'attendance') {
+      return JSON.stringify({
+        attendanceSource: this.addon.attendanceSource,
+        attendanceCutoffDay: this.addon.attendanceCutoffDay,
+        graceMinutes: this.addon.graceMinutes,
+        autoLockAttendance: this.addon.autoLockAttendance,
+        syncEnabled: this.addon.syncEnabled,
+      });
+    }
+
+    return JSON.stringify({
+      enableLoanRecovery: this.addon.enableLoanRecovery,
+      enableAdvanceRecovery: this.addon.enableAdvanceRecovery,
+      defaultDeductionCapPct: this.addon.defaultDeductionCapPct,
+      recoveryOrder: this.addon.recoveryOrder,
+    });
+  }
+
+  private defaultSetup(): PayrollSetupViewModel {
+    return {
+      clientId: '',
+      pfEnabled: true,
+      esiEnabled: true,
+      ptEnabled: false,
+      lwfEnabled: false,
+      pfEmployerRate: 12,
+      pfEmployeeRate: 12,
+      esiEmployerRate: 3.25,
+      esiEmployeeRate: 0.75,
+      pfWageCeiling: 15000,
+      esiWageCeiling: 21000,
+      payCycle: 'MONTHLY',
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      cycleStartDay: 1,
+      payoutDay: 1,
+      lockDay: 26,
+      arrearMode: 'CURRENT',
+      leaveAccrualPerMonth: 1.5,
+      maxCarryForward: 30,
+      allowCarryForward: true,
+      lopMode: 'PRORATED',
+      attendanceSource: 'MANUAL',
+      attendanceCutoffDay: 25,
+      graceMinutes: 10,
+      autoLockAttendance: true,
+      syncEnabled: false,
+      enableLoanRecovery: true,
+      enableAdvanceRecovery: true,
+      defaultDeductionCapPct: 50,
+      recoveryOrder: 'STATUTORY > LOAN > ADVANCE > OTHER',
+      updatedAt: '',
+    };
+  }
+
+  private defaultAddon(): LocalSetupAddon {
+    return {
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      cycleStartDay: 1,
+      payoutDay: 1,
+      lockDay: 26,
+      arrearMode: 'CURRENT',
+
+      leaveAccrualPerMonth: 1.5,
+      maxCarryForward: 30,
+      allowCarryForward: true,
+      lopMode: 'PRORATED',
+
+      attendanceSource: 'MANUAL',
+      attendanceCutoffDay: 25,
+      graceMinutes: 10,
+      autoLockAttendance: true,
+      syncEnabled: false,
+
+      enableLoanRecovery: true,
+      enableAdvanceRecovery: true,
+      defaultDeductionCapPct: 50,
+      recoveryOrder: 'STATUTORY > LOAN > ADVANCE > OTHER',
+    };
+  }
+
+  private numberOrDefault(value: unknown, fallback: number): number {
+    const n = Number(value);
+    return Number.isNaN(n) ? fallback : n;
+  }
+
+  private boolOrDefault(value: unknown, fallback: boolean): boolean {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+      const v = value.trim().toLowerCase();
+      if (!v) return fallback;
+      if (['1', 'true', 'yes', 'y'].includes(v)) return true;
+      if (['0', 'false', 'no', 'n'].includes(v)) return false;
+    }
+    return fallback;
   }
 }

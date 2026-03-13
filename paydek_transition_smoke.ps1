@@ -86,6 +86,28 @@ function Invoke-JsonApi {
   }
 }
 
+function Invoke-JsonApiWithRetry {
+  param(
+    [string]$Method,
+    [string]$Url,
+    [string]$Token = "",
+    $Body = $null,
+    [int]$MaxAttempts = 4
+  )
+
+  $attempt = 0
+  while ($attempt -lt $MaxAttempts) {
+    $result = Invoke-JsonApi -Method $Method -Url $Url -Token $Token -Body $Body
+    if ($result.ok -or $result.status -ne 429 -or $attempt -ge ($MaxAttempts - 1)) {
+      return $result
+    }
+    Start-Sleep -Milliseconds (500 * ($attempt + 1))
+    $attempt++
+  }
+
+  return $result
+}
+
 function Invoke-CurlUpload {
   param(
     [string]$Url,
@@ -150,7 +172,7 @@ $baseCandidates = @($baseCandidates | Select-Object -Unique)
 $login = $null
 $resolvedBaseUrl = $null
 foreach ($candidateBase in $baseCandidates) {
-  $tryLogin = Invoke-JsonApi -Method "POST" -Url "$candidateBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
+  $tryLogin = Invoke-JsonApiWithRetry -Method "POST" -Url "$candidateBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
   if ($tryLogin.ok) {
     $login = $tryLogin
     $resolvedBaseUrl = $candidateBase
@@ -163,7 +185,7 @@ foreach ($candidateBase in $baseCandidates) {
   }
 }
 if (-not $login) {
-  $login = Invoke-JsonApi -Method "POST" -Url "$normalizedBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
+  $login = Invoke-JsonApiWithRetry -Method "POST" -Url "$normalizedBase/auth/login" -Body @{ email = $AdminEmail; password = $AdminPassword }
   $resolvedBaseUrl = $normalizedBase
 }
 
@@ -186,17 +208,32 @@ if (-not $ClientId) {
   $clients = Invoke-JsonApi -Method "GET" -Url "$BaseUrl/payroll/clients" -Token $token
   $arr = Get-DataArray -Json $clients.json
   if ((@($arr).Count -eq 0) -and $clients.raw) {
-    # Fallback: sometimes response parsing can differ by shell/runtime.
     $parsedRaw = Try-ParseJson -Raw $clients.raw
     $arr = Get-DataArray -Json $parsedRaw
   }
   $firstClient = @($arr) | Where-Object { $_ -and $_.id } | Select-Object -First 1
   $is2xx = ($clients.status -ge 200 -and $clients.status -lt 300)
   if (-not $firstClient -and $is2xx -and $clients.raw) {
-    # Last-resort fallback for array parsing edge cases.
     $m = [regex]::Match([string]$clients.raw, '"id"\s*:\s*"([^"]+)"')
     if ($m.Success -and $m.Groups.Count -gt 1) {
       $firstClient = [pscustomobject]@{ id = $m.Groups[1].Value }
+    }
+  }
+  if (-not $firstClient) {
+    $optionClients = Invoke-JsonApi -Method "GET" -Url "$BaseUrl/admin/options/clients" -Token $token
+    $optionArr = Get-DataArray -Json $optionClients.json
+    if ((@($optionArr).Count -eq 0) -and $optionClients.raw) {
+      $parsedOptionsRaw = Try-ParseJson -Raw $optionClients.raw
+      $optionArr = Get-DataArray -Json $parsedOptionsRaw
+    }
+    $firstOptionClient = @($optionArr) | Where-Object { $_ -and $_.id } | Select-Object -First 1
+    if ($firstOptionClient) {
+      $firstClient = [pscustomobject]@{ id = [string]$firstOptionClient.id }
+      $clients = $optionClients
+      $is2xx = ($optionClients.status -ge 200 -and $optionClients.status -lt 300)
+      Add-Check -Name "Resolve Client Fallback" -Ok $true -Status $optionClients.status -Details "source=admin/options/clients clientId=$($firstClient.id)"
+    } elseif (-not $is2xx) {
+      Add-Check -Name "Resolve Client Fallback" -Ok $false -Status $optionClients.status -Details ("source=admin/options/clients " + ($optionClients.raw -replace "`r?`n"," "))
     }
   }
   if ($is2xx -and $firstClient) {
@@ -358,8 +395,18 @@ if ($finalRun) {
   } else {
     $isExpectedFinal = ($finalStatus -eq "PROCESSED" -or $finalStatus -eq "APPROVED")
   }
+} elseif ($approvalEndpointsAvailable -and $approve.ok) {
+  $approveStatus = ""
+  if ($approve.json -and $approve.json.data -and $approve.json.data.status) {
+    $approveStatus = [string]$approve.json.data.status
+  } elseif ($approve.json -and $approve.json.status) {
+    $approveStatus = [string]$approve.json.status
+  }
+  if ($approveStatus) {
+    $finalStatus = $approveStatus
+    $isExpectedFinal = ($approveStatus -eq "APPROVED")
+  }
 } elseif (-not $approvalEndpointsAvailable -and $expectedBlock) {
-  # Legacy mode can return an unlisted run payload shape; treat blocked reprocess as terminal proof.
   $finalStatus = "UNLISTED_FALLBACK"
   $isExpectedFinal = $true
 }

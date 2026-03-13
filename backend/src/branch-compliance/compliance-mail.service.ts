@@ -44,17 +44,30 @@ export class ComplianceMailService {
       : this.emailService.adminRecipients();
 
     if (!recipients.length) {
-      this.logger.warn(`No recipients for compliance reminder: ${params.returnName}`);
+      this.logger.warn(
+        `No recipients for compliance reminder: ${params.returnName}`,
+      );
       return;
     }
 
-    const result = await this.emailService.send(recipients, subject, subject, bodyHtml);
+    const result = await this.emailService.send(
+      recipients,
+      subject,
+      subject,
+      bodyHtml,
+    );
     if ('skipped' in result) {
-      this.logger.log(`[EMAIL DISABLED] ${urgency}: ${params.returnName} due ${params.dueDate}`);
+      this.logger.log(
+        `[EMAIL DISABLED] ${urgency}: ${params.returnName} due ${params.dueDate}`,
+      );
     } else if (result.ok) {
-      this.logger.log(`Sent ${urgency} for ${params.returnName} to ${recipients.join(',')}`);
+      this.logger.log(
+        `Sent ${urgency} for ${params.returnName} to ${recipients.join(',')}`,
+      );
     } else {
-      this.logger.error(`Failed to send ${urgency} for ${params.returnName}: ${result.error}`);
+      this.logger.error(
+        `Failed to send ${urgency} for ${params.returnName}: ${result.error}`,
+      );
     }
   }
 
@@ -76,7 +89,10 @@ export class ComplianceMailService {
 
     const subject = `Compliance Summary: ${params.documents.length} documents due in ${params.daysAhead} days`;
     const rows = params.documents
-      .map(d => `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${d.returnName}</td><td style="padding:4px 8px;border:1px solid #ddd;">${d.returnCode}</td><td style="padding:4px 8px;border:1px solid #ddd;">${d.dueDate}</td><td style="padding:4px 8px;border:1px solid #ddd;">${d.status}</td></tr>`)
+      .map(
+        (d) =>
+          `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${d.returnName}</td><td style="padding:4px 8px;border:1px solid #ddd;">${d.returnCode}</td><td style="padding:4px 8px;border:1px solid #ddd;">${d.dueDate}</td><td style="padding:4px 8px;border:1px solid #ddd;">${d.status}</td></tr>`,
+      )
       .join('');
 
     const bodyHtml = `
@@ -95,15 +111,26 @@ export class ComplianceMailService {
 
     const recipients = this.emailService.adminRecipients();
     if (!recipients.length) {
-      this.logger.warn(`No recipients for batch compliance summary (company ${params.companyId})`);
+      this.logger.warn(
+        `No recipients for batch compliance summary (company ${params.companyId})`,
+      );
       return;
     }
 
-    const result = await this.emailService.send(recipients, subject, subject, bodyHtml);
+    const result = await this.emailService.send(
+      recipients,
+      subject,
+      subject,
+      bodyHtml,
+    );
     if ('skipped' in result) {
-      this.logger.log(`[EMAIL DISABLED] Batch: ${params.documents.length} docs due for company ${params.companyId}`);
+      this.logger.log(
+        `[EMAIL DISABLED] Batch: ${params.documents.length} docs due for company ${params.companyId}`,
+      );
     } else if (result.ok) {
-      this.logger.log(`Sent batch summary (${params.documents.length} docs) to ${recipients.join(',')}`);
+      this.logger.log(
+        `Sent batch summary (${params.documents.length} docs) to ${recipients.join(',')}`,
+      );
     } else {
       this.logger.error(`Failed to send batch summary: ${result.error}`);
     }

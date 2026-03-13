@@ -27,14 +27,6 @@ export interface CeoOversightSummary {
   ccoSummary: any[];
 }
 
-export interface CeoNotification {
-  id: number;
-  subject?: string;
-  body?: string;
-  createdAt?: string;
-  read: boolean;
-}
-
 export interface CeoReportPack {
   id: string;
   title: string;
@@ -94,14 +86,6 @@ export class CeoApiService {
 
   getOversightSummary(): Observable<CeoOversightSummary> {
     return this.http.get<CeoOversightSummary>('/api/v1/ceo/oversight/cco-summary');
-  }
-
-  getNotifications(): Observable<CeoNotification[]> {
-    return this.http.get<CeoNotification[]>('/api/v1/ceo/notifications');
-  }
-
-  markNotificationRead(id: string | number): Observable<any> {
-    return this.http.post(`/api/v1/ceo/notifications/${id}/read`, {});
   }
 
   getReportsSummary(period?: string): Observable<CeoReportsSummary> {

@@ -18,8 +18,12 @@ describe('AdminReturnsController (e2e) - delete/restore', () => {
     listForAdmin: jest.fn(),
     getReturnTypes: jest.fn(),
     updateStatusAsAdmin: jest.fn(),
-    softDeleteAsAdmin: jest.fn().mockResolvedValue({ id: sampleId, isDeleted: true }),
-    restoreAsAdmin: jest.fn().mockResolvedValue({ id: sampleId, isDeleted: false }),
+    softDeleteAsAdmin: jest
+      .fn()
+      .mockResolvedValue({ id: sampleId, isDeleted: true }),
+    restoreAsAdmin: jest
+      .fn()
+      .mockResolvedValue({ id: sampleId, isDeleted: false }),
   } as Partial<ReturnsService>;
 
   beforeEach(async () => {
@@ -72,7 +76,9 @@ describe('AdminReturnsController (e2e) - delete/restore', () => {
 
   it('bubbles not-found from restore', async () => {
     const notFound = new NotFoundException('Return not found or not deleted');
-    (returnsServiceMock.restoreAsAdmin as jest.Mock).mockRejectedValueOnce(notFound);
+    (returnsServiceMock.restoreAsAdmin as jest.Mock).mockRejectedValueOnce(
+      notFound,
+    );
 
     await request(app.getHttpServer())
       .patch(`/admin/returns/filings/${sampleId}/restore`)
