@@ -10,6 +10,7 @@ import { ClientComplianceService } from '../../../core/client-compliance.service
 import { ClientAuditsService } from '../../../core/client-audits.service';
 import { ClientContractorsService } from '../../../core/client-contractors.service';
 import { ReturnsService } from '../../../core/returns.service';
+import { ReportsService } from '../../../core/reports.service';
 import { AuthService } from '../../../core/auth.service';
 import {
   Employee,
@@ -221,7 +222,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
       { metric: 'Employees Pending', value: this.pendingCountFor('employees') },
       { metric: 'Contractors At Risk', value: this.pendingCountFor('contractors') },
     ];
-    this.exportCsv(
+    ReportsService.exportCsv(
       rows,
       [
         { key: 'metric', label: 'Metric' },
@@ -241,7 +242,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
 
   openPath(path?: string | null): void {
     if (!path) return;
-    window.open(path, '_blank');
+    window.open(this.auth.authenticateUrl(path), '_blank');
   }
 
   documentPath(row: any): string {
@@ -352,7 +353,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
   }
 
   employeesPendingApprovalCount(): number {
-    return this.employees.filter((e) => String((e as any)?.approvalStatus || '').toUpperCase() !== 'APPROVED').length;
+    return this.employees.filter((e) => String(e.approvalStatus || '').toUpperCase() !== 'APPROVED').length;
   }
 
   contractorAtRiskCount(): number {
@@ -887,23 +888,5 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
       employees: false,
       contractors: false,
     };
-  }
-
-  private exportCsv(rows: any[], columns: Array<{ key: string; label: string }>, fileName: string): void {
-    const escape = (value: unknown) => {
-      const text = String(value ?? '');
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-    const lines = [
-      columns.map((column) => escape(column.label)).join(','),
-      ...rows.map((row) => columns.map((column) => escape(row?.[column.key])).join(',')),
-    ];
-    const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 }

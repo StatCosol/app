@@ -19,8 +19,14 @@ export class ClientMasterGuard implements CanActivate {
       throw new ForbiddenException('Not authenticated');
     }
 
-    if (user.roleCode !== 'CLIENT' || user.userType !== 'MASTER' || !user.clientId) {
-      throw new ForbiddenException('Only client master users can access this resource');
+    if (
+      user.roleCode !== 'CLIENT' ||
+      user.userType !== 'MASTER' ||
+      !user.clientId
+    ) {
+      throw new ForbiddenException(
+        'Only client master users can access this resource',
+      );
     }
 
     return true;

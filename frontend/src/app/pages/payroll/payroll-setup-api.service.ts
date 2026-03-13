@@ -17,6 +17,24 @@ export type PayrollClientSetup = {
   pfWageCeiling: number;
   esiWageCeiling: number;
   payCycle: string;
+  effectiveFrom: string;
+  cycleStartDay: number;
+  payoutDay: number;
+  lockDay: number;
+  arrearMode: 'CURRENT' | 'NEXT';
+  leaveAccrualPerMonth: number;
+  maxCarryForward: number;
+  allowCarryForward: boolean;
+  lopMode: 'PRORATED' | 'FULL_DAY';
+  attendanceSource: 'MANUAL' | 'BIOMETRIC' | 'INTEGRATION';
+  attendanceCutoffDay: number;
+  graceMinutes: number;
+  autoLockAttendance: boolean;
+  syncEnabled: boolean;
+  enableLoanRecovery: boolean;
+  enableAdvanceRecovery: boolean;
+  defaultDeductionCapPct: number;
+  recoveryOrder: string;
 };
 
 export type PayrollComponent = {
@@ -116,6 +134,10 @@ export class PayrollSetupApiService {
     return this.http.post(`${this.runBase}/${runId}/process`, {});
   }
 
+  processWithEngine(runId: string): Observable<any> {
+    return this.http.post(`${environment.apiBaseUrl}/api/v1/payroll/engine/runs/${runId}/process`, {});
+  }
+
   generatePfEcr(runId: string): Observable<Blob> {
     return this.http.post(`${this.runBase}/${runId}/generate/pf-ecr`, {}, { responseType: 'blob' });
   }
@@ -129,5 +151,27 @@ export class PayrollSetupApiService {
       `${this.runBase}/${runId}/generate/registers?stateCode=${stateCode}&registerType=${registerType}`,
       {},
     );
+  }
+
+  // ── Approval Workflow ──────────────────────────────────
+
+  submitRunForApproval(runId: string): Observable<any> {
+    return this.http.post(`${this.runBase}/${runId}/submit`, {});
+  }
+
+  approveRun(runId: string, comments?: string): Observable<any> {
+    return this.http.post(`${this.runBase}/${runId}/approve`, { comments });
+  }
+
+  rejectRun(runId: string, reason: string): Observable<any> {
+    return this.http.post(`${this.runBase}/${runId}/reject`, { reason });
+  }
+
+  revertRunToDraft(runId: string): Observable<any> {
+    return this.http.post(`${this.runBase}/${runId}/revert`, {});
+  }
+
+  getApprovalStatus(runId: string): Observable<any> {
+    return this.http.get(`${this.runBase}/${runId}/approval-status`);
   }
 }

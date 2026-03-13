@@ -1,0 +1,289 @@
+<div class="runs-page">
+  <ui-page-header
+    title="Payroll Runs Console"
+    subtitle="Step-based payroll execution console with import status, validation exceptions, preview totals, approval, publish, and rerun controls">
+    <ui-button variant="secondary" size="sm" (clicked)="loadRuns()">Refresh</ui-button>
+  </ui-page-header>
+
+  <section class="filter-card">
+    <div class="filter-grid">
+      <div class="field">
+        <label>Client</label>
+        <select [(ngModel)]="selectedClientId">
+          <option value="">All Clients</option>
+          <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Month</label>
+        <select [(ngModel)]="selectedMonth">
+          <option [ngValue]="0">All Months</option>
+          <option *ngFor="let month of monthOptions; index as idx" [ngValue]="idx + 1">{{ month }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Year</label>
+        <select [(ngModel)]="selectedYear">
+          <option [ngValue]="0">All Years</option>
+          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select [(ngModel)]="statusFilter">
+          <option *ngFor="let status of statusOptions" [value]="status">{{ status || 'All Statuses' }}</option>
+        </select>
+      </div>
+      <div class="field field--wide">
+        <label>Search</label>
+        <input type="text" [(ngModel)]="searchText" (input)="onSearchChange()" placeholder="Client, status, or period" />
+      </div>
+    </div>
+    <div class="filter-actions">
+      <ui-button variant="primary" size="sm" (clicked)="applyFilters()">Apply</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()">Reset</ui-button>
+    </div>
+  </section>
+
+  <section class="summary-grid">
+    <article class="summary-card"><div class="label">Runs</div><div class="value">{{ totalRuns() }}</div></article>
+    <article class="summary-card"><div class="label">Draft</div><div class="value">{{ draftRuns() }}</div></article>
+    <article class="summary-card"><div class="label">Processed</div><div class="value">{{ processedRuns() }}</div></article>
+    <article class="summary-card"><div class="label">Submitted</div><div class="value">{{ submittedRuns() }}</div></article>
+    <article class="summary-card"><div class="label">Approved</div><div class="value">{{ approvedRuns() }}</div></article>
+  </section>
+
+  <ui-loading-spinner *ngIf="loadingRuns" text="Loading payroll runs..."></ui-loading-spinner>
+  <ui-empty-state
+    *ngIf="!loadingRuns && !filteredRuns.length"
+    title="No Payroll Runs"
+    message="No runs found for the selected filters.">
+  </ui-empty-state>
+
+  <section class="console-grid" *ngIf="!loadingRuns && filteredRuns.length">
+    <div class="queue-panel card">
+      <div class="panel-head">
+        <h3>Run Queue</h3>
+        <span>{{ filteredRuns.length }} run(s)</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Period</th>
+              <th>Status</th>
+              <th>Employees</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let run of filteredRuns; trackBy: trackById"
+              [class.row-active]="selectedRun?.id === run.id"
+              (click)="selectRun(run)">
+              <td>{{ run.clientName || '-' }}</td>
+              <td>{{ monthLabel(run.periodMonth) }} {{ run.periodYear }}</td>
+              <td><span [class]="statusClass(run.status)">{{ run.status }}</span></td>
+              <td>{{ run.employeeCount || 0 }}</td>
+              <td><ui-button variant="ghost" size="sm" (clicked)="selectRun(run)">View</ui-button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="detail-panel card" *ngIf="selectedRun as run">
+      <div class="panel-head">
+        <h3>Run Workspace</h3>
+        <span>{{ run.clientName }} | {{ monthLabel(run.periodMonth) }} {{ run.periodYear }}</span>
+      </div>
+
+      <div class="stepper">
+        <div *ngFor="let step of processSteps; index as idx" [class]="stepClass(idx + 1)">
+          <span class="step-index">{{ idx + 1 }}</span>
+          <span>{{ step.label }}</span>
+        </div>
+      </div>
+
+      <div class="status-cards">
+        <article class="mini-card">
+          <div class="mini-label">Import Status</div>
+          <div class="mini-value">{{ run.employeeCount || 0 }} records</div>
+        </article>
+        <article class="mini-card">
+          <div class="mini-label">Validation Exceptions</div>
+          <div class="mini-value">{{ validationExceptions().length }}</div>
+        </article>
+        <article class="mini-card">
+          <div class="mini-label">Processed Employees</div>
+          <div class="mini-value">{{ runEmployees.length }}</div>
+        </article>
+        <article class="mini-card">
+          <div class="mini-label">Publish Status</div>
+          <div class="mini-value">{{ isPublished(run) ? 'Published' : 'Pending' }}</div>
+        </article>
+      </div>
+
+      <div class="import-box">
+        <div class="import-title">Attendance/Input Import</div>
+        <div class="import-row">
+          <input type="file" (change)="onImportFileSelected($event)" />
+          <ui-button variant="primary" size="sm" (clicked)="uploadRunImport()" [disabled]="actionButtonDisabled(run,'IMPORT')">
+            {{ importBusy ? 'Uploading...' : 'Upload Import' }}
+          </ui-button>
+        </div>
+        <div class="guard-note" *ngIf="!actionAllowed(run,'IMPORT')">{{ actionGuardReason(run, 'IMPORT') }}</div>
+      </div>
+
+      <div class="preview-grid">
+        <article class="preview-card">
+          <div class="preview-label">Gross Earnings</div>
+          <div class="preview-value">{{ selectedGrossTotal() | number: '1.0-0' }}</div>
+        </article>
+        <article class="preview-card">
+          <div class="preview-label">Total Deductions</div>
+          <div class="preview-value">{{ selectedDeductionTotal() | number: '1.0-0' }}</div>
+        </article>
+        <article class="preview-card">
+          <div class="preview-label">Net Pay</div>
+          <div class="preview-value">{{ selectedNetTotal() | number: '1.0-0' }}</div>
+        </article>
+      </div>
+
+      <div class="actions-card">
+        <div class="actions-title">Approval and Publish Controls</div>
+        <div class="actions-row">
+          <ui-button variant="secondary" size="sm" (clicked)="processRun(run)" [disabled]="actionButtonDisabled(run,'PROCESS')">
+            Process
+          </ui-button>
+          <ui-button variant="secondary" size="sm" (clicked)="submitRun(run)" [disabled]="actionButtonDisabled(run,'SUBMIT')">
+            Submit
+          </ui-button>
+          <ui-button variant="primary" size="sm" (clicked)="approveRun(run)" [disabled]="actionButtonDisabled(run,'APPROVE')">
+            Approve
+          </ui-button>
+          <ui-button variant="primary" size="sm" (clicked)="publishRun(run)" [disabled]="actionButtonDisabled(run,'PUBLISH')">
+            {{ isPublished(run) ? 'Download Payslips' : (canSubmit(run) ? 'Submit & Publish' : (canApprove(run) ? 'Approve & Publish' : 'Publish')) }}
+          </ui-button>
+          <ui-button variant="secondary" size="sm" (clicked)="rerunRun(run)" [disabled]="actionButtonDisabled(run,'RERUN') || isPublished(run)">
+            Rerun
+          </ui-button>
+          <ui-button variant="ghost" size="sm" (clicked)="rollbackRun(run)" [disabled]="actionButtonDisabled(run,'ROLLBACK')">
+            Rollback
+          </ui-button>
+        </div>
+      </div>
+
+      <div class="guardrail-card">
+        <div class="actions-title">Step Guardrails</div>
+        <div class="guardrail-row" *ngFor="let g of runGuardrails(run); trackBy: trackById">
+          <span class="guardrail-label">{{ g.label }}</span>
+          <span class="guardrail-ok" *ngIf="g.allowed">Allowed</span>
+          <span class="guardrail-blocked" *ngIf="!g.allowed">{{ g.reason }}</span>
+        </div>
+      </div>
+
+      <div class="exception-card">
+        <div class="actions-title">Validation Exception Board</div>
+        <div class="bucket-grid">
+          <article
+            *ngFor="let bucket of exceptionBuckets(); trackBy: trackById"
+            [class]="bucketClass(bucket)"
+            (click)="setExceptionBucket(bucket.key)">
+            <div class="bucket-label">{{ bucket.label }}</div>
+            <div class="bucket-value">{{ bucket.count }}</div>
+          </article>
+        </div>
+        <div class="bucket-filter-hint" *ngIf="selectedExceptionBucketKey !== 'ALL'">
+          Filtered by: {{ selectedExceptionBucketKey }}
+        </div>
+        <div class="table-wrap" *ngIf="filteredValidationExceptions().length; else noExceptions">
+          <table class="data-table compact">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Gross</th>
+                <th>Deductions</th>
+                <th>Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredValidationExceptions(); trackBy: trackById">
+                <td>{{ row.employeeName }} <div class="muted">{{ row.empCode }}</div></td>
+                <td>{{ row.grossEarnings | number: '1.0-0' }}</td>
+                <td>{{ row.totalDeductions | number: '1.0-0' }}</td>
+                <td>{{ row.netPay | number: '1.0-0' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noExceptions>
+          <div class="ok-line">No high-risk validation exceptions detected.</div>
+        </ng-template>
+      </div>
+
+      <div class="history-card">
+        <div class="actions-title">Publish History</div>
+        <div class="history-summary" *ngIf="publishHistory().length">
+          <span class="history-chip">Total {{ publishHistorySummary().total }}</span>
+          <span class="history-chip">Approvals {{ publishHistorySummary().approvals }}</span>
+          <span class="history-chip">Rejects {{ publishHistorySummary().rejects }}</span>
+          <span class="history-chip">Publishes {{ publishHistorySummary().publishes }}</span>
+          <span class="history-chip">Rollbacks {{ publishHistorySummary().rollbacks }}</span>
+        </div>
+        <div class="approval-meta" *ngIf="approvalStatusForSelectedRun() as a">
+          <span *ngIf="a.submittedAt">Submitted: {{ a.submittedAt | date: 'dd MMM yyyy, HH:mm' }}</span>
+          <span *ngIf="a.approvedAt">Approved: {{ a.approvedAt | date: 'dd MMM yyyy, HH:mm' }}</span>
+          <span class="approval-note" *ngIf="a.rejectedAt && a.rejectionReason">Rejected: {{ a.rejectionReason }}</span>
+          <span class="approval-note" *ngIf="a.approvalComments">Approval Notes: {{ a.approvalComments }}</span>
+          <span class="approval-loading" *ngIf="loadingApprovalStatus">Syncing approval timeline...</span>
+        </div>
+        <div class="history-list" *ngIf="publishHistory().length; else noHistory">
+          <div class="history-item" *ngFor="let event of visiblePublishHistory(); trackBy: trackById">
+            <div class="history-title">{{ event.title }}</div>
+            <div class="history-time">{{ event.at | date: 'dd MMM yyyy, HH:mm' }}</div>
+            <div class="history-kind">{{ event.kind }}</div>
+            <div class="history-note" *ngIf="event.note">{{ event.note }}</div>
+          </div>
+          <ui-button
+            *ngIf="publishHistory().length > 5"
+            variant="ghost"
+            size="sm"
+            (clicked)="toggleHistory()">
+            {{ showFullHistory ? 'Show Less' : 'Show Full History' }}
+          </ui-button>
+        </div>
+        <ng-template #noHistory>
+          <div class="ok-line">No publish history events yet.</div>
+        </ng-template>
+      </div>
+
+      <div class="employee-preview">
+        <div class="actions-title">Payroll Preview Employees</div>
+        <ui-loading-spinner *ngIf="loadingRunDetail" text="Loading employee preview..."></ui-loading-spinner>
+        <div class="table-wrap" *ngIf="!loadingRunDetail && runEmployees.length">
+          <table class="data-table compact">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Gross</th>
+                <th>Deductions</th>
+                <th>Net Pay</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of runEmployees; trackBy: trackById">
+                <td>{{ row.employeeName }} <div class="muted">{{ row.empCode }}</div></td>
+                <td>{{ row.grossEarnings | number: '1.0-0' }}</td>
+                <td>{{ row.totalDeductions | number: '1.0-0' }}</td>
+                <td>{{ row.netPay | number: '1.0-0' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+

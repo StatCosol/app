@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { MonthlyDocumentsService } from './monthly-documents.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 type MulterFile = {
   originalname: string;
@@ -30,6 +31,8 @@ const uploadOptions = {
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 };
 
+@ApiTags('Compliance Documents')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'documents/monthly', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
@@ -37,6 +40,7 @@ export class MonthlyDocumentsController {
   constructor(private readonly svc: MonthlyDocumentsService) {}
 
   /** GET /api/v1/documents/monthly?branchId=&month=&code= */
+  @ApiOperation({ summary: 'List' })
   @Get()
   list(@Req() req: any, @Query() q: any) {
     return this.svc.list(
@@ -48,13 +52,10 @@ export class MonthlyDocumentsController {
   }
 
   /** POST /api/v1/documents/monthly/upload  (multipart) */
+  @ApiOperation({ summary: 'Upload' })
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', uploadOptions))
-  upload(
-    @Req() req: any,
-    @Body() body: any,
-    @UploadedFile() file: MulterFile,
-  ) {
+  upload(@Req() req: any, @Body() body: any, @UploadedFile() file: MulterFile) {
     return this.svc.upload(
       { id: req.user.id, clientId: req.user.clientId },
       body.branchId,
@@ -65,6 +66,7 @@ export class MonthlyDocumentsController {
   }
 
   /** DELETE /api/v1/documents/monthly/:id */
+  @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
   remove(@Req() req: any, @Param('id') id: string) {
     return this.svc.remove(

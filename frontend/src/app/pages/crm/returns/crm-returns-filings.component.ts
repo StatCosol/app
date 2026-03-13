@@ -1,17 +1,79 @@
-import { Component, ChangeDetectorRef, OnInit, ViewChild, ElementRef } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 
+import { AuthService } from '../../../core/auth.service';
 import { CrmReturnsService } from '../../../core/crm-returns.service';
+import { ReportsService } from '../../../core/reports.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
-  PageHeaderComponent,
-  LoadingSpinnerComponent,
-  EmptyStateComponent,
-  StatusBadgeComponent,
   ActionButtonComponent,
+  EmptyStateComponent,
+  LoadingSpinnerComponent,
+  PageHeaderComponent,
+  StatusBadgeComponent,
 } from '../../../shared/ui';
+
+type FilingStatus = 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+type FilingWorkflow = 'PREPARED' | 'REVIEWED' | 'FILED' | 'ACKNOWLEDGED' | 'REJECTED';
+
+interface ReturnFiling {
+  id: string;
+  clientId?: string | null;
+  branchId?: string | null;
+  lawType?: string | null;
+  returnType?: string | null;
+  periodYear?: number | null;
+  periodMonth?: number | null;
+  periodLabel?: string | null;
+  dueDate?: string | null;
+  filedDate?: string | null;
+  status: FilingStatus;
+  ackNumber?: string | null;
+  ackFilePath?: string | null;
+  challanFilePath?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+interface TimelineEvent {
+  title: string;
+  timestamp: string;
+  note?: string | null;
+}
+
+interface BranchPendingRow {
+  branchId: string;
+  total: number;
+  pending: number;
+  filed: number;
+  acknowledged: number;
+  rejected: number;
+  overdue: number;
+}
+
+interface StatusAction {
+  label: string;
+  value: FilingStatus;
+  variant: 'primary' | 'secondary' | 'danger';
+}
+
+interface ChecklistRow {
+  label: string;
+  done: boolean;
+  note: string;
+}
 
 @Component({
   standalone: true,
@@ -25,228 +87,545 @@ import {
     StatusBadgeComponent,
     ActionButtonComponent,
   ],
-  template: `
-    <div class="page">
-      <ui-page-header
-        title="Returns / Filings"
-        subtitle="Manage compliance filings — upload ACK & Challan proofs for your assigned clients">
-      </ui-page-header>
-
-      <!-- Filters -->
-      <div class="flex flex-wrap items-end gap-3 mb-4">
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">Status</label>
-          <select [(ngModel)]="filters.status" (ngModelChange)="loadFilings()" class="input-sm">
-            <option value="">All</option>
-            <option value="PENDING">Pending</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="APPROVED">Approved</option>
-            <option value="OVERDUE">Overdue</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">Year</label>
-          <select [(ngModel)]="filters.periodYear" (ngModelChange)="loadFilings()" class="input-sm">
-            <option value="">All</option>
-            <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">Month</label>
-          <select [(ngModel)]="filters.periodMonth" (ngModelChange)="loadFilings()" class="input-sm">
-            <option value="">All</option>
-            <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
-          </select>
-        </div>
-        <ui-button variant="secondary" (clicked)="loadFilings()">Refresh</ui-button>
-      </div>
-
-      <ui-loading-spinner *ngIf="loading" text="Loading filings..."></ui-loading-spinner>
-      <ui-empty-state *ngIf="!loading && !filings.length" title="No filings found" description="Adjust filters or check back later."></ui-empty-state>
-
-      <!-- Filings Table -->
-      <div *ngIf="!loading && filings.length" class="overflow-x-auto bg-white rounded-2xl border border-gray-200 shadow-sm">
-        <table class="min-w-full divide-y divide-gray-200 text-sm">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Return Type</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Period</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Due Date</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">ACK</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Challan</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let f of filings" class="hover:bg-gray-50/50">
-              <td class="px-4 py-3 font-medium text-gray-900">{{ f.returnType || f.lawType || '—' }}</td>
-              <td class="px-4 py-3 text-gray-600">
-                {{ f.periodYear }}{{ f.periodMonth ? '-' + (f.periodMonth < 10 ? '0' + f.periodMonth : f.periodMonth) : '' }}
-              </td>
-              <td class="px-4 py-3 text-gray-600">{{ f.dueDate || '—' }}</td>
-              <td class="px-4 py-3">
-                <ui-status-badge [status]="f.status"></ui-status-badge>
-              </td>
-              <td class="px-4 py-3 text-center">
-                <a *ngIf="f.ackFilePath" [href]="f.ackFilePath" target="_blank"
-                   class="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-2 py-0.5">
-                  ✓ View ACK
-                </a>
-                <span *ngIf="!f.ackFilePath" class="text-xs text-gray-400">—</span>
-              </td>
-              <td class="px-4 py-3 text-center">
-                <a *ngIf="f.challanFilePath" [href]="f.challanFilePath" target="_blank"
-                   class="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-2 py-0.5">
-                  ✓ View Challan
-                </a>
-                <span *ngIf="!f.challanFilePath" class="text-xs text-gray-400">—</span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <button type="button" class="btn-action" [disabled]="uploadingAck"
-                          (click)="openAckUpload(f.id)">
-                    {{ uploadingAck && selectedFilingIdForAck === f.id ? 'Uploading...' : 'Upload ACK' }}
-                  </button>
-                  <button type="button" class="btn-action" [disabled]="uploadingChallan"
-                          (click)="openChallanUpload(f.id)">
-                    {{ uploadingChallan && selectedFilingIdForChallan === f.id ? 'Uploading...' : 'Upload Challan' }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Hidden file inputs -->
-      <input #ackInput type="file" hidden (change)="onAckFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx" />
-      <input #challanInput type="file" hidden (change)="onChallanFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx" />
-    </div>
-  `,
-  styles: [`
-    .page { max-width: 1200px; margin: 0 auto; padding: 1rem; }
-    .input-sm {
-      border: 1px solid #d1d5db; border-radius: 0.5rem;
-      padding: 0.375rem 0.75rem; font-size: 0.875rem;
-      background: white; min-width: 120px;
-    }
-    .btn-action {
-      display: inline-flex; align-items: center; gap: 0.25rem;
-      padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 500;
-      border: 1px solid #93c5fd; border-radius: 0.5rem;
-      background: #eff6ff; color: #1d4ed8; cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .btn-action:hover:not(:disabled) { background: #dbeafe; border-color: #60a5fa; }
-    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
-  `],
+  templateUrl: './crm-returns-filings.component.html',
+  styleUrls: ['./crm-returns-filings.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CrmReturnsFilingsComponent implements OnInit {
+export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
   @ViewChild('ackInput') ackInput!: ElementRef<HTMLInputElement>;
   @ViewChild('challanInput') challanInput!: ElementRef<HTMLInputElement>;
 
-  filings: any[] = [];
+  private readonly destroy$ = new Subject<void>();
+
+  filings: ReturnFiling[] = [];
+  filteredFilings: ReturnFiling[] = [];
+  branchPendingRows: BranchPendingRow[] = [];
+  selected: ReturnFiling | null = null;
+  selectedTimeline: TimelineEvent[] = [];
+
   loading = false;
-
-  filters: any = { status: '', periodYear: '', periodMonth: '' };
-
-  yearOptions: number[] = [];
-  monthOptions = [
-    { value: 1, label: 'Jan' }, { value: 2, label: 'Feb' },
-    { value: 3, label: 'Mar' }, { value: 4, label: 'Apr' },
-    { value: 5, label: 'May' }, { value: 6, label: 'Jun' },
-    { value: 7, label: 'Jul' }, { value: 8, label: 'Aug' },
-    { value: 9, label: 'Sep' }, { value: 10, label: 'Oct' },
-    { value: 11, label: 'Nov' }, { value: 12, label: 'Dec' },
-  ];
+  searchTerm = '';
+  lawTypeFilter = '';
+  branchFilter = '';
+  statusFilter = '';
+  pendingOnly = false;
+  periodYearFilter = '';
+  periodMonthFilter = '';
 
   selectedFilingIdForAck: string | null = null;
   selectedFilingIdForChallan: string | null = null;
   uploadingAck = false;
   uploadingChallan = false;
+  statusBusy = false;
+
+  yearOptions: number[] = [];
+  monthOptions = [
+    { value: 1, label: 'Jan' },
+    { value: 2, label: 'Feb' },
+    { value: 3, label: 'Mar' },
+    { value: 4, label: 'Apr' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'Jun' },
+    { value: 7, label: 'Jul' },
+    { value: 8, label: 'Aug' },
+    { value: 9, label: 'Sep' },
+    { value: 10, label: 'Oct' },
+    { value: 11, label: 'Nov' },
+    { value: 12, label: 'Dec' },
+  ];
+
+  readonly statusActions: StatusAction[] = [
+    { label: 'Set Prepared', value: 'PENDING', variant: 'secondary' },
+    { label: 'Set Reviewed', value: 'IN_PROGRESS', variant: 'secondary' },
+    { label: 'Set Filed', value: 'SUBMITTED', variant: 'secondary' },
+    { label: 'Acknowledge', value: 'APPROVED', variant: 'primary' },
+    { label: 'Reject', value: 'REJECTED', variant: 'danger' },
+  ];
 
   constructor(
+    private readonly auth: AuthService,
     private readonly crmReturns: CrmReturnsService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly dialog: ConfirmDialogService,
   ) {
     const now = new Date().getFullYear();
-    for (let y = now; y >= now - 3; y--) this.yearOptions.push(y);
+    for (let year = now; year >= now - 4; year -= 1) {
+      this.yearOptions.push(year);
+    }
   }
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.loadFilings();
   }
 
-  loadFilings() {
-    this.loading = true;
-    const params: any = {};
-    if (this.filters.status) params.status = this.filters.status;
-    if (this.filters.periodYear) params.periodYear = this.filters.periodYear;
-    if (this.filters.periodMonth) params.periodMonth = this.filters.periodMonth;
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
-    this.crmReturns.listFilings(params)
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+  trackById(index: number, item: any): string {
+    return String(item?.id || item?.branchId || index);
+  }
+
+  loadFilings(): void {
+    this.loading = true;
+    const params: Record<string, string> = {};
+    if (this.statusFilter) params['status'] = this.statusFilter;
+    if (this.branchFilter) params['branchId'] = this.branchFilter;
+    if (this.periodYearFilter) params['periodYear'] = this.periodYearFilter;
+    if (this.periodMonthFilter) params['periodMonth'] = this.periodMonthFilter;
+
+    this.crmReturns
+      .listFilings(params)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
-        next: (res) => { this.filings = res || []; this.cdr.detectChanges(); },
-        error: (e) => {
-          this.toast.error(e?.error?.message || 'Failed to load filings');
-          this.cdr.detectChanges();
+        next: (rows) => {
+          this.filings = (rows || []) as ReturnFiling[];
+          this.applyFilters();
+        },
+        error: (err) => {
+          this.filings = [];
+          this.filteredFilings = [];
+          this.selected = null;
+          this.selectedTimeline = [];
+          this.toast.error(err?.error?.message || 'Failed to load returns workspace');
         },
       });
   }
 
-  // ── ACK Upload ──
-  openAckUpload(filingId: string) {
+  applyFilters(): void {
+    const q = this.searchTerm.trim().toLowerCase();
+    this.filteredFilings = this.filings.filter((row) => {
+      if (this.lawTypeFilter && (row.lawType || '') !== this.lawTypeFilter) return false;
+      if (this.branchFilter && (row.branchId || '') !== this.branchFilter) return false;
+      if (this.statusFilter && row.status !== this.statusFilter) return false;
+      if (this.pendingOnly && !['PENDING', 'IN_PROGRESS'].includes(row.status)) return false;
+      if (this.periodYearFilter && String(row.periodYear || '') !== this.periodYearFilter) return false;
+      if (this.periodMonthFilter && String(row.periodMonth || '') !== this.periodMonthFilter) return false;
+      if (!q) return true;
+      const text =
+        `${row.returnType || ''} ${row.lawType || ''} ${row.status || ''} ${row.ackNumber || ''}`.toLowerCase();
+      return text.includes(q);
+    });
+
+    this.rebuildBranchPendingRows();
+    this.hydrateSelection(this.selected?.id);
+  }
+
+  selectFiling(row: ReturnFiling): void {
+    this.selected = row;
+    this.selectedTimeline = this.buildTimeline(row);
+  }
+
+  async moveStatus(nextStatus: FilingStatus): Promise<void> {
+    if (!this.selected?.id || this.statusBusy) return;
+    const target = this.selected;
+    const guardReason = this.transitionGuardReason(target, nextStatus);
+    if (guardReason) {
+      this.toast.warning('Transition blocked', guardReason);
+      return;
+    }
+
+    if (
+      !(await this.dialog.confirm(
+        'Update Filing Status',
+        `Move filing to ${nextStatus.replace('_', ' ')}?`,
+        { confirmText: 'Update' },
+      ))
+    ) {
+      return;
+    }
+
+    this.statusBusy = true;
+    this.crmReturns
+      .updateStatus(target.id, { status: nextStatus })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.statusBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success(`Status updated to ${nextStatus}`);
+          this.loadAndReselect(target.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to update status'),
+      });
+  }
+
+  openAckUpload(filingId: string): void {
     this.selectedFilingIdForAck = filingId;
     this.ackInput.nativeElement.value = '';
     this.ackInput.nativeElement.click();
   }
 
-  onAckFileSelected(evt: Event) {
+  async onAckFileSelected(evt: Event): Promise<void> {
     const input = evt.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file || !this.selectedFilingIdForAck) return;
 
-    const ackNumber = prompt('Enter ACK number (optional)') || undefined;
+    const result = await this.dialog.prompt(
+      'ACK / ARN Number',
+      'Capture acknowledgement number for filing audit trail',
+      { placeholder: 'ACK / ARN / Receipt No.' },
+    );
+    if (!result.confirmed) return;
+    const ackNumber = (result.value || '').trim() || undefined;
 
     this.uploadingAck = true;
-    this.cdr.detectChanges();
-    this.crmReturns.uploadAck(this.selectedFilingIdForAck, file, ackNumber)
-      .pipe(finalize(() => { this.uploadingAck = false; this.cdr.detectChanges(); }))
+    const filingId = this.selectedFilingIdForAck;
+    this.crmReturns
+      .uploadAck(filingId, file, ackNumber)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.uploadingAck = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: () => {
-          this.loadFilings();
-          this.toast.success('ACK uploaded successfully');
+          this.toast.success('Acknowledgement uploaded');
+          this.loadAndReselect(filingId);
         },
-        error: (e) => this.toast.error(e?.error?.message || 'ACK upload failed'),
+        error: (err) => this.toast.error(err?.error?.message || 'ACK upload failed'),
       });
   }
 
-  // ── Challan Upload ──
-  openChallanUpload(filingId: string) {
+  openChallanUpload(filingId: string): void {
     this.selectedFilingIdForChallan = filingId;
     this.challanInput.nativeElement.value = '';
     this.challanInput.nativeElement.click();
   }
 
-  onChallanFileSelected(evt: Event) {
+  onChallanFileSelected(evt: Event): void {
     const input = evt.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file || !this.selectedFilingIdForChallan) return;
 
     this.uploadingChallan = true;
-    this.cdr.detectChanges();
-    this.crmReturns.uploadChallan(this.selectedFilingIdForChallan, file)
-      .pipe(finalize(() => { this.uploadingChallan = false; this.cdr.detectChanges(); }))
+    const filingId = this.selectedFilingIdForChallan;
+    this.crmReturns
+      .uploadChallan(filingId, file)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.uploadingChallan = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: () => {
-          this.loadFilings();
-          this.toast.success('Challan uploaded successfully');
+          this.toast.success('Challan uploaded');
+          this.loadAndReselect(filingId);
         },
-        error: (e) => this.toast.error(e?.error?.message || 'Challan upload failed'),
+        error: (err) => this.toast.error(err?.error?.message || 'Challan upload failed'),
       });
+  }
+
+  openFile(path: string | null | undefined): void {
+    if (!path) return;
+    window.open(this.auth.authenticateUrl(path), '_blank');
+  }
+
+  exportCsv(): void {
+    ReportsService.exportCsv(
+      this.filteredFilings,
+      [
+        { key: 'lawType', label: 'Law Type' },
+        { key: 'returnType', label: 'Return Type' },
+        { key: 'periodYear', label: 'Year' },
+        { key: 'periodMonth', label: 'Month' },
+        { key: 'dueDate', label: 'Due Date' },
+        { key: 'status', label: 'Status' },
+        { key: 'ackNumber', label: 'ACK Number' },
+      ],
+      'crm-returns-workspace.csv',
+    );
+  }
+
+  get lawTypes(): string[] {
+    return Array.from(new Set(this.filings.map((x) => x.lawType || '').filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }
+
+  get branches(): string[] {
+    return Array.from(new Set(this.filings.map((x) => x.branchId || '').filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }
+
+  get preparedCount(): number {
+    return this.filings.filter((x) => x.status === 'PENDING').length;
+  }
+
+  get reviewedCount(): number {
+    return this.filings.filter((x) => x.status === 'IN_PROGRESS').length;
+  }
+
+  get filedCount(): number {
+    return this.filings.filter((x) => x.status === 'SUBMITTED').length;
+  }
+
+  get acknowledgedCount(): number {
+    return this.filings.filter((x) => x.status === 'APPROVED').length;
+  }
+
+  get rejectedCount(): number {
+    return this.filings.filter((x) => x.status === 'REJECTED').length;
+  }
+
+  mapWorkflow(status: FilingStatus): FilingWorkflow {
+    if (status === 'PENDING') return 'PREPARED';
+    if (status === 'IN_PROGRESS') return 'REVIEWED';
+    if (status === 'SUBMITTED') return 'FILED';
+    if (status === 'APPROVED') return 'ACKNOWLEDGED';
+    return 'REJECTED';
+  }
+
+  workflowClass(status: FilingStatus): string {
+    const mapped = this.mapWorkflow(status);
+    if (mapped === 'ACKNOWLEDGED') return 'wf wf--ok';
+    if (mapped === 'FILED') return 'wf wf--filed';
+    if (mapped === 'REVIEWED') return 'wf wf--review';
+    if (mapped === 'REJECTED') return 'wf wf--bad';
+    return 'wf wf--prep';
+  }
+
+  canMoveTo(nextStatus: FilingStatus, row: ReturnFiling): boolean {
+    return !this.transitionGuardReason(row, nextStatus);
+  }
+
+  transitionGuardReason(row: ReturnFiling, nextStatus: FilingStatus): string | null {
+    if (!row) return 'No filing selected.';
+    if (row.status === nextStatus) return 'Already in this status.';
+
+    const allowed: Record<FilingStatus, FilingStatus[]> = {
+      PENDING: ['IN_PROGRESS'],
+      IN_PROGRESS: ['PENDING', 'SUBMITTED', 'REJECTED'],
+      SUBMITTED: ['IN_PROGRESS', 'APPROVED', 'REJECTED'],
+      APPROVED: [],
+      REJECTED: ['IN_PROGRESS'],
+    };
+
+    if (!allowed[row.status].includes(nextStatus)) {
+      return `Transition not allowed from ${this.mapWorkflow(row.status)}.`;
+    }
+
+    if (nextStatus === 'SUBMITTED' && !row.challanFilePath) {
+      return 'Upload challan proof before setting Filed.';
+    }
+    if (nextStatus === 'APPROVED') {
+      if (!row.ackFilePath) return 'Upload ACK/ARN proof before Acknowledge.';
+      if (!row.ackNumber) return 'Capture ACK/ARN number before Acknowledge.';
+    }
+
+    return null;
+  }
+
+  periodText(row: ReturnFiling): string {
+    const year = row.periodYear ? String(row.periodYear) : '-';
+    if (!row.periodMonth) return year;
+    return `${year}-${String(row.periodMonth).padStart(2, '0')}`;
+  }
+
+  focusBranchPending(branchId: string): void {
+    if (branchId === 'UNMAPPED') return;
+    this.branchFilter = branchId;
+    this.applyFilters();
+  }
+
+  branchLabel(branchId: string): string {
+    return branchId === 'UNMAPPED' ? 'Unmapped' : branchId;
+  }
+
+  dueHint(row: ReturnFiling): string {
+    if (!row.dueDate) return 'No due date';
+    const due = new Date(row.dueDate);
+    if (Number.isNaN(due.getTime())) return 'Due date invalid';
+    const today = this.startOfDay(new Date());
+    const dueDay = this.startOfDay(due);
+    const diff = Math.floor((dueDay.getTime() - today.getTime()) / 86400000);
+    if (diff < 0) return `${Math.abs(diff)}d overdue`;
+    if (diff === 0) return 'Due today';
+    return `Due in ${diff}d`;
+  }
+
+  isOverdue(row: ReturnFiling): boolean {
+    if (!row.dueDate) return false;
+    if (row.status === 'APPROVED' || row.status === 'REJECTED') return false;
+    const due = new Date(row.dueDate);
+    if (Number.isNaN(due.getTime())) return false;
+    return this.startOfDay(due).getTime() < this.startOfDay(new Date()).getTime();
+  }
+
+  referenceCode(row: ReturnFiling): string {
+    return `RET-${String(row.id || '').slice(0, 8).toUpperCase()}`;
+  }
+
+  filingAgeText(row: ReturnFiling): string {
+    const created = row.createdAt ? new Date(row.createdAt) : null;
+    if (!created || Number.isNaN(created.getTime())) return '-';
+    const now = Date.now();
+    const diff = Math.max(0, now - created.getTime());
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+  }
+
+  detailChecklist(row: ReturnFiling): ChecklistRow[] {
+    return [
+      {
+        label: 'Challan proof',
+        done: !!row.challanFilePath,
+        note: row.challanFilePath ? 'Uploaded' : 'Pending upload',
+      },
+      {
+        label: 'ACK proof',
+        done: !!row.ackFilePath,
+        note: row.ackFilePath ? 'Uploaded' : 'Pending upload',
+      },
+      {
+        label: 'ACK number',
+        done: !!row.ackNumber,
+        note: row.ackNumber || 'Capture ARN / receipt number',
+      },
+      {
+        label: 'Filed date',
+        done: !!row.filedDate,
+        note: row.filedDate ? new Date(row.filedDate).toLocaleDateString('en-IN') : 'Not recorded',
+      },
+      {
+        label: 'Ready for Acknowledge',
+        done: !this.transitionGuardReason(row, 'APPROVED'),
+        note: this.transitionGuardReason(row, 'APPROVED') || 'All mandatory proofs available',
+      },
+    ];
+  }
+
+  private hydrateSelection(id?: string | null): void {
+    if (!this.filteredFilings.length) {
+      this.selected = null;
+      this.selectedTimeline = [];
+      return;
+    }
+    if (id) {
+      const found = this.filteredFilings.find((f) => f.id === id);
+      if (found) {
+        this.selectFiling(found);
+        return;
+      }
+    }
+    this.selectFiling(this.filteredFilings[0]);
+  }
+
+  private loadAndReselect(id: string): void {
+    this.loading = true;
+    const params: Record<string, string> = {};
+    if (this.statusFilter) params['status'] = this.statusFilter;
+    if (this.branchFilter) params['branchId'] = this.branchFilter;
+    if (this.periodYearFilter) params['periodYear'] = this.periodYearFilter;
+    if (this.periodMonthFilter) params['periodMonth'] = this.periodMonthFilter;
+
+    this.crmReturns
+      .listFilings(params)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.filings = (rows || []) as ReturnFiling[];
+          this.applyFilters();
+          this.hydrateSelection(id);
+        },
+      });
+  }
+
+  private buildTimeline(row: ReturnFiling): TimelineEvent[] {
+    const timeline: TimelineEvent[] = [];
+
+    if (row.createdAt) {
+      timeline.push({ title: 'Filing record created', timestamp: row.createdAt });
+    }
+
+    if (row.ackFilePath) {
+      timeline.push({
+        title: 'Acknowledgement uploaded',
+        timestamp: row.updatedAt || row.createdAt || new Date().toISOString(),
+        note: row.ackNumber ? `ACK No: ${row.ackNumber}` : null,
+      });
+    }
+
+    if (row.challanFilePath) {
+      timeline.push({
+        title: 'Challan uploaded',
+        timestamp: row.updatedAt || row.createdAt || new Date().toISOString(),
+      });
+    }
+
+    if (row.filedDate) {
+      timeline.push({
+        title: 'Filed date recorded',
+        timestamp: row.filedDate,
+      });
+    }
+
+    timeline.push({
+      title: `Workflow moved to ${this.mapWorkflow(row.status)}`,
+      timestamp: row.updatedAt || row.createdAt || new Date().toISOString(),
+      note: `Raw status: ${row.status}`,
+    });
+
+    return timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  private rebuildBranchPendingRows(): void {
+    const map = new Map<string, BranchPendingRow>();
+
+    for (const row of this.filteredFilings) {
+      const key = String(row.branchId || 'UNMAPPED');
+      const bucket = map.get(key) || {
+        branchId: key,
+        total: 0,
+        pending: 0,
+        filed: 0,
+        acknowledged: 0,
+        rejected: 0,
+        overdue: 0,
+      };
+
+      bucket.total += 1;
+      if (row.status === 'PENDING' || row.status === 'IN_PROGRESS') bucket.pending += 1;
+      if (row.status === 'SUBMITTED') bucket.filed += 1;
+      if (row.status === 'APPROVED') bucket.acknowledged += 1;
+      if (row.status === 'REJECTED') bucket.rejected += 1;
+      if (this.isOverdue(row)) bucket.overdue += 1;
+
+      map.set(key, bucket);
+    }
+
+    this.branchPendingRows = Array.from(map.values()).sort((a, b) => {
+      if (b.pending !== a.pending) return b.pending - a.pending;
+      if (b.overdue !== a.overdue) return b.overdue - a.overdue;
+      return a.branchId.localeCompare(b.branchId);
+    });
+  }
+
+  private startOfDay(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 }

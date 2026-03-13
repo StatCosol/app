@@ -1,5 +1,6 @@
 import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import { AuthService } from './auth.service';
+import { ToastService } from '../shared/toast/toast.service';
 
 /**
  * Monitors user activity (mouse, keyboard, touch, scroll) and
@@ -35,6 +36,7 @@ export class IdleTimeoutService implements OnDestroy {
   constructor(
     private auth: AuthService,
     private zone: NgZone,
+    private toast: ToastService,
   ) {}
 
   /** Call once from the root component's constructor or OnInit. */
@@ -87,7 +89,7 @@ export class IdleTimeoutService implements OnDestroy {
     // Show a console warning shortly before logout (could be upgraded to a toast)
     if (!this.warningShown && idle >= this.IDLE_TIMEOUT_MS - this.WARN_BEFORE_MS) {
       this.warningShown = true;
-      console.warn('[IdleTimeout] You will be logged out in ~60 s due to inactivity.');
+      this.toast.warning('You will be logged out in ~60 s due to inactivity.');
     }
   }
 }

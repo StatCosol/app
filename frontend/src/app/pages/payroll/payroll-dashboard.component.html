@@ -1,13 +1,13 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    title="Payroll Dashboard"
-    subtitle="Payroll processing overview and recent activity">
+    title="PayDek Dashboard"
+    subtitle="Payroll processing overview and workforce analytics">
   </ui-page-header>
 
   <!-- Loading State -->
   <div *ngIf="loading" class="my-8">
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      <div *ngFor="let i of [1,2,3,4,5,6]" class="skeleton-card"></div>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
+      <div *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12]" class="skeleton-card"></div>
     </div>
     <div class="skeleton-table"></div>
   </div>
@@ -22,49 +22,36 @@
 
   <!-- Dashboard Content -->
   <ng-container *ngIf="!loading && !error">
-    <!-- KPI Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      <div class="cursor-pointer" (click)="goTo('/payroll/clients')">
-        <ui-stat-card
-          label="Assigned Clients"
-          [value]="summary?.assignedClients ?? clients.length"
-          color="primary">
-        </ui-stat-card>
-      </div>
-
-      <ui-stat-card
-        label="Active Runs"
-        [value]="activeRunsCount"
-        color="info">
-      </ui-stat-card>
-
-      <ui-stat-card
-        label="Pending Runs"
-        [value]="summary?.pendingRuns ?? 0"
-        color="warning">
-      </ui-stat-card>
-
-      <div class="cursor-pointer" (click)="goTo('/payroll/runs')">
-        <ui-stat-card
-          label="Completed"
-          [value]="summary?.completedThisMonth ?? 0"
-          description="This month"
-          color="success">
-        </ui-stat-card>
-      </div>
-
-      <ui-stat-card
-        label="Total Employees"
-        [value]="totalEmployees"
-        color="gray">
-      </ui-stat-card>
-
-      <div class="cursor-pointer" (click)="goTo('/payroll/registers')">
-        <ui-stat-card
-          label="Registers"
-          [value]="'View'"
-          color="primary">
-        </ui-stat-card>
+    <!-- 12-KPI Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
+      <div
+        *ngFor="let kpi of kpiTiles"
+        class="kpi-tile"
+        [style.cursor]="kpi.route ? 'pointer' : 'default'"
+        (click)="kpi.route && goTo(kpi.route)">
+        <div class="kpi-tile__icon" [style.background]="getKpiBgColor(kpi.color)">
+          <svg width="22" height="22" fill="none" [attr.stroke]="getKpiIconColor(kpi.color)" stroke-width="2" viewBox="0 0 24 24">
+            <ng-container [ngSwitch]="kpi.icon">
+              <path *ngSwitchCase="'clients'" stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path *ngSwitchCase="'employees'" stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+              <path *ngSwitchCase="'active'" stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <path *ngSwitchCase="'joiners'" stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+              <path *ngSwitchCase="'leavers'" stroke-linecap="round" stroke-linejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"/>
+              <path *ngSwitchCase="'exited'" stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              <path *ngSwitchCase="'runs'" stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              <path *ngSwitchCase="'pending'" stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <path *ngSwitchCase="'completed'" stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <path *ngSwitchCase="'pf'" stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+              <path *ngSwitchCase="'esi'" stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              <path *ngSwitchCase="'registers'" stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </ng-container>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">{{ kpi.label }}</div>
+          <div class="kpi-tile__value">{{ kpi.value }}</div>
+          <div *ngIf="kpi.detail" class="kpi-tile__detail">{{ kpi.detail }}</div>
+        </div>
       </div>
     </div>
 
@@ -79,9 +66,12 @@
             Payroll Runs
           </span>
         </ui-button>
-        <ui-button variant="secondary" (clicked)="goTo('/payroll/clients')">Manage Clients</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/employees')">Employees</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/pf-esi')">PF / ESI Compliance</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/queries')">Queries</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/full-and-final')">Full & Final</ui-button>
+        <ui-button variant="secondary" (clicked)="goTo('/payroll/reports')">Reports</ui-button>
         <ui-button variant="secondary" (clicked)="goTo('/payroll/setup')">Setup</ui-button>
-        <ui-button variant="secondary" (clicked)="goTo('/payroll/registers')">Registers</ui-button>
       </div>
     </div>
 

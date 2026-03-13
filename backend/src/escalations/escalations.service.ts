@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EscalationEntity } from './entities/escalation.entity';
@@ -32,6 +36,24 @@ export class EscalationsService {
     const rows = await this.repo.find({
       where,
       order: { createdAt: 'DESC' },
+    });
+
+    return { items: rows };
+  }
+
+  /** List ALL escalations across all clients (admin view) */
+  async listAll(
+    user: any,
+    q: { status?: string; branchId?: string },
+  ): Promise<{ items: EscalationEntity[] }> {
+    const where: any = {};
+    if (q.status) where.status = q.status;
+    if (q.branchId) where.branchId = q.branchId;
+
+    const rows = await this.repo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 200, // limit for admin all-client view
     });
 
     return { items: rows };

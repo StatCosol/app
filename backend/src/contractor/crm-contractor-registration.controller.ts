@@ -15,13 +15,17 @@ import {
   ClientScoped,
   CrmAssignmentGuard,
 } from '../assignments/crm-assignment.guard';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Contractor')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm/contractors', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmContractorRegistrationController {
   constructor(private readonly service: CrmContractorRegistrationService) {}
 
+  @ApiOperation({ summary: 'Register Contractor' })
   @Post('register')
   @ClientScoped('clientId')
   @UseGuards(CrmAssignmentGuard)
@@ -46,6 +50,7 @@ export class CrmContractorRegistrationController {
     return this.service.registerContractor(req.user, dto);
   }
 
+  @ApiOperation({ summary: 'List My Contractors' })
   @Get('my-contractors')
   async listMyContractors(@Req() req: any) {
     return this.service.listContractorsForCrm(req.user);

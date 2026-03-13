@@ -24,7 +24,13 @@ export class EmployeeNominationMemberEntity {
   @Column({ name: 'date_of_birth', type: 'date', nullable: true })
   dateOfBirth: string | null;
 
-  @Column({ name: 'share_pct', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'share_pct',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
   sharePct: string;
 
   @Column({ name: 'address', type: 'text', nullable: true })
@@ -33,7 +39,12 @@ export class EmployeeNominationMemberEntity {
   @Column({ name: 'is_minor', type: 'boolean', default: false })
   isMinor: boolean;
 
-  @Column({ name: 'guardian_name', type: 'varchar', length: 200, nullable: true })
+  @Column({
+    name: 'guardian_name',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
   guardianName: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

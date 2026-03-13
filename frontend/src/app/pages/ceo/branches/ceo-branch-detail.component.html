@@ -1,0 +1,134 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    [title]="detail?.branchName || 'Branch Detail'"
+    subtitle="Executive drill-down for compliance, audits, payroll risk, contractor risk, and alerts"
+    [breadcrumbs]="breadcrumbs">
+  </ui-page-header>
+
+  <!-- Month Filter -->
+  <div class="flex items-end gap-4 mb-6">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
+      <input type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        [(ngModel)]="month" (change)="load()" />
+    </div>
+    <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+  </div>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading branch details..."></ui-loading-spinner>
+
+  <div *ngIf="!loading && detail">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
+        <div class="text-xs text-gray-500 uppercase">Client</div>
+        <div class="text-sm font-semibold text-gray-900 mt-1">{{ detail.clientName || '-' }}</div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
+        <div class="text-xs text-gray-500 uppercase">State</div>
+        <div class="text-sm font-semibold text-gray-900 mt-1">{{ detail.state || '-' }}</div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
+        <div class="text-xs text-gray-500 uppercase">Risk Band</div>
+        <div class="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+          [ngClass]="riskBadge(detail.contractorRisk?.riskScore || 0)">
+          {{ riskLabel(detail.contractorRisk?.riskScore || 0) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Compliance KPI Strip -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <ui-stat-card label="Overall Compliance" [value]="detail.complianceSummary.overall + '%'" color="primary"></ui-stat-card>
+      <ui-stat-card label="MCD" [value]="detail.complianceSummary.mcd + '%'" color="info"></ui-stat-card>
+      <ui-stat-card label="Returns" [value]="detail.complianceSummary.returns + '%'" color="info"></ui-stat-card>
+      <ui-stat-card label="Audits" [value]="detail.complianceSummary.audits + '%'" color="info"></ui-stat-card>
+    </div>
+
+    <!-- Status Numbers -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div class="text-xs text-red-600 font-medium uppercase">Overdue Items</div>
+        <div class="text-2xl font-bold text-red-700 mt-1">{{ detail.overdueItems }}</div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="text-xs text-amber-600 font-medium uppercase">Due Soon</div>
+        <div class="text-2xl font-bold text-amber-700 mt-1">{{ detail.dueSoonItems }}</div>
+      </div>
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div class="text-xs text-blue-600 font-medium uppercase">Open Queries</div>
+        <div class="text-2xl font-bold text-blue-700 mt-1">{{ detail.openQueries }}</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Audit Panel</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-gray-500">Planned</span><span class="font-semibold">{{ detail.auditSummary?.planned || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Ongoing</span><span class="font-semibold">{{ detail.auditSummary?.ongoing || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Completed</span><span class="font-semibold">{{ detail.auditSummary?.completed || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Avg Score</span><span class="font-semibold">{{ detail.auditSummary?.avgScore || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Open High Risk Obs.</span><span class="font-semibold text-red-700">{{ detail.auditSummary?.openHighRiskObservations || 0 }}</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Payroll Risk Panel</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-gray-500">Total Runs</span><span class="font-semibold">{{ detail.payrollRisk?.totalRuns || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Approved</span><span class="font-semibold">{{ detail.payrollRisk?.approvedRuns || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Pending</span><span class="font-semibold">{{ detail.payrollRisk?.pendingRuns || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Exceptions</span><span class="font-semibold text-red-700">{{ detail.payrollRisk?.exceptionRuns || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Risk Score</span><span class="font-semibold">{{ detail.payrollRisk?.riskScore || 0 }}%</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Contractor Risk Panel</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-gray-500">Mapped Contractors</span><span class="font-semibold">{{ detail.contractorRisk?.contractorCount || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Pending Items</span><span class="font-semibold">{{ detail.contractorRisk?.pendingItems || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Overdue Items</span><span class="font-semibold text-red-700">{{ detail.contractorRisk?.overdueItems || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Risk Score</span><span class="font-semibold">{{ detail.contractorRisk?.riskScore || 0 }}%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white border border-gray-200 rounded-xl p-4 lg:col-span-2">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Top Issues Identified</h3>
+        <div *ngIf="detail.topIssues.length; else noIssues" class="divide-y divide-gray-200">
+          <div *ngFor="let issue of detail.topIssues" class="flex items-center justify-between py-3">
+            <div class="flex items-center gap-3">
+              <span [class]="severityColor(issue.severity)"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
+                {{ issue.severity }}
+              </span>
+              <span class="text-sm text-gray-900">{{ issue.title }}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-600">{{ issue.count }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Alerts & Incidents</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-gray-500">Escalated Tasks</span><span class="font-semibold text-amber-700">{{ detail.alerts?.escalatedTasks || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Open Observations</span><span class="font-semibold text-red-700">{{ detail.alerts?.openObservations || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Open Queries</span><span class="font-semibold text-blue-700">{{ detail.alerts?.openQueries || 0 }}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #noIssues>
+    <div class="text-center text-gray-500 text-sm py-8">
+      No major issues identified for this period.
+    </div>
+  </ng-template>
+
+  <ui-empty-state *ngIf="!loading && !detail"
+    title="Branch not found" message="Could not load details for this branch.">
+  </ui-empty-state>
+</div>

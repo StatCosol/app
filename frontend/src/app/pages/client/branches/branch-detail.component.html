@@ -397,6 +397,7 @@
                       <td>{{ row.designation || '-' }}</td>
                       <td>{{ row.department || '-' }}</td>
                       <td><ui-status-badge [status]="$any(row).approvalStatus || 'PENDING'" size="sm"></ui-status-badge></td>
+                      <td><ui-status-badge [status]="row.approvalStatus || 'PENDING'" size="sm"></ui-status-badge></td>
                     </tr>
                   </tbody>
                 </table>

@@ -238,7 +238,6 @@ export class AdminAuditLogsComponent implements OnInit, OnDestroy {
           this.logs = data;
         },
         error: (err) => {
-          console.error('Failed to load audit logs', err);
           this.logs = [];
         },
       });
