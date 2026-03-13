@@ -71,7 +71,9 @@ export class MonthlyDocumentsService {
   ): Promise<MonthlyComplianceUploadEntity> {
     if (!file?.buffer) throw new BadRequestException('File is required');
     if (!this.allowedMimeTypes.has(file.mimetype)) {
-      throw new BadRequestException(`File type ${file.mimetype} is not allowed`);
+      throw new BadRequestException(
+        `File type ${file.mimetype} is not allowed`,
+      );
     }
 
     // Verify branch access

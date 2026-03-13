@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Req, Logger, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Req,
+  Logger,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AuditorDashboardService } from './auditor-dashboard.service';
 import { DataSource } from 'typeorm';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
  * Auditor Dashboard Controller
@@ -10,6 +23,8 @@ import { DataSource } from 'typeorm';
  * Requires AUDITOR role
  * ⚠️ CRITICAL: All queries are scoped to auditor's assigned audits via req.user.id
  */
+@ApiTags('Auditor')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'auditor/dashboard', version: '1' })
 @UseGuards(RolesGuard)
 @Roles('AUDITOR')
@@ -32,6 +47,7 @@ export class AuditorDashboardController {
    *
    * ⚠️ User scope enforced: Auditor sees only audits assigned to them
    */
+  @ApiOperation({ summary: 'Get Summary' })
   @Get('summary')
   async getSummary(@Req() req, @Query() query: any) {
     return this.dashboardService.getSummary(req.user.id, query);
@@ -50,6 +66,7 @@ export class AuditorDashboardController {
    * - limit (optional, default 200, max 500): Max results per page
    * - offset (optional, default 0): Pagination offset
    */
+  @ApiOperation({ summary: 'Get Audits' })
   @Get('audits')
   async getAudits(@Req() req, @Query() query: any) {
     return this.dashboardService.getAudits(req.user.id, query);
@@ -66,6 +83,7 @@ export class AuditorDashboardController {
    * - limit (optional, default 200, max 500): Max results per page
    * - offset (optional, default 0): Pagination offset
    */
+  @ApiOperation({ summary: 'Get Observations' })
   @Get('observations')
   async getObservations(@Req() req, @Query() query: any) {
     return this.dashboardService.getObservations(req.user.id, query);
@@ -83,6 +101,7 @@ export class AuditorDashboardController {
    * - limit (optional, default 200, max 500): Max results per page
    * - offset (optional, default 0): Pagination offset
    */
+  @ApiOperation({ summary: 'Get Reports' })
   @Get('reports')
   async getReports(@Req() req, @Query() query: any) {
     return this.dashboardService.getReports(req.user.id, query);
@@ -92,6 +111,7 @@ export class AuditorDashboardController {
    * GET /api/auditor/dashboard/evidence-pending
    * Returns compliance evidence pending submission for auditor's audits
    */
+  @ApiOperation({ summary: 'Get Evidence Pending' })
   @Get('evidence-pending')
   async getEvidencePending(@Req() req, @Query() query: any) {
     try {
@@ -100,17 +120,18 @@ export class AuditorDashboardController {
         `SELECT
            ce.id,
            ce.task_id       AS "taskId",
-           ct.category,
+           COALESCE(cm.law_family, cm.law_name, 'GENERAL') AS category,
            c.client_name    AS "clientName",
-           b.branch_name    AS "branchName",
+           b.branchname    AS "branchName",
            ce.status,
            ce.uploaded_at   AS "uploadedAt",
            ct.due_date      AS "dueDate"
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
-         INNER JOIN audits a ON a.client_id = ct.client_id AND a.auditor_id = $1
+         LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
+         INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
          LEFT JOIN clients  c ON c.id = ct.client_id
-         LEFT JOIN branches b ON b.id = ct.branch_id
+         LEFT JOIN client_branches b ON b.id = ct.branch_id
          WHERE ce.status IN ('PENDING', 'PENDING_REVIEW')
          ORDER BY ct.due_date ASC
          LIMIT 200`,
@@ -126,6 +147,7 @@ export class AuditorDashboardController {
    * GET /api/auditor/dashboard/activity
    * Returns recent activity timeline for auditor from audit_logs
    */
+  @ApiOperation({ summary: 'Get Activity' })
   @Get('activity')
   async getActivity(@Req() req) {
     try {
@@ -154,6 +176,7 @@ export class AuditorDashboardController {
    * POST /api/auditor/dashboard/evidence/:id/remind
    * Sends a reminder notification for pending evidence
    */
+  @ApiOperation({ summary: 'Remind Evidence' })
   @Post('evidence/:id/remind')
   async remindEvidence(
     @Req() req,
@@ -166,22 +189,31 @@ export class AuditorDashboardController {
         `SELECT ce.id, ce.task_id, ct.client_id, c.client_name
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
-         INNER JOIN audits a ON a.client_id = ct.client_id AND a.auditor_id = $1
+         INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
          LEFT JOIN clients c ON c.id = ct.client_id
          WHERE ce.id = $2
          LIMIT 1`,
         [auditorId, evidenceId],
       );
       if (!rows.length) {
-        return { ok: false, message: 'Evidence not found or not assigned to you' };
+        return {
+          ok: false,
+          message: 'Evidence not found or not assigned to you',
+        };
       }
       // Log reminder in audit_logs
       await this.dataSource.query(
         `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
          VALUES ($1, 'EVIDENCE_REMINDER', 'COMPLIANCE_EVIDENCE', $2, $3)`,
-        [auditorId, evidenceId, JSON.stringify({ clientName: rows[0].client_name })],
+        [
+          auditorId,
+          evidenceId,
+          JSON.stringify({ clientName: rows[0].client_name }),
+        ],
       );
-      this.logger.log(`Evidence reminder sent: ${evidenceId} by auditor ${auditorId}`);
+      this.logger.log(
+        `Evidence reminder sent: ${evidenceId} by auditor ${auditorId}`,
+      );
       return { ok: true, message: 'Reminder sent' };
     } catch (err) {
       this.logger.error('Failed to send evidence reminder', err);
@@ -193,6 +225,7 @@ export class AuditorDashboardController {
    * PATCH /api/auditor/dashboard/evidence/:id/status
    * Updates evidence status (e.g., NOT_REQUIRED)
    */
+  @ApiOperation({ summary: 'Update Evidence Status' })
   @Patch('evidence/:id/status')
   async updateEvidenceStatus(
     @Req() req,
@@ -206,13 +239,16 @@ export class AuditorDashboardController {
         `SELECT ce.id
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
-         INNER JOIN audits a ON a.client_id = ct.client_id AND a.auditor_id = $1
+         INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
          WHERE ce.id = $2
          LIMIT 1`,
         [auditorId, evidenceId],
       );
       if (!rows.length) {
-        return { ok: false, message: 'Evidence not found or not assigned to you' };
+        return {
+          ok: false,
+          message: 'Evidence not found or not assigned to you',
+        };
       }
       await this.dataSource.query(
         `UPDATE compliance_evidence SET status = $1, updated_at = NOW() WHERE id = $2`,
@@ -224,7 +260,9 @@ export class AuditorDashboardController {
          VALUES ($1, 'EVIDENCE_STATUS_UPDATE', 'COMPLIANCE_EVIDENCE', $2, $3)`,
         [auditorId, evidenceId, JSON.stringify({ newStatus: body.status })],
       );
-      this.logger.log(`Evidence ${evidenceId} status updated to ${body.status} by auditor ${auditorId}`);
+      this.logger.log(
+        `Evidence ${evidenceId} status updated to ${body.status} by auditor ${auditorId}`,
+      );
       return { ok: true };
     } catch (err) {
       this.logger.error('Failed to update evidence status', err);

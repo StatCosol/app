@@ -307,7 +307,8 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
 
   downloadInputFile(file: InputFileItem): void {
     const rawUrl = file.downloadUrl || this.payrollSvc.downloadInputFileUrl(file.id);
-    window.open(rawUrl, '_blank');
+    const finalUrl = this.auth.authenticateUrl(rawUrl);
+    window.open(finalUrl, '_blank');
   }
 
   onCreateFileSelected(event: Event): void {
@@ -426,6 +427,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
             this.loadInputs();
             return;
           }
+          this.toast.success('Attachment uploaded successfully.');
           this.toast.success('Attachment uploaded successfully.');
           this.detailUploadFile = null;
           this.refreshSelectedInput();

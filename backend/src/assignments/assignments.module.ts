@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientAssignmentCurrentEntity } from './entities/client-assignment-current.entity';
 import { ClientAssignmentHistoryEntity } from './entities/client-assignment-history.entity';
@@ -16,6 +16,9 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AssignmentRotationService } from './assignment-rotation.service';
 import { AssignmentRotationController } from './assignment-rotation.controller';
 import { CrmAssignmentGuard } from './crm-assignment.guard';
+import { AuditorAssignmentGuard } from './auditor-assignment.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -28,6 +31,8 @@ import { CrmAssignmentGuard } from './crm-assignment.guard';
     UsersModule,
     ClientsModule,
     AuditLogsModule,
+    forwardRef(() => NotificationsModule),
+    EmailModule,
   ],
   controllers: [
     AssignmentsController,
@@ -39,12 +44,14 @@ import { CrmAssignmentGuard } from './crm-assignment.guard';
     AssignmentsService,
     AssignmentRotationService,
     CrmAssignmentGuard,
+    AuditorAssignmentGuard,
   ],
   exports: [
     AssignmentsService,
     AssignmentRotationService,
     TypeOrmModule,
     CrmAssignmentGuard,
+    AuditorAssignmentGuard,
   ],
 })
 export class AssignmentsModule {}

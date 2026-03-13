@@ -1,8 +1,10 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
+import { AuthService } from '../../../core/auth.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 import {
   BranchComplianceDocService,
   ComplianceDoc,
@@ -11,12 +13,15 @@ import {
   StatusBadgeComponent,
   PageHeaderComponent,
   ModalComponent,
+  DataTableComponent,
+  TableCellDirective,
+  TableColumn,
 } from '../../../shared/ui';
 
 @Component({
   selector: 'app-crm-branch-docs-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, StatusBadgeComponent, PageHeaderComponent, ModalComponent],
+  imports: [CommonModule, FormsModule, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
   templateUrl: './crm-branch-docs-review.component.html',
   styles: [`
     .page-container { max-width: 1400px; margin: 0 auto; padding: 0 1rem; }
@@ -97,6 +102,16 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   documents: ComplianceDoc[] = [];
   kpis: any = null;
 
+  readonly docColumns: TableColumn[] = [
+    { key: 'branch', header: 'Branch', width: '20%' },
+    { key: 'document', header: 'Document', width: '18%' },
+    { key: 'period', header: 'Period', width: '10%' },
+    { key: 'frequency', header: 'Frequency', width: '10%' },
+    { key: 'status', header: 'Status', width: '12%' },
+    { key: 'version', header: 'Version', width: '8%' },
+    { key: 'actions', header: 'Actions', width: '22%' },
+  ];
+
   // Filters
   selectedYear = new Date().getFullYear();
   selectedMonth = new Date().getMonth() || 12;
@@ -137,7 +152,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
 
   years: number[] = [];
 
-  constructor(private complianceDoc: BranchComplianceDocService) {
+  constructor(private complianceDoc: BranchComplianceDocService, private auth: AuthService, private toast: ToastService, private cdr: ChangeDetectorRef) {
     const currentYear = new Date().getFullYear();
     this.years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
   }
@@ -160,7 +175,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
       frequency: this.selectedFrequency || undefined,
       status: this.selectedStatus || undefined,
     })
-    .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; }))
+    .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
     .subscribe({
       next: (res) => { this.documents = res.data || []; },
       error: () => { this.documents = []; },
@@ -198,7 +213,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   submitReview(): void {
     if (!this.reviewDoc) return;
     if (this.reviewAction === 'REUPLOAD_REQUIRED' && !this.reviewRemarks.trim()) {
-      alert('Please provide remarks for reupload request.');
+      this.toast.warning('Please provide remarks for reupload request.');
       return;
     }
 
@@ -208,20 +223,20 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
       this.reviewAction,
       this.reviewRemarks || undefined,
     )
-    .pipe(takeUntil(this.destroy$), finalize(() => { this.reviewing = false; }))
+    .pipe(takeUntil(this.destroy$), finalize(() => { this.reviewing = false; this.cdr.detectChanges(); }))
     .subscribe({
       next: () => {
         this.closeReviewModal();
         this.load();
       },
       error: (err) => {
-        alert(err?.error?.message || 'Review failed.');
+        this.toast.error(err?.error?.message || 'Review failed.');
       },
     });
   }
 
   viewDoc(doc: ComplianceDoc): void {
-    if (doc.uploadedFileUrl) window.open(doc.uploadedFileUrl, '_blank');
+    if (doc.uploadedFileUrl) window.open(this.auth.authenticateUrl(doc.uploadedFileUrl), '_blank');
   }
 
   getPeriodLabel(doc: ComplianceDoc): string {

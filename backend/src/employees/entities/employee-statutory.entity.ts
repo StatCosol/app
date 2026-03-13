@@ -41,14 +41,30 @@ export class EmployeeStatutoryEntity {
   @Column({ name: 'pf_exit_date', type: 'date', nullable: true })
   pfExitDate: string | null;
 
-  @Column({ name: 'pf_wages', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'pf_wages',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   pfWages: string | null;
 
   // ── ESI ───────────────────────────────────────────────
-  @Column({ name: 'esi_ip_number', type: 'varchar', length: 30, nullable: true })
+  @Column({
+    name: 'esi_ip_number',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
   esiIpNumber: string | null;
 
-  @Column({ name: 'esi_dispensary', type: 'varchar', length: 200, nullable: true })
+  @Column({
+    name: 'esi_dispensary',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
   esiDispensary: string | null;
 
   @Column({ name: 'esi_join_date', type: 'date', nullable: true })
@@ -57,11 +73,22 @@ export class EmployeeStatutoryEntity {
   @Column({ name: 'esi_exit_date', type: 'date', nullable: true })
   esiExitDate: string | null;
 
-  @Column({ name: 'esi_wages', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'esi_wages',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   esiWages: string | null;
 
   // ── Professional Tax ──────────────────────────────────
-  @Column({ name: 'pt_registration_number', type: 'varchar', length: 60, nullable: true })
+  @Column({
+    name: 'pt_registration_number',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
   ptRegistrationNumber: string | null;
 
   // ── LWF ───────────────────────────────────────────────

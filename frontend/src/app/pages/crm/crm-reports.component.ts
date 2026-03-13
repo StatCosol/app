@@ -4,14 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, Observable, of, Subject } from 'rxjs';
 import { timeout, catchError, finalize, takeUntil } from 'rxjs/operators';
 import { ReportsService } from '../../core/reports.service';
+import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import { CrmClientsApi } from '../../core/api/crm-clients.api';
-import { PageHeaderComponent, LoadingSpinnerComponent, StatCardComponent, StatusBadgeComponent, ActionButtonComponent } from '../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, StatusBadgeComponent, ActionButtonComponent } from '../../shared/ui';
 
 @Component({
   selector: 'app-crm-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, StatCardComponent, StatusBadgeComponent, ActionButtonComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, StatusBadgeComponent, ActionButtonComponent],
   templateUrl: './crm-reports.component.html',
   styleUrls: ['./crm-reports.component.scss'],
 })
@@ -42,7 +43,7 @@ export class CrmReportsComponent implements OnInit, OnDestroy {
   contractorPerf: any[] = [];
   error: string | null = null;
 
-  constructor(private reports: ReportsService, private crmClientsApi: CrmClientsApi, private cdr: ChangeDetectorRef) {}
+  constructor(private reports: ReportsService, private auth: AuthService, private crmClientsApi: CrmClientsApi, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadClients();
@@ -55,7 +56,7 @@ export class CrmReportsComponent implements OnInit, OnDestroy {
         this.clients = data || [];
         this.cdr.detectChanges();
       },
-      error: (err) => { console.error('Failed to load clients', err); this.cdr.detectChanges(); },
+      error: () => { this.cdr.detectChanges(); },
     });
   }
 
@@ -68,7 +69,7 @@ export class CrmReportsComponent implements OnInit, OnDestroy {
           this.branches = data || [];
           this.cdr.detectChanges();
         },
-        error: (err) => { console.error('Failed to load branches', err); this.cdr.detectChanges(); },
+        error: () => { this.cdr.detectChanges(); },
       });
     }
   }
@@ -102,7 +103,7 @@ export class CrmReportsComponent implements OnInit, OnDestroy {
     if (this.filters.status) params.set('status', this.filters.status);
 
     const url = `${environment.apiBaseUrl}/api/v1/reports/overdue/export?${params.toString()}`;
-    window.open(url, '_blank');
+    window.open(this.auth.authenticateUrl(url), '_blank');
   }
 
   private load(): void {

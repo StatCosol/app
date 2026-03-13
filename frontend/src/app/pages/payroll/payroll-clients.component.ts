@@ -86,7 +86,6 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
       },
       error: (e) => {
         this.loading = false;
-        console.error('PayrollClients error:', e);
         this.error = `Unable to load clients. ${e?.error?.message || e?.message || ''}`;
         this.cdr.detectChanges();
       },
