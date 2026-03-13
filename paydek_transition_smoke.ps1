@@ -302,27 +302,34 @@ if (-not $RunId) {
       Add-Check -Name "Resolve Run" -Ok $true -Status 200 -Details "existing runId=$($found.id) status=$($found.status) (not mutable, creating fresh run)"
     }
     $created = $false
-    $months = @()
-    for ($m = $PeriodMonth; $m -le 12; $m++) { $months += $m }
-    for ($m = 1; $m -lt $PeriodMonth; $m++) { $months += $m }
-    foreach ($m in $months) {
-      $exists = $runArr | Where-Object { $_.periodYear -eq $PeriodYear -and $_.periodMonth -eq $m -and $_.clientId -eq $ClientId } | Select-Object -First 1
-      if ($exists) { continue }
-      $createRun = Invoke-JsonApi -Method "POST" -Url "$BaseUrl/payroll/runs" -Token $token -Body @{
-        clientId = $ClientId
-        periodYear = $PeriodYear
-        periodMonth = $m
-        title = "SMOKE-RUN-$PeriodYear-$m"
+    $maxFutureYears = 5
+    for ($yearOffset = 0; $yearOffset -lt $maxFutureYears -and -not $created; $yearOffset++) {
+      $candidateYear = $PeriodYear + $yearOffset
+      $startMonth = if ($yearOffset -eq 0) { $PeriodMonth } else { 1 }
+      $months = @()
+      for ($m = $startMonth; $m -le 12; $m++) { $months += $m }
+      if ($yearOffset -eq 0) {
+        for ($m = 1; $m -lt $PeriodMonth; $m++) { $months += $m }
       }
-      if ($createRun.ok) {
-        if ($createRun.json.data.id) { $RunId = [string]$createRun.json.data.id } elseif ($createRun.json.id) { $RunId = [string]$createRun.json.id }
-        Add-Check -Name "Create Run" -Ok $true -Status $createRun.status -Details "runId=$RunId period=$PeriodYear-$m"
-        $created = $true
-        break
+      foreach ($m in $months) {
+        $exists = $runArr | Where-Object { $_.periodYear -eq $candidateYear -and $_.periodMonth -eq $m -and $_.clientId -eq $ClientId } | Select-Object -First 1
+        if ($exists) { continue }
+        $createRun = Invoke-JsonApi -Method "POST" -Url "$BaseUrl/payroll/runs" -Token $token -Body @{
+          clientId = $ClientId
+          periodYear = $candidateYear
+          periodMonth = $m
+          title = "SMOKE-RUN-$candidateYear-$m"
+        }
+        if ($createRun.ok) {
+          if ($createRun.json.data.id) { $RunId = [string]$createRun.json.data.id } elseif ($createRun.json.id) { $RunId = [string]$createRun.json.id }
+          Add-Check -Name "Create Run" -Ok $true -Status $createRun.status -Details "runId=$RunId period=$candidateYear-$m"
+          $created = $true
+          break
+        }
       }
     }
     if (-not $created) {
-      Add-Check -Name "Create Run" -Ok $false -Status 400 -Details "No free period month found for $PeriodYear."
+      Add-Check -Name "Create Run" -Ok $false -Status 400 -Details "No free period month found from $PeriodYear across $maxFutureYears year(s)."
       ($results | Set-Content $OutFile)
       throw "Unable to resolve or create smoke run."
     }
