@@ -18,7 +18,7 @@ export type DocumentCategory =
 @Index(['clientId', 'branchId'])
 @Index(['clientId', 'category'])
 @Index(['clientId', 'periodYear', 'periodMonth'])
-export class ComplianceDocumentEntity {
+export class ComplianceDocLibraryEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
@@ -31,7 +31,12 @@ export class ComplianceDocumentEntity {
   @Column({ name: 'category', type: 'varchar', length: 60 })
   category!: DocumentCategory;
 
-  @Column({ name: 'sub_category', type: 'varchar', length: 120, nullable: true })
+  @Column({
+    name: 'sub_category',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
   subCategory!: string | null;
 
   @Column({ name: 'title', type: 'varchar', length: 255 })
@@ -64,7 +69,12 @@ export class ComplianceDocumentEntity {
   @Column({ name: 'uploaded_by', type: 'uuid' })
   uploadedBy!: string;
 
-  @Column({ name: 'uploaded_role', type: 'varchar', length: 30, default: 'CRM' })
+  @Column({
+    name: 'uploaded_role',
+    type: 'varchar',
+    length: 30,
+    default: 'CRM',
+  })
   uploadedRole!: string;
 
   @Column({ name: 'is_deleted', type: 'boolean', default: false })

@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, Subject, Subscription } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
+import { LegitxComplianceFacade } from './legitx-compliance.facade';
+import { ToastService } from '../../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
   StatusBadgeComponent,
@@ -137,7 +139,12 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     { value: 500, label: '500 rows' },
   ];
 
-  constructor(private api: ClientComplianceService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private api: ClientComplianceService,
+    private facade: LegitxComplianceFacade,
+    private cdr: ChangeDetectorRef,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void {
     this.loadBranchMeta();
@@ -311,6 +318,50 @@ export class ClientComplianceStatusComponent implements OnInit, OnDestroy {
     if (pct >= 85) return 'bg-green-500';
     if (pct >= 70) return 'bg-yellow-500';
     return 'bg-red-500';
+  }
+
+  /* ═══════ Defensive camelCase / snake_case helpers ═══════ */
+  private pick<T = any>(row: any, ...keys: string[]): T | undefined {
+    for (const k of keys) {
+      if (row && row[k] !== undefined && row[k] !== null) return row[k];
+    }
+    return undefined;
+  }
+
+  getBranchId(row: any): string {
+    return this.pick<string>(row, 'branchId', 'branch_id', 'id') || '';
+  }
+
+  getBranchName(row: any): string {
+    return this.pick<string>(row, 'branchName', 'branch_name', 'name') || '-';
+  }
+
+  getClientName(row: any): string {
+    return this.pick<string>(row, 'clientName', 'client_name') || '-';
+  }
+
+  getCompliancePct(row: any): number {
+    return Number(this.pick(row, 'compliancePct', 'compliance_pct', 'pct') || 0);
+  }
+
+  clampPct(pct: number): number {
+    const n = Number(pct || 0);
+    if (Number.isNaN(n)) return 0;
+    return Math.max(0, Math.min(100, n));
+  }
+
+  pctBadgeClass(pct: number): string {
+    const p = this.clampPct(pct);
+    if (p < 50) return 'bg-red-100 text-red-800';
+    if (p < 70) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-green-100 text-green-800';
+  }
+
+  barColorClass(pct: number): string {
+    const p = this.clampPct(pct);
+    if (p < 50) return 'bg-red-500';
+    if (p < 70) return 'bg-yellow-500';
+    return 'bg-green-500';
   }
 
   get summaryRiskColor(): string {

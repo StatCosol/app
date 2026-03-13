@@ -110,7 +110,7 @@ export class NominationsService {
     // Insert new nominees
     const members = dto.nominees.map((n) =>
       this.memRepo.create({
-        nominationId: nom!.id,
+        nominationId: nom.id,
         memberName: n.memberName,
         relationship: n.relationship || null,
         dateOfBirth: n.dateOfBirth || null,
@@ -309,7 +309,8 @@ export class NominationsService {
       // Witness
       if (nom.witnessName) {
         doc.text(`Witness: ${nom.witnessName}`);
-        if (nom.witnessAddress) doc.text(`Witness Address: ${nom.witnessAddress}`);
+        if (nom.witnessAddress)
+          doc.text(`Witness Address: ${nom.witnessAddress}`);
         doc.moveDown();
       }
 

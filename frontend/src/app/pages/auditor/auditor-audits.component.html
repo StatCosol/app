@@ -135,6 +135,7 @@
     <div class="card" *ngIf="selectedAudit">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Audit Detail</h3>
       <div class="space-y-3 mb-6">
+        <div class="flex gap-2"><span class="font-medium text-gray-700">Code:</span> <span class="text-gray-900 font-mono">{{ selectedAudit.auditCode || '—' }}</span></div>
         <div class="flex gap-2"><span class="font-medium text-gray-700">Client:</span> <span class="text-gray-900">{{ selectedAudit.clientName }}</span></div>
         <div class="flex gap-2" *ngIf="selectedAudit.contractorName && selectedAudit.contractorName !== '-'"><span class="font-medium text-gray-700">Contractor:</span> <span class="text-gray-900">{{ selectedAudit.contractorName }}</span></div>
         <div class="flex gap-2"><span class="font-medium text-gray-700">Frequency:</span> <span class="text-gray-900">{{ selectedAudit.frequency }}</span></div>
@@ -142,7 +143,31 @@
         <div class="flex gap-2"><span class="font-medium text-gray-700">Period:</span> <span class="text-gray-900">{{ selectedAudit.periodYear }} / {{ selectedAudit.periodCode }}</span></div>
         <div class="flex gap-2"><span class="font-medium text-gray-700">Status:</span> <ui-status-badge [status]="selectedAudit.status"></ui-status-badge></div>
         <div class="flex gap-2"><span class="font-medium text-gray-700">Due Date:</span> <span class="text-gray-900">{{ selectedAudit.dueDate || '—' }}</span></div>
+        <div class="flex gap-2" *ngIf="selectedAudit.score !== null && selectedAudit.score !== undefined">
+          <span class="font-medium text-gray-700">Score:</span>
+          <span class="text-gray-900 font-semibold" [class.text-green-600]="selectedAudit.score >= 80" [class.text-amber-600]="selectedAudit.score >= 50 && selectedAudit.score < 80" [class.text-red-600]="selectedAudit.score < 50">{{ selectedAudit.score }}/100</span>
+        </div>
         <div><span class="font-medium text-gray-700">Notes:</span> <p class="text-gray-900 mt-1">{{ selectedAudit.notes || '—' }}</p></div>
+      </div>
+
+      <!-- Status Transition Buttons -->
+      <div class="flex flex-wrap gap-2 mb-4" *ngIf="getNextStatuses(selectedAudit.status).length > 0">
+        <ui-button
+          *ngFor="let action of getNextStatuses(selectedAudit.status)"
+          [variant]="action.variant"
+          [disabled]="statusUpdating"
+          (clicked)="changeStatus(selectedAudit, action.value)">
+          {{ statusUpdating ? 'Updating...' : action.label }}
+        </ui-button>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mb-4">
+        <ui-button variant="secondary" (clicked)="calculateScore(selectedAudit)" [disabled]="scoringId === selectedAudit.id">
+          {{ scoringId === selectedAudit.id ? 'Calculating...' : 'Calculate Score' }}
+        </ui-button>
+        <ui-button variant="secondary" (clicked)="openObservations(selectedAudit)">
+          Observations
+        </ui-button>
       </div>
 
       <ui-button variant="primary" [fullWidth]="true" (clicked)="openComplianceForSelected()">
@@ -151,10 +176,6 @@
         </svg>
         Open Compliance for this Audit
       </ui-button>
-
-      <p class="text-sm text-gray-500 italic mt-3">
-        This will open the Compliance view pre-filtered for this client's audits.
-      </p>
     </div>
 
     <div *ngIf="!selectedAudit && !loading">

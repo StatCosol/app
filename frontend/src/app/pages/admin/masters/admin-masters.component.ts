@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { AdminMastersService } from '../../../core/admin-masters.service';
+import { ReportsService } from '../../../core/reports.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { PageHeaderComponent, FormInputComponent, FormSelectComponent, SelectOption, ActionButtonComponent, DataTableComponent, TableColumn, TableCellDirective, StatusBadgeComponent, LoadingSpinnerComponent, EmptyStateComponent } from '../../../shared/ui';
 
 @Component({
@@ -22,8 +24,27 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
 
   // Compliance Masters
   complianceMasters: any[] = [];
+  filteredComplianceMasters: any[] = [];
+  searchTerm = '';
+  stateFilter = '';
   complianceForm: any = this.resetComplianceForm();
   editingComplianceId: string | null = null;
+
+  stateFilterOptions = [
+    { value: '', label: 'All States' },
+    { value: 'ALL', label: 'Central' },
+    { value: 'AP', label: 'Andhra Pradesh' },
+    { value: 'KA', label: 'Karnataka' },
+    { value: 'MH', label: 'Maharashtra' },
+    { value: 'TN', label: 'Tamil Nadu' },
+    { value: 'TS', label: 'Telangana' },
+    { value: 'DL', label: 'Delhi' },
+    { value: 'GJ', label: 'Gujarat' },
+    { value: 'RJ', label: 'Rajasthan' },
+    { value: 'WB', label: 'West Bengal' },
+    { value: 'UP', label: 'Uttar Pradesh' },
+    { value: 'KL', label: 'Kerala' },
+  ];
 
   // Audit Categories
   auditCategories: any[] = [];
@@ -52,7 +73,7 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     { key: 'actions', header: 'Actions', sortable: false },
   ];
 
-  constructor(private api: AdminMastersService, private cdr: ChangeDetectorRef) {
+  constructor(private api: AdminMastersService, private cdr: ChangeDetectorRef, private dialog: ConfirmDialogService) {
     // Memoize select option arrays to avoid recreating them every change detection cycle
     this.frequencySelectOptions = this.frequencyOptions.map(freq => ({ value: freq, label: freq }));
     this.statusSelectOptions = [
@@ -88,6 +109,7 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (res: any) => {
         this.complianceMasters = res || [];
+        this.applyFilters();
         this.cdr.detectChanges();
       },
       error: () => { this.cdr.detectChanges(); },
@@ -146,9 +168,9 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     }
   }
 
-  deleteCompliance(id: string) {
+  async deleteCompliance(id: string) {
     if (this.deletingId) return;
-    if (!confirm('Are you sure you want to delete this compliance master?')) return;
+    if (!(await this.dialog.confirm('Delete Compliance Master', 'Are you sure you want to delete this compliance master?', { variant: 'danger', confirmText: 'Delete' }))) return;
     this.deletingId = id;
     this.api.deleteComplianceMaster(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.deletingId = null; this.cdr.detectChanges(); this.loadComplianceMasters(); },
@@ -210,9 +232,42 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     }
   }
 
-  deleteAuditCategory(id: string) {
+  applyFilters(): void {
+    let items = [...this.complianceMasters];
+    if (this.searchTerm.trim()) {
+      const q = this.searchTerm.toLowerCase();
+      items = items.filter(m =>
+        (m.complianceName || '').toLowerCase().includes(q) ||
+        (m.lawName || '').toLowerCase().includes(q) ||
+        (m.lawFamily || '').toLowerCase().includes(q) ||
+        (m.stateScope || '').toLowerCase().includes(q)
+      );
+    }
+    if (this.stateFilter) {
+      items = items.filter(m => (m.stateScope || 'ALL').toUpperCase().includes(this.stateFilter));
+    }
+    this.filteredComplianceMasters = items;
+  }
+
+  exportCsv(): void {
+    if (this.activeTab === 'compliance') {
+      ReportsService.exportCsv(this.filteredComplianceMasters, [
+        { key: 'name', label: 'Name' },
+        { key: 'act', label: 'Act' },
+        { key: 'frequency', label: 'Frequency' },
+        { key: 'stateScope', label: 'State' },
+      ], 'compliance-masters.csv');
+    } else {
+      ReportsService.exportCsv(this.auditCategories, [
+        { key: 'name', label: 'Name' },
+        { key: 'description', label: 'Description' },
+      ], 'audit-categories.csv');
+    }
+  }
+
+  async deleteAuditCategory(id: string) {
     if (this.deletingId) return;
-    if (!confirm('Are you sure you want to delete this audit category?')) return;
+    if (!(await this.dialog.confirm('Delete Audit Category', 'Are you sure you want to delete this audit category?', { variant: 'danger', confirmText: 'Delete' }))) return;
     this.deletingId = id;
     this.api.deleteAuditCategory(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.deletingId = null; this.cdr.detectChanges(); this.loadAuditCategories(); },

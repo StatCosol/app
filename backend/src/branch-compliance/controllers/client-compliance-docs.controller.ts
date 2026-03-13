@@ -1,29 +1,28 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { BranchComplianceService } from '../branch-compliance.service';
 import { ChecklistQueryDto } from '../dto/branch-compliance.dto';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
-@Controller({ path: 'client/compliance-docs', version: '1' })
+@ApiTags('Branch Compliance')
+@ApiBearerAuth('JWT')
+@Controller({ path: 'client/branch-compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class ClientComplianceDocsController {
   constructor(private readonly svc: BranchComplianceService) {}
 
   /** Master Client: view all branches' compliance docs */
+  @ApiOperation({ summary: 'List' })
   @Get()
   list(@Req() req: any, @Query() q: ChecklistQueryDto) {
     return this.svc.listForClient(req.user, q);
   }
 
   /** Dashboard KPIs: branch-wise compliance % */
+  @ApiOperation({ summary: 'Dashboard Kpis' })
   @Get('dashboard-kpis')
   dashboardKpis(@Req() req: any, @Query() q: any) {
     const companyId = q.companyId || req.user.clientId;
@@ -33,12 +32,14 @@ export class ClientComplianceDocsController {
   }
 
   /** Return master list */
+  @ApiOperation({ summary: 'Return Master' })
   @Get('return-master')
   returnMaster(@Query() q: any) {
     return this.svc.getReturnMaster(q);
   }
 
   /** Top 10 lowest compliance branches */
+  @ApiOperation({ summary: 'Lowest Branches' })
   @Get('lowest-branches')
   lowestBranches(@Req() req: any, @Query() q: any) {
     const companyId = q.companyId || req.user.clientId;
@@ -48,6 +49,7 @@ export class ClientComplianceDocsController {
   }
 
   /** Company-wide compliance trend (aggregate across all branches) */
+  @ApiOperation({ summary: 'Company Trend' })
   @Get('trend')
   companyTrend(@Req() req: any, @Query() q: any) {
     const companyId = q.companyId || req.user.clientId;
