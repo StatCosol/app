@@ -212,7 +212,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
           this.selectedInput = null;
           this.statusHistory = [];
           this.inputFiles = [];
-          this.toast.error('Load Failed', err?.error?.message || 'Could not load payroll inputs.');
+          this.toast.error(err?.error?.message || 'Could not load payroll inputs.');
         },
       });
   }
@@ -264,14 +264,14 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
           if (this.newInputFile && createdId) {
             this.uploadFileForInput(createdId, this.newInputFile, true);
           } else {
-            this.toast.success('Input Created', 'Payroll input created successfully.');
+            this.toast.success('Payroll input created successfully.');
             this.resetCreateForm();
             this.loadInputs();
           }
         },
         error: (err) => {
           this.inputError = err?.error?.message || 'Could not create payroll input.';
-          this.toast.error('Create Failed', this.inputError);
+          this.toast.error(this.inputError);
         },
       });
   }
@@ -374,7 +374,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
         error: () => {
           this.statusHistory = [];
           this.inputFiles = [];
-          this.toast.error('Load Failed', 'Could not load input details.');
+          this.toast.error('Could not load input details.');
         },
       });
   }
@@ -396,12 +396,12 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Status Updated', `Input marked as ${status}.`);
+          this.toast.success(`Input marked as ${status}.`);
           this.detailRemarks = '';
           this.loadInputs();
         },
         error: (err) => {
-          this.toast.error('Update Failed', err?.error?.message || 'Could not update input status.');
+          this.toast.error(err?.error?.message || 'Could not update input status.');
         },
       });
   }
@@ -422,19 +422,20 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           if (fromCreate) {
-            this.toast.success('Input Created', 'Payroll input and attachment saved.');
+            this.toast.success('Payroll input and attachment saved.');
             this.resetCreateForm();
             this.loadInputs();
             return;
           }
-          this.toast.success('File Uploaded', 'Attachment uploaded successfully.');
+          this.toast.success('Attachment uploaded successfully.');
+          this.toast.success('Attachment uploaded successfully.');
           this.detailUploadFile = null;
           this.refreshSelectedInput();
           this.loadInputs();
         },
         error: (err) => {
           const message = err?.error?.message || 'Could not upload file.';
-          this.toast.error('Upload Failed', message);
+          this.toast.error(message);
         },
       });
   }
