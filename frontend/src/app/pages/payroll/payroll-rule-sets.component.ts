@@ -17,7 +17,6 @@ import {
 } from './payroll-engine-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 interface RuleSetFormModel {
   name: string;
@@ -106,7 +105,6 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
     private readonly engineApi: PayrollEngineApiService,
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
-    private readonly confirm: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -340,24 +338,19 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
   }
 
   deleteRuleSet(ruleSet: RuleSet): void {
-    this.confirm
-      .confirm(
-        'Delete Rule Set',
-        `Delete "${ruleSet.name}"? This disables the version and keeps audit history.`,
-        { confirmText: 'Delete', variant: 'danger' },
-      )
-      .then((ok) => {
-        if (!ok) return;
-        this.engineApi
-          .deleteRuleSet(ruleSet.id)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: () => {
-              this.toast.success('Rule set deleted');
-              this.reloadRuleSets();
-            },
-            error: (err) => this.toast.error(err?.error?.message || 'Failed to delete rule set'),
-          });
+    const ok = window.confirm(
+      `Delete "${ruleSet.name}"? This disables the version and keeps audit history.`,
+    );
+    if (!ok) return;
+    this.engineApi
+      .deleteRuleSet(ruleSet.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Rule set deleted');
+          this.reloadRuleSets();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to delete rule set'),
       });
   }
 
@@ -397,26 +390,23 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
         ? `Activate "${ruleSet.name}" and deactivate ${deactivateCount} active sibling version(s)?`
         : `Activate "${ruleSet.name}" as the current version?`;
 
-    this.confirm
-      .confirm('Activate Rule Set Version', confirmText, { confirmText: 'Activate' })
-      .then((ok) => {
-        if (!ok) return;
-        this.saving = true;
-        forkJoin(updates)
-          .pipe(
-            takeUntil(this.destroy$),
-            finalize(() => {
-              this.saving = false;
-              this.cdr.markForCheck();
-            }),
-          )
-          .subscribe({
-            next: () => {
-              this.toast.success('Rule set version activated');
-              this.reloadRuleSets(ruleSet.id);
-            },
-            error: (err) => this.toast.error(err?.error?.message || 'Failed to activate version'),
-          });
+    const ok = window.confirm(confirmText);
+    if (!ok) return;
+    this.saving = true;
+    forkJoin(updates)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Rule set version activated');
+          this.reloadRuleSets(ruleSet.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to activate version'),
       });
   }
 
@@ -505,24 +495,17 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
 
   deleteParam(param: RuleParameter): void {
     if (!this.selectedRuleSet) return;
-    this.confirm
-      .confirm(
-        'Delete Parameter',
-        `Delete parameter "${param.key}"?`,
-        { confirmText: 'Delete', variant: 'danger' },
-      )
-      .then((ok) => {
-        if (!ok) return;
-        this.engineApi
-          .deleteParameter(this.selectedRuleSet!.id, param.id)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: () => {
-              this.toast.success('Parameter deleted');
-              this.loadParameters(this.selectedRuleSet!.id);
-            },
-            error: (err) => this.toast.error(err?.error?.message || 'Failed to delete parameter'),
-          });
+    const ok = window.confirm(`Delete parameter "${param.key}"?`);
+    if (!ok) return;
+    this.engineApi
+      .deleteParameter(this.selectedRuleSet!.id, param.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Parameter deleted');
+          this.loadParameters(this.selectedRuleSet!.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to delete parameter'),
       });
   }
 

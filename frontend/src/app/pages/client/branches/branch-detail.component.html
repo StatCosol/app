@@ -14,7 +14,7 @@
   <ui-empty-state
     *ngIf="!loading && !branch"
     title="Branch Not Found"
-    message="Could not load branch details for this workspace.">
+    description="Could not load branch details for this workspace.">
   </ui-empty-state>
 
   <ng-container *ngIf="!loading && branch">
@@ -396,6 +396,7 @@
                       <td>{{ row.employeeCode }}</td>
                       <td>{{ row.designation || '-' }}</td>
                       <td>{{ row.department || '-' }}</td>
+                      <td><ui-status-badge [status]="$any(row).approvalStatus || 'PENDING'" size="sm"></ui-status-badge></td>
                       <td><ui-status-badge [status]="row.approvalStatus || 'PENDING'" size="sm"></ui-status-badge></td>
                     </tr>
                   </tbody>
