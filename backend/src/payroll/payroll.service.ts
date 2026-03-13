@@ -5,6 +5,7 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Multer } from 'multer';
@@ -19,6 +20,7 @@ import { PayrollPayslipArchiveEntity } from './entities/payroll-payslip-archive.
 import { PayrollRunEmployeeEntity } from './entities/payroll-run-employee.entity';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { PayrollInputStatusHistoryEntity } from './entities/payroll-input-status-history.entity';
 import { PayrollComponentMasterEntity } from './entities/payroll-component-master.entity';
 import { PayrollClientComponentOverrideEntity } from './entities/payroll-client-component-override.entity';
@@ -38,9 +40,15 @@ import { PayrollTemplateComponent } from './entities/payroll-template-component.
 import { PayrollClientTemplate } from './entities/payroll-client-template.entity';
 import { PayrollClientSettings } from './entities/payroll-client-settings.entity';
 import { AuditEntity } from '../audits/entities/audit.entity';
+import { PayrollQueryEntity } from './entities/payroll-query.entity';
+import { PayrollQueryMessageEntity } from './entities/payroll-query-message.entity';
+import { PayrollFnfEntity } from './entities/payroll-fnf.entity';
+import { PayrollFnfEventEntity } from './entities/payroll-fnf-event.entity';
 
 @Injectable()
 export class PayrollService {
+  private readonly logger = new Logger(PayrollService.name);
+
   constructor(
     @InjectRepository(PayrollInputEntity)
     private readonly inputRepo: Repository<PayrollInputEntity>,
@@ -64,6 +72,8 @@ export class PayrollService {
     private readonly statusHistoryRepo: Repository<PayrollInputStatusHistoryEntity>,
     @InjectRepository(ClientEntity)
     private readonly clientRepo: Repository<ClientEntity>,
+    @InjectRepository(EmployeeEntity)
+    private readonly employeeRepo: Repository<EmployeeEntity>,
     @InjectRepository(PayrollClientPayslipLayoutEntity)
     private readonly layoutRepo: Repository<PayrollClientPayslipLayoutEntity>,
     @InjectRepository(PayrollTemplate)
@@ -76,6 +86,14 @@ export class PayrollService {
     private readonly clientSettingsRepo: Repository<PayrollClientSettings>,
     @InjectRepository(AuditEntity)
     private readonly auditRepo: Repository<AuditEntity>,
+    @InjectRepository(PayrollQueryEntity)
+    private readonly queryRepo: Repository<PayrollQueryEntity>,
+    @InjectRepository(PayrollQueryMessageEntity)
+    private readonly queryMsgRepo: Repository<PayrollQueryMessageEntity>,
+    @InjectRepository(PayrollFnfEntity)
+    private readonly fnfRepo: Repository<PayrollFnfEntity>,
+    @InjectRepository(PayrollFnfEventEntity)
+    private readonly fnfEventRepo: Repository<PayrollFnfEventEntity>,
     private readonly notificationsSvc: NotificationsService,
   ) {}
 
@@ -208,19 +226,25 @@ export class PayrollService {
   }
 
   private ensureClientUser(user: any) {
-    const isClient = !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
+    const isClient =
+      !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
     const isBranchUser = user?.userType === 'BRANCH';
 
     if (!isClient || isBranchUser) {
-      throw new BadRequestException('Only client master users can access payroll');
+      throw new BadRequestException(
+        'Only client master users can access payroll',
+      );
     }
   }
 
   /** Allows both MASTER and BRANCH client users */
   private ensureClientOrBranchUser(user: any) {
-    const isClient = !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
+    const isClient =
+      !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
     if (!isClient) {
-      throw new BadRequestException('Only client users can access this resource');
+      throw new BadRequestException(
+        'Only client users can access this resource',
+      );
     }
   }
 
@@ -230,7 +254,7 @@ export class PayrollService {
     allowBranchSalaryRegisters: boolean;
   }> {
     const row = await this.clientSettingsRepo.findOne({ where: { clientId } });
-    const s = (row?.settings || {}) as Record<string, any>;
+    const s = row?.settings || {};
     return {
       allowBranchPayrollAccess: s.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: s.allowBranchWageRegisters === true,
@@ -247,7 +271,9 @@ export class PayrollService {
   async clientUpdatePayrollSettings(user: any, dto: any) {
     this.ensureClientOrBranchUser(user);
     if (user.userType !== 'MASTER') {
-      throw new ForbiddenException('Only client master users can update settings');
+      throw new ForbiddenException(
+        'Only client master users can update settings',
+      );
     }
 
     const existing = await this.clientSettingsRepo.findOne({
@@ -284,7 +310,10 @@ export class PayrollService {
     if (payrollUser?.roleCode === 'ADMIN') return;
 
     // CEO/CCO/CRM read-only allowance when explicitly permitted by caller
-    if (opts?.allowReadOnly && ['CRM', 'CEO', 'CCO'].includes(payrollUser?.roleCode)) {
+    if (
+      opts?.allowReadOnly &&
+      ['CRM', 'CEO', 'CCO'].includes(payrollUser?.roleCode)
+    ) {
       return;
     }
 
@@ -299,7 +328,9 @@ export class PayrollService {
         },
       });
       if (!ok) {
-        throw new ForbiddenException('Payroll user not assigned to this client');
+        throw new ForbiddenException(
+          'Payroll user not assigned to this client',
+        );
       }
       return;
     }
@@ -309,9 +340,7 @@ export class PayrollService {
 
   async getAssignedClients(user: any) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    if (
-      !['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user?.roleCode)
-    ) {
+    if (!['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user?.roleCode)) {
       throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
     }
     if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
@@ -949,58 +978,14 @@ export class PayrollService {
       'runId',
       'employeeCode',
     ]);
-    if (run.status === 'DRAFT') {
-      run.status = 'IN_PROGRESS';
-      await this.runRepo.save(run);
-    }
+    // Keep run status unchanged on employee import. Processing transition
+    // is controlled explicitly by the process action.
 
     return { ok: true, runId: run.id, employees: rows.length };
   }
 
   async clientListRegistersRecords(user: any, q: any) {
-    this.ensureClientOrBranchUser(user);
-
-    // Enforce top-level payroll access toggle for branch users
-    if (user.userType === 'BRANCH') {
-      const toggles = await this.getClientAccessToggles(user.clientId);
-      if (!toggles.allowBranchPayrollAccess) {
-        throw new ForbiddenException('Payroll access has not been enabled for branch users');
-      }
-    }
-
-    const qb = this.rrRepo
-      .createQueryBuilder('r')
-      .where('r.client_id = :cid', { cid: user.clientId })
-      .orderBy('r.created_at', 'DESC');
-
-    // Branch users can only see their branch's registers and only approved ones
-    if (user.userType === 'BRANCH') {
-      if (user.branchId) {
-        qb.andWhere('r.branch_id = :ub', { ub: user.branchId });
-      }
-      qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
-
-      // Enforce wage/salary register restrictions
-      const toggles = await this.getClientAccessToggles(user.clientId);
-
-      if (!toggles.allowBranchWageRegisters) {
-        qb.andWhere(
-          `NOT (LOWER(r.title) LIKE '%wage%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%wage%')`,
-        );
-      }
-      if (!toggles.allowBranchSalaryRegisters) {
-        qb.andWhere(
-          `NOT (LOWER(r.title) LIKE '%salary%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%salary%')`,
-        );
-      }
-    }
-
-    if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
-    if (q?.category) qb.andWhere('r.category = :cat', { cat: q.category });
-    if (q?.periodYear)
-      qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
-    if (q?.periodMonth)
-      qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
+    const qb = await this.buildClientRegistersQuery(user, q);
     const rows = await qb.getMany();
     return rows.map((r: any) => ({
       id: r.id,
@@ -1022,6 +1007,125 @@ export class PayrollService {
       preparedByUserId: r.preparedByUserId ?? null,
       downloadUrl: `/api/client/payroll/registers-records/${r.id}/download`,
     }));
+  }
+
+  async streamClientRegistersPack(user: any, q: any, res: any) {
+    const qb = await this.buildClientRegistersQuery(user, q);
+    const maxRows = Math.min(300, Math.max(1, Number(q?.limit) || 120));
+    const rows = await qb.limit(maxRows).getMany();
+    if (!rows.length) {
+      throw new BadRequestException('No registers found for selected filters');
+    }
+
+    const available = rows.filter((r: any) => r.filePath && fs.existsSync(r.filePath));
+    if (!available.length) {
+      throw new BadRequestException('No register files available for download');
+    }
+
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="registers_pack_${stamp}.zip"`,
+    );
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => {
+      throw err;
+    });
+    archive.pipe(res);
+
+    const used = new Set<string>();
+    for (const row of available) {
+      const period = `${row.periodYear || 'na'}-${row.periodMonth ? String(row.periodMonth).padStart(2, '0') : 'na'}`;
+      const source = row.payrollInputId ? 'generated' : 'manual';
+      const rawName = `${period}_${source}_${row.title || 'register'}_${row.fileName || row.id}`;
+      const zipName = this.uniqueZipFileName(rawName, used);
+      archive.file(row.filePath, { name: zipName });
+    }
+
+    await archive.finalize();
+  }
+
+  private async buildClientRegistersQuery(user: any, q: any) {
+    this.ensureClientOrBranchUser(user);
+    const qb = this.rrRepo
+      .createQueryBuilder('r')
+      .where('r.client_id = :cid', { cid: user.clientId })
+      .orderBy('r.created_at', 'DESC');
+
+    if (user.userType === 'BRANCH') {
+      const toggles = await this.getClientAccessToggles(user.clientId);
+      if (!toggles.allowBranchPayrollAccess) {
+        throw new ForbiddenException(
+          'Payroll access has not been enabled for branch users',
+        );
+      }
+      if (user.branchId) {
+        qb.andWhere('r.branch_id = :ub', { ub: user.branchId });
+      }
+      qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
+      if (!toggles.allowBranchWageRegisters) {
+        qb.andWhere(
+          `NOT (LOWER(r.title) LIKE '%wage%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%wage%')`,
+        );
+      }
+      if (!toggles.allowBranchSalaryRegisters) {
+        qb.andWhere(
+          `NOT (LOWER(r.title) LIKE '%salary%' OR LOWER(COALESCE(r.register_type,'')) LIKE '%salary%')`,
+        );
+      }
+    }
+
+    if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
+    if (q?.category) qb.andWhere('r.category = :cat', { cat: q.category });
+    if (q?.periodYear)
+      qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
+    if (q?.periodMonth)
+      qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
+    if (q?.sourceType === 'GENERATED') {
+      qb.andWhere('r.payroll_input_id IS NOT NULL');
+    } else if (q?.sourceType === 'MANUAL') {
+      qb.andWhere('r.payroll_input_id IS NULL');
+    }
+
+    const search = String(q?.search || '').trim();
+    if (search) {
+      qb.andWhere(
+        `(r.title ILIKE :s
+          OR COALESCE(r.register_type,'') ILIKE :s
+          OR COALESCE(r.file_name,'') ILIKE :s
+          OR COALESCE(r.state_code,'') ILIKE :s
+          OR COALESCE(r.branch_id::text,'') ILIKE :s)`,
+        { s: `%${search}%` },
+      );
+    }
+
+    return qb;
+  }
+
+  private sanitizeZipName(value: string): string {
+    const out = String(value || '')
+      .replace(/[\\/:*?"<>|]+/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return out ? out.slice(0, 140) : 'register';
+  }
+
+  private uniqueZipFileName(rawName: string, used: Set<string>): string {
+    const safe = this.sanitizeZipName(rawName);
+    const dot = safe.lastIndexOf('.');
+    const stem = dot > 0 ? safe.slice(0, dot) : safe;
+    const ext = dot > 0 ? safe.slice(dot) : '';
+    let name = safe;
+    let idx = 2;
+    while (used.has(name.toLowerCase())) {
+      name = `${stem}_${idx}${ext}`;
+      idx += 1;
+    }
+    used.add(name.toLowerCase());
+    return name;
   }
 
   async clientUploadRegisterRecord(user: any, dto: any, file: any) {
@@ -1049,9 +1153,7 @@ export class PayrollService {
 
   async payrollListRegistersRecords(user: any, q: any) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    if (
-      !['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)
-    ) {
+    if (!['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
       throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
     }
     let ids: string[] = [];
@@ -1133,23 +1235,394 @@ export class PayrollService {
       throw new ForbiddenException('Only payroll/admin/CRM allowed');
     }
 
-    let assignedClients = 0;
+    const clientIds = await this.getAssignedClientIds(user);
+
+    const assignedClients = clientIds.length;
+
+    // Employees stats
+    let totalEmployees = 0,
+      activeEmployees = 0,
+      exitedEmployees = 0;
+    let pfPending = 0,
+      esiPending = 0;
+    if (clientIds.length) {
+      const empStats = await this.employeeRepo
+        .createQueryBuilder('e')
+        .select([
+          'COUNT(*) as total',
+          'COUNT(*) FILTER (WHERE e.is_active = TRUE) as active',
+          'COUNT(*) FILTER (WHERE e.is_active = FALSE) as exited',
+          'COUNT(*) FILTER (WHERE e.pf_applicable = TRUE AND (e.pf_registered = FALSE OR e.pf_registered IS NULL) AND e.is_active = TRUE) as pf_pending',
+          'COUNT(*) FILTER (WHERE e.esi_applicable = TRUE AND (e.esi_registered = FALSE OR e.esi_registered IS NULL) AND e.is_active = TRUE) as esi_pending',
+        ])
+        .where('e.client_id IN (:...ids)', { ids: clientIds })
+        .getRawOne();
+      totalEmployees = Number(empStats?.total ?? 0);
+      activeEmployees = Number(empStats?.active ?? 0);
+      exitedEmployees = Number(empStats?.exited ?? 0);
+      pfPending = Number(empStats?.pf_pending ?? 0);
+      esiPending = Number(empStats?.esi_pending ?? 0);
+    }
+
+    // Runs stats
+    let pendingRuns = 0,
+      completedThisMonth = 0,
+      totalRuns = 0;
+    if (clientIds.length) {
+      try {
+        const runStats = await this.runRepo
+          .createQueryBuilder('r')
+          .select([
+            'COUNT(*) as total',
+            "COUNT(*) FILTER (WHERE r.status IN ('DRAFT','PROCESSING')) as pending",
+            "COUNT(*) FILTER (WHERE r.status = 'COMPLETED' AND r.created_at >= date_trunc('month', CURRENT_DATE)) as completed_month",
+          ])
+          .where('r.client_id IN (:...ids)', { ids: clientIds })
+          .getRawOne();
+        totalRuns = Number(runStats?.total ?? 0);
+        pendingRuns = Number(runStats?.pending ?? 0);
+        completedThisMonth = Number(runStats?.completed_month ?? 0);
+      } catch {
+        /* runs table might not exist yet */
+      }
+    }
+
+    // Joiners this month
+    let joinersThisMonth = 0,
+      leaversThisMonth = 0;
+    if (clientIds.length) {
+      try {
+        const jlStats = await this.employeeRepo
+          .createQueryBuilder('e')
+          .select([
+            "COUNT(*) FILTER (WHERE e.date_of_joining >= date_trunc('month', CURRENT_DATE)) as joiners",
+            "COUNT(*) FILTER (WHERE e.date_of_exit >= date_trunc('month', CURRENT_DATE)) as leavers",
+          ])
+          .where('e.client_id IN (:...ids)', { ids: clientIds })
+          .getRawOne();
+        joinersThisMonth = Number(jlStats?.joiners ?? 0);
+        leaversThisMonth = Number(jlStats?.leavers ?? 0);
+      } catch {
+        /* OK */
+      }
+    }
+
+    return {
+      assignedClients,
+      totalEmployees,
+      activeEmployees,
+      exitedEmployees,
+      pendingRuns,
+      completedThisMonth,
+      totalRuns,
+      pfPending,
+      esiPending,
+      joinersThisMonth,
+      leaversThisMonth,
+    };
+  }
+
+  /** Helper: get assigned client IDs for user */
+  private async getAssignedClientIds(user: any): Promise<string[]> {
     if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
-      assignedClients = await this.clientRepo
+      const clients = await this.clientRepo
         .createQueryBuilder('c')
+        .select('c.id')
         .where('c.is_deleted = false')
-        .getCount();
+        .getMany();
+      return clients.map((c) => c.id);
+    }
+    const assignments = await this.assignRepo.find({
+      where: { payrollUserId: user.id, status: 'ACTIVE', endDate: IsNull() },
+      select: ['clientId'],
+    });
+    return assignments.map((a) => a.clientId);
+  }
+
+  /**
+   * Employees listing for PAYROLL role — all employees across assigned clients.
+   * Supports search, status filter, client filter, pagination.
+   */
+  async getPayrollEmployees(user: any, q: any) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!clientIds.length) return { data: [], total: 0 };
+
+    const qb = this.employeeRepo
+      .createQueryBuilder('e')
+      .leftJoin('clients', 'c', 'c.id = e.client_id')
+      .select([
+        'e.id as "id"',
+        'e.employee_code as "employeeCode"',
+        'e.first_name as "firstName"',
+        'e.last_name as "lastName"',
+        'e.designation as "designation"',
+        'e.department as "department"',
+        'e.date_of_joining as "dateOfJoining"',
+        'e.date_of_exit as "dateOfExit"',
+        'e.is_active as "isActive"',
+        'e.pf_applicable as "pfApplicable"',
+        'e.pf_registered as "pfRegistered"',
+        'e.esi_applicable as "esiApplicable"',
+        'e.esi_registered as "esiRegistered"',
+        'e.uan as "uan"',
+        'e.esic as "esic"',
+        'e.phone as "phone"',
+        'e.email as "email"',
+        'e.client_id as "clientId"',
+        'c.client_name as "clientName"',
+      ])
+      .where('e.client_id IN (:...ids)', { ids: clientIds });
+
+    // Filters
+    if (q?.clientId) {
+      qb.andWhere('e.client_id = :cid', { cid: q.clientId });
+    }
+    if (q?.status === 'ACTIVE') {
+      qb.andWhere('e.is_active = TRUE');
+    } else if (q?.status === 'INACTIVE') {
+      qb.andWhere('e.is_active = FALSE');
+    }
+    if (q?.search) {
+      qb.andWhere(
+        '(e.first_name ILIKE :s OR e.last_name ILIKE :s OR e.employee_code ILIKE :s OR e.uan ILIKE :s OR e.esic ILIKE :s)',
+        { s: `%${q.search}%` },
+      );
+    }
+    if (q?.pfStatus === 'PENDING') {
+      qb.andWhere(
+        'e.pf_applicable = TRUE AND (e.pf_registered = FALSE OR e.pf_registered IS NULL)',
+      );
+    } else if (q?.pfStatus === 'REGISTERED') {
+      qb.andWhere('e.pf_applicable = TRUE AND e.pf_registered = TRUE');
+    }
+    if (q?.esiStatus === 'PENDING') {
+      qb.andWhere(
+        'e.esi_applicable = TRUE AND (e.esi_registered = FALSE OR e.esi_registered IS NULL)',
+      );
+    } else if (q?.esiStatus === 'REGISTERED') {
+      qb.andWhere('e.esi_applicable = TRUE AND e.esi_registered = TRUE');
+    }
+
+    const total = await qb.getCount();
+
+    qb.orderBy('e.first_name', 'ASC');
+    const page = Math.max(1, Number(q?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q?.limit) || 25));
+    qb.skip((page - 1) * limit).take(limit);
+
+    const data = await qb.getRawMany();
+    return { data, total, page, limit };
+  }
+
+  /**
+   * Employee detail for PAYROLL role — fetch a single employee with full info.
+   */
+  async getPayrollEmployeeDetail(user: any, employeeId: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!clientIds.length) throw new ForbiddenException('No assigned clients');
+
+    const emp = await this.employeeRepo.findOne({ where: { id: employeeId } });
+    if (!emp || !clientIds.includes(emp.clientId)) {
+      throw new ForbiddenException('Employee not in your assigned clients');
+    }
+
+    // Get client name
+    const client = await this.clientRepo.findOne({
+      where: { id: emp.clientId },
+    });
+
+    // Get payroll run history for this employee
+    let runHistory: any[] = [];
+    try {
+      runHistory = await this.runEmployeeRepo
+        .createQueryBuilder('re')
+        .leftJoin('payroll_runs', 'r', 'r.id = re.run_id')
+        .select([
+          're.id as "id"',
+          're.run_id as "runId"',
+          'r.period_year as "periodYear"',
+          'r.period_month as "periodMonth"',
+          'r.status as "runStatus"',
+          're.gross_earnings as "grossEarnings"',
+          're.total_deductions as "totalDeductions"',
+          're.net_pay as "netPay"',
+          'r.created_at as "runDate"',
+        ])
+        .where('re.employee_id = :eid', { eid: employeeId })
+        .orderBy('r.period_year', 'DESC')
+        .addOrderBy('r.period_month', 'DESC')
+        .take(24)
+        .getRawMany();
+    } catch {
+      /* table might not exist */
+    }
+
+    return {
+      ...emp,
+      clientName: client?.clientName ?? 'Unknown',
+      runHistory,
+    };
+  }
+
+  /**
+   * PF/ESI summary across all clients assigned to the payroll user.
+   * Returns per-client PF/ESI registration counts and pending employee lists.
+   */
+  async getPfEsiSummary(user: any) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+
+    // Get assigned client IDs
+    let clientIds: string[] = [];
+    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+      const clients = await this.clientRepo
+        .createQueryBuilder('c')
+        .select('c.id')
+        .where('c.is_deleted = false')
+        .getMany();
+      clientIds = clients.map((c) => c.id);
     } else {
-      assignedClients = await this.assignRepo.count({
+      const assignments = await this.assignRepo.find({
         where: { payrollUserId: user.id, status: 'ACTIVE', endDate: IsNull() },
+        select: ['clientId'],
+      });
+      clientIds = assignments.map((a) => a.clientId);
+    }
+
+    if (!clientIds.length) {
+      return {
+        clients: [],
+        totals: {
+          pfRegistered: 0,
+          pfPending: 0,
+          esiRegistered: 0,
+          esiPending: 0,
+        },
+      };
+    }
+
+    const DAY_MS = 86400000;
+    const pendingDays = (d: any) => {
+      if (!d) return 0;
+      const dt = d instanceof Date ? d : new Date(d + 'T00:00:00Z');
+      const diff = Math.floor((Date.now() - dt.getTime()) / DAY_MS);
+      return diff > 0 ? diff : 0;
+    };
+
+    // Fetch client names
+    const clientRows = await this.clientRepo
+      .createQueryBuilder('c')
+      .select(['c.id', 'c.client_name'])
+      .where('c.id IN (:...ids)', { ids: clientIds })
+      .getRawMany();
+    const clientNameMap = new Map(
+      clientRows.map((r: any) => [r.c_id, r.c_client_name]),
+    );
+
+    const results: any[] = [];
+    let totalPfReg = 0,
+      totalPfPend = 0,
+      totalEsiReg = 0,
+      totalEsiPend = 0;
+
+    for (const clientId of clientIds) {
+      const baseQb = this.employeeRepo
+        .createQueryBuilder('e')
+        .where('e.client_id = :clientId', { clientId })
+        .andWhere('e.is_active = TRUE');
+
+      const pfRegistered = await baseQb
+        .clone()
+        .andWhere('e.pf_applicable = TRUE AND e.pf_registered = TRUE')
+        .getCount();
+
+      const pfPendingRows = await baseQb
+        .clone()
+        .select([
+          'e.id as id',
+          'e.employee_code as "employeeCode"',
+          'e.first_name as "firstName"',
+          'e.last_name as "lastName"',
+          'e.date_of_joining as "dateOfJoining"',
+          'e.pf_applicable_from as "pfApplicableFrom"',
+          'e.uan as uan',
+        ])
+        .andWhere(
+          'e.pf_applicable = TRUE AND (e.pf_registered = FALSE OR e.pf_registered IS NULL)',
+        )
+        .getRawMany();
+
+      const pfPending = pfPendingRows.map((r: any) => ({
+        employeeId: r.id,
+        empCode: r.employeeCode,
+        name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim(),
+        dateOfJoining: r.dateOfJoining || null,
+        uanAvailable: !!r.uan,
+        uan: r.uan || null,
+        pendingDays: pendingDays(r.pfApplicableFrom || r.dateOfJoining),
+      }));
+
+      const esiRegistered = await baseQb
+        .clone()
+        .andWhere('e.esi_applicable = TRUE AND e.esi_registered = TRUE')
+        .getCount();
+
+      const esiPendingRows = await baseQb
+        .clone()
+        .select([
+          'e.id as id',
+          'e.employee_code as "employeeCode"',
+          'e.first_name as "firstName"',
+          'e.last_name as "lastName"',
+          'e.date_of_joining as "dateOfJoining"',
+          'e.esi_applicable_from as "esiApplicableFrom"',
+          'e.esic as "ipNumber"',
+        ])
+        .andWhere(
+          'e.esi_applicable = TRUE AND (e.esi_registered = FALSE OR e.esi_registered IS NULL)',
+        )
+        .getRawMany();
+
+      const esiPending = esiPendingRows.map((r: any) => ({
+        employeeId: r.id,
+        empCode: r.employeeCode,
+        name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim(),
+        dateOfJoining: r.dateOfJoining || null,
+        ipNumberAvailable: !!r.ipNumber,
+        ipNumber: r.ipNumber || null,
+        pendingDays: pendingDays(r.esiApplicableFrom || r.dateOfJoining),
+      }));
+
+      totalPfReg += pfRegistered;
+      totalPfPend += pfPending.length;
+      totalEsiReg += esiRegistered;
+      totalEsiPend += esiPending.length;
+
+      results.push({
+        clientId,
+        clientName: clientNameMap.get(clientId) || 'Unknown',
+        pf: {
+          registered: pfRegistered,
+          pending: pfPending.length,
+          pendingEmployees: pfPending,
+        },
+        esi: {
+          registered: esiRegistered,
+          pending: esiPending.length,
+          pendingEmployees: esiPending,
+        },
       });
     }
 
-    // Until you build real payroll-run workflow, keep these as 0
     return {
-      assignedClients,
-      pendingRuns: 0,
-      completedThisMonth: 0,
+      clients: results,
+      totals: {
+        pfRegistered: totalPfReg,
+        pfPending: totalPfPend,
+        esiRegistered: totalEsiReg,
+        esiPending: totalEsiPend,
+      },
     };
   }
 
@@ -1439,7 +1912,9 @@ export class PayrollService {
     if (user.userType === 'BRANCH') {
       const branchToggles = await this.getClientAccessToggles(user.clientId);
       if (!branchToggles.allowBranchPayrollAccess) {
-        throw new ForbiddenException('Payroll access has not been enabled for branch users');
+        throw new ForbiddenException(
+          'Payroll access has not been enabled for branch users',
+        );
       }
     }
 
@@ -1453,7 +1928,9 @@ export class PayrollService {
         throw new ForbiddenException('Not your branch register');
       }
       if (row.approvalStatus !== 'APPROVED') {
-        throw new ForbiddenException('Register is not yet approved for download');
+        throw new ForbiddenException(
+          'Register is not yet approved for download',
+        );
       }
 
       // Enforce wage/salary register download restrictions
@@ -1462,11 +1939,21 @@ export class PayrollService {
       const title = String(row.title || '').toLowerCase();
       const rtype = String(row.registerType || '').toLowerCase();
 
-      if (!toggles.allowBranchWageRegisters && (title.includes('wage') || rtype.includes('wage'))) {
-        throw new ForbiddenException('Wage registers are restricted for branch users');
+      if (
+        !toggles.allowBranchWageRegisters &&
+        (title.includes('wage') || rtype.includes('wage'))
+      ) {
+        throw new ForbiddenException(
+          'Wage registers are restricted for branch users',
+        );
       }
-      if (!toggles.allowBranchSalaryRegisters && (title.includes('salary') || rtype.includes('salary'))) {
-        throw new ForbiddenException('Salary registers are restricted for branch users');
+      if (
+        !toggles.allowBranchSalaryRegisters &&
+        (title.includes('salary') || rtype.includes('salary'))
+      ) {
+        throw new ForbiddenException(
+          'Salary registers are restricted for branch users',
+        );
       }
     }
     // Master users can download any status
@@ -1511,6 +1998,12 @@ export class PayrollService {
       .addSelect('r.period_year', 'periodYear')
       .addSelect('r.period_month', 'periodMonth')
       .addSelect('r.status', 'status')
+      .addSelect('r.created_at', 'createdAt')
+      .addSelect('r.submitted_at', 'submittedAt')
+      .addSelect('r.approved_at', 'approvedAt')
+      .addSelect('r.rejected_at', 'rejectedAt')
+      .addSelect('r.rejection_reason', 'rejectionReason')
+      .addSelect('r.approval_comments', 'approvalComments')
       .where('r.client_id IN (:...ids)', { ids: allowedClientIds })
       .andWhere('c.is_deleted = false')
       .orderBy('r.created_at', 'DESC');
@@ -1545,6 +2038,12 @@ export class PayrollService {
       periodMonth: Number(r.periodMonth),
       status: r.status ?? 'DRAFT',
       employeeCount: mapCnt.get(r.id) ?? 0,
+      createdAt: r.createdAt ?? null,
+      submittedAt: r.submittedAt ?? null,
+      approvedAt: r.approvedAt ?? null,
+      rejectedAt: r.rejectedAt ?? null,
+      rejectionReason: r.rejectionReason ?? null,
+      approvalComments: r.approvalComments ?? null,
     }));
   }
 
@@ -1663,6 +2162,11 @@ export class PayrollService {
     const run = await this.runRepo.findOne({ where: { id: runId } as any });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId);
+    if (String(run.status || '').toUpperCase() !== 'APPROVED') {
+      throw new BadRequestException(
+        'Run must be approved before archiving/publishing payslips',
+      );
+    }
 
     const client = await this.clientRepo.findOne({
       where: { id: run.clientId } as any,
@@ -1763,6 +2267,11 @@ export class PayrollService {
     const run = await this.runRepo.findOne({ where: { id: runId } as any });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId);
+    if (String(run.status || '').toUpperCase() !== 'APPROVED') {
+      throw new BadRequestException(
+        'Run must be approved before downloading published payslips',
+      );
+    }
 
     const existingCount = await this.payslipArchiveRepo.count({
       where: { runId } as any,
@@ -1803,7 +2312,9 @@ export class PayrollService {
   async approveRegister(user: any, registerId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
-      throw new ForbiddenException('Only payroll or admin users can approve registers');
+      throw new ForbiddenException(
+        'Only payroll or admin users can approve registers',
+      );
     }
     const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
     if (!row) throw new BadRequestException('Register not found');
@@ -1826,7 +2337,9 @@ export class PayrollService {
   async rejectRegister(user: any, registerId: string, reason?: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
-      throw new ForbiddenException('Only payroll or admin users can reject registers');
+      throw new ForbiddenException(
+        'Only payroll or admin users can reject registers',
+      );
     }
     const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
     if (!row) throw new BadRequestException('Register not found');
@@ -1862,7 +2375,9 @@ export class PayrollService {
       .select('DISTINCT a.client_id', 'clientId')
       .where('a.assigned_auditor_id = :uid', { uid: user.id })
       .andWhere('a.audit_type = :type', { type: 'PAYROLL' })
-      .andWhere('a.status IN (:...statuses)', { statuses: ['PLANNED', 'IN_PROGRESS'] })
+      .andWhere('a.status IN (:...statuses)', {
+        statuses: ['PLANNED', 'IN_PROGRESS'],
+      })
       .getRawMany<{ clientId: string }>();
 
     const allowedClientIds = audits.map((a) => a.clientId);
@@ -1872,7 +2387,9 @@ export class PayrollService {
     let clientIds = allowedClientIds;
     if (q?.clientId) {
       if (!allowedClientIds.includes(q.clientId)) {
-        throw new ForbiddenException('No payroll audit assigned for this client');
+        throw new ForbiddenException(
+          'No payroll audit assigned for this client',
+        );
       }
       clientIds = [q.clientId];
     }
@@ -1882,8 +2399,10 @@ export class PayrollService {
       .where('r.client_id IN (:...ids)', { ids: clientIds });
 
     if (q?.branchId) qb.andWhere('r.branch_id = :b', { b: q.branchId });
-    if (q?.periodYear) qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
-    if (q?.periodMonth) qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
+    if (q?.periodYear)
+      qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
+    if (q?.periodMonth)
+      qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
     if (q?.category) qb.andWhere('r.category = :cat', { cat: q.category });
 
     qb.orderBy('r.created_at', 'DESC');
@@ -1926,7 +2445,10 @@ export class PayrollService {
         auditType: 'PAYROLL' as any,
       } as any,
     });
-    if (!audit || (audit.status !== 'PLANNED' && audit.status !== 'IN_PROGRESS')) {
+    if (
+      !audit ||
+      (audit.status !== 'PLANNED' && audit.status !== 'IN_PROGRESS')
+    ) {
       throw new ForbiddenException('No active payroll audit for this client');
     }
 
@@ -1954,11 +2476,478 @@ export class PayrollService {
           y: Number(q.year),
         });
       }
-      qb.orderBy('p.created_at', 'DESC').take(200);
+      qb.orderBy('p.generated_at', 'DESC').take(200);
       const items = await qb.getMany();
       return { items, total: items.length };
-    } catch {
+    } catch (err) {
+      this.logger.error('listPayslips query failed', (err as Error)?.message);
       return { items: [], total: 0 };
     }
+  }
+
+  // ====================
+  // PAYROLL QUERIES (TICKETS)
+  // ====================
+
+  async listQueries(user: any, q: any) {
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!clientIds.length) return { data: [], total: 0 };
+
+    const qb = this.queryRepo
+      .createQueryBuilder('pq')
+      .leftJoin('clients', 'c', 'c.id = pq.client_id')
+      .leftJoin('employees', 'e', 'e.id = pq.employee_id')
+      .leftJoin('users', 'u', 'u.id = pq.raised_by')
+      .select([
+        'pq.id as "id"',
+        'pq.subject as "subject"',
+        'pq.category as "category"',
+        'pq.priority as "priority"',
+        'pq.status as "status"',
+        'pq.created_at as "createdAt"',
+        'pq.resolved_at as "resolvedAt"',
+        'pq.client_id as "clientId"',
+        'c.client_name as "clientName"',
+        'pq.employee_id as "employeeId"',
+        'CONCAT(e.first_name, \' \', e.last_name) as "employeeName"',
+        'u.name as "raisedByName"',
+      ])
+      .where('pq.client_id IN (:...ids)', { ids: clientIds });
+
+    if (q?.status) qb.andWhere('pq.status = :st', { st: q.status });
+    if (q?.clientId) qb.andWhere('pq.client_id = :cid', { cid: q.clientId });
+    if (q?.priority) qb.andWhere('pq.priority = :pr', { pr: q.priority });
+    if (q?.category) qb.andWhere('pq.category = :cat', { cat: q.category });
+    if (q?.search) {
+      qb.andWhere('(pq.subject ILIKE :s OR pq.description ILIKE :s)', {
+        s: `%${q.search}%`,
+      });
+    }
+
+    const total = await qb.getCount();
+    qb.orderBy('pq.created_at', 'DESC');
+    const page = Math.max(1, Number(q?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q?.limit) || 25));
+    qb.skip((page - 1) * limit).take(limit);
+    const data = await qb.getRawMany();
+    return { data, total, page, limit };
+  }
+
+  async getQueryDetail(user: any, queryId: string) {
+    const query = await this.queryRepo.findOne({ where: { id: queryId } });
+    if (!query) throw new BadRequestException('Query not found');
+
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!clientIds.includes(query.clientId)) {
+      throw new ForbiddenException('Query not in your assigned clients');
+    }
+
+    const messages = await this.queryMsgRepo.find({
+      where: { queryId },
+      order: { createdAt: 'ASC' },
+    });
+
+    // Get sender names
+    const senderIds = [...new Set(messages.map((m) => m.senderId))];
+    let senderMap = new Map<string, string>();
+    if (senderIds.length) {
+      try {
+        const rows = await this.queryRepo.manager
+          .createQueryBuilder()
+          .select(['u.id as id', 'u.name as name'])
+          .from('users', 'u')
+          .where('u.id IN (:...ids)', { ids: senderIds })
+          .getRawMany();
+        senderMap = new Map(rows.map((r: any) => [r.id, r.name]));
+      } catch {
+        /* OK */
+      }
+    }
+
+    return {
+      ...query,
+      messages: messages.map((m) => ({
+        ...m,
+        senderName: senderMap.get(m.senderId) || 'Unknown',
+      })),
+    };
+  }
+
+  async createQuery(user: any, dto: any) {
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!dto.clientId || !clientIds.includes(dto.clientId)) {
+      throw new ForbiddenException('Invalid client');
+    }
+
+    const query = this.queryRepo.create({
+      clientId: dto.clientId,
+      employeeId: dto.employeeId || null,
+      raisedBy: user.id,
+      assignedTo: dto.assignedTo || user.id,
+      subject: dto.subject,
+      category: dto.category || 'GENERAL',
+      priority: dto.priority || 'MEDIUM',
+      status: 'OPEN',
+      description: dto.description || null,
+    });
+    const saved = await this.queryRepo.save(query);
+
+    // Add initial message if description provided
+    if (dto.description) {
+      await this.queryMsgRepo.save(
+        this.queryMsgRepo.create({
+          queryId: saved.id,
+          senderId: user.id,
+          message: dto.description,
+        }),
+      );
+    }
+
+    return saved;
+  }
+
+  async addQueryMessage(user: any, queryId: string, message: string) {
+    const query = await this.queryRepo.findOne({ where: { id: queryId } });
+    if (!query) throw new BadRequestException('Query not found');
+
+    const msg = await this.queryMsgRepo.save(
+      this.queryMsgRepo.create({
+        queryId,
+        senderId: user.id,
+        message,
+      }),
+    );
+
+    // Update timestamp
+    await this.queryRepo.update(queryId, { updatedAt: new Date() as any });
+    return msg;
+  }
+
+  async resolveQuery(user: any, queryId: string, resolution: string) {
+    const query = await this.queryRepo.findOne({ where: { id: queryId } });
+    if (!query) throw new BadRequestException('Query not found');
+
+    await this.queryRepo.update(queryId, {
+      status: 'RESOLVED',
+      resolvedAt: new Date() as any,
+      resolvedBy: user.id,
+      resolution,
+    });
+
+    // Add resolution message
+    await this.queryMsgRepo.save(
+      this.queryMsgRepo.create({
+        queryId,
+        senderId: user.id,
+        message: `[Resolved] ${resolution}`,
+      }),
+    );
+
+    return { success: true };
+  }
+
+  async updateQueryStatus(user: any, queryId: string, status: string) {
+    const query = await this.queryRepo.findOne({ where: { id: queryId } });
+    if (!query) throw new BadRequestException('Query not found');
+    await this.queryRepo.update(queryId, { status });
+    return { success: true };
+  }
+
+  // ====================
+  // FULL & FINAL (F&F)
+  // ====================
+  private readonly FNF_ALLOWED_TRANSITIONS: Record<string, string[]> = {
+    INITIATED: ['UNDER_REVIEW', 'APPROVED'],
+    UNDER_REVIEW: ['APPROVED', 'SETTLED'],
+    APPROVED: ['SETTLED', 'DOCS_ISSUED'],
+    SETTLED: ['DOCS_ISSUED', 'COMPLETED'],
+    DOCS_ISSUED: ['COMPLETED'],
+    COMPLETED: [],
+  };
+
+  async listFnf(user: any, q: any) {
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!clientIds.length) return { data: [], total: 0 };
+
+    const qb = this.fnfRepo
+      .createQueryBuilder('f')
+      .leftJoin('clients', 'c', 'c.id = f.client_id')
+      .leftJoin('employees', 'e', 'e.id = f.employee_id')
+      .select([
+        'f.id as "id"',
+        'f.separation_date as "separationDate"',
+        'f.last_working_day as "lastWorkingDay"',
+        'f.reason as "reason"',
+        'f.status as "status"',
+        'f.settlement_amount as "settlementAmount"',
+        'f.created_at as "createdAt"',
+        'f.client_id as "clientId"',
+        'c.client_name as "clientName"',
+        'f.employee_id as "employeeId"',
+        'CONCAT(e.first_name, \' \', e.last_name) as "employeeName"',
+        'e.employee_code as "employeeCode"',
+      ])
+      .where('f.client_id IN (:...ids)', { ids: clientIds });
+
+    if (q?.status) qb.andWhere('f.status = :st', { st: q.status });
+    if (q?.clientId) qb.andWhere('f.client_id = :cid', { cid: q.clientId });
+    if (q?.search) {
+      qb.andWhere(
+        '(e.first_name ILIKE :s OR e.last_name ILIKE :s OR e.employee_code ILIKE :s)',
+        { s: `%${q.search}%` },
+      );
+    }
+
+    const total = await qb.getCount();
+    qb.orderBy('f.created_at', 'DESC');
+    const page = Math.max(1, Number(q?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q?.limit) || 25));
+    qb.skip((page - 1) * limit).take(limit);
+    const data = await qb.getRawMany();
+    return { data, total, page, limit };
+  }
+
+  async createFnf(user: any, dto: any) {
+    const clientIds = await this.getAssignedClientIds(user);
+    if (!dto.clientId || !clientIds.includes(dto.clientId)) {
+      throw new ForbiddenException('Invalid client');
+    }
+    if (!dto.employeeId) {
+      throw new BadRequestException('employeeId is required');
+    }
+
+    const employee = await this.employeeRepo.findOne({
+      where: { id: dto.employeeId },
+    });
+    if (!employee || employee.clientId !== dto.clientId) {
+      throw new BadRequestException('Employee does not belong to selected client');
+    }
+
+    const fnf = this.fnfRepo.create({
+      clientId: dto.clientId,
+      employeeId: dto.employeeId,
+      separationDate: dto.separationDate,
+      lastWorkingDay: dto.lastWorkingDay || null,
+      reason: dto.reason || null,
+      status: 'INITIATED',
+      checklist: dto.checklist || [],
+      settlementBreakup: dto.settlementBreakup || null,
+      remarks: dto.remarks || null,
+      initiatedBy: user.id,
+    });
+    const saved = await this.fnfRepo.save(fnf);
+
+    await this.fnfEventRepo.save(
+      this.fnfEventRepo.create({
+        fnfId: saved.id,
+        statusFrom: null,
+        statusTo: 'INITIATED',
+        action: 'INITIATED',
+        remarks: saved.remarks || null,
+        performedBy: user.id || null,
+        metadata: {
+          separationDate: saved.separationDate,
+          lastWorkingDay: saved.lastWorkingDay,
+        },
+      }),
+    );
+
+    return saved;
+  }
+
+  async updateFnfStatus(user: any, fnfId: string, dto: any) {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F not found');
+    if (!dto?.status) throw new BadRequestException('status is required');
+
+    const fromStatus = this.normalizeFnfStatus(fnf.status);
+    const toStatus = this.normalizeFnfStatus(dto.status);
+
+    if (fromStatus === toStatus) {
+      throw new BadRequestException(`Case is already in ${toStatus} status`);
+    }
+
+    const allowedNext = this.FNF_ALLOWED_TRANSITIONS[fromStatus] || [];
+    if (!allowedNext.includes(toStatus)) {
+      throw new BadRequestException(
+        `Invalid F&F transition from ${fromStatus} to ${toStatus}`,
+      );
+    }
+
+    const update: any = { status: toStatus };
+
+    if (dto.remarks !== undefined) {
+      update.remarks = String(dto.remarks || '').trim() || null;
+    }
+    if (dto.checklist !== undefined) {
+      if (!Array.isArray(dto.checklist)) {
+        throw new BadRequestException('checklist must be an array');
+      }
+      update.checklist = dto.checklist;
+    }
+    if (dto.settlementBreakup !== undefined) {
+      update.settlementBreakup = dto.settlementBreakup ?? null;
+    }
+
+    if (toStatus === 'APPROVED') {
+      update.approvedBy = user.id;
+    }
+
+    if (toStatus === 'SETTLED') {
+      const settlementAmount = Number(dto.settlementAmount);
+      if (!Number.isFinite(settlementAmount) || settlementAmount <= 0) {
+        throw new BadRequestException(
+          'settlementAmount must be a positive number for SETTLED status',
+        );
+      }
+      update.settlementAmount = settlementAmount;
+    }
+
+    if (toStatus === 'COMPLETED') {
+      const amount = Number(fnf.settlementAmount || 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new BadRequestException(
+          'Cannot complete F&F case before settlement amount is captured',
+        );
+      }
+    }
+
+    await this.fnfRepo.update(fnfId, update);
+
+    await this.fnfEventRepo.save(
+      this.fnfEventRepo.create({
+        fnfId,
+        statusFrom: fromStatus,
+        statusTo: toStatus,
+        action: 'STATUS_UPDATE',
+        remarks: update.remarks ?? fnf.remarks ?? null,
+        settlementAmount:
+          update.settlementAmount !== undefined && update.settlementAmount !== null
+            ? String(update.settlementAmount)
+            : null,
+        performedBy: user?.id || null,
+        metadata: {
+          checklistUpdated: dto.checklist !== undefined,
+          hasSettlementBreakup: dto.settlementBreakup !== undefined,
+        },
+      }),
+    );
+
+    return { success: true, status: toStatus };
+  }
+
+  async getFnfDetail(user: any, fnfId: string) {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F not found');
+
+    const emp = await this.employeeRepo.findOne({
+      where: { id: fnf.employeeId },
+    });
+    const client = await this.clientRepo.findOne({
+      where: { id: fnf.clientId },
+    });
+    const history = await this.fnfEventRepo.find({
+      where: { fnfId },
+      order: { createdAt: 'ASC' },
+    });
+
+    return {
+      ...fnf,
+      employeeName: emp
+        ? `${emp.firstName} ${emp.lastName || ''}`.trim()
+        : 'Unknown',
+      employeeCode: emp?.employeeCode || '',
+      clientName: client?.clientName || 'Unknown',
+      history: history.map((event) => ({
+        id: event.id,
+        statusFrom: event.statusFrom,
+        statusTo: event.statusTo,
+        action: event.action,
+        remarks: event.remarks,
+        settlementAmount:
+          event.settlementAmount !== null && event.settlementAmount !== undefined
+            ? Number(event.settlementAmount)
+            : null,
+        performedBy: event.performedBy,
+        createdAt: event.createdAt,
+      })),
+    };
+  }
+
+  private normalizeFnfStatus(input: string): string {
+    const normalized = String(input || '').trim().toUpperCase();
+    if (!normalized) return 'INITIATED';
+    return normalized;
+  }
+
+  async processPayrollRun(user: any, runId: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+
+    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    if (!run) throw new BadRequestException('Payroll run not found');
+
+    await this.assertPayrollAccessToClient(user, run.clientId);
+
+    const currentStatus = String(run.status || '').toUpperCase();
+    if (
+      currentStatus !== 'DRAFT' &&
+      currentStatus !== 'REJECTED' &&
+      currentStatus !== 'IN_PROGRESS'
+    ) {
+      throw new BadRequestException(
+        `Payroll run is "${currentStatus}". Only DRAFT, REJECTED, or IN_PROGRESS runs can be processed.`,
+      );
+    }
+
+    const employeeCount = await this.runEmployeeRepo.count({
+      where: { runId } as any,
+    });
+    if (employeeCount <= 0) {
+      throw new BadRequestException(
+        'No employees found in this run. Import attendance/input before processing.',
+      );
+    }
+
+    run.status = 'PROCESSED';
+    // Reset workflow metadata for a fresh cycle.
+    run.submittedByUserId = null;
+    run.submittedAt = null;
+    run.approvedByUserId = null;
+    run.approvedAt = null;
+    run.approvalComments = null;
+    run.rejectedByUserId = null;
+    run.rejectedAt = null;
+    run.rejectionReason = null;
+
+    return this.runRepo.save(run);
+  }
+
+  async approvePayrollRun(user: any, runId: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+
+    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    if (!run) throw new BadRequestException('Payroll run not found');
+
+    await this.assertPayrollAccessToClient(user, run.clientId);
+
+    const currentStatus = String(run.status || '').toUpperCase();
+    if (currentStatus !== 'SUBMITTED') {
+      throw new BadRequestException(
+        `Payroll run is "${currentStatus}". Only SUBMITTED runs can be approved.`,
+      );
+    }
+
+    run.status = 'APPROVED';
+    run.approvedByUserId = user.id;
+    run.approvedAt = new Date();
+    run.rejectedByUserId = null;
+    run.rejectedAt = null;
+    run.rejectionReason = null;
+
+    const saved = await this.runRepo.save(run);
+
+    await this.archiveRunPayslips(user, runId);
+
+    return saved;
   }
 }

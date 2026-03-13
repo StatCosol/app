@@ -1,8 +1,10 @@
 import {
-  Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef
+  Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { DashboardService } from '../../../core/dashboard.service';
 import { AuthService } from '../../../core/auth.service';
 
@@ -101,11 +103,12 @@ import { AuthService } from '../../../core/auth.service';
     @keyframes spin { to { transform: rotate(360deg); } }
   `]
 })
-export class BranchContractorsComponent implements OnInit {
+export class BranchContractorsComponent implements OnInit, OnDestroy {
   loading = true;
   currentMonth = '';
   overallPercent = 0;
   contractors: any[] = [];
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -129,7 +132,7 @@ export class BranchContractorsComponent implements OnInit {
     this.dashboardService.getClientContractorUploadSummary({
       month: this.currentMonth,
       branchId: branchId || undefined,
-    }).subscribe({
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (resp: any) => {
         this.overallPercent = resp?.overallPercent || 0;
         this.contractors = (resp?.contractors || []).map((c: any) => ({
@@ -162,5 +165,10 @@ export class BranchContractorsComponent implements OnInit {
     if (pct >= 80) return '#10b981';
     if (pct >= 50) return '#f59e0b';
     return '#ef4444';
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

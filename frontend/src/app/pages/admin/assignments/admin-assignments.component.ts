@@ -84,11 +84,12 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
 
   historyColumns: TableColumn[] = [
     { key: 'clientName', header: 'Client' },
-    { key: 'crmName', header: 'CRM' },
-    { key: 'auditorName', header: 'Auditor' },
+    { key: 'assignmentType', header: 'Type' },
+    { key: 'assigneeName', header: 'Assigned To' },
     { key: 'startDate', header: 'Start Date' },
     { key: 'endDate', header: 'End Date' },
-    { key: 'status', header: 'Status' }
+    { key: 'changeReason', header: 'Reason' },
+    { key: 'status', header: 'Status' },
   ];
 
   ngOnInit(): void {
@@ -105,7 +106,6 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
     this.error = '';
 
     const handleLoadError = (label: string) => (err: unknown) => {
-      console.error(`${label} load error`, err);
       if (!this.error) {
         this.error = `Some data failed to load (${label})`;
       }
@@ -151,7 +151,6 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loading = false;
-        console.error('Load error:', err);
         this.error = 'Failed to load data';
       },
     });
@@ -160,7 +159,6 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
     this.service.getAssignmentHistory().pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('History load error:', err);
         return of([]);
       }),
       takeUntil(this.destroy$),
@@ -339,18 +337,31 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
     return rows.map((row) => {
       const assignmentType = row?.assignmentType ?? row?.assignment_type;
       const assignedId = row?.assignedToUserId ?? row?.assigned_to_user_id ?? null;
+      const changeReason = row?.changeReason ?? row?.change_reason ?? '';
 
       return {
         clientId: row?.clientId ?? row?.client_id ?? row?.client?.id ?? '',
+        assignmentType: assignmentType ?? '—',
+        assigneeName: assignedId,
         crmId: assignmentType === 'CRM' ? assignedId : null,
         auditorId: assignmentType === 'AUDITOR' ? assignedId : null,
         crm: assignmentType === 'CRM' ? assignedId : null,
         auditor: assignmentType === 'AUDITOR' ? assignedId : null,
         startDate: row?.startDate ?? row?.start_date ?? null,
         endDate: row?.endDate ?? row?.end_date ?? null,
+        changeReason: this.formatChangeReason(changeReason),
         status: row?.status ?? this.getStatus({ crmId: assignmentType === 'CRM' ? assignedId : null, auditorId: assignmentType === 'AUDITOR' ? assignedId : null }),
       };
     });
+  }
+
+  private formatChangeReason(reason: string): string {
+    const labels: Record<string, string> = {
+      AUTO_ROTATE_START: 'Auto Rotation (New)',
+      AUTO_ROTATE_END: 'Auto Rotation (End)',
+      MANUAL: 'Manual',
+    };
+    return labels[reason] ?? (reason || '—');
   }
 
   remove(row: any) {
@@ -368,7 +379,6 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.removingClientId = null;
-        console.error('Unassign failed', err);
         this.loading = false;
       },
     });
@@ -415,7 +425,6 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
         this.loadAll();
       },
       error: (err) => {
-        console.error('Assignment error:', err);
         if (err?.status === 409) {
           const msg = err?.error?.message || 'Already assigned';
           this.toast.warning(msg);

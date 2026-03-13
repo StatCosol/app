@@ -1,0 +1,173 @@
+<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Audit Report Builder</h1>
+      <p>Draft and finalize audit reports with section editor, observation import, internal/client versions, and export lock controls.</p>
+    </div>
+    <div class="head-controls">
+      <a class="btn btn-ghost" routerLink="/auditor/reports">Back to Reports</a>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="loader">Loading report builder...</div>
+
+  <ng-container *ngIf="!loading && draft as model">
+    <section class="summary-grid">
+      <article class="summary-card">
+        <span class="label">Audit</span>
+        <strong>{{ audit?.auditCode || auditId }}</strong>
+        <span class="sub">{{ audit?.periodCode || '-' }}</span>
+      </article>
+      <article class="summary-card summary-card--info">
+        <span class="label">Version</span>
+        <strong>{{ model.version }}</strong>
+        <span class="sub">{{ model.stage }}</span>
+      </article>
+      <article class="summary-card summary-card--warn">
+        <span class="label">Imported Observations</span>
+        <strong>{{ selectedCount }}</strong>
+        <span class="sub">{{ observations.length }} available</span>
+      </article>
+      <article class="summary-card summary-card--good">
+        <span class="label">Last Updated</span>
+        <strong>{{ formatDate(model.updatedAt) }}</strong>
+        <span class="sub">{{ finalLockedText }}</span>
+      </article>
+    </section>
+
+    <section class="workspace-grid">
+      <article class="card">
+        <header class="section-head">
+          <h2>Report Section Editor</h2>
+          <span>{{ model.stage }}</span>
+        </header>
+
+        <div class="version-row">
+          <button
+            type="button"
+            [class]="model.version === 'INTERNAL' ? 'chip chip--active' : 'chip'"
+            [disabled]="!canEdit"
+            (click)="switchVersion('INTERNAL')"
+          >
+            Internal Version
+          </button>
+          <button
+            type="button"
+            [class]="model.version === 'CLIENT' ? 'chip chip--active' : 'chip'"
+            [disabled]="!canEdit"
+            (click)="switchVersion('CLIENT')"
+          >
+            Client Version
+          </button>
+        </div>
+
+        <label class="field">
+          Executive Summary
+          <textarea rows="3" [(ngModel)]="model.executiveSummary" [disabled]="!canEdit"></textarea>
+        </label>
+
+        <label class="field">
+          Scope
+          <textarea rows="3" [(ngModel)]="model.scope" [disabled]="!canEdit"></textarea>
+        </label>
+
+        <label class="field">
+          Methodology
+          <textarea rows="3" [(ngModel)]="model.methodology" [disabled]="!canEdit"></textarea>
+        </label>
+
+        <label class="field">
+          Findings
+          <textarea rows="5" [(ngModel)]="model.findings" [disabled]="!canEdit"></textarea>
+        </label>
+
+        <label class="field">
+          Recommendations
+          <textarea rows="5" [(ngModel)]="model.recommendations" [disabled]="!canEdit"></textarea>
+        </label>
+      </article>
+
+      <aside class="detail-stack">
+        <article class="card">
+          <header class="section-head">
+            <h2>Observation Import Panel</h2>
+            <span>{{ selectedCount }} selected</span>
+          </header>
+
+          <div class="obs-list" *ngIf="observations.length; else noObservations">
+            <label class="obs-item" *ngFor="let obs of observations">
+              <input
+                type="checkbox"
+                [checked]="isSelected(obs)"
+                [disabled]="!canEdit"
+                (change)="toggleObservation(obs)"
+              />
+              <div>
+                <strong>{{ obs.observation || '-' }}</strong>
+                <p>{{ obs.risk || 'LOW' }} | {{ obs.clause || '-' }}</p>
+              </div>
+            </label>
+          </div>
+
+          <ng-template #noObservations>
+            <div class="empty-mini">No observations available for this audit.</div>
+          </ng-template>
+
+          <div class="action-row">
+            <button type="button" class="btn btn-secondary" [disabled]="!canEdit" (click)="importSelectedObservations()">
+              Import to Report
+            </button>
+          </div>
+        </article>
+
+        <article class="card">
+          <header class="section-head">
+            <h2>Export &amp; Lock</h2>
+            <span>{{ model.stage }}</span>
+          </header>
+
+          <div class="action-row">
+            <button type="button" class="btn btn-primary" [disabled]="!canEdit || saving" (click)="saveDraft()">
+              {{ saving ? 'Saving...' : 'Save Draft' }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              [disabled]="!canFinalize || saving"
+              [title]="canFinalize ? '' : finalizeGuardReason"
+              (click)="finalizeDraft()"
+            >
+              Finalize
+            </button>
+            <button type="button" class="btn btn-ghost" [disabled]="exporting || !canExportFinal" (click)="exportFinalPdf()">
+              {{ exporting ? 'Exporting...' : 'Export PDF' }}
+            </button>
+            <button type="button" class="btn btn-danger" *ngIf="!canEdit" [disabled]="!canReopen || saving" (click)="reopenDraft()">
+              Reopen Draft
+            </button>
+          </div>
+
+          <div class="guardrail-card">
+            <div class="guardrail-row" *ngFor="let guard of reportGuardrails">
+              <span class="guardrail-label">{{ guard.label }}</span>
+              <span class="guardrail-ok" *ngIf="guard.passed">Ready</span>
+              <span class="guardrail-blocked" *ngIf="!guard.passed">{{ guard.detail }}</span>
+            </div>
+          </div>
+
+          <div class="timeline-card">
+            <div class="timeline-row" *ngFor="let item of reportTimeline">
+              <span class="timeline-label">{{ item.label }}</span>
+              <span class="timeline-value">{{ formatDate(item.at) }}</span>
+              <span class="timeline-detail">{{ item.detail }}</span>
+            </div>
+          </div>
+
+          <p class="hint">
+            Draft and final stages are persisted to the backend and shared across sessions.
+          </p>
+        </article>
+      </aside>
+    </section>
+  </ng-container>
+</div>

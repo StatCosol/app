@@ -7,7 +7,10 @@ import {
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ComplianceReturnEntity, ReturnStatus } from './entities/compliance-return.entity';
+import {
+  ComplianceReturnEntity,
+  ReturnStatus,
+} from './entities/compliance-return.entity';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { UpdateReturnStatusDto } from './dto/update-return-status.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
@@ -69,7 +72,10 @@ export class ReturnsService {
     await this.applyBranchScope(qb, user);
     this.applyFilters(qb, q);
 
-    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy('r.createdAt', 'DESC');
+    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy(
+      'r.createdAt',
+      'DESC',
+    );
 
     return qb.getMany();
   }
@@ -119,7 +125,8 @@ export class ReturnsService {
     // Upload permissions:
     // - Branch CLIENT users: only branch users for that branch
     // - CRM users: allowed if they are assigned to the client
-    if (!rec.branchId) throw new ForbiddenException('Branch ID missing for filing');
+    if (!rec.branchId)
+      throw new ForbiddenException('Branch ID missing for filing');
 
     if (user?.roleCode === 'CRM') {
       const assignment = await this.assignmentsRepo.findOne({
@@ -129,7 +136,8 @@ export class ReturnsService {
           assignedToUserId: user.userId,
         },
       });
-      if (!assignment) throw new ForbiddenException('You are not assigned to this client');
+      if (!assignment)
+        throw new ForbiddenException('You are not assigned to this client');
     } else {
       // CLIENT branch users
       await this.branchAccess.assertBranchUserOnly(user.userId, rec.branchId);
@@ -180,30 +188,58 @@ export class ReturnsService {
       );
 
     this.applyFilters(qb, q);
-    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy('r.createdAt', 'DESC');
+    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy(
+      'r.createdAt',
+      'DESC',
+    );
     return qb.getMany();
   }
 
+  async getForCrm(user: any, id: string) {
+    return this.assertCrmAssigned(user, id);
+  }
+
   async updateStatusAsCrm(user: any, id: string, dto: UpdateReturnStatusDto) {
-    const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: false } });
-    if (!rec) throw new NotFoundException('Return not found');
-
-    const assignment = await this.assignmentsRepo.findOne({
-      where: {
-        clientId: rec.clientId,
-        assignmentType: 'CRM',
-        assignedToUserId: user.userId,
-      },
-    });
-
-    if (!assignment) {
-      throw new ForbiddenException('You are not assigned to this client');
-    }
+    const rec = await this.assertCrmAssigned(user, id);
 
     rec.status = dto.status;
     if (dto.status === 'APPROVED') {
       rec.filedDate = rec.filedDate ?? this.today();
     }
+    return this.returnsRepo.save(rec);
+  }
+
+  async requestUpdateAsCrm(
+    user: any,
+    id: string,
+    action: 'RETURN' | 'REMINDER' | 'OWNER' | 'NOTE' = 'RETURN',
+    message?: string | null,
+    owner?: string | null,
+  ) {
+    const rec = await this.assertCrmAssigned(user, id);
+    const note = (message || '').trim();
+
+    // Only a true "return to branch" should change workflow state.
+    if (action === 'RETURN' && rec.status !== 'APPROVED') {
+      rec.status = 'IN_PROGRESS';
+    }
+
+    if (action === 'REMINDER') {
+      rec.crmLastReminderAt = new Date();
+    }
+
+    if (action === 'OWNER') {
+      const ownerValue = (owner || '').trim();
+      if (ownerValue) {
+        rec.crmOwner = ownerValue;
+      }
+    }
+
+    if (note) {
+      rec.crmLastNote = note;
+      rec.crmLastNoteAt = new Date();
+    }
+
     return this.returnsRepo.save(rec);
   }
 
@@ -219,12 +255,21 @@ export class ReturnsService {
       );
 
     this.applyFilters(qb, q);
-    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy('r.createdAt', 'DESC');
+    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy(
+      'r.createdAt',
+      'DESC',
+    );
     return qb.getMany();
   }
 
-  async updateStatusAsAuditor(user: any, id: string, dto: UpdateReturnStatusDto) {
-    const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: false } });
+  async updateStatusAsAuditor(
+    user: any,
+    id: string,
+    dto: UpdateReturnStatusDto,
+  ) {
+    const rec = await this.returnsRepo.findOne({
+      where: { id, isDeleted: false },
+    });
     if (!rec) throw new NotFoundException('Return not found');
 
     const assignment = await this.assignmentsRepo.findOne({
@@ -250,12 +295,17 @@ export class ReturnsService {
   async listForAdmin(q: any) {
     const qb = this.returnsRepo.createQueryBuilder('r');
     this.applyFilters(qb, q);
-    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy('r.createdAt', 'DESC');
+    qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy(
+      'r.createdAt',
+      'DESC',
+    );
     return qb.getMany();
   }
 
   async updateStatusAsAdmin(id: string, dto: UpdateReturnStatusDto) {
-    const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: false } });
+    const rec = await this.returnsRepo.findOne({
+      where: { id, isDeleted: false },
+    });
     if (!rec) throw new NotFoundException('Return not found');
     rec.status = dto.status;
     if (dto.status === 'APPROVED') {
@@ -264,8 +314,14 @@ export class ReturnsService {
     return this.returnsRepo.save(rec);
   }
 
-  async softDeleteAsAdmin(id: string, deletedBy: string | null, reason?: string | null) {
-    const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: false } });
+  async softDeleteAsAdmin(
+    id: string,
+    deletedBy: string | null,
+    reason?: string | null,
+  ) {
+    const rec = await this.returnsRepo.findOne({
+      where: { id, isDeleted: false },
+    });
     if (!rec) throw new NotFoundException('Return not found');
 
     rec.isDeleted = true;
@@ -277,7 +333,9 @@ export class ReturnsService {
   }
 
   async restoreAsAdmin(id: string) {
-    const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: true } });
+    const rec = await this.returnsRepo.findOne({
+      where: { id, isDeleted: true },
+    });
     if (!rec) throw new NotFoundException('Return not found or not deleted');
 
     rec.isDeleted = false;
@@ -296,7 +354,9 @@ export class ReturnsService {
   }
 
   private async findOwned(user: any, id: string) {
-    const rec = await this.returnsRepo.findOne({ where: { id, isDeleted: false } });
+    const rec = await this.returnsRepo.findOne({
+      where: { id, isDeleted: false },
+    });
     if (!rec) throw new NotFoundException('Return not found');
     // CRM users are verified via assignment check in the caller
     if (user?.roleCode !== 'CRM' && rec.clientId !== user.clientId) {
@@ -308,11 +368,16 @@ export class ReturnsService {
   private applyFilters(qb: any, q: any) {
     qb.andWhere('r.isDeleted = false').andWhere('r.deletedAt IS NULL');
     if (!q) return;
-    if (q.clientId) qb.andWhere('r.clientId = :clientId', { clientId: q.clientId });
-    if (q.branchId) qb.andWhere('r.branchId = :branchId', { branchId: q.branchId });
-    if (q.status) qb.andWhere('r.status = :status', { status: q.status as ReturnStatus });
-    if (q.periodYear) qb.andWhere('r.periodYear = :py', { py: Number(q.periodYear) });
-    if (q.periodMonth) qb.andWhere('r.periodMonth = :pm', { pm: Number(q.periodMonth) });
+    if (q.clientId)
+      qb.andWhere('r.clientId = :clientId', { clientId: q.clientId });
+    if (q.branchId)
+      qb.andWhere('r.branchId = :branchId', { branchId: q.branchId });
+    if (q.status)
+      qb.andWhere('r.status = :status', { status: q.status as ReturnStatus });
+    if (q.periodYear)
+      qb.andWhere('r.periodYear = :py', { py: Number(q.periodYear) });
+    if (q.periodMonth)
+      qb.andWhere('r.periodMonth = :pm', { pm: Number(q.periodMonth) });
   }
 
   private async applyBranchScope(qb: any, user: any) {
@@ -333,10 +398,13 @@ export class ReturnsService {
     if (dto.dueDate) return dto.dueDate;
     if (!dto.periodYear || !dto.periodMonth) return null;
     const upper = (dto.returnType || '').toUpperCase();
-    const code = Object.keys(this.dueDayByReturnCode).find((k) => upper.includes(k)) ?? upper;
+    const code =
+      Object.keys(this.dueDayByReturnCode).find((k) => upper.includes(k)) ??
+      upper;
     const dueDay = this.dueDayByReturnCode[code] ?? 20;
     const nextMonth = dto.periodMonth === 12 ? 1 : dto.periodMonth + 1;
-    const nextYear = dto.periodMonth === 12 ? dto.periodYear + 1 : dto.periodYear;
+    const nextYear =
+      dto.periodMonth === 12 ? dto.periodYear + 1 : dto.periodYear;
     const d = new Date(Date.UTC(nextYear, nextMonth - 1, dueDay));
     return d.toISOString().substring(0, 10);
   }
@@ -355,5 +423,26 @@ export class ReturnsService {
     const dest = path.join(dir, filename);
     fs.writeFileSync(dest, file.buffer);
     return `/uploads/returns/${filename}`;
+  }
+
+  private async assertCrmAssigned(user: any, id: string) {
+    const rec = await this.returnsRepo.findOne({
+      where: { id, isDeleted: false },
+    });
+    if (!rec) throw new NotFoundException('Return not found');
+
+    const assignment = await this.assignmentsRepo.findOne({
+      where: {
+        clientId: rec.clientId,
+        assignmentType: 'CRM',
+        assignedToUserId: user.userId,
+      },
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException('You are not assigned to this client');
+    }
+
+    return rec;
   }
 }

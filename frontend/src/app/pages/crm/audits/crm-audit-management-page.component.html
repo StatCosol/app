@@ -1,0 +1,421 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="CRM Audit Management"
+    description="Plan audits, monitor readiness, and track CAPA closure progress"
+    icon="clipboard-check"
+  ></ui-page-header>
+
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div class="text-sm text-gray-500">
+      Operational workspace for audit scheduling, tracking, and closure.
+    </div>
+    <div class="flex items-center gap-2">
+      <ui-button variant="secondary" size="sm" (clicked)="refreshWorkspace(selectedAudit?.id || null)">
+        Refresh
+      </ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="openScheduleModal()">
+        + Schedule Audit
+      </ui-button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-3 mb-5">
+    <div class="card stat-card">
+      <div class="stat-label">Total</div>
+      <div class="stat-value">{{ totalCount }}</div>
+      <div class="stat-sub">Filtered audits</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Planned</div>
+      <div class="stat-value">{{ plannedCount }}</div>
+      <div class="stat-sub">Not yet started</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">In Progress</div>
+      <div class="stat-value">{{ inProgressCount }}</div>
+      <div class="stat-sub">Active execution</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Overdue</div>
+      <div class="stat-value text-red-600">{{ overdueCount }}</div>
+      <div class="stat-sub">Due date breached</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Completion</div>
+      <div class="stat-value">{{ completionPct }}%</div>
+      <div class="w-full h-2 bg-gray-100 rounded-full mt-2 overflow-hidden">
+        <div class="h-full bg-green-500" [style.width.%]="completionPct"></div>
+      </div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Ready Audits</div>
+      <div class="stat-value">{{ readyCount }}</div>
+      <div class="stat-sub">Auditor + due date + period in place</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Open CAPA</div>
+      <div class="stat-value text-amber-600">{{ capaOpenCount }}</div>
+      <div class="stat-sub">Critical + major + minor pending</div>
+    </div>
+  </div>
+
+  <div class="card mb-5">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+      <div class="md:col-span-2">
+        <label class="filter-label">Search</label>
+        <input
+          type="text"
+          [(ngModel)]="search"
+          (ngModelChange)="applyFilters()"
+          placeholder="Code / client / type / auditor"
+          class="filter-input"
+        />
+      </div>
+      <div>
+        <label class="filter-label">Status</label>
+        <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()" class="filter-input">
+          <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Client</label>
+        <select [(ngModel)]="clientFilter" (ngModelChange)="applyFilters()" class="filter-input">
+          <option value="">All clients</option>
+          <option *ngFor="let client of clients" [value]="client.id">{{ client.clientName }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Year</label>
+        <input
+          type="number"
+          [(ngModel)]="yearFilter"
+          (ngModelChange)="applyFilters()"
+          placeholder="YYYY"
+          class="filter-input"
+        />
+      </div>
+      <div>
+        <label class="filter-label">Type</label>
+        <select [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()" class="filter-input">
+          <option value="">All types</option>
+          <option *ngFor="let type of auditTypes" [value]="type">{{ type }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-3 flex justify-end">
+      <ui-button variant="ghost" size="sm" (clicked)="clearFilters()">Clear Filters</ui-button>
+    </div>
+  </div>
+
+  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+
+  <ui-empty-state
+    *ngIf="!loading && !filteredAudits.length"
+    icon="clipboard-check"
+    title="No audits found"
+    description="Adjust filters or schedule a new audit."
+  ></ui-empty-state>
+
+  <div *ngIf="!loading && filteredAudits.length" class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+    <div class="xl:col-span-2 space-y-5">
+      <div class="card p-0 overflow-hidden">
+        <div class="table-header">
+          <div>Audit Queue</div>
+          <div class="text-xs text-gray-500">List and status controls</div>
+        </div>
+        <div class="overflow-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-gray-500">
+              <tr>
+                <th class="th">Code</th>
+                <th class="th">Client</th>
+                <th class="th">Period</th>
+                <th class="th">Type</th>
+                <th class="th">Auditor</th>
+                <th class="th">Due</th>
+                <th class="th">Readiness</th>
+                <th class="th">Report</th>
+                <th class="th">Status</th>
+                <th class="th text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let row of filteredAudits; trackBy: trackAudit"
+                (click)="selectAudit(row)"
+                [class.row-selected]="selectedAudit?.id === row.id"
+              >
+                <td class="td mono">{{ row.auditCode }}</td>
+                <td class="td">{{ auditClientName(row) }}</td>
+                <td class="td">
+                  <div>{{ row.periodCode }}</div>
+                  <div class="tiny-muted">{{ row.frequency }}</div>
+                </td>
+                <td class="td">{{ row.auditType }}</td>
+                <td class="td">{{ auditAuditorName(row) }}</td>
+                <td class="td">{{ formatDate(row.dueDate) }}</td>
+                <td class="td">
+                  <span [class]="auditReadinessClass(row)">{{ auditReadinessLabel(row) }}</span>
+                </td>
+                <td class="td">
+                  <span [class]="auditReportClass(row)">{{ auditReportLabel(row) }}</span>
+                </td>
+                <td class="td"><ui-status-badge [status]="row.status"></ui-status-badge></td>
+                <td class="td text-right">
+                  <div class="flex justify-end gap-2" (click)="$event.stopPropagation()">
+                    <button
+                      *ngFor="let action of getNextStatuses(row.status)"
+                      class="status-action-btn"
+                      [ngClass]="{
+                        'status-action-btn--primary': action.variant === 'primary',
+                        'status-action-btn--danger': action.variant === 'danger'
+                      }"
+                      [disabled]="actionBusy"
+                      (click)="changeStatus(row, action.value)"
+                    >
+                      {{ action.label }}
+                    </button>
+                    <button class="status-action-btn" (click)="openScheduleModal(row)">Assign / Reschedule</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="listBusy" class="table-overlay">Refreshing data...</div>
+      </div>
+
+      <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="text-base font-semibold text-gray-900">Audit Calendar</h3>
+            <p class="text-xs text-gray-500">Month-wise schedule view by due date</p>
+          </div>
+          <input
+            type="month"
+            [ngModel]="calendarMonth"
+            (ngModelChange)="setCalendarMonth($event)"
+            class="filter-input w-44"
+          />
+        </div>
+
+        <div *ngIf="calendarRows.length; else noCalendarRows" class="space-y-2">
+          <div *ngFor="let day of calendarRows; trackBy: trackCalendar" class="calendar-row">
+            <div class="calendar-date">{{ day.dateLabel }}</div>
+            <div class="calendar-badges">
+              <span class="mini-chip">{{ day.total }} total</span>
+              <span class="mini-chip mini-chip--plan">{{ day.planned }} planned</span>
+              <span class="mini-chip mini-chip--work">{{ day.inProgress }} active</span>
+              <span class="mini-chip mini-chip--done">{{ day.completed }} done</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noCalendarRows>
+          <div class="text-sm text-gray-500">No due dates in selected month.</div>
+        </ng-template>
+      </div>
+    </div>
+
+    <div class="space-y-5">
+      <div class="card" *ngIf="currentAudit as audit">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <h3 class="text-base font-semibold text-gray-900">Audit Detail</h3>
+          <ui-status-badge [status]="audit.status"></ui-status-badge>
+        </div>
+
+        <div *ngIf="detailBusy" class="text-xs text-gray-500 mb-3">Loading latest detail...</div>
+
+        <div class="detail-grid">
+          <div>
+            <span class="k">Code</span>
+            <span class="v mono">{{ audit.auditCode }}</span>
+          </div>
+          <div>
+            <span class="k">Client</span>
+            <span class="v">{{ auditClientName(audit) }}</span>
+          </div>
+          <div>
+            <span class="k">Branch</span>
+            <span class="v">{{ shortId(audit.branchId) }}</span>
+          </div>
+          <div>
+            <span class="k">Auditor</span>
+            <span class="v">{{ auditAuditorName(audit) }}</span>
+          </div>
+          <div>
+            <span class="k">Period</span>
+            <span class="v">{{ audit.periodCode }}</span>
+          </div>
+          <div>
+            <span class="k">Due Date</span>
+            <span class="v">{{ formatDate(audit.dueDate) }}</span>
+          </div>
+          <div>
+            <span class="k">Score</span>
+            <span class="v">{{ audit.score ?? '-' }}</span>
+          </div>
+          <div>
+            <span class="k">Updated</span>
+            <span class="v">{{ formatDate(audit.updatedAt) }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="audit.notes" class="note-box mt-3">{{ audit.notes }}</div>
+      </div>
+
+      <div class="card" *ngIf="currentAudit as audit">
+        <h3 class="text-base font-semibold text-gray-900 mb-3">Readiness Checklist</h3>
+        <div class="mb-3">
+          <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
+            <span>{{ readinessCompletedCount }} / {{ readinessChecklist.length }} complete</span>
+            <span>{{ readinessPct }}%</span>
+          </div>
+          <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500" [style.width.%]="readinessPct"></div>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div *ngFor="let item of readinessChecklist" class="check-row">
+            <div class="check-icon" [ngClass]="item.ok ? 'check-icon--ok' : 'check-icon--pending'">
+              {{ item.ok ? 'OK' : '--' }}
+            </div>
+            <div>
+              <div class="text-sm font-medium text-gray-900">{{ item.label }}</div>
+              <div class="text-xs text-gray-500">{{ item.hint }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" *ngIf="currentAudit as audit">
+        <h3 class="text-base font-semibold text-gray-900 mb-3">Report Status</h3>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <span [class]="reportPhaseClass">{{ reportPhase }}</span>
+          <span class="text-sm text-gray-600">Score: {{ audit.score ?? '-' }}</span>
+        </div>
+        <div class="text-xs text-gray-500 mb-1" *ngIf="latestReportStatus?.stage">
+          Stage: {{ latestReportStatus?.stage }}
+        </div>
+        <div class="text-xs text-gray-500 mb-1" *ngIf="latestReportStatus?.status">
+          Status: {{ latestReportStatus?.status }}
+        </div>
+        <div class="text-xs text-gray-500 mb-2" *ngIf="latestReportStatus?.updatedAt">
+          Updated: {{ latestReportStatus?.updatedAt | date:'dd MMM yyyy, HH:mm' }}
+        </div>
+        <div class="text-xs text-gray-500">
+          Submitted audits in current filter: {{ reportSubmittedCount }}
+        </div>
+        <div class="text-xs text-gray-500">
+          Report tracking is synced from audit report status API.
+        </div>
+      </div>
+
+      <div class="card" *ngIf="currentClosure as closure">
+        <h3 class="text-base font-semibold text-gray-900 mb-3">CAPA Summary</h3>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <div class="small-stat">
+            <span>Total</span>
+            <strong>{{ closure.totalObservations }}</strong>
+          </div>
+          <div class="small-stat">
+            <span>Closed</span>
+            <strong>{{ closure.closedObservations }}</strong>
+          </div>
+          <div class="small-stat">
+            <span>Critical Open</span>
+            <strong class="text-red-600">{{ closure.criticalOpen }}</strong>
+          </div>
+          <div class="small-stat">
+            <span>Major Open</span>
+            <strong class="text-amber-600">{{ closure.majorOpen }}</strong>
+          </div>
+        </div>
+        <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+          <div class="h-full bg-green-500" [style.width.%]="closure.closurePct"></div>
+        </div>
+        <div class="text-xs text-gray-500">Closure {{ closure.closurePct }}%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showScheduleModal" (click)="closeScheduleModal()"></div>
+<section class="modal-panel" *ngIf="showScheduleModal">
+  <div class="modal-head">
+    <h3>{{ scheduleMode === 'ASSIGN' ? 'Assign Auditor / Reschedule' : 'Schedule Audit' }}</h3>
+    <button type="button" class="close-btn" (click)="closeScheduleModal()">X</button>
+  </div>
+  <div class="modal-body">
+    <div *ngIf="isAssignMode" class="assign-mode-note">
+      Assignment mode: only auditor, due date, and notes can be updated.
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div>
+        <label class="filter-label">Client *</label>
+        <select
+          [(ngModel)]="scheduleModel.clientId"
+          (ngModelChange)="onScheduleClientChange()"
+          class="filter-input"
+          [disabled]="isAssignMode"
+        >
+          <option value="">Select client</option>
+          <option *ngFor="let client of clients" [value]="client.id">{{ client.clientName }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Branch</label>
+        <select [(ngModel)]="scheduleModel.branchId" class="filter-input" [disabled]="isAssignMode">
+          <option value="">All branches</option>
+          <option *ngFor="let branch of modalBranches" [value]="branch.id">{{ branch.branchName }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Auditor *</label>
+        <select [(ngModel)]="scheduleModel.assignedAuditorId" class="filter-input">
+          <option value="">Select auditor</option>
+          <option *ngFor="let auditor of auditors" [value]="auditor.id">{{ auditor.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Frequency</label>
+        <select [(ngModel)]="scheduleModel.frequency" class="filter-input" [disabled]="isAssignMode">
+          <option *ngFor="let item of frequencyOptions" [value]="item.value">{{ item.label }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Audit Type</label>
+        <select [(ngModel)]="scheduleModel.auditType" class="filter-input" [disabled]="isAssignMode">
+          <option *ngFor="let type of auditTypes" [value]="type">{{ type }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label">Period Year</label>
+        <input type="number" [(ngModel)]="scheduleModel.periodYear" class="filter-input" [disabled]="isAssignMode" />
+      </div>
+      <div>
+        <label class="filter-label">Period Code *</label>
+        <input
+          type="text"
+          [(ngModel)]="scheduleModel.periodCode"
+          placeholder="YYYY-MM / YYYY-Q1"
+          class="filter-input"
+          [disabled]="isAssignMode"
+        />
+      </div>
+      <div>
+        <label class="filter-label">Due Date *</label>
+        <input type="date" [(ngModel)]="scheduleModel.dueDate" class="filter-input" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="filter-label">Notes</label>
+        <textarea [(ngModel)]="scheduleModel.notes" rows="3" class="filter-input"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <ui-button variant="ghost" (clicked)="closeScheduleModal()" [disabled]="scheduleSaving">Cancel</ui-button>
+    <ui-button variant="primary" (clicked)="saveSchedule()" [loading]="scheduleSaving">
+      {{ scheduleMode === 'ASSIGN' ? 'Update Assignment' : 'Schedule' }}
+    </ui-button>
+  </div>
+</section>

@@ -15,17 +15,13 @@ const ContractorSupportComponent = () =>
   import('./contractor-support.component').then((m) => m.ContractorSupportComponent);
 const ContractorComplianceComponent = () =>
   import('./compliance/contractor-compliance.component').then((m) => m.ContractorComplianceComponent);
-const ContractorTasksComponent = () =>
-  import('./tasks/contractor-tasks.component').then((m) => m.ContractorTasksComponent);
-const ContractorTaskDetailComponent = () =>
-  import('./tasks/task-detail/contractor-task-detail.component').then(
-    (m) => m.ContractorTaskDetailComponent,
+const ContractorUnifiedTaskCenterPageComponent = () =>
+  import('./tasks/contractor-unified-task-center-page.component').then(
+    (m) => m.ContractorUnifiedTaskCenterPageComponent,
   );
-const ContractorProfileComponent = () =>
-  import('./contractor-profile.component').then((m) => m.ContractorProfileComponent);
-const ContractorReuploadRequestsComponent = () =>
-  import('./contractor-reupload-requests.component').then(
-    (m) => m.ContractorReuploadRequestsComponent,
+const ContractorProfileIdentityPageComponent = () =>
+  import('./contractor-profile-identity-page.component').then(
+    (m) => m.ContractorProfileIdentityPageComponent,
   );
 
 export const CONTRACTOR_ROUTES: Routes = [
@@ -38,10 +34,13 @@ export const CONTRACTOR_ROUTES: Routes = [
       { path: 'notifications', loadComponent: ContractorNotificationsComponent },
       { path: 'support', loadComponent: ContractorSupportComponent },
       { path: 'compliance', loadComponent: ContractorComplianceComponent },
-      { path: 'reupload-requests', loadComponent: ContractorReuploadRequestsComponent },
-      { path: 'tasks', loadComponent: ContractorTasksComponent },
-      { path: 'tasks/:id', loadComponent: ContractorTaskDetailComponent },
-      { path: 'profile', loadComponent: ContractorProfileComponent },
+      { path: 'compliance/tasks', pathMatch: 'full', redirectTo: 'tasks' },
+      { path: 'compliance/tasks/:id', pathMatch: 'full', redirectTo: 'tasks/:id' },
+      { path: 'compliance/reupload-requests', pathMatch: 'full', redirectTo: 'reupload-requests' },
+      { path: 'reupload-requests', loadComponent: ContractorUnifiedTaskCenterPageComponent },
+      { path: 'tasks', loadComponent: ContractorUnifiedTaskCenterPageComponent },
+      { path: 'tasks/:id', loadComponent: ContractorUnifiedTaskCenterPageComponent },
+      { path: 'profile', loadComponent: ContractorProfileIdentityPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

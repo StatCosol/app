@@ -314,7 +314,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.exportingPack = true;
     this.cdr.markForCheck();
 
-    this.clientBranches.getExportPack(monthStr).subscribe({
+    this.clientBranches.getExportPack(monthStr).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data: any) => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);

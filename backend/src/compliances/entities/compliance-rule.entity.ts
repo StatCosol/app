@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('sla_compliance_rules')
 export class SlaComplianceRuleEntity {
@@ -11,7 +17,12 @@ export class SlaComplianceRuleEntity {
   @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
   stateCode: string | null; // NULL = all states
 
-  @Column({ name: 'establishment_type', type: 'varchar', length: 60, nullable: true })
+  @Column({
+    name: 'establishment_type',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
   establishmentType: string | null; // NULL = all types
 
   @Column({ type: 'boolean', default: true })

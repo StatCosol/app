@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { ClientSidebarComponent } from './client-sidebar.component';
@@ -96,7 +96,7 @@ import { AuthService } from '../../../core/auth.service';
   `,
   styleUrls: ['./client-layout.component.scss']
 })
-export class ClientLayoutComponent {
+export class ClientLayoutComponent implements OnInit {
   sidebarCollapsed = false;
   mobileOpen = false;
   userName = 'Client User';
@@ -111,6 +111,15 @@ export class ClientLayoutComponent {
 
     const derivedLogo = u?.clientLogoUrl || u?.client?.logoUrl;
     if (derivedLogo) this.clientLogoUrl = derivedLogo;
+  }
+
+  ngOnInit(): void {
+    // Refresh user data to pick up logo changes made after login
+    this.auth.fetchMe().subscribe(() => {
+      const u = this.auth.getUser();
+      const logo = u?.clientLogoUrl || u?.client?.logoUrl;
+      if (logo) this.clientLogoUrl = logo;
+    });
   }
 
   onLogoError(): void {

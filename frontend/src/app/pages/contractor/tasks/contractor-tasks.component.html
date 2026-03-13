@@ -1,117 +1,301 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    title="My Tasks"
-    description="View and manage your compliance tasks and submissions"
+    title="Unified Task Center"
+    description="One workspace for compliance tasks and reupload requests"
     icon="clipboard-list">
   </ui-page-header>
 
-  <!-- Filters Card -->
-  <div class="contractor-filter-bar mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <ui-form-select
-        label="Status"
-        [(ngModel)]="filters.status"
-        [options]="statusOptions"
-        (ngModelChange)="load()">
-      </ui-form-select>
-      <ui-form-select
-        label="Year"
-        [(ngModel)]="filters.year"
-        [options]="yearOptions"
-        (ngModelChange)="load()">
-      </ui-form-select>
-      <ui-form-select
-        label="Month"
-        [(ngModel)]="filters.month"
-        [options]="monthOptions"
-        (ngModelChange)="load()">
-      </ui-form-select>
-      <div class="flex items-end">
-        <div class="text-xs text-gray-500" *ngIf="!loading">{{ tasks.length }} tasks found</div>
-      </div>
+  <div class="summary-grid">
+    <div
+      *ngFor="let card of summaryCards"
+      class="summary-card"
+      [ngClass]="{
+        'summary-card--neutral': card.tone === 'neutral',
+        'summary-card--info': card.tone === 'info',
+        'summary-card--danger': card.tone === 'danger',
+        'summary-card--warning': card.tone === 'warning',
+        'summary-card--success': card.tone === 'success'
+      }">
+      <div class="summary-card__label">{{ card.label }}</div>
+      <div class="summary-card__value">{{ card.value }}</div>
     </div>
   </div>
 
-  <!-- Loading -->
+  <div class="task-center-card filter-panel">
+    <div class="filter-grid">
+      <label class="filter-field filter-field--search">
+        <span>Search</span>
+        <input
+          type="text"
+          [(ngModel)]="search"
+          (ngModelChange)="applyFilters()"
+          placeholder="Task title, reason, branch..." />
+      </label>
+
+      <label class="filter-field">
+        <span>Type</span>
+        <select [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All</option>
+          <option value="TASK">Tasks</option>
+          <option value="REUPLOAD">Reupload requests</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Status</span>
+        <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+          <option *ngFor="let status of statusOptions" [value]="status">
+            {{ status }}
+          </option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Due</span>
+        <select [(ngModel)]="dueFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All due dates</option>
+          <option value="OVERDUE">Overdue</option>
+          <option value="DUE_TODAY">Due today</option>
+          <option value="DUE_7_DAYS">Due in 7 days</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Branch</span>
+        <select [(ngModel)]="branchFilter" (ngModelChange)="applyFilters()">
+          <option value="">All branches</option>
+          <option *ngFor="let branch of uniqueBranches" [value]="branch">
+            {{ branch }}
+          </option>
+        </select>
+      </label>
+    </div>
+  </div>
+
   <ui-loading-spinner
     *ngIf="loading"
     size="lg"
-    text="Loading tasks...">
+    text="Loading contractor task center...">
   </ui-loading-spinner>
 
-  <!-- Mobile Cards -->
-  <div *ngIf="!loading" class="grid grid-cols-1 gap-3 md:hidden">
-    <div *ngFor="let t of tasks"
-         class="contractor-card cursor-pointer"
-         (click)="openTask(t)">
-      <div class="flex items-start justify-between mb-3">
-        <h4 class="text-sm font-semibold text-gray-900 flex-grow">{{ t.complianceTitle }}</h4>
-        <ui-status-badge [status]="t.status"></ui-status-badge>
+  <div *ngIf="!loading" class="task-center-layout">
+    <section class="task-center-card list-panel">
+      <div class="panel-head">
+        <h3>Task list</h3>
+        <span>{{ filteredRows.length }} item(s)</span>
       </div>
-      <div class="space-y-1.5 text-sm text-gray-600 mb-4">
-        <div class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-          </svg>
-          <span>{{ t.branchName }}</span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          <span>{{ t.dueDate }}</span>
-          <span class="font-medium" [class]="t.status==='OVERDUE' ? 'text-red-600' : 'text-gray-500'">{{ dueText(t) }}</span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span>{{ t.evidenceCount || 0 }} evidence files</span>
-        </div>
+
+      <div *ngIf="filteredRows.length; else noRows" class="list-scroll">
+        <button
+          *ngFor="let row of filteredRows"
+          type="button"
+          class="list-row"
+          [class.list-row--active]="selectedRow?.id === row.id && selectedRow?.rowType === row.rowType"
+          (click)="selectRow(row)">
+          <div class="list-row__top">
+            <span class="type-pill" [ngClass]="row.rowType === 'TASK' ? 'type-pill--task' : 'type-pill--reupload'">
+              {{ row.rowType }}
+            </span>
+            <ui-status-badge [status]="row.status"></ui-status-badge>
+          </div>
+
+          <div class="list-row__title">{{ row.title }}</div>
+
+          <div class="list-row__meta">
+            <span>{{ row.branchName || 'No branch' }}</span>
+            <span>&middot;</span>
+            <span>{{ row.dueDate ? (row.dueDate | date: 'mediumDate') : 'No due date' }}</span>
+          </div>
+
+          <div class="list-row__due"
+               [ngClass]="{
+                 'list-row__due--overdue': dueText(row).includes('Overdue'),
+                 'list-row__due--normal': !dueText(row).includes('Overdue')
+               }">
+            {{ dueText(row) }}
+          </div>
+        </button>
       </div>
-      <button
-        (click)="openTask(t); $event.stopPropagation()"
-        class="w-full py-2 px-4 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-        View Task
-      </button>
-    </div>
 
-    <ui-empty-state
-      *ngIf="tasks.length===0"
-      title="No tasks found"
-      description="There are no tasks matching the selected filters">
-    </ui-empty-state>
-  </div>
+      <ng-template #noRows>
+        <ui-empty-state
+          title="No items found"
+          description="No tasks or reupload requests match current filters.">
+        </ui-empty-state>
+      </ng-template>
+    </section>
 
-  <!-- Desktop Table -->
-  <div *ngIf="!loading && tasks.length" class="hidden md:block">
-    <div class="contractor-card" style="padding:0; overflow:hidden">
-      <ui-data-table
-        [columns]="taskColumns"
-        [data]="tasks"
-        emptyMessage="No tasks found">
+    <section class="task-center-card detail-panel" *ngIf="selectedRow; else chooseRow">
+      <div class="panel-head">
+        <h3>Detail panel</h3>
+        <span>{{ selectedRow.rowType }}</span>
+      </div>
 
-        <ng-template uiTableCell="dueDate" let-row>
-          <div class="text-gray-900">{{ row.dueDate }}</div>
-          <div [class]="row.status==='OVERDUE' ? 'text-red-600 font-medium text-xs' : 'text-gray-500 text-xs'">{{ dueText(row) }}</div>
-        </ng-template>
+      <ui-loading-spinner *ngIf="detailLoading" size="md" text="Loading detail..."></ui-loading-spinner>
 
-        <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status"></ui-status-badge>
-        </ng-template>
+      <div *ngIf="!detailLoading && selectedRow.rowType === 'TASK'" class="detail-content">
+        <div class="entity-head">
+          <h4>{{ selectedRow.title }}</h4>
+          <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
+        </div>
 
-        <ng-template uiTableCell="evidenceCount" let-value>
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{{ value || 0 }}</span>
-        </ng-template>
+        <div class="entity-meta">
+          <span>Branch: {{ selectedRow.branchName || '-' }}</span>
+          <span>Due: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
+          <span>Evidence: {{ selectedTaskDetail?.evidenceCount || selectedRow.evidenceCount || 0 }}</span>
+        </div>
 
-        <ng-template uiTableCell="actions" let-row>
+        <div class="alert alert--danger" *ngIf="selectedRow.status === 'REJECTED' && (selectedTaskDetail?.remarks || selectedRow.remarks)">
+          <strong>Rejection reason:</strong> {{ selectedTaskDetail?.remarks || selectedRow.remarks }}
+        </div>
+
+        <div class="action-row">
           <button
-            (click)="openTask(row)"
-            class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-            View
+            type="button"
+            class="btn btn--ghost"
+            [disabled]="actionBusy || !(selectedRow.status === 'PENDING' || selectedRow.status === 'REJECTED' || selectedRow.status === 'OVERDUE')"
+            (click)="startSelectedTask()">
+            Start task
           </button>
-        </ng-template>
-      </ui-data-table>
-    </div>
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="actionBusy || selectedRow.status === 'SUBMITTED' || selectedRow.status === 'APPROVED'"
+            (click)="submitSelectedTask()">
+            Submit task
+          </button>
+        </div>
+
+        <div class="action-card">
+          <h5>Upload evidence</h5>
+          <input type="file" (change)="onTaskFileSelected($event)" />
+          <textarea
+            [(ngModel)]="taskUploadNote"
+            rows="2"
+            placeholder="Optional note for this upload"></textarea>
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="actionBusy || !taskUploadFile"
+            (click)="uploadTaskEvidence()">
+            Upload file
+          </button>
+        </div>
+
+        <div class="action-card">
+          <h5>Reply / Comment</h5>
+          <textarea
+            [(ngModel)]="taskReply"
+            rows="3"
+            placeholder="Add a reply or clarification"></textarea>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            [disabled]="actionBusy || !taskReply.trim()"
+            (click)="sendTaskReply()">
+            Post reply
+          </button>
+        </div>
+
+        <div class="action-card" *ngIf="relatedReuploads.length">
+          <h5>Linked reupload requests</h5>
+          <div class="linked-reupload-list">
+            <div class="linked-reupload-item" *ngFor="let req of relatedReuploads">
+              <div class="linked-reupload-item__title">Request #{{ req.id.slice(0, 8) }}</div>
+              <div class="linked-reupload-item__meta">{{ req.reason || req.remarks || 'No reason' }}</div>
+              <ui-status-badge [status]="req.status"></ui-status-badge>
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-block">
+          <h5>History timeline</h5>
+          <div *ngIf="selectedTaskHistory.length; else noHistory" class="timeline">
+            <div class="timeline-item" *ngFor="let event of selectedTaskHistory">
+              <div class="timeline-item__dot"></div>
+              <div class="timeline-item__body">
+                <div class="timeline-item__head">
+                  <strong>{{ event.title }}</strong>
+                  <span>{{ event.at | date: 'medium' }}</span>
+                </div>
+                <div class="timeline-item__desc">{{ event.description }}</div>
+              </div>
+            </div>
+          </div>
+          <ng-template #noHistory>
+            <div class="timeline-empty">No events available yet.</div>
+          </ng-template>
+        </div>
+      </div>
+
+      <div *ngIf="!detailLoading && selectedRow.rowType === 'REUPLOAD'" class="detail-content">
+        <div class="entity-head">
+          <h4>{{ selectedRow.title }}</h4>
+          <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
+        </div>
+
+        <div class="entity-meta">
+          <span>Document: #{{ selectedRow.documentId || '-' }}</span>
+          <span>Deadline: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
+          <span>Submitted: {{ selectedRow.submittedAt ? (selectedRow.submittedAt | date: 'medium') : 'Not submitted' }}</span>
+        </div>
+
+        <div class="alert alert--warning" *ngIf="selectedRow.reason">
+          <strong>Reason:</strong> {{ selectedRow.reason }}
+        </div>
+        <div class="alert alert--neutral" *ngIf="selectedRow.remarks">
+          <strong>Reviewer note:</strong> {{ selectedRow.remarks }}
+        </div>
+
+        <div class="action-card">
+          <h5>Upload replacement</h5>
+          <input type="file" (change)="onReuploadFileSelected($event)" />
+          <div class="action-row">
+            <button
+              type="button"
+              class="btn btn--primary"
+              [disabled]="actionBusy || !reuploadFile"
+              (click)="uploadReuploadFile()">
+              Upload replacement
+            </button>
+            <button
+              type="button"
+              class="btn btn--ghost"
+              [disabled]="actionBusy || selectedRow.status !== 'OPEN'"
+              (click)="submitReupload()">
+              Submit for review
+            </button>
+          </div>
+        </div>
+
+        <div class="timeline-block">
+          <h5>Reupload timeline</h5>
+          <div *ngIf="selectedTaskHistory.length; else noReuploadHistory" class="timeline">
+            <div class="timeline-item" *ngFor="let event of selectedTaskHistory">
+              <div class="timeline-item__dot"></div>
+              <div class="timeline-item__body">
+                <div class="timeline-item__head">
+                  <strong>{{ event.title }}</strong>
+                  <span>{{ event.at | date: 'medium' }}</span>
+                </div>
+                <div class="timeline-item__desc">{{ event.description }}</div>
+              </div>
+            </div>
+          </div>
+          <ng-template #noReuploadHistory>
+            <div class="timeline-empty">No timeline events available.</div>
+          </ng-template>
+        </div>
+      </div>
+    </section>
   </div>
+
+  <ng-template #chooseRow>
+    <section class="task-center-card detail-panel detail-panel--empty">
+      <ui-empty-state
+        title="Select an item"
+        description="Choose a task or reupload request to open detail workflow.">
+      </ui-empty-state>
+    </section>
+  </ng-template>
 </div>
