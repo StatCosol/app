@@ -5,6 +5,7 @@ import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, finalize, switchMap, takeUntil, tap, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { PayrollRegistersService, RegisterRecordRow } from './payroll-registers.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   PageHeaderComponent,
   DataTableComponent,
@@ -178,7 +179,7 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     periodMonth: null,
   };
 
-  constructor(private payrollApi: PayrollApiService, private api: PayrollRegistersService, private cdr: ChangeDetectorRef) {}
+  constructor(private payrollApi: PayrollApiService, private api: PayrollRegistersService, private cdr: ChangeDetectorRef, private dialog: ConfirmDialogService) {}
 
   private initialLoadDone = false;
 
@@ -222,7 +223,6 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
           }
         },
         error: (err) => {
-          console.error('PayrollRegisters reload$ error:', err);
           this.loading = false;
           this.rows = [];
           this.cdr.detectChanges();
@@ -240,7 +240,6 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
         setTimeout(() => { this.initialLoadDone = true; });
       },
       error: (err) => {
-        console.error('PayrollRegisters initial load error:', err);
         this.loading = false;
         this.rows = [];
         this.cdr.detectChanges();
@@ -292,8 +291,10 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
     });
   }
 
-  reject(r: RegisterRecordRow): void {
-    const reason = prompt('Rejection reason (optional):') ?? '';
+  async reject(r: RegisterRecordRow): Promise<void> {
+    const result = await this.dialog.prompt('Reject Register', 'Rejection reason (optional):', { placeholder: 'Reason' });
+    if (!result.confirmed) return;
+    const reason = result.value ?? '';
     this.api.rejectRegister(r.id, reason).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.reload(),
       error: (e) => { this.error = e?.error?.message || 'Reject failed'; },

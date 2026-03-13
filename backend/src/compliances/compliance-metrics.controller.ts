@@ -11,13 +11,20 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { BranchAccessService } from '../auth/branch-access.service';
 import { ComplianceMetricsService } from './compliance-metrics.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CCO', 'CEO', 'CRM', 'CLIENT')
 export class ComplianceMetricsController {
-  constructor(private readonly metrics: ComplianceMetricsService) {}
+  constructor(
+    private readonly metrics: ComplianceMetricsService,
+    private readonly branchAccess: BranchAccessService,
+  ) {}
 
   /**
    * GET /api/v1/compliance/completion?month=YYYY-MM&branchId=...
@@ -26,6 +33,7 @@ export class ComplianceMetricsController {
    * If branchId omitted → all branches for the client.
    * Branch user → only own branch.
    */
+  @ApiOperation({ summary: 'Completion' })
   @Get('completion')
   async completion(
     @Query('month') month: string,
@@ -60,6 +68,7 @@ export class ComplianceMetricsController {
    *
    * Returns last N months completion % for a specific branch.
    */
+  @ApiOperation({ summary: 'Trend' })
   @Get('completion-trend')
   async trend(
     @Query('branchId') branchId: string,
@@ -82,6 +91,7 @@ export class ComplianceMetricsController {
    *
    * Composite "Inspection Exposure Probability" score for a branch.
    */
+  @ApiOperation({ summary: 'Risk Score' })
   @Get('risk-score')
   async riskScore(
     @Query('month') month: string,
@@ -110,6 +120,7 @@ export class ComplianceMetricsController {
    *
    * Top N highest + lowest risk branches.
    */
+  @ApiOperation({ summary: 'Risk Ranking' })
   @Get('risk-ranking')
   async riskRanking(
     @Query('month') month: string,
@@ -138,11 +149,9 @@ export class ComplianceMetricsController {
    *
    * State-wise risk heatmap aggregation.
    */
+  @ApiOperation({ summary: 'Heatmap' })
   @Get('risk-heatmap')
-  async heatmap(
-    @Query('month') month: string,
-    @Req() req: any,
-  ) {
+  async heatmap(@Query('month') month: string, @Req() req: any) {
     if (req.user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
@@ -159,6 +168,7 @@ export class ComplianceMetricsController {
     });
   }
 
+  @ApiOperation({ summary: 'Lowest Branches' })
   @Get('lowest-branches')
   async lowestBranches(
     @Query('month') month: string,
@@ -188,6 +198,7 @@ export class ComplianceMetricsController {
    * Smart "What To Fix" action plan for a specific branch.
    * Returns prioritised remediation steps with estimated impact.
    */
+  @ApiOperation({ summary: 'Action Plan' })
   @Get('action-plan')
   async actionPlan(
     @Query('month') month: string,
@@ -216,6 +227,7 @@ export class ComplianceMetricsController {
    *
    * Next-month risk prediction using historical trend + live factors.
    */
+  @ApiOperation({ summary: 'Forecast' })
   @Get('risk-forecast')
   async forecast(
     @Query('branchId') branchId: string,
@@ -239,6 +251,7 @@ export class ComplianceMetricsController {
    * AI-style compliance summary narrative.
    * branchId omitted → company-wide executive summary.
    */
+  @ApiOperation({ summary: 'Summary' })
   @Get('summary')
   async summary(
     @Query('month') month: string,
@@ -267,11 +280,9 @@ export class ComplianceMetricsController {
    *
    * Internal peer benchmark — percentile ranks + A/B/C/D grades.
    */
+  @ApiOperation({ summary: 'Benchmark' })
   @Get('benchmark')
-  async benchmark(
-    @Query('month') month: string,
-    @Req() req: any,
-  ) {
+  async benchmark(@Query('month') month: string, @Req() req: any) {
     if (req.user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
@@ -293,9 +304,11 @@ export class ComplianceMetricsController {
    *
    * Inspection simulation — what-if scenario analysis.
    */
+  @ApiOperation({ summary: 'Simulate Risk' })
   @Post('simulate-risk')
   async simulateRisk(
-    @Body() body: {
+    @Body()
+    body: {
       month: string;
       branchId: string;
       completionPercent: number;
@@ -307,6 +320,12 @@ export class ComplianceMetricsController {
   ) {
     if (req.user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
+    }
+    if (body.branchId && req.user.roleCode === 'CLIENT') {
+      await this.branchAccess.assertBranchAccess(
+        req.user.userId,
+        body.branchId,
+      );
     }
 
     return this.metrics.simulateRisk({
@@ -326,11 +345,9 @@ export class ComplianceMetricsController {
    *
    * Executive report pack — bundled JSON for PDF/PPT generation.
    */
+  @ApiOperation({ summary: 'Export Pack' })
   @Get('export-pack')
-  async exportPack(
-    @Query('month') month: string,
-    @Req() req: any,
-  ) {
+  async exportPack(@Query('month') month: string, @Req() req: any) {
     if (req.user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }

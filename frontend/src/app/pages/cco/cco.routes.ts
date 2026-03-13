@@ -21,6 +21,14 @@ const CcoProfileComponent = () =>
   import('./cco-profile.component').then((m) => m.CcoProfileComponent);
 const CcoRegistersComponent = () =>
   import('./registers/cco-registers.component').then((m) => m.CcoRegistersComponent);
+const CcoEscalationsComponent = () =>
+  import('./escalations/cco-escalations.component').then((m) => m.CcoEscalationsComponent);
+const CcoRiskHeatmapComponent = () =>
+  import('./heatmap/cco-risk-heatmap.component').then((m) => m.CcoRiskHeatmapComponent);
+const CcoControlsRegisterPageComponent = () =>
+  import('./controls/cco-controls-register-page.component').then(
+    (m) => m.CcoControlsRegisterPageComponent,
+  );
 
 export const CCO_ROUTES: Routes = [
   {
@@ -35,6 +43,9 @@ export const CCO_ROUTES: Routes = [
       { path: 'oversight', loadComponent: CcoOversightExceptionPageComponent },
       { path: 'crms-under-me', loadComponent: CcoCrmsUnderMeComponent },
       { path: 'crm-performance', loadComponent: CcoCrmPerformanceComponent },
+      { path: 'escalations', loadComponent: CcoEscalationsComponent },
+      { path: 'risk-heatmap', loadComponent: CcoRiskHeatmapComponent },
+      { path: 'controls', loadComponent: CcoControlsRegisterPageComponent },
       { path: 'registers', loadComponent: CcoRegistersComponent },
       { path: 'notifications', loadComponent: CcoNotificationsComponent },
       { path: 'profile', loadComponent: CcoProfileComponent },

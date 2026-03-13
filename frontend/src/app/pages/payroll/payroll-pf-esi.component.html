@@ -1,0 +1,306 @@
+<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>PF / ESI Compliance Dashboard</h1>
+      <p>Track statutory applicability gaps, derived remittance readiness, and challan or return evidence from a single payroll workspace.</p>
+    </div>
+
+    <div class="head-controls">
+      <label>
+        Client
+        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientOrPeriodChange()">
+          <option value="">All assigned clients</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+        </select>
+      </label>
+
+      <label>
+        Year
+        <select [(ngModel)]="selectedYear" (ngModelChange)="onClientOrPeriodChange()">
+          <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+        </select>
+      </label>
+
+      <label>
+        Month
+        <select [(ngModel)]="selectedMonth" (ngModelChange)="onClientOrPeriodChange()">
+          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+
+      <button type="button" class="btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()">
+        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="loader">Loading PF/ESI dashboard...</div>
+
+  <div *ngIf="!loading && error" class="error-box">
+    <span>{{ error }}</span>
+    <button type="button" class="btn btn-ghost" (click)="loadBase()">Retry</button>
+  </div>
+
+  <ng-container *ngIf="!loading && !error">
+    <section class="summary-grid">
+      <article class="summary-card summary-card--info">
+        <span class="label">PF Applicable</span>
+        <strong>{{ pfApplicableCount }}</strong>
+        <span class="sub">{{ selectedClientName }}</span>
+      </article>
+
+      <article class="summary-card summary-card--good">
+        <span class="label">PF Registered</span>
+        <strong>{{ pfRegisteredCount }}</strong>
+        <span class="sub">{{ pfCoveragePercent }}% coverage</span>
+      </article>
+
+      <article class="summary-card summary-card--warn">
+        <span class="label">ESI Applicable</span>
+        <strong>{{ esiApplicableCount }}</strong>
+        <span class="sub">{{ selectedClientName }}</span>
+      </article>
+
+      <article class="summary-card summary-card--good">
+        <span class="label">ESI Registered</span>
+        <strong>{{ esiRegisteredCount }}</strong>
+        <span class="sub">{{ esiCoveragePercent }}% coverage</span>
+      </article>
+
+      <article class="summary-card summary-card--warn">
+        <span class="label">Missing PF/ESI IDs</span>
+        <strong>{{ missingIdentifierCount }}</strong>
+        <span class="sub">Pending employees without UAN/IP</span>
+      </article>
+
+      <article class="summary-card summary-card--bad">
+        <span class="label">High Aging (&gt;30d)</span>
+        <strong>{{ highAgingCount }}</strong>
+        <span class="sub">Exceptions needing escalation</span>
+      </article>
+
+      <article class="summary-card summary-card--good">
+        <span class="label">Remittance Ready</span>
+        <strong>{{ remittanceReadyCount }}</strong>
+        <span class="sub">Runs ready for remittance</span>
+      </article>
+
+      <article class="summary-card summary-card--warn">
+        <span class="label">Remittance Rework</span>
+        <strong>{{ remittanceReworkCount }}</strong>
+        <span class="sub">Rejected runs to fix</span>
+      </article>
+    </section>
+
+    <section class="workspace-grid">
+      <article class="card list-pane">
+        <header class="section-head">
+          <h2>Applicable But Not Registered</h2>
+          <span>{{ filteredGapRows.length }} employees</span>
+        </header>
+
+        <div class="filter-row">
+          <label class="search-box">
+            Search
+            <input type="search" [(ngModel)]="gapSearch" placeholder="Client / emp code / employee name" />
+          </label>
+
+          <label>
+            Scheme
+            <select [(ngModel)]="schemeFilter">
+              <option value="ALL">All</option>
+              <option value="PF">PF</option>
+              <option value="ESI">ESI</option>
+            </select>
+          </label>
+
+          <label>
+            Identifier
+            <select [(ngModel)]="identifierFilter">
+              <option value="ALL">All</option>
+              <option value="MISSING_ID">Missing ID</option>
+              <option value="HAS_ID">Has ID</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-wrap" *ngIf="filteredGapRows.length; else noGapRows">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Client</th>
+                <th>Scheme</th>
+                <th>Pending</th>
+                <th>Status</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredGapRows; trackBy: trackGap">
+                <td>
+                  <div class="strong">{{ row.name || '-' }}</div>
+                  <div class="minor">{{ row.empCode || '-' }} | DOJ {{ formatDate(row.dateOfJoining) }}</div>
+                </td>
+                <td>{{ row.clientName }}</td>
+                <td><span [class]="schemeClass(row.scheme)">{{ row.scheme }}</span></td>
+                <td>
+                  <span [class]="pendingClass(row.pendingDays)">{{ row.pendingDays }} days</span>
+                </td>
+                <td>{{ statusHint(row) }}</td>
+                <td class="text-right">
+                  <button type="button" class="link" (click)="openException(row)">View</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noGapRows>
+          <div class="empty-mini">No PF/ESI applicability gaps for current filters.</div>
+        </ng-template>
+      </article>
+
+      <aside class="detail-stack">
+        <article class="card">
+          <header class="section-head">
+            <h2>Remittance Status</h2>
+            <span>{{ filteredRemittanceRows.length }} runs</span>
+          </header>
+
+          <p class="panel-note">{{ remittanceDerivedText }}</p>
+
+          <div class="filter-row compact">
+            <label>
+              State
+              <select [(ngModel)]="remittanceFilter">
+                <option value="ALL">All</option>
+                <option value="READY">Ready</option>
+                <option value="IN_PROGRESS">In progress</option>
+                <option value="NOT_STARTED">Not started</option>
+                <option value="REWORK">Needs rework</option>
+                <option value="UNKNOWN">Unknown</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-wrap small" *ngIf="filteredRemittanceRows.length; else noRemittance">
+            <table>
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Client</th>
+                  <th>Run</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredRemittanceRows; trackBy: trackRemittance">
+                  <td>{{ monthYearLabel(row.periodYear, row.periodMonth) }}</td>
+                  <td>{{ row.clientName || '-' }}</td>
+                  <td>
+                    <div class="strong">{{ row.runStatus }}</div>
+                    <div class="minor">{{ row.employeeCount }} employees</div>
+                  </td>
+                  <td><span [class]="remittanceStateClass(row.remittanceState)">{{ row.remittanceState }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <ng-template #noRemittance>
+            <div class="empty-mini">No payroll runs found for selected period filters.</div>
+          </ng-template>
+        </article>
+
+        <article class="card">
+          <header class="section-head">
+            <h2>Challan / Return Linkage</h2>
+            <span>{{ challanRows.length }} records</span>
+          </header>
+
+          <div class="table-wrap small" *ngIf="challanRows.length; else noChallan">
+            <table>
+              <thead>
+                <tr>
+                  <th>Record</th>
+                  <th>Scheme</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th class="text-right">File</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of challanRows; trackBy: trackChallan">
+                  <td>
+                    <div class="strong">{{ row.title || row.registerType || '-' }}</div>
+                    <div class="minor">{{ monthYearLabel(row.periodYear, row.periodMonth) }} | {{ row.clientName || '-' }}</div>
+                  </td>
+                  <td><span [class]="schemeClass(row.scheme)">{{ row.scheme }}</span></td>
+                  <td><span [class]="approvalClass(row.approvalStatus)">{{ row.approvalStatus }}</span></td>
+                  <td>{{ formatDate(row.createdAt) }}</td>
+                  <td class="text-right">
+                    <button
+                      *ngIf="row.id; else noFile"
+                      type="button"
+                      class="link"
+                      [disabled]="downloadBusyId === row.id"
+                      (click)="downloadChallan(row)"
+                    >
+                      {{ downloadLabel(row) }}
+                    </button>
+                    <ng-template #noFile><span class="minor">N/A</span></ng-template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <ng-template #noChallan>
+            <div class="empty-mini">No PF/ESI challan or return records found for selected filters.</div>
+          </ng-template>
+        </article>
+      </aside>
+    </section>
+  </ng-container>
+</div>
+
+<div class="drawer-backdrop" *ngIf="showExceptionDrawer" (click)="closeExceptionDrawer()"></div>
+<aside class="drawer" *ngIf="showExceptionDrawer && selectedException as exception">
+  <header>
+    <h3>Employee Exception Detail</h3>
+    <button type="button" class="link" (click)="closeExceptionDrawer()">Close</button>
+  </header>
+
+  <div class="drawer-body">
+    <div class="kv">
+      <span>Employee</span>
+      <strong>{{ exception.name || '-' }}</strong>
+      <p>{{ exception.empCode || '-' }}</p>
+    </div>
+
+    <div class="kv">
+      <span>Client</span>
+      <strong>{{ exception.clientName }}</strong>
+      <p>{{ exception.clientId }}</p>
+    </div>
+
+    <div class="kv">
+      <span>Scheme</span>
+      <strong>{{ exception.scheme }}</strong>
+      <p>{{ statusHint(exception) }}</p>
+    </div>
+
+    <div class="kv">
+      <span>Date Of Joining</span>
+      <strong>{{ formatDate(exception.dateOfJoining) }}</strong>
+      <p>Pending for {{ exception.pendingDays }} days</p>
+    </div>
+
+    <div class="kv notice">
+      <span>Recommended Action</span>
+      <strong>Resolve statutory registration and map identifier</strong>
+      <p>Ensure payroll master has {{ exception.scheme === 'PF' ? 'UAN' : 'IP number' }} before next cycle freeze.</p>
+    </div>
+  </div>
+</aside>

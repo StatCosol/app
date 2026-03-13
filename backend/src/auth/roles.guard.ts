@@ -21,7 +21,9 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
     const req = context.switchToHttp().getRequest<Record<string, unknown>>();
-    const user = req.user as { roleCode?: string } | undefined; // set by JwtStrategy validate()
+    const user = req.user as
+      | { roleCode?: string; userType?: string }
+      | undefined; // set by JwtStrategy validate()
 
     if (!user || typeof user.roleCode !== 'string') {
       Logger.warn(
@@ -31,9 +33,19 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Role not found on token');
     }
 
-    if (!requiredRoles.includes(user.roleCode)) {
+    // Build the effective roles for this user.
+    // CLIENT users with userType=BRANCH also match the BRANCH_DESK virtual role
+    // so that @Roles('BRANCH_DESK') controllers are accessible to branch users.
+    const effectiveRoles: string[] = [user.roleCode];
+    if (user.roleCode === 'CLIENT' && user.userType === 'BRANCH') {
+      effectiveRoles.push('BRANCH_DESK');
+    }
+
+    const hasRole = requiredRoles.some((r) => effectiveRoles.includes(r));
+
+    if (!hasRole) {
       Logger.warn(
-        `RolesGuard: forbidden roleCode=${user.roleCode} requiredRoles=${requiredRoles.join(',')}`,
+        `RolesGuard: forbidden roleCode=${user.roleCode} userType=${user.userType ?? 'null'} requiredRoles=${requiredRoles.join(',')}`,
         'RolesGuard',
       );
       throw new ForbiddenException(

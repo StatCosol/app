@@ -38,13 +38,35 @@ export class FilesService {
       return;
     }
 
-    // 2) payroll_input_files
+    // 2) payroll_input_files — verify user belongs to the same client via payroll_inputs
     const pif = await this.pifRepo.findOne({ where: { filePath } });
     if (pif) {
-      // need clientId from payroll_inputs? keep simple: allow client/payroll/admin; harden further later
-      if (user.roleCode === 'CLIENT') return;
-      if (user.roleCode === 'PAYROLL') return;
-      return;
+      if (user.roleCode === 'ADMIN') return;
+      // Resolve the owning clientId through the parent payroll_input record
+      const [piRow] = await this.pifRepo.manager.query(
+        `SELECT pi.client_id FROM payroll_inputs pi
+         JOIN payroll_input_files pif ON pif.payroll_input_id = pi.id
+         WHERE pif.id = $1`,
+        [pif.id],
+      );
+      const ownerClientId = piRow?.client_id;
+      if (user.roleCode === 'CLIENT') {
+        if (user.clientId !== ownerClientId) throw new ForbiddenException();
+        return;
+      }
+      if (user.roleCode === 'PAYROLL') {
+        const assignment = await this.assignRepo.findOne({
+          where: {
+            payrollUserId: user.id,
+            clientId: ownerClientId,
+            status: 'ACTIVE',
+            endDate: null as any,
+          },
+        });
+        if (!assignment) throw new ForbiddenException();
+        return;
+      }
+      throw new ForbiddenException();
     }
 
     // 3) registers_records

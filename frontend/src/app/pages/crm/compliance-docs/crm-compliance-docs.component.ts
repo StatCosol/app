@@ -8,6 +8,9 @@ import {
   PageHeaderComponent,
   LoadingSpinnerComponent,
   EmptyStateComponent,
+  DataTableComponent,
+  TableCellDirective,
+  TableColumn,
 } from '../../../shared/ui';
 import {
   ComplianceDocumentsService,
@@ -15,6 +18,7 @@ import {
   DocCategory,
 } from '../../../core/compliance-documents.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   standalone: true,
@@ -25,6 +29,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
     PageHeaderComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
+    DataTableComponent,
+    TableCellDirective,
   ],
   templateUrl: './crm-compliance-docs.component.html',
   styleUrls: ['./crm-compliance-docs.component.scss'],
@@ -37,6 +43,15 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
   uploading = false;
   clientId = '';
   documents: ComplianceDocument[] = [];
+
+  readonly docColumns: TableColumn[] = [
+    { key: 'title', header: 'Title' },
+    { key: 'category', header: 'Category' },
+    { key: 'period', header: 'Period' },
+    { key: 'file', header: 'File' },
+    { key: 'createdAt', header: 'Uploaded' },
+    { key: 'actions', header: 'Actions' },
+  ];
 
   categories: DocCategory[] = [];
   subCategories: DocCategory[] = [];
@@ -75,6 +90,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly docsSvc: ComplianceDocumentsService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
   ) {}
@@ -214,8 +230,8 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteDoc(doc: ComplianceDocument) {
-    if (!confirm(`Delete "${doc.title}"?`)) return;
+  async deleteDoc(doc: ComplianceDocument) {
+    if (!(await this.dialog.confirm('Delete Document', `Delete "${doc.title}"?`, { variant: 'danger', confirmText: 'Delete' }))) return;
     this.docsSvc
       .deleteCrmDoc(doc.id)
       .pipe(takeUntil(this.destroy$))

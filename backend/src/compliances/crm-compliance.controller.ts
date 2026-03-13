@@ -12,7 +12,10 @@ import { Roles } from '../auth/roles.decorator';
 import { CompliancesService } from './compliances.service';
 import { ChecklistStatus } from '../common/enums';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
@@ -22,6 +25,7 @@ export class CrmComplianceController {
     private readonly assignmentsService: AssignmentsService,
   ) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(@Request() req, @Query() q: any) {
     const crmUserId = req.user.userId;

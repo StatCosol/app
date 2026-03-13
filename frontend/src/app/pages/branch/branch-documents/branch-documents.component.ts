@@ -1,8 +1,10 @@
 import {
-  Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef
+  Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { AuthService } from '../../../core/auth.service';
 
@@ -121,7 +123,7 @@ interface DocumentItem {
     .badge { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
   `]
 })
-export class BranchDocumentsComponent implements OnInit {
+export class BranchDocumentsComponent implements OnInit, OnDestroy {
   categoryFilter = 'all';
   statusFilter = 'all';
   categories: string[] = [];
@@ -131,6 +133,7 @@ export class BranchDocumentsComponent implements OnInit {
   pendingCount = 0;
   rejectedCount = 0;
   loading = true;
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -143,7 +146,7 @@ export class BranchDocumentsComponent implements OnInit {
     if (!branchIds.length) { this.loading = false; this.cdr.markForCheck(); return; }
     const branchId = branchIds[0];
 
-    this.branchSvc.listDocuments(branchId).subscribe({
+    this.branchSvc.listDocuments(branchId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (rows) => {
         this.documents = (rows || []).map((r: any): DocumentItem => {
           let status: 'Uploaded' | 'Pending' | 'Rejected' = 'Pending';
@@ -190,4 +193,8 @@ export class BranchDocumentsComponent implements OnInit {
     this.rejectedCount = this.documents.filter(d => d.status === 'Rejected').length;
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 }

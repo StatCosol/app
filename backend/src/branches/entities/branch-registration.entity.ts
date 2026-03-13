@@ -20,7 +20,12 @@ export class BranchRegistrationEntity {
   @Column({ type: 'varchar', length: 200 })
   type: string;
 
-  @Column({ type: 'varchar', length: 100, name: 'registration_number', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 100,
+    name: 'registration_number',
+    nullable: true,
+  })
   registrationNumber: string | null;
 
   @Column({ type: 'varchar', length: 200, nullable: true })

@@ -54,7 +54,6 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Prevent duplicate initialization
     if (this.isInitialized) {
-      console.warn('[PayrollAssignments] Duplicate ngOnInit prevented');
       return;
     }
     this.isInitialized = true;
@@ -72,7 +71,6 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
     this.error = '';
 
     const handleLoadError = (label: string) => (err: unknown) => {
-      console.error(`${label} load error`, err);
       if (!this.error) this.error = `Some data failed to load (${label})`;
       return of([]);
     };
@@ -92,7 +90,6 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
           const calls = this.clients.map((c) =>
             this.api.getCurrentAssignment(c.id).pipe(
               catchError((err) => {
-                console.error('getCurrentAssignment error', c.id, err);
                 return of(null);
               }),
             ),
@@ -117,7 +114,6 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
         error: (err) => {
-          console.error('Payroll assignments load error', err);
           this.error = 'Failed to load payroll assignments';
           this.loading = false;
           this.cdr.detectChanges();
@@ -199,7 +195,6 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
           this.loadAll();
         },
         error: (err) => {
-          console.error('Assign payroll error', err);
           this.toast.error(err?.error?.message || 'Failed to create payroll assignment');
           this.cdr.detectChanges();
         },
@@ -220,7 +215,6 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
           this.loadAll();
         },
         error: (err) => {
-          console.error('Unassign payroll error', err);
           this.toast.error(err?.error?.message || 'Failed to remove payroll assignment');
           this.cdr.detectChanges();
         },
