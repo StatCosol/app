@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { ComplianceDocumentEntity, ComplianceDocStatus } from './entities/compliance-document.entity';
+import {
+  ComplianceDocumentEntity,
+  ComplianceDocStatus,
+} from './entities/compliance-document.entity';
 import { ComplianceReturnMasterEntity } from './entities/compliance-return-master.entity';
 import { BranchAccessService } from '../auth/branch-access.service';
 import {
@@ -47,10 +50,14 @@ export class BranchComplianceService {
     const qb = this.masterRepo.createQueryBuilder('m');
 
     if (q.frequency) qb.andWhere('m.frequency = :freq', { freq: q.frequency });
-    if (q.applicableFor) qb.andWhere('m.applicable_for IN (:...af)', { af: [q.applicableFor, 'BOTH'] });
+    if (q.applicableFor)
+      qb.andWhere('m.applicable_for IN (:...af)', {
+        af: [q.applicableFor, 'BOTH'],
+      });
     if (q.lawArea) qb.andWhere('m.law_area = :la', { la: q.lawArea });
     if (q.category) qb.andWhere('m.category = :cat', { cat: q.category });
-    if (q.isActive !== undefined) qb.andWhere('m.is_active = :active', { active: q.isActive });
+    if (q.isActive !== undefined)
+      qb.andWhere('m.is_active = :active', { active: q.isActive });
 
     qb.orderBy('m.category', 'ASC').addOrderBy('m.return_name', 'ASC');
 
@@ -58,8 +65,13 @@ export class BranchComplianceService {
   }
 
   async createReturnMaster(dto: CreateReturnMasterDto) {
-    const existing = await this.masterRepo.findOne({ where: { returnCode: dto.returnCode } });
-    if (existing) throw new BadRequestException(`Return code ${dto.returnCode} already exists`);
+    const existing = await this.masterRepo.findOne({
+      where: { returnCode: dto.returnCode },
+    });
+    if (existing)
+      throw new BadRequestException(
+        `Return code ${dto.returnCode} already exists`,
+      );
 
     const entity = this.masterRepo.create({
       returnCode: dto.returnCode,
@@ -76,7 +88,8 @@ export class BranchComplianceService {
 
   async updateReturnMaster(returnCode: string, dto: UpdateReturnMasterDto) {
     const entity = await this.masterRepo.findOne({ where: { returnCode } });
-    if (!entity) throw new NotFoundException(`Return code ${returnCode} not found`);
+    if (!entity)
+      throw new NotFoundException(`Return code ${returnCode} not found`);
 
     Object.assign(entity, dto);
     return this.masterRepo.save(entity);
@@ -102,11 +115,17 @@ export class BranchComplianceService {
     });
 
     if (!masterItems.length) {
-      return { data: [], total: 0, message: 'No compliance items configured for this frequency. Please contact admin.' };
+      return {
+        data: [],
+        total: 0,
+        message:
+          'No compliance items configured for this frequency. Please contact admin.',
+      };
     }
 
     // Get existing documents for this branch + period
-    const docsQb = this.docRepo.createQueryBuilder('d')
+    const docsQb = this.docRepo
+      .createQueryBuilder('d')
       .where('d.branch_id = :branchId', { branchId })
       .andWhere('d.company_id = :companyId', { companyId })
       .andWhere('d.period_year = :year', { year })
@@ -126,10 +145,10 @@ export class BranchComplianceService {
     }
 
     const existingDocs = await docsQb.getMany();
-    const docsByCode = new Map(existingDocs.map(d => [d.returnCode, d]));
+    const docsByCode = new Map(existingDocs.map((d) => [d.returnCode, d]));
 
     // Merge master list with existing docs
-    const checklist = masterItems.map(master => {
+    const checklist = masterItems.map((master) => {
       const doc = docsByCode.get(master.returnCode);
       return {
         returnCode: master.returnCode,
@@ -138,18 +157,20 @@ export class BranchComplianceService {
         frequency: master.frequency,
         category: master.category,
         dueDay: master.dueDay,
-        document: doc ? {
-          id: doc.id,
-          status: doc.status,
-          uploadedFileName: doc.uploadedFileName,
-          uploadedAt: doc.uploadedAt,
-          version: doc.version,
-          remarks: doc.remarks,
-          uploaderRemarks: doc.uploaderRemarks,
-          reviewedAt: doc.reviewedAt,
-          isLocked: doc.isLocked,
-          dueDate: doc.dueDate,
-        } : null,
+        document: doc
+          ? {
+              id: doc.id,
+              status: doc.status,
+              uploadedFileName: doc.uploadedFileName,
+              uploadedAt: doc.uploadedAt,
+              version: doc.version,
+              remarks: doc.remarks,
+              uploaderRemarks: doc.uploaderRemarks,
+              reviewedAt: doc.reviewedAt,
+              isLocked: doc.isLocked,
+              dueDate: doc.dueDate,
+            }
+          : null,
       };
     });
 
@@ -158,37 +179,68 @@ export class BranchComplianceService {
 
   // ─── Upload (Branch User) ─────────────────────────────────
 
-  async uploadDocument(user: any, dto: UploadComplianceDocDto, file: UploadedFile) {
+  async uploadDocument(
+    user: any,
+    dto: UploadComplianceDocDto,
+    file: UploadedFile,
+  ) {
     if (!file) throw new BadRequestException('File is required');
     if (!this.allowedMimeTypes.has(file.mimetype)) {
-      throw new BadRequestException('File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX');
+      throw new BadRequestException(
+        'File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX',
+      );
     }
 
     const branchId = dto.branchId;
     await this.assertBranchAccess(user, branchId);
 
     const companyId = user.clientId;
-    if (!companyId) throw new ForbiddenException('No company associated with user');
+    if (!companyId)
+      throw new ForbiddenException('No company associated with user');
 
     // Verify return code exists
-    const master = await this.masterRepo.findOne({ where: { returnCode: dto.returnCode } });
-    if (!master) throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
+    const master = await this.masterRepo.findOne({
+      where: { returnCode: dto.returnCode },
+    });
+    if (!master)
+      throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
 
     // Check if document already exists for this branch + period + returnCode
     const existing = await this.findExistingDoc(
-      branchId, companyId, dto.returnCode, dto.frequency,
-      dto.periodYear, dto.periodMonth, dto.periodQuarter, dto.periodHalf,
+      branchId,
+      companyId,
+      dto.returnCode,
+      dto.frequency,
+      dto.periodYear,
+      dto.periodMonth,
+      dto.periodQuarter,
+      dto.periodHalf,
     );
 
     if (existing && existing.isLocked) {
-      throw new ForbiddenException('Document is locked after approval. Cannot reupload.');
+      throw new ForbiddenException(
+        'Document is locked after approval. Cannot reupload.',
+      );
     }
 
     // Save file to disk
-    const fileUrl = await this.saveFile(file, companyId, branchId, dto.returnCode, dto.periodYear);
+    const fileUrl = await this.saveFile(
+      file,
+      companyId,
+      branchId,
+      dto.returnCode,
+      dto.periodYear,
+    );
 
     // Compute due date
-    const dueDate = this.computeDueDate(master.dueDay, dto.frequency, dto.periodYear, dto.periodMonth, dto.periodQuarter, dto.periodHalf);
+    const dueDate = this.computeDueDate(
+      master.dueDay,
+      dto.frequency,
+      dto.periodYear,
+      dto.periodMonth,
+      dto.periodQuarter,
+      dto.periodHalf,
+    );
 
     if (existing) {
       // Reupload scenario
@@ -203,7 +255,8 @@ export class BranchComplianceService {
       existing.reviewedAt = null;
       existing.dueDate = dueDate;
 
-      if (existing.status === ComplianceDocStatus.REUPLOAD_REQUIRED) {
+      const existingStatus = existing.status as ComplianceDocStatus;
+      if (existingStatus === ComplianceDocStatus.REUPLOAD_REQUIRED) {
         existing.status = ComplianceDocStatus.RESUBMITTED;
       } else {
         existing.status = ComplianceDocStatus.SUBMITTED;
@@ -251,7 +304,8 @@ export class BranchComplianceService {
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
 
-    const qb = this.docRepo.createQueryBuilder('d')
+    const qb = this.docRepo
+      .createQueryBuilder('d')
       .where('d.branch_id = :branchId', { branchId })
       .andWhere('d.company_id = :companyId', { companyId });
 
@@ -265,11 +319,12 @@ export class BranchComplianceService {
     if (q.frequency === 'HALF_YEARLY' && q.half) {
       qb.andWhere('d.period_half = :half', { half: q.half });
     }
-    if (q.frequency) qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
+    if (q.frequency)
+      qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
     if (q.status) qb.andWhere('d.status = :status', { status: q.status });
     if (q.lawArea) qb.andWhere('d.law_area = :la', { la: q.lawArea });
 
-    qb.orderBy('d.created_at', 'DESC')
+    qb.orderBy('d.createdAt', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize);
 
@@ -281,11 +336,14 @@ export class BranchComplianceService {
 
   async listForCrmReview(user: any, q: ChecklistQueryDto) {
     // CRM sees documents belonging to their assigned clients
-    const qb = this.docRepo.createQueryBuilder('d')
+    const qb = this.docRepo
+      .createQueryBuilder('d')
       .leftJoinAndSelect('d.branch', 'branch');
 
-    if (q.companyId) qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });
-    if (q.branchId) qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
+    if (q.companyId)
+      qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });
+    if (q.branchId)
+      qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
     if (q.year) qb.andWhere('d.period_year = :year', { year: q.year });
     if (q.frequency === 'MONTHLY' && q.month) {
       qb.andWhere('d.period_month = :month', { month: q.month });
@@ -296,7 +354,8 @@ export class BranchComplianceService {
     if (q.frequency === 'HALF_YEARLY' && q.half) {
       qb.andWhere('d.period_half = :half', { half: q.half });
     }
-    if (q.frequency) qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
+    if (q.frequency)
+      qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
     if (q.status) qb.andWhere('d.status = :status', { status: q.status });
     if (q.lawArea) qb.andWhere('d.law_area = :la', { la: q.lawArea });
 
@@ -315,7 +374,7 @@ export class BranchComplianceService {
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
 
-    qb.orderBy('d.updated_at', 'DESC')
+    qb.orderBy('d.updatedAt', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize);
 
@@ -327,8 +386,15 @@ export class BranchComplianceService {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    if (![ComplianceDocStatus.SUBMITTED, ComplianceDocStatus.RESUBMITTED].includes(doc.status as ComplianceDocStatus)) {
-      throw new BadRequestException(`Cannot review document in status ${doc.status}`);
+    if (
+      ![
+        ComplianceDocStatus.SUBMITTED,
+        ComplianceDocStatus.RESUBMITTED,
+      ].includes(doc.status as ComplianceDocStatus)
+    ) {
+      throw new BadRequestException(
+        `Cannot review document in status ${doc.status}`,
+      );
     }
 
     if (dto.status === 'APPROVED') {
@@ -338,7 +404,9 @@ export class BranchComplianceService {
       doc.status = ComplianceDocStatus.REUPLOAD_REQUIRED;
       doc.isLocked = false;
     } else {
-      throw new BadRequestException('Status must be APPROVED or REUPLOAD_REQUIRED');
+      throw new BadRequestException(
+        'Status must be APPROVED or REUPLOAD_REQUIRED',
+      );
     }
 
     doc.reviewedByUserId = user.userId;
@@ -354,11 +422,13 @@ export class BranchComplianceService {
     const companyId = q.companyId || user.clientId;
     if (!companyId) throw new ForbiddenException('No company associated');
 
-    const qb = this.docRepo.createQueryBuilder('d')
+    const qb = this.docRepo
+      .createQueryBuilder('d')
       .leftJoinAndSelect('d.branch', 'branch')
       .where('d.company_id = :companyId', { companyId });
 
-    if (q.branchId) qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
+    if (q.branchId)
+      qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
     if (q.year) qb.andWhere('d.period_year = :year', { year: q.year });
     if (q.frequency === 'MONTHLY' && q.month) {
       qb.andWhere('d.period_month = :month', { month: q.month });
@@ -369,13 +439,14 @@ export class BranchComplianceService {
     if (q.frequency === 'HALF_YEARLY' && q.half) {
       qb.andWhere('d.period_half = :half', { half: q.half });
     }
-    if (q.frequency) qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
+    if (q.frequency)
+      qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
     if (q.status) qb.andWhere('d.status = :status', { status: q.status });
 
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
 
-    qb.orderBy('d.updated_at', 'DESC')
+    qb.orderBy('d.updatedAt', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize);
 
@@ -385,7 +456,12 @@ export class BranchComplianceService {
 
   // ─── Dashboard KPIs ───────────────────────────────────────
 
-  async getBranchDashboardKpis(user: any, branchId: string, year: number, month?: number) {
+  async getBranchDashboardKpis(
+    user: any,
+    branchId: string,
+    year: number,
+    month?: number,
+  ) {
     await this.assertBranchAccess(user, branchId);
     const companyId = user.clientId;
 
@@ -411,12 +487,22 @@ export class BranchComplianceService {
     );
 
     const flat = results[0] || {
-      total: 0, approved: 0, submitted: 0, resubmitted: 0,
-      reupload_required: 0, not_uploaded: 0, overdue: 0, compliance_pct: 0,
+      total: 0,
+      approved: 0,
+      submitted: 0,
+      resubmitted: 0,
+      reupload_required: 0,
+      not_uploaded: 0,
+      overdue: 0,
+      compliance_pct: 0,
     };
 
     // Weighted compliance scoring (across all frequencies for this branch + year)
-    const weighted = await this.calculateWeightedCompliance(branchId, companyId, year);
+    const weighted = await this.calculateWeightedCompliance(
+      branchId,
+      companyId,
+      year,
+    );
 
     return { ...flat, ...weighted };
   }
@@ -452,7 +538,10 @@ export class BranchComplianceService {
 
     const byFreq: Record<string, { total: number; approved: number }> = {};
     for (const r of rows) {
-      byFreq[r.frequency] = { total: Number(r.total), approved: Number(r.approved) };
+      byFreq[r.frequency] = {
+        total: Number(r.total),
+        approved: Number(r.approved),
+      };
     }
 
     const pct = (f: string) => {
@@ -471,11 +560,16 @@ export class BranchComplianceService {
     const weights: { pct: number; weight: number; hasTasks: boolean }[] = [
       { pct: monthly, weight: 0.6, hasTasks: !!byFreq['MONTHLY']?.total },
       { pct: quarterly, weight: 0.2, hasTasks: !!byFreq['QUARTERLY']?.total },
-      { pct: (yearly + halfYearly) / 2, weight: 0.2, hasTasks: !!(byFreq['YEARLY']?.total || byFreq['HALF_YEARLY']?.total) },
+      {
+        pct: (yearly + halfYearly) / 2,
+        weight: 0.2,
+        hasTasks: !!(byFreq['YEARLY']?.total || byFreq['HALF_YEARLY']?.total),
+      },
     ];
 
-    const activeWeights = weights.filter(w => w.hasTasks);
-    const totalActiveWeight = activeWeights.reduce((s, w) => s + w.weight, 0) || 1;
+    const activeWeights = weights.filter((w) => w.hasTasks);
+    const totalActiveWeight =
+      activeWeights.reduce((s, w) => s + w.weight, 0) || 1;
 
     const overall = activeWeights.reduce(
       (sum, w) => sum + w.pct * (w.weight / totalActiveWeight),
@@ -491,7 +585,12 @@ export class BranchComplianceService {
     };
   }
 
-  async getClientDashboardKpis(user: any, companyId: string, year: number, month?: number) {
+  async getClientDashboardKpis(
+    user: any,
+    companyId: string,
+    year: number,
+    month?: number,
+  ) {
     // Branch-wise compliance % for Master Client Dashboard
     const results = await this.dataSource.query(
       `SELECT
@@ -522,9 +621,17 @@ export class BranchComplianceService {
     // Compute overall + top/bottom 5
     const branches = results || [];
     const totalBranches = branches.length;
-    const overallPct = totalBranches > 0
-      ? Math.round(branches.reduce((sum: number, b: any) => sum + Number(b.compliance_pct), 0) / totalBranches * 10) / 10
-      : 0;
+    const overallPct =
+      totalBranches > 0
+        ? Math.round(
+            (branches.reduce(
+              (sum: number, b: any) => sum + Number(b.compliance_pct),
+              0,
+            ) /
+              totalBranches) *
+              10,
+          ) / 10
+        : 0;
 
     return {
       overallCompliancePct: overallPct,
@@ -535,11 +642,15 @@ export class BranchComplianceService {
     };
   }
 
-  async getCrmDashboardKpis(user: any, q: { companyId?: string; year?: number; month?: number }) {
+  async getCrmDashboardKpis(
+    user: any,
+    q: { companyId?: string; year?: number; month?: number },
+  ) {
     const year = q.year || new Date().getFullYear();
     const month = q.month;
 
-    const qb = this.docRepo.createQueryBuilder('d')
+    const qb = this.docRepo
+      .createQueryBuilder('d')
       .select([
         'COUNT(*)::int AS total',
         "COUNT(*) FILTER (WHERE d.status IN ('SUBMITTED','RESUBMITTED'))::int AS pending_review",
@@ -578,11 +689,14 @@ export class BranchComplianceService {
 
   async listForAuditor(user: any, q: ChecklistQueryDto) {
     // Auditor can view all branches assigned through audits
-    const qb = this.docRepo.createQueryBuilder('d')
+    const qb = this.docRepo
+      .createQueryBuilder('d')
       .leftJoinAndSelect('d.branch', 'branch');
 
-    if (q.companyId) qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });
-    if (q.branchId) qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
+    if (q.companyId)
+      qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });
+    if (q.branchId)
+      qb.andWhere('d.branch_id = :branchId', { branchId: q.branchId });
     if (q.year) qb.andWhere('d.period_year = :year', { year: q.year });
     if (q.frequency === 'MONTHLY' && q.month) {
       qb.andWhere('d.period_month = :month', { month: q.month });
@@ -593,13 +707,14 @@ export class BranchComplianceService {
     if (q.frequency === 'HALF_YEARLY' && q.half) {
       qb.andWhere('d.period_half = :half', { half: q.half });
     }
-    if (q.frequency) qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
+    if (q.frequency)
+      qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
     if (q.status) qb.andWhere('d.status = :status', { status: q.status });
 
     const page = q.page || 1;
     const pageSize = q.pageSize || 50;
 
-    qb.orderBy('d.updated_at', 'DESC')
+    qb.orderBy('d.updatedAt', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize);
 
@@ -613,7 +728,9 @@ export class BranchComplianceService {
     branchId: string,
     companyId: string,
     year: number,
-  ): Promise<Array<{ month: number; total: number; approved: number; percent: number }>> {
+  ): Promise<
+    Array<{ month: number; total: number; approved: number; percent: number }>
+  > {
     const hasBranch = !!branchId;
     const rows = await this.dataSource.query(
       `SELECT
@@ -631,13 +748,20 @@ export class BranchComplianceService {
       hasBranch ? [companyId, year, branchId] : [companyId, year],
     );
 
-    const byMonth = new Map<number, any>(rows.map((r: any) => [Number(r.month), r]));
+    const byMonth = new Map<number, any>(
+      rows.map((r: any) => [Number(r.month), r]),
+    );
     return Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
       const r = byMonth.get(m);
       const total = r ? Number(r.total) : 0;
       const approved = r ? Number(r.approved) : 0;
-      return { month: m, total, approved, percent: total > 0 ? Math.round((approved / total) * 100) : 0 };
+      return {
+        month: m,
+        total,
+        approved,
+        percent: total > 0 ? Math.round((approved / total) * 100) : 0,
+      };
     });
   }
 
@@ -647,7 +771,13 @@ export class BranchComplianceService {
     branchId: string,
     companyId: string,
     year: number,
-  ): Promise<{ riskScore: number; overdue: number; reupload: number; pending: number; riskLevel: string }> {
+  ): Promise<{
+    riskScore: number;
+    overdue: number;
+    reupload: number;
+    pending: number;
+    riskLevel: string;
+  }> {
     const rows = await this.dataSource.query(
       `SELECT
          COUNT(*) FILTER (WHERE status = 'OVERDUE')::int AS overdue,
@@ -667,7 +797,8 @@ export class BranchComplianceService {
 
     // Formula: risk = min(100, overdue*8 + reupload*5 + pending*2)
     const riskScore = Math.min(100, overdue * 8 + reupload * 5 + pending * 2);
-    const riskLevel = riskScore >= 70 ? 'HIGH' : riskScore >= 40 ? 'MEDIUM' : 'LOW';
+    const riskLevel =
+      riskScore >= 70 ? 'HIGH' : riskScore >= 40 ? 'MEDIUM' : 'LOW';
 
     return { riskScore, overdue, reupload, pending, riskLevel };
   }
@@ -701,7 +832,10 @@ export class BranchComplianceService {
 
     for (const r of rows) {
       if (badges[r.frequency]) {
-        badges[r.frequency] = { overdue: Number(r.overdue), reupload: Number(r.reupload) };
+        badges[r.frequency] = {
+          overdue: Number(r.overdue),
+          reupload: Number(r.reupload),
+        };
       }
     }
 
@@ -741,7 +875,11 @@ export class BranchComplianceService {
       compliancePct: kpis.compliance_pct,
       riskScore: risk.riskScore,
       riskLevel: risk.riskLevel,
-      riskBreakdown: { overdue: risk.overdue, reupload: risk.reupload, pending: risk.pending },
+      riskBreakdown: {
+        overdue: risk.overdue,
+        reupload: risk.reupload,
+        pending: risk.pending,
+      },
       trend,
       badges,
     };
@@ -753,15 +891,17 @@ export class BranchComplianceService {
     companyId: string,
     year: number,
     limit = 10,
-  ): Promise<Array<{
-    branchId: string;
-    branchName: string;
-    total: number;
-    approved: number;
-    compliancePct: number;
-    overdueCount: number;
-    riskScore: number;
-  }>> {
+  ): Promise<
+    Array<{
+      branchId: string;
+      branchName: string;
+      total: number;
+      approved: number;
+      compliancePct: number;
+      overdueCount: number;
+      riskScore: number;
+    }>
+  > {
     const rows = await this.dataSource.query(
       `SELECT
          b.id AS branch_id,
@@ -796,23 +936,30 @@ export class BranchComplianceService {
       approved: Number(r.approved),
       compliancePct: Number(r.compliance_pct),
       overdueCount: Number(r.overdue_count),
-      riskScore: Math.min(100, Number(r.overdue_count) * 8 + Number(r.reupload_count) * 5 + Number(r.pending_count) * 2),
+      riskScore: Math.min(
+        100,
+        Number(r.overdue_count) * 8 +
+          Number(r.reupload_count) * 5 +
+          Number(r.pending_count) * 2,
+      ),
     }));
   }
 
   // ─── Docs Due Soon (for reminders) ────────────────────────
 
-  async getDocsDueSoon(daysAhead: number): Promise<Array<{
-    id: string;
-    branchId: string;
-    companyId: string;
-    returnCode: string;
-    returnName: string;
-    frequency: string;
-    dueDate: string;
-    status: string;
-    uploadedByUserId: string | null;
-  }>> {
+  async getDocsDueSoon(daysAhead: number): Promise<
+    Array<{
+      id: string;
+      branchId: string;
+      companyId: string;
+      returnCode: string;
+      returnName: string;
+      frequency: string;
+      dueDate: string;
+      status: string;
+      uploadedByUserId: string | null;
+    }>
+  > {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysAhead);
     const dateStr = targetDate.toISOString().split('T')[0];
@@ -853,7 +1000,10 @@ export class BranchComplianceService {
 
   private async assertBranchAccess(user: any, branchId: string) {
     try {
-      await this.branchAccess.assertBranchAccess(user.userId ?? user.id, branchId);
+      await this.branchAccess.assertBranchAccess(
+        user.userId ?? user.id,
+        branchId,
+      );
     } catch {
       // If branchAccess service isn't available, check user.branchIds
       const ids: string[] = user.branchIds || [];
@@ -864,10 +1014,17 @@ export class BranchComplianceService {
   }
 
   private async findExistingDoc(
-    branchId: string, companyId: string, returnCode: string, frequency: string,
-    year: number, month?: number, quarter?: number, half?: number,
+    branchId: string,
+    companyId: string,
+    returnCode: string,
+    frequency: string,
+    year: number,
+    month?: number,
+    quarter?: number,
+    half?: number,
   ): Promise<ComplianceDocumentEntity | null> {
-    const qb = this.docRepo.createQueryBuilder('d')
+    const qb = this.docRepo
+      .createQueryBuilder('d')
       .where('d.branch_id = :branchId', { branchId })
       .andWhere('d.company_id = :companyId', { companyId })
       .andWhere('d.return_code = :returnCode', { returnCode })
@@ -888,7 +1045,13 @@ export class BranchComplianceService {
     returnCode: string,
     year: number,
   ): Promise<string> {
-    const dir = path.join(process.cwd(), 'uploads', 'compliance', companyId, branchId);
+    const dir = path.join(
+      process.cwd(),
+      'uploads',
+      'compliance',
+      companyId,
+      branchId,
+    );
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
     const ext = path.extname(file.originalname) || '.pdf';
@@ -913,15 +1076,23 @@ export class BranchComplianceService {
       // Due on dueDay of next month
       let dueMonth = month + 1;
       let dueYear = year;
-      if (dueMonth > 12) { dueMonth = 1; dueYear++; }
+      if (dueMonth > 12) {
+        dueMonth = 1;
+        dueYear++;
+      }
       return `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
     }
 
     if (frequency === 'QUARTERLY' && quarter) {
       // Due on dueDay of the month after the quarter ends
       // Q1 (Jan-Mar) → due April; Q2 (Apr-Jun) → due July; Q3 (Jul-Sep) → due Oct; Q4 (Oct-Dec) → due Jan+1
-      const quarterEndMonths: Record<number, number> = { 1: 4, 2: 7, 3: 10, 4: 1 };
-      let dueMonth = quarterEndMonths[quarter] || 4;
+      const quarterEndMonths: Record<number, number> = {
+        1: 4,
+        2: 7,
+        3: 10,
+        4: 1,
+      };
+      const dueMonth = quarterEndMonths[quarter] || 4;
       let dueYear = year;
       if (quarter === 4) dueYear++;
       return `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;

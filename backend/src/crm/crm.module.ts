@@ -2,8 +2,11 @@ import { Module } from '@nestjs/common';
 import { CrmDashboardController } from './crm-dashboard.controller';
 import { CrmContractorDocumentsController } from './crm-contractor-documents.controller';
 import { CrmComplianceTrackerController } from './crm-compliance-tracker.controller';
+import { CrmListController } from './crm-list.controller';
 import { CrmDashboardService } from './crm-dashboard.service';
-import { DbService } from '../common/db/db.service';
+import { ComplianceModule } from '../compliance/compliance.module';
+import { ListQueriesModule } from '../list-queries/list-queries.module';
+import { ReturnsModule } from '../returns/returns.module';
 
 /**
  * CRM Module
@@ -16,12 +19,17 @@ import { DbService } from '../common/db/db.service';
  *
  * Services:
  * - CrmDashboardService: Raw SQL queries for dashboard performance
- * - DbService: PostgreSQL query execution layer
+ * - DbService: provided globally via SharedModule
  */
 @Module({
-  imports: [],
-  controllers: [CrmDashboardController, CrmContractorDocumentsController, CrmComplianceTrackerController],
-  providers: [CrmDashboardService, DbService],
+  imports: [ComplianceModule, ListQueriesModule, ReturnsModule],
+  controllers: [
+    CrmDashboardController,
+    CrmContractorDocumentsController,
+    CrmComplianceTrackerController,
+    CrmListController,
+  ],
+  providers: [CrmDashboardService],
   exports: [CrmDashboardService],
 })
 export class CrmModule {}

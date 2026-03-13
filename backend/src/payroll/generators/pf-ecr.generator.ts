@@ -30,7 +30,9 @@ export class PfEcrGenerator {
     private readonly setupRepo: Repository<PayrollClientSetupEntity>,
   ) {}
 
-  async generate(runId: string): Promise<{ fileName: string; content: string }> {
+  async generate(
+    runId: string,
+  ): Promise<{ fileName: string; content: string }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
 
@@ -55,7 +57,7 @@ export class PfEcrGenerator {
       const valMap = new Map<string, number>();
       values.forEach((v) => valMap.set(v.componentCode, Number(v.amount)));
 
-      const grossWage = this.num(valMap.get('GROSS') ?? Number(emp.grossEarnings) ?? 0);
+      const grossWage = this.num(valMap.get('GROSS') ?? emp.grossEarnings ?? 0);
       const pfWages = this.num(valMap.get('PF_WAGES') ?? 0);
       const pfEmp = this.num(valMap.get('PF_EMP') ?? 0);
       const pfEps = this.num(valMap.get('PF_EPS') ?? 0);

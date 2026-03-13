@@ -6,11 +6,17 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { AuditEntity } from './audit.entity';
 import { AuditObservationCategoryEntity } from './audit-observation-category.entity';
 
 @Entity({ name: 'audit_observations', schema: 'public' })
+@Index('IDX_AO_AUDIT', ['auditId'])
+@Index('IDX_AO_CATEGORY', ['categoryId'])
+@Index('IDX_AO_STATUS', ['status'])
+@Index('IDX_AO_RISK', ['risk'])
+@Index('IDX_AO_RECORDED_BY', ['recordedByUserId'])
 export class AuditObservationEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -44,6 +50,12 @@ export class AuditObservationEntity {
 
   @Column({ type: 'text', nullable: true })
   elaboration: string | null; // Full detailed explanation
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  clause: string | null; // Legal section / act reference
+
+  @Column({ type: 'text', nullable: true })
+  recommendation: string | null; // Corrective action guidance
 
   @Column({ type: 'text', nullable: true })
   risk: string | null; // CRITICAL, HIGH, MEDIUM, LOW

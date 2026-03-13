@@ -75,20 +75,81 @@ export class EssService {
     return user.employeeId;
   }
 
+  private resolveMonthRange(month?: string) {
+    const safe =
+      month && /^\d{4}-\d{2}$/.test(month)
+        ? month
+        : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const start = new Date(`${safe}-01T00:00:00.000Z`);
+    const end = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
+    );
+
+    return {
+      month: safe,
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+      daysInMonth: new Date(
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0),
+      ).getUTCDate(),
+    };
+  }
+
+  private mapDocCategory(docType?: string | null): string {
+    const t = String(docType || '').toUpperCase();
+    if (
+      ['AADHAAR', 'PAN', 'PASSPORT', 'VOTER_ID', 'DRIVING_LICENSE'].includes(t)
+    ) {
+      return 'IDENTITY';
+    }
+    if (['UAN', 'PF', 'ESI', 'ESIC', 'PT', 'LWF'].includes(t)) {
+      return 'STATUTORY';
+    }
+    if (
+      [
+        'OFFER_LETTER',
+        'APPOINTMENT_LETTER',
+        'INCREMENT_LETTER',
+        'EXPERIENCE_LETTER',
+        'RELIEVING_LETTER',
+      ].includes(t)
+    ) {
+      return 'EMPLOYMENT';
+    }
+    if (['BANK', 'CANCELLED_CHEQUE', 'PASSBOOK'].includes(t)) {
+      return 'BANK';
+    }
+    return 'OTHER';
+  }
+
   // ── Company Branding ──────────────────────────────────
   async getCompanyBranding(user: EssUser) {
     if (!user.clientId) {
-      return { clientName: 'Company', clientCode: null, logoUrl: null, branchName: null };
+      return {
+        clientName: 'Company',
+        clientCode: null,
+        logoUrl: null,
+        branchName: null,
+      };
     }
-    const client = await this.clientRepo.findOne({ where: { id: user.clientId } });
+    const client = await this.clientRepo.findOne({
+      where: { id: user.clientId },
+    });
     if (!client) {
-      return { clientName: 'Company', clientCode: null, logoUrl: null, branchName: null };
+      return {
+        clientName: 'Company',
+        clientCode: null,
+        logoUrl: null,
+        branchName: null,
+      };
     }
 
     // Optionally resolve branch name from employee record
     let branchName: string | null = null;
     if (user.employeeId) {
-      const emp = await this.empRepo.findOne({ where: { id: user.employeeId } });
+      const emp = await this.empRepo.findOne({
+        where: { id: user.employeeId },
+      });
       branchName = (emp as any)?.branchName ?? null;
     }
 
@@ -109,6 +170,39 @@ export class EssService {
     return emp;
   }
 
+  /** Allow employees to update limited self-service fields */
+  async updateProfile(
+    user: EssUser,
+    body: {
+      phone?: string;
+      email?: string;
+      bankName?: string;
+      bankAccount?: string;
+      ifsc?: string;
+      fatherName?: string;
+    },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    // Only allow safe self-service fields — no salary, role, or code changes
+    const allowed: (keyof typeof body)[] = [
+      'phone',
+      'email',
+      'bankName',
+      'bankAccount',
+      'ifsc',
+      'fatherName',
+    ];
+    for (const key of allowed) {
+      if (body[key] !== undefined) {
+        (emp as any)[key] = body[key];
+      }
+    }
+    return this.empRepo.save(emp);
+  }
+
   // ── Statutory Details (PF / ESI) ────────────────────────
   async getStatutory(user: EssUser) {
     const empId = this.ensureEmployee(user);
@@ -116,7 +210,9 @@ export class EssService {
     if (!emp) throw new NotFoundException('Employee not found');
 
     // Try dedicated table first, fallback to employee master fields
-    const stat = await this.statutoryRepo.findOne({ where: { employeeId: empId } });
+    const stat = await this.statutoryRepo.findOne({
+      where: { employeeId: empId },
+    });
 
     return {
       pf: {
@@ -190,8 +286,17 @@ export class EssService {
     const compValues = await this.compValRepo
       .createQueryBuilder('cv')
       .where('cv.run_employee_id IN (:...ids)', { ids: reIds })
-      .andWhere("cv.component_code IN (:...codes)", {
-        codes: ['PF_EE', 'PF_ER', 'EPS_ER', 'ESI_EE', 'ESI_ER', 'PT', 'LWF_EE', 'LWF_ER'],
+      .andWhere('cv.component_code IN (:...codes)', {
+        codes: [
+          'PF_EE',
+          'PF_ER',
+          'EPS_ER',
+          'ESI_EE',
+          'ESI_ER',
+          'PT',
+          'LWF_EE',
+          'LWF_ER',
+        ],
       })
       .getMany();
 
@@ -251,6 +356,216 @@ export class EssService {
     };
   }
 
+  // -- Attendance / Holidays --------------------------------------------------
+  async getAttendance(user: EssUser, month?: string) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const range = this.resolveMonthRange(month);
+    const rows = await this.ds
+      .query(
+        `SELECT
+           a.date,
+           a.status,
+           a.check_in AS "checkIn",
+           a.check_out AS "checkOut",
+           a.worked_hours AS "workedHours",
+           a.overtime_hours AS "overtimeHours",
+           a.remarks,
+           a.source
+         FROM attendance_records a
+         WHERE a.employee_id = $1
+           AND a.date >= $2::date
+           AND a.date < $3::date
+         ORDER BY a.date ASC`,
+        [emp.id, range.startDate, range.endDate],
+      )
+      .catch(() => []);
+
+    return {
+      month: range.month,
+      daysInMonth: range.daysInMonth,
+      records: rows,
+    };
+  }
+
+  async getAttendanceSummary(user: EssUser, month?: string) {
+    const data = await this.getAttendance(user, month);
+    const counters = {
+      present: 0,
+      absent: 0,
+      halfDay: 0,
+      onLeave: 0,
+      holidays: 0,
+      weekOff: 0,
+    };
+
+    for (const row of data.records) {
+      const status = String(row.status || '').toUpperCase();
+      if (status === 'PRESENT') counters.present += 1;
+      else if (status === 'ABSENT') counters.absent += 1;
+      else if (status === 'HALF_DAY') counters.halfDay += 1;
+      else if (status === 'ON_LEAVE') counters.onLeave += 1;
+      else if (status === 'HOLIDAY') counters.holidays += 1;
+      else if (status === 'WEEK_OFF') counters.weekOff += 1;
+    }
+
+    const workedDays =
+      counters.present + counters.onLeave + counters.halfDay * 0.5;
+
+    return {
+      month: data.month,
+      daysInMonth: data.daysInMonth,
+      recordedDays: data.records.length,
+      workedDays: Number(workedDays.toFixed(1)),
+      ...counters,
+    };
+  }
+
+  async getHolidays(user: EssUser, month?: string) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const range = this.resolveMonthRange(month);
+    const rows = await this.ds
+      .query(
+        `SELECT
+           a.date,
+           a.status,
+           COALESCE(NULLIF(a.remarks, ''), CASE WHEN a.status = 'WEEK_OFF' THEN 'Weekly Off' ELSE 'Holiday' END) AS label
+         FROM attendance_records a
+         WHERE a.employee_id = $1
+           AND a.date >= $2::date
+           AND a.date < $3::date
+           AND a.status IN ('HOLIDAY', 'WEEK_OFF')
+         ORDER BY a.date ASC`,
+        [emp.id, range.startDate, range.endDate],
+      )
+      .catch(() => []);
+
+    return {
+      month: range.month,
+      items: rows,
+    };
+  }
+
+  // -- Employee Document Vault ------------------------------------------------
+  async listDocuments(
+    user: EssUser,
+    opts?: { category?: string; year?: number; q?: string },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const rows = await this.ds
+      .query(
+        `SELECT
+           d.id,
+           d.doc_type AS "docType",
+           d.doc_name AS "docName",
+           d.file_name AS "fileName",
+           d.file_size AS "fileSize",
+           d.mime_type AS "mimeType",
+           d.expiry_date AS "expiryDate",
+           d.is_verified AS "isVerified",
+           d.created_at AS "createdAt",
+           d.updated_at AS "updatedAt"
+         FROM employee_documents d
+         WHERE d.client_id = $1
+           AND d.employee_id = $2
+         ORDER BY d.created_at DESC`,
+        [emp.clientId, emp.id],
+      )
+      .catch(() => []);
+
+    const categoryFilter = String(opts?.category || '').toUpperCase();
+    const yearFilter = opts?.year ? Number(opts.year) : null;
+    const q = String(opts?.q || '').trim().toLowerCase();
+
+    let items = rows.map((r: any) => ({
+      ...r,
+      category: this.mapDocCategory(r.docType),
+    }));
+
+    if (categoryFilter && categoryFilter !== 'ALL') {
+      items = items.filter((r: any) => r.category === categoryFilter);
+    }
+    if (yearFilter) {
+      items = items.filter((r: any) => {
+        if (!r.createdAt) return false;
+        const y = new Date(r.createdAt).getFullYear();
+        return y === yearFilter;
+      });
+    }
+    if (q) {
+      items = items.filter((r: any) => {
+        const hay = `${r.docType || ''} ${r.docName || ''} ${r.fileName || ''}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    return {
+      total: items.length,
+      items,
+    };
+  }
+
+  async getDocumentById(user: EssUser, documentId: string) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const [doc] = await this.ds
+      .query(
+        `SELECT
+           d.id,
+           d.doc_type AS "docType",
+           d.doc_name AS "docName",
+           d.file_name AS "fileName",
+           d.file_path AS "filePath",
+           d.file_size AS "fileSize",
+           d.mime_type AS "mimeType",
+           d.expiry_date AS "expiryDate",
+           d.is_verified AS "isVerified",
+           d.created_at AS "createdAt",
+           d.updated_at AS "updatedAt"
+         FROM employee_documents d
+         WHERE d.id = $1
+           AND d.client_id = $2
+           AND d.employee_id = $3
+         LIMIT 1`,
+        [documentId, emp.clientId, emp.id],
+      )
+      .catch(() => [null]);
+
+    if (!doc) throw new NotFoundException('Document not found');
+    return {
+      ...doc,
+      category: this.mapDocCategory(doc.docType),
+    };
+  }
+
+  async getDocumentForDownload(user: EssUser, documentId: string) {
+    const doc = await this.getDocumentById(user, documentId);
+    const filePath = path.isAbsolute(doc.filePath)
+      ? doc.filePath
+      : path.join(process.cwd(), doc.filePath);
+
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('Document file not available on disk');
+    }
+
+    return {
+      stream: fs.createReadStream(filePath),
+      fileName: doc.docName || doc.fileName || 'document',
+      fileType: doc.mimeType || 'application/octet-stream',
+      fileSize: doc.fileSize || 0,
+    };
+  }
+
   // ── Nominations ──────────────────────────────────────────
   async listNominations(user: EssUser) {
     const empId = this.ensureEmployee(user);
@@ -260,7 +575,7 @@ export class EssService {
     });
     // Attach members
     const nomIds = noms.map((n) => n.id);
-    let membersMap: Record<string, EmployeeNominationMemberEntity[]> = {};
+    const membersMap: Record<string, EmployeeNominationMemberEntity[]> = {};
     if (nomIds.length) {
       const members = await this.nomMemberRepo
         .createQueryBuilder('m')
@@ -299,7 +614,9 @@ export class EssService {
     const saved = await this.nomRepo.save(nom);
 
     // Save members
-    const members = (dto.members ?? []).filter((m: any) => m.memberName?.trim());
+    const members = (dto.members ?? []).filter((m: any) =>
+      m.memberName?.trim(),
+    );
     if (members.length) {
       const entities = members.map((m: any) =>
         this.nomMemberRepo.create({
@@ -344,13 +661,17 @@ export class EssService {
     });
     if (!nom) throw new NotFoundException('Nomination not found');
     if (nom.status !== 'REJECTED') {
-      throw new BadRequestException('Only REJECTED nominations can be resubmitted');
+      throw new BadRequestException(
+        'Only REJECTED nominations can be resubmitted',
+      );
     }
 
     // Allow updating fields on resubmit
     if (dto.witnessName !== undefined) nom.witnessName = dto.witnessName;
-    if (dto.witnessAddress !== undefined) nom.witnessAddress = dto.witnessAddress;
-    if (dto.declarationDate !== undefined) nom.declarationDate = dto.declarationDate;
+    if (dto.witnessAddress !== undefined)
+      nom.witnessAddress = dto.witnessAddress;
+    if (dto.declarationDate !== undefined)
+      nom.declarationDate = dto.declarationDate;
 
     nom.status = 'SUBMITTED';
     nom.submittedAt = new Date();
@@ -360,7 +681,9 @@ export class EssService {
     await this.nomRepo.save(nom);
 
     // Replace members if provided
-    const members = (dto.members ?? []).filter((m: any) => m.memberName?.trim());
+    const members = (dto.members ?? []).filter((m: any) =>
+      m.memberName?.trim(),
+    );
     if (members.length) {
       await this.nomMemberRepo.delete({ nominationId });
       const entities = members.map((m: any) =>
@@ -437,9 +760,16 @@ export class EssService {
 
     // Check if policy allows negative
     const policy = await this.leavePolicyRepo.findOne({
-      where: { clientId: emp.clientId, leaveType: dto.leaveType, isActive: true },
+      where: {
+        clientId: emp.clientId,
+        leaveType: dto.leaveType,
+        isActive: true,
+      },
     });
-    if (!policy) throw new BadRequestException(`No leave policy found for type ${dto.leaveType}`);
+    if (!policy)
+      throw new BadRequestException(
+        `No leave policy found for type ${dto.leaveType}`,
+      );
     if (!policy.allowNegative && totalDays > available) {
       throw new BadRequestException(
         `Insufficient leave balance. Available: ${available}, Requested: ${totalDays}`,
@@ -470,7 +800,9 @@ export class EssService {
     });
     if (!app) throw new NotFoundException('Leave application not found');
     if (!['DRAFT', 'SUBMITTED'].includes(app.status)) {
-      throw new BadRequestException('Can only cancel DRAFT or SUBMITTED leave requests');
+      throw new BadRequestException(
+        'Can only cancel DRAFT or SUBMITTED leave requests',
+      );
     }
     app.status = 'CANCELLED';
     app.actionedAt = new Date();
@@ -491,7 +823,8 @@ export class EssService {
 
   // ── Branch Approval: Nominations ─────────────────────────
   async listPendingNominations(clientId: string, branchId?: string) {
-    const qb = this.nomRepo.createQueryBuilder('n')
+    const qb = this.nomRepo
+      .createQueryBuilder('n')
       .where('n.clientId = :clientId', { clientId })
       .andWhere('n.status = :status', { status: 'SUBMITTED' });
     if (branchId) qb.andWhere('n.branchId = :branchId', { branchId });
@@ -509,7 +842,7 @@ export class EssService {
         .getMany();
       empMap = Object.fromEntries(emps.map((e) => [e.id, e]));
     }
-    let membersMap: Record<string, any[]> = {};
+    const membersMap: Record<string, any[]> = {};
     if (nomIds.length) {
       const members = await this.nomMemberRepo
         .createQueryBuilder('m')
@@ -527,7 +860,8 @@ export class EssService {
   async approveNomination(nomId: string, userId: string) {
     const nom = await this.nomRepo.findOne({ where: { id: nomId } });
     if (!nom) throw new NotFoundException('Nomination not found');
-    if (nom.status !== 'SUBMITTED') throw new BadRequestException('Not in SUBMITTED status');
+    if (nom.status !== 'SUBMITTED')
+      throw new BadRequestException('Not in SUBMITTED status');
     nom.status = 'APPROVED';
     nom.approvedAt = new Date();
     nom.approvedByUserId = userId;
@@ -538,7 +872,8 @@ export class EssService {
   async rejectNomination(nomId: string, userId: string, reason?: string) {
     const nom = await this.nomRepo.findOne({ where: { id: nomId } });
     if (!nom) throw new NotFoundException('Nomination not found');
-    if (nom.status !== 'SUBMITTED') throw new BadRequestException('Not in SUBMITTED status');
+    if (nom.status !== 'SUBMITTED')
+      throw new BadRequestException('Not in SUBMITTED status');
     nom.status = 'REJECTED';
     nom.approvedAt = new Date();
     nom.approvedByUserId = userId;
@@ -549,7 +884,8 @@ export class EssService {
 
   // ── Branch Approval: Leave Applications ──────────────────
   async listPendingLeaves(clientId: string, branchId?: string) {
-    const qb = this.leaveAppRepo.createQueryBuilder('la')
+    const qb = this.leaveAppRepo
+      .createQueryBuilder('la')
       .where('la.clientId = :clientId', { clientId })
       .andWhere('la.status = :status', { status: 'SUBMITTED' });
     if (branchId) qb.andWhere('la.branchId = :branchId', { branchId });
@@ -559,7 +895,10 @@ export class EssService {
     const empIds = [...new Set(apps.map((a) => a.employeeId))];
     let empMap: Record<string, any> = {};
     if (empIds.length) {
-      const emps = await this.empRepo.createQueryBuilder('e').whereInIds(empIds).getMany();
+      const emps = await this.empRepo
+        .createQueryBuilder('e')
+        .whereInIds(empIds)
+        .getMany();
       empMap = Object.fromEntries(emps.map((e) => [e.id, e]));
     }
     return apps.map((a) => ({
@@ -568,10 +907,154 @@ export class EssService {
     }));
   }
 
+  /**
+   * Unified client approvals queue (leave + nomination).
+   * Supports optional type filter for compatibility with /client/approvals.
+   */
+  async listClientApprovals(
+    clientId: string,
+    branchId?: string,
+    type?: 'LEAVE' | 'NOMINATION',
+  ) {
+    if (type === 'LEAVE') {
+      return this.listPendingLeaves(clientId, branchId);
+    }
+    if (type === 'NOMINATION') {
+      return this.listPendingNominations(clientId, branchId);
+    }
+    const [leaves, nominations] = await Promise.all([
+      this.listPendingLeaves(clientId, branchId),
+      this.listPendingNominations(clientId, branchId),
+    ]);
+    return { leaves, nominations };
+  }
+
+  /**
+   * Resolve approval item across nomination/leave for unified endpoints.
+   */
+  async getClientApprovalById(
+    clientId: string,
+    id: string,
+    type?: 'LEAVE' | 'NOMINATION',
+  ): Promise<any> {
+    if (type === 'NOMINATION') {
+      const nom = await this.nomRepo.findOne({ where: { id, clientId } });
+      if (!nom) throw new NotFoundException('Approval item not found');
+      return { type: 'NOMINATION', ...nom };
+    }
+    if (type === 'LEAVE') {
+      const leave = await this.leaveAppRepo.findOne({ where: { id, clientId } });
+      if (!leave) throw new NotFoundException('Approval item not found');
+      return { type: 'LEAVE', ...leave };
+    }
+
+    const nom = await this.nomRepo.findOne({ where: { id, clientId } });
+    if (nom) return { type: 'NOMINATION', ...nom };
+
+    const leave = await this.leaveAppRepo.findOne({ where: { id, clientId } });
+    if (leave) return { type: 'LEAVE', ...leave };
+
+    throw new NotFoundException('Approval item not found');
+  }
+
+  async getClientApprovalHistory(
+    clientId: string,
+    id: string,
+    type?: 'LEAVE' | 'NOMINATION',
+  ) {
+    const item = await this.getClientApprovalById(clientId, id, type);
+    const events: Array<{
+      at: string | null;
+      event: string;
+      status: string | null;
+      note?: string | null;
+    }> = [];
+
+    if (item.createdAt) {
+      events.push({
+        at: item.createdAt,
+        event: 'Created',
+        status: item.status || null,
+      });
+    }
+
+    if (item.type === 'NOMINATION') {
+      if (item.submittedAt) {
+        events.push({
+          at: item.submittedAt,
+          event: 'Submitted',
+          status: item.status || null,
+        });
+      }
+      if (item.approvedAt) {
+        events.push({
+          at: item.approvedAt,
+          event: item.status === 'APPROVED' ? 'Approved' : 'Reviewed',
+          status: item.status || null,
+          note: item.rejectionReason || null,
+        });
+      }
+    } else {
+      if (item.appliedAt) {
+        events.push({
+          at: item.appliedAt,
+          event: 'Submitted',
+          status: item.status || null,
+        });
+      }
+      if (item.actionedAt) {
+        events.push({
+          at: item.actionedAt,
+          event: item.status === 'APPROVED' ? 'Approved' : 'Reviewed',
+          status: item.status || null,
+          note: item.rejectionReason || null,
+        });
+      }
+    }
+
+    events.sort((a, b) => {
+      const at = a.at ? new Date(a.at).getTime() : 0;
+      const bt = b.at ? new Date(b.at).getTime() : 0;
+      return at - bt;
+    });
+
+    return {
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      branchId: item.branchId || null,
+      events,
+    };
+  }
+
+  async approveClientApproval(
+    clientId: string,
+    id: string,
+    userId: string,
+    type?: 'LEAVE' | 'NOMINATION',
+  ) {
+    const item = await this.getClientApprovalById(clientId, id, type);
+    if (item.type === 'NOMINATION') return this.approveNomination(id, userId);
+    return this.approveLeave(id, userId);
+  }
+
+  async rejectClientApproval(
+    clientId: string,
+    id: string,
+    userId: string,
+    reason?: string,
+    type?: 'LEAVE' | 'NOMINATION',
+  ) {
+    const item = await this.getClientApprovalById(clientId, id, type);
+    if (item.type === 'NOMINATION') return this.rejectNomination(id, userId, reason);
+    return this.rejectLeave(id, userId, reason);
+  }
+
   async approveLeave(leaveId: string, userId: string) {
     const app = await this.leaveAppRepo.findOne({ where: { id: leaveId } });
     if (!app) throw new NotFoundException('Leave application not found');
-    if (app.status !== 'SUBMITTED') throw new BadRequestException('Not in SUBMITTED status');
+    if (app.status !== 'SUBMITTED')
+      throw new BadRequestException('Not in SUBMITTED status');
 
     return this.ds.transaction(async (mgr) => {
       // Update application
@@ -618,7 +1101,8 @@ export class EssService {
   async rejectLeave(leaveId: string, userId: string, reason?: string) {
     const app = await this.leaveAppRepo.findOne({ where: { id: leaveId } });
     if (!app) throw new NotFoundException('Leave application not found');
-    if (app.status !== 'SUBMITTED') throw new BadRequestException('Not in SUBMITTED status');
+    if (app.status !== 'SUBMITTED')
+      throw new BadRequestException('Not in SUBMITTED status');
     app.status = 'REJECTED';
     app.approverUserId = userId;
     app.actionedAt = new Date();
@@ -656,7 +1140,9 @@ export class EssService {
   }
 
   async updateLeavePolicy(clientId: string, id: string, dto: any) {
-    const policy = await this.leavePolicyRepo.findOne({ where: { id, clientId } });
+    const policy = await this.leavePolicyRepo.findOne({
+      where: { id, clientId },
+    });
     if (!policy) throw new NotFoundException('Leave policy not found');
     Object.assign(policy, dto);
     return this.leavePolicyRepo.save(policy);
@@ -669,7 +1155,10 @@ export class EssService {
   async seedDefaultLeavePolicies(clientId: string) {
     const existing = await this.leavePolicyRepo.count({ where: { clientId } });
     if (existing > 0) {
-      return { message: 'Leave policies already exist for this client', count: existing };
+      return {
+        message: 'Leave policies already exist for this client',
+        count: existing,
+      };
     }
 
     const defaults = [
@@ -724,7 +1213,9 @@ export class EssService {
       where: { clientId, isActive: true },
     });
     if (!policies.length) {
-      throw new BadRequestException('No leave policies found. Please seed or create policies first.');
+      throw new BadRequestException(
+        'No leave policies found. Please seed or create policies first.',
+      );
     }
 
     const employees = await this.empRepo.find({

@@ -5,6 +5,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { AdminActionsService } from './admin-actions.service';
 import { AdminNotifyDto } from './dto/admin-notify.dto';
 import { AdminReassignDto } from './dto/admin-reassign.dto';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
  * Admin Actions Controller
@@ -16,6 +17,8 @@ import { AdminReassignDto } from './dto/admin-reassign.dto';
  * ⚠️ RBAC: Requires ADMIN role
  * ⚠️ Transaction-safe: Uses TypeORM transactions with pessimistic locking
  */
+@ApiTags('Admin')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/actions', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -42,6 +45,7 @@ export class AdminActionsController {
    * - status: 'SENT'
    * - notificationId: UUID of created notification
    */
+  @ApiOperation({ summary: 'Notify' })
   @Post('notify')
   notify(@Req() req: any, @Body() dto: AdminNotifyDto) {
     return this.svc.notify(req.user, dto);
@@ -69,6 +73,7 @@ export class AdminActionsController {
    * ⚠️ Transaction-safe with pessimistic write lock
    * ⚠️ Unique index prevents duplicate ACTIVE assignments
    */
+  @ApiOperation({ summary: 'Reassign' })
   @Post('reassign')
   reassign(@Req() req: any, @Body() dto: AdminReassignDto) {
     return this.svc.reassign(req.user, dto);

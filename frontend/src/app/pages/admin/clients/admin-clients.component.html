@@ -40,6 +40,99 @@
     </nav>
   </div>
 
+  <!-- MASTER CLIENT USER (visible on all tabs) -->
+  <div class="card mb-6" *ngIf="selectedClient">
+    <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+      <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+      Master Client User
+    </h3>
+
+    <!-- Password Reset Banner -->
+    <div *ngIf="masterUserResetResult" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+      <div class="flex items-start justify-between">
+        <div>
+          <h4 class="text-sm font-semibold text-green-800 mb-1">Password Reset Successful</h4>
+          <p class="text-sm text-green-700">
+            <strong>New Password:</strong> <code class="bg-green-100 px-2 py-0.5 rounded text-green-900 font-mono">{{ masterUserResetResult.newPassword }}</code>
+          </p>
+          <p class="text-xs text-green-600 mt-1">Copy this password now; it will not be shown again.</p>
+        </div>
+        <button type="button" (click)="masterUserResetResult = null" class="text-green-600 hover:text-green-800 text-lg font-bold">&times;</button>
+      </div>
+    </div>
+
+    <div *ngIf="clientUsers.length > 0">
+      <!-- View Mode -->
+      <ng-container *ngIf="!editingMasterUser">
+        <div *ngFor="let u of clientUsers"
+             class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 mb-2">
+          <div>
+            <div class="font-medium text-gray-900">{{ u.name }}</div>
+            <div class="text-sm text-gray-500">{{ u.email }}</div>
+            <div class="text-sm text-gray-500" *ngIf="u.mobile">{{ u.mobile }}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <ui-button variant="secondary" size="sm" (clicked)="startEditMasterUser(u)">
+              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Edit
+            </ui-button>
+            <ui-button variant="secondary" size="sm" (clicked)="resetMasterUserPassword(u.userId)">
+              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+              </svg>
+              Reset Password
+            </ui-button>
+            <ui-status-badge variant="success" size="sm">MASTER</ui-status-badge>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Edit Mode -->
+      <div *ngIf="editingMasterUser" class="bg-white border border-indigo-200 rounded-lg p-5">
+        <h4 class="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Edit Master User Details</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <ui-form-input
+            label="Full Name"
+            [(ngModel)]="editingMasterUser.name"
+            name="editMasterName"
+            placeholder="Full name"
+            [required]="true">
+          </ui-form-input>
+          <ui-form-input
+            label="Email Address"
+            type="email"
+            [(ngModel)]="editingMasterUser.email"
+            name="editMasterEmail"
+            placeholder="email@company.com"
+            [required]="true">
+          </ui-form-input>
+          <ui-form-input
+            label="Mobile"
+            [(ngModel)]="editingMasterUser.mobile"
+            name="editMasterMobile"
+            placeholder="10-digit mobile">
+          </ui-form-input>
+        </div>
+        <div class="flex gap-3">
+          <ui-button variant="primary" (clicked)="saveMasterUser()" [disabled]="savingMasterUser || !editingMasterUser.name || !editingMasterUser.email">
+            {{ savingMasterUser ? 'Saving...' : 'Save Changes' }}
+          </ui-button>
+          <ui-button variant="secondary" (clicked)="cancelEditMasterUser()">
+            Cancel
+          </ui-button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="clientUsers.length === 0" class="text-sm text-gray-500 italic">
+      No master user linked to this client.
+    </div>
+  </div>
+
   <!-- TAB 1: COMPANY DETAILS -->
   <div *ngIf="activeTab === 'company'">
     <div class="card">
@@ -102,6 +195,28 @@
             <input type="checkbox" [(ngModel)]="showMasterPassword" [ngModelOptions]="{standalone: true}" class="rounded border-gray-300" />
             Show password
           </label>
+        </div>
+
+        <!-- Section 3: Company Logo (optional) -->
+        <div class="border-t border-gray-200 pt-4">
+          <h4 class="text-sm font-semibold text-gray-700 mb-1 uppercase tracking-wide">Company Logo (Optional)</h4>
+          <p class="text-xs text-gray-500 mb-3">
+            Upload a company logo (PNG, JPG, SVG, or WebP — max 2 MB). It will appear beside the client user's name in the portal.
+          </p>
+          <div class="flex items-center gap-4">
+            <label class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              Choose Logo
+              <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" class="hidden" (change)="onRegLogoFileSelected($event)" />
+            </label>
+            <span *ngIf="regLogoFile" class="text-sm text-gray-600">{{ regLogoFile.name }}</span>
+            <button *ngIf="regLogoFile" type="button" (click)="removeRegLogo()" class="text-xs text-red-500 hover:text-red-700">Remove</button>
+          </div>
+          <div *ngIf="regLogoPreviewUrl" class="mt-3">
+            <img [src]="regLogoPreviewUrl" alt="Logo preview" class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
+          </div>
         </div>
 
         <!-- Created Master User Credentials Banner -->
@@ -201,6 +316,63 @@
             </ui-button>
           </div>
         </form>
+
+        <!-- ── Client Logo Upload ────────────────────── -->
+        <div class="mt-8 border-t border-gray-200 pt-6">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4">Client Logo</h4>
+
+          <!-- Current logo preview -->
+          <div *ngIf="selectedClient.logoUrl" class="mb-4 flex items-center gap-4">
+            <img [src]="selectedClient.logoUrl" alt="Current logo"
+                 class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
+            <span class="text-sm text-gray-500">Current logo</span>
+          </div>
+
+          <!-- Mode toggle -->
+          <div class="flex gap-2 mb-4">
+            <button type="button"
+              (click)="logoUploadMode = 'file'"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
+              [class]="logoUploadMode === 'file' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'">
+              Upload Image File
+            </button>
+            <button type="button"
+              (click)="logoUploadMode = 'svg'"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors"
+              [class]="logoUploadMode === 'svg' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'">
+              Paste SVG Code
+            </button>
+          </div>
+
+          <!-- File upload -->
+          <div *ngIf="logoUploadMode === 'file'" class="space-y-3">
+            <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              (change)="onLogoFileSelected($event)"
+              class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            <img *ngIf="logoPreviewUrl" [src]="logoPreviewUrl" alt="Preview" class="h-16 w-auto rounded border border-gray-200 bg-white p-1" />
+          </div>
+
+          <!-- SVG code input -->
+          <div *ngIf="logoUploadMode === 'svg'" class="space-y-3">
+            <textarea
+              [(ngModel)]="svgCodeInput"
+              rows="6"
+              placeholder="Paste your SVG code here (must start with <svg ...)"
+              class="w-full rounded-lg border-gray-300 text-sm font-mono focus:ring-blue-500 focus:border-blue-500">
+            </textarea>
+          </div>
+
+          <!-- Upload button + messages -->
+          <div class="mt-4 flex items-center gap-3">
+            <button type="button" (click)="uploadLogo()" [disabled]="uploadingLogo"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              <svg *ngIf="uploadingLogo" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              {{ uploadingLogo ? 'Uploading...' : 'Upload Logo' }}
+            </button>
+            <span *ngIf="logoUploadMessage" class="text-sm text-green-600">{{ logoUploadMessage }}</span>
+            <span *ngIf="logoUploadError" class="text-sm text-red-600">{{ logoUploadError }}</span>
+          </div>
+        </div>
 
         <!-- Readiness Checklist -->
         <div *ngIf="readinessResult" class="mt-6 bg-white dark:bg-gray-800 border rounded-lg p-5">
@@ -350,29 +522,6 @@
       </div>
     </div>
 
-    <!-- MASTER CLIENT USER (Read-Only Display) -->
-    <div class="card mt-6" *ngIf="selectedClient">
-      <h3 class="text-xl font-semibold text-gray-900 mb-4">Master Client User</h3>
-
-      <div *ngIf="clientUsers.length > 0">
-        <div *ngFor="let u of clientUsers"
-             class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 mb-2">
-          <div>
-            <div class="font-medium text-gray-900">{{ u.name }}</div>
-            <div class="text-sm text-gray-500">{{ u.email }}</div>
-            <div class="text-sm text-gray-500" *ngIf="u.mobile">{{ u.mobile }}</div>
-          </div>
-          <ui-status-badge variant="success" size="sm">MASTER</ui-status-badge>
-        </div>
-      </div>
-
-      <ui-empty-state
-        *ngIf="clientUsers.length === 0"
-        title="No master user linked"
-        description="This client has no master user. Create one from the Users section.">
-      </ui-empty-state>
-    </div>
-
     <!-- ALL CLIENTS LIST -->
     <div class="card" *ngIf="!selectedClient">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">All Client Companies</h3>
@@ -467,21 +616,31 @@
         </div>
 
         <div class="border-t border-gray-200 pt-4 mt-2">
-          <h4 class="text-sm font-semibold text-gray-800 mb-3">Branch User Login (auto-created on add)</h4>
+          <h4 class="text-sm font-semibold text-gray-800 mb-3">Branch Desk User Login <span class="text-red-500">*</span></h4>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ui-form-input
-              label="User Name"
+              label="User Name *"
               [(ngModel)]="branchForm.branchUserName"
               name="branchUserName"
-              placeholder="e.g., Branch Manager">
+              placeholder="e.g., Branch Manager"
+              [required]="!editingBranchId">
             </ui-form-input>
 
             <ui-form-input
-              label="Email"
+              label="Email *"
               type="email"
               [(ngModel)]="branchForm.branchUserEmail"
               name="branchUserEmail"
-              placeholder="branch@example.com">
+              placeholder="branch@example.com"
+              [required]="!editingBranchId">
+            </ui-form-input>
+
+            <ui-form-input
+              label="Mobile *"
+              [(ngModel)]="branchForm.branchUserMobile"
+              name="branchUserMobile"
+              placeholder="e.g., 9876543210"
+              [required]="!editingBranchId">
             </ui-form-input>
 
             <ui-form-input
@@ -491,7 +650,7 @@
               placeholder="Leave empty to auto-generate">
             </ui-form-input>
           </div>
-          <p class="text-xs text-gray-500 mt-2">If left empty, a secure password is auto-generated. Branch user is created only when adding a new branch.</p>
+          <p class="text-xs text-gray-500 mt-2">Every branch must have a desk user for branch-level supervision. Password is auto-generated if left empty.</p>
         </div>
 
         <div class="flex gap-3">

@@ -19,6 +19,16 @@ import { NotificationReadEntity } from './notification-read.entity';
  * Maps to DB table: notifications
  */
 @Entity({ name: 'notifications' })
+@Index('IDX_NOTIF_CLIENT', ['clientId'])
+@Index('IDX_NOTIF_BRANCH', ['branchId'])
+@Index('IDX_NOTIF_CREATED_BY', ['createdByUserId'])
+@Index('IDX_NOTIF_ASSIGNED_TO', ['assignedToUserId'])
+@Index('IDX_NOTIF_STATUS', ['status'])
+@Index('IDX_NOTIF_PRIORITY', ['priority'])
+@Index('IDX_NOTIF_QUERY_TYPE', ['queryType'])
+@Index('IDX_NOTIF_CREATED_AT', ['createdAt'])
+@Index('IDX_NOTIF_CLIENT_STATUS', ['clientId', 'status'])
+@Index('IDX_NOTIF_ASSIGNED_STATUS', ['assignedToUserId', 'status'])
 export class NotificationEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

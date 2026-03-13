@@ -27,8 +27,9 @@ export class CreateUserDto {
   @IsString()
   mobile?: string;
 
+  @IsOptional()
   @MinLength(6)
-  password: string;
+  password?: string;
 
   @IsOptional()
   @IsUUID()

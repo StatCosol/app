@@ -17,13 +17,28 @@ export class ComplianceReturnMasterEntity {
   @Column({ name: 'law_area', type: 'varchar', length: 40 })
   lawArea: string;
 
-  @Column({ name: 'frequency', type: 'varchar', length: 20, default: 'MONTHLY' })
+  @Column({
+    name: 'frequency',
+    type: 'varchar',
+    length: 20,
+    default: 'MONTHLY',
+  })
   frequency: string;
 
-  @Column({ name: 'scope_default', type: 'varchar', length: 20, default: 'BRANCH' })
+  @Column({
+    name: 'scope_default',
+    type: 'varchar',
+    length: 20,
+    default: 'BRANCH',
+  })
   scopeDefault: string;
 
-  @Column({ name: 'applicable_for', type: 'varchar', length: 20, default: 'BOTH' })
+  @Column({
+    name: 'applicable_for',
+    type: 'varchar',
+    length: 20,
+    default: 'BOTH',
+  })
   applicableFor: string;
 
   @Column({ name: 'due_day', type: 'int', nullable: true })

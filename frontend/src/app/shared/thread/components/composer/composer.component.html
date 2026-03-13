@@ -1,0 +1,57 @@
+<div class="border-t border-gray-200 p-4"
+  [class.opacity-50]="disabled"
+  [class.pointer-events-none]="disabled">
+
+  <!-- File chips -->
+  <div *ngIf="files.length" class="flex flex-wrap gap-2 mb-3">
+    <span *ngFor="let f of files; let i = index"
+      class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+      </svg>
+      {{ f.name }}
+      <button type="button" class="ml-1 text-blue-400 hover:text-blue-700" (click)="removeFile(i)">×</button>
+    </span>
+  </div>
+
+  <!-- Compose area -->
+  <div class="flex gap-3 items-end">
+    <textarea
+      class="flex-1 rounded-lg border-gray-300 text-sm placeholder-gray-400
+             focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+      rows="2"
+      [(ngModel)]="message"
+      [placeholder]="placeholder"
+      (keydown.control.enter)="submit()"
+      (keydown.meta.enter)="submit()">
+    </textarea>
+
+    <div class="flex flex-col gap-2">
+      <!-- Attach button -->
+      <label class="cursor-pointer px-3 py-2 rounded-lg border border-gray-300 text-gray-500
+                    hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center justify-center">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+        </svg>
+        <input type="file" multiple class="hidden" (change)="onFiles($event)" />
+      </label>
+
+      <!-- Send button -->
+      <button class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium
+                     hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                     flex items-center gap-2"
+        [disabled]="disabled || sending || (!message.trim() && files.length === 0)"
+        (click)="submit()">
+        <svg *ngIf="sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Send
+      </button>
+    </div>
+  </div>
+
+  <p class="text-[10px] text-gray-400 mt-1">Ctrl+Enter to send</p>
+</div>

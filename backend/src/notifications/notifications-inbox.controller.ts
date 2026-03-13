@@ -13,6 +13,7 @@ import { NotificationsInboxService } from './notifications-inbox.service';
 import { NotificationListQueryDto } from './dto/notification-list.dto';
 import { NotificationStatusDto } from './dto/notification-status.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
  * Notifications Inbox Controller
@@ -20,6 +21,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
  * Endpoints for inbox/outbox management
  * All routes require authentication via RolesGuard
  */
+@ApiTags('Notifications')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'notifications', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NotificationsInboxController {
@@ -50,6 +53,7 @@ export class NotificationsInboxController {
    *
    * Returns array of notifications with sender/recipient details
    */
+  @ApiOperation({ summary: 'List' })
   @Get('list')
   list(
     @Req() req: any,
@@ -71,6 +75,7 @@ export class NotificationsInboxController {
    *
    * Returns full notification details with user/client/branch names
    */
+  @ApiOperation({ summary: 'Get' })
   @Get(':id')
   get(@Req() req: any, @Param('id') id: string) {
     return this.svc.getById(req.user, id);
@@ -87,6 +92,7 @@ export class NotificationsInboxController {
    *
    * Auto-updates read_at timestamp when status changes to READ
    */
+  @ApiOperation({ summary: 'Set Status' })
   @Patch(':id/status')
   setStatus(
     @Req() req: any,

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,6 +29,8 @@ import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.s
 
 @Injectable()
 export class ComplianceService {
+  private readonly logger = new Logger(ComplianceService.name);
+
   constructor(
     @InjectRepository(ComplianceMasterEntity)
     private masters: Repository<ComplianceMasterEntity>,
@@ -313,6 +316,9 @@ export class ComplianceService {
       contractorMap.set(contractorId, entry);
     }
 
+    // Reupload backlog KPIs (with client/branch breakdown)
+    const reuploadBacklog = await this.getReuploadBacklogKpis(clientIds);
+
     return {
       clients: clientIds.length,
       tasks,
@@ -321,6 +327,7 @@ export class ComplianceService {
         count: Number(r.count),
       })),
       contractorPerformance: Array.from(contractorMap.values()),
+      reuploadBacklog,
     };
   }
 
@@ -691,10 +698,205 @@ export class ComplianceService {
         count: Number(r.count),
       })),
       contractorPerformance: Array.from(contractorMap.values()),
+      reuploadBacklog: await this.getReuploadBacklogKpis(clientIds),
+    };
+  }
+
+  private async getReuploadBacklogKpis(clientIds: string[]) {
+    if (!clientIds.length) {
+      return {
+        open: 0,
+        submitted: 0,
+        overdue: 0,
+        avgTurnaroundDays: null,
+        openClient: 0,
+        openBranch: 0,
+        submittedClient: 0,
+        submittedBranch: 0,
+      };
+    }
+
+    const counts = await this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .select('r.status', 'status')
+      .addSelect('r.targetRole', 'targetRole')
+      .addSelect('COUNT(*)', 'count')
+      .where('r.clientId IN (:...clientIds)', { clientIds })
+      .groupBy('r.status')
+      .addGroupBy('r.targetRole')
+      .getRawMany();
+
+    const sumBy = (status: string, role?: string) =>
+      Number(
+        counts
+          .filter(
+            (c: any) => c.status === status && (!role || c.targetRole === role),
+          )
+          .reduce((acc: number, c: any) => acc + Number(c.count || 0), 0),
+      );
+
+    const open = sumBy('OPEN');
+    const submitted = sumBy('SUBMITTED');
+    const openClient = sumBy('OPEN', 'CLIENT');
+    const openBranch = sumBy('OPEN', 'BRANCH');
+    const submittedClient = sumBy('SUBMITTED', 'CLIENT');
+    const submittedBranch = sumBy('SUBMITTED', 'BRANCH');
+
+    const overdueResult = await this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .select('COUNT(*)', 'count')
+      .where('r.clientId IN (:...clientIds)', { clientIds })
+      .andWhere('r.status IN (:...active)', { active: ['OPEN', 'SUBMITTED'] })
+      .andWhere('r.deadlineDate < CURRENT_DATE')
+      .getRawOne();
+    const overdue = Number(overdueResult?.count || 0);
+
+    const avgResult = await this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .select(
+        'AVG(EXTRACT(EPOCH FROM (r.submittedAt - r.createdAt)) / 86400)',
+        'avg',
+      )
+      .where('r.clientId IN (:...clientIds)', { clientIds })
+      .andWhere('r.submittedAt IS NOT NULL')
+      .getRawOne();
+    const avgTurnaroundDays = avgResult?.avg
+      ? Math.round(Number(avgResult.avg) * 10) / 10
+      : null;
+
+    return {
+      open,
+      submitted,
+      overdue,
+      avgTurnaroundDays,
+      openClient,
+      openBranch,
+      submittedClient,
+      submittedBranch,
     };
   }
 
   // ---------- CRM APIs ----------
+
+  async crmTaskKpis(user: any) {
+    this.assertRole(user, ['CRM']);
+    const clientIds = await this.getCrmAssignedClientIds(user.userId);
+    if (!clientIds.length) {
+      return {
+        total: 0,
+        pending: 0,
+        inProgress: 0,
+        submitted: 0,
+        approved: 0,
+        rejected: 0,
+        overdue: 0,
+        dueToday: 0,
+        dueSoon: 0,
+      };
+    }
+
+    const today = this.toDateOnly(new Date());
+    const threeDaysAhead = new Date();
+    threeDaysAhead.setUTCDate(threeDaysAhead.getUTCDate() + 3);
+    const threeDaysStr = this.toDateOnly(threeDaysAhead);
+
+    const rows = await this.tasks
+      .createQueryBuilder('t')
+      .select('t.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        `SUM(CASE WHEN t.due_date < :today AND t.status IN ('PENDING','IN_PROGRESS','REJECTED') THEN 1 ELSE 0 END)`,
+        'overdueCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN t.due_date = :today AND t.status IN ('PENDING','IN_PROGRESS') THEN 1 ELSE 0 END)`,
+        'dueTodayCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN t.due_date > :today AND t.due_date <= :threeDays AND t.status IN ('PENDING','IN_PROGRESS') THEN 1 ELSE 0 END)`,
+        'dueSoonCount',
+      )
+      .where('t.clientId IN (:...clientIds)', { clientIds })
+      .setParameter('today', today)
+      .setParameter('threeDays', threeDaysStr)
+      .groupBy('t.status')
+      .getRawMany();
+
+    const statusCount = (st: string) =>
+      Number(rows.find((r: any) => r.status === st)?.count || 0);
+
+    const total = rows.reduce((s, r: any) => s + Number(r.count || 0), 0);
+    const overdue = rows.reduce(
+      (s, r: any) => s + Number(r.overdueCount || 0),
+      0,
+    );
+    const dueToday = rows.reduce(
+      (s, r: any) => s + Number(r.dueTodayCount || 0),
+      0,
+    );
+    const dueSoon = rows.reduce(
+      (s, r: any) => s + Number(r.dueSoonCount || 0),
+      0,
+    );
+
+    return {
+      total,
+      pending: statusCount('PENDING'),
+      inProgress: statusCount('IN_PROGRESS'),
+      submitted: statusCount('SUBMITTED'),
+      approved: statusCount('APPROVED'),
+      rejected: statusCount('REJECTED'),
+      overdue: statusCount('OVERDUE') + overdue,
+      dueToday,
+      dueSoon,
+    };
+  }
+
+  async crmBulkApprove(user: any, taskIds: number[], remarks?: string) {
+    this.assertRole(user, ['CRM']);
+    if (!taskIds?.length) throw new BadRequestException('taskIds required');
+
+    const results: { id: number; ok: boolean; error?: string }[] = [];
+
+    for (const id of taskIds) {
+      try {
+        await this.crmApprove(user, String(id), remarks);
+        results.push({ id, ok: true });
+      } catch (e: any) {
+        results.push({ id, ok: false, error: e.message || 'Failed' });
+      }
+    }
+
+    return {
+      approved: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
+  }
+
+  async crmBulkReject(user: any, taskIds: number[], remarks: string) {
+    this.assertRole(user, ['CRM']);
+    if (!taskIds?.length) throw new BadRequestException('taskIds required');
+    if (!remarks?.trim()) throw new BadRequestException('remarks required');
+
+    const results: { id: number; ok: boolean; error?: string }[] = [];
+
+    for (const id of taskIds) {
+      try {
+        await this.crmReject(user, String(id), remarks);
+        results.push({ id, ok: true });
+      } catch (e: any) {
+        results.push({ id, ok: false, error: e.message || 'Failed' });
+      }
+    }
+
+    return {
+      rejected: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
+  }
+
   async crmCreateTask(
     user: any,
     dto: {
@@ -850,8 +1052,21 @@ export class ComplianceService {
       userName: c.user?.name || `User #${c.userId}`,
     }));
 
-    // TODO: Implement audit report thread check if needed with new notification system
-    const hasAuditReport = false;
+    // Check if there's an audit report notification thread for this task
+    let hasAuditReport = false;
+    try {
+      const threads = await this.notifications.findThreadsBySubject(
+        `Audit Report for Task #${taskIdNum}`,
+        String(t.clientId),
+      );
+      hasAuditReport = threads.length > 0;
+    } catch (e) {
+      this.logger.warn(
+        `Notification (audit-report thread lookup) failed for task #${taskIdNum}`,
+        (e as Error)?.message,
+      );
+      hasAuditReport = false;
+    }
 
     return {
       task: { ...t, status: this.computeOverdueStatus(t) },
@@ -913,14 +1128,32 @@ export class ComplianceService {
     );
 
     // Invalidate risk cache for this branch
-    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
+    if (t.branchId)
+      this.riskCache
+        .invalidateBranch(t.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
 
     const clientUser = await this.users.findOne({
       where: { clientId: t.clientId },
     });
 
     if (clientUser) {
-      // TODO: Implement notification ticket creation for task approval with new notification system
+      try {
+        await this.notifications.createTicket(user.userId, 'CRM', {
+          queryType: 'COMPLIANCE',
+          subject: `Task Approved #${taskIdNum}`,
+          message: `Compliance task #${taskIdNum} has been approved by CRM.`,
+          clientId: t.clientId ? String(t.clientId) : undefined,
+          branchId: t.branchId ? String(t.branchId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Notification (approval) failed for task #${taskIdNum}`,
+          (e as Error)?.message,
+        );
+      }
 
       if (clientUser.email) {
         await this.email.send(
@@ -951,10 +1184,28 @@ export class ComplianceService {
     );
 
     // Invalidate risk cache for this branch
-    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
+    if (t.branchId)
+      this.riskCache
+        .invalidateBranch(t.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
 
     if (t.assignedToUserId) {
-      // TODO: Implement notification ticket creation for task rejection with new notification system
+      try {
+        await this.notifications.createTicket(user.userId, 'CRM', {
+          queryType: 'COMPLIANCE',
+          subject: `Task Rejected #${taskIdNum}`,
+          message: `Compliance task #${taskIdNum} has been rejected. Reason: ${remarks}`,
+          clientId: t.clientId ? String(t.clientId) : undefined,
+          branchId: t.branchId ? String(t.branchId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Notification (rejection) failed for task #${taskIdNum}`,
+          (e as Error)?.message,
+        );
+      }
 
       const contractor = await this.users.findOne({
         where: { id: t.assignedToUserId },
@@ -1135,10 +1386,28 @@ export class ComplianceService {
     await this.tasks.update({ id: taskIdNum }, { status: 'SUBMITTED' });
 
     // Invalidate risk cache for this branch
-    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
+    if (t.branchId)
+      this.riskCache
+        .invalidateBranch(t.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
 
     if (t.assignedByUserId) {
-      // TODO: Implement notification ticket creation for task submission with new notification system
+      try {
+        await this.notifications.createTicket(user.userId, 'CONTRACTOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Task Submitted #${taskIdNum}`,
+          message: `Compliance task #${taskIdNum} has been submitted by a contractor and is ready for CRM review.`,
+          clientId: t.clientId ? String(t.clientId) : undefined,
+          branchId: t.branchId ? String(t.branchId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Notification (submission) failed for task #${taskIdNum}`,
+          (e as Error)?.message,
+        );
+      }
 
       const crm = await this.users.findOne({
         where: { id: t.assignedByUserId },
@@ -1286,7 +1555,20 @@ export class ComplianceService {
     const crmUserId = t.assignedByUserId ? String(t.assignedByUserId) : null;
 
     if (crmUserId) {
-      // TODO: Implement notification ticket creation for audit report with new notification system
+      try {
+        await this.notifications.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'AUDIT',
+          subject: `Audit Report for Task #${taskIdNum}`,
+          message: `An auditor has submitted an audit report for compliance task #${taskIdNum}. Notes: ${notes}`,
+          clientId: t.clientId ? String(t.clientId) : undefined,
+          branchId: t.branchId ? String(t.branchId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Notification (audit report) failed for task #${taskIdNum}`,
+          (e as Error)?.message,
+        );
+      }
 
       const crm = await this.users.findOne({ where: { id: crmUserId } });
       if (crm?.email) {
@@ -1508,7 +1790,12 @@ export class ComplianceService {
     await this.tasks.update({ id: taskIdNum }, { status: 'SUBMITTED' });
 
     // Invalidate risk cache for this branch
-    if (t.branchId) this.riskCache.invalidateBranch(t.branchId).catch(() => {});
+    if (t.branchId)
+      this.riskCache
+        .invalidateBranch(t.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
 
     const mcdItems = await this.mcdItems.find({ where: { taskId: taskIdNum } });
     if (mcdItems.length) {
@@ -1560,7 +1847,8 @@ export class ComplianceService {
         status: this.computeOverdueStatus(t),
       }));
       return { data: mapped };
-    } catch (_) {
+    } catch (err) {
+      this.logger.warn('clientListAll query failed', (err as Error)?.message);
       return { data: [] };
     }
   }
@@ -1632,24 +1920,337 @@ export class ComplianceService {
     return { message: 'Remark added', remarkId: remark.id };
   }
 
+  // ---------- Client (LegitX) Reupload APIs ----------
+
   /**
-   * Request reupload from contractor/client
+   * List reupload requests for client master user (targetRole = CLIENT)
    */
-  async auditorRequestReupload(user: any, docId: string, dto: any) {
-    this.assertRole(user, ['AUDITOR']);
-    throw new ForbiddenException(
-      'Auditors cannot request reupload on compliance documents',
-    );
+  async clientListReuploadRequests(user: any, filters?: any) {
+    this.assertRole(user, ['CLIENT']);
+    if (!user.clientId) throw new ForbiddenException('Client missing clientId');
+
+    const qb = this.reuploadReqRepo
+      .createQueryBuilder('req')
+      .where('req.clientId = :clientId', { clientId: String(user.clientId) })
+      .andWhere('req.targetRole = :role', { role: 'CLIENT' });
+
+    if (filters?.status) {
+      qb.andWhere('req.status = :status', { status: filters.status });
+    }
+
+    qb.orderBy('req.createdAt', 'DESC');
+
+    const data = await qb.getMany();
+    return { data };
   }
 
   /**
-   * List reupload requests for auditor
+   * Upload corrected file for a client reupload request
    */
-  async auditorListReuploadRequests(user: any, filters: any) {
-    this.assertRole(user, ['AUDITOR']);
-    throw new ForbiddenException(
-      'Auditors cannot view compliance reupload requests',
+  async clientReuploadFile(user: any, requestId: string, file: any) {
+    this.assertRole(user, ['CLIENT']);
+    if (!user.clientId) throw new ForbiddenException('Client missing clientId');
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    if (
+      request.targetRole !== 'CLIENT' ||
+      String(request.clientId) !== String(user.clientId)
+    ) {
+      throw new ForbiddenException('Not your request');
+    }
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    const originalDoc = await this.evidence.findOne({
+      where: { id: Number(request.documentId) },
+    });
+    if (!originalDoc)
+      throw new NotFoundException('Original document not found');
+
+    const currentVersion = await this.versionRepo.count({
+      where: {
+        documentId: originalDoc.id,
+        documentType: 'COMPLIANCE_EVIDENCE',
+      },
+    });
+
+    const newVersion = this.versionRepo.create({
+      documentId: originalDoc.id,
+      documentType: 'COMPLIANCE_EVIDENCE',
+      versionNo: currentVersion + 1,
+      filePath: file.path.replace(/\\/g, '/'),
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+      uploadedByRole: 'CLIENT',
+      uploadedByUserId: user.userId,
+      reuploadRequestId: requestId,
+    });
+    await this.versionRepo.save(newVersion);
+
+    await this.evidence.update(
+      { id: originalDoc.id },
+      {
+        filePath: file.path.replace(/\\/g, '/'),
+        fileName: file.originalname,
+        fileType: file.mimetype,
+        fileSize: file.size,
+      },
     );
+
+    return { message: 'File uploaded', versionId: newVersion.id };
+  }
+
+  /**
+   * Submit client reupload for auditor re-verification
+   */
+  async clientSubmitReupload(user: any, requestId: string) {
+    this.assertRole(user, ['CLIENT']);
+    if (!user.clientId) throw new ForbiddenException('Client missing clientId');
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    if (
+      request.targetRole !== 'CLIENT' ||
+      String(request.clientId) !== String(user.clientId)
+    ) {
+      throw new ForbiddenException('Not your request');
+    }
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    const versionExists = await this.versionRepo.findOne({
+      where: { reuploadRequestId: requestId },
+    });
+    if (!versionExists) {
+      throw new BadRequestException('Please upload file before submitting');
+    }
+
+    await this.reuploadReqRepo.update(
+      { id: requestId },
+      { status: 'SUBMITTED', submittedAt: new Date() },
+    );
+
+    // Notify the auditor who requested the reupload
+    if (request.requestedByUserId) {
+      try {
+        await this.notifications.createTicket(user.userId, 'CLIENT', {
+          queryType: 'COMPLIANCE',
+          subject: `Reupload Submitted — Doc #${request.documentId}`,
+          message: `A client user has re-uploaded a document and it is ready for your review.`,
+          clientId: request.clientId ? String(request.clientId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          'notification failure (non-blocking)',
+          (e as Error)?.message,
+        );
+      }
+
+      const auditor = await this.users.findOne({
+        where: { id: request.requestedByUserId },
+      });
+      if (auditor?.email) {
+        await this.email
+          .send(
+            auditor.email,
+            `Reupload Submitted — Doc #${request.documentId}`,
+            'Reupload Submitted for Verification',
+            'A client user has re-uploaded a corrected document. Please log in to verify.',
+          )
+          .catch((e) =>
+            this.logger.warn('email send failed (non-blocking)', e?.message),
+          );
+      }
+    }
+
+    // Notify CRM about submission
+    await this.notifyCrmReuploadEvent(
+      user.userId,
+      'CLIENT',
+      request,
+      `Reupload Submitted (CLIENT) — Doc #${request.documentId}`,
+      `A client user submitted a reupload for Doc #${request.documentId}. Pending auditor verification.`,
+    );
+
+    return { message: 'Reupload submitted for review', status: 'SUBMITTED' };
+  }
+
+  // ---------- Branch (BranchDesk) Reupload APIs ----------
+
+  /**
+   * List reupload requests for branch user (targetRole = BRANCH)
+   */
+  async branchListReuploadRequests(user: any, filters?: any) {
+    this.assertRole(user, ['CLIENT']);
+    const branchId = user.branchIds?.[0] || user.branchId;
+    if (!branchId) throw new ForbiddenException('Branch user missing branchId');
+
+    const qb = this.reuploadReqRepo
+      .createQueryBuilder('req')
+      .where('req.unitId = :unitId', { unitId: String(branchId) })
+      .andWhere('req.targetRole = :role', { role: 'BRANCH' });
+
+    if (filters?.status) {
+      qb.andWhere('req.status = :status', { status: filters.status });
+    }
+
+    qb.orderBy('req.createdAt', 'DESC');
+
+    const data = await qb.getMany();
+    return { data };
+  }
+
+  /**
+   * Upload corrected file for a branch reupload request
+   */
+  async branchReuploadFile(user: any, requestId: string, file: any) {
+    this.assertRole(user, ['CLIENT']);
+    const branchId = user.branchIds?.[0] || user.branchId;
+    if (!branchId) throw new ForbiddenException('Branch user missing branchId');
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    if (
+      request.targetRole !== 'BRANCH' ||
+      String(request.unitId) !== String(branchId)
+    ) {
+      throw new ForbiddenException('Not your request');
+    }
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    const originalDoc = await this.evidence.findOne({
+      where: { id: Number(request.documentId) },
+    });
+    if (!originalDoc)
+      throw new NotFoundException('Original document not found');
+
+    const currentVersion = await this.versionRepo.count({
+      where: {
+        documentId: originalDoc.id,
+        documentType: 'COMPLIANCE_EVIDENCE',
+      },
+    });
+
+    const newVersion = this.versionRepo.create({
+      documentId: originalDoc.id,
+      documentType: 'COMPLIANCE_EVIDENCE',
+      versionNo: currentVersion + 1,
+      filePath: file.path.replace(/\\/g, '/'),
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+      uploadedByRole: 'BRANCH',
+      uploadedByUserId: user.userId,
+      reuploadRequestId: requestId,
+    });
+    await this.versionRepo.save(newVersion);
+
+    await this.evidence.update(
+      { id: originalDoc.id },
+      {
+        filePath: file.path.replace(/\\/g, '/'),
+        fileName: file.originalname,
+        fileType: file.mimetype,
+        fileSize: file.size,
+      },
+    );
+
+    return { message: 'File uploaded', versionId: newVersion.id };
+  }
+
+  /**
+   * Submit branch reupload for auditor re-verification
+   */
+  async branchSubmitReupload(user: any, requestId: string) {
+    this.assertRole(user, ['CLIENT']);
+    const branchId = user.branchIds?.[0] || user.branchId;
+    if (!branchId) throw new ForbiddenException('Branch user missing branchId');
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    if (
+      request.targetRole !== 'BRANCH' ||
+      String(request.unitId) !== String(branchId)
+    ) {
+      throw new ForbiddenException('Not your request');
+    }
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    const versionExists = await this.versionRepo.findOne({
+      where: { reuploadRequestId: requestId },
+    });
+    if (!versionExists) {
+      throw new BadRequestException('Please upload file before submitting');
+    }
+
+    await this.reuploadReqRepo.update(
+      { id: requestId },
+      { status: 'SUBMITTED', submittedAt: new Date() },
+    );
+
+    // Notify the auditor who requested the reupload
+    if (request.requestedByUserId) {
+      try {
+        await this.notifications.createTicket(user.userId, 'CLIENT', {
+          queryType: 'COMPLIANCE',
+          subject: `Reupload Submitted — Doc #${request.documentId}`,
+          message: `A branch user has re-uploaded a document and it is ready for your review.`,
+          clientId: request.clientId ? String(request.clientId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          'notification failure (non-blocking)',
+          (e as Error)?.message,
+        );
+      }
+
+      const auditor = await this.users.findOne({
+        where: { id: request.requestedByUserId },
+      });
+      if (auditor?.email) {
+        await this.email
+          .send(
+            auditor.email,
+            `Reupload Submitted — Doc #${request.documentId}`,
+            'Reupload Submitted for Verification',
+            'A branch user has re-uploaded a corrected document. Please log in to verify.',
+          )
+          .catch((e) =>
+            this.logger.warn('email send failed (non-blocking)', e?.message),
+          );
+      }
+    }
+
+    // Notify CRM about submission
+    await this.notifyCrmReuploadEvent(
+      user.userId,
+      'CLIENT',
+      request,
+      `Reupload Submitted (BRANCH) — Doc #${request.documentId}`,
+      `A branch user submitted a reupload for Doc #${request.documentId}. Pending auditor verification.`,
+    );
+
+    return { message: 'Reupload submitted for review', status: 'SUBMITTED' };
   }
 
   // ---------- Contractor Reupload APIs ----------
@@ -1805,6 +2406,647 @@ export class ComplianceService {
       },
     );
 
+    // Notify the auditor who requested the reupload
+    if (request.requestedByUserId) {
+      try {
+        await this.notifications.createTicket(user.userId, 'CONTRACTOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Reupload Submitted — Doc #${request.documentId}`,
+          message: `A contractor has re-uploaded a document for reupload request and it is ready for your review.`,
+          clientId: request.clientId ? String(request.clientId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          'notification failure (non-blocking)',
+          (e as Error)?.message,
+        );
+      }
+
+      const auditor = await this.users.findOne({
+        where: { id: request.requestedByUserId },
+      });
+      if (auditor?.email) {
+        await this.email
+          .send(
+            auditor.email,
+            `Reupload Submitted — Doc #${request.documentId}`,
+            'Reupload Submitted for Verification',
+            'A contractor has re-uploaded a corrected document. Please log in to verify.',
+          )
+          .catch((e) =>
+            this.logger.warn('email send failed (non-blocking)', e?.message),
+          );
+      }
+    }
+
+    // Notify CRM about submission
+    await this.notifyCrmReuploadEvent(
+      user.userId,
+      'CONTRACTOR',
+      request,
+      `Reupload Submitted (CONTRACTOR) — Doc #${request.documentId}`,
+      `A contractor submitted a reupload for Doc #${request.documentId}. Pending auditor verification.`,
+    );
+
     return { message: 'Reupload submitted for review', status: 'SUBMITTED' };
+  }
+
+  // ---------- Auditor: Create Reupload Requests ----------
+  async createReuploadRequestsFromAuditor(
+    user: any,
+    dto: { taskId: string; items: { docId: string; remarks: string }[] },
+  ) {
+    this.assertRole(user, ['AUDITOR']);
+
+    const taskIdNum = Number(dto.taskId);
+    const task = await this.tasks.findOne({ where: { id: taskIdNum } });
+    if (!task) throw new NotFoundException('Task not found');
+
+    // Ensure auditor is assigned to this client
+    await this.assertAuditorAssignedToClient(
+      user.userId,
+      String(task.clientId),
+    );
+
+    const created: any[] = [];
+    for (const item of dto.items) {
+      const evidenceId = Number(item.docId);
+
+      // Verify evidence belongs to this task
+      const evidence = await this.evidence.findOne({
+        where: { id: evidenceId, taskId: taskIdNum },
+      });
+      if (!evidence) {
+        throw new BadRequestException(
+          `Evidence #${item.docId} not found for task #${dto.taskId}`,
+        );
+      }
+
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + 7); // 7-day SLA
+
+      const req = this.reuploadReqRepo.create({
+        documentId: evidenceId,
+        documentType: 'COMPLIANCE_EVIDENCE',
+        clientId: String(task.clientId),
+        unitId: task.branchId ? String(task.branchId) : null,
+        contractorUserId: task.assignedToUserId
+          ? String(task.assignedToUserId)
+          : null,
+        targetRole: 'CONTRACTOR',
+        requestedByRole: 'AUDITOR',
+        requestedByUserId: String(user.userId),
+        reason: item.remarks.substring(0, 200),
+        remarksVisible: item.remarks,
+        status: 'OPEN',
+        deadlineDate: deadline,
+      });
+      created.push(await this.reuploadReqRepo.save(req));
+    }
+
+    // Notify assigned contractor
+    if (task.assignedToUserId) {
+      try {
+        await this.notifications.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Reupload Required — Task #${taskIdNum}`,
+          message: `An auditor has requested re-upload of ${created.length} document(s) for compliance task #${taskIdNum}. Please review and upload corrected files within 7 days.`,
+          clientId: task.clientId ? String(task.clientId) : undefined,
+          branchId: task.branchId ? String(task.branchId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          'notification failure (non-blocking)',
+          (e as Error)?.message,
+        );
+      }
+
+      const contractor = await this.users.findOne({
+        where: { id: task.assignedToUserId },
+      });
+      if (contractor?.email) {
+        await this.email
+          .send(
+            contractor.email,
+            `Reupload Required — Task #${taskIdNum}`,
+            'Document Reupload Required',
+            `An auditor has requested you to re-upload ${created.length} document(s). Please log in and complete the reupload within 7 days.`,
+          )
+          .catch((e) =>
+            this.logger.warn('email send failed (non-blocking)', e?.message),
+          );
+      }
+    }
+
+    // Notify CRM about new reupload requests
+    for (const reqRow of created) {
+      await this.notifyCrmReuploadEvent(
+        String(user.userId),
+        'AUDITOR',
+        reqRow,
+        `Reupload Issued — Doc #${reqRow.documentId}`,
+        `Auditor issued reupload request (${reqRow.targetRole}) for ${reqRow.documentType || 'document'}. Deadline: ${reqRow.deadlineDate?.toISOString()?.slice(0, 10) || 'N/A'}.`,
+      );
+    }
+
+    return { created: created.length, ids: created.map((r) => r.id) };
+  }
+
+  // ---------- Auditor: List Reupload Requests for Re-verification ----------
+  async auditorListReuploadRequests(user: any, q: any) {
+    this.assertRole(user, ['AUDITOR']);
+
+    const assignedClients =
+      await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
+    const clientIds = assignedClients.map((c: any) => c.id);
+
+    if (!clientIds.length) return { data: [] };
+
+    const qb = this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .where('r.clientId IN (:...clientIds)', { clientIds });
+
+    // Status filter with overdue/dueSoon virtual filters
+    const today = new Date().toISOString().slice(0, 10);
+    const dueSoonDate = new Date();
+    dueSoonDate.setDate(dueSoonDate.getDate() + 3);
+    const dueSoonStr = dueSoonDate.toISOString().slice(0, 10);
+
+    if (q?.status === 'OVERDUE') {
+      qb.andWhere('r.status IN (:...activeStatuses)', {
+        activeStatuses: ['OPEN', 'SUBMITTED'],
+      });
+      qb.andWhere('r.deadlineDate < :today', { today });
+    } else if (q?.status === 'DUE_SOON') {
+      qb.andWhere('r.status IN (:...activeStatuses)', {
+        activeStatuses: ['OPEN', 'SUBMITTED'],
+      });
+      qb.andWhere('r.deadlineDate >= :today', { today });
+      qb.andWhere('r.deadlineDate <= :dueSoon', { dueSoon: dueSoonStr });
+    } else if (q?.status) {
+      qb.andWhere('r.status = :status', { status: q.status });
+    } else {
+      qb.andWhere('r.status = :status', { status: 'SUBMITTED' });
+    }
+
+    if (q?.clientId) {
+      qb.andWhere('r.clientId = :cid', { cid: String(q.clientId) });
+    }
+
+    qb.orderBy('r.deadlineDate', 'ASC').addOrderBy('r.submittedAt', 'DESC');
+
+    const data = await qb.getMany();
+
+    // Enrich with document info
+    const enriched = await Promise.all(
+      data.map(async (r) => {
+        const evidence = await this.evidence.findOne({
+          where: { id: Number(r.documentId) },
+        });
+        const latestVersion = await this.versionRepo.findOne({
+          where: { reuploadRequestId: r.id },
+          order: { versionNo: 'DESC' },
+        });
+        // SLA computation
+        const deadlineDate = r.deadlineDate ? new Date(r.deadlineDate) : null;
+        const nowDate = new Date();
+        const daysLeft = deadlineDate
+          ? Math.ceil(
+              (deadlineDate.getTime() - nowDate.getTime()) /
+                (1000 * 60 * 60 * 24),
+            )
+          : null;
+        const isOverdue = daysLeft !== null && daysLeft < 0;
+        const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
+
+        return {
+          ...r,
+          documentName: evidence?.fileName || `Document #${r.documentId}`,
+          deadlineDate: r.deadlineDate,
+          daysLeft,
+          isOverdue,
+          isDueSoon,
+          latestUpload: latestVersion
+            ? {
+                versionId: latestVersion.id,
+                fileName: latestVersion.fileName,
+                filePath: latestVersion.filePath,
+                uploadedAt: latestVersion.uploadedAt,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return { data: enriched };
+  }
+
+  // ---------- Auditor: Approve Reupload (close request) ----------
+  async auditorApproveReupload(user: any, requestId: string, remarks?: string) {
+    this.assertRole(user, ['AUDITOR']);
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    // Verify auditor is assigned to this client
+    await this.assertAuditorAssignedToClient(
+      user.userId,
+      String(request.clientId),
+    );
+
+    if (request.status !== 'SUBMITTED') {
+      throw new BadRequestException('Only SUBMITTED requests can be approved');
+    }
+
+    await this.reuploadReqRepo.update(
+      { id: requestId },
+      {
+        status: 'REVERIFIED',
+        reverifiedAt: new Date(),
+        reverifiedByUserId: String(user.userId),
+        crmRemarks: remarks || 'Approved by auditor',
+      },
+    );
+
+    // Check if all reupload requests for this document's task are resolved
+    // to update the task status
+    const evidence = await this.evidence.findOne({
+      where: { id: Number(request.documentId) },
+    });
+    if (evidence?.taskId) {
+      await this.syncTaskStatusAfterReupload(evidence.taskId);
+    }
+
+    // Notify contractor of approval
+    if (request.contractorUserId) {
+      try {
+        await this.notifications.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Reupload Approved — Doc #${request.documentId}`,
+          message: `Your re-uploaded document has been approved by the auditor.`,
+          clientId: request.clientId ? String(request.clientId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          'notification failure (non-blocking)',
+          (e as Error)?.message,
+        );
+      }
+
+      const contractor = await this.users.findOne({
+        where: { id: request.contractorUserId },
+      });
+      if (contractor?.email) {
+        await this.email
+          .send(
+            contractor.email,
+            `Reupload Approved — Doc #${request.documentId}`,
+            'Re-uploaded Document Approved',
+            'Your re-uploaded document has been verified and approved by the auditor.',
+          )
+          .catch((e) =>
+            this.logger.warn('email send failed (non-blocking)', e?.message),
+          );
+      }
+    }
+
+    // CRM visibility
+    await this.notifyCrmReuploadEvent(
+      String(user.userId),
+      'AUDITOR',
+      request,
+      `Reupload Verified — Doc #${request.documentId}`,
+      `Auditor verified reupload for ${request.targetRole} (Doc #${request.documentId}).`,
+    );
+
+    return { status: 'REVERIFIED', message: 'Reupload approved' };
+  }
+
+  // ---------- Auditor: Reject Reupload (re-open for contractor) ----------
+  async auditorRejectReupload(user: any, requestId: string, remarks: string) {
+    this.assertRole(user, ['AUDITOR']);
+
+    if (!remarks?.trim()) {
+      throw new BadRequestException('Remarks are required for rejection');
+    }
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    await this.assertAuditorAssignedToClient(
+      user.userId,
+      String(request.clientId),
+    );
+
+    if (request.status !== 'SUBMITTED') {
+      throw new BadRequestException('Only SUBMITTED requests can be rejected');
+    }
+
+    await this.reuploadReqRepo.update(
+      { id: requestId },
+      {
+        status: 'REJECTED',
+        reverifiedAt: new Date(),
+        reverifiedByUserId: String(user.userId),
+        crmRemarks: remarks.trim(),
+      },
+    );
+
+    // Create a new OPEN request so contractor can re-upload (with 7-day SLA)
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + 7);
+
+    const newReq = this.reuploadReqRepo.create({
+      documentId: request.documentId,
+      documentType: request.documentType,
+      clientId: request.clientId,
+      unitId: request.unitId,
+      contractorUserId: request.contractorUserId,
+      targetRole: request.targetRole,
+      requestedByRole: 'AUDITOR',
+      requestedByUserId: String(user.userId),
+      reason: remarks.trim().substring(0, 200),
+      remarksVisible: remarks.trim(),
+      status: 'OPEN',
+      deadlineDate: deadline,
+    });
+    const saved = await this.reuploadReqRepo.save(newReq);
+
+    // Notify contractor of rejection
+    if (request.contractorUserId) {
+      try {
+        await this.notifications.createTicket(user.userId, 'AUDITOR', {
+          queryType: 'COMPLIANCE',
+          subject: `Reupload Rejected — Doc #${request.documentId}`,
+          message: `Your re-uploaded document was rejected. Reason: ${remarks.trim()}. Please upload a corrected version within 7 days.`,
+          clientId: request.clientId ? String(request.clientId) : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          'notification failure (non-blocking)',
+          (e as Error)?.message,
+        );
+      }
+
+      const contractor = await this.users.findOne({
+        where: { id: request.contractorUserId },
+      });
+      if (contractor?.email) {
+        await this.email
+          .send(
+            contractor.email,
+            `Reupload Rejected — Doc #${request.documentId}`,
+            'Re-uploaded Document Rejected',
+            `Your re-uploaded document was rejected: ${remarks.trim()}. Please upload a corrected version.`,
+          )
+          .catch((e) =>
+            this.logger.warn('email send failed (non-blocking)', e?.message),
+          );
+      }
+    }
+
+    // CRM visibility
+    await this.notifyCrmReuploadEvent(
+      String(user.userId),
+      'AUDITOR',
+      saved,
+      `Reupload Rejected — Doc #${request.documentId}`,
+      `Auditor rejected reupload for ${request.targetRole} (Doc #${request.documentId}). Remarks: ${remarks.trim()}`,
+    );
+
+    return {
+      status: 'REJECTED',
+      message: 'Reupload rejected — new request created for contractor',
+      newRequestId: saved.id,
+    };
+  }
+
+  // ---------- Helper: CRM Reupload Notification ----------
+  private async notifyCrmReuploadEvent(
+    actorUserId: string,
+    actorRole: string,
+    request: DocumentReuploadRequest,
+    subject: string,
+    message: string,
+  ): Promise<void> {
+    try {
+      await this.notifications.createTicket(actorUserId, actorRole as any, {
+        queryType: 'COMPLIANCE',
+        subject,
+        message,
+        clientId: request.clientId ? String(request.clientId) : undefined,
+      });
+    } catch (e) {
+      this.logger.warn(
+        'notification failure (non-blocking)',
+        (e as Error)?.message,
+      );
+    }
+  }
+
+  // ---------- Helper: Sync task status after reupload decisions ----------
+  private async syncTaskStatusAfterReupload(taskId: number) {
+    // Find all reupload requests linked to evidence of this task
+    const taskEvidence = await this.evidence.find({
+      where: { taskId },
+      select: ['id'],
+    });
+    if (!taskEvidence.length) return;
+
+    const evidenceIds = taskEvidence.map((e) => e.id);
+
+    const openRequests = await this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .where('r.documentId IN (:...ids)', { ids: evidenceIds })
+      .andWhere('r.documentType = :dt', { dt: 'COMPLIANCE_EVIDENCE' })
+      .andWhere('r.status IN (:...statuses)', {
+        statuses: ['OPEN', 'SUBMITTED'],
+      })
+      .getCount();
+
+    if (openRequests === 0) {
+      // All reupload requests resolved — mark task as APPROVED
+      const task = await this.tasks.findOne({ where: { id: taskId } });
+      if (
+        task &&
+        (task.status === 'SUBMITTED' || task.status === 'IN_PROGRESS')
+      ) {
+        await this.tasks.update({ id: taskId }, { status: 'APPROVED' });
+        if (task.branchId) {
+          this.riskCache
+            .invalidateBranch(task.branchId)
+            .catch((e) =>
+              this.logger.warn('riskCache invalidation failed', e?.message),
+            );
+        }
+      }
+    }
+  }
+
+  /* ═══════ CRM Reupload Backlog — list + top overdue units ═══════ */
+
+  private async getCrmAssignedClientIds(userId: string): Promise<string[]> {
+    const clients =
+      await this.assignmentsService.getAssignedClientsForCrm(userId);
+    return clients.map((c: any) => c.id);
+  }
+
+  async crmListReuploadRequests(user: any, q: any) {
+    const clientIds = await this.getCrmAssignedClientIds(user.id);
+    if (!clientIds?.length) return { items: [], total: 0, page: 1, limit: 25 };
+
+    const page = Math.max(1, Number(q?.page || 1));
+    const limit = Math.min(100, Math.max(10, Number(q?.limit || 25)));
+    const skip = (page - 1) * limit;
+
+    const status =
+      q?.status && q.status !== 'ALL' ? String(q.status) : undefined;
+    const targetRole =
+      q?.targetRole && q.targetRole !== 'ALL'
+        ? String(q.targetRole)
+        : undefined;
+    const search = (q?.q || '').trim();
+
+    const overdue = String(q?.overdue || '') === 'true';
+    const dueSoon = String(q?.dueSoon || '') === 'true';
+    const slaDays = Math.max(
+      1,
+      Number(q?.slaDays || (status === 'SUBMITTED' ? 1 : 2)),
+    );
+
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - slaDays * 24 * 60 * 60 * 1000);
+
+    const builder = this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .where('r.clientId IN (:...clientIds)', { clientIds });
+
+    if (status) builder.andWhere('r.status = :status', { status });
+    if (targetRole)
+      builder.andWhere('r.targetRole = :targetRole', { targetRole });
+    if (q?.unitId) builder.andWhere('r.unitId = :unitId', { unitId: q.unitId });
+    if (q?.clientId) builder.andWhere('r.clientId = :cId', { cId: q.clientId });
+
+    // Overdue / Due soon based on updatedAt
+    if (overdue) {
+      builder.andWhere('r.updatedAt < :cutoff', { cutoff });
+    }
+    if (dueSoon && !overdue) {
+      const soonFrom = new Date(
+        now.getTime() - (slaDays - 0.5) * 24 * 60 * 60 * 1000,
+      );
+      builder.andWhere('r.updatedAt BETWEEN :soonFrom AND :now', {
+        soonFrom,
+        now,
+      });
+    }
+
+    // Server-side search
+    if (search) {
+      builder.andWhere(
+        `(CAST(r.document_id AS text) ILIKE :s
+          OR COALESCE(r.document_type,'') ILIKE :s
+          OR COALESCE(r.reason,'') ILIKE :s
+          OR COALESCE(r.remarks_visible,'') ILIKE :s
+          OR COALESCE(r.target_role,'') ILIKE :s)`,
+        { s: `%${search}%` },
+      );
+    }
+
+    builder.orderBy('r.updatedAt', 'DESC').skip(skip).take(limit);
+
+    const [rows, total] = await builder.getManyAndCount();
+
+    // Enrich with client + branch names
+    const branchIds = [
+      ...new Set(rows.filter((r) => r.unitId).map((r) => r.unitId!)),
+    ];
+    const clientIdsUsed = [...new Set(rows.map((r) => r.clientId))];
+
+    let branchMap: Record<string, string> = {};
+    if (branchIds.length) {
+      const bRows = await this.branches.find({ where: { id: In(branchIds) } });
+      branchMap = Object.fromEntries(
+        bRows.map((b) => [
+          b.id,
+          (b as any).branchName || (b as any).branch_name || 'N/A',
+        ]),
+      );
+    }
+
+    let clientMap: Record<string, string> = {};
+    if (clientIdsUsed.length) {
+      const cRows = await this.reuploadReqRepo.manager.query(
+        `SELECT id, client_name AS "clientName" FROM clients WHERE id = ANY($1)`,
+        [clientIdsUsed],
+      );
+      clientMap = Object.fromEntries(
+        cRows.map((c: any) => [c.id, c.clientName]),
+      );
+    }
+
+    const items = rows.map((r) => ({
+      ...r,
+      clientName: clientMap[r.clientId] || 'N/A',
+      unitName: r.unitId ? branchMap[r.unitId] || 'N/A' : 'Client Master',
+    }));
+
+    return { items, total, page, limit };
+  }
+
+  async crmTopOverdueReuploadUnits(user: any, q: any) {
+    const clientIds = await this.getCrmAssignedClientIds(user.id);
+    if (!clientIds?.length) return [];
+
+    const slaDays = Math.max(1, Number(q?.slaDays || 2));
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - slaDays * 24 * 60 * 60 * 1000);
+
+    const rows = await this.reuploadReqRepo
+      .createQueryBuilder('r')
+      .select('r.unit_id', 'unitId')
+      .addSelect('COUNT(*)::int', 'count')
+      .addSelect(
+        `SUM(CASE WHEN r.status='OPEN' THEN 1 ELSE 0 END)::int`,
+        'open',
+      )
+      .addSelect(
+        `SUM(CASE WHEN r.status='SUBMITTED' THEN 1 ELSE 0 END)::int`,
+        'submitted',
+      )
+      .where('r.clientId IN (:...clientIds)', { clientIds })
+      .andWhere('r.status IN (:...sts)', { sts: ['OPEN', 'SUBMITTED'] })
+      .andWhere('r.updatedAt < :cutoff', { cutoff })
+      .groupBy('r.unit_id')
+      .orderBy('count', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    // Enrich unit names
+    const unitIds = rows.filter((r: any) => r.unitId).map((r: any) => r.unitId);
+    let unitMap: Record<string, string> = {};
+    if (unitIds.length) {
+      const bRows = await this.branches.find({ where: { id: In(unitIds) } });
+      unitMap = Object.fromEntries(
+        bRows.map((b) => [
+          b.id,
+          (b as any).branchName || (b as any).branch_name || 'N/A',
+        ]),
+      );
+    }
+
+    return rows.map((x: any) => ({
+      unitId: x.unitId || null,
+      unitName: x.unitId
+        ? unitMap[x.unitId] || 'N/A'
+        : 'Client Master (no unit)',
+      count: Number(x.count || 0),
+      open: Number(x.open || 0),
+      submitted: Number(x.submitted || 0),
+    }));
   }
 }
