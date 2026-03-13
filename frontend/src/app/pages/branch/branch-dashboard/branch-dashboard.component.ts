@@ -4,11 +4,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { Subject, forkJoin } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, forkJoin, of } from 'rxjs';
+import { takeUntil, catchError } from 'rxjs/operators';
 import { LegitxDashboardService } from '../../../core/legitx-dashboard.service';
 import { DashboardService } from '../../../core/dashboard.service';
 import { AuthService } from '../../../core/auth.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 
 @Component({
   selector: 'app-branch-dashboard',
@@ -54,6 +55,11 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   // Quick actions pending
   pendingActions: PendingAction[] = [];
 
+  // Vendor scores
+  vendorScorePercent = 0;
+  topVendors: VendorScore[] = [];
+  bottomVendors: VendorScore[] = [];
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -61,6 +67,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     private legitxService: LegitxDashboardService,
     private dashboardService: DashboardService,
     private authService: AuthService,
+    private branchesService: ClientBranchesService,
   ) {}
 
   ngOnInit(): void {
@@ -100,10 +107,13 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         month: this.currentMonth,
         branchId: this.branchId || undefined,
       }),
+      branchDash: this.branchId
+        ? this.branchesService.getDashboard(this.branchId, this.currentMonth).pipe(catchError(() => of(null)))
+        : of(null),
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: ({ legitx, pfEsi, contractor }) => {
+      next: ({ legitx, pfEsi, contractor, branchDash }) => {
         const kpis = legitx?.kpis;
 
         // Employee headcount
@@ -133,6 +143,13 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         this.auditScore = kpis?.audits?.overallAuditScore || 0;
         this.openObservations = (kpis?.audits?.pending || 0) + (kpis?.audits?.overdue || 0);
 
+        // Vendor scores from branch dashboard API
+        if (branchDash) {
+          this.vendorScorePercent = branchDash.vendorScorePercent || 0;
+          this.topVendors = branchDash.contractors?.top10HighScoreVendors || [];
+          this.bottomVendors = branchDash.contractors?.top10LowScoreVendors || [];
+        }
+
         // Build expiry tracker from registration data
         this.buildExpiryTracker();
 
@@ -143,7 +160,6 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        console.error('Branch dashboard load error:', err);
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -173,6 +189,18 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
   onMonthChange(): void {
     this.loadDashboard();
+  }
+
+  getVendorScoreColor(score: number): string {
+    if (score >= 85) return '#10b981';
+    if (score >= 70) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  getVendorScoreBg(score: number): string {
+    if (score >= 85) return 'bg-emerald-100 text-emerald-700';
+    if (score >= 70) return 'bg-amber-100 text-amber-700';
+    return 'bg-red-100 text-red-700';
   }
 
   private buildExpiryTracker(): void {
@@ -213,7 +241,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
       actions.push({ label: 'Complete ESIC registrations', count: this.esicPending, severity: 'high', route: '/branch/employees' });
     }
     if (this.openObservations > 0) {
-      actions.push({ label: 'Resolve audit observations', count: this.openObservations, severity: 'medium', route: '/branch/audit-observations' });
+      actions.push({ label: 'Resolve audit observations', count: this.openObservations, severity: 'medium', route: '/branch/audits/observations' });
     }
     if (queues?.critical?.length > 0) {
       actions.push({ label: 'Address critical compliance items', count: queues.critical.length, severity: 'high', route: '/branch/monthly-compliance' });
@@ -239,4 +267,15 @@ interface PendingAction {
   count: number;
   severity: 'high' | 'medium' | 'low';
   route: string;
+}
+
+interface VendorScore {
+  contractorUserId: string;
+  contractorName: string;
+  requiredCount: number;
+  uploadedCount: number;
+  rejectedCount: number;
+  expiredCount: number;
+  missingCount: number;
+  score: number;
 }

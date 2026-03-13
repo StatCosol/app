@@ -12,7 +12,10 @@ import { Roles } from '../auth/roles.decorator';
 import { CalendarQueryDto } from './dto/calendar-query.dto';
 import { CalendarService } from './calendar.service';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Calendar')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'calendar', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CCO', 'CEO', 'CRM', 'CLIENT')
@@ -22,8 +25,12 @@ export class CalendarController {
     private readonly assignmentsService: AssignmentsService,
   ) {}
 
+  @ApiOperation({ summary: 'Get Calendar' })
   @Get()
-  async getCalendar(@Query() q: CalendarQueryDto, @Req() req: any): Promise<any> {
+  async getCalendar(
+    @Query() q: CalendarQueryDto,
+    @Req() req: any,
+  ): Promise<any> {
     const user = req.user;
     const roleCode: string = user.roleCode;
 

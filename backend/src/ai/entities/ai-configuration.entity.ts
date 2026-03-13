@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity({ name: 'ai_configurations' })
 export class AiConfigurationEntity {
@@ -8,7 +14,12 @@ export class AiConfigurationEntity {
   @Column({ type: 'varchar', length: 50, default: 'openai' })
   provider: string;
 
-  @Column({ name: 'model_name', type: 'varchar', length: 100, default: 'gpt-4o-mini' })
+  @Column({
+    name: 'model_name',
+    type: 'varchar',
+    length: 100,
+    default: 'gpt-4o-mini',
+  })
   modelName: string;
 
   @Column({ name: 'api_key_encrypted', type: 'text', nullable: true })

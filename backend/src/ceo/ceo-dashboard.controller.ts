@@ -3,6 +3,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CeoDashboardService } from './ceo-dashboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /** Convert snake_case object keys to camelCase */
 function toCamel(obj: any): any {
@@ -24,6 +25,8 @@ function toCamel(obj: any): any {
  * Requires CEO role
  * Provides high-level KPIs and governance metrics
  */
+@ApiTags('CEO')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'ceo/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CEO')
@@ -37,6 +40,7 @@ export class CeoDashboardController {
    * - Active audits, compliance score
    * - Recent escalations count
    */
+  @ApiOperation({ summary: 'Get Summary' })
   @Get('summary')
   async getSummary(@Query() query: any) {
     const data = await this.dashboardService.getSummary(query);
@@ -52,6 +56,7 @@ export class CeoDashboardController {
    * - offset (optional, default 0)
    * - search (optional): Search by client name or code
    */
+  @ApiOperation({ summary: 'Get Client Overview' })
   @Get('client-overview')
   async getClientOverview(@Query() query: any) {
     const rows = await this.dashboardService.getClientOverview(query);
@@ -65,6 +70,7 @@ export class CeoDashboardController {
    * - Compliance scores
    * - Overdue items
    */
+  @ApiOperation({ summary: 'Get Cco Crm Performance' })
   @Get('cco-crm-performance')
   async getCcoCrmPerformance(@Query() query: any) {
     const rows = await this.dashboardService.getCcoCrmPerformance(query);
@@ -78,6 +84,7 @@ export class CeoDashboardController {
    * - Compliance coverage
    * - Risk indicators
    */
+  @ApiOperation({ summary: 'Get Governance Compliance' })
   @Get('governance-compliance')
   async getGovernanceCompliance(@Query() query: any) {
     const data = await this.dashboardService.getGovernanceCompliance(query);
@@ -93,9 +100,53 @@ export class CeoDashboardController {
    * - limit (optional, default 50)
    * - offset (optional, default 0)
    */
+  @ApiOperation({ summary: 'Get Recent Escalations' })
   @Get('recent-escalations')
   async getRecentEscalations(@Query() query: any) {
     const rows = await this.dashboardService.getRecentEscalations(query);
+    return { items: toCamel(rows) };
+  }
+
+  /**
+   * GET /api/ceo/dashboard/compliance-trend
+   * Returns monthly compliance trend data
+   *
+   * Query params:
+   * - months (optional, default 12): Number of months to return
+   */
+  @ApiOperation({ summary: 'Get Compliance Trend' })
+  @Get('compliance-trend')
+  async getComplianceTrend(@Query() query: any) {
+    const rows = await this.dashboardService.getComplianceTrend(query);
+    return { items: toCamel(rows) };
+  }
+
+  /**
+   * GET /api/ceo/dashboard/branch-rankings
+   * Returns top and bottom branch rankings for the selected month.
+   *
+   * Query params:
+   * - month (optional, YYYY-MM)
+   * - limit (optional, default 10, max 25)
+   */
+  @ApiOperation({ summary: 'Get Branch Rankings' })
+  @Get('branch-rankings')
+  async getBranchRankings(@Query() query: any) {
+    const data = await this.dashboardService.getBranchRankings(query);
+    return toCamel(data);
+  }
+
+  /**
+   * GET /api/ceo/dashboard/audit-closure-trend
+   * Returns monthly closure trend for audits.
+   *
+   * Query params:
+   * - months (optional, default 12, min 3, max 24)
+   */
+  @ApiOperation({ summary: 'Get Audit Closure Trend' })
+  @Get('audit-closure-trend')
+  async getAuditClosureTrend(@Query() query: any) {
+    const rows = await this.dashboardService.getAuditClosureTrend(query);
     return { items: toCamel(rows) };
   }
 }

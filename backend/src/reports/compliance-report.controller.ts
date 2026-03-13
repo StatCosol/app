@@ -4,13 +4,17 @@ import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Reports')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'reports/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ComplianceReportController {
   constructor(private readonly ds: DataSource) {}
 
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
+  @ApiOperation({ summary: 'Summary' })
   @Get()
   async summary(@CurrentUser() user: any) {
     const role = user?.roleCode;

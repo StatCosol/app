@@ -29,7 +29,11 @@ import { EmailModule } from '../email/email.module';
     AuditorComplianceDocsController,
     AdminComplianceDocsController,
   ],
-  providers: [BranchComplianceService, BranchComplianceCronService, ComplianceMailService],
+  providers: [
+    BranchComplianceService,
+    BranchComplianceCronService,
+    ComplianceMailService,
+  ],
   exports: [BranchComplianceService],
 })
 export class BranchComplianceModule {}

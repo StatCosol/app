@@ -18,7 +18,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { BranchAccessService } from '../auth/branch-access.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Contractor')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'client/contractors', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
@@ -33,6 +36,7 @@ export class ClientContractorsController {
     private readonly docRepo: Repository<ContractorDocumentEntity>,
   ) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(
     @Req() req: any,
@@ -144,6 +148,7 @@ export class ClientContractorsController {
     });
   }
 
+  @ApiOperation({ summary: 'Documents' })
   @Get('documents')
   async documents(@Req() req: any, @Query() q: any) {
     const clientId = req.user.clientId;
@@ -171,6 +176,7 @@ export class ClientContractorsController {
     });
   }
 
+  @ApiOperation({ summary: 'Dashboard' })
   @Get('dashboard')
   async dashboard(@Req() req: any, @Query('month') month?: string) {
     const clientId = req.user.clientId;
@@ -182,6 +188,7 @@ export class ClientContractorsController {
     return this.dashboardService.clientOverview(clientId, month, branchIds);
   }
 
+  @ApiOperation({ summary: 'Branch Dashboard' })
   @Get('dashboard/branch/:branchId')
   async branchDashboard(
     @Req() req: any,
@@ -196,6 +203,7 @@ export class ClientContractorsController {
     );
   }
 
+  @ApiOperation({ summary: 'Contractor Dashboard' })
   @Get('dashboard/contractor/:contractorId')
   async contractorDashboard(
     @Req() req: any,

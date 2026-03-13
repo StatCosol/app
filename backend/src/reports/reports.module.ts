@@ -10,6 +10,8 @@ import { AssignmentReportController } from './assignment-report.controller';
 import { AuthModule } from '../auth/auth.module';
 import { ReportExportService } from './report-export.service';
 import { ReportExportController } from './report-export.controller';
+import { PdfReportService } from './pdf-report.service';
+import { PdfReportController } from './pdf-report.controller';
 
 @Module({
   imports: [
@@ -17,13 +19,14 @@ import { ReportExportController } from './report-export.controller';
     AssignmentsModule,
     AuthModule,
   ],
-  providers: [ReportsService, ReportExportService],
+  providers: [ReportsService, ReportExportService, PdfReportService],
   controllers: [
     ReportsController,
     ComplianceReportController,
     AuditReportController,
     AssignmentReportController,
     ReportExportController,
+    PdfReportController,
   ],
 })
 export class ReportsModule {}

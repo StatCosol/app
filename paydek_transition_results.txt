@@ -1,0 +1,20 @@
+PAYDEK TRANSITION SMOKE 2026-03-13 00:53:56
+============================================================
+BaseUrl: http://localhost:3001/api/v1
+ClientId: d27f1d98-927c-4be1-af84-c81b6c8a0814
+RunId: a790d84f-afa4-4f1d-aaaf-3a3adfcd5d51
+
+PASS [201] Admin Login :: baseUrl=http://localhost:3001/api/v1 {"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZTBhMTBhNC03MjQwLTQwYTYtOGNmMy03MzFjYjk1MjFiNTMiLCJyb2xlQ29kZSI6IkFETUlOIiwiZW1haWwiOiJhZG1pbkBzdGF0Y29zb2wuY29tIiwibmFtZSI6IlN5c3RlbSBBZG1pbiIsImNsaWVudElkIjpudWxsLCJicmFuY2hJZHMiOltdLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzczMzQzNDM2LCJleHAiOjE3NzMzNDQzMzZ9.Wvk5eH1UhpQuVgSKHtqNi_-AOKqYDCVSj8G0erGvepc","refreshToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZTBhMTBhNC03MjQwLTQwYTYtOGNmMy03MzFjYjk1MjFiNTMiLCJyb2xlQ29kZSI6IkFETUlOIiwiZW1haWwiOiJhZG1pbkBzdGF0Y29zb2wuY29tIiwibmFtZSI6IlN5c3RlbSBBZG1pbiIsImNsaWVudElkIjpudWxsLCJicmFuY2hJZHMiOltdLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTc3MzM0MzQzNiwiZXhwIjoxNzc1OTM1NDM2fQ.zeu307oDvTMlhw8v4LAfByQmBg95DGWGDmgBrMCHSag","user":{"id":"9e0a10a4-7240-40a6-8cf3-731cb9521b53","userId":"9e0a10a4-7240-40a6-8cf3-731cb9521b53","email":"admin@statcosol.com","roleCode":"ADMIN","fullName":"System Admin","name":"System Admin","clientId":null,"clientName":null,"clientLogoUrl":null,"crmId":null,"userType":null,"isMasterUser":false,"branchIds":[],"employeeId":null}}
+PASS [200] Resolve Client :: clientId=d27f1d98-927c-4be1-af84-c81b6c8a0814
+PASS [201] Upsert Setup :: {"id":"1ff955ab-804f-4427-bacc-671683b352e8","clientId":"d27f1d98-927c-4be1-af84-c81b6c8a0814","pfEnabled":true,"esiEnabled":true,"ptEnabled":false,"lwfEnabled":false,"pfEmployerRate":"12.00","pfEmployeeRate":"12.00","esiEmployerRate":"3.25","esiEmployeeRate":"0.75","pfWageCeiling":"15000.00","esiWageCeiling":"21000.00","payCycle":"MONTHLY","effectiveFrom":null,"cycleStartDay":1,"payoutDay":1,"lockDay":26,"arrearMode":"CURRENT","leaveAccrualPerMonth":"1.50","maxCarryForward":30,"allowCarryForward":true,"lopMode":"PRORATED","attendanceSource":"MANUAL","attendanceCutoffDay":25,"graceMinutes":10,"autoLockAttendance":true,"syncEnabled":false,"enableLoanRecovery":true,"enableAdvanceRecovery":true,"defaultDeductionCapPct":"50.00","recoveryOrder":"STATUTORY > LOAN > ADVANCE > OTHER","createdAt":"2026-03-11T06:05:10.565Z","updatedAt":"2026-03-11T06:05:10.565Z"}
+PASS [200] Check Earning Component :: existing code=BASIC
+PASS [200] Resolve Run :: existing runId=f9246660-bb53-4b20-a59a-009df5bf75c2 status=APPROVED (not mutable, creating fresh run)
+PASS [201] Create Run :: runId=a790d84f-afa4-4f1d-aaaf-3a3adfcd5d51 period=2099-11
+PASS [201] Upload Employee CSV :: {"ok":true,"runId":"a790d84f-afa4-4f1d-aaaf-3a3adfcd5d51","employees":1}
+PASS [201] Process Run :: {"processed":1,"status":"PROCESSED"}
+PASS [201] Submit Run :: {"id":"a790d84f-afa4-4f1d-aaaf-3a3adfcd5d51","status":"SUBMITTED","message":"Run submitted for approval"}
+PASS [201] Approve Run :: {"id":"a790d84f-afa4-4f1d-aaaf-3a3adfcd5d51","status":"APPROVED","message":"Run approved"}
+PASS [409] Reprocess Approved Run Blocked :: 
+PASS [200] Final Run Status Approved :: runId=a790d84f-afa4-4f1d-aaaf-3a3adfcd5d51 status=APPROVED
+
+TOTAL: 12 PASS, 0 FAIL out of 12 checks

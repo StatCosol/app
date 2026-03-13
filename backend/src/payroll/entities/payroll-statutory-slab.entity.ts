@@ -21,16 +21,40 @@ export class PayrollStatutorySlabEntity {
   @Column({ name: 'component_code', type: 'varchar', length: 30 })
   componentCode: string;
 
-  @Column({ name: 'from_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'from_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   fromAmount: string;
 
-  @Column({ name: 'to_amount', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'to_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   toAmount: string | null;
 
-  @Column({ name: 'value_amount', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'value_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   valueAmount: string | null;
 
-  @Column({ name: 'value_percent', type: 'numeric', precision: 10, scale: 4, nullable: true })
+  @Column({
+    name: 'value_percent',
+    type: 'numeric',
+    precision: 10,
+    scale: 4,
+    nullable: true,
+  })
   valuePercent: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
