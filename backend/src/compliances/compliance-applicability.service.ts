@@ -59,13 +59,7 @@ export class ComplianceApplicabilityService {
             last_updated = now()
           WHERE branch_id = $1 AND compliance_id = $2
           `,
-          [
-            branch.id,
-            c.id,
-            res.isApplicable,
-            res.source,
-            res.reason,
-          ],
+          [branch.id, c.id, res.isApplicable, res.source, res.reason],
         );
       } else {
         await this.ds.query(

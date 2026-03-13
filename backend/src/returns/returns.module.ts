@@ -12,9 +12,17 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([ComplianceReturnEntity, ClientAssignmentCurrentEntity]),
+    TypeOrmModule.forFeature([
+      ComplianceReturnEntity,
+      ClientAssignmentCurrentEntity,
+    ]),
   ],
-  controllers: [ClientReturnsController, CrmReturnsController, AdminReturnsController, AuditorReturnsController],
+  controllers: [
+    ClientReturnsController,
+    CrmReturnsController,
+    AdminReturnsController,
+    AuditorReturnsController,
+  ],
   providers: [ReturnsService],
   exports: [ReturnsService],
 })

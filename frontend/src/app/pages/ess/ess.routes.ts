@@ -19,6 +19,10 @@ const EssPfComponent = () =>
   import('./pf/ess-pf.component').then((m) => m.EssPfComponent);
 const EssEsiComponent = () =>
   import('./esi/ess-esi.component').then((m) => m.EssEsiComponent);
+const EssAttendancePageComponent = () =>
+  import('./attendance/ess-attendance-page.component').then(
+    (m) => m.EssAttendancePageComponent,
+  );
 const EssDocumentVaultPageComponent = () =>
   import('./documents/ess-document-vault-page.component').then(
     (m) => m.EssDocumentVaultPageComponent,
@@ -41,6 +45,7 @@ export const ESS_ROUTES: Routes = [
       { path: 'nominations', loadComponent: EssNominationsComponent },
       { path: 'leave', loadComponent: EssLeaveComponent },
       { path: 'payslips', loadComponent: EssPayslipsComponent },
+      { path: 'attendance', loadComponent: EssAttendancePageComponent },
       { path: 'documents', loadComponent: EssDocumentVaultPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

@@ -1,0 +1,63 @@
+<div class="flex flex-wrap items-end gap-3 mb-4">
+  <!-- Client picker -->
+  <div *ngIf="showClient" class="flex flex-col gap-1 min-w-[180px]">
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Client</label>
+    <select
+      class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+      [disabled]="lockClient || loadingClients"
+      [ngModel]="state.clientId"
+      (ngModelChange)="onClientChange($event)">
+      <option *ngFor="let c of clients" [ngValue]="c.id">{{ c.name }}</option>
+    </select>
+  </div>
+
+  <!-- Branch picker -->
+  <div *ngIf="showBranch" class="flex flex-col gap-1 min-w-[180px]">
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Branch</label>
+    <select
+      class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+      [disabled]="lockBranch || loadingBranches"
+      [ngModel]="state.branchId || ''"
+      (ngModelChange)="onBranchChange($event)">
+      <option value="">All Branches</option>
+      <option *ngFor="let b of branches" [ngValue]="b.id">
+        {{ b.name }}{{ b.code ? ' (' + b.code + ')' : '' }}
+      </option>
+    </select>
+  </div>
+
+  <!-- Month picker -->
+  <div *ngIf="showMonth" class="flex flex-col gap-1 min-w-[150px]">
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Month</label>
+    <input type="month"
+      class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      [ngModel]="state.month"
+      (ngModelChange)="onMonthChange($event)" />
+  </div>
+
+  <!-- FY picker -->
+  <div *ngIf="showFY" class="flex flex-col gap-1 min-w-[140px]">
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Financial Year</label>
+    <select
+      class="w-full rounded-lg border-gray-300 text-sm py-2 px-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      [ngModel]="state.fy"
+      (ngModelChange)="onFYChange($event)">
+      <option *ngFor="let fy of fyOptions" [ngValue]="fy">{{ fy }}</option>
+    </select>
+  </div>
+
+  <!-- Search input -->
+  <div *ngIf="showSearch" class="flex flex-col gap-1 flex-1 min-w-[200px]">
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Search</label>
+    <div class="relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <input type="text"
+        placeholder="Search..."
+        class="w-full rounded-lg border-gray-300 text-sm py-2 pl-9 pr-3 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        [ngModel]="state.q"
+        (ngModelChange)="onSearch($event)" />
+    </div>
+  </div>
+</div>

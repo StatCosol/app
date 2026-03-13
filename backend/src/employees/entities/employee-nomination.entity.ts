@@ -31,7 +31,12 @@ export class EmployeeNominationEntity {
   @Column({ name: 'declaration_date', type: 'date', nullable: true })
   declarationDate: string | null;
 
-  @Column({ name: 'witness_name', type: 'varchar', length: 200, nullable: true })
+  @Column({
+    name: 'witness_name',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
   witnessName: string | null;
 
   @Column({ name: 'witness_address', type: 'text', nullable: true })

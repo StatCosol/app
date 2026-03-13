@@ -1,0 +1,290 @@
+<div class="page">
+  <ui-page-header
+    title="Returns Filing Workspace"
+    subtitle="Prepared, reviewed, filed, acknowledged, and rejected workflow with filing evidence">
+  </ui-page-header>
+
+  <section class="filters">
+    <input
+      type="text"
+      class="field field--search"
+      placeholder="Search return type, law type, status, ACK number"
+      [(ngModel)]="searchTerm"
+      (input)="applyFilters()">
+
+    <select class="field" [(ngModel)]="lawTypeFilter" (change)="applyFilters()">
+      <option value="">All Acts</option>
+      <option *ngFor="let law of lawTypes" [value]="law">{{ law }}</option>
+    </select>
+
+    <select class="field" [(ngModel)]="branchFilter" (change)="loadFilings()">
+      <option value="">All Branches</option>
+      <option *ngFor="let branchId of branches" [value]="branchId">{{ branchId }}</option>
+    </select>
+
+    <select class="field" [(ngModel)]="statusFilter" (change)="loadFilings()">
+      <option value="">All Statuses</option>
+      <option value="PENDING">PREPARED</option>
+      <option value="IN_PROGRESS">REVIEWED</option>
+      <option value="SUBMITTED">FILED</option>
+      <option value="APPROVED">ACKNOWLEDGED</option>
+      <option value="REJECTED">REJECTED</option>
+    </select>
+
+    <select class="field" [(ngModel)]="periodYearFilter" (change)="loadFilings()">
+      <option value="">All Years</option>
+      <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+    </select>
+
+    <select class="field" [(ngModel)]="periodMonthFilter" (change)="loadFilings()">
+      <option value="">All Months</option>
+      <option *ngFor="let month of monthOptions" [value]="month.value">{{ month.label }}</option>
+    </select>
+
+    <label class="pending-only">
+      <input type="checkbox" [(ngModel)]="pendingOnly" (change)="applyFilters()">
+      Pending only
+    </label>
+
+    <ui-button variant="secondary" (clicked)="loadFilings()">Refresh</ui-button>
+    <ui-button variant="ghost" (clicked)="exportCsv()">Export</ui-button>
+  </section>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <div class="summary-value">{{ preparedCount }}</div>
+      <div class="summary-label">Prepared</div>
+    </article>
+    <article class="summary-card">
+      <div class="summary-value">{{ reviewedCount }}</div>
+      <div class="summary-label">Reviewed</div>
+    </article>
+    <article class="summary-card">
+      <div class="summary-value">{{ filedCount }}</div>
+      <div class="summary-label">Filed</div>
+    </article>
+    <article class="summary-card summary-card--ok">
+      <div class="summary-value">{{ acknowledgedCount }}</div>
+      <div class="summary-label">Acknowledged</div>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <div class="summary-value">{{ rejectedCount }}</div>
+      <div class="summary-label">Rejected</div>
+    </article>
+  </section>
+
+  <section class="branch-board" *ngIf="branchPendingRows.length">
+    <div class="panel-head">
+      <h3>Branch-wise Pending View</h3>
+      <span>Click a branch row to drill into its queue</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table table--compact">
+        <thead>
+          <tr>
+            <th>Branch</th>
+            <th>Total</th>
+            <th>Pending</th>
+            <th>Filed</th>
+            <th>Acknowledged</th>
+            <th>Rejected</th>
+            <th>Overdue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of branchPendingRows; trackBy: trackById" (click)="focusBranchPending(row.branchId)">
+            <td>{{ branchLabel(row.branchId) }}</td>
+            <td>{{ row.total }}</td>
+            <td>{{ row.pending }}</td>
+            <td>{{ row.filed }}</td>
+            <td>{{ row.acknowledged }}</td>
+            <td>{{ row.rejected }}</td>
+            <td><span class="danger">{{ row.overdue }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading returns workspace..."></ui-loading-spinner>
+  <ui-empty-state
+    *ngIf="!loading && !filteredFilings.length"
+    title="No filings found"
+    description="Adjust filters or refresh to load filing items.">
+  </ui-empty-state>
+
+  <section *ngIf="!loading && filteredFilings.length" class="workspace">
+    <article class="list-panel">
+      <header class="panel-head">
+        <h3>Returns Queue</h3>
+        <span>{{ filteredFilings.length }} item(s)</span>
+      </header>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Return</th>
+              <th>Period</th>
+              <th>Due</th>
+              <th>Reference</th>
+              <th>Workflow</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let row of filteredFilings; trackBy: trackById"
+              [class.active]="selected?.id === row.id"
+              (click)="selectFiling(row)">
+              <td>
+                <div class="primary">{{ row.returnType || '-' }}</div>
+                <div class="secondary">{{ row.lawType || '-' }}</div>
+              </td>
+              <td>{{ periodText(row) }}</td>
+              <td>
+                <div>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</div>
+                <div class="due-note" [class.due-note--bad]="isOverdue(row)" *ngIf="row.dueDate">{{ dueHint(row) }}</div>
+              </td>
+              <td><span class="reference-chip">{{ referenceCode(row) }}</span></td>
+              <td><span [class]="workflowClass(row.status)">{{ mapWorkflow(row.status) }}</span></td>
+              <td><ui-status-badge [status]="row.status" size="sm"></ui-status-badge></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <aside class="detail-panel" *ngIf="selected as row">
+      <header class="panel-head">
+        <h3>Filing Detail</h3>
+        <span>{{ row.id }}</span>
+      </header>
+
+      <div class="detail-body">
+        <div class="title">{{ row.returnType || '-' }}</div>
+          <div class="meta-grid">
+            <div class="meta-cell">
+              <span class="k">Law Type</span>
+              <span class="v">{{ row.lawType || '-' }}</span>
+            </div>
+            <div class="meta-cell">
+              <span class="k">Period</span>
+              <span class="v">{{ periodText(row) }}</span>
+            </div>
+          <div class="meta-cell">
+            <span class="k">Due Date</span>
+            <span class="v">{{ row.dueDate || '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">ACK Number</span>
+            <span class="v">{{ row.ackNumber || '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Filed Date</span>
+            <span class="v">{{ row.filedDate || '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Current Workflow</span>
+            <span class="v">{{ mapWorkflow(row.status) }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Reference</span>
+            <span class="v">{{ referenceCode(row) }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Client ID</span>
+            <span class="v">{{ row.clientId || '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Branch ID</span>
+            <span class="v">{{ row.branchId || '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Record Created</span>
+            <span class="v">{{ row.createdAt ? (row.createdAt | date:'dd MMM yyyy, HH:mm') : '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Status Updated</span>
+            <span class="v">{{ row.updatedAt ? (row.updatedAt | date:'dd MMM yyyy, HH:mm') : '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Filing Age</span>
+            <span class="v">{{ filingAgeText(row) }}</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <ui-button
+            *ngFor="let action of statusActions"
+            [variant]="action.variant"
+            [disabled]="statusBusy || !canMoveTo(action.value, row)"
+            (clicked)="moveStatus(action.value)">
+            {{ action.label }}
+          </ui-button>
+        </div>
+
+        <div class="guardrails">
+          <div class="guardrail-head">Transition Guardrails</div>
+          <div class="guardrail-row" *ngFor="let action of statusActions">
+            <span class="guardrail-action">{{ action.label }}</span>
+            <span class="guardrail-ok" *ngIf="canMoveTo(action.value, row)">Allowed</span>
+            <span class="guardrail-blocked" *ngIf="!canMoveTo(action.value, row)">
+              {{ transitionGuardReason(row, action.value) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="proofs">
+          <div class="proof-row">
+            <span>ACK / ARN Proof</span>
+            <div class="proof-actions">
+              <button class="mini" (click)="openAckUpload(row.id)" [disabled]="uploadingAck">
+                {{ uploadingAck && selectedFilingIdForAck === row.id ? 'Uploading...' : 'Upload ACK' }}
+              </button>
+              <button class="mini mini--view" [disabled]="!row.ackFilePath" (click)="openFile(row.ackFilePath)">View</button>
+            </div>
+          </div>
+
+          <div class="proof-row">
+            <span>Challan Proof</span>
+            <div class="proof-actions">
+              <button class="mini" (click)="openChallanUpload(row.id)" [disabled]="uploadingChallan">
+                {{ uploadingChallan && selectedFilingIdForChallan === row.id ? 'Uploading...' : 'Upload Challan' }}
+              </button>
+              <button class="mini mini--view" [disabled]="!row.challanFilePath" (click)="openFile(row.challanFilePath)">View</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="checklist">
+          <div class="check-item" *ngFor="let check of detailChecklist(row)">
+            <div>
+              <span class="check-label">{{ check.label }}</span>
+              <small class="check-note">{{ check.note }}</small>
+            </div>
+            <strong [class.check-pass]="check.done" [class.check-fail]="!check.done">{{ check.done ? 'Done' : 'Pending' }}</strong>
+          </div>
+        </div>
+
+        <div class="timeline">
+          <h4>Audit Timeline</h4>
+          <div class="timeline-empty" *ngIf="!selectedTimeline.length">No timeline events available.</div>
+          <div class="timeline-item" *ngFor="let event of selectedTimeline">
+            <div class="dot"></div>
+            <div class="card">
+              <div class="top">
+                <span>{{ event.title }}</span>
+                <span>{{ event.timestamp | date:'dd MMM yyyy, HH:mm' }}</span>
+              </div>
+              <div class="note" *ngIf="event.note">{{ event.note }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <input #ackInput type="file" hidden (change)="onAckFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">
+  <input #challanInput type="file" hidden (change)="onChallanFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">
+</div>

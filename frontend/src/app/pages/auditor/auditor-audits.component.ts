@@ -1,21 +1,23 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
-import { finalize, timeout, takeUntil } from 'rxjs/operators';
+import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { AuditsService } from '../../core/audits.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
+  FormSelectComponent,
+  FormInputComponent,
+  ActionButtonComponent,
   DataTableComponent,
   TableCellDirective,
-  TableColumn,
   StatusBadgeComponent,
-  ActionButtonComponent,
-  FormInputComponent,
-  FormSelectComponent,
   EmptyStateComponent,
+  type TableColumn,
+  type SelectOption,
+  type ButtonVariant,
 } from '../../shared/ui';
 
 @Component({
@@ -25,19 +27,21 @@ import {
     CommonModule,
     FormsModule,
     PageHeaderComponent,
+    FormSelectComponent,
+    FormInputComponent,
+    ActionButtonComponent,
     DataTableComponent,
     TableCellDirective,
     StatusBadgeComponent,
-    ActionButtonComponent,
-    FormInputComponent,
-    FormSelectComponent,
     EmptyStateComponent,
   ],
   templateUrl: './auditor-audits.component.html',
-  styleUrls: ['./auditor-audits.component.scss'],
 })
 export class AuditorAuditsComponent implements OnInit, OnDestroy {
-  filters: any = {
+  private destroy$ = new Subject<void>();
+  loading = false;
+
+  filters = {
     frequency: '',
     status: '',
     year: '',
@@ -45,46 +49,30 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     contractorUserId: '',
   };
 
-  frequencies = [
-    { label: 'All', value: '' },
-    { label: 'Monthly', value: 'MONTHLY' },
-    { label: 'Quarterly', value: 'QUARTERLY' },
-    { label: 'Half-yearly', value: 'HALF_YEARLY' },
-    { label: 'Yearly', value: 'YEARLY' },
+  frequencyOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'MONTHLY', label: 'Monthly' },
+    { value: 'QUARTERLY', label: 'Quarterly' },
+    { value: 'HALF_YEARLY', label: 'Half Yearly' },
+    { value: 'YEARLY', label: 'Yearly' },
   ];
 
-  statuses = [
-    { label: 'All', value: '' },
-    { label: 'Planned', value: 'PLANNED' },
-    { label: 'In Progress', value: 'IN_PROGRESS' },
-    { label: 'Completed', value: 'COMPLETED' },
-    { label: 'Cancelled', value: 'CANCELLED' },
+  statusOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'SCHEDULED', label: 'Scheduled' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'COMPLETED', label: 'Completed' },
+    { value: 'CLOSED', label: 'Closed' },
   ];
 
-  // Convert to SelectOption format
-  get frequencyOptions() {
-    return this.frequencies;
-  }
+  clientFilterOptions: SelectOption[] = [{ value: '', label: 'All Clients' }];
 
-  get statusOptions() {
-    return this.statuses;
-  }
-
-  audits: any[] = [];
+  clientAudits: any[] = [];
+  contractorAudits: any[] = [];
   selectedAudit: any = null;
-  loading = true;
+  statusUpdating = false;
+  scoringId: string | null = null;
 
-  private destroy$ = new Subject<void>();
-
-  // Reference data
-  clients: Array<{ id: string; name: string }> = [];
-  clientNameMap: Record<string, string> = {};
-
-  get clientFilterOptions() {
-    return [{ value: '', label: 'All Clients' }, ...this.clients.map(c => ({ value: c.id, label: c.name }))];
-  }
-
-  // Table column definitions
   clientAuditColumns: TableColumn[] = [
     { key: 'clientName', header: 'Client' },
     { key: 'frequency', header: 'Frequency' },
@@ -105,59 +93,41 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
 
   constructor(
     private auditsService: AuditsService,
+    private toast: ToastService,
     private router: Router,
-    private http: HttpClient,
-    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.loadClients();
     this.load();
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
-  loadClients(): void {
-    this.http.get<any[]>('/api/v1/auditor/clients/assigned').pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data) => {
-        this.clients = (data || []).map((c: any) => ({ id: c.id, name: c.clientName || c.name || 'Unknown' }));
-        this.clientNameMap = {};
-        this.clients.forEach(c => this.clientNameMap[c.id] = c.name);
-        this.cdr.detectChanges();
-      },
-      error: () => { this.clients = []; this.cdr.detectChanges(); },
-    });
   }
 
   load(): void {
     this.loading = true;
-    const params = { ...this.filters };
-    this.auditsService.auditorListAudits(params).pipe(
-      takeUntil(this.destroy$),
-      timeout(10000),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
-    ).subscribe({
-      next: (res) => {
-        this.loading = false;
-        this.audits = (res?.data || []).map((a: any) => ({
-          ...a,
-          clientName: a.client?.clientName || this.clientNameMap[a.clientId] || 'Unknown',
-          contractorName: a.contractorUser?.name || a.contractorUserName || '-',
-        }));
-        if (this.audits.length && !this.selectedAudit) {
-          this.selectedAudit = this.audits[0];
-        }
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.audits = [];
-        this.cdr.detectChanges();
-      },
-    });
+    this.auditsService
+      .auditorListAudits(this.filters)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          const audits = Array.isArray(res) ? res : res?.data || res?.items || [];
+          this.clientAudits = audits.filter(
+            (a: any) => !a.contractorName || a.contractorName === '-',
+          );
+          this.contractorAudits = audits.filter(
+            (a: any) => a.contractorName && a.contractorName !== '-',
+          );
+          if (this.selectedAudit) {
+            this.selectedAudit =
+              audits.find((a: any) => a.id === this.selectedAudit.id) || null;
+          } else if (audits.length) {
+            this.selectedAudit = audits[0];
+          }
+          this.loading = false;
+        },
+        error: () => {
+          this.toast.error('Failed to load audits');
+          this.loading = false;
+        },
+      });
   }
 
   clear(): void {
@@ -171,26 +141,69 @@ export class AuditorAuditsComponent implements OnInit, OnDestroy {
     this.load();
   }
 
-  select(audit: any): void {
-    this.selectedAudit = audit;
+  getNextStatuses(
+    current: string,
+  ): { value: string; label: string; variant: ButtonVariant }[] {
+    const map: Record<string, { value: string; label: string; variant: ButtonVariant }[]> = {
+      SCHEDULED: [{ value: 'IN_PROGRESS', label: 'Start Audit', variant: 'primary' }],
+      IN_PROGRESS: [
+        { value: 'COMPLETED', label: 'Mark Complete', variant: 'primary' },
+      ],
+      COMPLETED: [{ value: 'CLOSED', label: 'Close Audit', variant: 'secondary' }],
+    };
+    return map[current] || [];
+  }
+
+  changeStatus(audit: any, newStatus: string): void {
+    this.statusUpdating = true;
+    this.auditsService
+      .auditorUpdateStatus(audit.id, newStatus)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Audit status updated');
+          this.statusUpdating = false;
+          this.load();
+        },
+        error: () => {
+          this.toast.error('Failed to update status');
+          this.statusUpdating = false;
+        },
+      });
+  }
+
+  calculateScore(audit: any): void {
+    this.scoringId = audit.id;
+    this.auditsService
+      .auditorCalculateScore(audit.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.toast.success(`Score: ${res?.score ?? 'calculated'}`);
+          this.scoringId = null;
+          this.load();
+        },
+        error: () => {
+          this.toast.error('Score calculation failed');
+          this.scoringId = null;
+        },
+      });
+  }
+
+  openObservations(audit: any): void {
+    this.router.navigate(['/auditor/observations'], {
+      queryParams: { auditId: audit.id },
+    });
   }
 
   openComplianceForSelected(): void {
-    if (!this.selectedAudit) return;
-
-    const queryParams: any = {
-      clientId: this.selectedAudit.clientId,
-      year: this.selectedAudit.periodYear,
-    };
-
-    this.router.navigate(['/auditor/compliance'], { queryParams });
+    if (this.selectedAudit) {
+      this.router.navigate(['/auditor/audits', this.selectedAudit.id, 'workspace']);
+    }
   }
 
-  get clientAudits(): any[] {
-    return this.audits.filter((a) => !a.contractorUserId);
-  }
-
-  get contractorAudits(): any[] {
-    return this.audits.filter((a) => !!a.contractorUserId);
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

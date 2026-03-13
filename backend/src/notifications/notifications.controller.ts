@@ -14,7 +14,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { ReplyNotificationDto } from './dto/reply-notification.dto';
 import { RaiseNotificationDto } from './dto/raise-notification.dto';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Notifications')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'notifications', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NotificationsController {
@@ -24,26 +27,31 @@ export class NotificationsController {
   // Thread-based notification system (existing)
   // -------------------------
 
+  @ApiOperation({ summary: 'Create' })
   @Post()
   create(@CurrentUser() user: any, @Body() dto: CreateNotificationDto) {
     return this.svc.createTicket(user.id, user.roleCode, dto);
   }
 
+  @ApiOperation({ summary: 'Inbox' })
   @Get('inbox')
   inbox(@CurrentUser() user: any, @Query() q: any) {
     return this.svc.listTicketsForUser(user, q);
   }
 
+  @ApiOperation({ summary: 'My' })
   @Get('my')
   my(@CurrentUser() user: any, @Query() q: any) {
     return this.svc.listTicketsCreatedBy(user, q);
   }
 
+  @ApiOperation({ summary: 'Thread' })
   @Get('threads/:threadId')
   thread(@CurrentUser() user: any, @Param('threadId') threadId: string) {
     return this.svc.getThreadDetailForUser(user, threadId);
   }
 
+  @ApiOperation({ summary: 'Thread Reply' })
   @Post('threads/:threadId/reply')
   threadReply(
     @CurrentUser() user: any,
@@ -53,16 +61,19 @@ export class NotificationsController {
     return this.svc.replyAsUser(user, threadId, dto);
   }
 
+  @ApiOperation({ summary: 'Close' })
   @Post('threads/:threadId/close')
   close(@CurrentUser() user: any, @Param('threadId') threadId: string) {
     return this.svc.closeThread(user, threadId);
   }
 
+  @ApiOperation({ summary: 'Reopen' })
   @Post('threads/:threadId/reopen')
   reopen(@CurrentUser() user: any, @Param('threadId') threadId: string) {
     return this.svc.reopenThread(user, threadId);
   }
 
+  @ApiOperation({ summary: 'Mark Read' })
   @Post('threads/:threadId/read')
   markRead(@CurrentUser() user: any, @Param('threadId') threadId: string) {
     return this.svc.markRead(threadId, user.id);
@@ -98,6 +109,7 @@ export class NotificationsController {
    * - routedToRole: string (ADMIN/CRM/AUDITOR)
    * - routedToUserId: UUID
    */
+  @ApiOperation({ summary: 'Raise' })
   @Post('raise')
   raise(@CurrentUser() user: any, @Body() dto: RaiseNotificationDto) {
     return this.svc.raise(user, dto);
@@ -120,6 +132,7 @@ export class NotificationsController {
    * - status: 'SENT'
    * - notificationId: UUID of reply
    */
+  @ApiOperation({ summary: 'Reply' })
   @Post(':id/reply')
   reply(
     @CurrentUser() user: any,

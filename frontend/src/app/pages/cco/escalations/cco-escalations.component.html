@@ -1,0 +1,119 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Escalations"
+    subtitle="Monitor and action compliance escalations across all portals">
+    <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+  </ui-page-header>
+
+  <!-- KPI Strip -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <ui-stat-card label="Total" [value]="kpiTotal" color="primary"></ui-stat-card>
+    <ui-stat-card label="Open" [value]="kpiOpen" color="warning"></ui-stat-card>
+    <ui-stat-card label="In Progress" [value]="kpiInProgress" color="info"></ui-stat-card>
+    <ui-stat-card label="Critical" [value]="kpiCritical" color="error"></ui-stat-card>
+  </div>
+
+  <!-- Tabs by Escalation Type -->
+  <div class="flex items-center gap-1 mb-4 bg-gray-100 rounded-xl p-1 w-fit overflow-x-auto">
+    <button *ngFor="let opt of tabOptions"
+      (click)="setTab(opt.value)"
+      [class]="tab === opt.value
+        ? 'bg-white shadow-sm text-gray-900 font-semibold'
+        : 'text-gray-500 hover:text-gray-700'"
+      class="px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap">
+      {{ opt.label }}
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex gap-3 mb-4">
+    <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+      [(ngModel)]="statusFilter" (change)="load()">
+      <option value="">All Statuses</option>
+      <option value="OPEN">Open</option>
+      <option value="IN_PROGRESS">In Progress</option>
+      <option value="CLOSED">Closed</option>
+    </select>
+  </div>
+
+  <!-- Loading & Empty -->
+  <ui-loading-spinner *ngIf="loading" text="Loading escalations..."></ui-loading-spinner>
+  <ui-empty-state *ngIf="!loading && filtered.length === 0"
+    title="No escalations" message="No escalations match your current filters.">
+  </ui-empty-state>
+
+  <!-- Table -->
+  <ui-data-table *ngIf="!loading && filtered.length"
+    [columns]="columns" [data]="filtered" [loading]="loading"
+    emptyMessage="No escalations found.">
+    <ng-template uiTableCell="type" let-row>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+        {{ row.type?.replace('_', ' ') || '-' }}
+      </span>
+    </ng-template>
+    <ng-template uiTableCell="clientBranch" let-row>
+      <div class="text-gray-900 font-medium">{{ row.clientName || '-' }}</div>
+      <div class="text-xs text-gray-500">{{ row.branchName || '-' }}</div>
+    </ng-template>
+    <ng-template uiTableCell="title" let-row>{{ row.title || '-' }}</ng-template>
+    <ng-template uiTableCell="severity" let-row>
+      <span [class]="severityColor(row.severity)"
+        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
+        {{ row.severity }}
+      </span>
+    </ng-template>
+    <ng-template uiTableCell="ageDays" let-row>
+      <span class="font-medium" [class]="row.ageDays > 7 ? 'text-red-600' : 'text-gray-700'">{{ row.ageDays ?? '-' }}</span>
+    </ng-template>
+    <ng-template uiTableCell="status" let-row>
+      <ui-status-badge [status]="row.status" size="sm"></ui-status-badge>
+    </ng-template>
+    <ng-template uiTableCell="actions" let-row>
+      <div class="flex justify-end gap-2">
+        <ui-button variant="secondary" size="sm" (clicked)="openAssignModal(row)"
+          [disabled]="row.status === 'CLOSED'">Assign</ui-button>
+        <ui-button variant="secondary" size="sm" (clicked)="openNotifyModal(row)"
+          [disabled]="row.status === 'CLOSED'">Notify</ui-button>
+        <ui-button variant="secondary" size="sm" (clicked)="closeEscalation(row)"
+          [disabled]="row.status === 'CLOSED'">Close</ui-button>
+      </div>
+    </ng-template>
+  </ui-data-table>
+
+  <!-- Assign Modal -->
+  <div *ngIf="showAssignModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Assign Escalation</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Assignee Role</label>
+          <select class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assignRole">
+            <option value="CRM">CRM</option>
+            <option value="AUDITOR">Auditor</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Assignee ID</label>
+          <input class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assigneeId" placeholder="User ID" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <ui-button variant="secondary" (clicked)="showAssignModal = false">Cancel</ui-button>
+        <ui-button variant="primary" (clicked)="confirmAssign()" [disabled]="!assigneeId.trim()">Assign</ui-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notify Modal -->
+  <div *ngIf="showNotifyModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Send Notification</h3>
+      <textarea class="w-full rounded-lg border-gray-300 text-sm mb-4" rows="3"
+        [(ngModel)]="notifyMessage" placeholder="Enter notification message..."></textarea>
+      <div class="flex justify-end gap-3">
+        <ui-button variant="secondary" (clicked)="showNotifyModal = false">Cancel</ui-button>
+        <ui-button variant="primary" (clicked)="sendNotification()" [disabled]="!notifyMessage.trim()">Send</ui-button>
+      </div>
+    </div>
+  </div>
+</div>

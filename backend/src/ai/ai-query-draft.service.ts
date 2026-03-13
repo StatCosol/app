@@ -47,11 +47,15 @@ const KEYWORD_MAP: Record<string, RouteTarget> = {
 };
 
 const KEYWORD_PATTERNS: Record<string, RegExp> = {
-  COMPLIANCE: /\b(compliance|mcd|pf\b|esi\b|epfo|labour|license|registration|return|filing|statutory|act\b|rule|regulation|penalty)\b/i,
-  AUDIT: /\b(audit|observation|nc\b|non.?compliance|check|finding|corrective|capa|recommendation)\b/i,
-  PAYROLL: /\b(payroll|salary|wage|ctc|deduction|bonus|gratuity|leave\s*encashment|pay\s*slip|disbursement)\b/i,
+  COMPLIANCE:
+    /\b(compliance|mcd|pf\b|esi\b|epfo|labour|license|registration|return|filing|statutory|act\b|rule|regulation|penalty)\b/i,
+  AUDIT:
+    /\b(audit|observation|nc\b|non.?compliance|check|finding|corrective|capa|recommendation)\b/i,
+  PAYROLL:
+    /\b(payroll|salary|wage|ctc|deduction|bonus|gratuity|leave\s*encashment|pay\s*slip|disbursement)\b/i,
   HR: /\b(employee|contractor|onboard|offboard|transfer|branch|manpower|headcount|probation|notice\s*period|posh)\b/i,
-  TECHNICAL: /\b(server|api|error|bug|login|password|system|deploy|database|access|permission|role)\b/i,
+  TECHNICAL:
+    /\b(server|api|error|bug|login|password|system|deploy|database|access|permission|role)\b/i,
 };
 
 const QUERY_DRAFT_SYSTEM_PROMPT = `You are a senior compliance operations assistant at StatCo, a labour-law compliance SaaS company.
@@ -89,7 +93,11 @@ export class AiQueryDraftService {
     // 1. Log request
     const request = await this.requestLog.createRequest({
       module: 'QUERY',
-      payload: { message: params.message, queryTypeHint: params.queryTypeHint, subject: params.subject },
+      payload: {
+        message: params.message,
+        queryTypeHint: params.queryTypeHint,
+        subject: params.subject,
+      },
       createdBy: params.createdBy,
       tenantId: params.tenantId,
     });
@@ -111,10 +119,14 @@ Generate a professional draft reply, key clarifying questions, and confidence.`;
       let confidence = 0.7;
 
       try {
-        const aiResult = await this.aiCore.complete(QUERY_DRAFT_SYSTEM_PROMPT, userPrompt);
+        const aiResult = await this.aiCore.complete(
+          QUERY_DRAFT_SYSTEM_PROMPT,
+          userPrompt,
+        );
         if (aiResult) {
           const parsed = JSON.parse(aiResult.content);
-          draftReply = parsed.draftReply || this.fallbackReply(route, params.message);
+          draftReply =
+            parsed.draftReply || this.fallbackReply(route, params.message);
           keyQuestions = parsed.keyQuestions || [];
           confidence = parsed.confidence ?? 0.7;
         } else {
@@ -175,21 +187,45 @@ Generate a professional draft reply, key clarifying questions, and confidence.`;
 
   /** Fallback reply when AI is unavailable */
   private fallbackReply(route: RouteTarget, message: string): string {
-    return `Thank you for your query. This has been routed to the ${route.department} team (${route.role}). ` +
+    return (
+      `Thank you for your query. This has been routed to the ${route.department} team (${route.role}). ` +
       `A team member will review your query and respond within 24 hours. ` +
-      `For urgent matters, please contact your account manager directly.`;
+      `For urgent matters, please contact your account manager directly.`
+    );
   }
 
   /** Fallback questions when AI is unavailable */
   private fallbackQuestions(route: RouteTarget): string[] {
     const common: Record<string, string[]> = {
-      COMPLIANCE: ['Which state/location does this concern?', 'What is the specific compliance item or act?', 'What is the deadline or due date?'],
-      AUDIT: ['What is the audit period and branch?', 'Is this related to an existing observation?', 'What is the severity level?'],
-      PAYROLL: ['Which payroll period does this concern?', 'Which employee(s) are affected?', 'Is this about processing or reporting?'],
-      HR: ['Which branch or contractor is involved?', 'What is the employee ID or name?', 'Is this urgent?'],
-      TECHNICAL: ['Can you provide a screenshot or error message?', 'Which module or page is affected?', 'When did this issue start?'],
+      COMPLIANCE: [
+        'Which state/location does this concern?',
+        'What is the specific compliance item or act?',
+        'What is the deadline or due date?',
+      ],
+      AUDIT: [
+        'What is the audit period and branch?',
+        'Is this related to an existing observation?',
+        'What is the severity level?',
+      ],
+      PAYROLL: [
+        'Which payroll period does this concern?',
+        'Which employee(s) are affected?',
+        'Is this about processing or reporting?',
+      ],
+      HR: [
+        'Which branch or contractor is involved?',
+        'What is the employee ID or name?',
+        'Is this urgent?',
+      ],
+      TECHNICAL: [
+        'Can you provide a screenshot or error message?',
+        'Which module or page is affected?',
+        'When did this issue start?',
+      ],
     };
-    const cat = Object.entries(KEYWORD_MAP).find(([, v]) => v === route)?.[0] || 'COMPLIANCE';
+    const cat =
+      Object.entries(KEYWORD_MAP).find(([, v]) => v === route)?.[0] ||
+      'COMPLIANCE';
     return common[cat] || common['COMPLIANCE'];
   }
 }

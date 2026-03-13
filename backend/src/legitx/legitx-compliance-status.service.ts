@@ -38,7 +38,8 @@ export class LegitxComplianceStatusService {
     openCriticalObs: number;
     openHighObs: number;
   }): RiskLevel {
-    const { compliancePct, overdueCritical, openCriticalObs, openHighObs } = params;
+    const { compliancePct, overdueCritical, openCriticalObs, openHighObs } =
+      params;
     if (openCriticalObs > 0 || overdueCritical >= 2) return 'CRITICAL';
     if (compliancePct < 70 || openHighObs >= 3) return 'HIGH';
     if (compliancePct >= 70 && compliancePct <= 85) return 'MEDIUM';
@@ -47,7 +48,9 @@ export class LegitxComplianceStatusService {
 
   // ───────────── 1. Summary ─────────────
 
-  async getSummary(p: StatusQueryParams): Promise<ComplianceStatusSummaryResponse> {
+  async getSummary(
+    p: StatusQueryParams,
+  ): Promise<ComplianceStatusSummaryResponse> {
     const { params, where } = this.buildTaskWhere(p);
 
     // Task counts
@@ -69,7 +72,14 @@ export class LegitxComplianceStatusService {
        FROM compliance_tasks ct
        ${where}`,
       params,
-      { total: 0, approved: 0, pending: 0, overdue: 0, rejected: 0, in_review: 0 },
+      {
+        total: 0,
+        approved: 0,
+        pending: 0,
+        overdue: 0,
+        rejected: 0,
+        in_review: 0,
+      },
     );
 
     // Branch count
@@ -82,9 +92,10 @@ export class LegitxComplianceStatusService {
     );
 
     const totalApplicable = taskRow.total;
-    const compliancePct = totalApplicable > 0
-      ? +((taskRow.approved / totalApplicable) * 100).toFixed(1)
-      : 0;
+    const compliancePct =
+      totalApplicable > 0
+        ? +((taskRow.approved / totalApplicable) * 100).toFixed(1)
+        : 0;
 
     // Overdue critical: tasks overdue that are important (all overdue for now since we don't have score_weight)
     const overdueCritical = taskRow.overdue;
@@ -171,16 +182,19 @@ export class LegitxComplianceStatusService {
       auditParams,
       [],
     );
-    const auditScoreMap = new Map(auditScores.map(a => [a.client_id, a.score]));
+    const auditScoreMap = new Map(
+      auditScores.map((a) => [a.client_id, a.score]),
+    );
 
     // Get observation counts for risk calc
     const obsRows = await this.getObsCountsByBranch(p);
 
-    const result: BranchComplianceRow[] = rows.map(r => {
+    const result: BranchComplianceRow[] = rows.map((r) => {
       const totalApplicable = r.total;
-      const compliancePct = totalApplicable > 0
-        ? +((r.approved / totalApplicable) * 100).toFixed(1)
-        : 0;
+      const compliancePct =
+        totalApplicable > 0
+          ? +((r.approved / totalApplicable) * 100).toFixed(1)
+          : 0;
 
       const branchObs = obsRows.get(r.branch_id) || { high: 0, critical: 0 };
 
@@ -208,9 +222,16 @@ export class LegitxComplianceStatusService {
     });
 
     // Sort by risk (CRITICAL first) then lowest compliance
-    const riskRank: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-    result.sort((a, b) =>
-      (riskRank[a.riskLevel] ?? 3) - (riskRank[b.riskLevel] ?? 3) || a.compliancePct - b.compliancePct,
+    const riskRank: Record<string, number> = {
+      CRITICAL: 0,
+      HIGH: 1,
+      MEDIUM: 2,
+      LOW: 3,
+    };
+    result.sort(
+      (a, b) =>
+        (riskRank[a.riskLevel] ?? 3) - (riskRank[b.riskLevel] ?? 3) ||
+        a.compliancePct - b.compliancePct,
     );
 
     return result;
@@ -239,7 +260,9 @@ export class LegitxComplianceStatusService {
       }
     }
 
-    const limit = Number.isFinite(p.limit) ? Math.min(Math.max(p.limit ?? 200, 0), 500) : 200;
+    const limit = Number.isFinite(p.limit)
+      ? Math.min(Math.max(p.limit ?? 200, 0), 500)
+      : 200;
     const offset = Number.isFinite(p.offset) ? Math.max(p.offset ?? 0, 0) : 0;
     params.push(limit, offset);
 
@@ -283,11 +306,14 @@ export class LegitxComplianceStatusService {
 
     const today = new Date();
 
-    return rows.map(r => {
+    return rows.map((r) => {
       const dueDate = r.due_date ? new Date(r.due_date) : null;
-      const delayDays = dueDate && dueDate < today
-        ? Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
+      const delayDays =
+        dueDate && dueDate < today
+          ? Math.ceil(
+              (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+            )
+          : 0;
 
       return {
         taskId: r.task_id,
@@ -330,7 +356,9 @@ export class LegitxComplianceStatusService {
       }
     }
 
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
 
     const rows = await this.safeMany<{
       contractor_user_id: string;
@@ -373,7 +401,7 @@ export class LegitxComplianceStatusService {
       [],
     );
 
-    const mapped: ContractorImpactRow[] = rows.map(r => ({
+    const mapped: ContractorImpactRow[] = rows.map((r) => ({
       contractorUserId: r.contractor_user_id,
       contractorName: r.contractor_name,
       branchId: r.branch_id,
@@ -383,12 +411,15 @@ export class LegitxComplianceStatusService {
       pendingDocuments: r.pending_docs,
       rejectedDocuments: r.rejected_docs,
       expiredDocuments: r.expired_docs,
-      compliancePct: r.total_docs > 0
-        ? +((r.approved_docs / r.total_docs) * 100).toFixed(1)
-        : 0,
+      compliancePct:
+        r.total_docs > 0
+          ? +((r.approved_docs / r.total_docs) * 100).toFixed(1)
+          : 0,
     }));
 
-    const sorted = [...mapped].sort((a, b) => a.compliancePct - b.compliancePct);
+    const sorted = [...mapped].sort(
+      (a, b) => a.compliancePct - b.compliancePct,
+    );
 
     return {
       leastCompliant: sorted.slice(0, 10),
@@ -484,7 +515,7 @@ export class LegitxComplianceStatusService {
       criticalObservations: obsSummary.critical_count,
       highObservations: obsSummary.high_count,
       reverifyPending: obsSummary.reverify_count,
-      observations: observations.map(o => ({
+      observations: observations.map((o) => ({
         id: o.id,
         auditId: o.audit_id,
         observation: o.observation,
@@ -591,7 +622,10 @@ export class LegitxComplianceStatusService {
 
   // ───────────── Helpers ─────────────
 
-  private buildTaskWhere(p: StatusQueryParams): { params: any[]; where: string } {
+  private buildTaskWhere(p: StatusQueryParams): {
+    params: any[];
+    where: string;
+  } {
     const conditions: string[] = [
       'ct.period_year = $1',
       '(ct.period_month IS NULL OR ct.period_month = $2)',
@@ -620,7 +654,9 @@ export class LegitxComplianceStatusService {
     };
   }
 
-  private async getObsCounts(p: StatusQueryParams): Promise<{ high: number; critical: number }> {
+  private async getObsCounts(
+    p: StatusQueryParams,
+  ): Promise<{ high: number; critical: number }> {
     const conditions: string[] = ['a.period_year = $1'];
     const qParams: any[] = [p.year];
 
@@ -643,13 +679,19 @@ export class LegitxComplianceStatusService {
     return row;
   }
 
-  private async getObsCountsByBranch(p: StatusQueryParams): Promise<Map<string, { high: number; critical: number }>> {
+  private async getObsCountsByBranch(
+    p: StatusQueryParams,
+  ): Promise<Map<string, { high: number; critical: number }>> {
     // Since audits are at client level (no branch_id), we return empty map
     // When audits get branch_id, this can be enhanced
     return new Map();
   }
 
-  private async safeOne<T>(sql: string, params: any[], fallback: T): Promise<T> {
+  private async safeOne<T>(
+    sql: string,
+    params: any[],
+    fallback: T,
+  ): Promise<T> {
     try {
       const row = await this.db.one<T>(sql, params);
       return (row as T) ?? fallback;
@@ -659,7 +701,11 @@ export class LegitxComplianceStatusService {
     }
   }
 
-  private async safeMany<T>(sql: string, params: any[], fallback: T[]): Promise<T[]> {
+  private async safeMany<T>(
+    sql: string,
+    params: any[],
+    fallback: T[],
+  ): Promise<T[]> {
     try {
       return (await this.db.many<T>(sql, params)) ?? fallback;
     } catch (err: any) {
