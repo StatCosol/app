@@ -38,14 +38,20 @@ export class BranchRegistrationReminderService {
           (r.expiry_date - CURRENT_DATE) AS "daysRemaining",
           b.branchname     AS "branchName",
           c.client_name    AS "clientName",
-          -- Get client admin (master user) email
+          -- Get client admin (master user) email.
+          -- Older schemas do not have users.is_master_user, so infer
+          -- master users as CLIENT-role users with no branch mappings.
           (
             SELECT u.email FROM users u
             JOIN roles rl ON rl.id = u.role_id
+            LEFT JOIN user_branches ub ON ub.user_id = u.id
             WHERE u.client_id = r.client_id
-              AND u.is_master_user = true
+              AND rl.code = 'CLIENT'
               AND u.is_active = true
               AND u.deleted_at IS NULL
+            GROUP BY u.id, u.email
+            HAVING COUNT(ub.branch_id) = 0
+            ORDER BY MIN(u.created_at) ASC
             LIMIT 1
           ) AS "clientEmail",
           -- Get CRM user email for this client
