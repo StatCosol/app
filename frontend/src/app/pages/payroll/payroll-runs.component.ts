@@ -218,7 +218,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           this.filteredRuns = [];
           this.selectedRun = null;
           this.runEmployees = [];
-          this.toast.error('Load Failed', err?.error?.message || 'Failed to load payroll runs.');
+          this.toast.error(err?.error?.message || 'Failed to load payroll runs.');
         },
       });
   }
@@ -281,7 +281,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'PROCESS');
     if (guard) {
-      this.toast.warning('Action blocked', guard);
+      this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     this.actionBusy = true;
@@ -297,10 +297,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.addRunEvent(run.id, 'PROCESS', 'Run processed', 'Moved to processed stage');
-          this.toast.success('Run Processed', 'Payroll run moved to processed stage.');
+          this.toast.success('Payroll run moved to processed stage.');
           this.loadRuns();
         },
-        error: (err) => this.toast.error('Process Failed', err?.error?.message || 'Could not process run.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not process run.'),
       });
   }
 
@@ -308,7 +308,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'SUBMIT');
     if (guard) {
-      this.toast.warning('Action blocked', guard);
+      this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     this.actionBusy = true;
@@ -324,10 +324,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.addRunEvent(run.id, 'SUBMIT', 'Run submitted', 'Submitted for approval');
-          this.toast.success('Run Submitted', 'Payroll run submitted for approval.');
+          this.toast.success('Payroll run submitted for approval.');
           this.loadRuns();
         },
-        error: (err) => this.toast.error('Submit Failed', err?.error?.message || 'Could not submit run.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not submit run.'),
       });
   }
 
@@ -335,7 +335,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'APPROVE');
     if (guard) {
-      this.toast.warning('Action blocked', guard);
+      this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     this.actionBusy = true;
@@ -351,10 +351,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.addRunEvent(run.id, 'APPROVE', 'Run approved', 'Approved for publish');
-          this.toast.success('Run Approved', 'Payroll run approved and payslips archived.');
+          this.toast.success('Payroll run approved and payslips archived.');
           this.loadRuns();
         },
-        error: (err) => this.toast.error('Approve Failed', err?.error?.message || 'Could not approve run.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not approve run.'),
       });
   }
 
@@ -362,7 +362,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'PUBLISH');
     if (guard) {
-      this.toast.warning('Action blocked', guard);
+      this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     const status = this.statusKey(run);
@@ -385,7 +385,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'RERUN');
     if (guard) {
-      this.toast.warning('Action blocked', guard);
+      this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     this.addRunEvent(run.id, 'RERUN', 'Rerun requested', 'Run sent for reprocessing');
@@ -396,7 +396,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'ROLLBACK');
     if (guard) {
-      this.toast.warning('Action blocked', guard);
+      this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
     this.actionBusy = true;
@@ -412,11 +412,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.addRunEvent(run.id, 'ROLLBACK', 'Run rolled back', 'Reverted to draft');
-          this.toast.success('Run Reverted', 'Payroll run reverted to draft.');
+          this.toast.success('Payroll run reverted to draft.');
           this.loadRuns();
         },
         error: (err) =>
-          this.toast.error('Rollback Failed', err?.error?.message || 'Could not revert payroll run.'),
+          this.toast.error(err?.error?.message || 'Could not revert payroll run.'),
       });
   }
 
@@ -428,12 +428,12 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   uploadRunImport(): void {
     if (this.isConsoleBusy()) return;
     if (!this.selectedRun?.id || !this.importFile) {
-      this.toast.info('Import Required', 'Choose a file to import attendance/input data.');
+      this.toast.info('Choose a file to import attendance/input data.');
       return;
     }
     const guard = this.actionGuardReason(this.selectedRun, 'IMPORT');
     if (guard) {
-      this.toast.warning('Import blocked', guard);
+      this.toast.warning(`Import blocked: ${guard}`);
       return;
     }
     this.importBusy = true;
@@ -451,14 +451,14 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.addRunEvent(this.selectedRun!.id, 'IMPORT', 'Import uploaded', 'Input file imported');
-          this.toast.success('Import Uploaded', 'Run input file uploaded successfully.');
+          this.toast.success('Run input file uploaded successfully.');
           this.importFile = null;
           this.loadRuns();
           if (this.selectedRun) {
             this.loadRunEmployees(this.selectedRun.id, false);
           }
         },
-        error: (err) => this.toast.error('Import Failed', err?.error?.message || 'Could not upload import file.'),
+        error: (err) => this.toast.error(err?.error?.message || 'Could not upload import file.'),
       });
   }
 
@@ -476,7 +476,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           a.click();
           URL.revokeObjectURL(url);
         },
-        error: () => this.toast.error('Download Failed', 'Could not download payslips ZIP.'),
+        error: () => this.toast.error('Could not download payslips ZIP.'),
       });
   }
 
@@ -833,7 +833,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         error: () => {
           this.runEmployees = [];
           if (toastOnError) {
-            this.toast.error('Load Failed', 'Could not load employee run preview.');
+            this.toast.error('Could not load employee run preview.');
+            this.toast.error('Could not load employee run preview.');
           }
         },
       });
@@ -873,7 +874,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         error: () => {
           delete this.runApprovalStatusByRunId[runId];
           if (toastOnError) {
-            this.toast.error('Approval Status', 'Could not load approval status for this run.');
+            this.toast.error('Could not load approval status for this run.');
+            this.toast.error('Could not load approval status for this run.');
           }
         },
       });

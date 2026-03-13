@@ -123,6 +123,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'queries/:id', redirectTo: 'queries', pathMatch: 'full' },
       { path: 'profile', loadComponent: ClientProfileComponent },
       { path: 'support', loadComponent: ClientSupportComponent },
+      { path: 'approvals', loadComponent: ClientUnifiedApprovalsPageComponent },
       { path: 'approvals/nominations', loadComponent: NominationApprovalsComponent },
       { path: 'approvals/leaves', loadComponent: LeaveApprovalsComponent },
       { path: 'approvals', loadComponent: ClientUnifiedApprovalsPageComponent },
