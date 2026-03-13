@@ -9,13 +9,15 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Masters', route: '/admin/masters', roles: ['ADMIN'] },
   { label: 'Payroll Assignments', route: '/admin/payroll-assignments', roles: ['ADMIN'] },
   { label: 'Notifications', route: '/admin/notifications', roles: ['ADMIN'] },
+  { label: 'Digest', route: '/admin/digest', roles: ['ADMIN'] },
   { label: 'Reports', route: '/admin/reports', roles: ['ADMIN'] },
-  // Phase-2: { label: 'Risk Heatmap', route: '/admin/heatmap', roles: ['ADMIN'] },
+  { label: 'Risk Heatmap', route: '/admin/heatmap', roles: ['ADMIN'] },
   { label: 'SLA Tracker', route: '/admin/sla', roles: ['ADMIN'] },
-  // Phase-2: { label: 'Risk Trend', route: '/admin/risk-trend', roles: ['ADMIN'] },
+  { label: 'Risk Trend', route: '/admin/risk-trend', roles: ['ADMIN'] },
   { label: 'Escalations', route: '/admin/escalations', roles: ['ADMIN'] },
   { label: 'Audit Logs', route: '/admin/audit-logs', roles: ['ADMIN'] },
   { label: 'Unassigned Clients', route: '/admin/governance/unassigned', roles: ['ADMIN'] },
+  { label: 'Archive & Recovery', route: '/admin/archive', roles: ['ADMIN'] },
   { label: '🤖 AI Hub', route: '/admin/ai-hub', roles: ['ADMIN'] },
 
   // CCO
@@ -43,12 +45,11 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Returns / Filings', route: '/crm/returns', roles: ['CRM'] },
   { label: 'Schedule Audit', route: '/crm/audits', roles: ['CRM'] },
   { label: 'Helpdesk', route: '/crm/helpdesk', roles: ['CRM'] },
-  { label: 'Notifications', route: '/crm/notifications', roles: ['CRM'] },
   { label: 'Reports', route: '/crm/reports', roles: ['CRM'] },
   { label: 'Compliance Calendar', route: '/crm/calendar', roles: ['CRM'] },
-  // Phase-2: { label: 'Risk Heatmap', route: '/crm/heatmap', roles: ['CRM'] },
+  { label: 'Risk Heatmap', route: '/crm/heatmap', roles: ['CRM'] },
   { label: 'SLA Tracker', route: '/crm/sla', roles: ['CRM'] },
-  // Phase-2: { label: 'Risk Trend', route: '/crm/risk-trend', roles: ['CRM'] },
+  { label: 'Risk Trend', route: '/crm/risk-trend', roles: ['CRM'] },
   { label: 'Escalations', route: '/crm/escalations', roles: ['CRM'] },
 
   // AUDITOR (AuditXpert)

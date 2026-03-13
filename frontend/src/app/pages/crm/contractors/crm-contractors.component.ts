@@ -6,12 +6,13 @@ import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { CrmContractorsService } from '../../../core/crm-contractors.service';
 import { CrmService } from '../../../core/crm.service';
 import { ActivatedRoute } from '@angular/router';
-import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   standalone: true,
   selector: 'app-crm-contractors',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective],
   templateUrl: './crm-contractors.component.html',
   styleUrls: ['./crm-contractors.component.scss'],
 })
@@ -19,6 +20,15 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   loading = true;
   contractors: any[] = [];
+
+  readonly contractorColumns: TableColumn[] = [
+    { key: 'userCode', header: 'User Code' },
+    { key: 'name', header: 'Name' },
+    { key: 'email', header: 'Email' },
+    { key: 'mobile', header: 'Mobile' },
+    { key: 'clientName', header: 'Client' },
+    { key: 'status', header: 'Status' },
+  ];
   myClients: any[] = [];
   showForm = false;
   clientId?: string;
@@ -39,6 +49,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     private crmApi: CrmService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
   ) {}
 
   ngOnInit() {
@@ -113,7 +124,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
 
   registerContractor() {
     if (!this.form.name || !this.form.email || !this.form.password || !this.form.clientId) {
-      alert('Name, Email, Password, and Client are required');
+      this.toast.warning('Name, Email, Password, and Client are required');
       return;
     }
 
@@ -126,7 +137,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
         this.loadContractors();
       },
       error: (err) => {
-        alert(err?.error?.message || 'Failed to register contractor');
+        this.toast.error(err?.error?.message || 'Failed to register contractor');
         this.loading = false;
         this.cdr.detectChanges();
       },

@@ -4,6 +4,7 @@ import { CrmModule } from './crm/crm.module';
 import { AuditorModule } from './auditor/auditor.module';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { CleanupModule } from './cleanup/cleanup.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -25,6 +26,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { AdminModule } from './admin/admin.module';
@@ -47,6 +49,14 @@ import { RiskModule } from './risk/risk.module';
 import { SlaModule } from './sla/sla.module';
 import { EscalationsModule } from './escalations/escalations.module';
 import { MonthlyDocumentsModule } from './monthly-documents/monthly-documents.module';
+import { CrmDocumentsModule } from './crm-documents/crm-documents.module';
+import { OptionsModule } from './options/options.module';
+import { SharedModule } from './common/shared.module';
+import { SafetyDocumentsModule } from './safety-documents/safety-documents.module';
+import { MastersModule } from './masters/masters.module';
+import { UnitsModule } from './units/units.module';
+import { ApplicabilityModule } from './applicability/applicability.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -65,12 +75,12 @@ import { MonthlyDocumentsModule } from './monthly-documents/monthly-documents.mo
         database: config.get<string>('DB_NAME'),
         schema: 'public',
         autoLoadEntities: true,
-        synchronize: false, // DO NOT CHANGE TO TRUE IN PRODUCTION
+        synchronize: false, // Always false — use SQL migrations for schema changes
         extra: {
           // Pool configuration — prevent first-query hangs
-          max: 20,                       // max pool connections
-          min: 2,                        // keep 2 warm connections
-          idleTimeoutMillis: 30000,      // reclaim idle after 30s
+          max: config.get<number>('DB_POOL_MAX', 20),
+          min: config.get<number>('DB_POOL_MIN', 2),
+          idleTimeoutMillis: 30000, // reclaim idle after 30s
           connectionTimeoutMillis: 5000, // fail fast if DB unreachable (5s)
         },
         retryAttempts: 5,
@@ -80,7 +90,7 @@ import { MonthlyDocumentsModule } from './monthly-documents/monthly-documents.mo
     }),
     ThrottlerModule.forRoot([
       {
-        ttl: 60,
+        ttl: 60000,
         limit: 120,
       },
     ]),
@@ -122,9 +132,19 @@ import { MonthlyDocumentsModule } from './monthly-documents/monthly-documents.mo
     SlaModule,
     EscalationsModule,
     MonthlyDocumentsModule,
+    CrmDocumentsModule,
+    OptionsModule,
+    SharedModule,
+    SafetyDocumentsModule,
+    CleanupModule,
+    ApplicabilityModule,
+    AttendanceModule,
+    MastersModule,
+    UnitsModule,
   ],
   controllers: [],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

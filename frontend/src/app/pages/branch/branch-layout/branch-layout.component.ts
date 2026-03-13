@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { BranchSidebarComponent } from './branch-sidebar.component';
@@ -115,7 +115,7 @@ import { AuthService } from '../../../core/auth.service';
     }
   `]
 })
-export class BranchLayoutComponent {
+export class BranchLayoutComponent implements OnInit {
   sidebarCollapsed = false;
   mobileOpen = false;
   userName = 'Branch User';
@@ -130,6 +130,14 @@ export class BranchLayoutComponent {
     }
     const derivedLogo = u?.clientLogoUrl || u?.client?.logoUrl;
     if (derivedLogo) this.clientLogoUrl = derivedLogo;
+  }
+
+  ngOnInit(): void {
+    this.auth.fetchMe().subscribe(() => {
+      const u = this.auth.getUser();
+      const logo = u?.clientLogoUrl || u?.client?.logoUrl;
+      if (logo) this.clientLogoUrl = logo;
+    });
   }
 
   onLogoError(): void {

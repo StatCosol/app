@@ -1,6 +1,14 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
+import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 
 type AssignmentType = 'CRM' | 'AUDITOR';
 
@@ -14,7 +22,12 @@ export class AssignmentRotationService {
   }
   private readonly logger = new Logger(AssignmentRotationService.name);
 
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notifications: NotificationsService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // Daily at 01:00
   @Cron('0 0 1 * * *')
@@ -148,6 +161,23 @@ export class AssignmentRotationService {
 
       await qr.commitTransaction();
       this.logger.log(`Rotated ${rotated} ${type} assignments`);
+
+      // Fire-and-forget notifications for each rotation
+      for (const row of expired) {
+        const next = this.pickNextAssignee(
+          assignees.map((a) => a.id),
+          row.assigned_to_user_id,
+        );
+        this.sendRotationNotifications(
+          type,
+          row.client_id,
+          row.assigned_to_user_id,
+          next,
+        ).catch((e) =>
+          this.logger.warn(`Rotation notification failed: ${e?.message}`),
+        );
+      }
+
       return rotated;
     } catch (e) {
       await qr.rollbackTransaction();
@@ -168,5 +198,81 @@ export class AssignmentRotationService {
     const idx = currentAssigneeId ? pool.indexOf(currentAssigneeId) : -1;
     if (idx === -1) return pool[0];
     return pool[(idx + 1) % pool.length];
+  }
+
+  // ─── Rotation Notifications ──────────────────────────────────
+  private async sendRotationNotifications(
+    type: AssignmentType,
+    clientId: string,
+    previousUserId: string | null,
+    newUserId: string,
+  ): Promise<void> {
+    const roleName = type === 'CRM' ? 'CRM' : 'Auditor';
+    const roleCode = type === 'CRM' ? 'CRM' : 'AUDITOR';
+
+    // Fetch client name
+    const [client] = await this.ds.query(
+      `SELECT name FROM clients WHERE id = $1`,
+      [clientId],
+    );
+    const clientName = client?.name ?? 'Unknown Client';
+
+    // Notify new assignee
+    const subject = `${roleName} Assignment: ${clientName}`;
+    const message = `You have been assigned as ${roleName} for ${clientName} via automatic rotation.`;
+
+    try {
+      await this.notifications.createTicket(newUserId, roleCode as any, {
+        queryType: 'GENERAL',
+        subject,
+        message,
+        clientId,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Failed to create ticket for ${newUserId}: ${e?.message}`,
+      );
+    }
+
+    // Notify previous assignee (if exists)
+    if (previousUserId && previousUserId !== newUserId) {
+      try {
+        await this.notifications.createTicket(previousUserId, roleCode as any, {
+          queryType: 'GENERAL',
+          subject: `${roleName} Rotation: ${clientName}`,
+          message: `Your ${roleName} assignment for ${clientName} has been rotated to another team member.`,
+          clientId,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Failed to create ticket for ${previousUserId}: ${e?.message}`,
+        );
+      }
+    }
+
+    // Send emails
+    const users: Array<{ id: string; email: string; name: string }> =
+      await this.ds.query(
+        `SELECT id, email, name FROM users WHERE id = ANY($1) AND email IS NOT NULL`,
+        [[newUserId, previousUserId].filter(Boolean)],
+      );
+
+    for (const u of users) {
+      const isNew = u.id === newUserId;
+      const emailSubject = isNew
+        ? `New ${roleName} Assignment: ${clientName}`
+        : `${roleName} Assignment Rotated: ${clientName}`;
+      const body = isNew
+        ? `<p>Hi ${u.name},</p><p>You have been assigned as <strong>${roleName}</strong> for <strong>${clientName}</strong> via automatic rotation.</p><p>Please review your new assignment at your earliest convenience.</p>`
+        : `<p>Hi ${u.name},</p><p>Your <strong>${roleName}</strong> assignment for <strong>${clientName}</strong> has been rotated. A new team member has been assigned.</p>`;
+
+      try {
+        await this.emailService.send(u.email, emailSubject, emailSubject, body);
+      } catch (e) {
+        this.logger.warn(
+          `Failed to send rotation email to ${u.email}: ${e?.message}`,
+        );
+      }
+    }
   }
 }

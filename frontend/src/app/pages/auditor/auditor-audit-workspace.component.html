@@ -1,0 +1,342 @@
+<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Audit Cockpit</h1>
+      <p>Execute assigned audits with scope context, evidence tray, observation builder, severity scoring, and report progress tracking.</p>
+    </div>
+    <div class="head-controls" *ngIf="hasAuditContext">
+      <button type="button" class="btn btn-ghost" [disabled]="busy || loadingAudit" (click)="openReportBuilder()">
+        Open Report Builder
+      </button>
+      <button type="button" class="btn btn-primary" [disabled]="busy || loadingAudit" (click)="refreshCockpit()">
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="loader">Loading audit cockpit...</div>
+
+  <section class="card" *ngIf="!loading && !hasAuditContext">
+    <header class="section-head">
+      <h2>Select Assigned Audit</h2>
+      <span>{{ assignedAudits.length }} audits</span>
+    </header>
+
+    <div class="table-wrap" *ngIf="assignedAudits.length; else noAssignedAudits">
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Client</th>
+            <th>Period</th>
+            <th>Status</th>
+            <th class="text-right">Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of assignedAudits; trackBy: trackAudit">
+            <td>
+              <div class="strong">{{ row.auditCode || row.id }}</div>
+              <div class="minor">{{ row.auditType }} | {{ row.frequency }}</div>
+            </td>
+            <td>{{ row.client?.clientName || row.clientName || '-' }}</td>
+            <td>{{ row.periodCode || '-' }}</td>
+            <td><span [class]="statusClass(row.status)">{{ row.status }}</span></td>
+            <td class="text-right">
+              <button type="button" class="link" (click)="openAuditWorkspace(row)">Open cockpit</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #noAssignedAudits>
+      <div class="empty-mini">No assigned audits found.</div>
+    </ng-template>
+  </section>
+
+  <ng-container *ngIf="!loading && hasAuditContext && audit as auditDetail">
+    <section class="summary-grid">
+      <article class="summary-card">
+        <span class="label">Audit Code</span>
+        <strong>{{ auditDetail.auditCode || auditDetail.id }}</strong>
+        <span class="sub">{{ auditDetail.periodCode || '-' }}</span>
+      </article>
+      <article class="summary-card summary-card--info">
+        <span class="label">Evidence Tray</span>
+        <strong>{{ evidenceRows.length }}</strong>
+        <span class="sub">Documents</span>
+      </article>
+      <article class="summary-card summary-card--warn">
+        <span class="label">Open Observations</span>
+        <strong>{{ openObservationsCount }}</strong>
+        <span class="sub">Pending closure</span>
+      </article>
+      <article class="summary-card summary-card--warn">
+        <span class="label">High Risk</span>
+        <strong>{{ highRiskCount }}</strong>
+        <span class="sub">Critical + High</span>
+      </article>
+      <article class="summary-card summary-card--good">
+        <span class="label">Audit Score</span>
+        <strong>{{ auditDetail.score ?? '-' }}</strong>
+        <span class="sub">Out of 100</span>
+      </article>
+      <article class="summary-card summary-card--info">
+        <span class="label">Report Builder</span>
+        <strong>{{ reportStageText }}</strong>
+        <span class="sub">{{ formatDate(reportUpdatedAt) }}</span>
+      </article>
+    </section>
+
+    <section class="workspace-grid">
+      <article class="card">
+        <header class="section-head">
+          <h2>Audit Scope Header</h2>
+          <span [class]="statusClass(auditDetail.status)">{{ auditDetail.status }}</span>
+        </header>
+
+        <div class="kv-grid">
+          <div>
+            <span>Client</span>
+            <strong>{{ auditDetail.client?.clientName || '-' }}</strong>
+            <p>{{ auditDetail.clientId }}</p>
+          </div>
+          <div>
+            <span>Branch</span>
+            <strong>{{ auditDetail.branch?.branchName || '-' }}</strong>
+            <p>{{ auditDetail.branchId || 'N/A' }}</p>
+          </div>
+          <div>
+            <span>Frequency / Type</span>
+            <strong>{{ auditDetail.frequency }} / {{ auditDetail.auditType }}</strong>
+            <p>Period {{ auditDetail.periodCode || '-' }}</p>
+          </div>
+          <div>
+            <span>Due Date</span>
+            <strong>{{ formatDate(auditDetail.dueDate) }}</strong>
+            <p>Created {{ formatDate(auditDetail.createdAt) }}</p>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            *ngFor="let action of nextStatusActions"
+            [disabled]="busy || !!action.disabled"
+            (click)="updateAuditStatus(action.status)"
+            [title]="action.reason || ''"
+          >
+            {{ action.label }}
+          </button>
+          <button type="button" class="btn btn-primary" [disabled]="busy" (click)="calculateScore()">
+            Calculate Severity Score
+          </button>
+        </div>
+
+        <label class="notes-box">
+          Status Notes
+          <textarea rows="2" [(ngModel)]="statusNote" placeholder="Optional status note for next transition"></textarea>
+        </label>
+
+        <div class="guardrail-card">
+          <div class="guardrail-row" *ngFor="let guard of statusGuardrails">
+            <span class="guardrail-label">{{ guard.label }}</span>
+            <span class="guardrail-ok" *ngIf="guard.passed">Ready</span>
+            <span class="guardrail-blocked" *ngIf="!guard.passed">{{ guard.detail }}</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="section-head">
+          <h2>Audit Checklist Panel</h2>
+          <span>{{ checklist.length }} items</span>
+        </header>
+
+        <div class="checklist">
+          <label *ngFor="let item of checklist">
+            <input type="checkbox" [checked]="item.done" disabled />
+            <span [class.done]="item.done">{{ item.label }}</span>
+          </label>
+        </div>
+
+        <header class="section-head mt">
+          <h2>Report Progress Stepper</h2>
+          <span>{{ progressSteps.filter(s => s.done).length }}/{{ progressSteps.length }}</span>
+        </header>
+
+        <div class="stepper">
+          <div class="step" *ngFor="let step of progressSteps">
+            <i [class.done]="step.done" [class.active]="step.active"></i>
+            <span [class.done]="step.done">{{ step.label }}</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="workspace-grid">
+      <article class="card list-pane">
+        <header class="section-head">
+          <h2>Evidence Tray</h2>
+          <span>{{ filteredEvidenceRows.length }} rows</span>
+        </header>
+
+        <div class="filter-row">
+          <label class="search-box">
+            Search Evidence
+            <input type="search" [(ngModel)]="evidenceSearch" placeholder="File / compliance / status" />
+          </label>
+        </div>
+
+        <div class="table-wrap" *ngIf="filteredEvidenceRows.length; else noEvidence">
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Compliance</th>
+                <th>Status</th>
+                <th>Reupload Requests</th>
+                <th>Uploaded</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredEvidenceRows; trackBy: trackEvidence">
+                <td>
+                  <div class="strong">{{ row.fileName }}</div>
+                  <div class="minor">Task #{{ row.task?.id || '-' }}</div>
+                </td>
+                <td>{{ row.task?.compliance?.title || '-' }}</td>
+                <td><span [class]="statusClass(evidenceStatus(row))">{{ evidenceStatus(row) }}</span></td>
+                <td>
+                  <span [class]="openReuploadRequestCount(row.id) ? 'badge badge--warn' : 'badge badge--muted'">
+                    {{ openReuploadRequestCount(row.id) || 0 }} open
+                  </span>
+                </td>
+                <td>{{ formatDate(row.createdAt) }}</td>
+                <td class="text-right">
+                  <a class="link" [href]="getDownloadUrl(row)" target="_blank">Download</a>
+                  <button type="button" class="link" (click)="openReuploadModal(row)">Reupload</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noEvidence>
+          <div class="empty-mini">No evidence found for this audit scope.</div>
+        </ng-template>
+      </article>
+
+      <article class="card">
+        <header class="section-head">
+          <h2>Observation Builder</h2>
+          <span>{{ observations.length }} logged</span>
+        </header>
+
+        <div class="form-grid">
+          <label>
+            Category
+            <select [(ngModel)]="observationForm.categoryId">
+              <option value="">Select category</option>
+              <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+            </select>
+          </label>
+
+          <label>
+            Severity / Risk
+            <select [(ngModel)]="observationForm.risk">
+              <option *ngFor="let risk of riskOptions" [value]="risk">{{ risk }}</option>
+            </select>
+          </label>
+
+          <label class="span-2">
+            Observation
+            <textarea rows="2" [(ngModel)]="observationForm.observation" placeholder="Observation details"></textarea>
+          </label>
+
+          <label>
+            Clause
+            <input type="text" [(ngModel)]="observationForm.clause" placeholder="Legal clause reference" />
+          </label>
+
+          <label>
+            Recommendation
+            <input type="text" [(ngModel)]="observationForm.recommendation" placeholder="Corrective recommendation" />
+          </label>
+
+          <label class="span-2">
+            Consequences
+            <textarea rows="2" [(ngModel)]="observationForm.consequences" placeholder="Impact if not addressed"></textarea>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="btn btn-primary" [disabled]="busy || !canSubmitObservation" (click)="submitObservation()">
+            Add Observation
+          </button>
+        </div>
+
+        <div class="risk-summary">
+          <span class="badge badge--bad">Critical: {{ riskBreakdown.CRITICAL }}</span>
+          <span class="badge badge--warn">High: {{ riskBreakdown.HIGH }}</span>
+          <span class="badge badge--info">Medium: {{ riskBreakdown.MEDIUM }}</span>
+          <span class="badge badge--muted">Low: {{ riskBreakdown.LOW }}</span>
+        </div>
+
+        <div class="table-wrap small" *ngIf="observations.length; else noObservations">
+          <table>
+            <thead>
+              <tr>
+                <th>Observation</th>
+                <th>Risk</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let obs of observations; trackBy: trackObservation">
+                <td>
+                  <div class="strong">{{ obs.observation || '-' }}</div>
+                  <div class="minor">{{ obs.clause || '-' }}</div>
+                </td>
+                <td><span [class]="riskClass(obs.risk)">{{ obs.risk || 'LOW' }}</span></td>
+                <td><span [class]="statusClass(obs.status)">{{ obs.status || 'OPEN' }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noObservations>
+          <div class="empty-mini">No observations added for this audit yet.</div>
+        </ng-template>
+      </article>
+    </section>
+  </ng-container>
+</div>
+
+<div class="modal-backdrop" *ngIf="showReuploadModal">
+  <div class="modal-card">
+    <header>
+      <h3>Create Reupload Request</h3>
+      <button type="button" class="link" (click)="closeReuploadModal()">Close</button>
+    </header>
+
+    <p class="minor strong">
+      {{ selectedEvidence?.fileName || '-' }}
+    </p>
+
+    <label>
+      Remarks (visible to assignee)
+      <textarea rows="3" [(ngModel)]="reuploadRemarks" placeholder="Explain what needs correction"></textarea>
+    </label>
+
+    <footer>
+      <button type="button" class="btn btn-ghost" (click)="closeReuploadModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="busy || !canRequestReupload" (click)="submitReuploadRequest()">
+        Create Request
+      </button>
+    </footer>
+  </div>
+</div>

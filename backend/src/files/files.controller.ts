@@ -15,13 +15,17 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type { Response } from 'express';
 import { FilesService } from './files.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Files')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'files', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CLIENT', 'PAYROLL', 'PF_TEAM', 'CRM', 'AUDITOR', 'CONTRACTOR')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
+  @ApiOperation({ summary: 'Download' })
   @Get('download')
   async download(@Req() req: any, @Query('p') p: string, @Res() res: Response) {
     if (!p) throw new BadRequestException('p required');

@@ -11,6 +11,7 @@ import { MeController } from './me.controller';
 import { CcoUsersController } from './cco-users.controller';
 import { CrmUsersController } from './crm-users.controller';
 import { ApprovalsController } from './approvals.controller';
+import { UsersPortalController } from './users-portal.controller';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
   ],
   controllers: [
     UsersController,
+    UsersPortalController,
     CcoUsersController,
     CrmUsersController,
     ApprovalsController,

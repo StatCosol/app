@@ -84,6 +84,12 @@ export class AuditEntity {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  score: number | null; // Computed from observations (0-100)
+
+  @Column({ name: 'score_calculated_at', type: 'timestamptz', nullable: true })
+  scoreCalculatedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

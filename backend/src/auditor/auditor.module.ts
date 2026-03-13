@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AuditorDashboardController } from './auditor-dashboard.controller';
 import { AuditorBranchesController } from './auditor-branches.controller';
+import { AuditorListController } from './auditor-list.controller';
 import { AuditorDashboardService } from './auditor-dashboard.service';
-import { DbService } from '../common/db/db.service';
 import { AssignmentsModule } from '../assignments/assignments.module';
+import { ListQueriesModule } from '../list-queries/list-queries.module';
 
 /**
  * Auditor Module
@@ -14,15 +15,19 @@ import { AssignmentsModule } from '../assignments/assignments.module';
  *
  * Services:
  * - AuditorDashboardService: Raw SQL queries for dashboard performance
- * - DbService: PostgreSQL query execution layer
+ * - DbService: provided globally via SharedModule
  *
  * Future:
  * - TypeORM entities for CRUD actions (update observations, submit reports, etc.)
  */
 @Module({
-  imports: [AssignmentsModule],
-  controllers: [AuditorDashboardController, AuditorBranchesController],
-  providers: [AuditorDashboardService, DbService],
+  imports: [AssignmentsModule, ListQueriesModule],
+  controllers: [
+    AuditorDashboardController,
+    AuditorBranchesController,
+    AuditorListController,
+  ],
+  providers: [AuditorDashboardService],
   exports: [AuditorDashboardService],
 })
 export class AuditorModule {}

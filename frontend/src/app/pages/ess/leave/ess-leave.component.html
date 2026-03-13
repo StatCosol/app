@@ -1,0 +1,158 @@
+<div class="max-w-5xl mx-auto space-y-6">
+  <div class="flex justify-between items-center">
+    <ui-page-header
+      title="Leave Management"
+      description="Apply for leave and track your applications"
+      icon="calendar">
+    </ui-page-header>
+    <ui-button variant="primary" (clicked)="openApplyForm()">+ Apply for Leave</ui-button>
+  </div>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading leave data..." size="md"></ui-loading-spinner>
+
+  <ng-container *ngIf="!loading">
+    <!-- Leave Balances -->
+    <div *ngIf="balances.length" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-base font-semibold text-gray-900">Leave Balances</h2>
+      </div>
+      <div class="px-6 py-4">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div *ngFor="let b of balances"
+               class="rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+            <div class="text-sm font-semibold text-gray-900 mb-2">{{ b.leaveType }}</div>
+            <div class="flex items-baseline gap-1">
+              <span class="text-2xl font-bold"
+                    [ngClass]="{
+                      'text-green-700': +b.available > 3,
+                      'text-amber-700': +b.available > 0 && +b.available <= 3,
+                      'text-red-700': +b.available === 0
+                    }">{{ b.available }}</span>
+              <span class="text-xs text-gray-500">available</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-2 space-y-0.5">
+              <div class="flex justify-between">
+                <span>Opening</span><span class="font-medium text-gray-700">{{ b.opening }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Accrued</span><span class="font-medium text-gray-700">{{ b.accrued }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Used</span><span class="font-medium text-gray-700">{{ b.used }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leave Applications -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-base font-semibold text-gray-900">My Applications</h2>
+      </div>
+      <div class="px-6 py-4">
+        <ui-data-table
+          *ngIf="applications.length"
+          [columns]="applicationColumns"
+          [data]="applications">
+
+          <ng-template uiTableCell="leaveType" let-row>
+            <span class="font-medium text-gray-900">{{ row.leaveType }}</span>
+          </ng-template>
+
+          <ng-template uiTableCell="fromDate" let-row>
+            {{ row.fromDate }}
+          </ng-template>
+
+          <ng-template uiTableCell="toDate" let-row>
+            {{ row.toDate }}
+          </ng-template>
+
+          <ng-template uiTableCell="totalDays" let-row>
+            <span class="font-semibold">{{ row.totalDays }}</span>
+          </ng-template>
+
+          <ng-template uiTableCell="reason" let-row>
+            <span class="truncate max-w-[200px] block" [title]="row.reason || ''">{{ row.reason || '-' }}</span>
+          </ng-template>
+
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="row.status"></ui-status-badge>
+          </ng-template>
+
+          <ng-template uiTableCell="actions" let-row>
+            <ui-button
+              *ngIf="row.status === 'DRAFT' || row.status === 'SUBMITTED'"
+              variant="danger" size="sm"
+              (clicked)="cancelApplication(row)">
+              Cancel
+            </ui-button>
+          </ng-template>
+        </ui-data-table>
+
+        <ui-empty-state
+          *ngIf="!applications.length"
+          title="No leave applications"
+          description="Click 'Apply for Leave' to submit your first application">
+        </ui-empty-state>
+      </div>
+    </div>
+  </ng-container>
+</div>
+
+<!-- Apply Leave Modal -->
+<ui-modal
+  [isOpen]="showApplyForm"
+  title="Apply for Leave"
+  size="md"
+  (closed)="showApplyForm = false">
+
+  <div class="space-y-4">
+    <ui-form-select
+      label="Leave Type"
+      [required]="true"
+      placeholder="Select leave type"
+      [(ngModel)]="applyForm.leaveType"
+      [options]="leaveTypeOptions">
+    </ui-form-select>
+
+    <div class="grid grid-cols-2 gap-4">
+      <ui-form-input
+        label="From Date"
+        type="date"
+        [required]="true"
+        [(ngModel)]="applyForm.fromDate">
+      </ui-form-input>
+      <ui-form-input
+        label="To Date"
+        type="date"
+        [required]="true"
+        [(ngModel)]="applyForm.toDate">
+      </ui-form-input>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason</label>
+      <textarea
+        class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+        rows="3"
+        [(ngModel)]="applyForm.reason"
+        placeholder="Briefly describe your reason..."></textarea>
+    </div>
+
+    <div *ngIf="applyError" class="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+      <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <span class="text-sm text-red-700">{{ applyError }}</span>
+    </div>
+  </div>
+
+  <div slot="footer">
+    <ui-button variant="secondary" (clicked)="showApplyForm = false">Cancel</ui-button>
+    <ui-button variant="primary" [loading]="submitting" [disabled]="submitting" (clicked)="submitLeave()">
+      {{ submitting ? 'Submitting...' : 'Submit Application' }}
+    </ui-button>
+  </div>
+</ui-modal>

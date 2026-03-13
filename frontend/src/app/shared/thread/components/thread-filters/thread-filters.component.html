@@ -1,0 +1,40 @@
+<div class="px-4 py-3 space-y-3 border-b border-gray-200 bg-gray-50/50">
+  <!-- Search -->
+  <input type="text"
+    class="w-full rounded-lg border-gray-300 text-sm placeholder-gray-400
+           focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    placeholder="Search threads..."
+    [(ngModel)]="q"
+    (input)="emit()" />
+
+  <div class="flex flex-wrap gap-2">
+    <!-- Type filter -->
+    <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 flex-1 min-w-[100px]"
+      [(ngModel)]="type" (change)="emit()">
+      <option value="">All Types</option>
+      <option value="TECHNICAL">Technical</option>
+      <option value="COMPLIANCE">Compliance</option>
+      <option value="AUDIT">Audit</option>
+      <option value="GENERAL">General</option>
+    </select>
+
+    <!-- Status filter -->
+    <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 flex-1 min-w-[100px]"
+      [(ngModel)]="status" (change)="emit()">
+      <option value="">All Status</option>
+      <option value="OPEN">Open</option>
+      <option value="IN_PROGRESS">In Progress</option>
+      <option value="RESPONDED">Responded</option>
+      <option value="RESOLVED">Resolved</option>
+      <option value="CLOSED">Closed</option>
+    </select>
+  </div>
+
+  <!-- Unread toggle -->
+  <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+    <input type="checkbox"
+      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      [(ngModel)]="unread" (change)="emit()" />
+    Unread only
+  </label>
+</div>

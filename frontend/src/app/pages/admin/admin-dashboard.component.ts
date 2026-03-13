@@ -20,7 +20,6 @@ import { ToastService } from '../../shared/toast/toast.service';
 import { LowestBranchesComponent } from '../../shared/compliance/lowest-branches.component';
 import { RiskRankingComponent } from '../../shared/compliance/risk-ranking.component';
 import {
-  StatCardComponent,
   LoadingSpinnerComponent,
   EmptyStateComponent,
   ActionButtonComponent,
@@ -42,7 +41,6 @@ type Range = '7d' | '30d' | '90d';
     CommonModule,
     RouterModule,
     FormsModule,
-    StatCardComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
     ActionButtonComponent,
@@ -67,13 +65,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   to: string | null = null;
 
   clients: Array<{ id: string; name: string }> = [];
-  states: string[] = ['AP', 'DL', 'GJ', 'KA', 'MH', 'RJ', 'TN', 'TS'];
+  states: string[] = [];
 
   // Cached select options (avoid recreating arrays every CD cycle → NG0103)
   cachedClientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
   cachedStateOptions: SelectOption[] = [
     { value: null, label: 'All States' },
-    ...['AP', 'DL', 'GJ', 'KA', 'MH', 'RJ', 'TN', 'TS'].map(s => ({ value: s, label: s })),
   ];
 
   loading = true;
@@ -148,6 +145,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadClients();
+    this.loadStates();
     this.loadAll();
   }
 
@@ -297,6 +295,24 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.rebuildClientOptions();
         this.cdr.markForCheck();
       }
+    });
+  }
+
+  private loadStates(): void {
+    this.dash.getAvailableStates().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (states) => {
+        this.states = states ?? [];
+        this.cachedStateOptions = [
+          { value: null, label: 'All States' },
+          ...this.states.map(s => ({ value: s, label: s })),
+        ];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.states = [];
+        this.cachedStateOptions = [{ value: null, label: 'All States' }];
+        this.cdr.markForCheck();
+      },
     });
   }
 
