@@ -83,7 +83,6 @@ export const CRM_ROUTES: Routes = [
             path: ':clientId',
             canActivateChild: [crmClientAccessGuard],
             children: [
-              // ── Client workspace ──
               { path: 'overview', loadComponent: CrmClientOverviewComponent },
               { path: 'branches', loadComponent: CrmClientBranchesComponent },
               { path: 'contractors', loadComponent: CrmContractorsComponent },
