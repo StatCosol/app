@@ -13,11 +13,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DataSource } from 'typeorm';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
  * Common Branches Controller
  * Provides branch listing endpoints accessible to multiple roles
  */
+@ApiTags('Branches')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'branches', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BranchesCommonController {
@@ -37,6 +40,7 @@ export class BranchesCommonController {
    * - limit (optional, default 100)
    * - offset (optional, default 0)
    */
+  @ApiOperation({ summary: 'List' })
   @Get()
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT')
   async list(@Query() query: any, @Req() req: any) {
@@ -90,6 +94,7 @@ export class BranchesCommonController {
    * GET /api/branches/:id
    * Get single branch details
    */
+  @ApiOperation({ summary: 'Find One' })
   @Get(':id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {

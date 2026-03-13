@@ -24,6 +24,16 @@ export class RiskSnapshotCronService {
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const snapshotDate = now.toISOString().substring(0, 10);
 
+    const tableCheck: Array<{ regclass: string | null }> = await this.ds.query(
+      `SELECT to_regclass('public.branch_risk_snapshots') AS regclass`,
+    );
+    if (!tableCheck[0]?.regclass) {
+      this.logger.warn(
+        'branch_risk_snapshots table missing; skipping daily risk snapshot. Apply migration 20260226_branch_risk_snapshots.sql.',
+      );
+      return;
+    }
+
     const branches: any[] = await this.ds.query(
       `SELECT id, clientid FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
     );
@@ -46,6 +56,8 @@ export class RiskSnapshotCronService {
       }
     }
 
-    this.logger.log(`Daily risk snapshot complete: ${count}/${branches.length} branches.`);
+    this.logger.log(
+      `Daily risk snapshot complete: ${count}/${branches.length} branches.`,
+    );
   }
 }

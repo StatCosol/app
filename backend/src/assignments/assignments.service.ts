@@ -79,10 +79,10 @@ export class AssignmentsService {
   ) {
     const col =
       assignmentType === 'CRM' ? 'assigned_crm_id' : 'assigned_auditor_id';
-    await manager.query(
-      `UPDATE clients SET ${col} = $1 WHERE id = $2`,
-      [userId, clientId],
-    );
+    await manager.query(`UPDATE clients SET ${col} = $1 WHERE id = $2`, [
+      userId,
+      clientId,
+    ]);
   }
 
   async getCurrent(clientId: string, assignmentType?: AssignmentType) {
@@ -172,8 +172,17 @@ export class AssignmentsService {
           await currentRepo.remove(current);
         }
         // Sync denormalised column on clients table
-        await this.syncClientAssignmentColumn(manager, input.clientId, input.assignmentType, null);
-        return { clientId: input.clientId, assignmentType: input.assignmentType, assignedToUserId: null } as any;
+        await this.syncClientAssignmentColumn(
+          manager,
+          input.clientId,
+          input.assignmentType,
+          null,
+        );
+        return {
+          clientId: input.clientId,
+          assignmentType: input.assignmentType,
+          assignedToUserId: null,
+        } as any;
       }
 
       // Upsert current assignment
@@ -196,7 +205,12 @@ export class AssignmentsService {
         .execute();
 
       // Sync denormalised column on clients table
-      await this.syncClientAssignmentColumn(manager, input.clientId, input.assignmentType, input.assignedToUserId);
+      await this.syncClientAssignmentColumn(
+        manager,
+        input.clientId,
+        input.assignmentType,
+        input.assignedToUserId,
+      );
 
       const updated = await currentRepo.findOneOrFail({
         where: {
@@ -216,7 +230,7 @@ export class AssignmentsService {
       performedRole: input.actorRole ?? null,
       reason: input.changeReason,
       beforeJson: null,
-      afterJson: after as any,
+      afterJson: after,
     });
 
     return after;
@@ -379,7 +393,7 @@ export class AssignmentsService {
     }
 
     // Filter out fully-unassigned (ghost) rows where both CRM and auditor are null
-    return Array.from(map.values()).filter(r => r.crmId || r.auditorId);
+    return Array.from(map.values()).filter((r) => r.crmId || r.auditorId);
   }
 
   async getAssignmentHistory(clientId?: string) {

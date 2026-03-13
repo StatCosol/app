@@ -3,9 +3,13 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  ManyToOne,
+  JoinColumn,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ClientEntity } from '../../clients/entities/client.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
 
 export type ReturnStatus =
   | 'PENDING'
@@ -23,8 +27,16 @@ export class ComplianceReturnEntity {
   @Column({ name: 'client_id', type: 'uuid' })
   clientId!: string;
 
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
+
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId!: string | null;
+
+  @ManyToOne(() => BranchEntity, { eager: false })
+  @JoinColumn({ name: 'branch_id' })
+  branch?: BranchEntity;
 
   @Column({ name: 'law_type', type: 'varchar', length: 50 })
   lawType!: string;
@@ -73,6 +85,18 @@ export class ComplianceReturnEntity {
 
   @Column({ name: 'challan_file_path', type: 'text', nullable: true })
   challanFilePath!: string | null;
+
+  @Column({ name: 'crm_owner', type: 'varchar', length: 150, nullable: true })
+  crmOwner!: string | null;
+
+  @Column({ name: 'crm_last_reminder_at', type: 'timestamptz', nullable: true })
+  crmLastReminderAt!: Date | null;
+
+  @Column({ name: 'crm_last_note', type: 'text', nullable: true })
+  crmLastNote!: string | null;
+
+  @Column({ name: 'crm_last_note_at', type: 'timestamptz', nullable: true })
+  crmLastNoteAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

@@ -1,0 +1,115 @@
+<div class="p-4">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h2 class="text-lg font-semibold">Branch Compliance</h2>
+      <div class="text-xs text-gray-500">Month: {{ monthKey }}</div>
+    </div>
+
+    <div class="flex gap-2 items-center">
+      <input type="number" class="border rounded p-2 text-sm w-28"
+             [(ngModel)]="year" (ngModelChange)="onPeriodChange()" />
+      <select class="border rounded p-2 text-sm"
+              [(ngModel)]="month" (ngModelChange)="onPeriodChange()">
+        <option *ngFor="let m of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="m">{{ m }}</option>
+      </select>
+      <button class="px-3 py-2 text-sm border rounded" (click)="loadAll()">Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4" *ngIf="kpis">
+    <div class="border rounded p-3">
+      <div class="text-xs text-gray-500">Upload %</div>
+      <div class="flex items-center gap-2 mt-1">
+        <span class="px-2 py-1 text-xs rounded"
+              [ngClass]="pctClass(kpis.uploadPct ?? kpis.upload_pct ?? 0)">
+          {{ clampPct(kpis.uploadPct ?? kpis.upload_pct ?? 0) }}%
+        </span>
+        <div class="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+          <div class="h-2"
+               [ngClass]="barClass(kpis.uploadPct ?? kpis.upload_pct ?? 0)"
+               [style.width.%]="clampPct(kpis.uploadPct ?? kpis.upload_pct ?? 0)"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border rounded p-3">
+      <div class="text-xs text-gray-500">Pending</div>
+      <div class="text-xl font-semibold">{{ kpis.pending ?? 0 }}</div>
+    </div>
+
+    <div class="border rounded p-3">
+      <div class="text-xs text-gray-500">Returned</div>
+      <div class="text-xl font-semibold">{{ kpis.returned ?? 0 }}</div>
+    </div>
+
+    <div class="border rounded p-3">
+      <div class="text-xs text-gray-500">Reviewed</div>
+      <div class="text-xl font-semibold">{{ kpis.reviewed ?? 0 }}</div>
+    </div>
+  </div>
+
+  <!-- Upload Box -->
+  <div class="border rounded p-4 mb-4">
+    <div class="font-medium mb-2">Upload Compliance Document</div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+      <input class="border rounded p-2 text-sm" placeholder="Category"
+             [(ngModel)]="uploadCategory" />
+      <input class="border rounded p-2 text-sm" placeholder="Sub-category"
+             [(ngModel)]="uploadSubCategory" />
+      <select class="border rounded p-2 text-sm" [(ngModel)]="uploadReturnCode">
+        <option value="">Return Code (optional)</option>
+        <option *ngFor="let r of returnMaster"
+                [value]="(r.returnCode ?? r.return_code ?? r.code ?? '')">
+          {{ (r.returnName ?? r.return_name ?? r.name ?? (r.returnCode ?? r.return_code ?? '')) }}
+        </option>
+      </select>
+      <input type="file" class="border rounded p-2 text-sm" (change)="onFileChange($event)" />
+    </div>
+
+    <textarea class="mt-2 w-full border rounded p-2 text-sm" rows="2"
+              placeholder="Notes (optional)" [(ngModel)]="uploadNotes"></textarea>
+
+    <button class="mt-3 px-3 py-2 text-sm bg-black text-white rounded"
+            [disabled]="uploading"
+            (click)="upload()">
+      {{ uploading ? 'Uploading...' : 'Upload' }}
+    </button>
+  </div>
+
+  <!-- Checklist -->
+  <div *ngIf="loading" class="text-sm text-gray-500">Loading…</div>
+
+  <div *ngIf="!loading">
+    <ui-data-table
+      [columns]="checklistColumns" [data]="checklistRows" [loading]="loading"
+      emptyMessage="No checklist items found.">
+      <ng-template uiTableCell="name" let-row>
+        {{ row.name ?? row.itemName ?? row.item_name ?? '-' }}
+      </ng-template>
+      <ng-template uiTableCell="category" let-row>
+        {{ row.category ?? row.category_name ?? '-' }}
+      </ng-template>
+      <ng-template uiTableCell="dueDate" let-row>
+        {{ row.dueDate ?? row.due_date ?? '-' }}
+      </ng-template>
+      <ng-template uiTableCell="status" let-row>
+        {{ row.status ?? '-' }}
+      </ng-template>
+      <ng-template uiTableCell="pct" let-row>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-1 text-xs rounded"
+                [ngClass]="pctClass(getPct(row, 'pct', 'pct'))">
+            {{ clampPct(getPct(row, 'pct', 'pct')) }}%
+          </span>
+          <div class="w-28 h-2 bg-gray-200 rounded overflow-hidden">
+            <div class="h-2"
+                 [ngClass]="barClass(getPct(row, 'pct', 'pct'))"
+                 [style.width.%]="clampPct(getPct(row, 'pct', 'pct'))"></div>
+          </div>
+        </div>
+      </ng-template>
+    </ui-data-table>
+  </div>
+</div>

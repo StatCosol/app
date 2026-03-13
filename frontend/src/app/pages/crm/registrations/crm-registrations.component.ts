@@ -6,6 +6,8 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
+import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 type ComputedStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED';
 
@@ -112,6 +114,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
     private readonly branchSvc: ClientBranchesService,
     private readonly crmClientsApi: CrmClientsApi,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -219,7 +223,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
 
   save(): void {
     if (!this.form.branchId || !this.form.type?.trim()) {
-      alert('Branch and Registration/License Type are required.');
+      this.toast.error('Branch and Registration/License Type are required.');
       return;
     }
 
@@ -249,13 +253,13 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       error: (e) => {
         this.saving = false;
         this.cdr.markForCheck();
-        alert(e?.error?.message || 'Save failed');
+        this.toast.error(e?.error?.message || 'Save failed');
       },
     });
   }
 
-  deleteRow(row: any): void {
-    if (!confirm(`Delete "${row.type}"?`)) return;
+  async deleteRow(row: any): Promise<void> {
+    if (!(await this.dialog.confirm('Delete Registration', `Delete "${row.type}"?`, { variant: 'danger', confirmText: 'Delete' }))) return;
 
     this.deletingId = row.id;
     this.cdr.markForCheck();
@@ -270,7 +274,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
         error: (e) => {
           this.deletingId = null;
           this.cdr.markForCheck();
-          alert(e?.error?.message || 'Delete failed');
+          this.toast.error(e?.error?.message || 'Delete failed');
         },
       });
   }
@@ -286,7 +290,7 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => this.load(),
-        error: () => alert('Upload failed'),
+        error: () => this.toast.error('Upload failed'),
       });
 
     // Reset input so same file can be re-selected

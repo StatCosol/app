@@ -11,19 +11,23 @@ const STATUS_VARIANT_MAP: Record<string, BadgeVariant> = {
   APPLICABLE: 'success',
   PAID: 'success',
   VERIFIED: 'success',
+  ACCEPTED: 'success',
   PENDING: 'warning',
   IN_PROGRESS: 'warning',
   PROCESSING: 'warning',
   UNDER_REVIEW: 'warning',
+  NEEDS_REUPLOAD: 'warning',
+  REUPLOAD_REQUIRED: 'warning',
   SUBMITTED: 'primary',
+  IN_REVIEW: 'primary',
   RESUBMITTED: 'info',
   NOT_UPLOADED: 'gray',
-  REUPLOAD_REQUIRED: 'warning',
   DRAFT: 'gray',
   INACTIVE: 'gray',
   CLOSED: 'gray',
   CANCELLED: 'gray',
   NOT_APPLICABLE: 'gray',
+  WAIVED: 'gray',
   REJECTED: 'error',
   OVERDUE: 'error',
   FAILED: 'error',
@@ -49,16 +53,20 @@ const STATUS_LABEL_MAP: Record<string, string> = {
   RESUBMITTED: 'Resubmitted',
   NOT_UPLOADED: 'Not Uploaded',
   REUPLOAD_REQUIRED: 'Reupload Required',
+  NEEDS_REUPLOAD: 'Needs Reupload',
   DRAFT: 'Draft',
   INACTIVE: 'Inactive',
   CLOSED: 'Closed',
   CANCELLED: 'Cancelled',
   NOT_APPLICABLE: 'N/A',
+  WAIVED: 'Waived',
   REJECTED: 'Rejected',
   OVERDUE: 'Overdue',
   FAILED: 'Failed',
   EXPIRED: 'Expired',
   ESCALATED: 'Escalated',
+  IN_REVIEW: 'In Review',
+  ACCEPTED: 'Accepted',
   INFO: 'Info',
   NEW: 'New',
 };
@@ -68,8 +76,9 @@ const STATUS_LABEL_MAP: Record<string, string> = {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <span [ngClass]="badgeClasses">
-      <span *ngIf="showDot" class="w-1.5 h-1.5 rounded-full mr-1.5" [ngClass]="dotClass"></span>
+    <span [ngClass]="badgeClasses" style="box-shadow: 0 1px 2px rgba(0,0,0,0.05)">
+      <span *ngIf="showDot" class="w-2 h-2 rounded-full mr-1.5" [ngClass]="dotClass"
+            [style.boxShadow]="'0 0 0 2px ' + dotGlowColor"></span>
       {{ displayLabel }}
     </span>
   `
@@ -96,10 +105,10 @@ export class StatusBadgeComponent {
   }
 
   get badgeClasses(): string {
-    const base = 'inline-flex items-center font-medium rounded-full';
+    const base = 'inline-flex items-center font-semibold rounded-full';
 
     const sizeClasses: Record<string, string> = {
-      sm: 'px-2 py-0.5 text-xs',
+      sm: 'px-2 py-0.5 text-[10px]',
       md: 'px-2.5 py-0.5 text-xs',
       lg: 'px-3 py-1 text-sm',
     };
@@ -126,5 +135,17 @@ export class StatusBadgeComponent {
       gray: 'bg-gray-500',
     };
     return dotColors[this.resolvedVariant];
+  }
+
+  get dotGlowColor(): string {
+    const glowColors: Record<BadgeVariant, string> = {
+      primary: 'rgba(10, 38, 86, 0.2)',
+      success: 'rgba(34, 197, 94, 0.2)',
+      warning: 'rgba(245, 158, 11, 0.2)',
+      error: 'rgba(239, 68, 68, 0.2)',
+      info: 'rgba(59, 130, 246, 0.2)',
+      gray: 'rgba(156, 163, 175, 0.2)',
+    };
+    return glowColors[this.resolvedVariant];
   }
 }

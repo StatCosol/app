@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { SlaComplianceResolverService } from '../compliances/sla-compliance-resolver.service';
 import { SlaComplianceScheduleService } from '../compliances/sla-compliance-schedule.service';
 
-type ModuleType = 'REGISTRATION' | 'MCD' | 'RETURNS' | string;
+type ModuleType = string;
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 interface CalendarItem {
@@ -19,6 +19,8 @@ interface CalendarItem {
 
 @Injectable()
 export class CalendarService {
+  private readonly logger = new Logger(CalendarService.name);
+
   constructor(
     private readonly ds: DataSource,
     private readonly resolver: SlaComplianceResolverService,
@@ -56,13 +58,24 @@ export class CalendarService {
 
     // ── 1) Registrations expiry ──
     if (!module || module === 'REGISTRATION') {
-      const regItems = await this.fetchRegistrations(clientId, filterBranchIds, start, end);
+      const regItems = await this.fetchRegistrations(
+        clientId,
+        filterBranchIds,
+        start,
+        end,
+      );
       items.push(...regItems);
     }
 
     // ── 2) Compliance-driven items (MCD, Returns, etc.) from compliance_rules ──
     if (!module || module !== 'REGISTRATION') {
-      const complianceItems = await this.buildComplianceItems(clientId, filterBranchIds, start, end, module || null);
+      const complianceItems = await this.buildComplianceItems(
+        clientId,
+        filterBranchIds,
+        start,
+        end,
+        module || null,
+      );
       items.push(...complianceItems);
     }
 
@@ -165,7 +178,11 @@ export class CalendarService {
       try {
         const result = await this.resolver.getApplicableRules(bid);
         applicable = result.applicable;
-      } catch {
+      } catch (e) {
+        this.logger.warn(
+          `Calendar: skipping branch ${bid}, rule resolution failed`,
+          (e as Error)?.message,
+        );
         continue; // branch not found or error — skip
       }
 
@@ -188,7 +205,7 @@ export class CalendarService {
             items.push({
               date: s.dueDate,
               title: s.name,
-              module: s.module as ModuleType,
+              module: s.module,
               priority: s.priority as Priority,
               branchId: bid,
               branchName: null,
@@ -206,7 +223,7 @@ export class CalendarService {
               items.push({
                 date: s.windowOpen,
                 title: `${s.name} – Opens`,
-                module: s.module as ModuleType,
+                module: s.module,
                 priority: s.priority as Priority,
                 branchId: bid,
                 branchName: null,
@@ -219,7 +236,7 @@ export class CalendarService {
               items.push({
                 date: s.windowClose,
                 title: `${s.name} – Closes`,
-                module: s.module as ModuleType,
+                module: s.module,
                 priority: this.escalatePriority(s.priority as Priority),
                 branchId: bid,
                 branchName: null,
@@ -266,10 +283,14 @@ export class CalendarService {
   /** Bump priority one level for window-close events */
   private escalatePriority(p: Priority): Priority {
     switch (p) {
-      case 'LOW': return 'MEDIUM';
-      case 'MEDIUM': return 'HIGH';
-      case 'HIGH': return 'CRITICAL';
-      default: return 'CRITICAL';
+      case 'LOW':
+        return 'MEDIUM';
+      case 'MEDIUM':
+        return 'HIGH';
+      case 'HIGH':
+        return 'CRITICAL';
+      default:
+        return 'CRITICAL';
     }
   }
 
