@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ComplianceTask } from '../compliance/entities/compliance-task.entity';
@@ -16,6 +16,8 @@ interface ComplianceSummaryFilters {
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     @InjectRepository(ComplianceTask)
     private readonly tasks: Repository<ComplianceTask>,
@@ -106,7 +108,7 @@ export class ReportsService {
         byStatus: Object.fromEntries(byStatus.entries()),
       };
     } catch (err) {
-      // If the underlying compliance_tasks table or joins are missing, fall back to empty summary
+      this.logger.error('complianceSummary query failed', (err as Error).stack);
       return this.emptySummary();
     }
   }
@@ -186,6 +188,7 @@ export class ReportsService {
         status: String(r.status),
       }));
     } catch (err) {
+      this.logger.error('complianceSummary query failed', (err as Error).stack);
       return [];
     }
   }
@@ -289,6 +292,10 @@ export class ReportsService {
 
       return Array.from(map.values());
     } catch (err) {
+      this.logger.error(
+        'contractorPerformance query failed',
+        (err as Error).stack,
+      );
       return [];
     }
   }

@@ -135,7 +135,6 @@ export class BranchAuditKpiComponent implements OnChanges, OnDestroy {
         this.cdr.markForCheck();
       },
       error: (err) => {
-        console.error(err);
         this.errorMsg = 'Failed to load audit KPI';
         this.loading = false;
         this.cdr.markForCheck();

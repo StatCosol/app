@@ -6,14 +6,22 @@ import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
  */
 export class DashboardQueryDto {
   @IsOptional()
-  @Transform(({ value }) => (value === undefined || value === null || value === '' ? undefined : Number(value)))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
   @IsInt()
   @Min(1)
   @Max(12)
   month?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value === undefined || value === null || value === '' ? undefined : Number(value)))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
   @IsInt()
   @Min(2000)
   @Max(2100)
