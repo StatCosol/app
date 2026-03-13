@@ -55,12 +55,12 @@ const EscalationsComponent = () =>
   import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
 const AdminAuditLogsComponent = () =>
   import('./audit-logs/admin-audit-logs.component').then((m) => m.AdminAuditLogsComponent);
-const UnassignedClientsComponent = () =>
-  import('./governance/unassigned-clients.component').then((m) => m.UnassignedClientsComponent);
 const AdminGovernanceControlPageComponent = () =>
   import('./governance/admin-governance-control-page.component').then(
     (m) => m.AdminGovernanceControlPageComponent,
   );
+const UnassignedClientsComponent = () =>
+  import('./governance/unassigned-clients.component').then((m) => m.UnassignedClientsComponent);
 const AdminArchiveComponent = () =>
   import('./archive/admin-archive.component').then((m) => m.AdminArchiveComponent);
 const ApplicabilityListComponent = () =>
