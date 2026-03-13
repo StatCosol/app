@@ -42,7 +42,9 @@ export class SlaComplianceScheduleService {
     for (const ar of applicable) {
       const item = ar.item;
       const rule = ar.rule;
-      const priority: Priority = (rule.priority || item.defaultPriority || 'MEDIUM') as Priority;
+      const priority: Priority = (rule.priority ||
+        item.defaultPriority ||
+        'MEDIUM') as Priority;
 
       // ── Window-based items (MCD-style) ──
       if (rule.windowOpenDay && rule.windowCloseDay) {

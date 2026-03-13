@@ -89,11 +89,22 @@
     </div>
 
     <div class="card">
-      <h3 class="text-xl font-semibold text-gray-900 mb-6">Existing Compliance Masters <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">{{ complianceMasters.length }}</span></h3>
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h3 class="text-xl font-semibold text-gray-900">Existing Compliance Masters <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">{{ filteredComplianceMasters.length }}</span></h3>
+        <div class="flex items-center gap-3">
+          <input type="text" placeholder="Search by name, law, state..." [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
+            class="rounded-lg border-gray-300 text-sm px-3 py-1.5 w-56 focus:ring-statco-blue-light focus:border-statco-blue-light" />
+          <ui-form-select label="" [options]="stateFilterOptions" [(ngModel)]="stateFilter" (ngModelChange)="applyFilters()"></ui-form-select>
+          <button (click)="exportCsv()" class="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900 border rounded-lg px-3 py-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export
+          </button>
+        </div>
+      </div>
       
       <ui-data-table
         [columns]="complianceColumns"
-        [data]="complianceMasters"
+        [data]="filteredComplianceMasters"
         [loading]="loading">
         
         <ng-template uiTableCell="complianceName" let-row>

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { ClientEntity } from '../../clients/entities/client.entity';
 
 @Entity({ name: 'ai_risk_assessments' })
@@ -16,22 +24,50 @@ export class AiRiskAssessmentEntity {
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
-  @Column({ name: 'assessment_type', type: 'varchar', length: 50, default: 'COMPLIANCE' })
+  @Column({
+    name: 'assessment_type',
+    type: 'varchar',
+    length: 50,
+    default: 'COMPLIANCE',
+  })
   assessmentType: string;
 
   @Column({ name: 'risk_score', type: 'int' })
   riskScore: number;
 
-  @Column({ name: 'risk_level', type: 'varchar', length: 20, default: 'MEDIUM' })
+  @Column({
+    name: 'risk_level',
+    type: 'varchar',
+    length: 20,
+    default: 'MEDIUM',
+  })
   riskLevel: string;
 
-  @Column({ name: 'inspection_probability', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'inspection_probability',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   inspectionProbability: number | null;
 
-  @Column({ name: 'penalty_exposure_min', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'penalty_exposure_min',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   penaltyExposureMin: number | null;
 
-  @Column({ name: 'penalty_exposure_max', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'penalty_exposure_max',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   penaltyExposureMax: number | null;
 
   @Column({ type: 'text' })

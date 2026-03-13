@@ -165,34 +165,32 @@
             <tr *ngFor="let b of branchRows"
                 class="border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors"
                 (click)="drillIntoBranch(b)">
-              <td class="px-4 py-3 font-medium text-gray-900">{{ b.branchName }}</td>
-              <td class="px-4 py-3 text-gray-600">{{ b.stateCode || '-' }}</td>
+              <td class="px-4 py-3 font-medium text-gray-900">{{ getBranchName(b) }}</td>
+              <td class="px-4 py-3 text-gray-600">{{ b.stateCode || b.state_code || '-' }}</td>
               <td class="px-4 py-3 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div class="h-full rounded-full transition-all"
-                         [ngClass]="pctBarColor(b.compliancePct)"
-                         [style.width]="pctBarWidth(b.compliancePct)"></div>
+                         [ngClass]="barColorClass(getCompliancePct(b))"
+                         [style.width.%]="clampPct(getCompliancePct(b))"></div>
                   </div>
-                  <span class="text-sm font-semibold" [ngClass]="{
-                    'text-green-700': b.compliancePct >= 85,
-                    'text-yellow-700': b.compliancePct >= 70 && b.compliancePct < 85,
-                    'text-red-700': b.compliancePct < 70
-                  }">{{ b.compliancePct }}%</span>
+                  <span class="text-sm font-semibold" [ngClass]="pctBadgeClass(getCompliancePct(b))">
+                    {{ clampPct(getCompliancePct(b)) }}%
+                  </span>
                 </div>
               </td>
-              <td class="px-4 py-3 text-center text-green-700 font-medium">{{ b.approved }}/{{ b.totalApplicable }}</td>
-              <td class="px-4 py-3 text-center text-amber-700 font-medium">{{ b.pending }}</td>
-              <td class="px-4 py-3 text-center text-red-700 font-medium">{{ b.overdue }}</td>
+              <td class="px-4 py-3 text-center text-green-700 font-medium">{{ b.approved || b.approved_count || 0 }}/{{ b.totalApplicable || b.total_applicable || 0 }}</td>
+              <td class="px-4 py-3 text-center text-amber-700 font-medium">{{ b.pending || b.pending_count || 0 }}</td>
+              <td class="px-4 py-3 text-center text-red-700 font-medium">{{ b.overdue || b.overdue_count || 0 }}</td>
               <td class="px-4 py-3 text-center">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase"
                       [ngClass]="{
-                        'bg-red-100 text-red-800': b.riskLevel === 'CRITICAL',
-                        'bg-orange-100 text-orange-800': b.riskLevel === 'HIGH',
-                        'bg-yellow-100 text-yellow-800': b.riskLevel === 'MEDIUM',
-                        'bg-green-100 text-green-800': b.riskLevel === 'LOW'
+                        'bg-red-100 text-red-800': (b.riskLevel || b.risk_level) === 'CRITICAL',
+                        'bg-orange-100 text-orange-800': (b.riskLevel || b.risk_level) === 'HIGH',
+                        'bg-yellow-100 text-yellow-800': (b.riskLevel || b.risk_level) === 'MEDIUM',
+                        'bg-green-100 text-green-800': (b.riskLevel || b.risk_level) === 'LOW'
                       }">
-                  {{ b.riskLevel }}
+                  {{ b.riskLevel || b.risk_level || '-' }}
                 </span>
               </td>
             </tr>
@@ -312,10 +310,10 @@
             <div class="flex items-center gap-2">
               <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all"
-                     [ngClass]="pctBarColor(row.compliancePct)"
-                     [style.width]="pctBarWidth(row.compliancePct)"></div>
+                     [ngClass]="barColorClass(getCompliancePct(row))"
+                     [style.width.%]="clampPct(getCompliancePct(row))"></div>
               </div>
-              <span class="text-sm font-semibold">{{ row.compliancePct }}%</span>
+              <span class="text-sm font-semibold">{{ clampPct(getCompliancePct(row)) }}%</span>
             </div>
           </ng-template>
         </ui-data-table>
@@ -337,10 +335,10 @@
             <div class="flex items-center gap-2">
               <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all"
-                     [ngClass]="pctBarColor(row.compliancePct)"
-                     [style.width]="pctBarWidth(row.compliancePct)"></div>
+                     [ngClass]="barColorClass(getCompliancePct(row))"
+                     [style.width.%]="clampPct(getCompliancePct(row))"></div>
               </div>
-              <span class="text-sm font-semibold">{{ row.compliancePct }}%</span>
+              <span class="text-sm font-semibold">{{ clampPct(getCompliancePct(row)) }}%</span>
             </div>
           </ng-template>
         </ui-data-table>

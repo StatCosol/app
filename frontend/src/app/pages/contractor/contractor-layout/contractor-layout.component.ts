@@ -1,20 +1,19 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { RoleHeaderComponent } from '../../../shared/role-header/role-header.component';
-import { ClientSidebarComponent } from '../../client/client-layout/client-sidebar.component';
+import { ContractorSidebarComponent } from './contractor-sidebar.component';
+import { AuthService } from '../../../core/auth.service';
 
 @Component({
   selector: 'app-contractor-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RoleHeaderComponent, ClientSidebarComponent],
+  imports: [CommonModule, RouterOutlet, ContractorSidebarComponent],
   template: `
     <div class="contractor-shell">
       <!-- Mobile menu toggle -->
       <button
         class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80"
-        style="background: linear-gradient(135deg, #0a2656, #051734);"
+        style="background: linear-gradient(135deg, #3D0A1E, #2A0615);"
         (click)="mobileOpen = true"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,82 +21,112 @@ import { ClientSidebarComponent } from '../../client/client-layout/client-sideba
         </svg>
       </button>
 
-      <app-client-sidebar
+      <!-- Sidebar -->
+      <app-contractor-sidebar
         [(collapsed)]="sidebarCollapsed"
         [(mobileOpen)]="mobileOpen"
-        [collapsedLinksInput]="collapsedLinks"
-        [navGroupsInput]="navGroups"
-      ></app-client-sidebar>
+      ></app-contractor-sidebar>
 
+      <!-- Main wrapper: top bar + content -->
       <div class="flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300">
-        <app-role-header [role]="'CONTRACTOR'" [displayName]="'Contractor User'"></app-role-header>
+        <!-- Slim top bar -->
+        <header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+          <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+              <!-- Logo + Brand -->
+              <div class="flex items-center gap-5">
+                <div class="flex-shrink-0" aria-hidden="true">
+                  <svg width="78" height="48" viewBox="0 0 360 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="140" cy="110" r="90" fill="#12A8E8" />
+                    <circle cx="220" cy="110" r="90" fill="#0B2A5B" />
+                    <rect x="310" y="30" width="8" height="160" fill="#000000" />
+                  </svg>
+                </div>
+                <div class="leading-tight">
+                  <h1 class="text-2xl sm:text-3xl font-bold tracking-tight" style="color: #0a2656; font-family: 'Times New Roman', Georgia, serif;">
+                    StatCo Solutions
+                  </h1>
+                  <p class="text-xs sm:text-sm font-medium text-slate-500">Ensuring Compliance, Empowering Success</p>
+                </div>
+                <!-- Contact (xl+) -->
+                <div class="hidden xl:flex flex-col items-start gap-1 ml-6 text-xs text-gray-400">
+                  <a href="mailto:compliance@statcosol.com" class="flex items-center gap-1.5 hover:text-statco-blue transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    compliance&#64;statcosol.com
+                  </a>
+                  <a href="tel:+919000607839" class="flex items-center gap-1.5 hover:text-statco-blue transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                    +91 9000607839
+                  </a>
+                </div>
+              </div>
 
-        <main class="role-content contractor-content">
-          <router-outlet></router-outlet>
+              <!-- User + Logout -->
+              <div class="flex items-center gap-4">
+                <img
+                  *ngIf="clientLogoUrl"
+                  [src]="clientLogoUrl"
+                  alt="Client logo"
+                  class="h-10 w-auto hidden sm:block"
+                  (error)="onLogoError()"
+                />
+                <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
+                <button
+                  (click)="logout()"
+                  class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  style="background: linear-gradient(135deg, #3D0A1E, #7A1B3D);"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                  </svg>
+                  <span class="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 bg-gradient-to-br from-slate-50 via-rose-50/30 to-slate-50">
+          <div class="contractor-content">
+            <router-outlet></router-outlet>
+          </div>
         </main>
       </div>
     </div>
   `,
-  styleUrls: ['./contractor-layout.component.scss']
+  styles: [`
+    :host { display: block; width: 100%; }
+    .contractor-shell { display: flex; min-height: 100vh; }
+    .contractor-content {
+      min-height: calc(100vh - 56px);
+      width: 100%;
+      max-width: 80rem;
+      margin: 0 auto;
+      padding: 1.25rem 0.75rem;
+    }
+    @media (min-width: 640px) { .contractor-content { padding: 1.5rem 1rem; } }
+    @media (min-width: 1024px) { .contractor-content { padding: 2rem 1.5rem; } }
+  `]
 })
 export class ContractorLayoutComponent {
   sidebarCollapsed = false;
   mobileOpen = false;
+  userName = 'Contractor User';
+  clientLogoUrl = '';
 
-  collapsedLinks: Array<{ label: string; route: string; icon: SafeHtml }> = [];
-  navGroups: Array<{ label: string; expanded?: boolean; items: Array<{ label: string; route: string; icon: SafeHtml }> }> = [];
-
-  constructor(private sanitizer: DomSanitizer) {
-    this.buildNavData();
+  constructor(private auth: AuthService) {
+    const u = this.auth.getUser();
+    if (u?.name) this.userName = u.name;
+    const derivedLogo = u?.clientLogoUrl || u?.client?.logoUrl;
+    if (derivedLogo) this.clientLogoUrl = this.auth.authenticateUrl(derivedLogo);
   }
 
-  private buildNavData(): void {
-    this.collapsedLinks = [
-      { label: 'Dashboard', route: '/contractor/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
-      { label: 'Compliance', route: '/contractor/compliance', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
-      { label: 'Tasks', route: '/contractor/tasks', icon: this.svg('M9 12h6m-6 4h6M9 8h6m-8 8h-.01M9 4h6M5 4h.01M5 12h.01M5 20h.01') },
-      { label: 'Notifications', route: '/contractor/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
-      { label: 'Support', route: '/contractor/support', icon: this.svg('M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z') },
-      { label: 'Profile', route: '/contractor/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
-    ];
-
-    this.navGroups = [
-      {
-        label: 'Overview',
-        expanded: false,
-        items: [
-          { label: 'Dashboard', route: '/contractor/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
-        ],
-      },
-      {
-        label: 'Work',
-        expanded: false,
-        items: [
-          { label: 'Compliance', route: '/contractor/compliance', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
-          { label: 'Tasks', route: '/contractor/tasks', icon: this.svg('M9 12h6m-6 4h6M9 8h6m-8 8h-.01M9 4h6M5 4h.01M5 12h.01M5 20h.01') },
-          { label: 'Notifications', route: '/contractor/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
-        ],
-      },
-      {
-        label: 'Support',
-        expanded: false,
-        items: [
-          { label: 'Support', route: '/contractor/support', icon: this.svg('M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z') },
-        ],
-      },
-      {
-        label: 'Account',
-        expanded: false,
-        items: [
-          { label: 'Profile', route: '/contractor/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
-        ],
-      },
-    ];
+  onLogoError(): void {
+    this.clientLogoUrl = '';
   }
 
-  private svg(d: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(
-      `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`
-    );
+  logout(): void {
+    this.auth.logout('User clicked logout');
   }
 }

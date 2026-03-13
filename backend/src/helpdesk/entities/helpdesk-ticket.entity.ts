@@ -5,7 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { ClientEntity } from '../../clients/entities/client.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
 
 @Entity('helpdesk_tickets')
 @Index('idx_ht_client', ['clientId'])
@@ -23,8 +27,16 @@ export class HelpdeskTicketEntity {
   @Column({ type: 'uuid', name: 'client_id' })
   clientId: string;
 
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
+
   @Column({ type: 'uuid', name: 'branch_id', nullable: true })
   branchId: string | null;
+
+  @ManyToOne(() => BranchEntity, { eager: false })
+  @JoinColumn({ name: 'branch_id' })
+  branchEntity?: BranchEntity;
 
   @Column({ type: 'varchar', length: 80, name: 'employee_ref', nullable: true })
   employeeRef: string | null;

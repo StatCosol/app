@@ -3,12 +3,23 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  ManyToOne,
+  JoinColumn,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ClientEntity } from '../../clients/entities/client.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
+import { DepartmentEntity } from './department.entity';
+import { GradeEntity } from './grade.entity';
+import { DesignationEntity } from './designation.entity';
 
 @Entity({ name: 'employees' })
 @Index(['clientId', 'employeeCode'], { unique: true })
+@Index('IDX_EMP_CLIENT_BRANCH', ['clientId', 'branchId'])
+@Index('IDX_EMP_CLIENT_ACTIVE', ['clientId', 'isActive'])
+@Index('IDX_EMP_APPROVAL', ['approvalStatus'])
+@Index('IDX_EMP_AADHAAR', ['aadhaar'])
 export class EmployeeEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -17,9 +28,17 @@ export class EmployeeEntity {
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
 
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
+
   @Index()
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
+
+  @ManyToOne(() => BranchEntity, { eager: false })
+  @JoinColumn({ name: 'branch_id' })
+  branch?: BranchEntity;
 
   @Index()
   @Column({ name: 'employee_code', type: 'varchar', length: 50 })
@@ -91,6 +110,30 @@ export class EmployeeEntity {
   @Column({ name: 'department', type: 'varchar', length: 120, nullable: true })
   department: string | null;
 
+  @Index()
+  @Column({ name: 'department_id', type: 'uuid', nullable: true })
+  departmentId: string | null;
+
+  @ManyToOne(() => DepartmentEntity, { eager: false })
+  @JoinColumn({ name: 'department_id' })
+  departmentRef?: DepartmentEntity;
+
+  @Index()
+  @Column({ name: 'grade_id', type: 'uuid', nullable: true })
+  gradeId: string | null;
+
+  @ManyToOne(() => GradeEntity, { eager: false })
+  @JoinColumn({ name: 'grade_id' })
+  grade?: GradeEntity;
+
+  @Index()
+  @Column({ name: 'designation_id', type: 'uuid', nullable: true })
+  designationId: string | null;
+
+  @ManyToOne(() => DesignationEntity, { eager: false })
+  @JoinColumn({ name: 'designation_id' })
+  designationRef?: DesignationEntity;
+
   @Column({ name: 'date_of_joining', type: 'date', nullable: true })
   dateOfJoining: string | null;
 
@@ -99,6 +142,14 @@ export class EmployeeEntity {
 
   @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
   stateCode: string | null;
+
+  @Column({
+    name: 'approval_status',
+    type: 'varchar',
+    length: 20,
+    default: 'APPROVED',
+  })
+  approvalStatus: string;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;

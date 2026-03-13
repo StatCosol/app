@@ -1,11 +1,30 @@
-import { Controller, Get, Post, Put, Patch, Param, Body, Logger, Query, Res, UseGuards, ParseUUIDPipe, Req, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Param,
+  Body,
+  Logger,
+  Query,
+  Res,
+  UseGuards,
+  ParseUUIDPipe,
+  Req,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DataSource } from 'typeorm';
 import type { Response } from 'express';
 import * as XLSX from 'xlsx';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Admin')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/reports', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -13,6 +32,7 @@ export class AdminReportsController {
   private readonly logger = new Logger(AdminReportsController.name);
   constructor(private readonly dataSource: DataSource) {}
 
+  @ApiOperation({ summary: 'Get User Activity' })
   @Get('user-activity')
   async getUserActivity(
     @Query('from') from?: string,
@@ -34,7 +54,7 @@ export class AdminReportsController {
            r.code as "roleCode",
            u.is_active as "isActive",
            u.created_at as "createdAt",
-           u.last_login as "lastLogin"
+           u.last_login_at as "lastLogin"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id
          ${clause ? `WHERE ${clause}` : ''}
@@ -74,6 +94,7 @@ export class AdminReportsController {
     }
   }
 
+  @ApiOperation({ summary: 'Get User Registrations' })
   @Get('user-registrations')
   async getUserRegistrations(
     @Query('from') from?: string,
@@ -138,6 +159,7 @@ export class AdminReportsController {
     }
   }
 
+  @ApiOperation({ summary: 'Get User Deletions' })
   @Get('user-deletions')
   async getUserDeletions(
     @Query('from') from?: string,
@@ -200,6 +222,7 @@ export class AdminReportsController {
     }
   }
 
+  @ApiOperation({ summary: 'Get Access Logs' })
   @Get('access-logs')
   async getAccessLogs(
     @Query('from') from?: string,
@@ -222,12 +245,12 @@ export class AdminReportsController {
            u.name,
            u.email,
            r.name as role,
-           u.last_login as "lastLogin",
+           u.last_login_at as "lastLogin",
            u.is_active as "isActive"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id
-         WHERE u.last_login BETWEEN $1 AND $2
-         ORDER BY u.last_login DESC
+         WHERE u.last_login_at BETWEEN $1 AND $2
+         ORDER BY u.last_login_at DESC
          LIMIT 1000`,
         [startDate, endDate],
       );
@@ -262,6 +285,7 @@ export class AdminReportsController {
     }
   }
 
+  @ApiOperation({ summary: 'Get Assignments' })
   @Get('assignments')
   async getAssignments(
     @Query('from') from?: string,
@@ -335,6 +359,7 @@ export class AdminReportsController {
    * List all audit reports with optional filters
    * Query: status, clientId, auditType, from, to, download
    */
+  @ApiOperation({ summary: 'List Audit Reports' })
   @Get('audit-reports')
   async listAuditReports(
     @Query('status') status?: string,
@@ -371,7 +396,8 @@ export class AdminReportsController {
         params.push(to);
       }
 
-      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+      const whereClause =
+        conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
       const rows = await this.dataSource.query(
         `SELECT
@@ -412,8 +438,14 @@ export class AdminReportsController {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Audit Reports');
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=audit-reports.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=audit-reports.xlsx',
+        );
         res.send(buffer);
         return;
       }
@@ -433,6 +465,7 @@ export class AdminReportsController {
    * GET /api/v1/admin/reports/audit-reports/summary
    * Returns summary counts by status for KPI cards
    */
+  @ApiOperation({ summary: 'Get Audit Reports Summary' })
   @Get('audit-reports/summary')
   async getAuditReportsSummary() {
     try {
@@ -445,7 +478,15 @@ export class AdminReportsController {
           COUNT(*) FILTER (WHERE status = 'PUBLISHED')::int    AS "published"
         FROM audit_reports
       `);
-      return rows[0] ?? { total: 0, draft: 0, submitted: 0, approved: 0, published: 0 };
+      return (
+        rows[0] ?? {
+          total: 0,
+          draft: 0,
+          submitted: 0,
+          approved: 0,
+          published: 0,
+        }
+      );
     } catch (error) {
       this.logger.error('Error fetching audit reports summary:', error);
       return { total: 0, draft: 0, submitted: 0, approved: 0, published: 0 };
@@ -456,6 +497,7 @@ export class AdminReportsController {
    * GET /api/v1/admin/reports/audit-reports/:id
    * Get a single audit report with full details
    */
+  @ApiOperation({ summary: 'Get Audit Report' })
   @Get('audit-reports/:id')
   async getAuditReport(@Param('id', ParseUUIDPipe) id: string) {
     const rows = await this.dataSource.query(
@@ -498,9 +540,11 @@ export class AdminReportsController {
    * POST /api/v1/admin/reports/audit-reports
    * Create a new audit report
    */
+  @ApiOperation({ summary: 'Create Audit Report' })
   @Post('audit-reports')
   async createAuditReport(
-    @Body() body: {
+    @Body()
+    body: {
       auditId: string;
       reportType?: string;
       reportNumber?: string;
@@ -513,7 +557,10 @@ export class AdminReportsController {
     if (!body.auditId) throw new BadRequestException('auditId is required');
 
     // Verify audit exists
-    const audit = await this.dataSource.query('SELECT id FROM audits WHERE id = $1', [body.auditId]);
+    const audit = await this.dataSource.query(
+      'SELECT id FROM audits WHERE id = $1',
+      [body.auditId],
+    );
     if (!audit.length) throw new NotFoundException('Audit not found');
 
     const rows = await this.dataSource.query(
@@ -539,10 +586,12 @@ export class AdminReportsController {
    * PUT /api/v1/admin/reports/audit-reports/:id
    * Update an existing audit report (only DRAFT or SUBMITTED)
    */
+  @ApiOperation({ summary: 'Update Audit Report' })
   @Put('audit-reports/:id')
   async updateAuditReport(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: {
+    @Body()
+    body: {
       reportType?: string;
       reportNumber?: string;
       executiveSummary?: string;
@@ -551,21 +600,41 @@ export class AdminReportsController {
     },
   ) {
     // Verify exists and is editable
-    const existing = await this.dataSource.query('SELECT id, status FROM audit_reports WHERE id = $1', [id]);
+    const existing = await this.dataSource.query(
+      'SELECT id, status FROM audit_reports WHERE id = $1',
+      [id],
+    );
     if (!existing.length) throw new NotFoundException('Audit report not found');
     if (['APPROVED', 'PUBLISHED'].includes(existing[0].status)) {
-      throw new BadRequestException('Cannot edit an approved or published report');
+      throw new BadRequestException(
+        'Cannot edit an approved or published report',
+      );
     }
 
     const sets: string[] = [];
     const params: any[] = [];
     let idx = 1;
 
-    if (body.reportType !== undefined) { sets.push(`report_type = $${idx++}`); params.push(body.reportType); }
-    if (body.reportNumber !== undefined) { sets.push(`report_number = $${idx++}`); params.push(body.reportNumber || null); }
-    if (body.executiveSummary !== undefined) { sets.push(`executive_summary = $${idx++}`); params.push(body.executiveSummary); }
-    if (body.findings !== undefined) { sets.push(`findings = $${idx++}`); params.push(body.findings); }
-    if (body.recommendations !== undefined) { sets.push(`recommendations = $${idx++}`); params.push(body.recommendations); }
+    if (body.reportType !== undefined) {
+      sets.push(`report_type = $${idx++}`);
+      params.push(body.reportType);
+    }
+    if (body.reportNumber !== undefined) {
+      sets.push(`report_number = $${idx++}`);
+      params.push(body.reportNumber || null);
+    }
+    if (body.executiveSummary !== undefined) {
+      sets.push(`executive_summary = $${idx++}`);
+      params.push(body.executiveSummary);
+    }
+    if (body.findings !== undefined) {
+      sets.push(`findings = $${idx++}`);
+      params.push(body.findings);
+    }
+    if (body.recommendations !== undefined) {
+      sets.push(`recommendations = $${idx++}`);
+      params.push(body.recommendations);
+    }
 
     if (sets.length === 0) throw new BadRequestException('No fields to update');
 
@@ -584,11 +653,16 @@ export class AdminReportsController {
    * PATCH /api/v1/admin/reports/audit-reports/:id/submit
    * Move report from DRAFT → SUBMITTED
    */
+  @ApiOperation({ summary: 'Submit Audit Report' })
   @Patch('audit-reports/:id/submit')
   async submitAuditReport(@Param('id', ParseUUIDPipe) id: string) {
-    const existing = await this.dataSource.query('SELECT id, status FROM audit_reports WHERE id = $1', [id]);
+    const existing = await this.dataSource.query(
+      'SELECT id, status FROM audit_reports WHERE id = $1',
+      [id],
+    );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].status !== 'DRAFT') throw new BadRequestException('Only DRAFT reports can be submitted');
+    if (existing[0].status !== 'DRAFT')
+      throw new BadRequestException('Only DRAFT reports can be submitted');
 
     await this.dataSource.query(
       `UPDATE audit_reports SET status = 'SUBMITTED', updated_at = NOW() WHERE id = $1`,
@@ -601,14 +675,19 @@ export class AdminReportsController {
    * PATCH /api/v1/admin/reports/audit-reports/:id/approve
    * Move report from SUBMITTED → APPROVED
    */
+  @ApiOperation({ summary: 'Approve Audit Report' })
   @Patch('audit-reports/:id/approve')
   async approveAuditReport(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: any,
   ) {
-    const existing = await this.dataSource.query('SELECT id, status FROM audit_reports WHERE id = $1', [id]);
+    const existing = await this.dataSource.query(
+      'SELECT id, status FROM audit_reports WHERE id = $1',
+      [id],
+    );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].status !== 'SUBMITTED') throw new BadRequestException('Only SUBMITTED reports can be approved');
+    if (existing[0].status !== 'SUBMITTED')
+      throw new BadRequestException('Only SUBMITTED reports can be approved');
 
     await this.dataSource.query(
       `UPDATE audit_reports
@@ -626,11 +705,16 @@ export class AdminReportsController {
    * PATCH /api/v1/admin/reports/audit-reports/:id/publish
    * Move report from APPROVED → PUBLISHED
    */
+  @ApiOperation({ summary: 'Publish Audit Report' })
   @Patch('audit-reports/:id/publish')
   async publishAuditReport(@Param('id', ParseUUIDPipe) id: string) {
-    const existing = await this.dataSource.query('SELECT id, status FROM audit_reports WHERE id = $1', [id]);
+    const existing = await this.dataSource.query(
+      'SELECT id, status FROM audit_reports WHERE id = $1',
+      [id],
+    );
     if (!existing.length) throw new NotFoundException('Audit report not found');
-    if (existing[0].status !== 'APPROVED') throw new BadRequestException('Only APPROVED reports can be published');
+    if (existing[0].status !== 'APPROVED')
+      throw new BadRequestException('Only APPROVED reports can be published');
 
     await this.dataSource.query(
       `UPDATE audit_reports

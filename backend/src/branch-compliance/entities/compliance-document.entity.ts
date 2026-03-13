@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { BranchEntity } from '../../branches/entities/branch.entity';
+import { ClientEntity } from '../../clients/entities/client.entity';
 
 export enum ComplianceDocStatus {
   NOT_UPLOADED = 'NOT_UPLOADED',
@@ -44,6 +45,10 @@ export class ComplianceDocumentEntity {
   @Column({ name: 'company_id', type: 'uuid' })
   companyId: string;
 
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'company_id' })
+  company?: ClientEntity;
+
   @Index('idx_compdoc_branch')
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
@@ -52,10 +57,20 @@ export class ComplianceDocumentEntity {
   @JoinColumn({ name: 'branch_id' })
   branch?: BranchEntity | null;
 
-  @Column({ name: 'module_source', type: 'varchar', length: 30, default: ModuleSource.BRANCHDESK })
+  @Column({
+    name: 'module_source',
+    type: 'varchar',
+    length: 30,
+    default: ModuleSource.BRANCHDESK,
+  })
   moduleSource: string;
 
-  @Column({ name: 'document_scope', type: 'varchar', length: 20, default: DocumentScope.BRANCH })
+  @Column({
+    name: 'document_scope',
+    type: 'varchar',
+    length: 20,
+    default: DocumentScope.BRANCH,
+  })
   documentScope: string;
 
   @Column({ name: 'law_area', type: 'varchar', length: 40 })
@@ -68,7 +83,12 @@ export class ComplianceDocumentEntity {
   @Column({ name: 'return_name', type: 'varchar', length: 200 })
   returnName: string;
 
-  @Column({ name: 'frequency', type: 'varchar', length: 20, default: 'MONTHLY' })
+  @Column({
+    name: 'frequency',
+    type: 'varchar',
+    length: 20,
+    default: 'MONTHLY',
+  })
   frequency: string;
 
   @Column({ name: 'period_year', type: 'int' })
@@ -86,10 +106,20 @@ export class ComplianceDocumentEntity {
   @Column({ name: 'due_date', type: 'date', nullable: true })
   dueDate: string | null;
 
-  @Column({ name: 'uploaded_file_url', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'uploaded_file_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   uploadedFileUrl: string | null;
 
-  @Column({ name: 'uploaded_file_name', type: 'varchar', length: 300, nullable: true })
+  @Column({
+    name: 'uploaded_file_name',
+    type: 'varchar',
+    length: 300,
+    nullable: true,
+  })
   uploadedFileName: string | null;
 
   @Column({ name: 'uploaded_by_user_id', type: 'uuid', nullable: true })
@@ -99,7 +129,12 @@ export class ComplianceDocumentEntity {
   uploadedAt: Date | null;
 
   @Index('idx_compdoc_status')
-  @Column({ name: 'status', type: 'varchar', length: 30, default: ComplianceDocStatus.NOT_UPLOADED })
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    length: 30,
+    default: ComplianceDocStatus.NOT_UPLOADED,
+  })
   status: string;
 
   @Column({ name: 'reviewed_by_user_id', type: 'uuid', nullable: true })

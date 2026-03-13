@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApprovalRequestEntity } from './entities/approval-request.entity';
@@ -72,10 +76,7 @@ export class AdminApprovalsService {
       );
     }
 
-    const actionResult = await this.executeRejectedAction(
-      req,
-      approverUserId,
-    );
+    const actionResult = await this.executeRejectedAction(req, approverUserId);
 
     req.status = 'REJECTED';
     req.approverUserId = approverUserId;

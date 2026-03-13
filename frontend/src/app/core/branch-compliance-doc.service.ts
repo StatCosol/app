@@ -175,10 +175,10 @@ export interface LowestBranch {
 export class BranchComplianceDocService {
   private readonly baseUrl = environment.apiBaseUrl;
   private readonly branchBase = `${this.baseUrl}/api/v1/branch/compliance-docs`;
-  private readonly crmBase = `${this.baseUrl}/api/v1/crm/compliance-docs`;
-  private readonly clientBase = `${this.baseUrl}/api/v1/client/compliance-docs`;
+  private readonly crmBase = `${this.baseUrl}/api/v1/crm/branch-compliance`;
+  private readonly clientBase = `${this.baseUrl}/api/v1/client/branch-compliance`;
   private readonly auditorBase = `${this.baseUrl}/api/v1/auditor/compliance-docs`;
-  private readonly adminBase = `${this.baseUrl}/api/v1/admin/compliance-docs`;
+  private readonly adminBase = `${this.baseUrl}/api/v1/admin/branch-compliance`;
 
   constructor(private http: HttpClient) {}
 

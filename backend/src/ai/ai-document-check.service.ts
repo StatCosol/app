@@ -1,7 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { AiDocumentCheckEntity, DocCheckResult } from './entities/ai-document-check.entity';
+import {
+  AiDocumentCheckEntity,
+  DocCheckResult,
+} from './entities/ai-document-check.entity';
 import { AiRequestLogService } from './ai-request-log.service';
 import { AiCoreService } from './ai-core.service';
 
@@ -67,7 +70,10 @@ export class AiDocumentCheckService {
   ) {}
 
   /** Run validation on a contractor document */
-  async checkDocument(documentId: string, createdBy?: string): Promise<DocumentCheckOutput> {
+  async checkDocument(
+    documentId: string,
+    createdBy?: string,
+  ): Promise<DocumentCheckOutput> {
     // 1. Fetch document from DB
     const doc = await this.fetchDocument(documentId);
     if (!doc) {
@@ -79,7 +85,11 @@ export class AiDocumentCheckService {
       module: 'DOCUMENT',
       entityType: 'contractor_document',
       entityId: documentId,
-      payload: { documentId, documentName: doc.document_name, documentType: doc.document_type },
+      payload: {
+        documentId,
+        documentName: doc.document_name,
+        documentType: doc.document_type,
+      },
       createdBy,
     });
 
@@ -91,8 +101,8 @@ export class AiDocumentCheckService {
 
       // 4. Determine result from rules
       let result: DocCheckResult = 'PASS';
-      if (issues.some(i => i.severity === 'HIGH')) result = 'FAIL';
-      else if (issues.some(i => i.severity === 'MEDIUM')) result = 'WARN';
+      if (issues.some((i) => i.severity === 'HIGH')) result = 'FAIL';
+      else if (issues.some((i) => i.severity === 'MEDIUM')) result = 'WARN';
 
       // 5. AI enhancement
       let suggestedFixes: SuggestedFix[] = [];
@@ -109,15 +119,19 @@ Rule-based issues found: ${JSON.stringify(issues)}
 
 Assess this document and provide additional issues and suggested fixes.`;
 
-        const aiResult = await this.aiCore.complete(DOC_CHECK_SYSTEM_PROMPT, userPrompt);
+        const aiResult = await this.aiCore.complete(
+          DOC_CHECK_SYSTEM_PROMPT,
+          userPrompt,
+        );
         if (aiResult) {
           const parsed = JSON.parse(aiResult.content);
 
           if (parsed.additionalIssues?.length) {
             issues.push(...parsed.additionalIssues);
             // Re-evaluate result
-            if (issues.some(i => i.severity === 'HIGH')) result = 'FAIL';
-            else if (issues.some(i => i.severity === 'MEDIUM')) result = 'WARN';
+            if (issues.some((i) => i.severity === 'HIGH')) result = 'FAIL';
+            else if (issues.some((i) => i.severity === 'MEDIUM'))
+              result = 'WARN';
           }
           suggestedFixes = parsed.suggestedFixes || [];
           aiAnalysis = parsed.summary;
@@ -125,7 +139,9 @@ Assess this document and provide additional issues and suggested fixes.`;
           suggestedFixes = this.fallbackFixes(issues);
         }
       } catch (aiErr) {
-        this.logger.warn(`AI enhancement failed, using rule-only results: ${aiErr}`);
+        this.logger.warn(
+          `AI enhancement failed, using rule-only results: ${aiErr}`,
+        );
         suggestedFixes = this.fallbackFixes(issues);
       }
 
@@ -198,7 +214,9 @@ Assess this document and provide additional issues and suggested fixes.`;
         });
       } else {
         // Warn if expiring within 30 days
-        const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const daysUntilExpiry = Math.ceil(
+          (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        );
         if (daysUntilExpiry <= 30) {
           issues.push({
             code: 'DOC_EXPIRING_SOON',
@@ -249,7 +267,9 @@ Assess this document and provide additional issues and suggested fixes.`;
     if (doc.upload_date && doc.coverage_from) {
       const upload = new Date(doc.upload_date);
       const coverageStart = new Date(doc.coverage_from);
-      const daysDiff = Math.ceil((upload.getTime() - coverageStart.getTime()) / (1000 * 60 * 60 * 24));
+      const daysDiff = Math.ceil(
+        (upload.getTime() - coverageStart.getTime()) / (1000 * 60 * 60 * 24),
+      );
       if (daysDiff > 30) {
         issues.push({
           code: 'LATE_UPLOAD',
@@ -264,22 +284,42 @@ Assess this document and provide additional issues and suggested fixes.`;
 
   /** Generate simple fixes when AI is unavailable */
   private fallbackFixes(issues: CheckIssue[]): SuggestedFix[] {
-    return issues.map(issue => {
+    return issues.map((issue) => {
       switch (issue.code) {
         case 'DOC_EXPIRED':
-          return { action: 'RENEW', description: 'Renew the expired document and upload the new version' };
+          return {
+            action: 'RENEW',
+            description:
+              'Renew the expired document and upload the new version',
+          };
         case 'DOC_EXPIRING_SOON':
-          return { action: 'RENEW_SOON', description: 'Initiate renewal process before expiry' };
+          return {
+            action: 'RENEW_SOON',
+            description: 'Initiate renewal process before expiry',
+          };
         case 'MISSING_EXPIRY':
-          return { action: 'SET_EXPIRY', description: 'Set the expiry date on the document record' };
+          return {
+            action: 'SET_EXPIRY',
+            description: 'Set the expiry date on the document record',
+          };
         case 'NO_FILE':
           return { action: 'UPLOAD', description: 'Upload the document file' };
         case 'COVERAGE_LAPSED':
-          return { action: 'EXTEND_COVERAGE', description: 'Extend or renew coverage period' };
+          return {
+            action: 'EXTEND_COVERAGE',
+            description: 'Extend or renew coverage period',
+          };
         case 'INVALID_COVERAGE':
-          return { action: 'FIX_DATES', description: 'Correct the coverage dates' };
+          return {
+            action: 'FIX_DATES',
+            description: 'Correct the coverage dates',
+          };
         case 'LATE_UPLOAD':
-          return { action: 'NOTE', description: 'Document was uploaded late; ensure timely uploads going forward' };
+          return {
+            action: 'NOTE',
+            description:
+              'Document was uploaded late; ensure timely uploads going forward',
+          };
         default:
           return { action: 'REVIEW', description: issue.message };
       }
@@ -287,11 +327,21 @@ Assess this document and provide additional issues and suggested fixes.`;
   }
 
   /** List recent document checks */
-  async listChecks(opts: { clientId?: string; branchId?: string; result?: string; limit?: number }): Promise<AiDocumentCheckEntity[]> {
+  async listChecks(opts: {
+    clientId?: string;
+    branchId?: string;
+    result?: string;
+    limit?: number;
+  }): Promise<AiDocumentCheckEntity[]> {
     const qb = this.docCheckRepo.createQueryBuilder('dc');
-    if (opts.clientId) qb.andWhere('dc.clientId = :cid', { cid: opts.clientId });
-    if (opts.branchId) qb.andWhere('dc.branchId = :bid', { bid: opts.branchId });
+    if (opts.clientId)
+      qb.andWhere('dc.clientId = :cid', { cid: opts.clientId });
+    if (opts.branchId)
+      qb.andWhere('dc.branchId = :bid', { bid: opts.branchId });
     if (opts.result) qb.andWhere('dc.result = :r', { r: opts.result });
-    return qb.orderBy('dc.createdAt', 'DESC').take(opts.limit || 50).getMany();
+    return qb
+      .orderBy('dc.createdAt', 'DESC')
+      .take(opts.limit || 50)
+      .getMany();
   }
 }

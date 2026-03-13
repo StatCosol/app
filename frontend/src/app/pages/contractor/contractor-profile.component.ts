@@ -142,7 +142,7 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
   saveProfile(): void {
     if (this.saving || !this.canSaveProfile) {
       if (!this.canSaveProfile) {
-        this.toast.error(this.profileGuardrails[0] || 'Please correct highlighted fields.');
+        this.toast.error('Profile validation failed', this.profileGuardrails[0] || 'Please correct highlighted fields.');
       }
       return;
     }
@@ -165,10 +165,13 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
             ...(this.profile || {}),
             ...(updated || {}),
           };
-          this.toast.success('Changes saved successfully.');
+          this.toast.success('Profile updated', 'Changes saved successfully.');
         },
         error: (err: any) => {
-          this.toast.error(err?.error?.message || 'Could not update profile.');
+          this.toast.error(
+            'Update failed',
+            err?.error?.message || 'Could not update profile.',
+          );
         },
       });
   }

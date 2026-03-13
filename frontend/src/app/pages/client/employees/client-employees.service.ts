@@ -28,6 +28,7 @@ export type Employee = {
   dateOfExit: string | null;
   stateCode: string | null;
   isActive: boolean;
+  approvalStatus: string;
 };
 
 export type EmployeeNomination = {
@@ -61,6 +62,7 @@ export class ClientEmployeesService {
   list(q?: {
     branchId?: string;
     isActive?: string;
+    approvalStatus?: string;
     search?: string;
     limit?: number;
     offset?: number;
@@ -68,6 +70,7 @@ export class ClientEmployeesService {
     let p = new HttpParams();
     if (q?.branchId) p = p.set('branchId', q.branchId);
     if (q?.isActive) p = p.set('isActive', q.isActive);
+    if (q?.approvalStatus) p = p.set('approvalStatus', q.approvalStatus);
     if (q?.search) p = p.set('search', q.search);
     if (q?.limit) p = p.set('limit', String(q.limit));
     if (q?.offset) p = p.set('offset', String(q.offset));
@@ -123,6 +126,16 @@ export class ClientEmployeesService {
     return this.http.post(`${this.base}/${employeeId}/provision-ess`, body);
   }
 
+  /** Approve a pending employee registration */
+  approve(id: string): Observable<Employee> {
+    return this.http.put<any>(`${this.base}/${id}/approve`, {}).pipe(map((r) => this.mapEmployee(r)));
+  }
+
+  /** Reject a pending employee registration */
+  reject(id: string): Observable<Employee> {
+    return this.http.put<any>(`${this.base}/${id}/reject`, {}).pipe(map((r) => this.mapEmployee(r)));
+  }
+
   private mapEmployee(r: any): Employee {
     return {
       id: r?.id ?? '',
@@ -149,6 +162,7 @@ export class ClientEmployeesService {
       dateOfExit: r?.dateOfExit ?? r?.date_of_exit ?? null,
       stateCode: r?.stateCode ?? r?.state_code ?? null,
       isActive: r?.isActive ?? r?.is_active ?? true,
+      approvalStatus: r?.approvalStatus ?? r?.approval_status ?? 'APPROVED',
     };
   }
 }

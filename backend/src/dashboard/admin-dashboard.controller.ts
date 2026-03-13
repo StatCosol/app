@@ -8,7 +8,10 @@ import {
   ADMIN_ESCALATIONS_SQL,
   ADMIN_ASSIGNMENTS_ATTENTION_SQL,
 } from '../admin/sql/admin-dashboard.sql';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Admin')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminDashboardController {
@@ -18,12 +21,14 @@ export class AdminDashboardController {
   // Frontend (DashboardService.admin()) calls GET /api/admin/dashboard.
   // Keep this as an alias of /summary so the shell can load without special-casing.
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Base' })
   @Get()
   async base() {
     return this.summary();
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Available States' })
   @Get('states')
   async getAvailableStates() {
     try {
@@ -72,6 +77,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Clients Minimal' })
   @Get('clients-minimal')
   async clientsMinimal() {
     return this.dataSource.query(
@@ -83,6 +89,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Summary' })
   @Get('summary')
   async summary(
     @Query('clientId') clientId?: string,
@@ -161,6 +168,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Escalations' })
   @Get('escalations')
   async getEscalations(
     @Query('clientId') clientId?: string,
@@ -182,6 +190,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Assignments Attention' })
   @Get('assignments-attention')
   async getAssignmentsAttention(
     @Query('clientId') clientId?: string,
@@ -199,6 +208,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Task Status' })
   @Get('task-status')
   async getTaskStatus(@Query('range') range?: string) {
     const days = this.getRangeDays(range ?? '30d');
@@ -219,7 +229,9 @@ export class AdminDashboardController {
       );
       const [overdueRow] = await this.dataSource.query(
         `SELECT COUNT(*)::int AS n FROM client_assignments
-         WHERE status = 'OVERDUE_ROTATION' AND (updated_at IS NULL OR updated_at >= $1)`,
+         WHERE status = 'ACTIVE'
+           AND end_date IS NOT NULL AND end_date < CURRENT_DATE
+           AND (updated_at IS NULL OR updated_at >= $1)`,
         [since],
       );
 
@@ -235,6 +247,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Sla Trend' })
   @Get('sla-trend')
   async getSlaTrend(@Query('range') range?: string) {
     const days = this.getRangeDays(range ?? '30d');
@@ -251,7 +264,7 @@ export class AdminDashboardController {
 
         const [row] = await this.dataSource.query(
           `SELECT 
-             COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END)::float / NULLIF(COUNT(*)::float, 0) * 100 AS compliance
+             COUNT(CASE WHEN status = 'INACTIVE' THEN 1 END)::float / NULLIF(COUNT(*)::float, 0) * 100 AS compliance
            FROM client_assignments
            WHERE created_at BETWEEN $1 AND $2`,
           [startDate, endDate],
@@ -360,6 +373,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Stats' })
   @Get('stats')
   async getStats(@Query('range') range: string) {
     const days = this.getRangeDays(range);
@@ -367,32 +381,57 @@ export class AdminDashboardController {
     since.setDate(since.getDate() - days);
 
     try {
-      const [pendingApprovalsRow] = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n FROM approval_requests WHERE status = 'PENDING'`,
-      ).catch(() => [{ n: 0 }]);
+      const [pendingApprovalsRow] = await this.dataSource
+        .query(
+          `SELECT COUNT(*)::int AS n FROM approval_requests WHERE status = 'PENDING'`,
+        )
+        .catch((e) => {
+          this.logger.warn('approval_requests count failed', e?.message);
+          return [{ n: 0 }];
+        });
 
-      const [overdueTasksRow] = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n FROM client_assignments WHERE status = 'OVERDUE_ROTATION'`,
-      ).catch(() => [{ n: 0 }]);
+      const [overdueTasksRow] = await this.dataSource
+        .query(
+          `SELECT COUNT(*)::int AS n FROM client_assignments WHERE status = 'ACTIVE' AND end_date IS NOT NULL AND end_date < CURRENT_DATE`,
+        )
+        .catch((e) => {
+          this.logger.warn('overdue_tasks count failed', e?.message);
+          return [{ n: 0 }];
+        });
 
       // Real query: open helpdesk tickets
-      const [openQueriesRow] = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n FROM helpdesk_tickets WHERE status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT')`,
-      ).catch(() => [{ n: 0 }]);
+      const [openQueriesRow] = await this.dataSource
+        .query(
+          `SELECT COUNT(*)::int AS n FROM helpdesk_tickets WHERE status IN ('OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT')`,
+        )
+        .catch((e) => {
+          this.logger.warn('helpdesk open count failed', e?.message);
+          return [{ n: 0 }];
+        });
 
       // Real query: SLA breaches (tickets where SLA due date has passed and not resolved)
-      const [slaBreachesRow] = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n FROM helpdesk_tickets
+      const [slaBreachesRow] = await this.dataSource
+        .query(
+          `SELECT COUNT(*)::int AS n FROM helpdesk_tickets
          WHERE sla_due_at < NOW()
            AND status NOT IN ('RESOLVED', 'CLOSED')`,
-      ).catch(() => [{ n: 0 }]);
+        )
+        .catch((e) => {
+          this.logger.warn('sla breaches count failed', e?.message);
+          return [{ n: 0 }];
+        });
 
       // Real query: unread notifications
-      const [unreadNotificationsRow] = await this.dataSource.query(
-        `SELECT COUNT(*)::int AS n FROM notifications
+      const [unreadNotificationsRow] = await this.dataSource
+        .query(
+          `SELECT COUNT(*)::int AS n FROM notifications
          WHERE read_at IS NULL AND created_at >= $1`,
-        [since],
-      ).catch(() => [{ n: 0 }]);
+          [since],
+        )
+        .catch((e) => {
+          this.logger.warn('unread notifications count failed', e?.message);
+          return [{ n: 0 }];
+        });
 
       return {
         clients: await this.safeCountActive('clients'),
@@ -420,6 +459,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Crm Load' })
   @Get('crm-load')
   async getCrmLoad() {
     try {
@@ -429,16 +469,16 @@ export class AdminDashboardController {
            u.name,
            u.email,
            COUNT(DISTINCT a.id) as "clientsAssigned",
-           COUNT(DISTINCT CASE WHEN a.status IN ('PENDING', 'IN_PROGRESS') THEN a.id END) as "openItems",
-           COUNT(DISTINCT CASE WHEN a.status = 'OVERDUE_ROTATION' THEN a.id END) as overdue,
+           COUNT(DISTINCT CASE WHEN a.status = 'ACTIVE' THEN a.id END) as "openItems",
+           COUNT(DISTINCT CASE WHEN a.status = 'ACTIVE' AND a.end_date IS NOT NULL AND a.end_date < CURRENT_DATE THEN a.id END) as overdue,
            COALESCE((SELECT COUNT(*)::int FROM helpdesk_tickets ht
              INNER JOIN clients hc ON hc.id = ht.client_id
-             INNER JOIN client_assignments ha ON ha.client_id = hc.id AND ha.assigned_user_id = u.id AND ha.assignment_type = 'CRM'
+             INNER JOIN client_assignments ha ON ha.client_id = hc.id AND ha.crm_user_id = u.id AND ha.status = 'ACTIVE'
              WHERE ht.sla_due_at < NOW() AND ht.status NOT IN ('RESOLVED','CLOSED')
            ), 0) as "slaBreaches"
          FROM users u
          INNER JOIN roles r ON u.role_id = r.id
-         LEFT JOIN client_assignments a ON a.assigned_user_id = u.id AND a.assignment_type = 'CRM'
+         LEFT JOIN client_assignments a ON a.crm_user_id = u.id AND a.status = 'ACTIVE'
          WHERE r.code = 'CRM' AND u.is_active = true AND u.deleted_at IS NULL
          GROUP BY u.id, u.name, u.email
          ORDER BY COUNT(DISTINCT a.id) DESC
@@ -452,6 +492,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Auditor Load' })
   @Get('auditor-load')
   async getAuditorLoad() {
     try {
@@ -485,6 +526,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Attention' })
   @Get('attention')
   async getAttention(@Query('range') range: string) {
     const days = this.getRangeDays(range);
@@ -498,11 +540,13 @@ export class AdminDashboardController {
            ca.id::text,
            c.client_name as title,
            'Overdue assignment' as reason,
-           COALESCE(ca.updated_at, ca.rotation_due_on::timestamp) as "lastUpdate"
+           COALESCE(ca.updated_at, ca.end_date::timestamp) as "lastUpdate"
          FROM client_assignments ca
          INNER JOIN clients c ON ca.client_id = c.id
-         WHERE ca.status = 'OVERDUE_ROTATION' AND (ca.updated_at IS NULL OR ca.updated_at >= $1)
-         ORDER BY COALESCE(ca.updated_at, ca.rotation_due_on::timestamp) DESC
+         WHERE ca.status = 'ACTIVE'
+           AND ca.end_date IS NOT NULL AND ca.end_date < CURRENT_DATE
+           AND (ca.updated_at IS NULL OR ca.updated_at >= $1)
+         ORDER BY COALESCE(ca.updated_at, ca.end_date::timestamp) DESC
          LIMIT 10`,
         [since],
       );
@@ -516,6 +560,7 @@ export class AdminDashboardController {
   // ───── Governance Layer Endpoints ─────
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Assignment Summary' })
   @Get('assignment-summary')
   async getAssignmentSummary() {
     try {
@@ -559,6 +604,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Unassigned Clients' })
   @Get('unassigned-clients')
   async getUnassignedClients() {
     try {
@@ -620,6 +666,7 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Audit Summary' })
   @Get('audit-summary')
   async getAuditSummary() {
     try {
@@ -669,28 +716,27 @@ export class AdminDashboardController {
   }
 
   @Roles('ADMIN', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Get Risk Alerts' })
   @Get('risk-alerts')
   async getRiskAlerts() {
     try {
-      const activeClientFilter = `(is_deleted = false OR is_deleted IS NULL) AND (is_active = true OR is_active IS NULL)`;
-
       const [auditOverdueRow] = await this.dataSource.query(`
         SELECT COUNT(DISTINCT c.id)::int AS n
         FROM clients c
         JOIN audits a ON a.client_id = c.id
-        WHERE ${activeClientFilter}
+        WHERE (c.is_deleted = false OR c.is_deleted IS NULL) AND (c.is_active = true OR c.is_active IS NULL)
           AND a.status IN ('PLANNED','IN_PROGRESS')
           AND a.due_date < CURRENT_DATE
       `);
 
       const [noCrmRow] = await this.dataSource.query(`
         SELECT COUNT(*)::int AS n FROM clients
-        WHERE ${activeClientFilter} AND assigned_crm_id IS NULL
+        WHERE (is_deleted = false OR is_deleted IS NULL) AND (is_active = true OR is_active IS NULL) AND assigned_crm_id IS NULL
       `);
 
       const [noPayrollRow] = await this.dataSource.query(`
         SELECT COUNT(*)::int AS n FROM clients c
-        WHERE ${activeClientFilter}
+        WHERE (c.is_deleted = false OR c.is_deleted IS NULL) AND (c.is_active = true OR c.is_active IS NULL)
           AND NOT EXISTS(
             SELECT 1 FROM client_users cu
             JOIN users u ON cu.user_id = u.id
@@ -702,7 +748,7 @@ export class AdminDashboardController {
 
       const [zeroBranchesRow] = await this.dataSource.query(`
         SELECT COUNT(*)::int AS n FROM clients c
-        WHERE ${activeClientFilter}
+        WHERE (c.is_deleted = false OR c.is_deleted IS NULL) AND (c.is_active = true OR c.is_active IS NULL)
           AND NOT EXISTS(
             SELECT 1 FROM client_branches cb
             WHERE cb.clientid = c.id
@@ -724,15 +770,18 @@ export class AdminDashboardController {
 
       let noMcdUploads = 0;
       if (tableExists?.n > 0) {
-        const [noMcdRow] = await this.dataSource.query(`
+        const [noMcdRow] = await this.dataSource.query(
+          `
           SELECT COUNT(*)::int AS n FROM clients c
-          WHERE ${activeClientFilter}
+          WHERE (c.is_deleted = false OR c.is_deleted IS NULL) AND (c.is_active = true OR c.is_active IS NULL)
             AND NOT EXISTS(
               SELECT 1 FROM compliance_documents cd
-              WHERE cd.client_id = c.id
+              WHERE cd.company_id = c.id
                 AND cd.uploaded_at >= $1
             )
-        `, [firstOfMonth]);
+        `,
+          [firstOfMonth],
+        );
         noMcdUploads = noMcdRow?.n ?? 0;
       }
 
