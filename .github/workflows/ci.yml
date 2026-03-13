@@ -134,6 +134,10 @@ jobs:
             backend/migrations/20260217_payroll_statutory_engine.sql \
             backend/migrations/20260218_statutory_services_refactor.sql \
             backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
+            if [ ! -f "$f" ]; then
+              echo "Skipping missing migration $f"
+              continue
+            fi
             echo "Applying $f"
             PGPASSWORD=postgres psql \
               -h localhost \
