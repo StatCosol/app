@@ -7,10 +7,7 @@ import { SlaAutogenCronService } from './sla-autogen-cron.service';
 import { CompliancesModule } from '../compliances/compliances.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([SlaTaskEntity]),
-    CompliancesModule,
-  ],
+  imports: [TypeOrmModule.forFeature([SlaTaskEntity]), CompliancesModule],
   controllers: [SlaController],
   providers: [SlaService, SlaAutogenCronService],
   exports: [SlaService],

@@ -146,7 +146,7 @@ import {
                 <p class="text-xs text-gray-500 font-medium">Consequence</p>
                 <p class="text-gray-800">{{ obs.consequence }}</p>
               </div>
-              <div *ngIf="obs.fineEstimationMin != null">
+              <div *ngIf="obs.fineEstimationMin !== null && obs.fineEstimationMin !== undefined">
                 <p class="text-xs text-gray-500 font-medium">Fine Estimate</p>
                 <p class="text-red-600 font-medium">₹{{ obs.fineEstimationMin | number:'1.0-0' }} – ₹{{ obs.fineEstimationMax | number:'1.0-0' }}</p>
               </div>

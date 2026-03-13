@@ -28,6 +28,25 @@
 
   <!-- ══════════════ Tab 1: Documents (Work Queue) ══════════════ -->
   <div *ngIf="activeTab==='DOCS'">
+    <!-- Reupload Backlog KPIs -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4" *ngIf="reuploadBacklog">
+      <a routerLink="/crm/reupload-backlog" [queryParams]="{ status: 'OPEN' }"
+        class="border rounded-lg p-3 bg-blue-50 border-blue-200 hover:shadow-md transition-shadow cursor-pointer block">
+        <div class="text-xs text-gray-500">Reupload Requests &mdash; OPEN</div>
+        <div class="text-2xl font-semibold text-blue-700">{{ reuploadBacklog.open || 0 }}</div>
+      </a>
+      <a routerLink="/crm/reupload-backlog" [queryParams]="{ status: 'SUBMITTED' }"
+        class="border rounded-lg p-3 bg-yellow-50 border-yellow-200 hover:shadow-md transition-shadow cursor-pointer block">
+        <div class="text-xs text-gray-500">Pending Verification &mdash; SUBMITTED</div>
+        <div class="text-2xl font-semibold text-yellow-700">{{ reuploadBacklog.submitted || 0 }}</div>
+      </a>
+      <a routerLink="/crm/reupload-backlog" [queryParams]="{ status: 'REJECTED' }"
+        class="border rounded-lg p-3 bg-red-50 border-red-200 hover:shadow-md transition-shadow cursor-pointer block">
+        <div class="text-xs text-gray-500">Rejected</div>
+        <div class="text-2xl font-semibold text-red-700">{{ reuploadBacklog.rejected || 0 }}</div>
+      </a>
+    </div>
+
     <!-- KPI Chips -->
     <div class="flex flex-wrap gap-3 mb-6">
       <button type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors"
@@ -194,97 +213,124 @@
       <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
         <div class="form-group">
           <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
-          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdYear">
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdYear" (ngModelChange)="onMcdFilterChange()">
             <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
           </select>
         </div>
         <div class="form-group">
           <label class="block text-sm font-medium text-gray-700 mb-2">Month</label>
-          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdMonth">
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdMonth" (ngModelChange)="onMcdFilterChange()">
             <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
           </select>
         </div>
         <div class="form-group">
           <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
-          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdClientId" (change)="onClientChange('mcd')">
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="mcdClientId" (ngModelChange)="onClientChange('mcd'); onMcdFilterChange()">
             <option value="">All Clients</option>
             <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
           </select>
         </div>
         <div class="flex col-span-2 gap-2">
           <ui-button variant="primary" (clicked)="loadMcd()" class="flex-1">Refresh</ui-button>
+          <button class="px-3 py-2 text-sm bg-gray-900 text-white rounded hover:bg-gray-800 transition-colors"
+            [disabled]="mcdLoading || exportingPack"
+            (click)="exportMcdPack()">
+            {{ exportingPack ? 'Exporting…' : 'Export Pack' }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Loading -->
-    <ui-loading-spinner *ngIf="mcdLoading" text="Loading MCD data..."></ui-loading-spinner>
+    <div *ngIf="mcdLoading" class="text-sm text-gray-500 mb-2">Loading MCD…</div>
+
+    <!-- Top 5 Lowest Coverage Branches -->
+    <div class="mb-4" *ngIf="!mcdLoading && mcdRows.length > 0">
+      <div class="font-semibold mb-2">Top 5 Lowest Coverage Branches ({{ mcdMonthKey }})</div>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-2">
+        <div *ngFor="let x of getTopLowestMcdBranches(5)"
+             class="border rounded p-3 cursor-pointer hover:shadow-sm transition-shadow"
+             [ngClass]="rowHighlightClass(x.pct)"
+             (click)="jumpToDocsFromMcdCard(x)">
+          <div class="text-xs text-gray-500">{{ x.clientName }}</div>
+          <div class="font-medium text-sm truncate">{{ x.branchName }}</div>
+          <div class="mt-2 flex items-center gap-2">
+            <span class="px-2 py-1 text-xs rounded" [ngClass]="pctClass(x.pct)">{{ x.pct }}%</span>
+            <div class="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
+              <div class="h-2" [ngClass]="barClass(x.pct)" [style.width.%]="x.pct"></div>
+            </div>
+          </div>
+          <div class="mt-2 text-[11px] text-gray-600">
+            Uploaded: {{ x.uploaded }} | Pending: {{ x.pending }} | Returned: {{ x.returned }}
+          </div>
+          <div class="mt-1 text-[11px] text-gray-500">
+            Applicable: {{ x.totalApplicable }}
+            <span *ngIf="x.finalized" class="ml-1 px-2 py-0.5 rounded bg-green-100 text-green-800">Finalized</span>
+          </div>
+          <div class="mt-2 text-[11px] text-blue-600 underline">View documents</div>
+        </div>
+      </div>
+    </div>
 
     <!-- MCD Grid -->
-    <div class="card" *ngIf="!mcdLoading">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">
-        Monthly Compliance Diary — Branch Grid
-        <span class="text-sm font-normal text-gray-500 ml-2">({{ mcdRows.length }} branches)</span>
-      </h3>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Total</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Uploaded</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Pending</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Returned</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Reviewed</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">%</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Finalized</th>
-              <th class="px-3 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let row of mcdRows" class="hover:bg-gray-50">
-              <td class="px-3 py-3 text-xs font-medium text-gray-900">{{ row.branchName || row.branch_name }}</td>
-              <td class="px-3 py-3 text-xs text-gray-600">{{ row.clientName || row.client_name }}</td>
-              <td class="px-3 py-3 text-xs text-center">{{ row.totalApplicable || row.total_applicable || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center text-green-700 font-medium">{{ row.uploaded || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center text-yellow-700 font-medium">{{ row.pending || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center text-red-700 font-medium">{{ row.returned || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center">{{ row.reviewed || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center">
-                <div class="flex items-center gap-1 justify-center">
-                  <div class="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full"
-                      [class.bg-green-500]="(row.pct || 0) >= 80"
-                      [class.bg-yellow-500]="(row.pct || 0) >= 50 && (row.pct || 0) < 80"
-                      [class.bg-red-500]="(row.pct || 0) < 50"
-                      [style.width.%]="row.pct || 0">
-                    </div>
-                  </div>
-                  <span class="text-xs">{{ row.pct || 0 }}%</span>
+    <div class="overflow-auto border rounded" *ngIf="!mcdLoading">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="p-2 text-left">Client</th>
+            <th class="p-2 text-left">Branch</th>
+            <th class="p-2 text-left">Applicable</th>
+            <th class="p-2 text-left">Uploaded</th>
+            <th class="p-2 text-left">Pending</th>
+            <th class="p-2 text-left">Returned</th>
+            <th class="p-2 text-left">Reviewed</th>
+            <th class="p-2 text-left">%</th>
+            <th class="p-2 text-left">Status</th>
+            <th class="p-2 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of mcdRows" class="border-t" [ngClass]="rowHighlightClass(getPct(row, 'pct', 'pct'))">
+            <td class="p-2">{{ getClientName(row) }}</td>
+            <td class="p-2">{{ getBranchName(row) }}</td>
+            <td class="p-2">{{ row.totalApplicable ?? row.total_applicable ?? 0 }}</td>
+            <td class="p-2">{{ row.uploaded ?? 0 }}</td>
+            <td class="p-2">{{ row.pending ?? 0 }}</td>
+            <td class="p-2">{{ row.returned ?? 0 }}</td>
+            <td class="p-2">{{ row.reviewed ?? 0 }}</td>
+            <td class="p-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs rounded" [ngClass]="pctClass(getPct(row, 'pct', 'pct'))">
+                  {{ clampPct(getPct(row, 'pct', 'pct')) }}%
+                </span>
+                <div class="w-28 h-2 bg-gray-200 rounded overflow-hidden">
+                  <div class="h-2" [ngClass]="barClass(getPct(row, 'pct', 'pct'))" [style.width.%]="clampPct(getPct(row, 'pct', 'pct'))"></div>
                 </div>
-              </td>
-              <td class="px-3 py-3 text-xs text-center">
-                <span *ngIf="row.finalized" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
-                <span *ngIf="!row.finalized" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">No</span>
-              </td>
-              <td class="px-3 py-3 text-right text-xs">
-                <button *ngIf="!row.finalized"
-                  type="button"
-                  class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-statco-blue rounded-md hover:bg-statco-blue-dark"
-                  [disabled]="finalizingBranchId === (row.branchId || row.branch_id)"
-                  (click)="finalizeMcd(row)">
-                  {{ finalizingBranchId === (row.branchId || row.branch_id) ? 'Finalizing...' : 'Finalize' }}
-                </button>
-                <span *ngIf="row.finalized" class="text-gray-400 text-xs">Locked</span>
-              </td>
-            </tr>
-            <tr *ngIf="mcdRows.length === 0 && !mcdLoading">
-              <td colspan="10" class="px-4 py-8 text-center text-gray-500 text-sm">No MCD data for the selected period</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </div>
+              <div class="text-[11px] text-gray-500 mt-1" *ngIf="clampPct(getPct(row, 'pct', 'pct')) < mcdWarnPct">
+                SLA risk: coverage below {{ mcdWarnPct }}%
+              </div>
+            </td>
+            <td class="p-2">
+              <span class="px-2 py-1 text-xs rounded"
+                [ngClass]="row.finalized ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'">
+                {{ row.finalized ? 'Finalized' : 'Open' }}
+              </span>
+            </td>
+            <td class="p-2">
+              <button class="px-2 py-1 text-xs border rounded"
+                [disabled]="row.finalized || finalizingBranchId === getBranchId(row)"
+                (click)="finalizeMcd(getBranchId(row))">
+                <span *ngIf="finalizingBranchId === getBranchId(row)">Finalizing...</span>
+                <span *ngIf="finalizingBranchId !== getBranchId(row)">Finalize</span>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!mcdRows.length">
+            <td colspan="10" class="p-4 text-center text-gray-500">No MCD records found.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -396,7 +442,7 @@
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
         <div class="form-group">
           <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
-          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="auditClosuresClientId" (change)="onClientChange('audit')">
+          <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="auditClosuresClientId" (ngModelChange)="onClientChange('audit'); onAuditFilterChange()">
             <option value="">All Clients</option>
             <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
           </select>
@@ -408,225 +454,80 @@
     </div>
 
     <!-- Loading -->
-    <ui-loading-spinner *ngIf="auditClosuresLoading" text="Loading audit closures..."></ui-loading-spinner>
+    <div *ngIf="auditClosuresLoading" class="text-sm text-gray-500 mb-2">Loading audit closures…</div>
 
     <!-- Audit Closures Table -->
-    <div class="card" *ngIf="!auditClosuresLoading">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">
-        Audit Observation Closures
-        <span class="text-sm font-normal text-gray-500 ml-2">({{ auditClosures.length }} audits with observations)</span>
-      </h3>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Audit</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-red-700 uppercase tracking-wider">Critical</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-orange-700 uppercase tracking-wider">Major</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-yellow-700 uppercase tracking-wider">Minor</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Total</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Closed</th>
-              <th class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Closure %</th>
-              <th class="px-3 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let a of auditClosures" class="hover:bg-gray-50">
-              <td class="px-3 py-3 text-xs font-medium text-gray-900">{{ a.auditCode || a.audit_code || '-' }}</td>
-              <td class="px-3 py-3 text-xs text-gray-600">{{ a.clientName || a.client_name || '-' }}</td>
-              <td class="px-3 py-3 text-xs text-gray-600">{{ a.branchName || a.branch_name || '-' }}</td>
-              <td class="px-3 py-3 text-xs text-center">
-                <span *ngIf="(a.criticalOpen || a.critical_open || 0) > 0" class="font-bold text-red-600">{{ a.criticalOpen || a.critical_open || 0 }}</span>
-                <span *ngIf="!(a.criticalOpen || a.critical_open || 0)" class="text-gray-400">0</span>
-              </td>
-              <td class="px-3 py-3 text-xs text-center">
-                <span *ngIf="(a.majorOpen || a.major_open || 0) > 0" class="font-bold text-orange-600">{{ a.majorOpen || a.major_open || 0 }}</span>
-                <span *ngIf="!(a.majorOpen || a.major_open || 0)" class="text-gray-400">0</span>
-              </td>
-              <td class="px-3 py-3 text-xs text-center">
-                <span *ngIf="(a.minorOpen || a.minor_open || 0) > 0" class="font-bold text-yellow-600">{{ a.minorOpen || a.minor_open || 0 }}</span>
-                <span *ngIf="!(a.minorOpen || a.minor_open || 0)" class="text-gray-400">0</span>
-              </td>
-              <td class="px-3 py-3 text-xs text-center font-medium">{{ a.totalObservations || a.total_observations || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center font-medium text-green-700">{{ a.closedObservations || a.closed_observations || 0 }}</td>
-              <td class="px-3 py-3 text-xs text-center">
-                <div class="flex items-center gap-1 justify-center">
-                  <div class="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full"
-                      [class.bg-green-500]="(a.closurePct || a.closure_pct || 0) >= 80"
-                      [class.bg-yellow-500]="(a.closurePct || a.closure_pct || 0) >= 50 && (a.closurePct || a.closure_pct || 0) < 80"
-                      [class.bg-red-500]="(a.closurePct || a.closure_pct || 0) < 50"
-                      [style.width.%]="a.closurePct || a.closure_pct || 0">
-                    </div>
-                  </div>
-                  <span class="text-xs">{{ a.closurePct || a.closure_pct || 0 }}%</span>
+    <div class="overflow-auto border rounded" *ngIf="!auditClosuresLoading">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="p-2 text-left">Audit Code</th>
+            <th class="p-2 text-left">Client</th>
+            <th class="p-2 text-left">Branch</th>
+            <th class="p-2 text-left">Critical</th>
+            <th class="p-2 text-left">Major</th>
+            <th class="p-2 text-left">Minor</th>
+            <th class="p-2 text-left">Total</th>
+            <th class="p-2 text-left">Closed</th>
+            <th class="p-2 text-left">Closure %</th>
+            <th class="p-2 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of auditClosures" class="border-t" [ngClass]="rowHighlightClass(getPct(row, 'closurePct', 'closure_pct'))">
+            <td class="p-2">{{ getAuditCode(row) }}</td>
+            <td class="p-2">{{ getClientName(row) }}</td>
+            <td class="p-2">{{ getBranchName(row) }}</td>
+            <td class="p-2">{{ row.criticalOpen ?? row.critical_open ?? 0 }}</td>
+            <td class="p-2">{{ row.majorOpen ?? row.major_open ?? 0 }}</td>
+            <td class="p-2">{{ row.minorOpen ?? row.minor_open ?? 0 }}</td>
+            <td class="p-2">{{ row.totalObservations ?? row.total_observations ?? 0 }}</td>
+            <td class="p-2">{{ row.closedObservations ?? row.closed_observations ?? 0 }}</td>
+            <td class="p-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs rounded" [ngClass]="pctClass(getPct(row, 'closurePct', 'closure_pct'))">
+                  {{ clampPct(getPct(row, 'closurePct', 'closure_pct')) }}%
+                </span>
+                <div class="w-28 h-2 bg-gray-200 rounded overflow-hidden">
+                  <div class="h-2" [ngClass]="barClass(getPct(row, 'closurePct', 'closure_pct'))" [style.width.%]="clampPct(getPct(row, 'closurePct', 'closure_pct'))"></div>
                 </div>
-              </td>
-              <td class="px-3 py-3 text-right text-xs">
-                <button
-                  type="button"
-                  class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                  [disabled]="closingObsId === (a.auditId || a.audit_id)"
-                  (click)="closeObservation(a)">
-                  {{ closingObsId === (a.auditId || a.audit_id) ? 'Closing...' : 'Close Obs.' }}
-                </button>
-              </td>
-            </tr>
-            <tr *ngIf="auditClosures.length === 0 && !auditClosuresLoading">
-              <td colspan="10" class="px-4 py-8 text-center text-gray-500 text-sm">No audits with observations</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </div>
+              <div class="text-[11px] text-gray-500 mt-1" *ngIf="clampPct(getPct(row, 'closurePct', 'closure_pct')) < auditWarnPct">
+                SLA risk: closure below {{ auditWarnPct }}%
+              </div>
+            </td>
+            <td class="p-2">
+              <button class="px-2 py-1 text-xs border rounded"
+                [disabled]="closingObsId === getAuditId(row)"
+                (click)="closeObservation(getAuditId(row))">
+                <span *ngIf="closingObsId === getAuditId(row)">Closing...</span>
+                <span *ngIf="closingObsId !== getAuditId(row)">Close</span>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!auditClosures.length">
+            <td colspan="10" class="p-4 text-center text-gray-500">No audit closures found.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- ══════════════ Tab 5: Tasks (Legacy) ══════════════ -->
+  <!-- ══════════════ Tab 5: Tasks — Dedicated Page ══════════════ -->
   <div *ngIf="activeTab==='TASKS'">
-    <!-- Loading -->
-    <ui-loading-spinner *ngIf="tasksLoading" text="Loading tasks..."></ui-loading-spinner>
-
-    <!-- Error -->
-    <div *ngIf="tasksErrorMsg && !tasksLoading" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-      {{ tasksErrorMsg }}
+    <div class="bg-white rounded-lg border border-gray-200 p-8 text-center">
+      <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+      </svg>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Compliance Tasks</h3>
+      <p class="text-sm text-gray-500 mb-6">Task approvals, rejections, and assignments have moved to a dedicated page for a better experience.</p>
+      <a routerLink="/crm/compliance/tasks"
+        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-statco-blue rounded-lg hover:bg-statco-blue-dark transition-colors">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+        Open Tasks Page
+      </a>
     </div>
-
-    <ng-container *ngIf="!tasksLoading">
-      <!-- Task Filters -->
-      <div class="card mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-          <div class="form-group">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
-            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.clientId" (change)="onClientChange('task')">
-              <option value="">All Clients</option>
-              <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.branchId">
-              <option value="">All Branches</option>
-              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.status">
-              <option value="">All Status</option>
-              <option>PENDING</option>
-              <option>IN_PROGRESS</option>
-              <option>SUBMITTED</option>
-              <option>APPROVED</option>
-              <option>REJECTED</option>
-              <option>OVERDUE</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Year</label>
-            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.year">
-              <option value="">All Years</option>
-              <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Month</label>
-            <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="tasksFilters.month">
-              <option value="">All Months</option>
-              <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
-            </select>
-          </div>
-          <div class="flex">
-            <ui-button variant="primary" (clicked)="loadTasks()" [fullWidth]="true">Search</ui-button>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Tasks List -->
-        <div class="card">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Tasks</h3>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Compliance</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Branch</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Due</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Assignee</th>
-                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr *ngFor="let t of tasks"
-                  (click)="openTask(t)"
-                  [class.bg-statco-blue-light]="selectedTask?.id === t.id"
-                  [class.text-white]="selectedTask?.id === t.id"
-                  class="hover:bg-gray-50 cursor-pointer">
-                  <td class="px-4 py-3 text-xs">{{ t.compliance?.complianceName || '-' }}</td>
-                  <td class="px-4 py-3 text-xs">{{ t.branch?.branchName || '-' }}</td>
-                  <td class="px-4 py-3 text-xs">{{ t.dueDate }}</td>
-                  <td class="px-4 py-3 text-xs"><ui-status-badge [status]="t.status"></ui-status-badge></td>
-                  <td class="px-4 py-3 text-xs">{{ t.assignedTo?.name || '-' }}</td>
-                  <td class="px-4 py-3 text-right text-xs">
-                    <ui-button variant="secondary" size="sm" (clicked)="openTask(t)">View</ui-button>
-                  </td>
-                </tr>
-                <tr *ngIf="tasks.length === 0">
-                  <td colspan="6" class="px-4 py-8 text-center text-gray-500 text-sm">No tasks</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Task Detail -->
-        <div class="card" *ngIf="taskDetail">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Task Detail</h3>
-          <div class="space-y-3 mb-4">
-            <div class="flex gap-2"><span class="font-medium text-gray-700">Status:</span> <ui-status-badge [status]="taskDetail.task?.status"></ui-status-badge></div>
-            <div><span class="font-medium text-gray-700">Remarks:</span> {{ taskDetail.task?.remarks || '-' }}</div>
-            <div *ngIf="taskDetail.auditReport">
-              <span class="font-medium text-gray-700">Audit Report:</span>
-              <ui-status-badge variant="success" label="Available from Auditor"></ui-status-badge>
-            </div>
-          </div>
-
-          <div class="flex gap-2 mb-4" *ngIf="taskDetail.task?.status === 'SUBMITTED'">
-            <ui-button variant="primary" [disabled]="taskActionInProgress" (clicked)="approveTask()">
-              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-              {{ taskActionInProgress ? 'Processing...' : 'Approve' }}
-            </ui-button>
-            <ui-button variant="secondary" [disabled]="taskActionInProgress" (clicked)="rejectTask()">
-              <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-              Reject
-            </ui-button>
-          </div>
-
-          <h4 class="text-md font-semibold text-gray-900 mb-2">Evidence</h4>
-          <ul class="space-y-2 mb-4 list-disc list-inside text-sm text-gray-700">
-            <li *ngFor="let e of taskDetail.evidence">
-              <a [href]="('/' + e.filePath)" target="_blank" class="text-statco-blue-light hover:underline">{{ e.fileName }}</a>
-              <span class="text-gray-500 ml-2">({{ e.createdAt | date:'short' }})</span>
-            </li>
-            <li *ngIf="taskDetail.evidence?.length === 0" class="text-gray-500">No evidence</li>
-          </ul>
-
-          <h4 class="text-md font-semibold text-gray-900 mb-2">Comments</h4>
-          <ul class="space-y-2 list-disc list-inside text-sm text-gray-700">
-            <li *ngFor="let c of taskDetail.comments">
-              <span class="font-medium">{{ c.userName || c.user?.name || 'Unknown' }}:</span> {{ c.message }}
-            </li>
-            <li *ngIf="taskDetail.comments?.length === 0" class="text-gray-500">No comments</li>
-          </ul>
-        </div>
-      </div>
-    </ng-container>
   </div>
 </div>

@@ -9,6 +9,10 @@ import {
   Employee,
   EmployeeNomination,
 } from './client-employees.service';
+import { EmployeeDocumentService, EmployeeDocument } from './employee-document.service';
+import { SalaryRevisionService, SalaryRevision } from './salary-revision.service';
+import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
   StatusBadgeComponent,
@@ -19,7 +23,7 @@ import {
   FormSelectComponent,
 } from '../../../shared/ui';
 
-type DetailTab = 'profile' | 'nominations' | 'forms';
+type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
 
 @Component({
   selector: 'app-client-employee-detail',
@@ -63,6 +67,8 @@ type DetailTab = 'profile' | 'nominations' | 'forms';
               <div class="header-name">
                 {{ emp.firstName }} {{ emp.lastName || '' }}
                 <ui-status-badge [status]="emp.isActive ? 'ACTIVE' : 'INACTIVE'" class="ml-2"></ui-status-badge>
+                <span *ngIf="emp.approvalStatus === 'PENDING'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
+                <span *ngIf="emp.approvalStatus === 'REJECTED'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
               </div>
               <div class="header-meta">{{ emp.employeeCode }}</div>
               <div *ngIf="emp.designation || emp.department" class="header-meta">
@@ -70,11 +76,13 @@ type DetailTab = 'profile' | 'nominations' | 'forms';
               </div>
             </div>
             <div class="header-actions">
+              <ui-button *ngIf="emp.approvalStatus === 'PENDING'" variant="primary" (clicked)="approveEmployee()">Approve</ui-button>
+              <ui-button *ngIf="emp.approvalStatus === 'PENDING'" variant="danger" (clicked)="rejectEmployee()">Reject</ui-button>
               <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
-              <ui-button *ngIf="emp.isActive && emp.email" variant="secondary" [disabled]="provisioningEss" (clicked)="provisionEssLogin()">
+              <ui-button *ngIf="emp.isActive && emp.email && emp.approvalStatus !== 'PENDING'" variant="secondary" [disabled]="provisioningEss" (clicked)="provisionEssLogin()">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive" variant="danger" (clicked)="confirmDeactivate()">Deactivate</ui-button>
+              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="danger" (clicked)="confirmDeactivate()">Deactivate</ui-button>
             </div>
           </div>
         </div>
@@ -258,6 +266,114 @@ type DetailTab = 'profile' | 'nominations' | 'forms';
             {{ formGenMsg }}
           </div>
         </div>
+
+        <!-- Documents Tab -->
+        <div *ngIf="activeTab === 'documents'" class="tab-content">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-semibold text-gray-900">Employee Documents</h3>
+          </div>
+
+          <!-- Upload Form -->
+          <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-4">
+            <h4 class="text-sm font-semibold text-gray-700 mb-3">Upload Document</h4>
+            <div class="grid grid-cols-2 gap-3">
+              <ui-form-select label="Document Type *" [options]="docTypeOptions" [(ngModel)]="docUpload.docType"></ui-form-select>
+              <ui-form-input label="Document Name" [(ngModel)]="docUpload.docName" placeholder="e.g. Aadhaar Card"></ui-form-input>
+              <div class="form-field">
+                <label class="form-label">Expiry Date</label>
+                <input type="date" class="form-date-input" [(ngModel)]="docUpload.expiryDate" />
+              </div>
+              <div class="form-field">
+                <label class="form-label">File (max 10 MB)</label>
+                <input type="file" (change)="onDocFileSelected($event)" class="text-sm border border-gray-300 rounded-lg p-2 bg-white" />
+              </div>
+            </div>
+            <div class="mt-3 flex items-center gap-3">
+              <ui-button variant="primary" [disabled]="!docUpload.file || uploadingDoc" [loading]="uploadingDoc" (clicked)="uploadDocument()">
+                {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
+              </ui-button>
+              <span *ngIf="docUploadMsg" class="text-sm" [class.text-green-600]="!docUploadError" [class.text-red-600]="docUploadError">{{ docUploadMsg }}</span>
+            </div>
+          </div>
+
+          <ui-loading-spinner *ngIf="loadingDocs" text="Loading documents..."></ui-loading-spinner>
+
+          <ui-empty-state *ngIf="!loadingDocs && documents.length === 0" title="No Documents" description="Upload employee documents using the form above."></ui-empty-state>
+
+          <div *ngIf="!loadingDocs && documents.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Name</th>
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Type</th>
+                  <th class="text-center px-4 py-3 font-semibold text-gray-700">Verified</th>
+                  <th class="text-left px-4 py-3 font-semibold text-gray-700">Expiry</th>
+                  <th class="text-right px-4 py-3 font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let d of documents" class="border-b border-gray-100 hover:bg-gray-50">
+                  <td class="px-4 py-3 text-gray-900">{{ d.docName }}</td>
+                  <td class="px-4 py-3 text-gray-600">{{ d.docType }}</td>
+                  <td class="px-4 py-3 text-center">
+                    <ui-status-badge [status]="d.isVerified ? 'VERIFIED' : 'PENDING'"></ui-status-badge>
+                  </td>
+                  <td class="px-4 py-3 text-gray-600">{{ d.expiryDate || '-' }}</td>
+                  <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-2">
+                      <button class="text-xs text-blue-600 hover:underline" (click)="downloadDoc(d)">Download</button>
+                      <button *ngIf="!d.isVerified" class="text-xs text-green-600 hover:underline" (click)="verifyDoc(d)">Verify</button>
+                      <button class="text-xs text-red-600 hover:underline" (click)="deleteDoc(d)">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Salary Revisions Tab -->
+        <div *ngIf="activeTab === 'salary'" class="tab-content">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-semibold text-gray-900">Salary Revisions</h3>
+            <ui-button variant="primary" (clicked)="showRevisionModal = true">+ New Revision</ui-button>
+          </div>
+
+          <ui-loading-spinner *ngIf="loadingRevisions" text="Loading revisions..."></ui-loading-spinner>
+
+          <ui-empty-state *ngIf="!loadingRevisions && revisions.length === 0" title="No Revisions" description="Add a salary revision using the button above."></ui-empty-state>
+
+          <div *ngFor="let rev of revisions" class="bg-white border border-gray-200 rounded-lg p-4 mb-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="text-sm font-semibold text-gray-900">Effective: {{ rev.effectiveDate }}</div>
+                <div class="text-xs text-gray-500 mt-1">{{ rev.reason || 'No reason specified' }}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm">₹{{ rev.previousCtc }} → ₹{{ rev.newCtc }}</div>
+                <div *ngIf="rev.incrementPct" class="text-xs text-green-600 mt-0.5">+{{ rev.incrementPct }}%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Revision Modal -->
+          <ui-modal *ngIf="showRevisionModal" title="New Salary Revision" (closed)="showRevisionModal = false">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-field">
+                <label class="form-label">Effective Date *</label>
+                <input type="date" class="form-date-input" [(ngModel)]="revisionForm.effectiveDate" />
+              </div>
+              <ui-form-input label="Previous CTC (₹) *" type="number" [(ngModel)]="revisionForm.previousCtc"></ui-form-input>
+              <ui-form-input label="New CTC (₹) *" type="number" [(ngModel)]="revisionForm.newCtc"></ui-form-input>
+              <ui-form-input label="Reason" [(ngModel)]="revisionForm.reason" placeholder="e.g. Annual appraisal"></ui-form-input>
+            </div>
+            <div *ngIf="revisionError" class="form-error mt-2">{{ revisionError }}</div>
+            <div class="form-actions">
+              <ui-button variant="secondary" (clicked)="showRevisionModal = false">Cancel</ui-button>
+              <ui-button variant="primary" [disabled]="savingRevision" [loading]="savingRevision" (clicked)="saveRevision()">Save</ui-button>
+            </div>
+          </ui-modal>
+        </div>
       </ng-container>
     </div>
   `,
@@ -378,6 +494,8 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
     { key: 'profile' as DetailTab, label: 'Profile' },
     { key: 'nominations' as DetailTab, label: 'Nominations' },
     { key: 'forms' as DetailTab, label: 'Forms' },
+    { key: 'documents' as DetailTab, label: 'Documents' },
+    { key: 'salary' as DetailTab, label: 'Salary' },
   ];
 
   // Nominations
@@ -409,6 +527,34 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
   essResult: any = null;
   essError = '';
 
+  // Documents
+  documents: EmployeeDocument[] = [];
+  loadingDocs = false;
+  uploadingDoc = false;
+  docUploadMsg = '';
+  docUploadError = false;
+  docUpload: any = { docType: '', docName: '', expiryDate: '', file: null };
+  docTypeOptions = [
+    { label: 'Select type', value: '' },
+    { label: 'Aadhaar', value: 'AADHAAR' },
+    { label: 'PAN Card', value: 'PAN' },
+    { label: 'Passport', value: 'PASSPORT' },
+    { label: 'Offer Letter', value: 'OFFER_LETTER' },
+    { label: 'Relieving Letter', value: 'RELIEVING_LETTER' },
+    { label: 'Bank Proof', value: 'BANK_PROOF' },
+    { label: 'Address Proof', value: 'ADDRESS_PROOF' },
+    { label: 'Education Certificate', value: 'EDUCATION' },
+    { label: 'Other', value: 'OTHER' },
+  ];
+
+  // Salary Revisions
+  revisions: SalaryRevision[] = [];
+  loadingRevisions = false;
+  showRevisionModal = false;
+  savingRevision = false;
+  revisionError = '';
+  revisionForm: any = { effectiveDate: '', previousCtc: null, newCtc: null, reason: '' };
+
   formTypes = [
     { label: 'PF Form 2', value: 'PF_FORM_2' },
     { label: 'ESI Form 1', value: 'ESI_FORM_1' },
@@ -417,9 +563,13 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
 
   constructor(
     private svc: ClientEmployeesService,
+    private docSvc: EmployeeDocumentService,
+    private revSvc: SalaryRevisionService,
     private router: Router,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -454,23 +604,43 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
     this.activeTab = tab;
     if (tab === 'nominations' && this.nominations.length === 0) this.loadNominations();
     if (tab === 'forms' && this.forms.length === 0) this.loadForms();
+    if (tab === 'documents' && this.documents.length === 0) this.loadDocuments();
+    if (tab === 'salary' && this.revisions.length === 0) this.loadRevisions();
   }
 
   editEmployee(): void {
     this.router.navigate(['/client/employees', this.employeeId, 'edit']);
   }
 
-  confirmDeactivate(): void {
-    if (!this.emp || !confirm(`Deactivate ${this.emp.firstName} ${this.emp.lastName || ''}?`)) return;
+  async confirmDeactivate(): Promise<void> {
+    if (!this.emp || !(await this.dialog.confirm('Deactivate Employee', `Deactivate ${this.emp.firstName} ${this.emp.lastName || ''}?`, { variant: 'danger', confirmText: 'Deactivate' }))) return;
     this.svc.deactivate(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadEmployee(),
-      error: (e) => alert(e?.error?.message || 'Failed to deactivate'),
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
     });
   }
 
-  provisionEssLogin(): void {
+  async approveEmployee(): Promise<void> {
+    if (!this.emp) return;
+    if (!(await this.dialog.confirm('Approve Employee', `Approve registration of ${this.emp.firstName} ${this.emp.lastName || ''}?`, { confirmText: 'Approve' }))) return;
+    this.svc.approve(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Employee approved'); this.loadEmployee(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to approve'),
+    });
+  }
+
+  async rejectEmployee(): Promise<void> {
+    if (!this.emp) return;
+    if (!(await this.dialog.confirm('Reject Employee', `Reject registration of ${this.emp.firstName} ${this.emp.lastName || ''}? The employee will be deactivated.`, { variant: 'danger', confirmText: 'Reject' }))) return;
+    this.svc.reject(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Employee rejected'); this.loadEmployee(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to reject'),
+    });
+  }
+
+  async provisionEssLogin(): Promise<void> {
     if (!this.emp || !this.emp.email) return;
-    if (!confirm(`Create ESS login for ${this.emp.firstName} ${this.emp.lastName || ''}?\nEmail: ${this.emp.email}`)) return;
+    if (!(await this.dialog.confirm('Create ESS Login', `Create ESS login for ${this.emp.firstName} ${this.emp.lastName || ''}?\nEmail: ${this.emp.email}`))) return;
     this.provisioningEss = true;
     this.essResult = null;
     this.essError = '';
@@ -486,12 +656,12 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
         const msg = res.generatedPassword
           ? `ESS login created!\nEmail: ${res.email}\nPassword: ${res.generatedPassword}\n\nPlease share these credentials with the employee.`
           : `ESS login created for ${res.email}`;
-        alert(msg);
+        this.toast.success(msg);
       },
       error: (e) => {
         this.provisioningEss = false;
         this.essError = e?.error?.message || 'Failed to create ESS login';
-        alert(this.essError);
+        this.toast.error(this.essError);
       },
     });
   }
@@ -591,5 +761,125 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
           this.formGenError = true;
         },
       });
+  }
+
+  // ── Documents ───────────────────────────────────────────────
+  loadDocuments(): void {
+    this.loadingDocs = true;
+    this.docSvc.list(this.employeeId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loadingDocs = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (list) => { this.documents = list; },
+      error: () => { this.documents = []; },
+    });
+  }
+
+  onDocFileSelected(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.docUpload.file = target.files && target.files.length ? target.files[0] : null;
+  }
+
+  uploadDocument(): void {
+    if (!this.docUpload.file) return;
+    if (!this.docUpload.docType) {
+      this.docUploadMsg = 'Select a document type';
+      this.docUploadError = true;
+      return;
+    }
+    this.uploadingDoc = true;
+    this.docUploadMsg = '';
+    this.docSvc.upload(
+      this.employeeId,
+      this.docUpload.file,
+      this.docUpload.docType,
+      this.docUpload.docName || this.docUpload.file.name,
+      this.docUpload.expiryDate || undefined,
+    ).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.uploadingDoc = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: () => {
+        this.docUploadMsg = 'Document uploaded';
+        this.docUploadError = false;
+        this.docUpload = { docType: '', docName: '', expiryDate: '', file: null };
+        this.loadDocuments();
+      },
+      error: (e) => {
+        this.docUploadMsg = e?.error?.message || 'Upload failed';
+        this.docUploadError = true;
+      },
+    });
+  }
+
+  downloadDoc(doc: EmployeeDocument): void {
+    this.docSvc.download(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.docName || doc.fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.toast.error('Download failed'),
+    });
+  }
+
+  verifyDoc(doc: EmployeeDocument): void {
+    this.docSvc.verify(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Document verified'); this.loadDocuments(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Verification failed'),
+    });
+  }
+
+  async deleteDoc(doc: EmployeeDocument): Promise<void> {
+    if (!(await this.dialog.confirm('Delete Document', `Delete "${doc.docName}"?`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    this.docSvc.remove(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Document deleted'); this.loadDocuments(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
+    });
+  }
+
+  // ── Salary Revisions ───────────────────────────────────────
+  loadRevisions(): void {
+    this.loadingRevisions = true;
+    this.revSvc.listForEmployee(this.employeeId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loadingRevisions = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (list) => { this.revisions = list; },
+      error: () => { this.revisions = []; },
+    });
+  }
+
+  saveRevision(): void {
+    if (!this.revisionForm.effectiveDate || !this.revisionForm.previousCtc || !this.revisionForm.newCtc) {
+      this.revisionError = 'Effective date, previous CTC, and new CTC are required';
+      return;
+    }
+    this.savingRevision = true;
+    this.revisionError = '';
+    this.revSvc.create({
+      clientId: (this.emp as any)?.clientId || '',
+      employeeId: this.employeeId,
+      effectiveDate: this.revisionForm.effectiveDate,
+      previousCtc: Number(this.revisionForm.previousCtc),
+      newCtc: Number(this.revisionForm.newCtc),
+      reason: this.revisionForm.reason || undefined,
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.savingRevision = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: () => {
+        this.showRevisionModal = false;
+        this.revisionForm = { effectiveDate: '', previousCtc: null, newCtc: null, reason: '' };
+        this.toast.success('Salary revision saved');
+        this.loadRevisions();
+      },
+      error: (e) => {
+        this.revisionError = e?.error?.message || 'Save failed';
+      },
+    });
   }
 }

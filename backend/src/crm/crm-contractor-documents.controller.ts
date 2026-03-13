@@ -1,14 +1,26 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DbService } from '../common/db/db.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
  * CRM Contractor Documents Controller
  * Provides document list, review, and expiry tracking for CRM users
  * Scoped to CRM's assigned clients via client_assignments_current
  */
+@ApiTags('CRM')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm/contractor-documents', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
@@ -19,6 +31,7 @@ export class CrmContractorDocumentsController {
    * GET /api/v1/crm/contractor-documents/kpis
    * Document work-queue KPI chip counts
    */
+  @ApiOperation({ summary: 'Kpis' })
   @Get('kpis')
   async kpis(@Req() req: any) {
     const crmUserId = req.user.id;
@@ -40,7 +53,15 @@ export class CrmContractorDocumentsController {
        JOIN crm_clients cc ON cc.client_id = cd.client_id`,
       [crmUserId],
     );
-    return rows[0] || { uploaded: 0, pending_review: 0, approved: 0, reupload_required: 0, expired: 0 };
+    return (
+      rows[0] || {
+        uploaded: 0,
+        pending_review: 0,
+        approved: 0,
+        reupload_required: 0,
+        expired: 0,
+      }
+    );
   }
 
   /**
@@ -56,6 +77,7 @@ export class CrmContractorDocumentsController {
    *  - limit (default 200)
    *  - offset (default 0)
    */
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(@Req() req: any, @Query() query: any) {
     const crmUserId = req.user.id;
@@ -63,7 +85,9 @@ export class CrmContractorDocumentsController {
     const branchId = query.branchId || null;
     const contractorId = query.contractorId || null;
     const status = query.status || null;
-    const expiringInDays = query.expiringInDays ? parseInt(query.expiringInDays, 10) : null;
+    const expiringInDays = query.expiringInDays
+      ? parseInt(query.expiringInDays, 10)
+      : null;
     const limit = Math.min(parseInt(query.limit, 10) || 200, 500);
     const offset = parseInt(query.offset, 10) || 0;
 
@@ -82,14 +106,14 @@ export class CrmContractorDocumentsController {
          cd.review_notes   AS "reviewNotes",
          cd.reviewed_at    AS "reviewedAt",
          cd.branch_id      AS "branchId",
-         b.branch_name     AS "branchName",
+         b.branchname      AS "branchName",
          cd.client_id      AS "clientId",
          c.client_name     AS "clientName",
          cd.contractor_user_id AS "contractorUserId",
          u.name            AS "contractorName"
        FROM contractor_documents cd
        INNER JOIN clients c ON c.id = cd.client_id
-       LEFT JOIN branches b ON b.id = cd.branch_id
+       LEFT JOIN client_branches b ON b.id = cd.branch_id
        INNER JOIN users u ON u.id = cd.contractor_user_id
        INNER JOIN client_assignments_current cac
          ON cac.client_id = c.id
@@ -98,14 +122,23 @@ export class CrmContractorDocumentsController {
        WHERE ($2::uuid IS NULL OR c.id = $2)
          AND ($3::uuid IS NULL OR b.id = $3)
          AND ($4::uuid IS NULL OR cd.contractor_user_id = $4)
-         AND ($5::text IS NULL OR cd.status = $5::contractor_document_status)
+         AND ($5::text IS NULL OR cd.status = $5::text)
          AND (
            $6::int IS NULL
            OR (cd.expiry_date IS NOT NULL AND cd.expiry_date <= CURRENT_DATE + ($6 || ' days')::interval)
          )
        ORDER BY cd.created_at DESC
        LIMIT $7 OFFSET $8`,
-      [crmUserId, clientId, branchId, contractorId, status, expiringInDays, limit, offset],
+      [
+        crmUserId,
+        clientId,
+        branchId,
+        contractorId,
+        status,
+        expiringInDays,
+        limit,
+        offset,
+      ],
     );
 
     return { data: rows };
@@ -117,6 +150,7 @@ export class CrmContractorDocumentsController {
    *
    * Body: { status: 'APPROVED' | 'REJECTED', reviewNotes?: string }
    */
+  @ApiOperation({ summary: 'Review' })
   @Post(':id/review')
   async review(
     @Req() req: any,

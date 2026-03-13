@@ -16,28 +16,35 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Notifications')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/notifications', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminNotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(@CurrentUser() user: any, @Query() q: ListNotificationsDto) {
     return this.notificationsService.listTicketsForAdmin(user.id, q);
   }
 
+  @ApiOperation({ summary: 'Detail' })
   @Get(':id')
   async detail(@Param('id') id: string) {
     return this.notificationsService.getTicketDetailForAdmin(id);
   }
 
+  @ApiOperation({ summary: 'Create' })
   @Post()
   async create(@CurrentUser() user: any, @Body() dto: CreateNotificationDto) {
     return this.notificationsService.createTicket(user.id, user.roleCode, dto);
   }
 
+  @ApiOperation({ summary: 'Reply' })
   @Post(':id/reply')
   async reply(
     @CurrentUser() user: any,
@@ -52,11 +59,13 @@ export class AdminNotificationsController {
     );
   }
 
+  @ApiOperation({ summary: 'Mark Read' })
   @Post(':id/read')
   async markRead(@CurrentUser() user: any, @Param('id') id: string) {
     return this.notificationsService.markRead(id, user.id);
   }
 
+  @ApiOperation({ summary: 'Set Status' })
   @Patch(':id/status')
   async setStatus(@Param('id') id: string, @Body() body: { status: string }) {
     return this.notificationsService.setStatus(id, body.status);

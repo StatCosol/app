@@ -1,85 +1,137 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, timeout } from 'rxjs/operators';
-import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
+import {
+  PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent,
+  DataTableComponent, TableCellDirective, TableColumn,
+  StatusBadgeComponent, ActionButtonComponent,
+  FormSelectComponent, SelectOption,
+} from '../../shared/ui';
 import { CeoApiService, CeoApproval } from '../../core/api/ceo.api';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   selector: 'app-ceo-approvals',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent],
+  imports: [
+    CommonModule, FormsModule, RouterModule, PageHeaderComponent, EmptyStateComponent,
+    LoadingSpinnerComponent, DataTableComponent, TableCellDirective,
+    StatusBadgeComponent, ActionButtonComponent, FormSelectComponent,
+  ],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="CEO Approvals"
-        description="List of client deletion approvals and actions"
+        description="Review and act on pending approval requests"
         icon="check-circle">
       </ui-page-header>
 
       <ui-loading-spinner *ngIf="loading" text="Loading approvals..."></ui-loading-spinner>
 
-      <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+      <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{{ error }}</div>
 
-      <ui-empty-state
-        *ngIf="!loading && !error && approvals.length === 0"
-        title="No pending approvals"
-        description="Pending approval requests will appear here."
-        icon="clipboard-check">
-      </ui-empty-state>
+      <ng-container *ngIf="!loading">
+        <!-- KPI Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white border border-gray-200 rounded-xl p-4">
+            <div class="text-xs text-gray-500 font-medium uppercase">Total</div>
+            <div class="text-2xl font-bold text-gray-900 mt-1">{{ allApprovals.length }}</div>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div class="text-xs text-amber-600 font-medium uppercase">Pending</div>
+            <div class="text-2xl font-bold text-amber-700 mt-1">{{ countByStatus('PENDING') }}</div>
+          </div>
+          <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+            <div class="text-xs text-green-600 font-medium uppercase">Approved</div>
+            <div class="text-2xl font-bold text-green-700 mt-1">{{ countByStatus('APPROVED') }}</div>
+          </div>
+          <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+            <div class="text-xs text-red-600 font-medium uppercase">Rejected</div>
+            <div class="text-2xl font-bold text-red-700 mt-1">{{ countByStatus('REJECTED') }}</div>
+          </div>
+        </div>
 
-      <div *ngIf="!loading && approvals.length > 0" class="card">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">ID</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Entity</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Requested By</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let a of approvals" class="hover:bg-gray-50">
-              <td class="px-4 py-3 text-sm">{{ a.id }}</td>
-              <td class="px-4 py-3 text-sm">{{ a.entityType }} #{{ a.entityId }}</td>
-              <td class="px-4 py-3 text-sm">{{ a.requestedBy?.name || a.requestedBy?.email || '-' }}</td>
-              <td class="px-4 py-3 text-sm">
-                <span class="badge" [class.badge-warning]="a.status === 'PENDING'" [class.badge-success]="a.status === 'APPROVED'">
-                  {{ a.status }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-sm space-x-2">
-                <button *ngIf="a.status === 'PENDING'"
-                  class="btn-primary-sm"
-                  [disabled]="actionId === a.id"
-                  (click)="approve(a.id)">
-                  {{ actionId === a.id ? 'Processing...' : 'Approve' }}
-                </button>
-                <button *ngIf="a.status === 'PENDING'"
-                  class="btn-secondary-sm"
-                  [disabled]="actionId === a.id"
-                  (click)="reject(a.id)">
+        <!-- Filter Bar -->
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <div class="relative w-56">
+            <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
+              placeholder="Search entity, requester..."
+              class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <ui-form-select label="Status" [options]="statusOptions" [(ngModel)]="statusFilter" (ngModelChange)="applyFilter()" class="w-44"></ui-form-select>
+          <span class="ml-auto text-sm text-gray-500">{{ filteredApprovals.length }} request{{ filteredApprovals.length !== 1 ? 's' : '' }}</span>
+        </div>
+
+        <!-- DataTable -->
+        <div *ngIf="filteredApprovals.length > 0" class="card">
+          <ui-data-table [columns]="columns" [data]="filteredApprovals">
+            <ng-template uiTableCell="entity" let-row>
+              {{ row.entityLabel || (row.entityType + ' #' + row.entityId) }}
+            </ng-template>
+            <ng-template uiTableCell="requestedBy" let-row>
+              {{ row.requestedBy?.name || row.requestedBy?.email || '—' }}
+            </ng-template>
+            <ng-template uiTableCell="status" let-row>
+              <ui-status-badge [status]="row.status"></ui-status-badge>
+            </ng-template>
+            <ng-template uiTableCell="actions" let-row>
+              <div class="flex gap-2 justify-end" *ngIf="row.status === 'PENDING'; else noActions">
+                <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
+                  {{ actionId === row.id ? '...' : 'Approve' }}
+                </ui-button>
+                <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">
                   Reject
-                </button>
-                <a [routerLink]="['/ceo/approvals', a.id]" class="btn-secondary-sm">View</a>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                </ui-button>
+              </div>
+              <ng-template #noActions>
+                <span class="text-gray-400">—</span>
+              </ng-template>
+            </ng-template>
+          </ui-data-table>
+        </div>
+
+        <ui-empty-state
+          *ngIf="filteredApprovals.length === 0"
+          title="No pending approvals"
+          description="Pending approval requests will appear here."
+          icon="clipboard-check">
+        </ui-empty-state>
+      </ng-container>
     </div>
   `,
 })
 export class CeoApprovalsComponent implements OnInit, OnDestroy {
-  approvals: CeoApproval[] = [];
+  allApprovals: CeoApproval[] = [];
+  filteredApprovals: CeoApproval[] = [];
   loading = true;
   error: string | null = null;
-  private destroy$ = new Subject<void>();
+  searchTerm = '';
+  statusFilter = '';
   actionId: number | null = null;
+  private destroy$ = new Subject<void>();
 
-  constructor(private api: CeoApiService, private cdr: ChangeDetectorRef) {}
+  columns: TableColumn[] = [
+    { key: 'id', header: 'ID', width: '80px' },
+    { key: 'entity', header: 'Entity', sortable: true },
+    { key: 'requestedBy', header: 'Requested By', sortable: true },
+    { key: 'status', header: 'Status', align: 'center', width: '120px' },
+    { key: 'actions', header: '', width: '180px', align: 'right' },
+  ];
+
+  readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'All Statuses' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'REJECTED', label: 'Rejected' },
+  ];
+
+  constructor(private api: CeoApiService, private cdr: ChangeDetectorRef, private dialog: ConfirmDialogService) {}
 
   ngOnInit(): void {
     this.load();
@@ -98,9 +150,35 @@ export class CeoApprovalsComponent implements OnInit, OnDestroy {
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
-      next: (data) => { this.loading = false; this.approvals = data || []; this.cdr.detectChanges(); },
-      error: (err) => { this.loading = false; this.error = 'Failed to load approvals'; this.cdr.detectChanges(); },
+      next: (data) => {
+        this.loading = false;
+        this.allApprovals = data || [];
+        this.applyFilter();
+        this.cdr.detectChanges();
+      },
+      error: () => { this.loading = false; this.error = 'Failed to load approvals'; this.cdr.detectChanges(); },
     });
+  }
+
+  applyFilter(): void {
+    let result = [...this.allApprovals];
+    if (this.statusFilter) {
+      result = result.filter(a => a.status === this.statusFilter);
+    }
+    if (this.searchTerm) {
+      const term = this.searchTerm.toLowerCase();
+      result = result.filter(a =>
+        (a.entityLabel || '').toLowerCase().includes(term) ||
+        (a.entityType || '').toLowerCase().includes(term) ||
+        (a.requestedBy?.name || '').toLowerCase().includes(term) ||
+        (a.requestedBy?.email || '').toLowerCase().includes(term)
+      );
+    }
+    this.filteredApprovals = result;
+  }
+
+  countByStatus(status: string): number {
+    return this.allApprovals.filter(a => a.status === status).length;
   }
 
   approve(id: number): void {
@@ -111,11 +189,11 @@ export class CeoApprovalsComponent implements OnInit, OnDestroy {
     });
   }
 
-  reject(id: number): void {
-    const remarks = prompt('Enter rejection remarks:');
-    if (remarks === null) return;
+  async reject(id: number): Promise<void> {
+    const result = await this.dialog.prompt('Reject', 'Enter rejection remarks:', { placeholder: 'Remarks' });
+    if (!result.confirmed || result.value === null) return;
     this.actionId = id;
-    this.api.reject(id, remarks).pipe(takeUntil(this.destroy$)).subscribe({
+    this.api.reject(id, result.value || '').pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.actionId = null; this.cdr.detectChanges(); this.load(); },
       error: () => { this.actionId = null; this.error = 'Reject failed'; this.cdr.detectChanges(); },
     });

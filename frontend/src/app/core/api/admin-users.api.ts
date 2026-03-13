@@ -109,6 +109,16 @@ export class AdminUsersApi {
     return this.http.delete<any>(`${this.baseUrl}/api/v1/admin/users/${userId}`);
   }
 
+  updateUser(userId: string, data: { name?: string; email?: string; mobile?: string }) {
+    return this.http.put<any>(`${this.baseUrl}/api/v1/admin/users/${userId}`, data);
+  }
+
+  resetPassword(userId: string) {
+    return this.http.post<{ message: string; userId: string; newPassword: string }>(
+      `${this.baseUrl}/api/v1/admin/users/${userId}/reset-password`, {},
+    );
+  }
+
   updateUserStatus(userId: string, isActive: boolean) {
     return this.http.patch<any>(`${this.baseUrl}/api/v1/admin/users/${userId}/status`, { isActive });
   }

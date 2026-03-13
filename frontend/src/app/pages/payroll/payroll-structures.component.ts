@@ -991,4 +991,3 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     return !!structure.effectiveTo && this.timeValue(structure.effectiveTo) < this.todayStartValue();
   }
 }
-

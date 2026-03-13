@@ -696,8 +696,10 @@ export class EssLoginComponent implements OnInit, OnDestroy {
     this.capsLockOn = e.getModifierState?.('CapsLock') ?? false;
   }
 
-  @HostListener('window:keyup')
-  clearCaps(): void {}
+  @HostListener('window:keyup', ['$event'])
+  clearCaps(e: KeyboardEvent): void {
+    this.capsLockOn = e.getModifierState?.('CapsLock') ?? false;
+  }
 
   submit(): void {
     this.submitted = true;
@@ -719,6 +721,14 @@ export class EssLoginComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: () => {
         this.isLoading = false;
+        // Verify the authenticated user actually has the EMPLOYEE role
+        const role = this.auth.getRoleCode();
+        if (role !== 'EMPLOYEE') {
+          this.auth.logoutOnce('wrong role for ESS');
+          this.errorMsg = 'This login is for employees only. Please use the main login page.';
+          this.cdr.detectChanges();
+          return;
+        }
         this.router.navigateByUrl('/ess/dashboard');
       },
       error: (e) => {

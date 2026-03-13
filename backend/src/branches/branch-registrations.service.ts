@@ -73,7 +73,10 @@ export class BranchRegistrationsService {
 
   /* ── CRUD (CRM / Admin) ─────────────────────────── */
 
-  private async assertBranchBelongsToClient(branchId: string, clientId: string) {
+  private async assertBranchBelongsToClient(
+    branchId: string,
+    clientId: string,
+  ) {
     const branch = await this.branchRepo.findOne({
       where: { id: branchId, isDeleted: false },
     });
@@ -82,7 +85,11 @@ export class BranchRegistrationsService {
     }
   }
 
-  async create(dto: CreateBranchRegistrationDto, clientId: string, userId: string) {
+  async create(
+    dto: CreateBranchRegistrationDto,
+    clientId: string,
+    userId: string,
+  ) {
     await this.assertBranchBelongsToClient(dto.branchId, clientId);
 
     const entity = this.regRepo.create({
@@ -99,7 +106,12 @@ export class BranchRegistrationsService {
     return this.regRepo.save(entity);
   }
 
-  async update(id: string, dto: UpdateBranchRegistrationDto, clientId: string, _userId: string) {
+  async update(
+    id: string,
+    dto: UpdateBranchRegistrationDto,
+    clientId: string,
+    _userId: string,
+  ) {
     const row = await this.regRepo.findOne({ where: { id, clientId } });
     if (!row) throw new NotFoundException('Registration not found');
 
@@ -118,10 +130,13 @@ export class BranchRegistrationsService {
     }
 
     if (dto.type !== undefined) row.type = dto.type;
-    if (dto.registrationNumber !== undefined) row.registrationNumber = dto.registrationNumber ?? null;
+    if (dto.registrationNumber !== undefined)
+      row.registrationNumber = dto.registrationNumber ?? null;
     if (dto.authority !== undefined) row.authority = dto.authority ?? null;
-    if (dto.issuedDate !== undefined) row.issuedDate = dto.issuedDate ? new Date(dto.issuedDate) : null;
-    if (dto.expiryDate !== undefined) row.expiryDate = dto.expiryDate ? new Date(dto.expiryDate) : null;
+    if (dto.issuedDate !== undefined)
+      row.issuedDate = dto.issuedDate ? new Date(dto.issuedDate) : null;
+    if (dto.expiryDate !== undefined)
+      row.expiryDate = dto.expiryDate ? new Date(dto.expiryDate) : null;
 
     return this.regRepo.save(row);
   }
@@ -175,7 +190,8 @@ export class BranchRegistrationsService {
       params.push(branchId);
     }
 
-    const rows: any[] = await this.dataSource.query(`
+    const rows: any[] = await this.dataSource.query(
+      `
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE r.expiry_date IS NULL OR r.expiry_date > CURRENT_DATE + INTERVAL '30 days')::int AS active,
@@ -185,12 +201,22 @@ export class BranchRegistrationsService {
       WHERE r.client_id = $1
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
         ${branchFilter}
-    `, params);
+    `,
+      params,
+    );
 
-    const { total, active, expiringSoon, expired } = rows[0] || { total: 0, active: 0, expiringSoon: 0, expired: 0 };
+    const { total, active, expiringSoon, expired } = rows[0] || {
+      total: 0,
+      active: 0,
+      expiringSoon: 0,
+      expired: 0,
+    };
 
     // Calculate compliance score impact
-    const scoreImpact = await this.calculateRegistrationScore(clientId, branchId);
+    const scoreImpact = await this.calculateRegistrationScore(
+      clientId,
+      branchId,
+    );
 
     return { total, active, expiringSoon, expired, scoreImpact };
   }
@@ -200,7 +226,10 @@ export class BranchRegistrationsService {
    * Starts at 100, deductions per registration:
    *   Expired: -15, <=7 days: -8, <=30 days: -5, <=60 days: -2
    */
-  async calculateRegistrationScore(clientId: string, branchId?: string): Promise<number> {
+  async calculateRegistrationScore(
+    clientId: string,
+    branchId?: string,
+  ): Promise<number> {
     const params: any[] = [clientId];
     let branchFilter = '';
     if (branchId) {
@@ -208,7 +237,8 @@ export class BranchRegistrationsService {
       params.push(branchId);
     }
 
-    const rows: any[] = await this.dataSource.query(`
+    const rows: any[] = await this.dataSource.query(
+      `
       SELECT
         CASE
           WHEN r.expiry_date IS NULL THEN 99999
@@ -218,7 +248,9 @@ export class BranchRegistrationsService {
       WHERE r.client_id = $1
         AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
         ${branchFilter}
-    `, params);
+    `,
+      params,
+    );
 
     let deduction = 0;
     for (const r of rows) {
@@ -244,7 +276,8 @@ export class BranchRegistrationsService {
       params.push(branchId);
     }
 
-    return this.dataSource.query(`
+    return this.dataSource.query(
+      `
       SELECT
         a.id,
         a.registration_id AS "registrationId",
@@ -260,7 +293,9 @@ export class BranchRegistrationsService {
         ${branchFilter}
       ORDER BY a.created_at DESC
       LIMIT $2
-    `, params);
+    `,
+      params,
+    );
   }
 
   /**
