@@ -395,6 +395,17 @@ if ($finalRun) {
   } else {
     $isExpectedFinal = ($finalStatus -eq "PROCESSED" -or $finalStatus -eq "APPROVED")
   }
+} elseif ($approvalEndpointsAvailable -and $approve.ok) {
+  $approveStatus = ""
+  if ($approve.json -and $approve.json.data -and $approve.json.data.status) {
+    $approveStatus = [string]$approve.json.data.status
+  } elseif ($approve.json -and $approve.json.status) {
+    $approveStatus = [string]$approve.json.status
+  }
+  if ($approveStatus) {
+    $finalStatus = $approveStatus
+    $isExpectedFinal = ($approveStatus -eq "APPROVED")
+  }
 } elseif (-not $approvalEndpointsAvailable -and $expectedBlock) {
   $finalStatus = "UNLISTED_FALLBACK"
   $isExpectedFinal = $true
