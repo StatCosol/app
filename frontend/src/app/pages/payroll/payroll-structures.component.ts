@@ -22,7 +22,6 @@ import {
   PayrollSetupApiService,
 } from './payroll-setup-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 const SCOPE_OPTIONS = [
   'TENANT',
@@ -144,7 +143,6 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     private readonly payrollApi: PayrollApiService,
     private readonly setupApi: PayrollSetupApiService,
     private readonly toast: ToastService,
-    private readonly confirm: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -485,24 +483,19 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   }
 
   deleteStructure(structure: SalaryStructure): void {
-    this.confirm
-      .confirm(
-        'Delete Structure',
-        `Delete "${structure.name}"? Existing mappings will be disabled for this version.`,
-        { confirmText: 'Delete', variant: 'danger' },
-      )
-      .then((ok) => {
-        if (!ok) return;
-        this.engineApi
-          .deleteStructure(structure.id)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: () => {
-              this.toast.success('Structure deleted');
-              this.refreshStructures();
-            },
-            error: (err) => this.toast.error(err?.error?.message || 'Failed to delete structure'),
-          });
+    const ok = window.confirm(
+      `Delete "${structure.name}"? Existing mappings will be disabled for this version.`,
+    );
+    if (!ok) return;
+    this.engineApi
+      .deleteStructure(structure.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Structure deleted');
+          this.refreshStructures();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to delete structure'),
       });
   }
 
@@ -516,37 +509,32 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.confirm
-      .confirm(
-        'Activate Structure Version',
-        `Make "${structure.name}" effective and deactivate other versions in this scope group?`,
-        { confirmText: 'Activate' },
+    const ok = window.confirm(
+      `Make "${structure.name}" effective and deactivate other versions in this scope group?`,
+    );
+    if (!ok) return;
+
+    const versionGroup = this.structures.filter((row) => this.isSameVersionGroup(row, structure));
+    const deactivateReqs = versionGroup
+      .filter((row) => row.id !== structure.id && row.isActive)
+      .map((row) => this.engineApi.updateStructure(row.id, { isActive: false }));
+    const activateReq$ = this.engineApi.updateStructure(structure.id, { isActive: true });
+
+    this.saving = true;
+    forkJoin([...deactivateReqs, activateReq$])
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
       )
-      .then((ok) => {
-        if (!ok) return;
-
-        const versionGroup = this.structures.filter((row) => this.isSameVersionGroup(row, structure));
-        const deactivateReqs = versionGroup
-          .filter((row) => row.id !== structure.id && row.isActive)
-          .map((row) => this.engineApi.updateStructure(row.id, { isActive: false }));
-        const activateReq$ = this.engineApi.updateStructure(structure.id, { isActive: true });
-
-        this.saving = true;
-        forkJoin([...deactivateReqs, activateReq$])
-          .pipe(
-            takeUntil(this.destroy$),
-            finalize(() => {
-              this.saving = false;
-              this.cdr.markForCheck();
-            }),
-          )
-          .subscribe({
-            next: () => {
-              this.toast.success('Structure version activated');
-              this.refreshStructures(structure.id);
-            },
-            error: (err) => this.toast.error(err?.error?.message || 'Failed to activate structure version'),
-          });
+      .subscribe({
+        next: () => {
+          this.toast.success('Structure version activated');
+          this.refreshStructures(structure.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to activate structure version'),
       });
   }
 
@@ -675,24 +663,17 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   deleteItem(item: StructureItem): void {
     if (!this.selectedStructure) return;
     const name = this.getComponentName(item.componentId);
-    this.confirm
-      .confirm(
-        'Delete Mapping Item',
-        `Delete mapping for ${name}?`,
-        { confirmText: 'Delete', variant: 'danger' },
-      )
-      .then((ok) => {
-        if (!ok) return;
-        this.engineApi
-          .deleteStructureItem(this.selectedStructure!.id, item.id)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: () => {
-              this.toast.success('Structure item deleted');
-              this.loadItems(this.selectedStructure!.id);
-            },
-            error: (err) => this.toast.error(err?.error?.message || 'Failed to delete item'),
-          });
+    const ok = window.confirm(`Delete mapping for ${name}?`);
+    if (!ok) return;
+    this.engineApi
+      .deleteStructureItem(this.selectedStructure!.id, item.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Structure item deleted');
+          this.loadItems(this.selectedStructure!.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to delete item'),
       });
   }
 
@@ -1010,4 +991,3 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     return !!structure.effectiveTo && this.timeValue(structure.effectiveTo) < this.todayStartValue();
   }
 }
-
