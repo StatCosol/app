@@ -23,6 +23,10 @@ const EssAttendancePageComponent = () =>
   import('./attendance/ess-attendance-page.component').then(
     (m) => m.EssAttendancePageComponent,
   );
+const EssDocumentVaultPageComponent = () =>
+  import('./documents/ess-document-vault-page.component').then(
+    (m) => m.EssDocumentVaultPageComponent,
+  );
 
 export const ESS_ROUTES: Routes = [
   // Separate ESS login (no auth guard — public)
@@ -42,6 +46,7 @@ export const ESS_ROUTES: Routes = [
       { path: 'leave', loadComponent: EssLeaveComponent },
       { path: 'payslips', loadComponent: EssPayslipsComponent },
       { path: 'attendance', loadComponent: EssAttendancePageComponent },
+      { path: 'documents', loadComponent: EssDocumentVaultPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

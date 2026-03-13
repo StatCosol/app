@@ -36,8 +36,8 @@ export class BranchRegistrationReminderService {
           r.registration_number AS "registrationNumber",
           r.expiry_date     AS "expiryDate",
           (r.expiry_date - CURRENT_DATE) AS "daysRemaining",
-          b.name            AS "branchName",
-          c.name            AS "clientName",
+          b.branchname     AS "branchName",
+          c.client_name    AS "clientName",
           -- Get client admin (master user) email
           (
             SELECT u.email FROM users u
@@ -58,7 +58,7 @@ export class BranchRegistrationReminderService {
             LIMIT 1
           ) AS "crmEmail"
         FROM branch_registrations r
-        JOIN branches b ON b.id = r.branch_id
+        JOIN client_branches b ON b.id = r.branch_id
         JOIN clients c ON c.id = r.client_id
         WHERE r.expiry_date IS NOT NULL
           AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
@@ -66,7 +66,9 @@ export class BranchRegistrationReminderService {
         ORDER BY (r.expiry_date - CURRENT_DATE) ASC
       `);
 
-      this.logger.log(`Found ${rows.length} registrations within 60 days of expiry.`);
+      this.logger.log(
+        `Found ${rows.length} registrations within 60 days of expiry.`,
+      );
 
       let alertsCreated = 0;
       let emailsSent = 0;
@@ -79,29 +81,36 @@ export class BranchRegistrationReminderService {
         const priority = this.getPriority(days);
 
         // Check if we already sent this exact alert today
-        const existing = await this.dataSource.query(`
+        const existing = await this.dataSource.query(
+          `
           SELECT 1 FROM registration_alerts
           WHERE registration_id = $1
             AND alert_type = $2
             AND created_at::date = CURRENT_DATE
           LIMIT 1
-        `, [r.id, alertType]);
+        `,
+          [r.id, alertType],
+        );
 
         if (existing.length > 0) continue; // already alerted today
 
         const title = `Registration Expiry Alert`;
-        const message = days < 0
-          ? `${r.type}${r.registrationNumber ? ' (' + r.registrationNumber + ')' : ''} at ${r.branchName} expired ${Math.abs(days)} days ago`
-          : days === 0
-            ? `${r.type}${r.registrationNumber ? ' (' + r.registrationNumber + ')' : ''} at ${r.branchName} expires TODAY`
-            : `${r.type}${r.registrationNumber ? ' (' + r.registrationNumber + ')' : ''} at ${r.branchName} expires in ${days} days`;
+        const message =
+          days < 0
+            ? `${r.type}${r.registrationNumber ? ' (' + r.registrationNumber + ')' : ''} at ${r.branchName} expired ${Math.abs(days)} days ago`
+            : days === 0
+              ? `${r.type}${r.registrationNumber ? ' (' + r.registrationNumber + ')' : ''} at ${r.branchName} expires TODAY`
+              : `${r.type}${r.registrationNumber ? ' (' + r.registrationNumber + ')' : ''} at ${r.branchName} expires in ${days} days`;
 
         // Insert alert
-        await this.dataSource.query(`
+        await this.dataSource.query(
+          `
           INSERT INTO registration_alerts
             (registration_id, client_id, branch_id, alert_type, priority, title, message, module)
           VALUES ($1, $2, $3, $4, $5, $6, $7, 'REGISTRATION')
-        `, [r.id, r.clientId, r.branchId, alertType, priority, title, message]);
+        `,
+          [r.id, r.clientId, r.branchId, alertType, priority, title, message],
+        );
 
         alertsCreated++;
 
@@ -115,9 +124,10 @@ export class BranchRegistrationReminderService {
         recipients.push(...adminEmails);
 
         if (recipients.length > 0) {
-          const subject = days < 0
-            ? `⚠ EXPIRED: ${r.type} at ${r.branchName} (${r.clientName})`
-            : `⚠ ${r.type} expires in ${days} days — ${r.branchName} (${r.clientName})`;
+          const subject =
+            days < 0
+              ? `⚠ EXPIRED: ${r.type} at ${r.branchName} (${r.clientName})`
+              : `⚠ ${r.type} expires in ${days} days — ${r.branchName} (${r.clientName})`;
 
           const body = `
             <p style="margin:0 0 12px;">
@@ -145,13 +155,16 @@ export class BranchRegistrationReminderService {
           );
 
           // Mark alert as emailed
-          await this.dataSource.query(`
+          await this.dataSource.query(
+            `
             UPDATE registration_alerts
             SET emailed = true
             WHERE registration_id = $1
               AND alert_type = $2
               AND created_at::date = CURRENT_DATE
-          `, [r.id, alertType]);
+          `,
+            [r.id, alertType],
+          );
 
           emailsSent++;
         }
@@ -170,8 +183,8 @@ export class BranchRegistrationReminderService {
    * Returns null if no alert should be created for this day count.
    */
   private getAlertType(days: number): string | null {
-    if (days < 0) return 'EXPIRED';        // daily for expired
-    if (days === 0) return 'EXPIRED';       // expiry day
+    if (days < 0) return 'EXPIRED'; // daily for expired
+    if (days === 0) return 'EXPIRED'; // expiry day
     if (days === 7) return '7_DAY';
     if (days === 30) return '30_DAY';
     if (days === 60) return '60_DAY';

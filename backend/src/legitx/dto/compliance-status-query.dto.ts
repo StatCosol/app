@@ -1,5 +1,14 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /**
  * Query validation for compliance status endpoints.
@@ -7,14 +16,22 @@ import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from '
  */
 export class ComplianceStatusQueryDto {
   @IsOptional()
-  @Transform(({ value }) => (value === undefined || value === null || value === '' ? undefined : Number(value)))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
   @IsInt()
   @Min(1)
   @Max(12)
   month?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value === undefined || value === null || value === '' ? undefined : Number(value)))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
   @IsInt()
   @Min(2000)
   @Max(2100)
@@ -30,18 +47,33 @@ export class ComplianceStatusQueryDto {
   category?: string;
 
   @IsOptional()
-  @IsIn(['PENDING', 'IN_PROGRESS', 'SUBMITTED', 'APPROVED', 'REJECTED', 'OVERDUE'])
+  @IsIn([
+    'PENDING',
+    'IN_PROGRESS',
+    'SUBMITTED',
+    'APPROVED',
+    'REJECTED',
+    'OVERDUE',
+  ])
   status?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (value === undefined || value === null || value === '' ? undefined : Number(value)))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
   @IsInt()
   @Min(0)
   @Max(500)
   limit?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value === undefined || value === null || value === '' ? undefined : Number(value)))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
   @IsInt()
   @Min(0)
   offset?: number;

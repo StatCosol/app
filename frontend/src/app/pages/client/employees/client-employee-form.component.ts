@@ -5,6 +5,8 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { ClientEmployeesService, Employee } from './client-employees.service';
+import { ClientMasterDataService } from '../master-data/client-master-data.service';
+import { stateSelectOptionsWithPlaceholder } from '../../../shared/utils/indian-states';
 import {
   PageHeaderComponent,
   Breadcrumb,
@@ -39,11 +41,11 @@ import {
 
       <ui-page-header
         [title]="isEdit ? 'Edit Employee' : 'New Employee Registration'"
-        [subtitle]="isEdit ? ('Editing: ' + form.firstName + ' ' + (form.lastName || '') + ' (' + form.employeeCode + ')') : 'Fill in the details below to register a new employee'"
+        [subtitle]="isEdit ? ('Editing: ' + form.firstName + ' ' + (form.lastName || '') + ' (' + form.employeeCode + ')') : 'Fill in the details below to register a new Employee'"
         [breadcrumbs]="breadcrumbs">
       </ui-page-header>
 
-      <ui-loading-spinner *ngIf="loadingEmployee" text="Loading employee..." size="lg"></ui-loading-spinner>
+      <ui-loading-spinner *ngIf="loadingEmployee" text="Loading Employee..." size="lg"></ui-loading-spinner>
 
       <!-- Error Banner -->
       <div *ngIf="loadError && !loadingEmployee"
@@ -95,10 +97,10 @@ import {
             <h3>Contact Information</h3>
           </div>
           <div class="section-grid">
-            <ui-form-input label="Phone" type="tel" [(ngModel)]="form.phone" name="phone"
+            <ui-form-input label="Phone *" type="tel" [(ngModel)]="form.phone" name="phone"
                            placeholder="e.g. 9876543210"></ui-form-input>
             <ui-form-input label="Email" type="email" [(ngModel)]="form.email" name="email"
-                           placeholder="employee@example.com"></ui-form-input>
+                           placeholder="Employee@example.com"></ui-form-input>
           </div>
         </div>
 
@@ -112,7 +114,7 @@ import {
             <h3>Identity Documents</h3>
           </div>
           <div class="section-grid">
-            <ui-form-input label="Aadhaar Number" [(ngModel)]="form.aadhaar" name="aadhaar"
+            <ui-form-input label="Aadhaar Number *" [(ngModel)]="form.aadhaar" name="aadhaar"
                            placeholder="XXXX XXXX XXXX"></ui-form-input>
             <ui-form-input label="PAN" [(ngModel)]="form.pan" name="pan"
                            placeholder="ABCDE1234F"></ui-form-input>
@@ -133,10 +135,10 @@ import {
             <h3>Employment Details</h3>
           </div>
           <div class="section-grid">
-            <ui-form-input label="Designation" [(ngModel)]="form.designation" name="designation"
-                           placeholder="e.g. Software Engineer"></ui-form-input>
-            <ui-form-input label="Department" [(ngModel)]="form.department" name="department"
-                           placeholder="e.g. Engineering"></ui-form-input>
+            <ui-form-select label="Designation" [options]="designationOptions" [(ngModel)]="form.designation"
+                            name="designation" placeholder="Select designation"></ui-form-select>
+            <ui-form-select label="Department" [options]="departmentOptions" [(ngModel)]="form.department"
+                            name="department" placeholder="Select department"></ui-form-select>
             <div class="form-field">
               <label class="form-label">Date of Joining</label>
               <input type="date" class="form-date-input" [(ngModel)]="form.dateOfJoining" name="dateOfJoining" />
@@ -266,45 +268,14 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
     { label: 'Other', value: 'Other' },
   ];
 
-  stateOptions = [
-    { label: 'Select state', value: '' },
-    { label: 'Andhra Pradesh', value: 'AP' },
-    { label: 'Arunachal Pradesh', value: 'AR' },
-    { label: 'Assam', value: 'AS' },
-    { label: 'Bihar', value: 'BR' },
-    { label: 'Chhattisgarh', value: 'CG' },
-    { label: 'Delhi', value: 'DL' },
-    { label: 'Goa', value: 'GA' },
-    { label: 'Gujarat', value: 'GJ' },
-    { label: 'Haryana', value: 'HR' },
-    { label: 'Himachal Pradesh', value: 'HP' },
-    { label: 'Jharkhand', value: 'JH' },
-    { label: 'Karnataka', value: 'KA' },
-    { label: 'Kerala', value: 'KL' },
-    { label: 'Madhya Pradesh', value: 'MP' },
-    { label: 'Maharashtra', value: 'MH' },
-    { label: 'Manipur', value: 'MN' },
-    { label: 'Meghalaya', value: 'ML' },
-    { label: 'Mizoram', value: 'MZ' },
-    { label: 'Nagaland', value: 'NL' },
-    { label: 'Odisha', value: 'OD' },
-    { label: 'Punjab', value: 'PB' },
-    { label: 'Rajasthan', value: 'RJ' },
-    { label: 'Sikkim', value: 'SK' },
-    { label: 'Tamil Nadu', value: 'TN' },
-    { label: 'Telangana', value: 'TS' },
-    { label: 'Tripura', value: 'TR' },
-    { label: 'Uttar Pradesh', value: 'UP' },
-    { label: 'Uttarakhand', value: 'UK' },
-    { label: 'West Bengal', value: 'WB' },
-    { label: 'Chandigarh', value: 'CH' },
-    { label: 'Puducherry', value: 'PY' },
-    { label: 'Jammu & Kashmir', value: 'JK' },
-    { label: 'Ladakh', value: 'LA' },
-  ];
+  designationOptions: { label: string; value: string }[] = [{ label: 'Select designation', value: '' }];
+  departmentOptions: { label: string; value: string }[] = [{ label: 'Select department', value: '' }];
+
+  stateOptions = stateSelectOptionsWithPlaceholder();
 
   constructor(
     private svc: ClientEmployeesService,
+    private masterSvc: ClientMasterDataService,
     private router: Router,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
@@ -312,6 +283,7 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.employeeId = this.route.snapshot.paramMap.get('id') || '';
+    this.loadMasterData();
     if (this.employeeId) {
       this.isEdit = true;
       this.breadcrumbs = [
@@ -325,6 +297,25 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private loadMasterData(): void {
+    this.masterSvc.listDesignations().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (list) => {
+        this.designationOptions = [
+          { label: 'Select designation', value: '' },
+          ...list.filter((d: any) => d.isActive !== false).map((d: any) => ({ label: d.name, value: d.name })),
+        ];
+      },
+    });
+    this.masterSvc.listDepartments().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (list) => {
+        this.departmentOptions = [
+          { label: 'Select department', value: '' },
+          ...list.filter((d: any) => d.isActive !== false).map((d: any) => ({ label: d.name, value: d.name })),
+        ];
+      },
+    });
   }
 
   loadEmployee(): void {
@@ -353,6 +344,25 @@ export class ClientEmployeeFormComponent implements OnInit, OnDestroy {
     if (!this.form.firstName?.trim()) {
       this.formError = 'First name is required';
       return;
+    }
+    if (!this.form.phone?.trim()) {
+      this.formError = 'Phone number is required';
+      return;
+    }
+    if (!this.form.aadhaar?.trim()) {
+      this.formError = 'Aadhaar number is required';
+      return;
+    }
+    if (this.form.dateOfBirth) {
+      const dob = new Date(this.form.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+      if (age < 18) {
+        this.formError = `Employee must be at least 18 years old. Date of birth indicates age ${age}.`;
+        return;
+      }
     }
     this.saving = true;
     this.formError = '';

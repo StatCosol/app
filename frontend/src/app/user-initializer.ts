@@ -19,7 +19,12 @@ export function initUserFactory(auth: AuthService) {
           timeout(8000),
           catchError(() => {
             // Clear stale token so guards redirect naturally after boot
+            sessionStorage.removeItem('accessToken');
+            sessionStorage.removeItem('refreshToken');
+            sessionStorage.removeItem('user');
+            // Also clean up any lingering localStorage keys
             localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
             return of(null);
           }),

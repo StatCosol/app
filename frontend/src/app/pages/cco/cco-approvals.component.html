@@ -1,39 +1,80 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    title="CRM Deletion Requests"
-    description="Review and approve CRM deletion requests"
+    title="Approval Requests"
+    description="Review and approve CRM deletion and action requests"
     icon="check-circle">
   </ui-page-header>
 
   <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
 
-  <div *ngIf="error" class="alert alert-error mb-6">{{ error }}</div>
+  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{{ error }}</div>
 
-  <div *ngIf="!loading" class="card">
-    <ui-data-table
-      [columns]="columns"
-      [data]="requests"
-      emptyMessage="No pending requests.">
-      <ng-template uiTableCell="crmName" let-row>
-        <span class="font-medium text-gray-900">{{ row.crmName }}</span>
-      </ng-template>
-      <ng-template uiTableCell="email" let-row>
-        <span class="text-gray-600">{{ row.email }}</span>
-      </ng-template>
-      <ng-template uiTableCell="status" let-row>
-        <ui-status-badge
-          [variant]="row.status === 'APPROVED' ? 'success' : row.status === 'REJECTED' ? 'error' : 'warning'">
-          {{ row.status }}
-        </ui-status-badge>
-      </ng-template>
-      <ng-template uiTableCell="actions" let-row>
-        <div class="flex justify-end gap-2">
-          <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
-            {{ actionId === row.id ? 'Processing...' : 'Approve' }}
-          </ui-button>
-          <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">Reject</ui-button>
-        </div>
-      </ng-template>
-    </ui-data-table>
-  </div>
+  <ng-container *ngIf="!loading">
+    <!-- KPI Strip -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="text-xs text-gray-500 font-medium uppercase">Total</div>
+        <div class="text-2xl font-bold text-gray-900 mt-1">{{ kpiCounts.total }}</div>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="text-xs text-amber-600 font-medium uppercase">Pending</div>
+        <div class="text-2xl font-bold text-amber-700 mt-1">{{ kpiCounts.pending }}</div>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+        <div class="text-xs text-green-600 font-medium uppercase">Approved</div>
+        <div class="text-2xl font-bold text-green-700 mt-1">{{ kpiCounts.approved }}</div>
+      </div>
+      <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div class="text-xs text-red-600 font-medium uppercase">Rejected</div>
+        <div class="text-2xl font-bold text-red-700 mt-1">{{ kpiCounts.rejected }}</div>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+      <div class="relative w-56">
+        <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
+          placeholder="Search CRM name, email..."
+          class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+        <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <ui-form-select
+        label="Status"
+        [options]="statusOptions"
+        [(ngModel)]="statusFilter"
+        (ngModelChange)="applyFilter()"
+        class="w-44">
+      </ui-form-select>
+      <span class="ml-auto text-sm text-gray-500">{{ filteredRequests.length }} request{{ filteredRequests.length !== 1 ? 's' : '' }}</span>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <ui-data-table
+        [columns]="columns"
+        [data]="filteredRequests"
+        emptyMessage="No requests match the current filters.">
+        <ng-template uiTableCell="crmName" let-row>
+          <span class="font-medium text-gray-900">{{ row.crmName }}</span>
+        </ng-template>
+        <ng-template uiTableCell="email" let-row>
+          <span class="text-gray-600">{{ row.email }}</span>
+        </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status"></ui-status-badge>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex justify-end gap-2" *ngIf="row.status === 'PENDING'">
+            <ui-button variant="primary" size="sm" [disabled]="actionId === row.id" (clicked)="approve(row.id)">
+              {{ actionId === row.id ? 'Processing...' : 'Approve' }}
+            </ui-button>
+            <ui-button variant="secondary" size="sm" [disabled]="actionId === row.id" (clicked)="reject(row.id)">Reject</ui-button>
+          </div>
+          <span *ngIf="row.status !== 'PENDING'" class="text-xs text-gray-400">—</span>
+        </ng-template>
+      </ui-data-table>
+    </div>
+  </ng-container>
 </div>

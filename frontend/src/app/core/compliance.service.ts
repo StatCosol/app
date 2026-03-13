@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -84,6 +84,16 @@ export class ComplianceService {
     return this.http.get(`${this.contractorBase}/tasks`, { params: p });
   }
 
+  getContractorTasks(params: any): Observable<any> {
+    return this.contractorListTasks(params || {});
+  }
+
+  getContractorTaskById(id: string): Observable<any> {
+    return this.http
+      .get(`${this.contractorBase}/tasks/${id}`)
+      .pipe(catchError(() => this.contractorTaskDetail(id)));
+  }
+
   contractorStart(id: string): Observable<any> {
     return this.http.post(`${this.contractorBase}/tasks/${id}/start`, {});
   }
@@ -109,6 +119,81 @@ export class ComplianceService {
     return this.http.post(`${this.contractorBase}/tasks/${id}/evidence`, fd);
   }
 
+  uploadContractorTaskFile(
+    id: string,
+    file: File,
+    notes?: string,
+  ): Observable<any> {
+    return this.contractorUploadEvidence(id, file, notes);
+  }
+
+  respondToContractorTask(id: string, message: string): Observable<any> {
+    return this.contractorComment(id, message);
+  }
+
+  getContractorTaskHistory(id: string): Observable<any> {
+    return this.getContractorTaskById(id).pipe(
+      map((res: any) => {
+        const comments = Array.isArray(res?.comments) ? res.comments : [];
+        const evidence = Array.isArray(res?.evidence) ? res.evidence : [];
+        const events = [
+          ...comments.map((c: any) => ({
+            type: 'COMMENT',
+            actor: c?.userName || c?.user?.name || `User #${c?.userId || '-'}`,
+            message: c?.message || '',
+            at: c?.createdAt || c?.created_at || null,
+          })),
+          ...evidence.map((e: any) => ({
+            type: 'EVIDENCE',
+            actor: 'CONTRACTOR',
+            message: e?.fileName || e?.file_name || 'Uploaded file',
+            at: e?.createdAt || e?.created_at || null,
+          })),
+        ]
+          .filter((e: any) => !!e.at)
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.at).getTime() - new Date(a.at).getTime(),
+          );
+
+        return { taskId: id, events };
+      }),
+    );
+  }
+
+  contractorGetReuploadRequests(query: any = {}): Observable<any> {
+    let p = new HttpParams();
+    Object.keys(query || {}).forEach((k) => {
+      if (query[k] !== undefined && query[k] !== null && query[k] !== '') {
+        p = p.set(k, String(query[k]));
+      }
+    });
+    return this.http.get(`${this.contractorBase}/reupload-requests`, {
+      params: p,
+    });
+  }
+
+  contractorReuploadUpload(
+    requestId: string,
+    file: File,
+    note?: string,
+  ): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (note) fd.append('note', note);
+    return this.http.post(
+      `${this.contractorBase}/reupload-requests/${requestId}/upload`,
+      fd,
+    );
+  }
+
+  contractorReuploadSubmit(requestId: string): Observable<any> {
+    return this.http.post(
+      `${this.contractorBase}/reupload-requests/${requestId}/submit`,
+      {},
+    );
+  }
+
   contractorDashboard(): Observable<any> {
     return this.http.get(this.contractorDashboardUrl);
   }
@@ -122,15 +207,13 @@ export class ComplianceService {
   }
 
   contractorTaskDetail(id: string): Observable<any> {
-    // Backend currently does not implement GET /api/contractor/compliance/tasks/:id
-    // So we load the list and pick the requested task.
+    // Fallback path for environments where task detail endpoint is unavailable.
     return this.contractorListTasks({}).pipe(
       map((res: any) => {
         const list = res?.data || res || [];
         const task = list.find((t: any) => String(t.id) === String(id));
-        return { task };
+        return { task, comments: [], evidence: task?.evidence || [] };
       }),
     );
   }
 }
-

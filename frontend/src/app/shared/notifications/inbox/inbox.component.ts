@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { catchError, finalize, of } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,11 +12,15 @@ import { LoadingSpinnerComponent, ActionButtonComponent, StatusBadgeComponent } 
   templateUrl: './inbox.component.html',
   styleUrls: ['./inbox.component.scss'],
 })
-export class InboxComponent implements OnInit {
+export class InboxComponent implements OnInit, OnChanges {
   // When true, uses ADMIN all-threads endpoint instead of per-user inbox
   @Input() adminAll = false;
   // When true, shows threads created by the current user
   @Input() creatorView = false;
+  /** Optional: filter by originating role (CRM, CLIENT, BRANCH, CONTRACTOR, AUDITOR, PAYROLL) */
+  @Input() roleFilter = '';
+  /** Optional: filter by query type (TECHNICAL, COMPLIANCE, AUDIT, GENERAL) */
+  @Input() queryTypeFilter = '';
   threads: any[] = [];
   total = 0;
 
@@ -43,10 +47,20 @@ export class InboxComponent implements OnInit {
     this.loadInbox();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if ((changes['roleFilter'] || changes['queryTypeFilter']) && !changes['roleFilter']?.firstChange && !changes['queryTypeFilter']?.firstChange) {
+      this.page = 1;
+      this.loadInbox();
+    }
+  }
+
   loadInbox(): void {
     this.loadingList = true;
     this.errorMsg = null;
     const status = this.status === 'all' ? undefined : (this.status as any);
+    const extraParams: Record<string, string> = {};
+    if (this.roleFilter) extraParams['role'] = this.roleFilter;
+    if (this.queryTypeFilter) extraParams['queryType'] = this.queryTypeFilter;
 
     const src$ = this.creatorView
       ? this.notifications.my({
@@ -54,24 +68,26 @@ export class InboxComponent implements OnInit {
           limit: this.limit,
           status,
           unreadOnly: this.unreadOnly ? 1 : 0,
+          ...extraParams,
         })
       : this.adminAll
       ? this.notifications.inboxAdminAll({
           page: this.page,
           limit: this.limit,
           status,
+          ...extraParams,
         })
       : this.notifications.inbox({
           page: this.page,
           limit: this.limit,
           status,
           unreadOnly: this.unreadOnly ? 1 : 0,
+          ...extraParams,
         });
 
     src$
       .pipe(
         catchError((err) => {
-          console.error(err);
           this.errorMsg = err?.error?.message || 'Failed to load notifications';
           return of({ data: [], total: 0 });
         }),

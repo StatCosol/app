@@ -49,48 +49,85 @@
     </div>
 
     <!-- 6 KPI Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      <div (click)="drillAssignedAudits()" class="cursor-pointer">
-        <ui-stat-card
-          label="Assigned Audits"
-          [value]="summary.assignedAuditsCount"
-          color="info">
-        </ui-stat-card>
+    <div class="kpi-cards-grid-6">
+      <!-- Assigned Audits -->
+      <div class="kpi-tile kpi-tile--blue" style="cursor:pointer" (click)="drillAssignedAudits()">
+        <div class="kpi-tile__icon" style="background:#dbeafe">
+          <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Assigned Audits</div>
+          <div class="kpi-tile__value">{{ summary.assignedAuditsCount }}</div>
+        </div>
       </div>
-      <div (click)="drillOverdueAudits()" class="cursor-pointer">
-        <ui-stat-card
-          label="Overdue 🔴"
-          [value]="summary.overdueAuditsCount"
-          color="error">
-        </ui-stat-card>
+
+      <!-- Overdue -->
+      <div class="kpi-tile kpi-tile--red" style="cursor:pointer" (click)="drillOverdueAudits()">
+        <div class="kpi-tile__icon" style="background:#fee2e2">
+          <svg width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Overdue</div>
+          <div class="kpi-tile__value">{{ summary.overdueAuditsCount }}</div>
+        </div>
       </div>
-      <div (click)="drillDueSoon()" class="cursor-pointer">
-        <ui-stat-card
-          label="Due Soon 🟡"
-          [value]="summary.dueSoonAuditsCount"
-          color="warning">
-        </ui-stat-card>
+
+      <!-- Due Soon -->
+      <div class="kpi-tile kpi-tile--amber" style="cursor:pointer" (click)="drillDueSoon()">
+        <div class="kpi-tile__icon" style="background:#fef3c7">
+          <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Due Soon</div>
+          <div class="kpi-tile__value">{{ summary.dueSoonAuditsCount }}</div>
+        </div>
       </div>
-      <div (click)="drillObservationsOpen()" class="cursor-pointer">
-        <ui-stat-card
-          label="Observations Open"
-          [value]="summary.observationsOpenCount"
-          color="info">
-        </ui-stat-card>
+
+      <!-- Observations Open -->
+      <div class="kpi-tile kpi-tile--purple" style="cursor:pointer" (click)="drillObservationsOpen()">
+        <div class="kpi-tile__icon" style="background:#ede9fe">
+          <svg width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Observations Open</div>
+          <div class="kpi-tile__value">{{ summary.observationsOpenCount }}</div>
+        </div>
       </div>
-      <div (click)="drillHighRiskOpen()" class="cursor-pointer">
-        <ui-stat-card
-          label="High-Risk Open 🔥"
-          [value]="summary.highRiskOpenCount"
-          color="warning">
-        </ui-stat-card>
+
+      <!-- High-Risk Open -->
+      <div class="kpi-tile kpi-tile--red" style="cursor:pointer" (click)="drillHighRiskOpen()">
+        <div class="kpi-tile__icon" style="background:#fee2e2">
+          <svg width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">High-Risk Open</div>
+          <div class="kpi-tile__value">{{ summary.highRiskOpenCount }}</div>
+        </div>
       </div>
-      <div (click)="drillReportsPending()" class="cursor-pointer">
-        <ui-stat-card
-          label="Reports Pending 📄"
-          [value]="summary.reportsPendingCount"
-          color="primary">
-        </ui-stat-card>
+
+      <!-- Reports Pending -->
+      <div class="kpi-tile kpi-tile--blue" style="cursor:pointer" (click)="drillReportsPending()">
+        <div class="kpi-tile__icon" style="background:#dbeafe">
+          <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Reports Pending</div>
+          <div class="kpi-tile__value">{{ summary.reportsPendingCount }}</div>
+        </div>
       </div>
     </div>
 

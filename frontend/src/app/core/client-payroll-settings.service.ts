@@ -17,10 +17,10 @@ export class ClientPayrollSettingsService {
   constructor(private http: HttpClient) {}
 
   get(): Observable<ClientPayrollAccessSettings> {
-    return this.http.get<ClientPayrollAccessSettings>(`${this.baseUrl}/api/client/payroll/settings`);
+    return this.http.get<ClientPayrollAccessSettings>(`${this.baseUrl}/api/v1/client/payroll/settings`);
   }
 
   update(dto: Partial<ClientPayrollAccessSettings>): Observable<ClientPayrollAccessSettings> {
-    return this.http.post<ClientPayrollAccessSettings>(`${this.baseUrl}/api/client/payroll/settings`, dto);
+    return this.http.post<ClientPayrollAccessSettings>(`${this.baseUrl}/api/v1/client/payroll/settings`, dto);
   }
 }

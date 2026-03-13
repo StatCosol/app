@@ -1,7 +1,8 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
 
 import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -81,11 +82,12 @@ import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../..
   `,
   styles: [`.page{max-width:900px;margin:0 auto;padding:1rem;}`],
 })
-export class ClientAccessSettingsComponent implements OnInit {
+export class ClientAccessSettingsComponent implements OnInit, OnDestroy {
   loading = false;
   saving = false;
   error = '';
   isMaster = false;
+  private readonly destroy$ = new Subject<void>();
 
   model: ClientPayrollAccessSettings = {
     clientId: '',
@@ -112,7 +114,7 @@ export class ClientAccessSettingsComponent implements OnInit {
     this.error = '';
     this.svc
       .get()
-      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }), takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
           this.model = {
@@ -138,7 +140,7 @@ export class ClientAccessSettingsComponent implements OnInit {
         allowBranchWageRegisters: this.model.allowBranchWageRegisters,
         allowBranchSalaryRegisters: this.model.allowBranchSalaryRegisters,
       })
-      .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }))
+      .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }), takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {
           this.model = { ...this.model, ...res };
@@ -150,5 +152,10 @@ export class ClientAccessSettingsComponent implements OnInit {
           this.cdr.detectChanges();
         },
       });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

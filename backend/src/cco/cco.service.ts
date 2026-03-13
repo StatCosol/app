@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -15,7 +19,6 @@ export class CcoService {
          u.name,
          u.is_active        AS "isActive",
          u.email,
-         u.last_login_at    AS "lastLoginAt",
          COALESCE(cc.client_count, 0)::int AS "clientCount",
          COALESCE(ov.overdue_count, 0)::int AS "overdueCount"
        FROM users u
@@ -45,7 +48,7 @@ export class CcoService {
       status: r.isActive ? 'ACTIVE' : 'INACTIVE',
       clientCount: r.clientCount,
       overdueCount: r.overdueCount,
-      lastLogin: r.lastLoginAt ? new Date(r.lastLoginAt).toISOString() : '',
+      lastLogin: '',
     }));
   }
 
@@ -67,14 +70,13 @@ export class CcoService {
            ELSE NULL
          END AS "crmName",
          CASE
-           WHEN dr.entity_type = 'USER' THEN target_user.email
+           WHEN dr.entity_type = 'USER' THEN REGEXP_REPLACE(target_user.email, '#deleted#\\\\d*', '', 'g')
            ELSE NULL
          END AS "email"
        FROM deletion_requests dr
        LEFT JOIN users requester   ON requester.id = dr.requested_by_user_id
        LEFT JOIN users target_user ON dr.entity_type = 'USER' AND target_user.id = dr.entity_id
-       WHERE dr.status = 'PENDING'
-         AND (
+       WHERE (
            dr.required_approver_user_id = $1
            OR (dr.required_approver_user_id IS NULL AND dr.required_approver_role = 'CCO')
          )
@@ -105,7 +107,27 @@ export class CcoService {
               OR (required_approver_user_id IS NULL AND required_approver_role = 'CCO'))`,
       [id, ccoId],
     );
-    if (!request) throw new NotFoundException('Approval request not found or already processed');
+    if (!request)
+      throw new NotFoundException(
+        'Approval request not found or already processed',
+      );
+
+    // Actually soft-delete the target user
+    const [reqDetail] = await this.dataSource.query(
+      `SELECT entity_type, entity_id FROM deletion_requests WHERE id = $1`,
+      [id],
+    );
+    if (reqDetail?.entity_type === 'USER') {
+      const timestamp = Date.now();
+      await this.dataSource.query(
+        `UPDATE users SET is_active = false, deleted_at = NOW(), email = email || '#deleted#' || $2, mobile = NULL WHERE id = $1`,
+        [reqDetail.entity_id, String(timestamp)],
+      );
+      await this.dataSource.query(
+        `DELETE FROM user_branches WHERE user_id = $1`,
+        [reqDetail.entity_id],
+      );
+    }
 
     await this.dataSource.query(
       `UPDATE deletion_requests SET status = 'APPROVED', remarks = 'Approved by CCO', updated_at = NOW() WHERE id = $1`,
@@ -126,9 +148,13 @@ export class CcoService {
               OR (required_approver_user_id IS NULL AND required_approver_role = 'CCO'))`,
       [id, ccoId],
     );
-    if (!request) throw new NotFoundException('Approval request not found or already processed');
+    if (!request)
+      throw new NotFoundException(
+        'Approval request not found or already processed',
+      );
 
-    if (!remarks || !remarks.trim()) throw new BadRequestException('Remarks are required when rejecting');
+    if (!remarks || !remarks.trim())
+      throw new BadRequestException('Remarks are required when rejecting');
 
     await this.dataSource.query(
       `UPDATE deletion_requests SET status = 'REJECTED', remarks = $2, updated_at = NOW() WHERE id = $1`,
@@ -141,23 +167,115 @@ export class CcoService {
    * Return escalated compliance tasks visible to this CCO.
    * Joins client + branch names so the frontend can display human-readable info.
    */
-  async getOversight(_user: any) {
-    const rows = await this.dataSource.query(`
+  async getOversight(user: any, filters?: { status?: string }) {
+    const ccoId = user.userId ?? user.id;
+    const status = filters?.status ? String(filters.status).toUpperCase() : null;
+
+    const rows = await this.dataSource.query(
+      `
       SELECT
         ct.id,
-        c.client_name  AS "client",
-        b.branch_name  AS "branch",
-        ct.due_date    AS "dueDate",
+        ct.client_id      AS "clientId",
+        ct.branch_id      AS "branchId",
+        c.client_name     AS "client",
+        b.branchname      AS "branch",
+        ct.due_date       AS "dueDate",
         ct.status,
-        ct.escalated_at AS "escalatedAt"
+        ct.escalated_at   AS "escalatedAt",
+        ct.remarks        AS "lastActionNote",
+        ct.assigned_to_user_id AS "ownerUserId",
+        COALESCE(owner_u.name, '-') AS "ownerName",
+        crm.id            AS "crmId",
+        COALESCE(crm.name, '-') AS "crmName",
+        GREATEST(0, (CURRENT_DATE - ct.due_date))::int AS "ageDays"
       FROM compliance_tasks ct
-      LEFT JOIN clients  c ON c.id = ct.client_id
-      LEFT JOIN branches b ON b.id = ct.branch_id
+      INNER JOIN clients c ON c.id = ct.client_id
+      INNER JOIN users crm ON crm.id = c.assigned_crm_id
+      LEFT JOIN users owner_u ON owner_u.id = ct.assigned_to_user_id
+      LEFT JOIN client_branches b ON b.id = ct.branch_id
       WHERE ct.escalated_at IS NOT NULL
+        AND crm.owner_cco_id = $1
+        AND ($2::text IS NULL OR ct.status = $2)
       ORDER BY ct.escalated_at DESC
-      LIMIT 200
-    `);
+      LIMIT 300
+    `,
+      [ccoId, status],
+    );
     return rows;
+  }
+
+  /**
+   * Return repeated client/branch delay patterns for this CCO's CRM portfolio.
+   */
+  async getOversightDelays(user: any) {
+    const ccoId = user.userId ?? user.id;
+    return this.dataSource.query(
+      `
+      SELECT
+        c.id                AS "clientId",
+        b.id                AS "branchId",
+        c.client_name       AS "client",
+        COALESCE(b.branchname, '-') AS "branch",
+        crm.id              AS "crmId",
+        COALESCE(crm.name, '-') AS "crmName",
+        COUNT(*)::int       AS "repeatedCount",
+        COUNT(CASE WHEN ct.status IN ('OVERDUE', 'PENDING', 'IN_PROGRESS') THEN 1 END)::int AS "openCount",
+        MAX(ct.escalated_at) AS "latestEscalation",
+        ROUND(AVG(GREATEST(0, (CURRENT_DATE - ct.due_date)))::numeric, 1) AS "avgDelayDays"
+      FROM compliance_tasks ct
+      INNER JOIN clients c ON c.id = ct.client_id
+      INNER JOIN users crm ON crm.id = c.assigned_crm_id
+      LEFT JOIN client_branches b ON b.id = ct.branch_id
+      WHERE ct.escalated_at IS NOT NULL
+        AND crm.owner_cco_id = $1
+      GROUP BY c.id, b.id, c.client_name, b.branchname, crm.id, crm.name
+      HAVING COUNT(*) >= 2
+      ORDER BY COUNT(*) DESC, MAX(ct.escalated_at) DESC
+      LIMIT 100
+    `,
+      [ccoId],
+    );
+  }
+
+  /**
+   * Monthly trend for oversight visibility.
+   */
+  async getOversightTrends(user: any, months = 6) {
+    const ccoId = user.userId ?? user.id;
+    const safeMonths = Math.max(3, Math.min(Number(months) || 6, 24));
+    return this.dataSource.query(
+      `
+      WITH month_series AS (
+        SELECT generate_series(
+          date_trunc('month', CURRENT_DATE) - ($2 - 1) * INTERVAL '1 month',
+          date_trunc('month', CURRENT_DATE),
+          '1 month'::interval
+        ) AS month_start
+      ),
+      scoped_tasks AS (
+        SELECT
+          ct.*,
+          date_trunc('month', COALESCE(ct.escalated_at, ct.updated_at, ct.created_at)) AS month_start
+        FROM compliance_tasks ct
+        INNER JOIN clients c ON c.id = ct.client_id
+        INNER JOIN users crm ON crm.id = c.assigned_crm_id
+        WHERE crm.owner_cco_id = $1
+          AND COALESCE(ct.escalated_at, ct.updated_at, ct.created_at) >=
+              date_trunc('month', CURRENT_DATE) - ($2 - 1) * INTERVAL '1 month'
+      )
+      SELECT
+        to_char(ms.month_start, 'YYYY-MM') AS month,
+        COALESCE(COUNT(st.id), 0)::int AS "totalTouched",
+        COALESCE(COUNT(CASE WHEN st.escalated_at IS NOT NULL THEN 1 END), 0)::int AS "escalatedCount",
+        COALESCE(COUNT(CASE WHEN st.status = 'OVERDUE' THEN 1 END), 0)::int AS "overdueCount",
+        COALESCE(COUNT(CASE WHEN st.status IN ('APPROVED', 'COMPLETED') THEN 1 END), 0)::int AS "closedCount"
+      FROM month_series ms
+      LEFT JOIN scoped_tasks st ON st.month_start = ms.month_start
+      GROUP BY ms.month_start
+      ORDER BY ms.month_start ASC
+    `,
+      [ccoId, safeMonths],
+    );
   }
 
   // --- Real DB-backed dashboard ---
@@ -213,15 +331,15 @@ export class CcoService {
     const topOverdue = await this.dataSource.query(
       `SELECT
          cl.client_name AS "client",
-         b.branch_name  AS "branch",
+         b.branchname   AS "branch",
          COUNT(*)::int  AS "count"
        FROM compliance_tasks ct
        INNER JOIN clients  cl  ON cl.id = ct.client_id
        INNER JOIN users    crm ON crm.id = cl.assigned_crm_id
          AND crm.owner_cco_id = $1 AND crm.deleted_at IS NULL
-       LEFT  JOIN branches b   ON b.id = ct.branch_id
+       LEFT  JOIN client_branches b   ON b.id = ct.branch_id
        WHERE ct.status = 'OVERDUE'
-       GROUP BY cl.client_name, b.branch_name
+       GROUP BY cl.client_name, b.branchname
        ORDER BY COUNT(*) DESC
        LIMIT 5`,
       [ccoId],

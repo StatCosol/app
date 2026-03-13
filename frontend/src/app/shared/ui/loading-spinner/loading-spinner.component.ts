@@ -33,7 +33,7 @@ export class LoadingSpinnerComponent {
     }
 
     if (this.overlay) {
-      return `${base} absolute inset-0 z-10 bg-white/80 backdrop-blur-sm`;
+      return `${base} absolute inset-0 z-10 bg-white/85 backdrop-blur-[4px]`;
     }
 
     return base;
@@ -48,7 +48,7 @@ export class LoadingSpinnerComponent {
     };
 
     const colorClasses: Record<SpinnerColor, string> = {
-      primary: 'text-statco-blue',
+      primary: 'text-accent-400',
       white: 'text-white',
       gray: 'text-gray-400',
     };

@@ -24,6 +24,7 @@ import { ClientComplianceController } from './controllers/client-compliance.cont
 import { AdminComplianceController } from './controllers/admin-compliance.controller';
 import { AuditorComplianceController } from './controllers/auditor-compliance.controller';
 import { CommonComplianceController } from './controllers/common-compliance.controller';
+import { BranchReuploadController } from './controllers/branch-reupload.controller';
 import {
   ComplianceCrmDashboardController,
   ContractorDashboardController,
@@ -31,6 +32,7 @@ import {
   AdminRoleDashboardController,
   ComplianceAuditorDashboardController,
 } from './controllers/dashboard.controller';
+import { ComplianceTasksPortalController } from './controllers/compliance-tasks.controller';
 
 @Module({
   imports: [
@@ -55,11 +57,13 @@ import {
   ],
   controllers: [
     CrmComplianceTasksController,
+    ComplianceTasksPortalController,
     ContractorComplianceController,
     ClientComplianceController,
     AdminComplianceController,
     AuditorComplianceController,
     CommonComplianceController,
+    BranchReuploadController,
     ComplianceCrmDashboardController,
     ContractorDashboardController,
     ClientDashboardController,
@@ -67,5 +71,6 @@ import {
     ComplianceAuditorDashboardController,
   ],
   providers: [ComplianceService, ComplianceCronService],
+  exports: [ComplianceService],
 })
 export class ComplianceModule {}
