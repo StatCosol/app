@@ -102,13 +102,11 @@
               <td>{{ obs.category }}</td>
               <td class="truncate">{{ obs.description }}</td>
               <td>
-                <span [class]="dueBadgeClass(obs.dueDateIso, obs.status === 'CLOSED')">
-                  {{ dueBadgeText(obs.dueDateIso, obs.status === 'CLOSED') }}
-                </span>
+                <due-date-badge [dueDate]="obs.dueDateIso"></due-date-badge>
                 <div class="due-text" [class.overdue]="dueClass(obs).includes('bad')">{{ dueText(obs) }}</div>
               </td>
-              <td><span [class]="badgeClass(obs.severity)">{{ badgeLabel(obs.severity) }}</span></td>
-              <td><span [class]="badgeClass(obs.status)">{{ badgeLabel(obs.status) }}</span></td>
+              <td><status-chip [status]="obs.severity"></status-chip></td>
+              <td><status-chip [status]="obs.status"></status-chip></td>
             </tr>
           </tbody>
         </table>
@@ -119,15 +117,15 @@
       <article class="card">
         <div class="section-head">
           <h2>Observation Detail</h2>
-          <span [class]="badgeClass(obs.status)">{{ badgeLabel(obs.status) }}</span>
+          <status-chip [status]="obs.status"></status-chip>
         </div>
         <div class="kv-grid">
           <div><span>Reference</span><strong class="mono">{{ obs.observationRef }}</strong></div>
-          <div><span>Severity</span><strong><span [class]="badgeClass(obs.severity)">{{ badgeLabel(obs.severity) }}</span></strong></div>
+          <div><span>Severity</span><strong><status-chip [status]="obs.severity"></status-chip></strong></div>
           <div><span>Raised Date</span><strong>{{ obs.raisedDate }}</strong></div>
-          <div><span>Due Date</span><strong><span [class]="dueBadgeClass(obs.dueDateIso, obs.status === 'CLOSED')">{{ dueBadgeText(obs.dueDateIso, obs.status === 'CLOSED') }}</span></strong></div>
+          <div><span>Due Date</span><strong><due-date-badge [dueDate]="obs.dueDateIso"></due-date-badge></strong></div>
           <div><span>Assigned Auditor</span><strong>{{ obs.assignedTo }}</strong></div>
-          <div><span>Verification Status</span><strong><span [class]="badgeClass(auditorVerificationStatus)">{{ badgeLabel(auditorVerificationStatus) }}</span></strong></div>
+          <div><span>Verification Status</span><strong><status-chip [status]="auditorVerificationStatus"></status-chip></strong></div>
         </div>
         <div class="verification-note">{{ auditorVerificationLabel }}</div>
         <div class="description-box">
@@ -240,9 +238,7 @@
               <strong>{{ c.ticketRef }}</strong>
               <p>{{ c.createdAt ? (c.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
               <div class="case-meta-row" *ngIf="dueForCase(c)">
-                <span [class]="dueBadgeClass(dueForCase(c), c.capaStatus === 'CLOSED')">
-                  {{ dueBadgeText(dueForCase(c), c.capaStatus === 'CLOSED') }}
-                </span>
+                <due-date-badge [dueDate]="dueForCase(c)"></due-date-badge>
                 <span [class]="caseDueClass(c)">{{ caseDueText(c) }}</span>
               </div>
               <div class="case-evidence" *ngIf="c.evidenceFiles.length">
@@ -252,8 +248,8 @@
               </div>
             </div>
             <div class="case-badges">
-              <span [class]="badgeClass(c.capaStatus)">{{ badgeLabel(c.capaStatus) }}</span>
-              <span [class]="badgeClass(c.status)">{{ badgeLabel(c.status) }}</span>
+              <status-chip [status]="c.capaStatus"></status-chip>
+              <status-chip [status]="c.status"></status-chip>
             </div>
           </div>
         </div>
@@ -265,50 +261,15 @@
           <h2>Timeline</h2>
           <span>{{ selectedTimeline.length }} events</span>
         </div>
-        <div class="timeline" *ngIf="selectedTimeline.length; else noTimeline">
-          <div class="timeline-item" *ngFor="let event of selectedTimeline">
-            <div class="timeline-dot"></div>
-            <div class="timeline-body">
-              <div class="timeline-head">
-                <strong>{{ event.title }}</strong>
-                <span>{{ event.createdAt | date:'dd MMM yyyy, hh:mm a' }}</span>
-              </div>
-              <div class="timeline-meta">
-                <span *ngIf="event.actorRole" class="badge badge--muted">{{ badgeLabel(event.actorRole) }}</span>
-                <span *ngIf="event.statusTo" [class]="badgeClass(event.statusTo)">{{ badgeLabel(event.statusTo) }}</span>
-                <span *ngIf="event.attachmentsCount" class="badge badge--good">{{ event.attachmentsCount }} attachment</span>
-              </div>
-              <p *ngIf="event.comment">{{ event.comment }}</p>
-            </div>
-          </div>
-        </div>
-        <ng-template #noTimeline><div class="empty-mini">No timeline events available.</div></ng-template>
+        <shared-timeline [events]="selectedTimeline" emptyMessage="No timeline events available."></shared-timeline>
       </article>
     </aside>
   </section>
 </div>
 
-<div class="preview-backdrop" *ngIf="showEvidencePreview && evidencePreviewData">
-  <div class="preview-modal">
-    <div class="preview-head">
-      <div>
-        <strong>{{ evidencePreviewData.fileName }}</strong>
-        <span>{{ evidencePreviewData.uploadedAt ? (evidencePreviewData.uploadedAt | date:'dd MMM yyyy, hh:mm a') : 'Preview only' }}</span>
-      </div>
-      <button type="button" class="btn btn-ghost" (click)="closeEvidencePreview()">Close</button>
-    </div>
-    <div class="preview-meta">
-      <span [class]="badgeClass(evidencePreviewData.status)">{{ badgeLabel(evidencePreviewData.status) }}</span>
-      <span *ngIf="evidencePreviewData.fileSize">{{ evidencePreviewData.fileSize }} bytes</span>
-      <span *ngIf="evidencePreviewData.mimeType">{{ evidencePreviewData.mimeType }}</span>
-    </div>
-    <div class="preview-body">
-      <p *ngIf="evidencePreviewData.rejectionReason">Reason: {{ evidencePreviewData.rejectionReason }}</p>
-      <p *ngIf="!evidencePreviewData.url">No inline file URL is available for this evidence item. The file name is tracked in the case history.</p>
-      <iframe *ngIf="evidencePreviewData.url" [src]="evidencePreviewData.url"></iframe>
-    </div>
-    <div class="preview-actions">
-      <button type="button" class="btn btn-secondary" [disabled]="!evidencePreviewData.url" (click)="downloadEvidencePreview()">Open File</button>
-    </div>
-  </div>
-</div>
+<shared-file-preview-modal
+  [open]="showEvidencePreview"
+  [file]="evidencePreviewData"
+  (closed)="closeEvidencePreview()"
+  (download)="downloadEvidencePreview()"
+></shared-file-preview-modal>

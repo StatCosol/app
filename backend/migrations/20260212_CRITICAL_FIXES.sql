@@ -50,63 +50,19 @@ END $$;
 -- Issue #2: STANDARDIZE BRANCH TABLE NAMING
 -- ===================================================================
 -- Problem: Conflicts between 'branches' and 'client_branches' naming
--- Solution: Use 'branches' as canonical name, update all references
+-- Solution: Use 'client_branches' as canonical name (matches entity @Entity('client_branches'))
+-- The entity_schema_reconciliation migration (20260207) already renames branches → client_branches.
+-- All later migrations and FK references use client_branches.
 
--- Step 1: Rename client_branches back to branches if it exists and branches doesn't
+-- Step 1: Rename branches to client_branches if old name still exists
 DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.tables WHERE table_name = 'client_branches'
-  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.tables WHERE table_name = 'branches'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.tables WHERE table_name = 'client_branches'
   ) THEN
-    ALTER TABLE client_branches RENAME TO branches;
-  END IF;
-END $$;
-
--- Step 2: Update FK references in child tables to use 'branches'
--- Fix branch_documents FK
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.table_constraints
-    WHERE table_name = 'branch_documents'
-    AND constraint_name LIKE '%client_branches%'
-  ) THEN
-    ALTER TABLE branch_documents DROP CONSTRAINT IF EXISTS fk_branch_documents_client_branches;
-    ALTER TABLE branch_documents
-    ADD CONSTRAINT fk_branch_documents_branches
-    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE;
-  END IF;
-END $$;
-
--- Fix branch_auditor_assignments FK
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.table_constraints
-    WHERE table_name = 'branch_auditor_assignments'
-    AND constraint_name LIKE '%client_branches%'
-  ) THEN
-    ALTER TABLE branch_auditor_assignments DROP CONSTRAINT IF EXISTS fk_branch_auditor_assignments_client_branches;
-    ALTER TABLE branch_auditor_assignments
-    ADD CONSTRAINT fk_branch_auditor_assignments_branches
-    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE;
-  END IF;
-END $$;
-
--- Fix contractor_required_documents FK
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.table_constraints
-    WHERE table_name = 'contractor_required_documents'
-    AND constraint_name LIKE '%client_branches%'
-  ) THEN
-    ALTER TABLE contractor_required_documents DROP CONSTRAINT IF EXISTS fk_contractor_required_documents_client_branches;
-    ALTER TABLE contractor_required_documents
-    ADD CONSTRAINT fk_contractor_required_documents_branches
-    FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE;
+    ALTER TABLE branches RENAME TO client_branches;
   END IF;
 END $$;
 
@@ -184,7 +140,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'audits' AND column_name = 'branch_id'
   ) THEN
-    ALTER TABLE audits ADD COLUMN branch_id UUID REFERENCES branches(id) ON DELETE SET NULL;
+    ALTER TABLE audits ADD COLUMN branch_id UUID REFERENCES client_branches(id) ON DELETE SET NULL;
   END IF;
 
   -- Keep start_date and end_date if audit schedule tracking is needed
@@ -242,17 +198,17 @@ BEGIN
     WHERE table_name = 'branch_auditor_assignments'
   ) AND EXISTS (
     SELECT 1 FROM information_schema.tables
-    WHERE table_name = 'branches'
+    WHERE table_name = 'client_branches'
   ) THEN
     -- Verify FK exists and is correct
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.table_constraints
       WHERE table_name = 'branch_auditor_assignments'
-      AND constraint_name = 'fk_branch_auditor_assignments_branches'
+      AND constraint_name = 'fk_branch_auditor_assignments_client_branches'
     ) THEN
       ALTER TABLE branch_auditor_assignments
-      ADD CONSTRAINT fk_branch_auditor_assignments_branches
-      FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE;
+      ADD CONSTRAINT fk_branch_auditor_assignments_client_branches
+      FOREIGN KEY (branch_id) REFERENCES client_branches(id) ON DELETE CASCADE;
     END IF;
   END IF;
 END $$;
@@ -294,7 +250,7 @@ BEGIN
     ) THEN
       ALTER TABLE compliance_returns
       ADD CONSTRAINT fk_compliance_returns_branch
-      FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL;
+      FOREIGN KEY (branch_id) REFERENCES client_branches(id) ON DELETE SET NULL;
     END IF;
   END IF;
 END $$;
@@ -329,7 +285,7 @@ DECLARE
 BEGIN
   -- Count tables that were fixed
   SELECT COUNT(*) INTO v_tables_fixed FROM information_schema.tables
-  WHERE table_name IN ('notification_reads', 'branches', 'audit_observations', 'audits', 'compliance_returns');
+  WHERE table_name IN ('notification_reads', 'client_branches', 'audit_observations', 'audits', 'compliance_returns');
 
   RAISE NOTICE 'Migration 20260212_CRITICAL_FIXES: % tables verified', v_tables_fixed;
 END $$;

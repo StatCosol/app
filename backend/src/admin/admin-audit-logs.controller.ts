@@ -7,6 +7,7 @@ import {
   AuditAction,
   AuditEntityType,
 } from '../audit-logs/entities/audit-log.entity';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 type AuditLogsQuery = {
   entityType?: AuditEntityType;
@@ -19,12 +20,15 @@ type AuditLogsQuery = {
   to?: string;
 };
 
+@ApiTags('Admin')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/audit-logs', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminAuditLogsController {
   constructor(private readonly auditLogs: AuditLogsService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get()
   list(@Query() query: AuditLogsQuery) {
     const limit = query.limit ? Number(query.limit) : undefined;

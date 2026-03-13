@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, IsEnum, IsInt } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsEnum,
+  IsInt,
+} from 'class-validator';
 
 export class RunRiskAssessmentDto {
   @IsUUID()

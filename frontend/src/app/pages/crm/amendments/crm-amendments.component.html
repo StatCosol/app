@@ -95,7 +95,7 @@
   <ui-empty-state
     *ngIf="!loading && !viewItems.length"
     title="No amendments found"
-    description="No amendment items match the current queue filters.">
+    message="No amendment items match the current queue filters.">
   </ui-empty-state>
 
   <div class="workspace-grid" *ngIf="!loading && viewItems.length">

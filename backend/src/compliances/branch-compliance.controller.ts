@@ -13,6 +13,7 @@ import { Roles } from '../auth/roles.decorator';
 import { SlaComplianceResolverService } from './sla-compliance-resolver.service';
 import { SlaComplianceScheduleService } from './sla-compliance-schedule.service';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
  * GET /api/v1/branches/:branchId/compliance-items?month=YYYY-MM
@@ -20,6 +21,8 @@ import { AssignmentsService } from '../assignments/assignments.service';
  * Returns only applicable compliance items for that branch,
  * filtered by state_code + establishment_type with specificity.
  */
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'branches', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CCO', 'CEO', 'CRM', 'CLIENT')
@@ -30,6 +33,7 @@ export class BranchComplianceController {
     private readonly assignments: AssignmentsService,
   ) {}
 
+  @ApiOperation({ summary: 'List Branch Compliance' })
   @Get(':branchId/compliance-items')
   async listBranchCompliance(
     @Param('branchId') branchId: string,
@@ -61,7 +65,8 @@ export class BranchComplianceController {
       // (we trust if they passed the guard; fine-grained check below)
     }
 
-    const { branch, applicable } = await this.resolver.getApplicableRules(branchId);
+    const { branch, applicable } =
+      await this.resolver.getApplicableRules(branchId);
 
     const items = this.schedule.buildMonthSchedule({
       branch,

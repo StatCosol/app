@@ -62,7 +62,8 @@ export class HelpdeskService {
       const qb = this.ticketRepo
         .createQueryBuilder('t')
         .where('t.client_id = :clientId', { clientId: user.clientId });
-      if (q?.branchId) qb.andWhere('t.branch_id = :branchId', { branchId: q.branchId });
+      if (q?.branchId)
+        qb.andWhere('t.branch_id = :branchId', { branchId: q.branchId });
       if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
       if (q?.category) qb.andWhere('t.category = :cat', { cat: q.category });
       qb.orderBy('t.created_at', 'DESC');

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
@@ -17,6 +18,8 @@ import { BranchEntity } from '../branches/entities/branch.entity';
 
 @Injectable()
 export class CompliancesService {
+  private readonly logger = new Logger(CompliancesService.name);
+
   constructor(
     @InjectRepository(ComplianceMasterEntity)
     private readonly complianceRepo: Repository<ComplianceMasterEntity>,
@@ -65,7 +68,10 @@ export class CompliancesService {
         order: { id: 'ASC' },
       });
     } catch (err) {
-      // If compliance_master table is missing in a given environment, fail softly for admin UI
+      this.logger.error(
+        'findAll compliance_master failed',
+        (err as Error).stack,
+      );
       return [];
     }
   }

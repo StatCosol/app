@@ -1,0 +1,129 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Admin Digest Center"
+    description="Schedule visibility, preview counts, manual trigger actions, and digest run history">
+  </ui-page-header>
+
+  <div class="flex flex-wrap gap-2 mb-4">
+    <ui-button variant="secondary" size="sm" (clicked)="loadAll()">Refresh</ui-button>
+    <ui-button variant="primary" size="sm" [loading]="sendingWeekly" (clicked)="runWeeklyDigest()">
+      Run Weekly Digest
+    </ui-button>
+    <ui-button variant="primary" size="sm" [loading]="sendingCritical" (clicked)="runCriticalDigest()">
+      Run Critical Alerts
+    </ui-button>
+  </div>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading digest center..."></ui-loading-spinner>
+
+  <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4">
+    {{ error }}
+  </div>
+
+  <ng-container *ngIf="!loading && !error">
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-5">
+      <article class="card stat">
+        <span class="label">Recipients</span>
+        <strong>{{ recipientsCount }}</strong>
+      </article>
+      <article class="card stat">
+        <span class="label">Weekly Overdue Audits</span>
+        <strong>{{ weeklyPreview.overdueAuditsCount || 0 }}</strong>
+      </article>
+      <article class="card stat">
+        <span class="label">Weekly Assignments Due</span>
+        <strong>{{ weeklyPreview.assignmentsDueCount || 0 }}</strong>
+      </article>
+      <article class="card stat">
+        <span class="label">Critical Overdue > 30d</span>
+        <strong>{{ criticalPreview.overdueAudits30Count || 0 }}</strong>
+      </article>
+      <article class="card stat">
+        <span class="label">Critical Assignments Past Due</span>
+        <strong>{{ criticalPreview.assignmentsPastDueCount || 0 }}</strong>
+      </article>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+      <article class="card">
+        <h3 class="title">Schedules</h3>
+        <div class="space-y-2" *ngIf="config?.schedules?.length; else noSchedules">
+          <div class="row" *ngFor="let s of config.schedules">
+            <div>
+              <div class="row-title">{{ s.label }}</div>
+              <div class="row-sub">{{ s.description }}</div>
+            </div>
+            <div class="text-right">
+              <div class="mono">{{ s.cron }}</div>
+              <div class="row-sub">{{ s.timezone }}</div>
+            </div>
+          </div>
+        </div>
+        <ng-template #noSchedules>
+          <ui-empty-state title="No schedule config" description="Digest schedules are not available."></ui-empty-state>
+        </ng-template>
+      </article>
+
+      <article class="card">
+        <h3 class="title">Recipients</h3>
+        <div class="space-y-2 recipient-list" *ngIf="config?.recipients?.length; else noRecipients">
+          <div class="row" *ngFor="let r of config.recipients">
+            <div class="row-title">{{ r.email }}</div>
+            <ui-status-badge [status]="r.roleCode"></ui-status-badge>
+          </div>
+        </div>
+        <ng-template #noRecipients>
+          <ui-empty-state title="No recipients" description="No ADMIN/CCO recipients found."></ui-empty-state>
+        </ng-template>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="title">Digest Run History</h3>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-600">
+            Limit
+            <select class="field" [(ngModel)]="historyLimit" (ngModelChange)="refreshHistory()">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="30">30</option>
+              <option [ngValue]="50">50</option>
+              <option [ngValue]="100">100</option>
+            </select>
+          </label>
+          <ui-button variant="secondary" size="sm" [loading]="historyLoading" (clicked)="refreshHistory()">Reload</ui-button>
+        </div>
+      </div>
+
+      <div *ngIf="history.length; else noHistory" class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Source</th>
+              <th>Recipients</th>
+              <th>Error</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of history; trackBy: trackHistory">
+              <td class="mono">{{ row.id }}</td>
+              <td>{{ row.digestType }}</td>
+              <td><span [class]="statusTone(row.status)">{{ row.status }}</span></td>
+              <td>{{ row.source }}</td>
+              <td>{{ row.recipientsCount }}</td>
+              <td class="error-cell">{{ row.errorMessage || '-' }}</td>
+              <td>{{ row.createdAt | date:'medium' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noHistory>
+        <ui-empty-state title="No digest runs yet" description="Run digest actions to populate history."></ui-empty-state>
+      </ng-template>
+    </section>
+  </ng-container>
+</div>

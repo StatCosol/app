@@ -4,18 +4,23 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ClientDashboardService } from './client-dashboard.service';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Clients')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'client-dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
 export class ClientStatsDashboardController {
   constructor(private readonly svc: ClientDashboardService) {}
 
+  @ApiOperation({ summary: 'Get Pf Esi' })
   @Get('pf-esi-summary')
   getPfEsi(@Req() req: any, @Query() query: ClientDashboardQueryDto) {
     return this.svc.getPfEsiSummary(req.user, query);
   }
 
+  @ApiOperation({ summary: 'Get Contractor Summary' })
   @Get('contractor-upload-summary')
   getContractorSummary(
     @Req() req: any,

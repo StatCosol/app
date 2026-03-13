@@ -230,7 +230,7 @@ export class AdminPayrollClientSettingsComponent implements OnInit, OnDestroy {
           }
         },
         error: () => {
-          this.toast.error('Could not load client settings.');
+          this.toast.error('Load failed', 'Could not load client settings.');
           this.settingsForm = this.defaultForm();
           this.extraSettings = {};
         },
@@ -239,13 +239,13 @@ export class AdminPayrollClientSettingsComponent implements OnInit, OnDestroy {
 
   saveClientSettings(): void {
     if (!this.selectedClientId) {
-      this.toast.warning('Choose a client before saving settings.');
+      this.toast.warning('Select client', 'Choose a client before saving settings.');
       return;
     }
 
     const validationMessage = this.validateForm();
     if (validationMessage) {
-      this.toast.warning(validationMessage);
+      this.toast.warning('Validation failed', validationMessage);
       return;
     }
 
@@ -287,10 +287,10 @@ export class AdminPayrollClientSettingsComponent implements OnInit, OnDestroy {
           }
           this.applyFilters();
 
-          this.toast.success(`${this.selectedClientName} payroll defaults updated.`);
+          this.toast.success('Settings saved', `${this.selectedClientName} payroll defaults updated.`);
         },
         error: (err: any) => {
-          this.toast.error(err?.error?.message || 'Could not save client settings.');
+          this.toast.error('Save failed', err?.error?.message || 'Could not save client settings.');
         },
       });
   }
