@@ -23,7 +23,13 @@ export class PayrollRunComponentValueEntity {
   @Column({ name: 'component_code', type: 'varchar', length: 60 })
   componentCode: string;
 
-  @Column({ name: 'amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   amount: string;
 
   @Column({ name: 'source', type: 'varchar', length: 20, default: 'UPLOADED' })

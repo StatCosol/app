@@ -1,25 +1,46 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, Payslip } from '../ess-api.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-ess-payslips',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="max-w-5xl mx-auto space-y-6">
       <h1 class="text-2xl font-bold text-gray-900">My Payslips</h1>
 
-      <div *ngIf="loading" class="text-gray-500 text-sm">Loading...</div>
-
-      <div *ngIf="!loading && !payslips.length"
-           class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500">
-        No payslips found.
+      <!-- Filter bar -->
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Year</label>
+          <select [(ngModel)]="filterYear" (ngModelChange)="applyFilter()" class="input-sm">
+            <option value="">All Years</option>
+            <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Month</label>
+          <select [(ngModel)]="filterMonth" (ngModelChange)="applyFilter()" class="input-sm">
+            <option value="">All Months</option>
+            <option *ngFor="let m of monthFilterOptions" [value]="m.value">{{ m.label }}</option>
+          </select>
+        </div>
+        <span class="text-sm text-gray-500 ml-auto">{{ filteredPayslips.length }} payslip{{ filteredPayslips.length !== 1 ? 's' : '' }}</span>
       </div>
 
-      <div *ngIf="!loading && payslips.length" class="section-card">
+      <div *ngIf="loading" class="text-gray-500 text-sm">Loading...</div>
+
+      <div *ngIf="!loading && !filteredPayslips.length"
+           class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500">
+        No payslips found for the selected filter.
+      </div>
+
+      <div *ngIf="!loading && filteredPayslips.length" class="section-card">
         <table class="data-table">
           <thead>
             <tr>
@@ -31,7 +52,7 @@ import { EssApiService, Payslip } from '../ess-api.service';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let p of payslips">
+            <tr *ngFor="let p of filteredPayslips">
               <td class="font-medium">{{ monthName(p.periodMonth) }} {{ p.periodYear }}</td>
               <td>
                 <span *ngIf="p.fileName" class="text-gray-700">{{ p.fileName }}</span>
@@ -99,12 +120,20 @@ import { EssApiService, Payslip } from '../ess-api.service';
     .download-btn:hover { opacity: 0.9; }
     .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .download-btn svg { width: 16px; height: 16px; }
+    .input-sm {
+      border: 1px solid #d1d5db; border-radius: 0.5rem;
+      padding: 0.375rem 0.75rem; font-size: 0.875rem;
+      background: white; min-width: 120px;
+    }
   `],
 })
 export class EssPayslipsComponent implements OnInit, OnDestroy {
   payslips: Payslip[] = [];
+  filteredPayslips: Payslip[] = [];
   loading = false;
   downloading = new Set<string>();
+  filterYear = '';
+  filterMonth = '';
   private readonly destroy$ = new Subject<void>();
 
   private months = [
@@ -112,7 +141,21 @@ export class EssPayslipsComponent implements OnInit, OnDestroy {
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
-  constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
+  readonly yearOptions: number[] = (() => {
+    const now = new Date().getFullYear();
+    return [now, now - 1, now - 2, now - 3];
+  })();
+
+  readonly monthFilterOptions = [
+    { value: '1', label: 'January' }, { value: '2', label: 'February' },
+    { value: '3', label: 'March' }, { value: '4', label: 'April' },
+    { value: '5', label: 'May' }, { value: '6', label: 'June' },
+    { value: '7', label: 'July' }, { value: '8', label: 'August' },
+    { value: '9', label: 'September' }, { value: '10', label: 'October' },
+    { value: '11', label: 'November' }, { value: '12', label: 'December' },
+  ];
+
+  constructor(private api: EssApiService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loading = true;
@@ -122,14 +165,25 @@ export class EssPayslipsComponent implements OnInit, OnDestroy {
         finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: (list) => { this.loading = false; this.payslips = list; },
-        error: () => { this.loading = false; this.payslips = []; },
+        next: (list) => { this.loading = false; this.payslips = list; this.applyFilter(); },
+        error: () => { this.loading = false; this.payslips = []; this.filteredPayslips = []; },
       });
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  applyFilter(): void {
+    let result = [...this.payslips];
+    if (this.filterYear) {
+      result = result.filter(p => String(p.periodYear) === this.filterYear);
+    }
+    if (this.filterMonth) {
+      result = result.filter(p => String(p.periodMonth) === this.filterMonth);
+    }
+    this.filteredPayslips = result;
   }
 
   monthName(m: number): string {
@@ -165,7 +219,7 @@ export class EssPayslipsComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.downloading.delete(p.id);
-          alert('Failed to download payslip. The file may not be available.');
+          this.toast.error('Failed to download payslip. The file may not be available.');
         },
       });
   }

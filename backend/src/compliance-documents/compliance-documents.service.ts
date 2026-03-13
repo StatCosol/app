@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { ComplianceDocumentEntity, DocumentCategory } from './entities/compliance-document.entity';
+import {
+  ComplianceDocLibraryEntity,
+  DocumentCategory,
+} from './entities/compliance-document.entity';
 import { ComplianceDocumentVisibilityEntity } from './entities/compliance-document-visibility.entity';
 import { CompanySettingsEntity } from './entities/company-settings.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
@@ -17,7 +20,12 @@ import { UpdateCompanySettingsDto } from './dto/update-company-settings.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string; size?: number };
+type UploadedFile = {
+  originalname: string;
+  buffer: Buffer;
+  mimetype: string;
+  size?: number;
+};
 
 @Injectable()
 export class ComplianceDocumentsService {
@@ -31,8 +39,8 @@ export class ComplianceDocumentsService {
   ]);
 
   constructor(
-    @InjectRepository(ComplianceDocumentEntity)
-    private readonly docRepo: Repository<ComplianceDocumentEntity>,
+    @InjectRepository(ComplianceDocLibraryEntity)
+    private readonly docRepo: Repository<ComplianceDocLibraryEntity>,
     @InjectRepository(ComplianceDocumentVisibilityEntity)
     private readonly visibilityRepo: Repository<ComplianceDocumentVisibilityEntity>,
     @InjectRepository(CompanySettingsEntity)
@@ -50,10 +58,12 @@ export class ComplianceDocumentsService {
     file: UploadedFile,
     userId: string,
     role: string,
-  ): Promise<ComplianceDocumentEntity> {
+  ): Promise<ComplianceDocLibraryEntity> {
     if (!file?.buffer) throw new BadRequestException('File is required');
     if (!this.allowedMimeTypes.has(file.mimetype)) {
-      throw new BadRequestException(`File type ${file.mimetype} is not allowed`);
+      throw new BadRequestException(
+        `File type ${file.mimetype} is not allowed`,
+      );
     }
 
     // Save file to disk
@@ -75,7 +85,10 @@ export class ComplianceDocumentsService {
     fs.writeFileSync(filePath, file.buffer);
 
     // Build relative path
-    const relativePath = path.relative(path.join(process.cwd(), 'uploads'), filePath);
+    const relativePath = path.relative(
+      path.join(process.cwd(), 'uploads'),
+      filePath,
+    );
 
     const doc = this.docRepo.create({
       clientId: dto.clientId,
@@ -105,7 +118,7 @@ export class ComplianceDocumentsService {
     clientId: string,
     userId: string,
     filters: ListComplianceDocumentsDto,
-  ): Promise<ComplianceDocumentEntity[]> {
+  ): Promise<ComplianceDocLibraryEntity[]> {
     const isMaster = await this.branchAccess.isMasterUser(userId);
     const qb = this.baseQuery(clientId, filters);
 
@@ -138,7 +151,7 @@ export class ComplianceDocumentsService {
   async listForCrm(
     crmUserId: string,
     filters: ListComplianceDocumentsDto,
-  ): Promise<ComplianceDocumentEntity[]> {
+  ): Promise<ComplianceDocLibraryEntity[]> {
     // CRM sees docs of assigned clients only
     const clientId = filters.clientId;
     if (!clientId) throw new BadRequestException('clientId is required');
@@ -147,7 +160,8 @@ export class ComplianceDocumentsService {
     const assignment = await this.assignmentsRepo.findOne({
       where: { assignedToUserId: crmUserId, clientId },
     });
-    if (!assignment) throw new ForbiddenException('Not assigned to this client');
+    if (!assignment)
+      throw new ForbiddenException('Not assigned to this client');
 
     const qb = this.baseQuery(clientId, filters);
     if (filters.category) {
@@ -161,7 +175,7 @@ export class ComplianceDocumentsService {
   // ══════════════════════════════════════════════════════════
   async listForAdmin(
     filters: ListComplianceDocumentsDto,
-  ): Promise<ComplianceDocumentEntity[]> {
+  ): Promise<ComplianceDocLibraryEntity[]> {
     const clientId = filters.clientId;
     if (!clientId) throw new BadRequestException('clientId is required');
     const qb = this.baseQuery(clientId, filters);
@@ -180,12 +194,15 @@ export class ComplianceDocumentsService {
     userRole: string,
     clientId?: string,
   ): Promise<{ absolutePath: string; fileName: string; mimeType: string }> {
-    const doc = await this.docRepo.findOne({ where: { id: docId, isDeleted: false } });
+    const doc = await this.docRepo.findOne({
+      where: { id: docId, isDeleted: false },
+    });
     if (!doc) throw new NotFoundException('Document not found');
 
     // Role-based access
     if (userRole === 'CLIENT') {
-      if (doc.clientId !== clientId) throw new ForbiddenException('Access denied');
+      if (doc.clientId !== clientId)
+        throw new ForbiddenException('Access denied');
       const isMaster = await this.branchAccess.isMasterUser(userId);
       if (!isMaster) {
         // Branch user checks
@@ -195,15 +212,22 @@ export class ComplianceDocumentsService {
         }
         // Check register restrictions
         if (doc.category === 'REGISTER') {
-          const blocked = await this.isRegisterBlockedForBranchUser(doc, clientId!);
-          if (blocked) throw new ForbiddenException('Access to this register is restricted by company settings');
+          const blocked = await this.isRegisterBlockedForBranchUser(
+            doc,
+            clientId,
+          );
+          if (blocked)
+            throw new ForbiddenException(
+              'Access to this register is restricted by company settings',
+            );
         }
       }
     } else if (userRole === 'CRM') {
       const assignment = await this.assignmentsRepo.findOne({
         where: { assignedToUserId: userId, clientId: doc.clientId },
       });
-      if (!assignment) throw new ForbiddenException('Not assigned to this client');
+      if (!assignment)
+        throw new ForbiddenException('Not assigned to this client');
     }
     // ADMIN can download anything
 
@@ -223,7 +247,9 @@ export class ComplianceDocumentsService {
   // SOFT DELETE
   // ══════════════════════════════════════════════════════════
   async softDelete(docId: string, userId: string): Promise<void> {
-    const doc = await this.docRepo.findOne({ where: { id: docId, isDeleted: false } });
+    const doc = await this.docRepo.findOne({
+      where: { id: docId, isDeleted: false },
+    });
     if (!doc) throw new NotFoundException('Document not found');
     doc.isDeleted = true;
     doc.deletedAt = new Date();
@@ -236,10 +262,12 @@ export class ComplianceDocumentsService {
   // ══════════════════════════════════════════════════════════
   async getCompanySettings(clientId: string): Promise<Record<string, any>> {
     const row = await this.settingsRepo.findOne({ where: { clientId } });
-    return row?.settings || {
-      allowBranchWageRegisters: true,
-      allowBranchSalaryRegisters: true,
-    };
+    return (
+      row?.settings || {
+        allowBranchWageRegisters: true,
+        allowBranchSalaryRegisters: true,
+      }
+    );
   }
 
   async updateCompanySettings(
@@ -251,16 +279,25 @@ export class ComplianceDocumentsService {
     if (!row) {
       row = this.settingsRepo.create({
         clientId,
-        settings: { allowBranchWageRegisters: true, allowBranchSalaryRegisters: true },
+        settings: {
+          allowBranchWageRegisters: true,
+          allowBranchSalaryRegisters: true,
+        },
         updatedBy: userId,
       });
     }
     // Merge settings
     if (dto.allowBranchWageRegisters !== undefined) {
-      row.settings = { ...row.settings, allowBranchWageRegisters: dto.allowBranchWageRegisters };
+      row.settings = {
+        ...row.settings,
+        allowBranchWageRegisters: dto.allowBranchWageRegisters,
+      };
     }
     if (dto.allowBranchSalaryRegisters !== undefined) {
-      row.settings = { ...row.settings, allowBranchSalaryRegisters: dto.allowBranchSalaryRegisters };
+      row.settings = {
+        ...row.settings,
+        allowBranchSalaryRegisters: dto.allowBranchSalaryRegisters,
+      };
     }
     row.updatedBy = userId;
     const saved = await this.settingsRepo.save(row);
@@ -308,9 +345,7 @@ export class ComplianceDocumentsService {
         { code: 'PF_REG', label: 'PF Registration' },
         { code: 'ESI_REG', label: 'ESI Registration' },
       ],
-      MCD: [
-        { code: 'MCD', label: 'Monthly Compliance Docket' },
-      ],
+      MCD: [{ code: 'MCD', label: 'Monthly Compliance Docket' }],
       AUDIT_REPORT: [
         { code: 'INTERNAL', label: 'Internal Audit Report' },
         { code: 'STATUTORY', label: 'Statutory Audit Report' },
@@ -325,7 +360,7 @@ export class ComplianceDocumentsService {
   private baseQuery(
     clientId: string,
     filters: ListComplianceDocumentsDto,
-  ): SelectQueryBuilder<ComplianceDocumentEntity> {
+  ): SelectQueryBuilder<ComplianceDocLibraryEntity> {
     const qb = this.docRepo
       .createQueryBuilder('doc')
       .where('doc.client_id = :clientId', { clientId })
@@ -335,24 +370,33 @@ export class ComplianceDocumentsService {
       qb.andWhere('doc.branch_id = :branchId', { branchId: filters.branchId });
     }
     if (filters.subCategory) {
-      qb.andWhere('doc.sub_category = :subCategory', { subCategory: filters.subCategory });
+      qb.andWhere('doc.sub_category = :subCategory', {
+        subCategory: filters.subCategory,
+      });
     }
     if (filters.periodYear) {
-      qb.andWhere('doc.period_year = :periodYear', { periodYear: filters.periodYear });
+      qb.andWhere('doc.period_year = :periodYear', {
+        periodYear: filters.periodYear,
+      });
     }
     if (filters.periodMonth) {
-      qb.andWhere('doc.period_month = :periodMonth', { periodMonth: filters.periodMonth });
+      qb.andWhere('doc.period_month = :periodMonth', {
+        periodMonth: filters.periodMonth,
+      });
     }
     if (filters.search) {
-      qb.andWhere('(doc.title ILIKE :search OR doc.description ILIKE :search)', {
-        search: `%${filters.search}%`,
-      });
+      qb.andWhere(
+        '(doc.title ILIKE :search OR doc.description ILIKE :search)',
+        {
+          search: `%${filters.search}%`,
+        },
+      );
     }
     return qb;
   }
 
   private async applyRegisterRestrictions(
-    qb: SelectQueryBuilder<ComplianceDocumentEntity>,
+    qb: SelectQueryBuilder<ComplianceDocLibraryEntity>,
     clientId: string,
   ): Promise<void> {
     const settings = await this.getCompanySettings(clientId);
@@ -369,13 +413,15 @@ export class ComplianceDocumentsService {
   }
 
   private async isRegisterBlockedForBranchUser(
-    doc: ComplianceDocumentEntity,
+    doc: ComplianceDocLibraryEntity,
     clientId: string,
   ): Promise<boolean> {
     if (doc.category !== 'REGISTER') return false;
     const settings = await this.getCompanySettings(clientId);
-    if (doc.subCategory === 'WAGE' && !settings.allowBranchWageRegisters) return true;
-    if (doc.subCategory === 'SALARY' && !settings.allowBranchSalaryRegisters) return true;
+    if (doc.subCategory === 'WAGE' && !settings.allowBranchWageRegisters)
+      return true;
+    if (doc.subCategory === 'SALARY' && !settings.allowBranchSalaryRegisters)
+      return true;
     return false;
   }
 }

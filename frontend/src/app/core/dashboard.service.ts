@@ -169,6 +169,14 @@ export class DashboardService {
     return this.http.get(`${this.baseUrl}/api/v1/contractor/dashboard`);
   }
 
+  /** Get monthly score trend for the logged-in contractor */
+  contractorScoreTrend(from?: string, to?: string): Observable<any[]> {
+    const params: any = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/contractor/score-trend`, { params });
+  }
+
   client(): Observable<any> {
     return this.http.get(`${this.baseUrl}/api/v1/client/dashboard`);
   }

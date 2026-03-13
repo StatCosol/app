@@ -29,7 +29,10 @@ describe('ReturnsService (integration) - soft delete / restore', () => {
           entities: [ComplianceReturnEntity, ClientAssignmentCurrentEntity],
           synchronize: true,
         }),
-        TypeOrmModule.forFeature([ComplianceReturnEntity, ClientAssignmentCurrentEntity]),
+        TypeOrmModule.forFeature([
+          ComplianceReturnEntity,
+          ClientAssignmentCurrentEntity,
+        ]),
       ],
       providers: [
         ReturnsService,

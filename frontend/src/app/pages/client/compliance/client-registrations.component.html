@@ -33,34 +33,35 @@
     </div>
   </div>
 
-  <!-- Table -->
-  <table class="table" *ngIf="!loading">
-    <thead>
-      <tr>
-        <th>Registration</th>
-        <th>Number</th>
-        <th>Authority</th>
-        <th>Issued</th>
-        <th>Expiry</th>
-        <th>Days</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let r of filtered">
-        <td>{{ r.type }}</td>
-        <td>{{ r.registrationNumber }}</td>
-        <td>{{ r.authority }}</td>
-        <td>{{ r.issuedDate | date:'dd-MMM-yyyy' }}</td>
-        <td>{{ r.expiryDate | date:'dd-MMM-yyyy' }}</td>
-        <td>{{ r.daysRemaining }}</td>
-        <td>{{ r.computedStatus }}</td>
-      </tr>
+  <!-- Loading -->
+  <div *ngIf="loading" class="text-center py-8 text-gray-500">Loading registrations...</div>
 
-      <tr *ngIf="filtered.length === 0">
-        <td colspan="7">No registrations found</td>
-      </tr>
-    </tbody>
-  </table>
+  <!-- Error -->
+  <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+
+  <!-- Table -->
+  <ui-data-table *ngIf="!loading && !error"
+    [columns]="regColumns" [data]="filtered" [loading]="loading"
+    emptyMessage="No registrations found">
+    <ng-template uiTableCell="issuedDate" let-row>
+      {{ row.issuedDate | date:'dd-MMM-yyyy' }}
+    </ng-template>
+    <ng-template uiTableCell="expiryDate" let-row>
+      {{ row.expiryDate | date:'dd-MMM-yyyy' }}
+    </ng-template>
+    <ng-template uiTableCell="daysRemaining" let-row>
+      <span [class.text-red-600]="row.daysRemaining <= 0" [class.text-orange-500]="row.daysRemaining > 0 && row.daysRemaining <= 30">
+        {{ row.daysRemaining }}
+      </span>
+    </ng-template>
+    <ng-template uiTableCell="computedStatus" let-row>
+      <span class="text-xs px-2 py-0.5 rounded-full"
+        [ngClass]="{
+          'bg-green-100 text-green-700': row.computedStatus === 'ACTIVE',
+          'bg-orange-100 text-orange-700': row.computedStatus === 'EXPIRING_SOON',
+          'bg-red-100 text-red-700': row.computedStatus === 'EXPIRED'
+        }">{{ row.computedStatus }}</span>
+    </ng-template>
+  </ui-data-table>
 
 </div>

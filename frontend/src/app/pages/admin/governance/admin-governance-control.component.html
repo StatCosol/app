@@ -1,0 +1,216 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Governance Control Center"
+    description="Central view for assignment gaps, stale accounts, and rotation exceptions"
+    icon="shield-check">
+  </ui-page-header>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading governance signals..."></ui-loading-spinner>
+
+  <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+
+  <div *ngIf="!loading" class="space-y-4">
+    <section class="cards-grid">
+      <article class="summary-card">
+        <h4>Total Clients</h4>
+        <strong>{{ assignmentSummary.totalClients }}</strong>
+        <p>Governed client entities in scope</p>
+      </article>
+      <article class="summary-card summary-card--warn">
+        <h4>Unassigned Coverage</h4>
+        <strong>{{ unassignedTotal }}</strong>
+        <p>CRM + Auditor assignment gaps</p>
+      </article>
+      <article class="summary-card summary-card--danger">
+        <h4>High Risk Signals</h4>
+        <strong>{{ highRiskSignalCount }}</strong>
+        <p>Audit overdue, no CRM, no Payroll</p>
+      </article>
+      <article class="summary-card">
+        <h4>Inactive Users (15d)</h4>
+        <strong>{{ staleUsersCount }}</strong>
+        <p>Users requiring review/deactivation</p>
+      </article>
+    </section>
+
+    <section class="workspace-card">
+      <div class="panel-head">
+        <h3>Governance Guardrails</h3>
+        <span class="panel-sub">Critical {{ criticalGuardrailsCount }} · High {{ highGuardrailsCount }}</span>
+      </div>
+      <div class="guardrail-grid">
+        <a
+          *ngFor="let item of governanceGuardrails"
+          class="guardrail-card"
+          [routerLink]="item.route">
+          <div class="guardrail-head">
+            <strong>{{ item.label }}</strong>
+            <span [class]="severityClass(item.severity)">{{ item.severity }}</span>
+          </div>
+          <div class="guardrail-count">{{ item.count }}</div>
+          <p>{{ item.detail }}</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="workspace-grid">
+      <article class="workspace-card">
+        <div class="panel-head">
+          <h3>Unassigned Clients</h3>
+          <a routerLink="/admin/governance/unassigned" class="panel-link">Open full report</a>
+        </div>
+        <div *ngIf="unassignedClients.length; else noUnassigned" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Branches</th>
+                <th>CRM</th>
+                <th>Payroll</th>
+                <th>Master User</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of unassignedClients | slice:0:10">
+                <td>{{ row.clientName }}</td>
+                <td>{{ row.branchCount }}</td>
+                <td>{{ row.hasCrm ? 'Yes' : 'No' }}</td>
+                <td>{{ row.hasPayrollUser ? 'Yes' : 'No' }}</td>
+                <td>{{ row.hasMasterUser ? 'Yes' : 'No' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noUnassigned>
+          <ui-empty-state
+            title="No assignment gaps"
+            description="All clients currently have required assignment coverage.">
+          </ui-empty-state>
+        </ng-template>
+      </article>
+
+      <article class="workspace-card">
+        <div class="panel-head">
+          <h3>Duplicate Mapping Alerts</h3>
+          <a routerLink="/admin/assignments" class="panel-link">Open assignments</a>
+        </div>
+        <div *ngIf="duplicateMappings.length; else noDuplicate" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Active Rows</th>
+                <th>CRM IDs</th>
+                <th>Auditor IDs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of duplicateMappings | slice:0:10">
+                <td>{{ row.clientName }}</td>
+                <td>{{ row.activeRows }}</td>
+                <td>{{ row.crmIds.length ? row.crmIds.join(', ') : '-' }}</td>
+                <td>{{ row.auditorIds.length ? row.auditorIds.join(', ') : '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noDuplicate>
+          <ui-empty-state
+            title="No duplicate active mappings"
+            description="No clients currently show duplicate ACTIVE assignment rows.">
+          </ui-empty-state>
+        </ng-template>
+      </article>
+
+      <article class="workspace-card">
+        <div class="panel-head">
+          <h3>Stale Accounts</h3>
+          <a routerLink="/admin/users" class="panel-link">Open users</a>
+        </div>
+        <div *ngIf="staleUsers.length; else noStaleUsers" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of staleUsers">
+                <td>{{ row.name }}</td>
+                <td>{{ row.email }}</td>
+                <td>{{ row.roleCode }}</td>
+                <td>{{ row.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noStaleUsers>
+          <ui-empty-state
+            title="No stale users returned"
+            description="Inactive user list is currently empty for the selected data window.">
+          </ui-empty-state>
+        </ng-template>
+      </article>
+
+      <article class="workspace-card">
+        <div class="panel-head">
+          <h3>Rotation Due</h3>
+          <a routerLink="/admin/assignments" class="panel-link">Manage rotations</a>
+        </div>
+        <div *ngIf="rotationDue.length; else noRotationDue" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Assignment Type</th>
+                <th>Assigned To</th>
+                <th>Rotation Due On</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of rotationDue | slice:0:10">
+                <td>{{ row.clientName }}</td>
+                <td>{{ row.assignmentType }}</td>
+                <td>{{ row.assignedTo || '-' }}</td>
+                <td>{{ row.rotationDueOn | date: 'mediumDate' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noRotationDue>
+          <ui-empty-state
+            title="No overdue rotations"
+            description="No assignment rotations are currently flagged as overdue.">
+          </ui-empty-state>
+        </ng-template>
+      </article>
+    </section>
+
+    <section class="workspace-card quick-actions">
+      <div class="panel-head">
+        <h3>Quick Remediation</h3>
+      </div>
+      <div class="actions-grid">
+        <a routerLink="/admin/assignments" class="action-card">
+          <strong>Fix assignments</strong>
+          <span>Resolve CRM/Auditor mapping gaps and overdue rotations.</span>
+        </a>
+        <a routerLink="/admin/users" class="action-card">
+          <strong>Review stale users</strong>
+          <span>Deactivate or reactivate inactive users after governance checks.</span>
+        </a>
+        <a routerLink="/admin/clients" class="action-card">
+          <strong>Review client setup</strong>
+          <span>Check branch and master-user readiness for affected clients.</span>
+        </a>
+        <a routerLink="/admin/payroll/client-settings" class="action-card">
+          <strong>Open payroll settings</strong>
+          <span>Complete pending payroll defaults for newly onboarded clients.</span>
+        </a>
+      </div>
+    </section>
+  </div>
+</div>

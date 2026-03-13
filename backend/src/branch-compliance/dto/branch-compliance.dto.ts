@@ -1,88 +1,129 @@
-import { IsString, IsOptional, IsInt, IsEnum, IsNotEmpty, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsEnum,
+  IsNotEmpty,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class UploadComplianceDocDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   branchId: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   returnCode: string;
 
-  @IsInt() @Min(2020) @Max(2050)
+  @IsInt()
+  @Min(2020)
+  @Max(2050)
   periodYear: number;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   frequency: string; // MONTHLY | QUARTERLY | HALF_YEARLY | YEARLY
 
-  @IsOptional() @IsInt() @Min(1) @Max(12)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
   periodMonth?: number;
 
-  @IsOptional() @IsInt() @Min(1) @Max(4)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(4)
   periodQuarter?: number;
 
-  @IsOptional() @IsInt() @Min(1) @Max(2)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2)
   periodHalf?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   remarks?: string;
 }
 
 export class ReviewComplianceDocDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   status: 'APPROVED' | 'REUPLOAD_REQUIRED';
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   remarks?: string;
 }
 
 export class ChecklistQueryDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   branchId?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   companyId?: string;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   year?: number;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   month?: number;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   quarter?: number;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   half?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   frequency?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   status?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   lawArea?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   category?: string;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   page?: number;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   pageSize?: number;
 }
 
 export class ReturnMasterQueryDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   frequency?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   applicableFor?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   lawArea?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   category?: string;
 
   @IsOptional()
@@ -90,51 +131,66 @@ export class ReturnMasterQueryDto {
 }
 
 export class CreateReturnMasterDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   returnCode: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   returnName: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   lawArea: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   frequency: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   scopeDefault?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   applicableFor?: string;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   dueDay?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   category?: string;
 }
 
 export class UpdateReturnMasterDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   returnName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   lawArea?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   frequency?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   scopeDefault?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   applicableFor?: string;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   dueDay?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   category?: string;
 
   @IsOptional()

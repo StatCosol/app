@@ -15,16 +15,44 @@ export class PayrollComponentSlabEntity {
   @Column({ name: 'rule_id', type: 'uuid' })
   ruleId: string;
 
-  @Column({ name: 'from_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Index()
+  @Column({ name: 'client_id', type: 'uuid', nullable: true })
+  clientId: string | null;
+
+  @Column({
+    name: 'from_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   fromAmount: string;
 
-  @Column({ name: 'to_amount', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'to_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   toAmount: string | null;
 
-  @Column({ name: 'slab_pct', type: 'numeric', precision: 8, scale: 4, nullable: true })
+  @Column({
+    name: 'slab_pct',
+    type: 'numeric',
+    precision: 8,
+    scale: 4,
+    nullable: true,
+  })
   slabPct: string | null;
 
-  @Column({ name: 'slab_fixed', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'slab_fixed',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   slabFixed: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
