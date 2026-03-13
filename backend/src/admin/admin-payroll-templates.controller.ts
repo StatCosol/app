@@ -21,7 +21,6 @@ import {
   CreatePayrollTemplateDto,
   UpdatePayrollTemplateDto,
 } from './dto/payroll-template.dto';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
