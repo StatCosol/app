@@ -36,6 +36,14 @@ const CrmBranchDocsReviewComponent = () =>
   import('./branch-docs-review/crm-branch-docs-review.component').then((m) => m.CrmBranchDocsReviewComponent);
 const CrmReturnsFilingsComponent = () =>
   import('./returns/crm-returns-filings.component').then((m) => m.CrmReturnsFilingsComponent);
+const CrmRenewalsWorkspacePageComponent = () =>
+  import('./renewals/crm-renewals-workspace-page.component').then(
+    (m) => m.CrmRenewalsWorkspacePageComponent,
+  );
+const CrmAmendmentsWorkspacePageComponent = () =>
+  import('./amendments/crm-amendments-workspace-page.component').then(
+    (m) => m.CrmAmendmentsWorkspacePageComponent,
+  );
 const CrmComplianceDocsComponent = () =>
   import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
 const CrmRegistrationsComponent = () =>
@@ -57,7 +65,6 @@ export const CRM_ROUTES: Routes = [
     loadComponent: CrmLayoutComponent,
     canActivate: [roleGuard(['CRM'])],
     children: [
-      // ── Top-level pages ──
       { path: 'dashboard', loadComponent: CrmDashboardComponent },
       {
         path: 'clients',
@@ -67,7 +74,6 @@ export const CRM_ROUTES: Routes = [
             path: ':clientId',
             canActivateChild: [crmClientAccessGuard],
             children: [
-              // ── Client workspace ──
               { path: 'overview', loadComponent: CrmClientOverviewComponent },
               { path: 'branches', loadComponent: CrmClientBranchesComponent },
               { path: 'contractors', loadComponent: CrmContractorsComponent },
@@ -88,19 +94,16 @@ export const CRM_ROUTES: Routes = [
       { path: 'reports', loadComponent: CrmReportsComponent },
       { path: 'audits', loadComponent: CrmAuditManagementPageComponent },
       { path: 'returns', loadComponent: CrmReturnsFilingsComponent },
+      { path: 'renewals', loadComponent: CrmRenewalsWorkspacePageComponent },
+      { path: 'amendments', loadComponent: CrmAmendmentsWorkspacePageComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent },
-      // Phase-2: { path: 'heatmap', loadComponent: HeatmapComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },
-      // Phase-2: { path: 'risk-trend', loadComponent: RiskTrendComponent },
       { path: 'escalations', loadComponent: EscalationsComponent },
-
-      // ── Legacy redirects ──
       { path: 'contractors', redirectTo: 'clients', pathMatch: 'full' },
       { path: 'compliance', redirectTo: 'clients', pathMatch: 'full' },
       { path: 'payroll-status', redirectTo: 'clients', pathMatch: 'full' },
-
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },
