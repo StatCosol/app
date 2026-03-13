@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { ComplianceService } from '../../../core/compliance.service';
+import { ReportsService } from '../../../core/reports.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
@@ -37,6 +38,7 @@ export class ContractorComplianceComponent implements OnInit, OnDestroy {
   tasks: any[] = [];
   allTasks: any[] = [];
   filters: any = { status: '', year: '', month: '' };
+  searchTerm = '';
 
   viewTab: 'MY' | 'SUBMITTED' | 'OVERDUE' = 'MY';
 
@@ -125,7 +127,7 @@ export class ContractorComplianceComponent implements OnInit, OnDestroy {
             branchName: t.branch?.branchName || t.branchId || '-',
           }));
           this.updateTabCounts();
-          this.tasks = this.allTasks;
+          this.applySearch();
           this.cdr.detectChanges();
         },
         error: () => {
@@ -206,5 +208,26 @@ export class ContractorComplianceComponent implements OnInit, OnDestroy {
       { key: 'SUBMITTED', label: 'Submitted', count: submitted },
       { key: 'OVERDUE', label: 'Overdue', count: overdue },
     ];
+  }
+
+  applySearch(): void {
+    const term = this.searchTerm.toLowerCase();
+    if (!term) {
+      this.tasks = [...this.allTasks];
+    } else {
+      this.tasks = this.allTasks.filter(t =>
+        (t.complianceName || '').toLowerCase().includes(term) ||
+        (t.branchName || '').toLowerCase().includes(term)
+      );
+    }
+  }
+
+  exportCsv(): void {
+    ReportsService.exportCsv(this.tasks, [
+      { key: 'complianceName', label: 'Compliance' },
+      { key: 'branchName', label: 'Branch' },
+      { key: 'status', label: 'Status' },
+      { key: 'dueDate', label: 'Due Date' },
+    ], 'contractor-compliance.csv');
   }
 }

@@ -8,7 +8,7 @@ export class CrmContractorDocumentsApi {
 
   /** Work-queue KPI chip counts */
   kpis(): Observable<any> {
-    return this.http.get('/api/crm/contractor-documents/kpis');
+    return this.http.get('/api/v1/crm/contractor-documents/kpis');
   }
 
   list(params: any): Observable<any> {
@@ -18,10 +18,10 @@ export class CrmContractorDocumentsApi {
         p = p.set(k, String(params[k]));
       }
     });
-    return this.http.get('/api/crm/contractor-documents', { params: p });
+    return this.http.get('/api/v1/crm/contractor-documents', { params: p });
   }
 
   review(id: string, payload: { status: string; reviewNotes?: string }): Observable<any> {
-    return this.http.post(`/api/crm/contractor-documents/${id}/review`, payload);
+    return this.http.post(`/api/v1/crm/contractor-documents/${id}/review`, payload);
   }
 }

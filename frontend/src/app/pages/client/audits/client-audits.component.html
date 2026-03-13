@@ -107,6 +107,13 @@
 
   <!-- Audits Table -->
   <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+      <span class="text-sm text-gray-500">{{ audits.length }} audit{{ audits.length === 1 ? '' : 's' }}</span>
+      <button (click)="exportCsv()" class="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export
+      </button>
+    </div>
     <ui-data-table
       [columns]="columns"
       [data]="audits"
@@ -118,6 +125,60 @@
       <ng-template uiTableCell="status" let-row>
         <ui-status-badge [status]="row.status"></ui-status-badge>
       </ng-template>
+      <ng-template uiTableCell="notes" let-row>
+        <button *ngIf="row.status === 'COMPLETED'" (click)="openAuditDetail(row)" class="text-xs text-blue-600 hover:text-blue-800 font-medium underline">View</button>
+        <span *ngIf="row.status !== 'COMPLETED'" class="text-gray-400">{{ row.notes }}</span>
+      </ng-template>
     </ui-data-table>
+  </div>
+
+  <!-- Audit Detail Drawer -->
+  <div *ngIf="selectedAudit" class="fixed inset-0 z-50 flex justify-end">
+    <div class="absolute inset-0 bg-black/20" (click)="selectedAudit = null"></div>
+    <div class="relative w-full max-w-md bg-white shadow-xl overflow-y-auto" style="animation: slideInRight 0.25s ease-out">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 z-10 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Audit Summary</h3>
+        <button (click)="selectedAudit = null" class="p-1 text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="px-6 py-4 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Audit Type</span>
+            <p class="text-sm font-medium">{{ selectedAudit.auditType }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Period</span>
+            <p class="text-sm font-medium">{{ selectedAudit.period }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Frequency</span>
+            <p class="text-sm font-medium">{{ selectedAudit.frequency }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Status</span>
+            <ui-status-badge [status]="selectedAudit.status"></ui-status-badge>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Auditor</span>
+            <p class="text-sm font-medium">{{ selectedAudit.auditor }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Due Date</span>
+            <p class="text-sm font-medium">{{ selectedAudit.dueDate }}</p>
+          </div>
+        </div>
+        <div *ngIf="selectedAudit.notes && selectedAudit.notes !== '—'">
+          <span class="text-xs text-gray-500 uppercase">Notes</span>
+          <p class="text-sm text-gray-600 mt-1">{{ selectedAudit.notes }}</p>
+        </div>
+        <div class="pt-2 border-t text-xs text-gray-400">
+          Export audit data using the Export button above.
+        </div>
+      </div>
+    </div>
   </div>
 </div>

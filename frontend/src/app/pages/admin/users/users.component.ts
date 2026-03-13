@@ -1,13 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { forkJoin, Observable, of, Subject, firstValueFrom } from 'rxjs';
 import { catchError, finalize, timeout, takeUntil } from 'rxjs/operators';
 
 import { AdminUsersApi, Role, UserDirectoryResponse, UserDto, UserRow } from '../../../core/api/admin-users.api';
 import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
   DataTableComponent,
@@ -27,6 +28,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     PageHeaderComponent,
     StatusBadgeComponent,
     ActionButtonComponent,
@@ -46,6 +48,9 @@ export class UsersComponent implements OnInit, OnDestroy {
   email = '';
   mobile = '';
   password = '';
+
+  // Credentials display after user creation
+  createdCredentials: { email: string; password: string } | null = null;
 
   // State
   currentUserId: string | null = null;
@@ -79,6 +84,13 @@ export class UsersComponent implements OnInit, OnDestroy {
   searchTerm = '';
   filterStatus: 'all' | 'ACTIVE' | 'INACTIVE' = 'all';
 
+  // Edit state
+  editingUser: UserRow | null = null;
+  editName = '';
+  editEmail = '';
+  editMobile = '';
+  resetPasswordResult: string | null = null;
+
   // Pagination options
   pageSizeOptions: number[] = [10, 20, 50, 100];
 
@@ -99,6 +111,7 @@ export class UsersComponent implements OnInit, OnDestroy {
     public router: Router,
     public toast: ToastService,
     private cdr: ChangeDetectorRef,
+    private dialog: ConfirmDialogService,
   ) {}
 
   // Cached select options — rebuilt only when underlying data changes
@@ -119,9 +132,11 @@ export class UsersComponent implements OnInit, OnDestroy {
   readonly pageSizeSelectOptions: SelectOption[] = [10, 20, 50, 100].map(s => ({ value: s, label: s.toString() }));
 
   private rebuildRoleOptions(): void {
+    // CLIENT users are now created via the Client Registration page — exclude from this form
+    const creatableRoles = this.roles.filter(r => (r['roleCode'] ?? r['code']) !== 'CLIENT');
     const roleOptions = [
       { value: null as any, label: 'Select role' },
-      ...this.roles.map(r => ({
+      ...creatableRoles.map(r => ({
         value: r.id,
         label: this.getRoleOptionLabel(r),
         disabled: (r['roleCode'] ?? r['code']) === 'CEO' && this.ceoExists ||
@@ -333,8 +348,9 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   get isClientRole(): boolean {
-    // Company selection is required for CLIENT and CONTRACTOR users
-    return this.selectedRoleCode === 'CLIENT' || this.selectedRoleCode === 'CONTRACTOR';
+    // Company selection is required for CONTRACTOR users
+    // CLIENT users are now created via Client Registration page
+    return this.selectedRoleCode === 'CONTRACTOR';
   }
 
   get isCrmRole(): boolean {
@@ -464,7 +480,6 @@ export class UsersComponent implements OnInit, OnDestroy {
     const startedAt = Date.now();
     const safetyTimer = setTimeout(() => {
       if (this.isLoading) {
-        console.warn('[UsersComponent] loadUsers safety timeout fired');
         this.isLoading = false;
       }
     }, 8000);
@@ -474,7 +489,6 @@ export class UsersComponent implements OnInit, OnDestroy {
         this.api.getUserDirectory(params).pipe(
           timeout(15000),
           catchError((err) => {
-            console.error('[UsersComponent] loadUsers HTTP error:', err);
             this.err = err?.error?.message || 'Failed to load users';
             return of({ items: [], total: 0 });
           }),
@@ -490,7 +504,7 @@ export class UsersComponent implements OnInit, OnDestroy {
     } finally {
       clearTimeout(safetyTimer);
       this.isLoading = false;
-      const duration = Date.now() - startedAt;
+      const _duration = Date.now() - startedAt;
       this.cdr.detectChanges();
     }
   }
@@ -543,11 +557,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       this.err = 'Please enter a valid email address';
       return;
     }
-    if (!this.password) {
-      this.err = 'Password is required';
-      return;
-    }
-    if (this.password.length < 6) {
+    if (this.password && this.password.length < 6) {
       this.err = 'Password must be at least 6 characters';
       return;
     }
@@ -561,7 +571,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       name: this.name.trim(),
       email: trimmedEmail,
       mobile: this.mobile?.trim() || undefined,
-      password: this.password,
+      password: this.password || undefined,
     };
 
     this.api
@@ -569,11 +579,21 @@ export class UsersComponent implements OnInit, OnDestroy {
       .pipe(
         timeout(10000),
         takeUntil(this.destroy$),
-        finalize(() => (this.isLoading = false)),
+        finalize(() => { this.isLoading = false; this.cdr.detectChanges(); }),
       )
       .subscribe({
         next: (res: any) => {
           this.msg = 'User created successfully';
+
+          // Show credentials if password was auto-generated
+          if (res?.generatedPassword) {
+            this.createdCredentials = {
+              email: payload.email,
+              password: res.generatedPassword,
+            };
+          } else {
+            this.createdCredentials = null;
+          }
 
           // Optimistically show the new user immediately in the current list
           const createdId = typeof res?.id === 'string' ? res.id : '';
@@ -607,7 +627,7 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
 
-  deleteUser(u: UserRow): void {
+  async deleteUser(u: UserRow): Promise<void> {
     if (this.actionUserId) return;
     if (!this.canModifyUser(u)) {
       this.err = 'You cannot delete this user.';
@@ -616,7 +636,7 @@ export class UsersComponent implements OnInit, OnDestroy {
 
     this.msg = '';
     this.err = '';
-    if (!confirm(`Delete user #${u.id} (${u.email})? This cannot be undone.`)) return;
+    if (!(await this.dialog.confirm('Delete User', `Delete user #${u.id} (${u.email})? This cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
     // Optimistically remove from UI so it disappears immediately
     const previousUsers = this.users;
     this.users = this.users.filter((row) => row.id !== u.id);
@@ -629,13 +649,21 @@ export class UsersComponent implements OnInit, OnDestroy {
       .pipe(
         timeout(10000),
         takeUntil(this.destroy$),
-        finalize(() => (this.isLoading = false)),
+        finalize(() => { this.isLoading = false; this.cdr.detectChanges(); }),
       )
       .subscribe({
-        next: () => {
+        next: (res: any) => {
           this.actionUserId = null;
-          this.msg = 'User deleted';
-          this.toast.success('User deleted');
+          if (res?.status === 'PENDING') {
+            // CRM deletion routed to CCO for approval — restore list
+            this.users = previousUsers;
+            this.totalCount = previousUsers.length;
+            this.msg = 'Deletion request sent to CCO for approval';
+            this.toast.success('Deletion request sent to CCO for approval');
+          } else {
+            this.msg = 'User deleted';
+            this.toast.success('User deleted');
+          }
         },
         error: (e: any) => {
           this.actionUserId = null;
@@ -680,6 +708,7 @@ export class UsersComponent implements OnInit, OnDestroy {
           // Revert on failure so UI stays consistent with server
           u.isActive = previousStatus;
           this.err = e?.error?.message || 'Failed to update user';
+          this.cdr.detectChanges();
         },
       });
   }
@@ -692,6 +721,101 @@ export class UsersComponent implements OnInit, OnDestroy {
     this.email = '';
     this.mobile = '';
     this.password = '';
+    this.createdCredentials = null;
+  }
+
+  editUser(u: UserRow): void {
+    this.editingUser = u;
+    this.editName = u.name || '';
+    this.editEmail = u.email || '';
+    this.editMobile = (u as any).mobile || '';
+  }
+
+  cancelEdit(): void {
+    this.editingUser = null;
+    this.editName = '';
+    this.editEmail = '';
+    this.editMobile = '';
+    this.resetPasswordResult = null;
+  }
+
+  saveEdit(): void {
+    if (!this.editingUser) return;
+    const trimmedName = this.editName.trim();
+    const trimmedEmail = this.editEmail.trim();
+    if (!trimmedName) { this.err = 'Name is required'; return; }
+    if (!trimmedEmail) { this.err = 'Email is required'; return; }
+    const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!emailPattern.test(trimmedEmail)) { this.err = 'Please enter a valid email address'; return; }
+
+    this.msg = '';
+    this.err = '';
+    this.isLoading = true;
+    const userId = this.editingUser.id;
+
+    this.api
+      .updateUser(userId, {
+        name: trimmedName,
+        email: trimmedEmail,
+        mobile: this.editMobile?.trim() || undefined,
+      })
+      .pipe(
+        timeout(10000),
+        takeUntil(this.destroy$),
+        finalize(() => (this.isLoading = false)),
+      )
+      .subscribe({
+        next: () => {
+          // Update locally
+          const user = this.users.find(u => u.id === userId);
+          if (user) {
+            user.name = trimmedName;
+            user.email = trimmedEmail;
+            (user as any).mobile = this.editMobile?.trim() || null;
+          }
+          this.cancelEdit();
+          this.msg = 'User updated successfully';
+          this.toast.success('User updated');
+          this.cdr.detectChanges();
+        },
+        error: (e: any) => {
+          const raw = e?.error?.message;
+          this.err = Array.isArray(raw) ? raw.join(', ') : (raw || 'Failed to update user');
+        },
+      });
+  }
+
+  async resetPassword(): Promise<void> {
+    if (!this.editingUser) return;
+    const user = this.editingUser;
+    if (this.isProtectedRole(user)) {
+      this.err = 'Cannot reset password for Admin or CEO users';
+      return;
+    }
+    if (!(await this.dialog.confirm('Reset Password', `Reset password for ${user.name} (${user.email})? A new password will be generated.`, { confirmText: 'Reset' }))) return;
+
+    this.msg = '';
+    this.err = '';
+    this.isLoading = true;
+    this.api
+      .resetPassword(user.id)
+      .pipe(
+        timeout(10000),
+        takeUntil(this.destroy$),
+        finalize(() => (this.isLoading = false)),
+      )
+      .subscribe({
+        next: (res) => {
+          this.resetPasswordResult = res.newPassword;
+          this.msg = 'Password reset successfully';
+          this.toast.success('Password reset');
+          this.cdr.detectChanges();
+        },
+        error: (e: any) => {
+          const raw = e?.error?.message;
+          this.err = Array.isArray(raw) ? raw.join(', ') : (raw || 'Failed to reset password');
+        },
+      });
   }
 
   roleLabel(roleId: string): string {

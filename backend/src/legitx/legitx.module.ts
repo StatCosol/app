@@ -5,7 +5,6 @@ import { LegitxComplianceController } from './legitx-compliance.controller';
 import { LegitxComplianceService } from './legitx-compliance.service';
 import { LegitxComplianceStatusController } from './legitx-compliance-status.controller';
 import { LegitxComplianceStatusService } from './legitx-compliance-status.service';
-import { DbService } from '../common/db/db.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -19,8 +18,11 @@ import { AuthModule } from '../auth/auth.module';
     LegitxDashboardService,
     LegitxComplianceService,
     LegitxComplianceStatusService,
-    DbService,
   ],
-  exports: [LegitxDashboardService, LegitxComplianceService, LegitxComplianceStatusService],
+  exports: [
+    LegitxDashboardService,
+    LegitxComplianceService,
+    LegitxComplianceStatusService,
+  ],
 })
 export class LegitxModule {}

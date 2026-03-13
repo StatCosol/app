@@ -12,6 +12,13 @@ export interface CrmKpis {
   expiring30Count: number;
   openObservationsCount: number;
   mcdPendingCount: number;
+  /* Reupload backlog (client/branch breakdown) */
+  reuploadOpen?: number;
+  reuploadSubmitted?: number;
+  reuploadOpenClient?: number;
+  reuploadOpenBranch?: number;
+  reuploadSubmittedClient?: number;
+  reuploadSubmittedBranch?: number;
 }
 
 export interface PriorityItem {

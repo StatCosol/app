@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  ForbiddenException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, LessThanOrEqual } from 'typeorm';
 import { BranchEntity } from '../branches/entities/branch.entity';
@@ -77,8 +73,13 @@ export class ComplianceMetricsService {
 
     for (const bid of branchIds) {
       try {
-        const { branch, applicable } = await this.resolver.getApplicableRules(bid);
-        const entries = this.schedule.buildMonthSchedule({ branch, applicable, month });
+        const { branch, applicable } =
+          await this.resolver.getApplicableRules(bid);
+        const entries = this.schedule.buildMonthSchedule({
+          branch,
+          applicable,
+          month,
+        });
 
         const applicableCodes = [...new Set(entries.map((e) => e.code))];
 
@@ -92,7 +93,9 @@ export class ComplianceMetricsService {
           .getRawMany();
 
         const uploadedCodes = new Set(docs.map((d: any) => d.code));
-        const uploaded = applicableCodes.filter((c) => uploadedCodes.has(c)).length;
+        const uploaded = applicableCodes.filter((c) =>
+          uploadedCodes.has(c),
+        ).length;
         const total = applicableCodes.length;
         const pct = total === 0 ? 0 : Math.round((uploaded / total) * 100);
 
@@ -107,7 +110,7 @@ export class ComplianceMetricsService {
           completionPercent: pct,
         });
       } catch (err) {
-        this.logger.warn(`Skipping branch ${bid}: ${(err as any)?.message}`);
+        this.logger.warn(`Skipping branch ${bid}: ${err?.message}`);
       }
     }
 
@@ -230,7 +233,10 @@ export class ComplianceMetricsService {
       const expiring = await this.hasExpiringRegistration(clientId, bid);
       const regRisk = expiring ? 10 : 0;
 
-      const score = Math.min(100, Math.round(uploadRisk + slaRisk + criticalRisk + regRisk));
+      const score = Math.min(
+        100,
+        Math.round(uploadRisk + slaRisk + criticalRisk + regRisk),
+      );
       const probabilityPercent = this.scoreToProbability(score);
 
       const reasons = this.buildRiskReasons({
@@ -276,7 +282,9 @@ export class ComplianceMetricsService {
 
     const sorted = (risk.items || [])
       .slice()
-      .sort((a: any, b: any) => b.inspectionProbability - a.inspectionProbability);
+      .sort(
+        (a: any, b: any) => b.inspectionProbability - a.inspectionProbability,
+      );
 
     return {
       month: params.month,
@@ -288,11 +296,7 @@ export class ComplianceMetricsService {
   /**
    * State-wise risk heatmap aggregation.
    */
-  async getRiskHeatmap(params: {
-    clientId: string;
-    user: any;
-    month: string;
-  }) {
+  async getRiskHeatmap(params: { clientId: string; user: any; month: string }) {
     const risk = await this.getRiskScore({
       clientId: params.clientId,
       user: params.user,
@@ -351,12 +355,21 @@ export class ComplianceMetricsService {
     month: string,
   ): Promise<number> {
     try {
-      const { branch, applicable } = await this.resolver.getApplicableRules(branchId);
-      const entries = this.schedule.buildMonthSchedule({ branch, applicable, month });
+      const { branch, applicable } =
+        await this.resolver.getApplicableRules(branchId);
+      const entries = this.schedule.buildMonthSchedule({
+        branch,
+        applicable,
+        month,
+      });
       return entries.filter(
         (e: any) => e.priority === 'HIGH' || e.priority === 'CRITICAL',
       ).length;
-    } catch {
+    } catch (e) {
+      this.logger.warn(
+        `getHighCriticalCount failed for branch ${branchId}`,
+        (e as Error)?.message,
+      );
       return 0;
     }
   }
@@ -409,7 +422,9 @@ export class ComplianceMetricsService {
     else if (input.overdueSla > 0)
       out.push(`Overdue SLA tasks (${input.overdueSla})`);
     if (input.highCritical > 0)
-      out.push(`High/Critical compliance items present (${input.highCritical})`);
+      out.push(
+        `High/Critical compliance items present (${input.highCritical})`,
+      );
     if (input.expiringRegistrations)
       out.push('Registration expiry within 30 days');
 
@@ -456,7 +471,14 @@ export class ComplianceMetricsService {
         month,
         riskLevel: 'LOW',
         inspectionProbability: 0,
-        actions: [{ priority: 'INFO', category: 'GENERAL', text: 'No data available for this branch/month.', impact: 'N/A' }],
+        actions: [
+          {
+            priority: 'INFO',
+            category: 'GENERAL',
+            text: 'No data available for this branch/month.',
+            impact: 'N/A',
+          },
+        ],
       };
     }
 
@@ -474,14 +496,16 @@ export class ComplianceMetricsService {
         priority: 'CRITICAL',
         category: 'UPLOADS',
         text: `Upload completion is critically low at ${comp}%. Upload all pending mandatory returns and MCD documents immediately.`,
-        impact: 'Completing uploads to 80%+ can reduce risk score by up to 32 points.',
+        impact:
+          'Completing uploads to 80%+ can reduce risk score by up to 32 points.',
       });
     } else if (comp < 60) {
       actions.push({
         priority: 'HIGH',
         category: 'UPLOADS',
         text: `Upload completion is ${comp}%. Prioritise uploading pending compliance documents — focus on HIGH priority items first.`,
-        impact: 'Raising completion to 80%+ can reduce risk score by up to 16 points.',
+        impact:
+          'Raising completion to 80%+ can reduce risk score by up to 16 points.',
       });
     } else if (comp < 80) {
       actions.push({
@@ -556,8 +580,16 @@ export class ComplianceMetricsService {
     }
 
     // Sort by priority weight: CRITICAL > HIGH > MEDIUM > LOW > INFO
-    const pWeight: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
-    actions.sort((a, b) => (pWeight[a.priority] ?? 9) - (pWeight[b.priority] ?? 9));
+    const pWeight: Record<string, number> = {
+      CRITICAL: 0,
+      HIGH: 1,
+      MEDIUM: 2,
+      LOW: 3,
+      INFO: 4,
+    };
+    actions.sort(
+      (a, b) => (pWeight[a.priority] ?? 9) - (pWeight[b.priority] ?? 9),
+    );
 
     return {
       branchId: row.branchId,
@@ -596,7 +628,8 @@ export class ComplianceMetricsService {
 
     const rows = trend.items || [];
     const avg = rows.length
-      ? rows.reduce((s: number, r: any) => s + (r.completionPercent || 0), 0) / rows.length
+      ? rows.reduce((s: number, r: any) => s + (r.completionPercent || 0), 0) /
+        rows.length
       : 0;
     const last = rows.length ? rows[rows.length - 1].completionPercent : avg;
 
@@ -608,11 +641,20 @@ export class ComplianceMetricsService {
 
     // Forecast completion %
     let forecastCompletion = last + slope;
-    forecastCompletion = Math.max(0, Math.min(100, Math.round(forecastCompletion)));
+    forecastCompletion = Math.max(
+      0,
+      Math.min(100, Math.round(forecastCompletion)),
+    );
 
     // Live risk factors
-    const overdueSla = await this.getOverdueSlaCount(params.clientId, params.branchId);
-    const expiring = await this.hasExpiringRegistration(params.clientId, params.branchId);
+    const overdueSla = await this.getOverdueSlaCount(
+      params.clientId,
+      params.branchId,
+    );
+    const expiring = await this.hasExpiringRegistration(
+      params.clientId,
+      params.branchId,
+    );
 
     // Risk score components (same weights as getRiskScore)
     const uploadRisk = (100 - forecastCompletion) * 0.4;
@@ -620,7 +662,8 @@ export class ComplianceMetricsService {
     const regRisk = expiring ? 10 : 0;
 
     // Proxy high/critical from completion (simple heuristic)
-    const criticalProxy = forecastCompletion < 60 ? 2 : forecastCompletion < 80 ? 1 : 0;
+    const criticalProxy =
+      forecastCompletion < 60 ? 2 : forecastCompletion < 80 ? 1 : 0;
     const criticalRisk = criticalProxy * 4;
 
     let score = uploadRisk + slaRisk + regRisk + criticalRisk;
@@ -698,18 +741,24 @@ export class ComplianceMetricsService {
     // Company-wide summary
     const avgProb = rows.length
       ? Math.round(
-          rows.reduce((s: number, x: any) => s + x.inspectionProbability, 0) / rows.length,
+          rows.reduce((s: number, x: any) => s + x.inspectionProbability, 0) /
+            rows.length,
         )
       : 0;
     const high = rows.filter((x: any) => x.inspectionProbability >= 70).length;
-    const critical = rows.filter((x: any) => x.inspectionProbability >= 85).length;
+    const critical = rows.filter(
+      (x: any) => x.inspectionProbability >= 85,
+    ).length;
     const lowest = rows
       .slice()
       .sort((a: any, b: any) => a.completionPercent - b.completionPercent)
       .slice(0, 5);
     const avgCompletion = rows.length
       ? Math.round(
-          rows.reduce((s: number, x: any) => s + (x.completionPercent || 0), 0) / rows.length,
+          rows.reduce(
+            (s: number, x: any) => s + (x.completionPercent || 0),
+            0,
+          ) / rows.length,
         )
       : 0;
 
@@ -738,11 +787,7 @@ export class ComplianceMetricsService {
    * Internal peer benchmark — compares each branch against the
    * client's own average to produce percentile ranks and grades.
    */
-  async getBenchmark(params: {
-    clientId: string;
-    user: any;
-    month: string;
-  }) {
+  async getBenchmark(params: { clientId: string; user: any; month: string }) {
     const risk = await this.getRiskScore(params);
     const rows = risk.items || [];
     const n = rows.length;
@@ -875,13 +920,13 @@ export class ComplianceMetricsService {
    * One-call payload that bundles all executive intelligence for
    * PDF/PPT/dashboard export.
    */
-  async getExportPack(params: {
-    clientId: string;
-    user: any;
-    month: string;
-  }) {
+  async getExportPack(params: { clientId: string; user: any; month: string }) {
     const [summary, ranking, lowest, heatmap, benchmark] = await Promise.all([
-      this.getSummary({ clientId: params.clientId, user: params.user, month: params.month }),
+      this.getSummary({
+        clientId: params.clientId,
+        user: params.user,
+        month: params.month,
+      }),
       this.getRiskRanking({
         clientId: params.clientId,
         user: params.user,
@@ -918,8 +963,11 @@ export class ComplianceMetricsService {
           branchId: r.branchId,
         });
         actionPlans.push(ap);
-      } catch {
-        // skip if action plan fails for a branch
+      } catch (e) {
+        this.logger.warn(
+          `Action plan fetch failed for branch ${r.branchId}`,
+          (e as Error)?.message,
+        );
       }
     }
 
