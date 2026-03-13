@@ -840,4 +840,3 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
     });
   }
 }
-

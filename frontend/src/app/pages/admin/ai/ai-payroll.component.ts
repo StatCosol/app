@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -170,7 +170,7 @@ import {
     </div>
   `,
 })
-export class AiPayrollComponent implements OnInit, OnDestroy {
+export class AiPayrollComponent implements OnDestroy {
   private destroy$ = new Subject<void>();
 
   loading = false;
@@ -201,8 +201,6 @@ export class AiPayrollComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private toast: ToastService,
   ) {}
-
-  ngOnInit(): void {}
 
   ngOnDestroy(): void {
     this.destroy$.next();

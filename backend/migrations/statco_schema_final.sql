@@ -148,26 +148,25 @@ CREATE TABLE IF NOT EXISTS client_assignments (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS client_assignment_current (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
-  crm_user_id uuid NULL REFERENCES users(id),
-  auditor_user_id uuid NULL REFERENCES users(id),
-  status assignment_status_enum NOT NULL DEFAULT 'ACTIVE',
-  start_date date NULL,
-  end_date date NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS client_assignment_history (
+CREATE TABLE IF NOT EXISTS client_assignments_current (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-  crm_user_id uuid NULL REFERENCES users(id),
-  auditor_user_id uuid NULL REFERENCES users(id),
-  status assignment_status_enum NOT NULL,
-  start_date date NULL,
-  end_date date NULL,
+  assignment_type varchar NOT NULL,
+  assigned_to_user_id uuid NULL REFERENCES users(id),
+  start_date timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_assignments_current_client_type UNIQUE (client_id, assignment_type)
+);
+
+CREATE TABLE IF NOT EXISTS client_assignments_history (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  assignment_type varchar NOT NULL,
+  assigned_to_user_id uuid NULL REFERENCES users(id),
+  start_date timestamptz NOT NULL DEFAULT now(),
+  end_date timestamptz NULL,
+  changed_by_user_id uuid NULL REFERENCES users(id),
+  change_reason varchar NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

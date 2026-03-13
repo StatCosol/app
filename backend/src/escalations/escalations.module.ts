@@ -7,10 +7,7 @@ import { EscalationCronService } from './escalation-cron.service';
 import { RiskModule } from '../risk/risk.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([EscalationEntity]),
-    RiskModule,
-  ],
+  imports: [TypeOrmModule.forFeature([EscalationEntity]), RiskModule],
   controllers: [EscalationsController],
   providers: [EscalationsService, EscalationCronService],
   exports: [EscalationsService],
