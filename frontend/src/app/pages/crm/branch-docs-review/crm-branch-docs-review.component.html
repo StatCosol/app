@@ -69,84 +69,61 @@
     </div>
 
     <div *ngIf="documents.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <table class="doc-table">
-        <thead>
-          <tr>
-            <th style="width: 20%;">Branch</th>
-            <th style="width: 18%;">Document</th>
-            <th style="width: 10%;">Period</th>
-            <th style="width: 10%;">Frequency</th>
-            <th style="width: 12%;">Status</th>
-            <th style="width: 8%;">Version</th>
-            <th style="width: 22%;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let doc of documents">
-            <td>
-              <div class="font-medium">{{ doc.branch?.branchName || '—' }}</div>
-              <div class="text-xs text-gray-400">{{ doc.lawArea }}</div>
-            </td>
-            <td>
-              <div class="font-medium">{{ doc.returnName }}</div>
-              <div class="text-xs text-gray-400">{{ doc.returnCode }}</div>
-              <div *ngIf="doc.uploadedFileName" class="text-xs text-blue-500 mt-0.5 truncate max-w-[200px]">
-                {{ doc.uploadedFileName }}
-              </div>
-            </td>
-            <td>
-              <span class="text-sm">{{ getPeriodLabel(doc) }}</span>
-            </td>
-            <td>
-              <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ doc.frequency }}</span>
-            </td>
-            <td>
-              <ui-status-badge [status]="doc.status" size="sm"></ui-status-badge>
-              <div *ngIf="doc.uploaderRemarks" class="text-xs text-blue-600 italic mt-1">
-                <strong>Uploader:</strong> {{ doc.uploaderRemarks }}
-              </div>
-              <div *ngIf="doc.remarks" class="text-xs text-orange-500 italic mt-1">
-                <strong>Review:</strong> {{ doc.remarks }}
-              </div>
-            </td>
-            <td>
-              <span class="text-sm">v{{ doc.version }}</span>
-            </td>
-            <td>
-              <div class="flex flex-wrap items-center gap-2">
-                <button
-                  *ngIf="doc.uploadedFileUrl"
-                  class="btn-outline"
-                  (click)="viewDoc(doc)">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                  </svg>
-                  View
-                </button>
-                <button
-                  *ngIf="canReview(doc)"
-                  class="btn-approve"
-                  (click)="openReviewModal(doc, 'APPROVED')">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Approve
-                </button>
-                <button
-                  *ngIf="canReview(doc)"
-                  class="btn-reject"
-                  (click)="openReviewModal(doc, 'REUPLOAD_REQUIRED')">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                  Reupload
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <ui-data-table [columns]="docColumns" [data]="documents" [loading]="loading"
+        emptyMessage="No documents to review.">
+        <ng-template uiTableCell="branch" let-row>
+          <div class="font-medium">{{ row.branch?.branchName || '—' }}</div>
+          <div class="text-xs text-gray-400">{{ row.lawArea }}</div>
+        </ng-template>
+        <ng-template uiTableCell="document" let-row>
+          <div class="font-medium">{{ row.returnName }}</div>
+          <div class="text-xs text-gray-400">{{ row.returnCode }}</div>
+          <div *ngIf="row.uploadedFileName" class="text-xs text-blue-500 mt-0.5 truncate max-w-[200px]">
+            {{ row.uploadedFileName }}
+          </div>
+        </ng-template>
+        <ng-template uiTableCell="period" let-row>
+          <span class="text-sm">{{ getPeriodLabel(row) }}</span>
+        </ng-template>
+        <ng-template uiTableCell="frequency" let-row>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ row.frequency }}</span>
+        </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-status-badge [status]="row.status" size="sm"></ui-status-badge>
+          <div *ngIf="row.uploaderRemarks" class="text-xs text-blue-600 italic mt-1">
+            <strong>Uploader:</strong> {{ row.uploaderRemarks }}
+          </div>
+          <div *ngIf="row.remarks" class="text-xs text-orange-500 italic mt-1">
+            <strong>Review:</strong> {{ row.remarks }}
+          </div>
+        </ng-template>
+        <ng-template uiTableCell="version" let-row>
+          <span class="text-sm">v{{ row.version }}</span>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          <div class="flex flex-wrap items-center gap-2">
+            <button *ngIf="row.uploadedFileUrl" class="btn-outline" (click)="viewDoc(row)">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+              View
+            </button>
+            <button *ngIf="canReview(row)" class="btn-approve" (click)="openReviewModal(row, 'APPROVED')">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              Approve
+            </button>
+            <button *ngIf="canReview(row)" class="btn-reject" (click)="openReviewModal(row, 'REUPLOAD_REQUIRED')">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              Reupload
+            </button>
+          </div>
+        </ng-template>
+      </ui-data-table>
     </div>
   </ng-container>
 

@@ -1,0 +1,485 @@
+﻿<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Payroll Setup</h1>
+      <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
+    </div>
+
+    <div class="head-controls">
+      <label>
+        Client
+        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
+          <option value="">Select client</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="loader">Loading payroll setup...</div>
+
+  <div *ngIf="!loading && !selectedClientId" class="empty-state">
+    Select a client to configure setup tabs.
+  </div>
+
+  <ng-container *ngIf="!loading && selectedClientId">
+    <section class="summary-grid">
+      <article class="summary-card">
+        <span class="label">Effective From</span>
+        <strong>{{ formatDate(addon.effectiveFrom) }}</strong>
+        <span class="sub">Configured effective date</span>
+      </article>
+      <article class="summary-card summary-card--info">
+        <span class="label">Backend Updated</span>
+        <strong>{{ formatDate(setup.updatedAt) }}</strong>
+        <span class="sub">Last persisted setup</span>
+      </article>
+      <article class="summary-card summary-card--ok">
+        <span class="label">PF / ESI</span>
+        <strong>{{ setup.pfEnabled ? 'PF On' : 'PF Off' }} · {{ setup.esiEnabled ? 'ESI On' : 'ESI Off' }}</strong>
+        <span class="sub">Statutory enablement</span>
+      </article>
+    </section>
+
+    <section class="card tabs-card">
+      <nav class="tabs">
+        <button
+          *ngFor="let t of tabs"
+          type="button"
+          [class.active]="activeTab === t.key"
+          (click)="activeTab = t.key"
+        >
+          {{ t.label }}
+          <span class="tab-chip warn" *ngIf="isSectionDirty(t.key) && !savingSection[t.key]">Unsaved</span>
+          <span class="tab-chip bad" *ngIf="sectionIssueCount(t.key)">{{ sectionIssueCount(t.key) }} issues</span>
+          <span class="tab-chip info" *ngIf="savingSection[t.key]">Saving</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- Statutory Config -->
+    <section class="card" *ngIf="activeTab === 'statutory'">
+      <header class="section-head">
+        <h2>Statutory Configuration</h2>
+        <span class="section-meta">{{ sectionContext('statutory') }}</span>
+      </header>
+
+      <div class="toggle-row">
+        <label><input type="checkbox" [(ngModel)]="setup.pfEnabled" /> PF Enabled</label>
+        <label><input type="checkbox" [(ngModel)]="setup.esiEnabled" /> ESI Enabled</label>
+        <label><input type="checkbox" [(ngModel)]="setup.ptEnabled" /> PT Enabled</label>
+        <label><input type="checkbox" [(ngModel)]="setup.lwfEnabled" /> LWF Enabled</label>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          PF Employer Rate (%)
+          <input type="number" [(ngModel)]="setup.pfEmployerRate" />
+        </label>
+        <label>
+          PF Employee Rate (%)
+          <input type="number" [(ngModel)]="setup.pfEmployeeRate" />
+        </label>
+        <label>
+          ESI Employer Rate (%)
+          <input type="number" [(ngModel)]="setup.esiEmployerRate" />
+        </label>
+        <label>
+          ESI Employee Rate (%)
+          <input type="number" [(ngModel)]="setup.esiEmployeeRate" />
+        </label>
+        <label>
+          PF Wage Ceiling
+          <input type="number" [(ngModel)]="setup.pfWageCeiling" />
+        </label>
+        <label>
+          ESI Wage Ceiling
+          <input type="number" [(ngModel)]="setup.esiWageCeiling" />
+        </label>
+      </div>
+
+      <ul class="validation-list" *ngIf="sectionValidation.statutory.length">
+        <li *ngFor="let issue of sectionValidation.statutory">{{ issue }}</li>
+      </ul>
+
+      <footer class="section-actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingSection.statutory" (click)="saveStatutory()">
+          {{ savingSection.statutory ? 'Saving...' : 'Save Statutory Config' }}
+        </button>
+      </footer>
+
+      <div *ngIf="sectionMessages.statutory.text" class="msg" [class.error]="sectionMessages.statutory.error">
+        {{ sectionMessages.statutory.text }}
+      </div>
+    </section>
+
+    <!-- Pay Cycle -->
+    <section class="card" *ngIf="activeTab === 'pay-cycle'">
+      <header class="section-head">
+        <h2>Pay Cycle Configuration</h2>
+        <span class="section-meta">{{ sectionContext('pay-cycle') }}</span>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          Effective From
+          <input type="date" [(ngModel)]="addon.effectiveFrom" />
+        </label>
+        <label>
+          Cycle Type
+          <select [(ngModel)]="setup.payCycle">
+            <option *ngFor="let opt of payCycleOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </label>
+        <label>
+          Cycle Start Day
+          <input type="number" min="1" max="31" [(ngModel)]="addon.cycleStartDay" />
+        </label>
+        <label>
+          Payout Day
+          <input type="number" min="1" max="31" [(ngModel)]="addon.payoutDay" />
+        </label>
+        <label>
+          Payroll Lock Day
+          <input type="number" min="1" max="31" [(ngModel)]="addon.lockDay" />
+        </label>
+        <label>
+          Arrear Mode
+          <select [(ngModel)]="addon.arrearMode">
+            <option value="CURRENT">Current Cycle</option>
+            <option value="NEXT">Next Cycle</option>
+          </select>
+        </label>
+      </div>
+
+      <ul class="validation-list" *ngIf="sectionValidation['pay-cycle'].length">
+        <li *ngFor="let issue of sectionValidation['pay-cycle']">{{ issue }}</li>
+      </ul>
+
+      <footer class="section-actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingSection['pay-cycle']" (click)="savePayCycle()">
+          {{ savingSection['pay-cycle'] ? 'Saving...' : 'Save Pay Cycle' }}
+        </button>
+      </footer>
+
+      <div *ngIf="sectionMessages['pay-cycle'].text" class="msg" [class.error]="sectionMessages['pay-cycle'].error">
+        {{ sectionMessages['pay-cycle'].text }}
+      </div>
+    </section>
+
+    <!-- Leave Policy -->
+    <section class="card" *ngIf="activeTab === 'leave-policy'">
+      <header class="section-head">
+        <h2>Leave / Pay Policy</h2>
+        <span class="section-meta">{{ sectionContext('leave-policy') }}</span>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          Leave Accrual per Month
+          <input type="number" step="0.1" [(ngModel)]="addon.leaveAccrualPerMonth" />
+        </label>
+        <label>
+          Max Carry Forward
+          <input type="number" [(ngModel)]="addon.maxCarryForward" />
+        </label>
+        <label>
+          LOP Mode
+          <select [(ngModel)]="addon.lopMode">
+            <option *ngFor="let mode of lopModes" [value]="mode">{{ mode }}</option>
+          </select>
+        </label>
+        <label class="inline-toggle">
+          <input type="checkbox" [(ngModel)]="addon.allowCarryForward" />
+          Allow Carry Forward
+        </label>
+      </div>
+
+      <ul class="validation-list" *ngIf="sectionValidation['leave-policy'].length">
+        <li *ngFor="let issue of sectionValidation['leave-policy']">{{ issue }}</li>
+      </ul>
+
+      <footer class="section-actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingSection['leave-policy']" (click)="saveLeavePolicy()">
+          {{ savingSection['leave-policy'] ? 'Saving...' : 'Save Leave Policy' }}
+        </button>
+      </footer>
+
+      <div *ngIf="sectionMessages['leave-policy'].text" class="msg" [class.error]="sectionMessages['leave-policy'].error">
+        {{ sectionMessages['leave-policy'].text }}
+      </div>
+    </section>
+
+    <!-- Attendance -->
+    <section class="card" *ngIf="activeTab === 'attendance'">
+      <header class="section-head">
+        <h2>Attendance Configuration</h2>
+        <span class="section-meta">{{ sectionContext('attendance') }}</span>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          Attendance Source
+          <select [(ngModel)]="addon.attendanceSource">
+            <option *ngFor="let src of attendanceSources" [value]="src">{{ src }}</option>
+          </select>
+        </label>
+        <label>
+          Attendance Cutoff Day
+          <input type="number" min="1" max="31" [(ngModel)]="addon.attendanceCutoffDay" />
+        </label>
+        <label>
+          Grace Minutes
+          <input type="number" min="0" max="180" [(ngModel)]="addon.graceMinutes" />
+        </label>
+        <label class="inline-toggle">
+          <input type="checkbox" [(ngModel)]="addon.autoLockAttendance" />
+          Auto-lock Attendance
+        </label>
+        <label class="inline-toggle">
+          <input type="checkbox" [(ngModel)]="addon.syncEnabled" />
+          Integration Sync Enabled
+        </label>
+      </div>
+
+      <ul class="validation-list" *ngIf="sectionValidation.attendance.length">
+        <li *ngFor="let issue of sectionValidation.attendance">{{ issue }}</li>
+      </ul>
+
+      <footer class="section-actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingSection.attendance" (click)="saveAttendanceConfig()">
+          {{ savingSection.attendance ? 'Saving...' : 'Save Attendance Config' }}
+        </button>
+      </footer>
+
+      <div *ngIf="sectionMessages.attendance.text" class="msg" [class.error]="sectionMessages.attendance.error">
+        {{ sectionMessages.attendance.text }}
+      </div>
+    </section>
+
+    <!-- Deductions -->
+    <section class="card" *ngIf="activeTab === 'deductions'">
+      <header class="section-head">
+        <h2>Deductions / Recovery Configuration</h2>
+        <span class="section-meta">{{ sectionContext('deductions') }}</span>
+      </header>
+
+      <div class="form-grid">
+        <label class="inline-toggle">
+          <input type="checkbox" [(ngModel)]="addon.enableLoanRecovery" />
+          Enable Loan Recovery
+        </label>
+        <label class="inline-toggle">
+          <input type="checkbox" [(ngModel)]="addon.enableAdvanceRecovery" />
+          Enable Advance Recovery
+        </label>
+        <label>
+          Default Deduction Cap (%)
+          <input type="number" min="0" max="100" [(ngModel)]="addon.defaultDeductionCapPct" />
+        </label>
+        <label class="span-2">
+          Recovery Order
+          <input type="text" [(ngModel)]="addon.recoveryOrder" />
+        </label>
+      </div>
+
+      <ul class="validation-list" *ngIf="sectionValidation.deductions.length">
+        <li *ngFor="let issue of sectionValidation.deductions">{{ issue }}</li>
+      </ul>
+
+      <footer class="section-actions">
+        <button class="btn btn-primary" type="button" [disabled]="savingSection.deductions" (click)="saveDeductionsConfig()">
+          {{ savingSection.deductions ? 'Saving...' : 'Save Deductions Config' }}
+        </button>
+      </footer>
+
+      <div *ngIf="sectionMessages.deductions.text" class="msg" [class.error]="sectionMessages.deductions.error">
+        {{ sectionMessages.deductions.text }}
+      </div>
+
+      <hr class="sep" />
+
+      <header class="section-head top-gap">
+        <h2>Component & Rule Management</h2>
+        <button class="btn btn-secondary" type="button" (click)="openCompForm()">+ Add Component</button>
+      </header>
+
+      <div class="inline-filters">
+        <label class="search-box">
+          Search Components
+          <input type="search" [(ngModel)]="componentSearch" placeholder="Code / name / type" />
+        </label>
+      </div>
+
+      <div *ngIf="loadingComponents" class="loader mini">Loading components...</div>
+
+      <div class="table-wrap" *ngIf="!loadingComponents && filteredComponents.length; else noComponents">
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Type</th>
+              <th>Flags</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let c of filteredComponents">
+              <td>
+                <div class="strong">{{ c.name }}</div>
+                <div class="minor mono">{{ c.code }}</div>
+              </td>
+              <td>{{ c.componentType }}</td>
+              <td>
+                <span class="flag" *ngIf="c.affectsPfWage">PF</span>
+                <span class="flag" *ngIf="c.affectsEsiWage">ESI</span>
+                <span class="flag tax" *ngIf="c.isTaxable">TAX</span>
+                <span class="flag req" *ngIf="c.isRequired">REQ</span>
+              </td>
+              <td class="text-right">
+                <button class="link" type="button" (click)="openCompForm(c)">Edit</button>
+                <button class="link" type="button" (click)="openRules(c)">Rules</button>
+                <button class="link link-danger" type="button" (click)="deleteComp(c)">Delete</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-template #noComponents>
+        <div class="empty-mini" *ngIf="!loadingComponents">No components configured for this client.</div>
+      </ng-template>
+
+      <section class="rules-panel" *ngIf="selectedComponent">
+        <header class="section-head top-gap">
+          <h2>Rules - {{ selectedComponent.name }} ({{ selectedComponent.code }})</h2>
+          <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
+        </header>
+
+        <div *ngIf="loadingRules" class="loader mini">Loading rules...</div>
+
+        <div class="table-wrap" *ngIf="!loadingRules && rules.length; else noRules">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Summary</th>
+                <th>Priority</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of rules">
+                <td>{{ r.ruleType }}</td>
+                <td>{{ ruleSummary(r) }}</td>
+                <td>{{ r.priority }}</td>
+                <td class="text-right">
+                  <button class="link link-danger" type="button" (click)="deleteRule(r)">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ng-template #noRules>
+          <div class="empty-mini" *ngIf="!loadingRules">No rules configured for selected component.</div>
+        </ng-template>
+      </section>
+    </section>
+  </ng-container>
+</div>
+
+<!-- Component modal -->
+<div class="modal-backdrop" *ngIf="showCompModal">
+  <div class="modal-card">
+    <header>
+      <h3>{{ editingComp ? 'Edit Component' : 'Add Component' }}</h3>
+      <button type="button" class="link" (click)="showCompModal = false">Close</button>
+    </header>
+
+    <div class="modal-grid">
+      <label>
+        Code *
+        <input type="text" [(ngModel)]="compForm.code" [disabled]="editingComp" />
+      </label>
+      <label>
+        Name *
+        <input type="text" [(ngModel)]="compForm.name" />
+      </label>
+      <label>
+        Type *
+        <select [(ngModel)]="compForm.componentType">
+          <option *ngFor="let t of compTypeOptions" [value]="t">{{ t }}</option>
+        </select>
+      </label>
+      <label>
+        Display Order
+        <input type="number" [(ngModel)]="compForm.displayOrder" />
+      </label>
+      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.affectsPfWage" /> Affects PF Wage</label>
+      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.affectsEsiWage" /> Affects ESI Wage</label>
+      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.isTaxable" /> Taxable</label>
+      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.isRequired" /> Required</label>
+    </div>
+
+    <div *ngIf="compFormError" class="msg error">{{ compFormError }}</div>
+
+    <footer>
+      <button class="btn btn-ghost" type="button" (click)="showCompModal = false">Cancel</button>
+      <button class="btn btn-primary" type="button" [disabled]="savingComp" (click)="saveComp()">
+        {{ savingComp ? 'Saving...' : 'Save Component' }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- Rule modal -->
+<div class="modal-backdrop" *ngIf="showRuleModal">
+  <div class="modal-card">
+    <header>
+      <h3>Add Rule</h3>
+      <button type="button" class="link" (click)="showRuleModal = false">Close</button>
+    </header>
+
+    <div class="modal-grid">
+      <label>
+        Rule Type
+        <select [(ngModel)]="ruleForm.ruleType">
+          <option *ngFor="let t of ruleTypeOptions" [value]="t">{{ t }}</option>
+        </select>
+      </label>
+      <label>
+        Priority
+        <input type="number" [(ngModel)]="ruleForm.priority" />
+      </label>
+
+      <label *ngIf="ruleForm.ruleType === 'FIXED'">
+        Fixed Amount
+        <input type="number" [(ngModel)]="ruleForm.fixedAmount" />
+      </label>
+
+      <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
+        Base Component Code
+        <input type="text" [(ngModel)]="ruleForm.baseComponent" />
+      </label>
+      <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
+        Percentage
+        <input type="number" [(ngModel)]="ruleForm.percentage" />
+      </label>
+
+      <label class="span-2" *ngIf="ruleForm.ruleType === 'FORMULA'">
+        Formula
+        <textarea rows="3" [(ngModel)]="ruleForm.formula"></textarea>
+      </label>
+    </div>
+
+    <div *ngIf="ruleFormError" class="msg error">{{ ruleFormError }}</div>
+
+    <footer>
+      <button class="btn btn-ghost" type="button" (click)="showRuleModal = false">Cancel</button>
+      <button class="btn btn-primary" type="button" [disabled]="savingRule" (click)="saveRule()">
+        {{ savingRule ? 'Saving...' : 'Save Rule' }}
+      </button>
+    </footer>
+  </div>
+</div>

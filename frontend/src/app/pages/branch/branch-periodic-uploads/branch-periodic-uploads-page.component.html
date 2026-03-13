@@ -223,18 +223,9 @@
 
           <div class="timeline">
             <div class="timeline-title">Notes History</div>
-            <div *ngIf="!timeline.length" class="timeline-empty">No history available for this filing item.</div>
-            <div *ngFor="let event of timeline" class="timeline-item">
-              <div class="dot"></div>
-              <div class="content">
-                <div class="head">
-                  <span>{{ event.title }}</span>
-                  <span>{{ event.createdAt | date:'dd/MM/yyyy, HH:mm' }}</span>
-                </div>
-                <div *ngIf="event.statusTo" class="event-note">Status: {{ event.statusTo }}</div>
-                <div *ngIf="event.comment" class="event-note">{{ event.comment }}</div>
-              </div>
-            </div>
+            <shared-timeline
+              [events]="timeline"
+              [emptyMessage]="'No history available for this filing item.'"></shared-timeline>
           </div>
 
           <div class="review-notes">
@@ -344,54 +335,9 @@
     <div slot="footer"></div>
   </ui-modal>
 
-  <ui-modal
-    *ngIf="showPreviewModal && previewData"
-    [isOpen]="showPreviewModal"
-    [title]="previewData.name || 'File Preview'"
-    size="lg"
-    (closed)="closePreviewModal()">
-
-    <div class="space-y-4" *ngIf="previewData as preview">
-      <div class="detail-grid">
-        <div class="detail-cell">
-          <span class="label">File</span>
-          <span class="value">{{ preview.fileName || '-' }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="label">Uploaded</span>
-          <span class="value">{{ preview.uploadedAt ? (preview.uploadedAt | date:'dd/MM/yyyy, HH:mm') : '-' }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="label">Status</span>
-          <span class="value">{{ preview.status || '-' }}</span>
-        </div>
-        <div class="detail-cell">
-          <span class="label">Rejection Reason</span>
-          <span class="value">{{ preview.rejectionReason || '-' }}</span>
-        </div>
-      </div>
-
-      <div class="review-notes" *ngIf="preview.versions.length">
-        <div class="timeline-title">Version History</div>
-        <div *ngFor="let version of preview.versions" class="review-note-row">
-          <div class="review-note-head">
-            <span>{{ version.label }}</span>
-            <span>{{ version.createdAt ? (version.createdAt | date:'dd/MM/yyyy, HH:mm') : '-' }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex justify-end gap-3 pt-2">
-        <button
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-          type="button"
-          (click)="closePreviewModal()">
-          Close
-        </button>
-        <button class="btn-primary" type="button" (click)="downloadPreviewFile()">Open File</button>
-      </div>
-    </div>
-
-    <div slot="footer"></div>
-  </ui-modal>
+  <shared-file-preview-modal
+    [open]="showPreviewModal"
+    [file]="previewData"
+    (closed)="closePreviewModal()"
+    (download)="downloadPreviewFile()"></shared-file-preview-modal>
 </div>

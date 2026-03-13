@@ -1,30 +1,61 @@
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
+import { ToastMessage, ToastType } from './toast.model';
 
-export type ToastType = 'success' | 'error' | 'info' | 'warning';
-export interface ToastMsg {
-  type: ToastType;
-  text: string;
-}
-
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class ToastService {
-  private readonly _msgs = new Subject<ToastMsg>();
-  readonly msgs$ = this._msgs.asObservable();
+  private readonly _toasts = new BehaviorSubject<ToastMessage[]>([]);
+  readonly toasts$ = this._toasts.asObservable();
 
-  success(text: string): void {
-    this._msgs.next({ type: 'success', text });
+  success(title: string, message = '', duration = 3000): void {
+    this.show('success', title, message, duration);
   }
 
-  error(text: string): void {
-    this._msgs.next({ type: 'error', text });
+  error(title: string, message = '', duration = 5000): void {
+    this.show('error', title, message, duration);
   }
 
-  info(text: string): void {
-    this._msgs.next({ type: 'info', text });
+  warning(title: string, message = '', duration = 4000): void {
+    this.show('warning', title, message, duration);
   }
 
-  warning(text: string): void {
-    this._msgs.next({ type: 'warning', text });
+  info(title: string, message = '', duration = 3000): void {
+    this.show('info', title, message, duration);
+  }
+
+  remove(id: string): void {
+    const current = this._toasts.value.filter((t) => t.id !== id);
+    this._toasts.next(current);
+  }
+
+  clear(): void {
+    this._toasts.next([]);
+  }
+
+  private show(
+    type: ToastType,
+    title: string,
+    message: string,
+    duration: number,
+  ): void {
+    const toast: ToastMessage = {
+      id: this.generateId(),
+      type,
+      title,
+      message,
+      duration,
+    };
+
+    this._toasts.next([...this._toasts.value, toast]);
+
+    window.setTimeout(() => {
+      this.remove(toast.id);
+    }, duration);
+  }
+
+  private generateId(): string {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   }
 }

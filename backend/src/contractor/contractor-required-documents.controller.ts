@@ -19,9 +19,12 @@ import {
   CrmAssignmentGuard,
 } from '../assignments/crm-assignment.guard';
 import { BranchAccessService } from '../auth/branch-access.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /* ──────────────────────────── CRM endpoints ──────────────────────────── */
 
+@ApiTags('Contractor')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm/contractor-required-documents', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard, CrmAssignmentGuard)
 @Roles('CRM', 'ADMIN', 'CCO', 'CEO')
@@ -29,6 +32,7 @@ export class CrmContractorRequiredDocumentsController {
   constructor(private readonly svc: ContractorRequiredDocumentsService) {}
 
   /** GET /api/crm/contractor-required-documents?clientId=&contractorId=&branchId= */
+  @ApiOperation({ summary: 'List' })
   @Get()
   @ClientScoped('clientId')
   list(
@@ -40,6 +44,7 @@ export class CrmContractorRequiredDocumentsController {
   }
 
   /** GET /api/crm/contractor-required-documents/by-client?clientId=&branchId= */
+  @ApiOperation({ summary: 'List By Client' })
   @Get('by-client')
   @ClientScoped('clientId')
   listByClient(
@@ -50,6 +55,7 @@ export class CrmContractorRequiredDocumentsController {
   }
 
   /** POST /api/crm/contractor-required-documents */
+  @ApiOperation({ summary: 'Add' })
   @Post()
   @ClientScoped('clientId')
   add(
@@ -70,6 +76,7 @@ export class CrmContractorRequiredDocumentsController {
   }
 
   /** POST /api/crm/contractor-required-documents/bulk */
+  @ApiOperation({ summary: 'Add Bulk' })
   @Post('bulk')
   @ClientScoped('clientId')
   addBulk(
@@ -90,6 +97,7 @@ export class CrmContractorRequiredDocumentsController {
   }
 
   /** PATCH /api/crm/contractor-required-documents/:id/toggle?clientId= */
+  @ApiOperation({ summary: 'Toggle' })
   @Patch(':id/toggle')
   @ClientScoped('clientId')
   toggle(@Param('id') id: string, @Query('clientId') clientId: string) {
@@ -97,6 +105,7 @@ export class CrmContractorRequiredDocumentsController {
   }
 
   /** DELETE /api/crm/contractor-required-documents/:id?clientId= */
+  @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
   @ClientScoped('clientId')
   remove(@Param('id') id: string, @Query('clientId') clientId: string) {
@@ -116,6 +125,7 @@ export class ClientContractorRequiredDocumentsController {
   ) {}
 
   /** GET /api/client/contractor-required-documents?contractorId=&branchId= */
+  @ApiOperation({ summary: 'List' })
   @Get()
   async list(
     @Req() req: any,
@@ -129,6 +139,7 @@ export class ClientContractorRequiredDocumentsController {
   }
 
   /** GET /api/client/contractor-required-documents/all?branchId= */
+  @ApiOperation({ summary: 'List All' })
   @Get('all')
   async listAll(@Req() req: any, @Query('branchId') branchId?: string) {
     const clientId = req.user.clientId;
@@ -138,6 +149,7 @@ export class ClientContractorRequiredDocumentsController {
   }
 
   /** POST – CLIENT can also add required doc types */
+  @ApiOperation({ summary: 'Add' })
   @Post()
   async add(
     @Req() req: any,
@@ -155,6 +167,7 @@ export class ClientContractorRequiredDocumentsController {
   }
 
   /** POST bulk */
+  @ApiOperation({ summary: 'Add Bulk' })
   @Post('bulk')
   async addBulk(
     @Req() req: any,
@@ -173,12 +186,14 @@ export class ClientContractorRequiredDocumentsController {
   }
 
   /** PATCH toggle */
+  @ApiOperation({ summary: 'Toggle' })
   @Patch(':id/toggle')
   toggle(@Req() req: any, @Param('id') id: string) {
     return this.svc.toggle(id, req.user.clientId);
   }
 
   /** DELETE */
+  @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
   remove(@Req() req: any, @Param('id') id: string) {
     return this.svc.remove(id, req.user.clientId);

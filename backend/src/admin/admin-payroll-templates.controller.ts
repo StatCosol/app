@@ -17,7 +17,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { PayrollTemplate } from '../payroll/entities/payroll-template.entity';
 import { PayrollTemplateComponent } from '../payroll/entities/payroll-template-component.entity';
 import { PayrollClientTemplate } from '../payroll/entities/payroll-client-template.entity';
-import { CreatePayrollTemplateDto, UpdatePayrollTemplateDto } from './dto/payroll-template.dto';
+import {
+  CreatePayrollTemplateDto,
+  UpdatePayrollTemplateDto,
+} from './dto/payroll-template.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -69,7 +72,10 @@ export class AdminPayrollTemplatesController {
 
   @ApiOperation({ summary: 'Update Template' })
   @Patch(['templates/:id', 'payroll-templates/:id'])
-  async updateTemplate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePayrollTemplateDto) {
+  async updateTemplate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePayrollTemplateDto,
+  ) {
     const updateData: Partial<PayrollTemplate> = {};
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.fileName !== undefined) updateData.fileName = dto.fileName;

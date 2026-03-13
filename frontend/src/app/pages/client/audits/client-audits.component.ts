@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientAuditsService } from '../../../core/client-audits.service';
+import { ReportsService } from '../../../core/reports.service';
 import { PageHeaderComponent, DataTableComponent, TableColumn, FormSelectComponent, StatusBadgeComponent } from '../../../shared/ui';
 
 @Component({
@@ -108,6 +109,8 @@ export class ClientAuditsComponent implements OnDestroy {
     return new Date(date).toLocaleDateString();
   }
 
+  selectedAudit: any = null;
+
   get auditCounts() {
     return {
       total: this.audits.length,
@@ -115,5 +118,21 @@ export class ClientAuditsComponent implements OnDestroy {
       inProgress: this.audits.filter(a => a.status === 'IN_PROGRESS').length,
       completed: this.audits.filter(a => a.status === 'COMPLETED').length,
     };
+  }
+
+  openAuditDetail(audit: any) {
+    this.selectedAudit = audit;
+  }
+
+  exportCsv(): void {
+    ReportsService.exportCsv(this.audits, [
+      { key: 'auditType', label: 'Audit Type' },
+      { key: 'frequency', label: 'Frequency' },
+      { key: 'period', label: 'Period' },
+      { key: 'auditor', label: 'Auditor' },
+      { key: 'contractor', label: 'Contractor' },
+      { key: 'status', label: 'Status' },
+      { key: 'dueDate', label: 'Due Date' },
+    ], 'client-audits.csv');
   }
 }

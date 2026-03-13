@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { DbService } from '../common/db/db.service';
 import { normalizeDateFilters, normalizePaging } from '../common/utils/filters';
 import { CRM_DUE_TAB, CrmDueTab } from '../common/utils/enums';
@@ -67,6 +67,7 @@ export interface CrmQueryDto {
  */
 @Injectable()
 export class CrmDashboardService {
+  private readonly logger = new Logger(CrmDashboardService.name);
   constructor(private readonly db: DbService) {}
 
   /**
@@ -172,12 +173,12 @@ export class CrmDashboardService {
            cd.status,
            cd.created_at     AS "uploadedAt",
            cd.branch_id      AS "branchId",
-           b.branch_name     AS "branchName",
+           b.branchname      AS "branchName",
            c.id              AS "clientId",
            c.client_name     AS "clientName"
          FROM contractor_documents cd
-         INNER JOIN branches b ON b.id = cd.branch_id
-         INNER JOIN clients c ON c.id = b.client_id
+         INNER JOIN client_branches b ON b.id = cd.branch_id
+         INNER JOIN clients c ON c.id = b.clientid
          INNER JOIN client_assignments_current cac
            ON cac.client_id = c.id
            AND cac.assigned_to_user_id = $1
@@ -188,7 +189,8 @@ export class CrmDashboardService {
          LIMIT $3 OFFSET $4`,
         [crmUserId, f.clientId, p.limit, p.offset],
       );
-    } catch {
+    } catch (err) {
+      this.logger.error('getPendingDocuments failed', (err as Error)?.message);
       return [];
     }
   }
