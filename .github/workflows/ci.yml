@@ -121,23 +121,8 @@ jobs:
 
       - name: Apply SQL migrations
         run: |
-          PGPASSWORD=postgres psql \
-            -h localhost \
-            -p 5432 \
-            -U postgres \
-            -d statcompy \
-            -v ON_ERROR_STOP=1 \
-            -f backend/migrations/statco_schema_final.sql
-          for f in \
-            backend/migrations/20260127_hrms_phase1_schema.sql \
-            backend/migrations/20260201_payroll_runs_and_payslips.sql \
-            backend/migrations/20260217_payroll_statutory_engine.sql \
-            backend/migrations/20260218_statutory_services_refactor.sql \
-            backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
-            if [ ! -f "$f" ]; then
-              echo "Skipping missing migration $f"
-              continue
-            fi
+          apply_sql() {
+            local f="$1"
             echo "Applying $f"
             PGPASSWORD=postgres psql \
               -h localhost \
@@ -146,6 +131,34 @@ jobs:
               -d statcompy \
               -v ON_ERROR_STOP=1 \
               -f "$f"
+          }
+
+          PGPASSWORD=postgres psql \
+            -h localhost \
+            -p 5432 \
+            -U postgres \
+            -d statcompy \
+            -v ON_ERROR_STOP=1 \
+            -f backend/migrations/statco_schema_final.sql
+
+          if [ -f backend/migrations/20260127_hrms_phase1_schema.sql ]; then
+            apply_sql backend/migrations/20260127_hrms_phase1_schema.sql
+          elif [ -f backend/migrations/obsolete/20260127_hrms_phase1_schema.sql ]; then
+            apply_sql backend/migrations/obsolete/20260127_hrms_phase1_schema.sql
+          else
+            echo "Skipping missing migration backend/migrations/20260127_hrms_phase1_schema.sql"
+          fi
+
+          for f in \
+            backend/migrations/20260201_payroll_runs_and_payslips.sql \
+            backend/migrations/20260217_payroll_statutory_engine.sql \
+            backend/migrations/20260218_statutory_services_refactor.sql \
+            backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
+            if [ ! -f "$f" ]; then
+              echo "Skipping missing migration $f"
+              continue
+            fi
+            apply_sql "$f"
           done
 
       - name: Seed baseline roles/users
