@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 export interface BranchRiskItem {
@@ -12,6 +12,8 @@ export interface BranchRiskItem {
 
 @Injectable()
 export class RiskService {
+  private readonly logger = new Logger(RiskService.name);
+
   constructor(private readonly ds: DataSource) {}
 
   /**
@@ -60,7 +62,9 @@ export class RiskService {
     // Score calculation (0-100)
     const expiredRatio = Math.min(expiredCount / Math.max(totalRegs, 1), 1);
     const overdueScore = Math.min(overdueCount * 10, 100);
-    const score = Math.round(expiredRatio * 40 + (overdueScore / 100) * 35 + expiredRatio * 25);
+    const score = Math.round(
+      expiredRatio * 40 + (overdueScore / 100) * 35 + expiredRatio * 25,
+    );
 
     return Math.min(score, 100);
   }
@@ -118,19 +122,31 @@ export class RiskService {
     from: string;
     to: string;
   }): Promise<{ points: { date: string; riskScore: number }[] }> {
-    const rows: any[] = await this.ds.query(
-      `SELECT snapshot_date, risk_score
-       FROM branch_risk_snapshots
-       WHERE branch_id = $1
-         AND snapshot_date BETWEEN $2 AND $3
-       ORDER BY snapshot_date ASC`,
-      [params.branchId, params.from, params.to],
-    );
+    let rows: any[] = [];
+    try {
+      rows = await this.ds.query(
+        `SELECT snapshot_date, risk_score
+         FROM branch_risk_snapshots
+         WHERE branch_id = $1
+           AND snapshot_date BETWEEN $2 AND $3
+         ORDER BY snapshot_date ASC`,
+        [params.branchId, params.from, params.to],
+      );
+    } catch (err: any) {
+      if (err?.code === '42P01') {
+        this.logger.warn(
+          'branch_risk_snapshots table missing; returning empty risk trend.',
+        );
+        return { points: [] };
+      }
+      throw err;
+    }
 
     const points = rows.map((r) => ({
-      date: typeof r.snapshot_date === 'string'
-        ? r.snapshot_date.substring(0, 10)
-        : new Date(r.snapshot_date).toISOString().substring(0, 10),
+      date:
+        typeof r.snapshot_date === 'string'
+          ? r.snapshot_date.substring(0, 10)
+          : new Date(r.snapshot_date).toISOString().substring(0, 10),
       riskScore: r.risk_score,
     }));
 

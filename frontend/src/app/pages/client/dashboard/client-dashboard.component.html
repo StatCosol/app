@@ -57,56 +57,151 @@
 
     <ng-container *ngIf="!errorMsg && data as d; else clientFallback">
       <!-- KPI strip -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('EMPLOYEES')" title="View employee status details">
-          <div class="kpi-pill kpi-pill--blue">Employees</div>
-          <div class="kpi-value">{{ d.kpis.employees.active || 0 }}</div>
-          <div class="kpi-sub">M {{ d.kpis.employees.male || 0 }} / F {{ d.kpis.employees.female || 0 }} &bull; Active of {{ d.kpis.employees.total || 0 }}</div>
+      <!-- KPI strip (Branch-style cards) -->
+      <div class="kpi-cards-grid">
+        <div class="kpi-tile kpi-tile--blue kpi-tile--clickable" (click)="openDetail('EMPLOYEES')" title="View employee status details">
+          <div class="kpi-tile__icon bg-blue-100">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Employees</p>
+            <p class="kpi-tile__value">{{ d.kpis.employees.active || 0 }}</p>
+            <div class="kpi-tile__detail">
+              <span class="text-blue-600">M: {{ d.kpis.employees.male || 0 }}</span>
+              <span class="mx-1.5 text-slate-300">|</span>
+              <span class="text-pink-500">F: {{ d.kpis.employees.female || 0 }}</span>
+              <span class="mx-1.5 text-slate-300">|</span>
+              <span>Total: {{ d.kpis.employees.total || 0 }}</span>
+            </div>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('CONTRACTORS')" title="View contractor upload details">
-          <div class="kpi-pill kpi-pill--blue">Contractors</div>
-          <div class="kpi-value">{{ d.kpis.contractors.total || 0 }}</div>
-          <div class="kpi-sub">M {{ d.kpis.contractors.male || 0 }} / F {{ d.kpis.contractors.female || 0 }}</div>
+
+        <div class="kpi-tile kpi-tile--purple kpi-tile--clickable" (click)="openDetail('CONTRACTORS')" title="View contractor upload details">
+          <div class="kpi-tile__icon bg-purple-100">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Contractors</p>
+            <p class="kpi-tile__value">{{ d.kpis.contractors.total || 0 }}</p>
+            <div class="kpi-tile__detail">
+              <span class="text-blue-600">M: {{ d.kpis.contractors.male || 0 }}</span>
+              <span class="mx-1.5 text-slate-300">|</span>
+              <span class="text-pink-500">F: {{ d.kpis.contractors.female || 0 }}</span>
+            </div>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('PAYROLL')" title="View payroll pending breakdown">
-          <div class="kpi-pill kpi-pill--amber">Payroll Pending</div>
-          <div class="kpi-value">{{ d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees }}</div>
-          <div class="kpi-sub">Queries, inputs, PF/ESI</div>
+
+        <div class="kpi-tile kpi-tile--amber kpi-tile--clickable" (click)="openDetail('PAYROLL')" title="View payroll pending breakdown">
+          <div class="kpi-tile__icon bg-amber-100">
+            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Payroll Pending</p>
+            <p class="kpi-tile__value" [class.text-red-600]="(d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees) > 0">{{ d.kpis.payroll.pendingQueries + d.kpis.payroll.pendingEmployees + d.kpis.payroll.pfPendingEmployees + d.kpis.payroll.esiPendingEmployees }}</p>
+            <p class="kpi-tile__detail">Queries, inputs, PF/ESI</p>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('BRANCHES')" title="View branch compliance ranking">
-          <div class="kpi-pill kpi-pill--green">Branches Live</div>
-          <div class="kpi-value">{{ d.kpis.branches.live || 0 }}</div>
-          <div class="kpi-sub">of {{ d.kpis.branches.total || 0 }}</div>
+
+        <div class="kpi-tile kpi-tile--green kpi-tile--clickable" (click)="openDetail('BRANCHES')" title="View branch compliance ranking">
+          <div class="kpi-tile__icon bg-emerald-100">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Branches Live</p>
+            <p class="kpi-tile__value">{{ d.kpis.branches.live || 0 }}</p>
+            <p class="kpi-tile__detail">of {{ d.kpis.branches.total || 0 }} total</p>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('COMPLIANCE')" title="View compliance trend details">
-          <div class="kpi-pill kpi-pill--blue">Compliance %</div>
-          <div class="kpi-value">{{ d.kpis.compliance.overallPercent || 0 }}%</div>
-          <div class="kpi-sub">Branch avg {{ d.kpis.compliance.branchAvgPercent || 0 }}%</div>
+      </div>
+
+      <div class="kpi-cards-grid">
+        <div class="kpi-tile kpi-tile--blue kpi-tile--clickable" (click)="openDetail('COMPLIANCE')" title="View compliance trend details">
+          <div class="kpi-tile__icon bg-blue-100">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Compliance %</p>
+            <p class="kpi-tile__value">{{ d.kpis.compliance.overallPercent || 0 }}%</p>
+            <p class="kpi-tile__detail">Branch avg {{ d.kpis.compliance.branchAvgPercent || 0 }}%</p>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('AUDIT')" title="View audit completion details">
-          <div class="kpi-pill kpi-pill--blue">Audit Score</div>
-          <div class="kpi-value">{{ d.kpis.audits.overallAuditScore || 0 }}%</div>
-          <div class="kpi-sub">Completed {{ d.kpis.audits.completed || 0 }}</div>
+
+        <div class="kpi-tile kpi-tile--blue kpi-tile--clickable" (click)="openDetail('AUDIT')" title="View audit completion details">
+          <div class="kpi-tile__icon bg-blue-100">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Audit Score</p>
+            <p class="kpi-tile__value">{{ d.kpis.audits.overallAuditScore || 0 }}%</p>
+            <p class="kpi-tile__detail">Completed {{ d.kpis.audits.completed || 0 }}</p>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('RISK')" title="View critical queue">
-          <div class="kpi-pill kpi-pill--red">Critical</div>
-          <div class="kpi-value">{{ d.queues.critical.length || 0 }}</div>
-          <div class="kpi-sub">Risk items</div>
+
+        <div class="kpi-tile kpi-tile--red kpi-tile--clickable" (click)="openDetail('RISK')" title="View critical queue">
+          <div class="kpi-tile__icon bg-red-100">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Critical</p>
+            <p class="kpi-tile__value" [class.text-red-600]="(d.queues.critical.length || 0) > 0">{{ d.queues.critical.length || 0 }}</p>
+            <p class="kpi-tile__detail">Risk items</p>
+          </div>
         </div>
-        <div class="kpi-card kpi-card--clickable" (click)="openDetail('RISK')" title="View pending queue">
-          <div class="kpi-pill kpi-pill--amber">Pending</div>
-          <div class="kpi-value">{{ d.queues.pending.length || 0 }}</div>
-          <div class="kpi-sub">Operational</div>
+
+        <div class="kpi-tile kpi-tile--amber kpi-tile--clickable" (click)="openDetail('RISK')" title="View pending queue">
+          <div class="kpi-tile__icon bg-amber-100">
+            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Pending</p>
+            <p class="kpi-tile__value">{{ d.queues.pending.length || 0 }}</p>
+            <p class="kpi-tile__detail">Operational</p>
+          </div>
         </div>
-        <!-- Registration Compliance KPI -->
-        <div *ngIf="regSummary" class="kpi-card kpi-card--clickable" (click)="openDetail('REGISTRATIONS')" title="View registration compliance">
-          <div class="kpi-pill" [ngClass]="{
-            'kpi-pill--green': regSummary.scoreImpact >= 90,
-            'kpi-pill--amber': regSummary.scoreImpact >= 70 && regSummary.scoreImpact < 90,
-            'kpi-pill--red': regSummary.scoreImpact < 70
-          }">Registrations</div>
-          <div class="kpi-value">{{ regSummary.scoreImpact }}%</div>
-          <div class="kpi-sub">{{ regSummary.expired || 0 }} expired &bull; {{ regSummary.expiringSoon || 0 }} expiring</div>
+      </div>
+
+      <!-- Registration Compliance KPI -->
+      <div *ngIf="regSummary" class="kpi-cards-grid" style="grid-template-columns: repeat(1, minmax(0, 320px));">
+        <div class="kpi-tile kpi-tile--clickable" [ngClass]="{
+          'kpi-tile--green': regSummary.scoreImpact >= 90,
+          'kpi-tile--amber': regSummary.scoreImpact >= 70 && regSummary.scoreImpact < 90,
+          'kpi-tile--red': regSummary.scoreImpact < 70
+        }" (click)="openDetail('REGISTRATIONS')" title="View registration compliance">
+          <div class="kpi-tile__icon" [ngClass]="{
+            'bg-emerald-100': regSummary.scoreImpact >= 90,
+            'bg-amber-100': regSummary.scoreImpact >= 70 && regSummary.scoreImpact < 90,
+            'bg-red-100': regSummary.scoreImpact < 70
+          }">
+            <svg class="w-6 h-6" [ngClass]="{
+              'text-emerald-600': regSummary.scoreImpact >= 90,
+              'text-amber-600': regSummary.scoreImpact >= 70 && regSummary.scoreImpact < 90,
+              'text-red-600': regSummary.scoreImpact < 70
+            }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <div class="kpi-tile__body">
+            <p class="kpi-tile__label">Registrations</p>
+            <p class="kpi-tile__value">{{ regSummary.scoreImpact }}%</p>
+            <p class="kpi-tile__detail">{{ regSummary.expired || 0 }} expired &bull; {{ regSummary.expiringSoon || 0 }} expiring</p>
+          </div>
         </div>
       </div>
 
@@ -704,6 +799,37 @@
             </div>
           </div>
           <div class="panel-body space-y-4">
+            <div class="queue-tabs">
+              <div class="queue-tab">Critical ({{ d.queues.critical.length || 0 }})</div>
+              <div class="queue-list" *ngIf="d.queues.critical.length; else noCritical">
+                <div *ngFor="let item of d.queues.critical" class="queue-row">
+                  <div>
+                    <div class="queue-title">{{ item.label }}</div>
+                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
+                  </div>
+                  <div class="queue-meta">Age {{ item.ageDays }}d</div>
+                  <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
+                </div>
+              </div>
+              <ng-template #noCritical><p class="queue-empty">No critical items</p></ng-template>
+            </div>
+            <div class="queue-tabs">
+              <div class="queue-tab queue-tab--pending">Pending ({{ d.queues.pending.length || 0 }})</div>
+              <div class="queue-list" *ngIf="d.queues.pending.length; else noPending">
+                <div *ngFor="let item of d.queues.pending" class="queue-row">
+                  <div>
+                    <div class="queue-title">{{ item.label }}</div>
+                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
+                  </div>
+                  <div class="queue-meta">Age {{ item.ageDays }}d</div>
+                  <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
+                </div>
+              </div>
+              <ng-template #noPending><p class="queue-empty">No pending items</p></ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- ═══════ Compliance Intelligence: Lowest Branches ═══════ -->
       <div class="panel" *ngIf="lowestBranches.length">
@@ -746,7 +872,7 @@
         </div>
       </div>
 
-      <!-- ═══════ Company-wide compliance trend placeholder ═══════ -->
+      <!-- ═══════ Company-wide compliance trend ═══════ -->
       <div class="panel" *ngIf="companyTrend.length">
         <div class="panel-header">
           <div>
@@ -767,37 +893,6 @@
                      [style.width.%]="t.percent">
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-            <div class="queue-tabs">
-              <div class="queue-tab">Critical ({{ d.queues.critical.length || 0 }})</div>
-              <div class="queue-list" *ngIf="d.queues.critical.length; else noCritical">
-                <div *ngFor="let item of d.queues.critical" class="queue-row">
-                  <div>
-                    <div class="queue-title">{{ item.label }}</div>
-                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
-                  </div>
-                  <div class="queue-meta">Age {{ item.ageDays }}d</div>
-                  <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
-                </div>
-              </div>
-              <ng-template #noCritical><p class="queue-empty">No critical items</p></ng-template>
-            </div>
-            <div class="queue-tabs">
-              <div class="queue-tab queue-tab--pending">Pending ({{ d.queues.pending.length || 0 }})</div>
-              <div class="queue-list" *ngIf="d.queues.pending.length; else noPending">
-                <div *ngFor="let item of d.queues.pending" class="queue-row">
-                  <div>
-                    <div class="queue-title">{{ item.label }}</div>
-                    <div class="queue-meta">{{ item.branchName || 'Branch' }} <span *ngIf="item.contractorName">• {{ item.contractorName }}</span></div>
-                  </div>
-                  <div class="queue-meta">Age {{ item.ageDays }}d</div>
-                  <span class="queue-badge" [ngClass]="queueBadgeClass(item)">{{ item.owner }}</span>
-                </div>
-              </div>
-              <ng-template #noPending><p class="queue-empty">No pending items</p></ng-template>
             </div>
           </div>
         </div>

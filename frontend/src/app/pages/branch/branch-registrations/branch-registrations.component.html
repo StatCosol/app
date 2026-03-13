@@ -363,18 +363,9 @@
           <h2>Status Timeline</h2>
           <span>{{ selectedTimeline.length }} events</span>
         </div>
-        <div class="empty-mini" *ngIf="!selectedTimeline.length">No timeline data available.</div>
-        <div class="timeline" *ngIf="selectedTimeline.length">
-          <div class="timeline-item" *ngFor="let event of selectedTimeline">
-            <i [class.req]="!!event.statusTo"></i>
-            <div>
-              <strong>{{ event.title }}</strong>
-              <p>{{ event.createdAt | date:'dd MMM yyyy, hh:mm a' }}</p>
-              <small *ngIf="event.statusTo">Status: {{ event.statusTo }}</small>
-              <small *ngIf="event.comment">{{ event.comment }}</small>
-            </div>
-          </div>
-        </div>
+        <shared-timeline
+          [events]="selectedTimeline"
+          [emptyMessage]="'No timeline data available.'"></shared-timeline>
       </article>
 
       <article class="card">

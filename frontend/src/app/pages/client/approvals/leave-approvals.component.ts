@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingLeave } from './branch-approvals-api.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-leave-approvals',
@@ -159,7 +160,7 @@ export class LeaveApprovalsComponent implements OnInit, OnDestroy {
   rejectReason = '';
   private readonly destroy$ = new Subject<void>();
 
-  constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.load();
@@ -193,7 +194,7 @@ export class LeaveApprovalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => { this.processing.delete(lv.id); this.load(); },
-        error: () => { this.processing.delete(lv.id); alert('Failed to approve leave application.'); },
+        error: () => { this.processing.delete(lv.id); this.toast.error('Failed to approve leave application.'); },
       });
   }
 
@@ -213,7 +214,7 @@ export class LeaveApprovalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => { this.processing.delete(this.rejectId); this.rejectId = ''; this.load(); },
-        error: () => { this.processing.delete(this.rejectId); this.rejectId = ''; alert('Failed to reject leave application.'); },
+        error: () => { this.processing.delete(this.rejectId); this.rejectId = ''; this.toast.error('Failed to reject leave application.'); },
       });
   }
 }
