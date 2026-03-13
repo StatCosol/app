@@ -12,8 +12,11 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
+import { AuthService } from '../../../core/auth.service';
 import { CrmReturnsService } from '../../../core/crm-returns.service';
+import { ReportsService } from '../../../core/reports.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -140,9 +143,11 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
   ];
 
   constructor(
+    private readonly auth: AuthService,
     private readonly crmReturns: CrmReturnsService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly dialog: ConfirmDialogService,
   ) {
     const now = new Date().getFullYear();
     for (let year = now; year >= now - 4; year -= 1) {
@@ -224,12 +229,17 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
     const target = this.selected;
     const guardReason = this.transitionGuardReason(target, nextStatus);
     if (guardReason) {
-      this.toast.warning(`Transition blocked: ${guardReason}`);
+      this.toast.warning('Transition blocked', guardReason);
       return;
     }
 
-    const confirmed = window.confirm(`Move filing to ${nextStatus.replace('_', ' ')}?`);
-    if (!confirmed) {
+    if (
+      !(await this.dialog.confirm(
+        'Update Filing Status',
+        `Move filing to ${nextStatus.replace('_', ' ')}?`,
+        { confirmText: 'Update' },
+      ))
+    ) {
       return;
     }
 
@@ -263,9 +273,13 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
     const file = input.files?.[0];
     if (!file || !this.selectedFilingIdForAck) return;
 
-    const raw = window.prompt('Capture acknowledgement number for filing audit trail', '');
-    if (raw === null) return;
-    const ackNumber = raw.trim() || undefined;
+    const result = await this.dialog.prompt(
+      'ACK / ARN Number',
+      'Capture acknowledgement number for filing audit trail',
+      { placeholder: 'ACK / ARN / Receipt No.' },
+    );
+    if (!result.confirmed) return;
+    const ackNumber = (result.value || '').trim() || undefined;
 
     this.uploadingAck = true;
     const filingId = this.selectedFilingIdForAck;
@@ -320,39 +334,23 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
 
   openFile(path: string | null | undefined): void {
     if (!path) return;
-    const resolved = /^https?:\/\//i.test(path) ? path : new URL(path, window.location.origin).toString();
-    window.open(resolved, '_blank');
+    window.open(this.auth.authenticateUrl(path), '_blank');
   }
 
   exportCsv(): void {
-    const columns = [
-      { key: 'lawType', label: 'Law Type' },
-      { key: 'returnType', label: 'Return Type' },
-      { key: 'periodYear', label: 'Year' },
-      { key: 'periodMonth', label: 'Month' },
-      { key: 'dueDate', label: 'Due Date' },
-      { key: 'status', label: 'Status' },
-      { key: 'ackNumber', label: 'ACK Number' },
-    ] as const;
-
-    const escapeCell = (value: unknown): string => {
-      const text = String(value ?? '');
-      if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-      return text;
-    };
-
-    const header = columns.map((col) => escapeCell(col.label)).join(',');
-    const rows = this.filteredFilings.map((row) =>
-      columns.map((col) => escapeCell((row as unknown as Record<string, unknown>)[col.key])).join(','),
+    ReportsService.exportCsv(
+      this.filteredFilings,
+      [
+        { key: 'lawType', label: 'Law Type' },
+        { key: 'returnType', label: 'Return Type' },
+        { key: 'periodYear', label: 'Year' },
+        { key: 'periodMonth', label: 'Month' },
+        { key: 'dueDate', label: 'Due Date' },
+        { key: 'status', label: 'Status' },
+        { key: 'ackNumber', label: 'ACK Number' },
+      ],
+      'crm-returns-workspace.csv',
     );
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'crm-returns-workspace.csv';
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   get lawTypes(): string[] {

@@ -126,6 +126,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'approvals', loadComponent: ClientUnifiedApprovalsPageComponent },
       { path: 'approvals/nominations', loadComponent: NominationApprovalsComponent },
       { path: 'approvals/leaves', loadComponent: LeaveApprovalsComponent },
+      { path: 'approvals', loadComponent: ClientUnifiedApprovalsPageComponent },
       { path: 'settings/access', loadComponent: ClientAccessSettingsComponent },
       { path: 'branches/:branchId/compliance-items', loadComponent: BranchComplianceItemsComponent },
       { path: 'branch-compliance', loadComponent: BranchComplianceComponent },
