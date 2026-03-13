@@ -3,13 +3,17 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { ComplianceService } from '../compliance.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm/dashboard', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class ComplianceCrmDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
+  @ApiOperation({ summary: 'Get' })
   @Get()
   get(@Req() req: any) {
     return this.svc.crmDashboard(req.user);
@@ -23,6 +27,7 @@ export class ComplianceCrmDashboardController {
 export class ContractorDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
+  @ApiOperation({ summary: 'Get' })
   @Get()
   get(@Req() req: any) {
     return this.svc.contractorDashboard(req.user);
@@ -35,6 +40,7 @@ export class ContractorDashboardController {
 export class ClientDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
+  @ApiOperation({ summary: 'Get' })
   @Get()
   get(@Req() req: any) {
     return this.svc.clientDashboard(req.user);
@@ -47,6 +53,7 @@ export class ClientDashboardController {
 export class AdminRoleDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
+  @ApiOperation({ summary: 'Get' })
   @Get()
   get(@Req() req: any) {
     return this.svc.adminDashboard(req.user);
@@ -59,6 +66,7 @@ export class AdminRoleDashboardController {
 export class ComplianceAuditorDashboardController {
   constructor(private readonly svc: ComplianceService) {}
 
+  @ApiOperation({ summary: 'Get' })
   @Get()
   get(@Req() req: any) {
     return this.svc.auditorDashboard(req.user);

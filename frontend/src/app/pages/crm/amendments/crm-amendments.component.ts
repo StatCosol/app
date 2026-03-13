@@ -8,6 +8,7 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { CrmAmendmentStatus, CrmDueItemsService } from '../../../core/crm-due-items.service';
 import { DueItemRow, DueItemStatus, DueKpis, DueTab } from '../../../shared/models/crm-due-items.model';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -115,6 +116,7 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly svc: CrmDueItemsService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -204,21 +206,33 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async markInProgress(item: DueItemRow): Promise<void> {
     if (this.actionBusy || !this.canMarkInProgress(item)) return;
-    const confirmed = window.confirm(`Start review for "${item.title}"?`);
+    const confirmed = await this.dialog.confirm(
+      'Move amendment to In Progress',
+      `Start review for "${item.title}"?`,
+      { confirmText: 'Start Review' },
+    );
     if (!confirmed) return;
     this.updateWorkflowStatus(item, 'IN_PROGRESS', 'Moved to in-progress');
   }
 
   async markSubmitted(item: DueItemRow): Promise<void> {
     if (this.actionBusy || !this.canMarkSubmitted(item)) return;
-    const confirmed = window.confirm(`Mark "${item.title}" as submitted for final approval?`);
+    const confirmed = await this.dialog.confirm(
+      'Mark amendment as submitted',
+      `Mark "${item.title}" as submitted for final approval?`,
+      { confirmText: 'Mark Submitted' },
+    );
     if (!confirmed) return;
     this.updateWorkflowStatus(item, 'SUBMITTED', 'Marked as submitted');
   }
 
   async approve(item: DueItemRow): Promise<void> {
     if (this.actionBusy || !this.canApprove(item)) return;
-    if (!window.confirm(`Approve "${item.title}" for ${item.branchName}?`)) {
+    if (
+      !(await this.dialog.confirm('Approve amendment', `Approve "${item.title}" for ${item.branchName}?`, {
+        confirmText: 'Approve',
+      }))
+    ) {
       return;
     }
     this.updateWorkflowStatus(item, 'APPROVED', 'Amendment approved');
@@ -226,9 +240,12 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async reject(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt('Provide rejection remarks for audit trail.', '');
-    if (raw === null) return;
-    const remarks = raw.trim();
+    const result = await this.dialog.prompt('Reject amendment', 'Provide rejection remarks for audit trail.', {
+      placeholder: 'Reason for rejection',
+      confirmText: 'Reject',
+    });
+    const remarks = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!remarks) {
       this.toast.error('Remarks are required for rejection.');
       return;
@@ -238,12 +255,13 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async returnForUpdate(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt(
-      'Request corrective update from branch.',
-      'Please revise amendment details and resubmit with corrected reference data.',
-    );
-    if (raw === null) return;
-    const message = raw.trim();
+    const result = await this.dialog.prompt('Return amendment to branch', 'Request corrective update from branch.', {
+      placeholder: 'Message to branch',
+      defaultValue: 'Please revise amendment details and resubmit with corrected reference data.',
+      confirmText: 'Send Request',
+    });
+    const message = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!message) {
       this.toast.error('Message is required.');
       return;
@@ -271,9 +289,12 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async addComment(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt('Capture follow-up comments for timeline.', '');
-    if (raw === null) return;
-    const comment = raw.trim();
+    const result = await this.dialog.prompt('Add amendment comment', 'Capture follow-up comments for timeline.', {
+      placeholder: 'Comment',
+      confirmText: 'Add Comment',
+    });
+    const comment = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!comment) {
       this.toast.error('Comment is required.');
       return;
@@ -302,12 +323,13 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
 
   async sendReminder(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt(
-      'Send reminder to branch for pending amendment.',
-      'Follow-up reminder: Please submit amendment response with supporting documents.',
-    );
-    if (raw === null) return;
-    const message = raw.trim();
+    const result = await this.dialog.prompt('Send amendment follow-up', 'Send reminder to branch for pending amendment.', {
+      placeholder: 'Reminder message',
+      defaultValue: 'Follow-up reminder: Please submit amendment response with supporting documents.',
+      confirmText: 'Send Reminder',
+    });
+    const message = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!message) {
       this.toast.error('Reminder message is required.');
       return;

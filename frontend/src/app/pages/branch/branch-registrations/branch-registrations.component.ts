@@ -15,6 +15,8 @@ import { ClientBranchesService } from '../../../core/client-branches.service';
 import { HelpdeskService } from '../../../core/helpdesk.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { environment } from '../../../../environments/environment';
+import { SharedTimelineComponent } from '../../../shared/components/timeline';
+import { TimelineEvent as SharedTimelineEvent } from '../../../shared/components/timeline/timeline.model';
 
 type RegistrationStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED';
 type RequestAction = 'APPLY' | 'AMEND' | 'RENEW' | 'CLOSE';
@@ -82,18 +84,10 @@ interface RequestWizardModel {
   };
 }
 
-interface TimelineEvent {
-  id: string;
-  title: string;
-  createdAt: string;
-  statusTo?: string | null;
-  comment?: string | null;
-}
-
 @Component({
   selector: 'app-branch-registrations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SharedTimelineComponent],
   templateUrl: './branch-registrations.component.html',
   styleUrls: ['./branch-registrations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -113,7 +107,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   requests: RegistrationRequest[] = [];
   alerts: RegistrationAlertRow[] = [];
   selectedRequests: RegistrationRequest[] = [];
-  selectedTimeline: TimelineEvent[] = [];
+  selectedTimeline: SharedTimelineEvent[] = [];
 
   statusFilter: 'ALL' | RegistrationStatus = 'ALL';
   typeFilter = 'ALL';
@@ -438,7 +432,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   openFile(pathOrUrl: string | null | undefined): void {
     if (!pathOrUrl) return;
     const resolved = this.resolveFileUrl(pathOrUrl);
-    window.open(resolved, '_blank');
+    window.open(this.auth.authenticateUrl(resolved), '_blank');
   }
 
   exportSelectedSummary(): void {
@@ -732,8 +726,8 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   private buildTimeline(
     row: RegistrationRow,
     linkedRequests: RegistrationRequest[],
-  ): TimelineEvent[] {
-    const events: TimelineEvent[] = [];
+  ): SharedTimelineEvent[] {
+    const events: SharedTimelineEvent[] = [];
 
     if (row.createdAt) {
       events.push({

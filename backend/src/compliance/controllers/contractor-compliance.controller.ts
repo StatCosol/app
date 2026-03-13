@@ -20,6 +20,7 @@ import { ComplianceService } from '../compliance.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -56,47 +57,49 @@ const fileUploadOptions = {
   limits: { fileSize: MAX_MB * 1024 * 1024 },
 };
 
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'contractor/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorComplianceController {
   constructor(private readonly svc: ComplianceService) {}
 
-  private forbidden() {
-    throw new ForbiddenException(
-      'Contractor compliance workflow is disabled; use audit endpoints',
-    );
-  }
-
+  @ApiOperation({ summary: 'List' })
   @Get('tasks')
   list(@Req() req: any, @Query() q: any) {
-    this.forbidden();
+    return this.svc.contractorListTasks(req.user, q);
   }
 
+  @ApiOperation({ summary: 'Detail' })
   @Get('tasks/:id')
   detail(@Req() req: any, @Param('id') id: string) {
-    this.forbidden();
+    return this.svc.contractorGetTaskDetail(req.user, id);
   }
 
+  @ApiOperation({ summary: 'Start' })
   @Post('tasks/:id/start')
   start(@Req() req: any, @Param('id') id: string) {
-    this.forbidden();
+    return this.svc.contractorSetInProgress(req.user, id);
   }
 
+  @ApiOperation({ summary: 'Submit' })
   @Post('tasks/:id/submit')
   submit(@Req() req: any, @Param('id') id: string) {
-    this.forbidden();
+    return this.svc.contractorSubmit(req.user, id);
   }
 
+  @ApiOperation({ summary: 'Comment' })
   @Post('tasks/:id/comment')
   comment(
     @Req() req: any,
     @Param('id') id: string,
     @Body() dto: { message: string },
   ) {
-    this.forbidden();
+    return this.svc.contractorAddComment(req.user, id, dto.message);
   }
 
+  @ApiOperation({ summary: 'Upload Evidence' })
   @Post('tasks/:id/evidence')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   uploadEvidence(
@@ -105,21 +108,24 @@ export class ContractorComplianceController {
     @UploadedFile() file: any,
     @Body() dto: { notes?: string },
   ) {
-    this.forbidden();
+    return this.svc.contractorUploadEvidence(req.user, id, file, dto?.notes);
   }
 
   // Reupload workflow endpoints
 
+  @ApiOperation({ summary: 'List Reupload Requests' })
   @Get('reupload-requests')
   listReuploadRequests(@Req() req: any, @Query() filters: any) {
-    this.forbidden();
+    return this.svc.contractorListReuploadRequests(req.user, filters);
   }
 
+  @ApiOperation({ summary: 'Get Doc Remarks' })
   @Get('docs/:docId/remarks')
   getDocRemarks(@Req() req: any, @Param('docId') docId: string) {
-    this.forbidden();
+    return this.svc.contractorGetDocRemarks(req.user, docId);
   }
 
+  @ApiOperation({ summary: 'Reupload File' })
   @Post('reupload-requests/:id/upload')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   reuploadFile(
@@ -127,11 +133,12 @@ export class ContractorComplianceController {
     @Param('id') requestId: string,
     @UploadedFile() file: any,
   ) {
-    this.forbidden();
+    return this.svc.contractorReuploadFile(req.user, requestId, file);
   }
 
+  @ApiOperation({ summary: 'Submit Reupload' })
   @Post('reupload-requests/:id/submit')
   submitReupload(@Req() req: any, @Param('id') requestId: string) {
-    this.forbidden();
+    return this.svc.contractorSubmitReupload(req.user, requestId);
   }
 }

@@ -17,6 +17,7 @@ import { CrmClientsApi, BranchDto } from '../../../core/api/crm-clients.api';
 import { CrmComplianceTrackerApi } from '../../../core/api/crm-compliance-tracker.api';
 import { ClientDto } from '../../../core/api/cco-clients.api';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -188,6 +189,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     private readonly trackerApi: CrmComplianceTrackerApi,
     private readonly http: HttpClient,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -419,10 +421,17 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     return map[status] || [];
   }
 
-  changeStatus(audit: AuditRow, newStatus: AuditStatus): void {
+  async changeStatus(audit: AuditRow, newStatus: AuditStatus): Promise<void> {
     if (this.actionBusy) return;
     const label = newStatus === 'IN_PROGRESS' ? 'start' : newStatus === 'COMPLETED' ? 'complete' : 'cancel';
-    const confirmed = window.confirm(`Do you want to ${label} ${audit.auditCode}?`);
+    const confirmed = await this.dialog.confirm(
+      'Update Audit Status',
+      `Do you want to ${label} ${audit.auditCode}?`,
+      {
+        confirmText: label.charAt(0).toUpperCase() + label.slice(1),
+        variant: newStatus === 'CANCELLED' ? 'danger' : 'default',
+      },
+    );
     if (!confirmed) return;
 
     this.actionBusy = true;

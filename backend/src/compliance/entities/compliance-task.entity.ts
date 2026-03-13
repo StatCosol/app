@@ -6,10 +6,12 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { ComplianceMasterEntity } from '../../compliances/entities/compliance-master.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { BranchEntity } from '../../branches/entities/branch.entity';
+import { ClientEntity } from '../../clients/entities/client.entity';
 
 export type TaskStatus =
   | 'PENDING'
@@ -20,12 +22,21 @@ export type TaskStatus =
   | 'OVERDUE';
 
 @Entity('compliance_tasks')
+@Index('IDX_CT_CLIENT_STATUS', ['clientId', 'status'])
+@Index('IDX_CT_BRANCH_STATUS', ['branchId', 'status'])
+@Index('IDX_CT_DUE_DATE', ['dueDate'])
+@Index('IDX_CT_ASSIGNED_TO', ['assignedToUserId'])
+@Index('IDX_CT_COMPLIANCE', ['complianceId'])
 export class ComplianceTask {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
+
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
 
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;

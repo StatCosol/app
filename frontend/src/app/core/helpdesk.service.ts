@@ -58,4 +58,14 @@ export class HelpdeskService {
       { message },
     );
   }
+
+  /** Upload a file to a ticket thread */
+  uploadFile(ticketId: string, file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post(
+      `${this.baseUrl}/helpdesk/tickets/${ticketId}/files`,
+      fd,
+    );
+  }
 }

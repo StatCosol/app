@@ -111,7 +111,10 @@ export class LegitxComplianceService {
             ? [year, month, clientId]
             : [year, month],
       )
-      .catch(() => []);
+      .catch((e) => {
+        this.logger.warn('returnsRows query failed', e?.message);
+        return [];
+      });
 
     // Audits per branch (audit table has no branch_id; set null)
     const auditRows = await this.db
@@ -128,7 +131,10 @@ export class LegitxComplianceService {
          ${clientId ? 'AND a.client_id = $2' : ''}`,
         clientId ? [year, clientId] : [year],
       )
-      .catch(() => []);
+      .catch((e) => {
+        this.logger.warn('auditRows query failed', e?.message);
+        return [];
+      });
 
     // Build branch rows (limited to returns for now since audits lack branch)
     const branches: BranchComplianceRow[] = returnsRows.map((r) => {
@@ -239,7 +245,10 @@ export class LegitxComplianceService {
             ? [year, month, clientId]
             : [year, month],
       )
-      .catch(() => []);
+      .catch((e) => {
+        this.logger.warn('MCD query failed', e?.message);
+        return [];
+      });
 
     const today = new Date();
 
@@ -335,7 +344,10 @@ export class LegitxComplianceService {
           return base;
         })(),
       )
-      .catch(() => []);
+      .catch((e) => {
+        this.logger.warn('returns query failed', e?.message);
+        return [];
+      });
 
     const today = new Date();
 
@@ -417,7 +429,10 @@ export class LegitxComplianceService {
           ? [year, month, month, `${year}-${String(month).padStart(2, '0')}%`]
           : [year, month, month, `${year}-${String(month).padStart(2, '0')}%`],
       )
-      .catch(() => []);
+      .catch((e) => {
+        this.logger.warn('audits query failed', e?.message);
+        return [];
+      });
 
     const mapped: AuditRow[] = rows
       .map((r) => {
@@ -461,7 +476,10 @@ export class LegitxComplianceService {
        ORDER BY ao.created_at ASC`,
         clientId ? [auditId, clientId] : [auditId],
       )
-      .catch(() => []);
+      .catch((e) => {
+        this.logger.warn('audit observations query failed', e?.message);
+        return [];
+      });
 
     const data = rows.map((r) => ({
       observation: r.observation,
@@ -482,7 +500,10 @@ export class LegitxComplianceService {
          WHERE id = $1 ${clientId ? 'AND client_id = $2' : ''}`,
         clientId ? [id, clientId] : [id],
       )
-      .catch(() => null);
+      .catch((e) => {
+        this.logger.warn('return download query failed', e?.message);
+        return null;
+      });
 
     return { downloadUrl: row?.file_path ?? null };
   }
@@ -498,7 +519,10 @@ export class LegitxComplianceService {
          LIMIT 1`,
         clientId ? [auditId, clientId] : [auditId],
       )
-      .catch(() => null);
+      .catch((e) => {
+        this.logger.warn('audit report download query failed', e?.message);
+        return null;
+      });
 
     return { downloadUrl: row?.file_path ?? null };
   }

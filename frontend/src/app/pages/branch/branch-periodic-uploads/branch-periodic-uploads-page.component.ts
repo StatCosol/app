@@ -15,6 +15,13 @@ import {
   PageHeaderComponent,
   ModalComponent,
 } from '../../../shared/ui';
+import { SharedTimelineComponent } from '../../../shared/components/timeline';
+import { TimelineEvent as SharedTimelineEvent } from '../../../shared/components/timeline/timeline.model';
+import {
+  FileVersionItem,
+  SharedFilePreviewData,
+} from '../../../shared/components/file-preview/file-preview.model';
+import { SharedFilePreviewModalComponent } from '../../../shared/components/file-preview';
 
 type StatusFilter =
   | 'ALL'
@@ -32,32 +39,6 @@ interface ReviewerNoteEntry {
   comment: string;
 }
 
-interface TimelineEvent {
-  id: string;
-  title: string;
-  createdAt: string;
-  statusTo?: string | null;
-  comment?: string | null;
-}
-
-interface FileVersionItem {
-  id: string;
-  label: string;
-  createdAt: string | null;
-  url: string;
-}
-
-interface PreviewData {
-  id: string;
-  name: string;
-  fileName: string;
-  url: string;
-  uploadedAt: string | null;
-  status: string | null;
-  rejectionReason: string | null;
-  versions: FileVersionItem[];
-}
-
 @Component({
   selector: 'app-branch-periodic-uploads-page',
   standalone: true,
@@ -67,6 +48,8 @@ interface PreviewData {
     StatusBadgeComponent,
     PageHeaderComponent,
     ModalComponent,
+    SharedTimelineComponent,
+    SharedFilePreviewModalComponent,
   ],
   templateUrl: './branch-periodic-uploads-page.component.html',
   styleUrls: ['./branch-periodic-uploads-page.component.scss'],
@@ -80,7 +63,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   checklist: ChecklistItem[] = [];
   filteredChecklist: ChecklistItem[] = [];
   selectedItem: ChecklistItem | null = null;
-  timeline: TimelineEvent[] = [];
+  timeline: SharedTimelineEvent[] = [];
   branchId = '';
 
   selectedFrequency = 'YEARLY';
@@ -102,7 +85,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   acknowledgementRef = '';
   uploadRemarks = '';
   showPreviewModal = false;
-  previewData: PreviewData | null = null;
+  previewData: SharedFilePreviewData | null = null;
 
   years: number[] = [];
 
@@ -328,7 +311,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
 
   downloadFile(item: ChecklistItem): void {
     const url = (item as any).document?.uploadedFileUrl;
-    if (url) window.open(url, '_blank');
+    if (url) window.open(this.auth.authenticateUrl(url), '_blank');
   }
 
   previewFile(item: ChecklistItem): void {
@@ -341,14 +324,14 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
         id: `${item.returnCode}-v${document.version}`,
         label: `Version ${document.version}`,
         createdAt: document.uploadedAt || null,
-        url,
+        url: this.auth.authenticateUrl(url),
       });
     }
     this.previewData = {
       id: String(document.id || item.returnCode),
       name: document.uploadedFileName || item.returnName,
       fileName: document.uploadedFileName || '',
-      url,
+      url: this.auth.authenticateUrl(url),
       uploadedAt: document.uploadedAt || null,
       status: document.status || null,
       rejectionReason:
@@ -507,14 +490,6 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
           this.applyFilters();
           this.hydrateSelection(returnCode);
         },
-        error: () => {
-          this.checklist = [];
-          this.filteredChecklist = [];
-          this.selectedItem = null;
-          this.timeline = [];
-          this.toast.error('Upload succeeded, but checklist refresh failed. Reload to sync the latest status.');
-          this.cdr.detectChanges();
-        },
       });
   }
 
@@ -541,8 +516,8 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     this.selectItem(this.filteredChecklist[0]);
   }
 
-  private buildTimeline(item: ChecklistItem): TimelineEvent[] {
-    const events: TimelineEvent[] = [];
+  private buildTimeline(item: ChecklistItem): SharedTimelineEvent[] {
+    const events: SharedTimelineEvent[] = [];
     if (item.document?.uploadedAt) {
       events.push({
         id: `${item.returnCode}-submitted`,

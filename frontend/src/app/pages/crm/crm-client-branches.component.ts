@@ -7,6 +7,7 @@ import { takeUntil, timeout, finalize } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { CrmClientsApi, BranchDto, CreateBranchRequest, BranchContractorDto } from '../../core/api/crm-clients.api';
 import { ClientBranchesService } from '../../core/client-branches.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   selector: 'app-crm-client-branches',
@@ -105,6 +106,12 @@ import { ClientBranchesService } from '../../core/client-branches.service';
                 <input type="email" name="branchUserEmail" [(ngModel)]="newBranch.branchUserEmail" required
                        class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                        placeholder="branch@example.com" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Mobile *</label>
+                <input type="text" name="branchUserMobile" [(ngModel)]="newBranch.branchUserMobile" required
+                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                       placeholder="e.g., 9876543210" />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
@@ -483,6 +490,7 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
      establishmentType: 'BRANCH',
      branchUserName: '',
      branchUserEmail: '',
+     branchUserMobile: '',
      branchUserPassword: '',
    };
 
@@ -507,19 +515,53 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
   editContractorBranchesError = '';
 
   states = [
+    { code: 'AN', label: 'Andaman & Nicobar' },
     { code: 'AP', label: 'Andhra Pradesh' },
-    { code: 'TG', label: 'Telangana' },
-    { code: 'TN', label: 'Tamil Nadu' },
+    { code: 'AR', label: 'Arunachal Pradesh' },
+    { code: 'AS', label: 'Assam' },
+    { code: 'BR', label: 'Bihar' },
+    { code: 'CH', label: 'Chandigarh' },
+    { code: 'CT', label: 'Chhattisgarh' },
+    { code: 'DN', label: 'Dadra & Nagar Haveli and Daman & Diu' },
+    { code: 'DL', label: 'Delhi' },
+    { code: 'GA', label: 'Goa' },
+    { code: 'GJ', label: 'Gujarat' },
+    { code: 'HR', label: 'Haryana' },
+    { code: 'HP', label: 'Himachal Pradesh' },
+    { code: 'JK', label: 'Jammu & Kashmir' },
+    { code: 'JH', label: 'Jharkhand' },
     { code: 'KA', label: 'Karnataka' },
+    { code: 'KL', label: 'Kerala' },
+    { code: 'LA', label: 'Ladakh' },
+    { code: 'LD', label: 'Lakshadweep' },
+    { code: 'MP', label: 'Madhya Pradesh' },
+    { code: 'MH', label: 'Maharashtra' },
+    { code: 'MN', label: 'Manipur' },
+    { code: 'ML', label: 'Meghalaya' },
+    { code: 'MZ', label: 'Mizoram' },
+    { code: 'NL', label: 'Nagaland' },
+    { code: 'OR', label: 'Odisha' },
+    { code: 'PY', label: 'Puducherry' },
+    { code: 'PB', label: 'Punjab' },
+    { code: 'RJ', label: 'Rajasthan' },
+    { code: 'SK', label: 'Sikkim' },
+    { code: 'TN', label: 'Tamil Nadu' },
+    { code: 'TS', label: 'Telangana' },
+    { code: 'TR', label: 'Tripura' },
+    { code: 'UP', label: 'Uttar Pradesh' },
+    { code: 'UT', label: 'Uttarakhand' },
+    { code: 'WB', label: 'West Bengal' },
   ];
 
   establishmentTypes = [
-    { code: 'FACTORY', label: 'Factory' },
+    { code: 'HO', label: 'Head Office' },
+    { code: 'ZONAL', label: 'Zonal Office' },
+    { code: 'SALES', label: 'Sales Office' },
+    { code: 'BRANCH', label: 'Branch Office' },
     { code: 'ESTABLISHMENT', label: 'Establishment' },
+    { code: 'FACTORY', label: 'Factory' },
     { code: 'WAREHOUSE', label: 'Warehouse' },
     { code: 'SHOP', label: 'Shop' },
-    { code: 'HO', label: 'Head Office (HO)' },
-    { code: 'BRANCH', label: 'Branch Office' },
   ];
 
   compliancesBranch: BranchDto | null = null;
@@ -536,6 +578,7 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
     private crmClientsApi: CrmClientsApi,
     private clientBranchesApi: ClientBranchesService,
     private cdr: ChangeDetectorRef,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -616,6 +659,19 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
 
   onCreateBranch(): void {
     if (!this.newBranch.branchName?.trim()) {
+      this.err = 'Branch name is required';
+      return;
+    }
+    if (!this.newBranch.branchUserName?.trim()) {
+      this.err = 'Branch user name is required. Every branch must have a desk user.';
+      return;
+    }
+    if (!this.newBranch.branchUserEmail?.trim()) {
+      this.err = 'Branch user email is required. Every branch must have a desk user.';
+      return;
+    }
+    if (!this.newBranch.branchUserMobile?.trim()) {
+      this.err = 'Branch user mobile number is required. Every branch must have a desk user.';
       return;
     }
 
@@ -632,8 +688,9 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
       status: this.newBranch.status || 'ACTIVE',
       stateCode: this.newBranch.stateCode || 'TG',
       establishmentType: this.newBranch.establishmentType || 'BRANCH',
-      branchUserName: this.newBranch.branchUserName?.trim() || undefined,
-      branchUserEmail: this.newBranch.branchUserEmail?.trim() || undefined,
+      branchUserName: this.newBranch.branchUserName!.trim(),
+      branchUserEmail: this.newBranch.branchUserEmail!.trim(),
+      branchUserMobile: this.newBranch.branchUserMobile!.trim(),
       branchUserPassword: this.newBranch.branchUserPassword?.trim() || undefined,
     };
 
@@ -657,6 +714,7 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
         this.newBranch.establishmentType = 'BRANCH';
         this.newBranch.branchUserName = '';
         this.newBranch.branchUserEmail = '';
+        this.newBranch.branchUserMobile = '';
         this.newBranch.branchUserPassword = '';
         this.loadBranches();
       },
@@ -707,9 +765,11 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
     });
   }
 
-  confirmDeleteBranch(branch: BranchDto): void {
-    const ok = window.confirm(
+  async confirmDeleteBranch(branch: BranchDto): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Branch',
       `Delete branch "${branch.branchName}"?`,
+      { variant: 'danger', confirmText: 'Delete' },
     );
     if (!ok) return;
 
@@ -842,11 +902,13 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
       });
   }
 
-  removeContractor(c: BranchContractorDto): void {
+  async removeContractor(c: BranchContractorDto): Promise<void> {
     if (!this.contractorsBranch) return;
 
-    const ok = window.confirm(
+    const ok = await this.dialog.confirm(
+      'Remove Contractor',
       `Remove contractor ${c.name || c.email || 'this contractor'} from branch ${this.contractorsBranch.branchName}?`,
+      { variant: 'danger', confirmText: 'Remove' },
     );
     if (!ok) return;
 

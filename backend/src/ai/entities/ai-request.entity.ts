@@ -1,7 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 export type AiRequestStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
-export type AiRequestModule = 'COMPLIANCE' | 'AUDIT' | 'DOCUMENT' | 'QUERY' | 'RISK' | 'GENERAL';
+export type AiRequestModule =
+  | 'COMPLIANCE'
+  | 'AUDIT'
+  | 'DOCUMENT'
+  | 'QUERY'
+  | 'RISK'
+  | 'GENERAL';
 
 @Entity({ name: 'ai_requests' })
 export class AiRequestEntity {
