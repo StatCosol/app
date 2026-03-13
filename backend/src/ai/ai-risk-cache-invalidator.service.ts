@@ -32,7 +32,9 @@ export class AiRiskCacheInvalidatorService {
       this.logger.debug(`Invalidated branch risk cache for ${branchId}`);
     } catch (err) {
       // Non-critical — log and continue
-      this.logger.warn(`Failed to invalidate branch risk cache: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to invalidate branch risk cache: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -52,7 +54,9 @@ export class AiRiskCacheInvalidatorService {
       );
       this.logger.debug(`Invalidated client risk cache for ${clientId}`);
     } catch (err) {
-      this.logger.warn(`Failed to invalidate client risk cache: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to invalidate client risk cache: ${(err as Error).message}`,
+      );
     }
   }
 }

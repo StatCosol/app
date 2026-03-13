@@ -1,7 +1,7 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     title="CCO Dashboard"
-    description="Compliance oversight and team performance"
+    description="Compliance oversight, CRM team performance, and escalation management"
     icon="view-grid">
   </ui-page-header>
 
@@ -15,42 +15,128 @@
   </div>
 
   <ng-container *ngIf="!loading">
+
+  <!-- Filter / Export bar -->
+  <div class="flex flex-wrap items-center gap-3 mb-6">
+    <div class="relative w-52">
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="applySearch()"
+        placeholder="Search clients/CRMs..."
+        class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+      <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+    </div>
+    <button (click)="exportCsv()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      Export
+    </button>
+  </div>
   <!-- KPI Grid -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <ui-stat-card
-      [value]="data.pendingApprovals"
-      label="Pending Approvals"
-      color="warning">
-    </ui-stat-card>
-    <ui-stat-card
-      [value]="data.totalCrms"
-      label="Total CRMs"
-      color="info">
-    </ui-stat-card>
-    <ui-stat-card
-      [value]="data.overdueTasks"
-      label="Overdue Tasks"
-      color="error">
-    </ui-stat-card>
-    <ui-stat-card
-      [value]="data.escalations"
-      label="Escalations"
-      color="primary">
-    </ui-stat-card>
+  <div class="kpi-cards-grid">
+    <!-- Pending Approvals -->
+    <div class="kpi-tile kpi-tile--amber" style="cursor:pointer" (click)="goToApprovals()">
+      <div class="kpi-tile__icon" style="background:#fef3c7">
+        <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <div class="kpi-tile__body">
+        <div class="kpi-tile__label">Pending Approvals</div>
+        <div class="kpi-tile__value">{{ data.pendingApprovals }}</div>
+      </div>
+    </div>
+
+    <!-- Total CRMs -->
+    <div class="kpi-tile kpi-tile--blue" style="cursor:pointer" (click)="goToCrms()">
+      <div class="kpi-tile__icon" style="background:#dbeafe">
+        <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </div>
+      <div class="kpi-tile__body">
+        <div class="kpi-tile__label">Total CRMs</div>
+        <div class="kpi-tile__value">{{ data.totalCrms }}</div>
+      </div>
+    </div>
+
+    <!-- Overdue Tasks -->
+    <div class="kpi-tile kpi-tile--red" style="cursor:pointer" (click)="goToOverdueList()">
+      <div class="kpi-tile__icon" style="background:#fee2e2">
+        <svg width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <div class="kpi-tile__body">
+        <div class="kpi-tile__label">Overdue Tasks</div>
+        <div class="kpi-tile__value text-red-600">{{ data.overdueTasks }}</div>
+      </div>
+    </div>
+
+    <!-- Escalations -->
+    <div class="kpi-tile kpi-tile--purple">
+      <div class="kpi-tile__icon" style="background:#ede9fe">
+        <svg width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        </svg>
+      </div>
+      <div class="kpi-tile__body">
+        <div class="kpi-tile__label">Escalations</div>
+        <div class="kpi-tile__value">{{ data.escalations }}</div>
+      </div>
+    </div>
   </div>
 
-  <!-- Data Tables -->
+  <!-- Row 2: CRM Team Performance -->
+  <div class="card mb-6" *ngIf="filteredCrms.length > 0">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="card-title">CRM Team Performance</h3>
+      <ui-button variant="secondary" size="sm" (clicked)="goToCrms()">View All CRMs</ui-button>
+    </div>
+    <ui-data-table
+      [columns]="crmColumns"
+      [data]="filteredCrms">
+      <ng-template uiTableCell="status" let-row>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+              [ngClass]="{
+                'bg-green-100 text-green-700': row.status === 'ACTIVE',
+                'bg-gray-100 text-gray-500': row.status !== 'ACTIVE'
+              }">
+          {{ row.status }}
+        </span>
+      </ng-template>
+      <ng-template uiTableCell="overdueCount" let-row>
+        <span [ngClass]="{ 'text-red-600 font-bold': row.overdueCount > 0 }">
+          {{ row.overdueCount }}
+        </span>
+      </ng-template>
+      <ng-template uiTableCell="lastLogin" let-row>
+        <span class="text-sm text-gray-500">{{ row.lastLogin ? (row.lastLogin | date:'short') : 'Never' }}</span>
+      </ng-template>
+    </ui-data-table>
+  </div>
+
+  <!-- Row 3: Overdue Tables -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <div class="card">
-      <h3 class="card-title mb-4">Top Overdue Clients/Branches</h3>
+      <h3 class="card-title mb-4">Top Overdue Clients / Branches</h3>
       <ui-data-table
         [columns]="overdueColumns"
         [data]="data.topOverdue"
         emptyMessage="No overdue items">
         <ng-template uiTableCell="count" let-row>
-          <ui-status-badge variant="error" [label]="'' + row.count"></ui-status-badge>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+            {{ row.count }}
+          </span>
         </ng-template>
       </ui-data-table>
+      <ui-empty-state
+        *ngIf="data.topOverdue.length === 0"
+        title="No overdue items"
+        description="All clients are up to date">
+      </ui-empty-state>
     </div>
 
     <div class="card">
@@ -60,16 +146,53 @@
         [data]="data.crmsMostOverdue"
         emptyMessage="No data available">
         <ng-template uiTableCell="overdue" let-row>
-          <ui-status-badge variant="error" [label]="'' + row.overdue"></ui-status-badge>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+            {{ row.overdue }}
+          </span>
         </ng-template>
       </ui-data-table>
+      <ui-empty-state
+        *ngIf="data.crmsMostOverdue.length === 0"
+        title="No overdue CRMs"
+        description="All CRMs are current on tasks">
+      </ui-empty-state>
     </div>
   </div>
 
+  <!-- Row 4: Escalated Compliance Tasks -->
+  <div class="card mb-6" *ngIf="filteredOversight.length > 0">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="card-title">Escalated Compliance Tasks</h3>
+      <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+        {{ filteredOversight.length }} escalated
+      </span>
+    </div>
+    <ui-data-table
+      [columns]="oversightColumns"
+      [data]="filteredOversight">
+      <ng-template uiTableCell="status" let-row>
+        <ui-status-badge [status]="row.status"></ui-status-badge>
+      </ng-template>
+      <ng-template uiTableCell="dueDate" let-row>
+        <span class="text-sm">{{ row.dueDate | date:'mediumDate' }}</span>
+      </ng-template>
+    </ui-data-table>
+  </div>
+
   <!-- Actions -->
-  <div class="flex flex-wrap gap-3">
-    <ui-button variant="primary" (clicked)="goToApprovals()">Go to Approvals</ui-button>
-    <ui-button variant="secondary" (clicked)="goToOverdueList()">Go to Overdue List</ui-button>
+  <div class="card">
+    <h3 class="card-title mb-4">Quick Actions</h3>
+    <div class="flex flex-wrap gap-3">
+      <ui-button variant="primary" (clicked)="goToApprovals()">
+        Review Approvals ({{ data.pendingApprovals }})
+      </ui-button>
+      <ui-button variant="secondary" (clicked)="goToOverdueList()">
+        Escalated Tasks
+      </ui-button>
+      <ui-button variant="secondary" (clicked)="goToCrms()">
+        Manage CRMs
+      </ui-button>
+    </div>
   </div>
   </ng-container>
 </div>

@@ -1,211 +1,340 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <!-- Loading -->
-  <div *ngIf="loading" class="flex items-center justify-center py-12">
-    <ui-loading-spinner text="Loading dashboard..."></ui-loading-spinner>
-  </div>
+<div class="page-wrap">
+  <ui-page-header
+    title="CRM Action Workbench"
+    subtitle="Prioritize high-risk clients, low-coverage branches, pending reviews, and filing workflows from one board.">
+    <ui-button variant="secondary" [disabled]="loading" (clicked)="loadAll()">Refresh</ui-button>
+  </ui-page-header>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading CRM dashboard..." size="lg"></ui-loading-spinner>
 
   <ng-container *ngIf="!loading">
-    <ui-page-header title="CRM Dashboard" subtitle="Fast overview — where to focus today"></ui-page-header>
-
-    <!-- Error -->
-    <div *ngIf="errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+    <div *ngIf="errorMsg" class="error-card">
       <span>{{ errorMsg }}</span>
-      <button class="text-sm font-medium text-red-700 underline" (click)="loadAll()">Retry</button>
+      <ui-button variant="secondary" size="sm" (clicked)="loadAll()">Retry</ui-button>
     </div>
 
-    <!-- ═══════ Row 1: 8 KPI Cards ═══════ -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
-      <ui-stat-card [value]="kpis.assignedClientsCount" label="Assigned Clients" color="primary"></ui-stat-card>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS')">
-        <ui-stat-card
-          [value]="kpis.compliancePct + '%'"
-          label="Compliance %"
-          [color]="kpis.compliancePct >= 80 ? 'success' : kpis.compliancePct >= 50 ? 'warning' : 'error'">
-        </ui-stat-card>
+    <section class="shortcut-card mb-4">
+      <div class="section-head">
+        <h3>Action-First Shortcuts</h3>
+        <span>Open the queue you need without navigation overhead</span>
       </div>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS', {status:'PENDING_REVIEW'})">
-        <ui-stat-card [value]="kpis.pendingReviewCount" label="Pending Review" color="warning"></ui-stat-card>
-      </div>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS', {status:'REJECTED'})">
-        <ui-stat-card [value]="kpis.reuploadRequiredCount" label="Reupload Req." color="error"></ui-stat-card>
-      </div>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('DOCS')">
-        <ui-stat-card [value]="kpis.overdueCount" label="Overdue Items" color="error"></ui-stat-card>
-      </div>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('EXPIRY')">
-        <ui-stat-card [value]="kpis.expiring30Count" label="Expiring 30d" color="warning"></ui-stat-card>
-      </div>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('AUDIT_CLOSURES')">
-        <ui-stat-card [value]="kpis.openObservationsCount" label="Open Obs." color="info"></ui-stat-card>
-      </div>
-      <div class="cursor-pointer hover:shadow-lg transition-shadow rounded-xl" (click)="openTracker('MCD')">
-        <ui-stat-card [value]="kpis.mcdPendingCount" label="MCD Pending" color="info"></ui-stat-card>
-      </div>
-    </div>
-
-    <!-- ═══════ Row 2: Priority Today ═══════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="flex items-center justify-between p-5 pb-3">
-        <h3 class="text-lg font-semibold text-gray-900">My Priority Today</h3>
-        <span class="text-xs text-gray-400">Top urgent items across all clients</span>
-      </div>
-      <div *ngIf="priorityLoading" class="flex justify-center py-8">
-        <ui-loading-spinner text="Loading..."></ui-loading-spinner>
-      </div>
-      <div *ngIf="!priorityLoading && priorityItems.length === 0" class="text-center text-gray-400 py-8">No urgent items today</div>
-      <div *ngIf="!priorityLoading && priorityItems.length > 0" class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th class="px-4 py-2 text-left">Client</th>
-              <th class="px-4 py-2 text-left">Branch</th>
-              <th class="px-4 py-2 text-left">Contractor</th>
-              <th class="px-4 py-2 text-left">Item</th>
-              <th class="px-4 py-2 text-left">Type</th>
-              <th class="px-4 py-2 text-center">Days Overdue</th>
-              <th class="px-4 py-2 text-center">Category</th>
-              <th class="px-4 py-2 text-center"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let item of priorityItems" class="hover:bg-gray-50 transition-colors">
-              <td class="px-4 py-2 font-medium text-gray-900">{{ item.clientName }}</td>
-              <td class="px-4 py-2 text-gray-600">{{ item.branchName || '-' }}</td>
-              <td class="px-4 py-2 text-gray-600">{{ item.contractorName || '-' }}</td>
-              <td class="px-4 py-2 text-gray-900">{{ item.itemName || '-' }}</td>
-              <td class="px-4 py-2 text-gray-500">{{ item.complianceType }}</td>
-              <td class="px-4 py-2 text-center">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
-                  [class.bg-red-100]="item.daysOverdue > 7" [class.text-red-700]="item.daysOverdue > 7"
-                  [class.bg-yellow-100]="item.daysOverdue <= 7" [class.text-yellow-700]="item.daysOverdue <= 7">
-                  {{ item.daysOverdue }}d
-                </span>
-              </td>
-              <td class="px-4 py-2 text-center">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                  [class.bg-red-50]="item.itemType==='OVERDUE_TASK'" [class.text-red-600]="item.itemType==='OVERDUE_TASK'"
-                  [class.bg-orange-50]="item.itemType==='EXPIRED_DOC'" [class.text-orange-600]="item.itemType==='EXPIRED_DOC'"
-                  [class.bg-purple-50]="item.itemType==='HIGH_RISK_OBS'" [class.text-purple-600]="item.itemType==='HIGH_RISK_OBS'">
-                  {{ itemTypeLabel(item.itemType) }}
-                </span>
-              </td>
-              <td class="px-4 py-2 text-center">
-                <button class="text-xs font-medium text-blue-600 hover:text-blue-800 underline" (click)="openTracker('DOCS')">Open Tracker</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══════ Row 3: Top Risk Clients ═══════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="flex items-center justify-between p-5 pb-3">
-        <h3 class="text-lg font-semibold text-gray-900">Client Risk Table (Top 10)</h3>
-      </div>
-      <div *ngIf="riskLoading" class="flex justify-center py-8">
-        <ui-loading-spinner text="Loading..."></ui-loading-spinner>
-      </div>
-      <div *ngIf="!riskLoading && riskClients.length === 0" class="text-center text-gray-400 py-8">No client data</div>
-      <div *ngIf="!riskLoading && riskClients.length > 0" class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th class="px-4 py-2 text-left">Client</th>
-              <th class="px-4 py-2 text-center">Compliance %</th>
-              <th class="px-4 py-2 text-center">Pending</th>
-              <th class="px-4 py-2 text-center">Reupload</th>
-              <th class="px-4 py-2 text-center">Open Obs.</th>
-              <th class="px-4 py-2 text-center">Expiring</th>
-              <th class="px-4 py-2 text-center"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let c of riskClients" class="hover:bg-gray-50">
-              <td class="px-4 py-2 font-medium text-gray-900">{{ c.clientName }}</td>
-              <td class="px-4 py-2 text-center">
-                <div class="flex items-center justify-center gap-2">
-                  <div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full"
-                      [class.bg-red-500]="c.compliancePct < 50" [class.bg-yellow-500]="c.compliancePct >= 50 && c.compliancePct < 80" [class.bg-green-500]="c.compliancePct >= 80"
-                      [style.width.%]="c.compliancePct"></div>
-                  </div>
-                  <span class="text-xs font-bold"
-                    [class.text-red-600]="c.compliancePct < 50" [class.text-yellow-600]="c.compliancePct >= 50 && c.compliancePct < 80" [class.text-green-600]="c.compliancePct >= 80">
-                    {{ c.compliancePct }}%
-                  </span>
-                </div>
-              </td>
-              <td class="px-4 py-2 text-center text-gray-600">{{ c.pendingCount }}</td>
-              <td class="px-4 py-2 text-center text-gray-600">{{ c.reuploadCount }}</td>
-              <td class="px-4 py-2 text-center">
-                <span *ngIf="c.openObservations > 0" class="text-red-600 font-bold">{{ c.openObservations }}</span>
-                <span *ngIf="c.openObservations === 0" class="text-gray-400">0</span>
-              </td>
-              <td class="px-4 py-2 text-center text-gray-600">{{ c.expiringCount }}</td>
-              <td class="px-4 py-2 text-center">
-                <button class="text-xs font-medium text-blue-600 hover:text-blue-800 underline" (click)="openClientWorkspace(c.clientId)">Open Workspace</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══════ Row 4: Upcoming Audits ═══════ -->
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-      <div class="flex items-center justify-between p-5 pb-3">
-        <h3 class="text-lg font-semibold text-gray-900">Upcoming Audits</h3>
-        <button class="text-xs font-medium text-blue-600 hover:underline" (click)="toggleAuditDays()">
-          {{ auditDays === 15 ? 'Show next 7 days' : 'Show next 15 days' }}
+      <div class="shortcut-grid">
+        <button
+          class="shortcut-btn"
+          *ngFor="let item of shortcuts"
+          (click)="openShortcut(item)">
+          {{ item.label }}
         </button>
       </div>
-      <div *ngIf="auditsLoading" class="flex justify-center py-8">
-        <ui-loading-spinner text="Loading..."></ui-loading-spinner>
+    </section>
+
+    <section class="kpi-grid mb-4">
+      <article class="kpi-card">
+        <h4>Assigned Clients</h4>
+        <div>{{ kpis.assignedClientsCount }}</div>
+        <p>Active CRM coverage</p>
+      </article>
+
+      <article [class]="complianceCardClass(kpis.compliancePct)" (click)="openComplianceTracker('DOCS')">
+        <h4>Compliance %</h4>
+        <div>{{ kpis.compliancePct }}%</div>
+        <p>Click to drilldown</p>
+      </article>
+
+      <article class="kpi-card click" (click)="openReviewQueue()">
+        <h4>Pending Reviews</h4>
+        <div>{{ kpis.pendingReviewCount }}</div>
+        <p>Open branch-doc review queue</p>
+      </article>
+
+      <article class="kpi-card bad click" (click)="setDueTab('OVERDUE')">
+        <h4>Overdue Items</h4>
+        <div>{{ kpis.overdueCount }}</div>
+        <p>Switch due tab to overdue</p>
+      </article>
+
+      <article class="kpi-card warn">
+        <h4>Expiring 30d</h4>
+        <div>{{ kpis.expiring30Count }}</div>
+        <p>Upcoming expiry pressure</p>
+      </article>
+
+      <article class="kpi-card bad">
+        <h4>Reupload Required</h4>
+        <div>{{ kpis.reuploadRequiredCount }}</div>
+        <p>Pending corrections</p>
+      </article>
+    </section>
+
+    <section class="grid-2 mb-4">
+      <article class="panel">
+        <div class="section-head">
+          <h3>Due Compliances</h3>
+          <span>Tab-wise queue</span>
+        </div>
+        <div class="tabs">
+          <button [class.active]="dueTab==='OVERDUE'" (click)="setDueTab('OVERDUE')">Overdue</button>
+          <button [class.active]="dueTab==='DUE_SOON'" (click)="setDueTab('DUE_SOON')">Due Soon</button>
+          <button [class.active]="dueTab==='THIS_MONTH'" (click)="setDueTab('THIS_MONTH')">This Month</button>
+        </div>
+        <ui-loading-spinner *ngIf="detailLoading" text="Loading due compliances..." size="md"></ui-loading-spinner>
+        <ui-empty-state
+          *ngIf="!detailLoading && !dueItems.length"
+          title="No items in selected tab"
+          description="No due compliance records for this view.">
+        </ui-empty-state>
+        <div class="table-wrap" *ngIf="!detailLoading && dueItems.length">
+          <table>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Branch</th>
+                <th>Compliance Item</th>
+                <th>Due Date</th>
+                <th>Ageing</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of dueItems; trackBy: trackById">
+                <td>{{ row.clientName }}</td>
+                <td>{{ row.branchName }}</td>
+                <td>{{ row.complianceItem }}</td>
+                <td>{{ row.dueDate | date:'dd MMM yyyy' }}</td>
+                <td>
+                  <span class="pill" [class.high]="row.daysOverdue > 7">{{ row.daysOverdue }}d</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="section-head">
+          <h3>Returns / Renewals / Amendments Board</h3>
+          <span>Single workflow entry point</span>
+        </div>
+        <div class="workflow-cards">
+          <button class="workflow-card" (click)="openShortcut({ label:'Returns', route:'/crm/returns' })">
+            <h4>Returns</h4>
+            <div>{{ kpis.pendingReviewCount + kpis.reuploadRequiredCount }}</div>
+            <p>Prepared / reviewed / filed / acknowledged</p>
+          </button>
+          <button class="workflow-card" (click)="openWorkflowBoard('RENEWAL')">
+            <h4>Renewals</h4>
+            <div>{{ renewalsCount }}</div>
+            <p>Due-date driven review queue</p>
+          </button>
+          <button class="workflow-card" (click)="openWorkflowBoard('AMENDMENT')">
+            <h4>Amendments</h4>
+            <div>{{ amendmentsCount }}</div>
+            <p>Status movement controls</p>
+          </button>
+          <button class="workflow-card" (click)="openWorkflowBoard('REGISTRATION')">
+            <h4>Registrations</h4>
+            <div>{{ registrationsHintCount }}</div>
+            <p>Registration-heavy overdue hints</p>
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid-3 mb-4">
+      <article class="panel">
+        <div class="section-head">
+          <h3>Low Coverage Branches</h3>
+          <span>Branch-level exceptions</span>
+        </div>
+        <ui-empty-state
+          *ngIf="!lowCoverage.length"
+          title="No low-coverage branches"
+          description="Coverage exceptions will appear here.">
+        </ui-empty-state>
+        <div class="list" *ngIf="lowCoverage.length">
+          <button class="list-row" *ngFor="let row of lowCoverage; trackBy: trackById" (click)="openClientWorkspace(row.clientId)">
+            <div>
+              <strong>{{ row.clientName }}</strong>
+              <span>{{ row.branchName }}</span>
+            </div>
+            <div class="right">
+              <span>{{ row.coveragePct || 0 }}%</span>
+              <small>{{ row.overdueCount }} overdue</small>
+            </div>
+          </button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="section-head">
+          <h3>Pending Compliance Docs</h3>
+          <span>Requires reviewer action</span>
+        </div>
+        <ui-empty-state
+          *ngIf="!pendingDocs.length"
+          title="No pending documents"
+          description="Pending contractor docs will appear here.">
+        </ui-empty-state>
+        <div class="list" *ngIf="pendingDocs.length">
+          <div class="list-row static" *ngFor="let row of pendingDocs; trackBy: trackById">
+            <div>
+              <strong>{{ row.clientName }}</strong>
+              <span>{{ row.branchName || '-' }} · {{ row.documentType || '-' }}</span>
+            </div>
+            <div class="right">
+              <span>{{ row.status }}</span>
+              <small>{{ row.requestedOn | date:'dd MMM' }} · {{ row.pendingDays }}d</small>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="section-head">
+          <h3>Open Queries</h3>
+          <span>Unread inbox items</span>
+        </div>
+        <ui-empty-state
+          *ngIf="!openQueries.length"
+          title="No unread queries"
+          description="Unread compliance queries will be shown here.">
+        </ui-empty-state>
+        <div class="list" *ngIf="openQueries.length">
+          <div class="list-row static" *ngFor="let row of openQueries; trackBy: trackById">
+            <div>
+              <strong>{{ row.clientName }}</strong>
+              <span>{{ row.subject }}</span>
+            </div>
+            <div class="right">
+              <span>{{ row.status }}</span>
+              <small>{{ row.ageingDays }}d</small>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid-2 mb-4">
+      <article class="panel">
+        <div class="section-head">
+          <h3>Month Trend Mini Charts</h3>
+          <span>Last 4 months</span>
+        </div>
+        <ui-empty-state
+          *ngIf="!trend.length"
+          title="No trend available"
+          description="Trend appears once due-item KPI data is available.">
+        </ui-empty-state>
+        <div class="trend" *ngIf="trend.length">
+          <div class="trend-row" *ngFor="let row of trend; trackBy: trackById">
+            <div class="month">{{ row.month }}</div>
+            <div class="bars">
+              <div class="bar overdue" [style.width.%]="trendOverdueWidth(row)"></div>
+              <div class="bar completed" [style.width.%]="trendCompletedWidth(row)"></div>
+            </div>
+            <div class="meta">
+              <span>OD {{ row.overdue }}</span>
+              <span>Done {{ row.completed }}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="section-head">
+          <h3>Overdue Ageing</h3>
+          <span>From priority queue</span>
+        </div>
+        <ui-empty-state
+          *ngIf="!ageing.length"
+          title="No ageing data"
+          description="Ageing buckets populate from priority items.">
+        </ui-empty-state>
+        <div class="ageing-list" *ngIf="ageing.length">
+          <div class="age-row" *ngFor="let row of ageing; trackBy: trackById">
+            <span>{{ row.label }}</span>
+            <div class="age-track">
+              <div class="age-fill" [style.width.%]="row.pct"></div>
+            </div>
+            <strong>{{ row.count }}</strong>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel mb-4">
+      <div class="section-head">
+        <h3>Top Risk Clients</h3>
+        <span>High-priority client watchlist</span>
       </div>
-      <div *ngIf="!auditsLoading && upcomingAudits.length === 0" class="text-center text-gray-400 py-8">No upcoming audits in the next {{ auditDays }} days</div>
-      <div *ngIf="!auditsLoading && upcomingAudits.length > 0" class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <ui-empty-state
+        *ngIf="!riskClients.length"
+        title="No risk clients found"
+        description="Risk ranking data is unavailable right now.">
+      </ui-empty-state>
+      <div class="table-wrap" *ngIf="riskClients.length">
+        <table>
+          <thead>
             <tr>
-              <th class="px-4 py-2 text-left">Audit</th>
-              <th class="px-4 py-2 text-left">Client</th>
-              <th class="px-4 py-2 text-left">Branch</th>
-              <th class="px-4 py-2 text-left">Auditor</th>
-              <th class="px-4 py-2 text-center">Due Date</th>
-              <th class="px-4 py-2 text-center">Days Until</th>
-              <th class="px-4 py-2 text-center">Status</th>
+              <th>Client</th>
+              <th>Compliance %</th>
+              <th>Pending</th>
+              <th>Reupload</th>
+              <th>Open Obs</th>
+              <th>Expiring</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let a of upcomingAudits" class="hover:bg-gray-50">
-              <td class="px-4 py-2">
-                <div class="font-medium text-gray-900">{{ a.auditCode || a.auditType }}</div>
-                <div class="text-xs text-gray-500">{{ a.auditType }}</div>
+          <tbody>
+            <tr *ngFor="let row of riskClients; trackBy: trackById">
+              <td>{{ row.clientName }}</td>
+              <td>{{ row.compliancePct }}%</td>
+              <td>{{ row.pendingCount }}</td>
+              <td>{{ row.reuploadCount }}</td>
+              <td>{{ row.openObservations }}</td>
+              <td>{{ row.expiringCount }}</td>
+              <td>
+                <ui-button size="sm" variant="secondary" (clicked)="openClientWorkspace(row.clientId)">Open</ui-button>
               </td>
-              <td class="px-4 py-2 text-gray-900">{{ a.clientName }}</td>
-              <td class="px-4 py-2 text-gray-600">{{ a.branchName || '-' }}</td>
-              <td class="px-4 py-2 text-gray-600">{{ a.auditorName || '-' }}</td>
-              <td class="px-4 py-2 text-center text-gray-600">{{ a.dueDate | date:'mediumDate' }}</td>
-              <td class="px-4 py-2 text-center">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
-                  [class.bg-red-100]="a.daysUntil <= 3" [class.text-red-700]="a.daysUntil <= 3"
-                  [class.bg-yellow-100]="a.daysUntil > 3 && a.daysUntil <= 7" [class.text-yellow-700]="a.daysUntil > 3 && a.daysUntil <= 7"
-                  [class.bg-green-100]="a.daysUntil > 7" [class.text-green-700]="a.daysUntil > 7">
-                  {{ a.daysUntil }}d
-                </span>
-              </td>
-              <td class="px-4 py-2 text-center"><ui-status-badge [status]="a.status"></ui-status-badge></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
+
+    <section class="panel mb-4">
+      <div class="section-head">
+        <h3>Upcoming Audits</h3>
+        <span>Next 15 days</span>
+      </div>
+      <ui-empty-state
+        *ngIf="!upcomingAudits.length"
+        title="No upcoming audits"
+        description="No audits scheduled in the next 15 days.">
+      </ui-empty-state>
+      <div class="table-wrap" *ngIf="upcomingAudits.length">
+        <table>
+          <thead>
+            <tr>
+              <th>Audit</th>
+              <th>Client</th>
+              <th>Branch</th>
+              <th>Due Date</th>
+              <th>Days</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of upcomingAudits; trackBy: trackById">
+              <td>{{ row.auditCode || row.auditType }}</td>
+              <td>{{ row.clientName }}</td>
+              <td>{{ row.branchName || '-' }}</td>
+              <td>{{ row.dueDate | date:'dd MMM yyyy' }}</td>
+              <td>{{ row.daysUntil }}d</td>
+              <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </ng-container>
-
-  <!-- Lowest Branch Compliance Widget -->
-  <app-lowest-branches></app-lowest-branches>
-
-  <!-- Risk Ranking Widget -->
-  <app-risk-ranking></app-risk-ranking>
 </div>

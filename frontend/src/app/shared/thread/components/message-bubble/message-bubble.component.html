@@ -1,0 +1,38 @@
+<div class="flex" [class.justify-end]="isOutgoing">
+  <div class="max-w-[80%] rounded-xl px-4 py-3"
+    [class.bg-blue-50]="isOutgoing"
+    [class.bg-gray-50]="!isOutgoing"
+    [class.border]="true"
+    [class.border-blue-100]="isOutgoing"
+    [class.border-gray-200]="!isOutgoing">
+
+    <!-- Sender + timestamp -->
+    <div class="flex items-center gap-2 mb-1.5 text-xs text-gray-500">
+      <span class="font-medium"
+        [class.text-blue-700]="isOutgoing"
+        [class.text-gray-700]="!isOutgoing">
+        {{ msg.senderName || msg.senderRole }}
+      </span>
+      <span class="text-gray-400">·</span>
+      <span>{{ msg.createdAt | date:'short' }}</span>
+    </div>
+
+    <!-- Message body -->
+    <div class="text-sm text-gray-900 whitespace-pre-wrap break-words">{{ msg.message }}</div>
+
+    <!-- Attachments -->
+    <div *ngIf="msg.attachments?.length" class="mt-2 pt-2 border-t border-gray-200 space-y-1">
+      <a *ngFor="let a of msg.attachments"
+        [href]="a.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 hover:underline">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+        </svg>
+        {{ a.name }}
+      </a>
+    </div>
+  </div>
+</div>

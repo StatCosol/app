@@ -1,675 +1,943 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, of } from 'rxjs';
-import { catchError, debounceTime, finalize, switchMap, takeUntil, timeout } from 'rxjs/operators';
-import { PayrollApiService, PayrollClient } from './payroll-api.service';
-import { PayrollRunsService, PayrollRunSummary, PayrollRunEmployeeRow } from './payroll-runs.service';
-import { PayrollSetupApiService } from './payroll-setup-api.service';
-import { 
-  PageHeaderComponent, 
-  DataTableComponent, 
-  TableColumn, 
-  TableCellDirective, 
-  FormSelectComponent, 
-  FormInputComponent,
-  SelectOption,
+import { Subject } from 'rxjs';
+import { finalize, takeUntil } from 'rxjs/operators';
+
+import {
   ActionButtonComponent,
-  StatusBadgeComponent,
   EmptyStateComponent,
-  LoadingSpinnerComponent
+  LoadingSpinnerComponent,
+  PageHeaderComponent,
 } from '../../shared/ui';
+import { ToastService } from '../../shared/toast/toast.service';
+import { PayrollApiService, PayrollClient } from './payroll-api.service';
+
+interface PayrollRunItem {
+  id: string;
+  clientId?: string;
+  clientName?: string;
+  periodMonth: number;
+  periodYear: number;
+  status: string;
+  employeeCount?: number;
+  createdAt?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  approvalComments?: string;
+}
+
+interface RunEmployeeRow {
+  employeeId: string;
+  empCode: string;
+  employeeName: string;
+  grossEarnings: number;
+  totalDeductions: number;
+  netPay: number;
+}
+
+interface StepItem {
+  key: string;
+  label: string;
+}
+
+interface RunEvent {
+  kind: 'SYSTEM' | 'IMPORT' | 'PROCESS' | 'SUBMIT' | 'APPROVE' | 'PUBLISH' | 'RERUN' | 'ROLLBACK';
+  title: string;
+  at: string;
+  note?: string;
+}
+
+interface RunApprovalStatus {
+  status?: string;
+  submittedByUserId?: string | null;
+  submittedAt?: string | null;
+  approvedByUserId?: string | null;
+  approvedAt?: string | null;
+  approvalComments?: string | null;
+  rejectedByUserId?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+}
+
+interface ExceptionBucket {
+  key: string;
+  label: string;
+  count: number;
+}
+
+interface GuardrailItem {
+  key: 'IMPORT' | 'PROCESS' | 'SUBMIT' | 'APPROVE' | 'PUBLISH' | 'RERUN' | 'ROLLBACK';
+  label: string;
+  allowed: boolean;
+  reason: string;
+}
 
 @Component({
-  selector: 'app-payroll-runs',
   standalone: true,
+  selector: 'app-payroll-runs',
   imports: [
-    CommonModule, 
-    FormsModule, 
-    PageHeaderComponent, 
-    DataTableComponent, 
-    TableCellDirective,
-    FormSelectComponent, 
-    FormInputComponent,
+    CommonModule,
+    FormsModule,
+    PageHeaderComponent,
     ActionButtonComponent,
-    StatusBadgeComponent,
+    LoadingSpinnerComponent,
     EmptyStateComponent,
-    LoadingSpinnerComponent
   ],
-  template: `
-    <div class="page">
-      <ui-page-header 
-        title="Payroll Runs" 
-        description="Manage payroll processing and employee data" 
-        icon="currency-dollar">
-      </ui-page-header>
-
-      <!-- Filters -->
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <ui-form-select
-            label="Client"
-            [options]="clientOptions"
-            [(ngModel)]="filters.clientId"
-            (ngModelChange)="reloadRuns()"
-            placeholder="All Clients">
-          </ui-form-select>
-
-          <ui-form-input
-            label="Year"
-            type="number"
-            [(ngModel)]="filters.periodYear"
-            (ngModelChange)="reloadRuns()">
-          </ui-form-input>
-
-          <ui-form-input
-            label="Month"
-            type="number"
-            [(ngModel)]="filters.periodMonth"
-            (ngModelChange)="reloadRuns()"
-            placeholder="1-12">
-          </ui-form-input>
-
-          <ui-form-select
-            label="Status"
-            [options]="statusOptions"
-            [(ngModel)]="filters.status"
-            (ngModelChange)="reloadRuns()"
-            placeholder="All Statuses">
-          </ui-form-select>
-        </div>
-      </div>
-
-      <!-- Error Display -->
-      <div *ngIf="error" class="mb-6">
-        <ui-empty-state
-          title="Error"
-          [description]="error">
-        </ui-empty-state>
-      </div>
-
-      <!-- Create Run Card -->
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Create Payroll Run</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <ui-form-select
-            label="Client"
-            [options]="clientOptions"
-            [(ngModel)]="newRun.clientId"
-            placeholder="Select client"
-            [required]="true">
-          </ui-form-select>
-
-          <ui-form-input
-            label="Year"
-            type="number"
-            [(ngModel)]="newRun.periodYear"
-            [required]="true">
-          </ui-form-input>
-
-          <ui-form-input
-            label="Month"
-            type="number"
-            [(ngModel)]="newRun.periodMonth"
-            placeholder="1-12"
-            [required]="true">
-          </ui-form-input>
-
-          <ui-form-input
-            label="Title"
-            [(ngModel)]="newRun.title"
-            placeholder="Payroll Run">
-          </ui-form-input>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="block text-sm font-medium text-gray-700">Employees Sheet</label>
-            <input 
-              type="file" 
-              (change)="onRunFileSelected($event)"
-              class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none p-2" />
-          </div>
-        </div>
-        
-        <div class="mt-4 flex items-center gap-3">
-          <ui-button 
-            variant="primary" 
-            [disabled]="creatingRun" 
-            [loading]="creatingRun"
-            (clicked)="createRun()">
-            {{ creatingRun ? 'Creating...' : 'Create Run' }}
-          </ui-button>
-          <span *ngIf="createError" class="text-sm text-error-600">{{ createError }}</span>
-        </div>
-      </div>
-
-      <!-- Runs Table -->
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">Payroll Runs</h3>
-          <ui-button variant="secondary" [disabled]="loadingRuns" (clicked)="reloadRuns()">
-            Refresh
-          </ui-button>
-        </div>
-
-        <ui-loading-spinner *ngIf="loadingRuns" text="Loading runs..." size="lg"></ui-loading-spinner>
-
-        <ui-empty-state
-          *ngIf="!loadingRuns && runs.length === 0"
-          title="No Runs Found"
-          description="No payroll runs match the selected filters.">
-        </ui-empty-state>
-
-        <ui-data-table
-          *ngIf="!loadingRuns && runs.length > 0"
-          [columns]="runColumns"
-          [data]="runs"
-          [loading]="loadingRuns"
-          emptyMessage="No runs found.">
-          
-          <ng-template uiTableCell="period" let-row>
-            <span class="text-sm text-gray-700">{{ two(row.periodMonth) }}/{{ row.periodYear }}</span>
-          </ng-template>
-
-          <ng-template uiTableCell="client" let-row>
-            <div class="font-medium text-gray-900">{{ row.clientName || clientName(row.clientId) }}</div>
-          </ng-template>
-
-          <ng-template uiTableCell="status" let-row>
-            <ui-status-badge [status]="row.status"></ui-status-badge>
-          </ng-template>
-
-          <ng-template uiTableCell="employeeCount" let-row>
-            <span class="text-sm text-gray-700">{{ row.employeeCount ?? '-' }}</span>
-          </ng-template>
-
-          <ng-template uiTableCell="actions" let-row>
-            <div class="flex items-center gap-2">
-              <ui-button size="sm" variant="secondary" (clicked)="openRun(row.id)">View</ui-button>
-              <ui-button size="sm" variant="secondary" (clicked)="downloadZip(row.id)">ZIP</ui-button>
-              <ui-button 
-                size="sm" 
-                variant="ghost" 
-                [disabled]="archivingRunId===row.id"
-                (clicked)="archiveRun(row.id)">
-                {{ archivingRunId===row.id ? 'Archiving...' : 'Archive' }}
-              </ui-button>
-            </div>
-          </ng-template>
-        </ui-data-table>
-      </div>
-
-      <!-- Run Employees Table -->
-      <div *ngIf="selectedRunId" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">Run Employees</h3>
-          <ui-button variant="secondary" [disabled]="loadingEmployees" (clicked)="loadEmployees()">
-            Refresh
-          </ui-button>
-        </div>
-
-        <!-- Processing Actions -->
-        <div class="processing-bar">
-          <div class="flex flex-col gap-1.5">
-            <label class="block text-sm font-medium text-gray-700">Upload Breakup (Excel)</label>
-            <input
-              type="file"
-              (change)="onBreakupFileSelected($event)"
-              accept=".xlsx,.xls,.csv"
-              class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none p-2" />
-          </div>
-          <ui-button
-            size="sm"
-            variant="primary"
-            [disabled]="!breakupFile || uploadingBreakup"
-            (clicked)="uploadBreakup()">
-            {{ uploadingBreakup ? 'Uploading...' : 'Upload Breakup' }}
-          </ui-button>
-          <ui-button
-            size="sm"
-            variant="primary"
-            [disabled]="processingRun"
-            (clicked)="processRun()">
-            {{ processingRun ? 'Processing...' : 'Process Run' }}
-          </ui-button>
-          <ui-button size="sm" variant="secondary" (clicked)="generatePfEcr()">PF ECR</ui-button>
-          <ui-button size="sm" variant="secondary" (clicked)="generateEsi()">ESI File</ui-button>
-        </div>
-        <div *ngIf="processingMsg" class="text-sm mt-2" [class.text-green-600]="!processingError" [class.text-red-600]="processingError">
-          {{ processingMsg }}
-        </div>
-
-        <ui-loading-spinner *ngIf="loadingEmployees" text="Loading employees..." size="lg"></ui-loading-spinner>
-
-        <ui-empty-state
-          *ngIf="!loadingEmployees && employees.length === 0"
-          title="No Employees"
-          description="No employees found for this payroll run.">
-        </ui-empty-state>
-
-        <ui-data-table
-          *ngIf="!loadingEmployees && employees.length > 0"
-          [columns]="employeeColumns"
-          [data]="employees"
-          [loading]="loadingEmployees"
-          emptyMessage="No employees loaded.">
-          
-          <ng-template uiTableCell="employee" let-row>
-            <div class="font-medium text-gray-900">{{ row.employeeName || row.empCode || 'Employee' }}</div>
-            <div *ngIf="row.empCode" class="text-xs text-gray-500 mt-0.5">Code: {{ row.empCode }}</div>
-          </ng-template>
-
-          <ng-template uiTableCell="grossEarnings" let-row>
-            <span class="text-sm text-gray-700">{{ money(row.grossEarnings) }}</span>
-          </ng-template>
-
-          <ng-template uiTableCell="totalDeductions" let-row>
-            <span class="text-sm text-gray-700">{{ money(row.totalDeductions) }}</span>
-          </ng-template>
-
-          <ng-template uiTableCell="netPay" let-row>
-            <span class="text-sm font-semibold text-gray-900">{{ money(row.netPay) }}</span>
-          </ng-template>
-
-          <ng-template uiTableCell="actions" let-row>
-            <div class="flex items-center gap-2">
-              <ui-button size="sm" variant="secondary" (clicked)="downloadPayslipPdf(selectedRunId!, row.employeeId)">
-                PDF
-              </ui-button>
-              <ui-button size="sm" variant="ghost" (clicked)="downloadArchivedPayslipPdf(selectedRunId!, row.employeeId)">
-                Archived
-              </ui-button>
-            </div>
-          </ng-template>
-        </ui-data-table>
-      </div>
-    </div>
-  `,
-  styles: [
-    `
-      .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
-      .processing-bar { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; padding: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 1rem; }
-    `,
-  ],
+  templateUrl: './payroll-runs.component.html',
+  styleUrls: ['./payroll-runs.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PayrollRunsComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
+
+  runs: PayrollRunItem[] = [];
+  filteredRuns: PayrollRunItem[] = [];
+  selectedRun: PayrollRunItem | null = null;
+  runEmployees: RunEmployeeRow[] = [];
+
   clients: PayrollClient[] = [];
-  runs: PayrollRunSummary[] = [];
-  employees: PayrollRunEmployeeRow[] = [];
-
   loadingRuns = false;
-  loadingEmployees = false;
-  archivingRunId: string | null = null;
-  error = '';
-  createError = '';
-  creatingRun = false;
-  runFile: File | null = null;
+  loadingRunDetail = false;
+  loadingClients = false;
+  actionBusy = false;
+  importBusy = false;
+  loadingApprovalStatus = false;
 
-  clientOptions: SelectOption[] = [{ value: null, label: 'Select client' }];
-  statusOptions: SelectOption[] = [
-    { value: null, label: 'All Statuses' },
-    { value: 'DRAFT', label: 'Draft' },
-    { value: 'IN_PROGRESS', label: 'In Progress' },
-    { value: 'SUBMITTED', label: 'Submitted' },
-    { value: 'APPROVED', label: 'Approved' },
-    { value: 'COMPLETED', label: 'Completed' },
+  selectedClientId = '';
+  selectedMonth = 0;
+  selectedYear = 0;
+  statusFilter = '';
+  searchText = '';
+
+  importFile: File | null = null;
+  selectedExceptionBucketKey = 'ALL';
+  showFullHistory = false;
+  private readonly runEventHistory: Record<string, RunEvent[]> = {};
+  private readonly runApprovalStatusByRunId: Record<string, RunApprovalStatus> = {};
+
+  readonly statusOptions = ['', 'DRAFT', 'PROCESSED', 'SUBMITTED', 'APPROVED', 'REJECTED'];
+  readonly monthOptions = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  readonly yearOptions = this.generateYearOptions();
+
+  readonly processSteps: StepItem[] = [
+    { key: 'input-freeze', label: 'Input Freeze' },
+    { key: 'attendance-import', label: 'Attendance Import' },
+    { key: 'arrears', label: 'Arrears' },
+    { key: 'preview', label: 'Preview' },
+    { key: 'approval', label: 'Approval' },
+    { key: 'publish', label: 'Publish' },
   ];
 
-  // Processing state
-  breakupFile: File | null = null;
-  uploadingBreakup = false;
-  processingRun = false;
-  processingMsg = '';
-  processingError = false;
-
-  selectedRunId: string | null = null;
-
-  runColumns: TableColumn[] = [
-    { key: 'period', header: 'Period', sortable: true, width: '100px' },
-    { key: 'client', header: 'Client', sortable: true },
-    { key: 'status', header: 'Status', sortable: true, width: '140px', align: 'center' },
-    { key: 'employeeCount', header: 'Employees', sortable: true, width: '100px', align: 'right' },
-    { key: 'actions', header: 'Actions', sortable: false, width: '260px' },
-  ];
-
-  employeeColumns: TableColumn[] = [
-    { key: 'employee', header: 'Employee', sortable: true },
-    { key: 'grossEarnings', header: 'Gross', sortable: true, width: '120px', align: 'right' },
-    { key: 'totalDeductions', header: 'Deductions', sortable: true, width: '120px', align: 'right' },
-    { key: 'netPay', header: 'Net Pay', sortable: true, width: '120px', align: 'right' },
-    { key: 'actions', header: 'Payslip', sortable: false, width: '180px' },
-  ];
-
-  filters: { clientId: string | null; periodYear: number | null; periodMonth: number | null; status: string | null } = {
-    clientId: null,
-    periodYear: null,
-    periodMonth: null,
-    status: null,
-  };
-
-  newRun: { clientId: string | null; periodYear: number; periodMonth: number; title: string } = {
-    clientId: null,
-    periodYear: new Date().getFullYear(),
-    periodMonth: new Date().getMonth() + 1,
-    title: '',
-  };
-
-  private reload$ = new Subject<void>();
-  private employeesReload$ = new Subject<string>();
-  private destroy$ = new Subject<void>();
-  private initialLoadDone = false;
-
-  constructor(private payrollApi: PayrollApiService, private runsApi: PayrollRunsService, private setupApi: PayrollSetupApiService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly toast: ToastService,
+    private readonly payrollApi: PayrollApiService,
+  ) {}
 
   ngOnInit(): void {
-
-    // Subscribe to reload$ for user-triggered filter changes (debounced)
-    this.reload$
-      .pipe(
-        debounceTime(300),
-        switchMap(() => this.fetchRuns$()),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (rows) => {
-          this.runs = rows || [];
-          this.loadingRuns = false;
-          this.cdr.detectChanges();
-        },
-        error: (err) => {
-          console.error('PayrollRuns reload$ error:', err);
-          this.loadingRuns = false;
-          this.runs = [];
-          this.cdr.detectChanges();
-        },
-      });
-
-    this.employeesReload$
-      .pipe(
-        debounceTime(50),
-        switchMap((runId) => {
-          this.error = '';
-          this.loadingEmployees = true;
-          return this.runsApi
-            .listRunEmployees(runId)
-            .pipe(
-              timeout(10000),
-              catchError((e) => {
-                console.error('PayrollRuns employees error:', e);
-                this.error = e?.error?.message || 'Unable to load run employees';
-                return of([] as PayrollRunEmployeeRow[]);
-              }),
-              finalize(() => {
-                this.loadingEmployees = false;
-              }),
-            );
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (rows) => {
-          this.employees = rows || [];
-        },
-        error: (err) => {
-          console.error('PayrollRuns employeesReload$ error:', err);
-          this.loadingEmployees = false;
-          this.employees = [];
-          this.error = err?.error?.message || 'Unable to load employees';
-        },
-      });
-    this.payrollApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (list) => {
-        this.clients = list || [];
-        this.clientOptions = [
-          { value: null, label: 'Select client' },
-          ...this.clients.map(c => ({ value: c.id, label: c.name })),
-        ];
-      },
-      error: (e) => {
-        console.error('PayrollRuns error loading clients:', e);
-        this.error = `Unable to load clients. ${e?.error?.message || ''}`;
-      },
-    });
-
-    // Direct initial load — not through the Subject so filter setup can't cancel it
-    this.fetchRuns$().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (rows) => {
-        this.runs = rows || [];
-        this.loadingRuns = false;
-        this.cdr.detectChanges();
-        // Defer initialLoadDone so template-init ngModelChange noise is blocked
-        setTimeout(() => { this.initialLoadDone = true; });
-      },
-      error: (err) => {
-        console.error('PayrollRuns initial load error:', err);
-        this.loadingRuns = false;
-        this.runs = [];
-        this.cdr.detectChanges();
-        setTimeout(() => { this.initialLoadDone = true; });
-      },
-    });
+    this.loadClients();
+    this.loadRuns();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.reload$.complete();
-    this.employeesReload$.complete();
   }
 
-  reloadRuns(): void {
-    // Skip reloads triggered by filter setup if initial load hasn't finished
-    if (!this.initialLoadDone) return;
-    this.reload$.next();
-  }
-
-  /** Shared observable factory for fetching runs */
-  private fetchRuns$() {
-    this.error = '';
+  loadRuns(): void {
     this.loadingRuns = true;
-    return this.runsApi
-      .listRuns({
-        clientId: this.filters.clientId ?? undefined,
-        periodYear: this.filters.periodYear ?? undefined,
-        periodMonth: this.filters.periodMonth ?? undefined,
-        status: this.filters.status ?? undefined,
-      })
+    const params = this.runQueryParams();
+    this.http
+      .get<any>('/api/v1/payroll/runs', { params })
       .pipe(
-        timeout(10000),
-        catchError((e) => {
-          console.error('PayrollRuns error:', e);
-          this.error = e?.error?.message || `Unable to load runs. ${e?.message || ''}`;
-          return of([] as PayrollRunSummary[]);
-        }),
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loadingRuns = false;
+          this.cdr.markForCheck();
         }),
-      );
-  }
-
-  openRun(runId: string): void {
-    this.selectedRunId = runId;
-    this.loadEmployees();
-  }
-
-  loadEmployees(): void {
-    if (!this.selectedRunId) return;
-    this.employeesReload$.next(this.selectedRunId); // switchMap handles cancellation
-  }
-
-  archiveRun(runId: string): void {
-    this.archivingRunId = runId;
-    this.runsApi.archiveRunPayslips(runId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.archivingRunId = null;
-      },
-      error: (e) => {
-        this.archivingRunId = null;
-        this.error = e?.error?.message || 'Failed to archive payslips';
-      },
-    });
-  }
-
-  downloadZip(runId: string): void {
-    this.runsApi.downloadPayslipsZip(runId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => this.runsApi.saveBlob(blob, `payslips_${runId}.zip`),
-      error: (e) => { this.error = e?.error?.message || 'Failed to download ZIP'; },
-    });
-  }
-
-  downloadPayslipPdf(runId: string, employeeId: string): void {
-    this.runsApi.downloadPayslipPdf(runId, employeeId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => this.runsApi.saveBlob(blob, `payslip_${employeeId}.pdf`),
-      error: (e) => { this.error = e?.error?.message || 'Failed to download PDF'; },
-    });
-  }
-
-  onRunFileSelected(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.runFile = target.files && target.files.length ? target.files[0] : null;
-  }
-
-  createRun(): void {
-    this.createError = '';
-    if (!this.newRun.clientId || !this.newRun.periodYear || !this.newRun.periodMonth) {
-      this.createError = 'Client, year, and month are required.';
-      return;
-    }
-    this.creatingRun = true;
-    this.runsApi
-      .createRun({
-        clientId: this.newRun.clientId,
-        periodYear: this.newRun.periodYear,
-        periodMonth: this.newRun.periodMonth,
-        title: this.newRun.title || undefined,
-      })
-      .pipe(takeUntil(this.destroy$))
+      )
       .subscribe({
-        next: (run: any) => {
-          if (this.runFile) {
-            this.runsApi.uploadRunEmployeesFile(run.id, this.runFile).pipe(takeUntil(this.destroy$)).subscribe({
-              next: () => {
-                this.afterRunCreated();
-              },
-              error: (e) => {
-                this.creatingRun = false;
-                this.createError = e?.error?.message || 'Run created, but upload failed.';
-                this.reloadRuns();
-              },
-            });
+        next: (res) => {
+          const rows = this.toArray(res).map((row: any) => ({
+            id: String(row?.id || ''),
+            clientId: row?.clientId || row?.client_id || '',
+            clientName: row?.clientName || row?.client_name || '-',
+            periodMonth: Number(row?.periodMonth || row?.period_month || 0),
+            periodYear: Number(row?.periodYear || row?.period_year || 0),
+            status: String(row?.status || 'DRAFT').toUpperCase(),
+            employeeCount: Number(row?.employeeCount || 0),
+            createdAt: row?.createdAt || row?.created_at || null,
+            submittedAt: row?.submittedAt || row?.submitted_at || null,
+            approvedAt: row?.approvedAt || row?.approved_at || null,
+            rejectedAt: row?.rejectedAt || row?.rejected_at || null,
+            rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
+            approvalComments: row?.approvalComments || row?.approval_comments || null,
+          }));
+          this.runs = rows;
+          this.filteredRuns = this.applyLocalSearch(rows);
+
+          if (this.selectedRun) {
+            const updated = this.filteredRuns.find((r) => r.id === this.selectedRun?.id);
+            this.selectedRun = updated || (this.filteredRuns[0] || null);
           } else {
-            this.afterRunCreated();
+            this.selectedRun = this.filteredRuns[0] || null;
+          }
+
+          if (this.selectedRun) {
+            this.loadRunWorkspaceData(this.selectedRun.id, false);
+          } else {
+            this.runEmployees = [];
           }
         },
-        error: (e) => {
-          this.creatingRun = false;
-          this.createError = e?.error?.message || 'Failed to create payroll run.';
+        error: (err) => {
+          this.runs = [];
+          this.filteredRuns = [];
+          this.selectedRun = null;
+          this.runEmployees = [];
+          this.toast.error(err?.error?.message || 'Failed to load payroll runs.');
         },
       });
   }
 
-  private afterRunCreated(): void {
-    this.creatingRun = false;
-    this.newRun = {
-      clientId: null,
-      periodYear: new Date().getFullYear(),
-      periodMonth: new Date().getMonth() + 1,
-      title: '',
+  loadClients(): void {
+    this.loadingClients = true;
+    this.payrollApi
+      .getAssignedClients()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingClients = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.clients = rows || [];
+        },
+        error: () => {
+          this.clients = [];
+        },
+      });
+  }
+
+  applyFilters(): void {
+    this.loadRuns();
+  }
+
+  clearFilters(): void {
+    this.selectedClientId = '';
+    this.selectedMonth = 0;
+    this.selectedYear = 0;
+    this.statusFilter = '';
+    this.searchText = '';
+    this.loadRuns();
+  }
+
+  onSearchChange(): void {
+    this.filteredRuns = this.applyLocalSearch(this.runs);
+    if (this.selectedRun && !this.filteredRuns.find((r) => r.id === this.selectedRun?.id)) {
+      this.selectedRun = this.filteredRuns[0] || null;
+      if (this.selectedRun) {
+        this.loadRunWorkspaceData(this.selectedRun.id, false);
+      } else {
+        this.runEmployees = [];
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  selectRun(run: PayrollRunItem): void {
+    this.selectedRun = run;
+    this.selectedExceptionBucketKey = 'ALL';
+    this.showFullHistory = false;
+    this.loadRunWorkspaceData(run.id, true);
+  }
+
+  processRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'PROCESS');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    this.actionBusy = true;
+    this.http
+      .post(`/api/v1/payroll/runs/${run.id}/process`, {})
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.addRunEvent(run.id, 'PROCESS', 'Run processed', 'Moved to processed stage');
+          this.toast.success('Payroll run moved to processed stage.');
+          this.loadRuns();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Could not process run.'),
+      });
+  }
+
+  submitRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'SUBMIT');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    this.actionBusy = true;
+    this.http
+      .post(`/api/v1/payroll/runs/${run.id}/submit`, {})
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.addRunEvent(run.id, 'SUBMIT', 'Run submitted', 'Submitted for approval');
+          this.toast.success('Payroll run submitted for approval.');
+          this.loadRuns();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Could not submit run.'),
+      });
+  }
+
+  approveRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'APPROVE');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    this.actionBusy = true;
+    this.http
+      .post(`/api/v1/payroll/runs/${run.id}/approve`, {})
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.addRunEvent(run.id, 'APPROVE', 'Run approved', 'Approved for publish');
+          this.toast.success('Payroll run approved and payslips archived.');
+          this.loadRuns();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Could not approve run.'),
+      });
+  }
+
+  publishRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'PUBLISH');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    const status = this.statusKey(run);
+    if (status === 'APPROVED') {
+      this.downloadPayslips(run);
+      return;
+    }
+    if (status === 'SUBMITTED') {
+      this.approveRun(run);
+      return;
+    }
+    if (status === 'PROCESSED') {
+      this.submitRun(run);
+      return;
+    }
+    this.approveRun(run);
+  }
+
+  rerunRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'RERUN');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    this.addRunEvent(run.id, 'RERUN', 'Rerun requested', 'Run sent for reprocessing');
+    this.processRun(run);
+  }
+
+  rollbackRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'ROLLBACK');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    this.actionBusy = true;
+    this.http
+      .post(`/api/v1/payroll/runs/${run.id}/revert`, {})
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.addRunEvent(run.id, 'ROLLBACK', 'Run rolled back', 'Reverted to draft');
+          this.toast.success('Payroll run reverted to draft.');
+          this.loadRuns();
+        },
+        error: (err) =>
+          this.toast.error(err?.error?.message || 'Could not revert payroll run.'),
+      });
+  }
+
+  onImportFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.importFile = input?.files?.[0] || null;
+  }
+
+  uploadRunImport(): void {
+    if (this.isConsoleBusy()) return;
+    if (!this.selectedRun?.id || !this.importFile) {
+      this.toast.info('Choose a file to import attendance/input data.');
+      return;
+    }
+    const guard = this.actionGuardReason(this.selectedRun, 'IMPORT');
+    if (guard) {
+      this.toast.warning(`Import blocked: ${guard}`);
+      return;
+    }
+    this.importBusy = true;
+    const fd = new FormData();
+    fd.append('file', this.importFile);
+    this.http
+      .post(`/api/v1/payroll/runs/${this.selectedRun.id}/employees/upload`, fd)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.importBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.addRunEvent(this.selectedRun!.id, 'IMPORT', 'Import uploaded', 'Input file imported');
+          this.toast.success('Run input file uploaded successfully.');
+          this.importFile = null;
+          this.loadRuns();
+          if (this.selectedRun) {
+            this.loadRunEmployees(this.selectedRun.id, false);
+          }
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Could not upload import file.'),
+      });
+  }
+
+  downloadPayslips(run: PayrollRunItem): void {
+    this.http
+      .get(`/api/v1/payroll/runs/${run.id}/payslips.zip`, { responseType: 'blob' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blob) => {
+          this.addRunEvent(run.id, 'PUBLISH', 'Payslips downloaded', 'Published output downloaded as ZIP');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `payslips-${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}.zip`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.toast.error('Could not download payslips ZIP.'),
+      });
+  }
+
+  runStageIndex(run: PayrollRunItem | null): number {
+    if (!run) return 0;
+    const status = String(run.status || '').toUpperCase();
+    if (status === 'APPROVED') return 6;
+    if (status === 'SUBMITTED') return 5;
+    if (status === 'PROCESSED') return 4;
+    if (status === 'REJECTED') return 2;
+    if ((run.employeeCount || 0) > 0) return 2;
+    return 1;
+  }
+
+  stepClass(stepPosition: number): string {
+    const stage = this.runStageIndex(this.selectedRun);
+    if (stepPosition <= stage) return 'step-chip step-chip--done';
+    if (stepPosition === stage + 1) return 'step-chip step-chip--active';
+    return 'step-chip';
+  }
+
+  totalRuns(): number {
+    return this.filteredRuns.length;
+  }
+
+  draftRuns(): number {
+    return this.filteredRuns.filter((r) => this.statusKey(r) === 'DRAFT').length;
+  }
+
+  processedRuns(): number {
+    return this.filteredRuns.filter((r) => this.statusKey(r) === 'PROCESSED').length;
+  }
+
+  submittedRuns(): number {
+    return this.filteredRuns.filter((r) => this.statusKey(r) === 'SUBMITTED').length;
+  }
+
+  approvedRuns(): number {
+    return this.filteredRuns.filter((r) => this.statusKey(r) === 'APPROVED').length;
+  }
+
+  selectedGrossTotal(): number {
+    return this.runEmployees.reduce((sum, r) => sum + Number(r.grossEarnings || 0), 0);
+  }
+
+  selectedDeductionTotal(): number {
+    return this.runEmployees.reduce((sum, r) => sum + Number(r.totalDeductions || 0), 0);
+  }
+
+  selectedNetTotal(): number {
+    return this.runEmployees.reduce((sum, r) => sum + Number(r.netPay || 0), 0);
+  }
+
+  validationExceptions(): RunEmployeeRow[] {
+    return this.runEmployees.filter((r) => {
+      const gross = Number(r.grossEarnings || 0);
+      const ded = Number(r.totalDeductions || 0);
+      const net = Number(r.netPay || 0);
+      if (net <= 0) return true;
+      if (gross > 0 && ded / gross > 0.65) return true;
+      if (ded > gross && gross > 0) return true;
+      return false;
+    });
+  }
+
+  exceptionBuckets(): ExceptionBucket[] {
+    let negativeNet = 0;
+    let highDeductionRatio = 0;
+    let deductionExceedsGross = 0;
+    for (const row of this.runEmployees) {
+      const gross = Number(row.grossEarnings || 0);
+      const ded = Number(row.totalDeductions || 0);
+      const net = Number(row.netPay || 0);
+      if (net <= 0) negativeNet += 1;
+      if (gross > 0 && ded / gross > 0.65) highDeductionRatio += 1;
+      if (gross > 0 && ded > gross) deductionExceedsGross += 1;
+    }
+    return [
+      { key: 'ALL', label: 'All Exceptions', count: this.validationExceptions().length },
+      { key: 'NEGATIVE_NET', label: 'Net <= 0', count: negativeNet },
+      { key: 'HIGH_DED_RATIO', label: 'Deduction > 65%', count: highDeductionRatio },
+      { key: 'DED_GT_GROSS', label: 'Deduction > Gross', count: deductionExceedsGross },
+    ];
+  }
+
+  setExceptionBucket(key: string): void {
+    this.selectedExceptionBucketKey = key || 'ALL';
+  }
+
+  isBucketActive(key: string): boolean {
+    return this.selectedExceptionBucketKey === key;
+  }
+
+  bucketClass(bucket: ExceptionBucket): string {
+    const base = 'bucket-card';
+    const active = this.isBucketActive(bucket.key) ? ' bucket-card--active' : '';
+    if (bucket.key === 'NEGATIVE_NET') return `${base}${active} bucket-card--danger`;
+    if (bucket.key === 'HIGH_DED_RATIO') return `${base}${active} bucket-card--warn`;
+    if (bucket.key === 'DED_GT_GROSS') return `${base}${active} bucket-card--bad`;
+    return `${base}${active}`;
+  }
+
+  filteredValidationExceptions(): RunEmployeeRow[] {
+    const list = this.validationExceptions();
+    const key = this.selectedExceptionBucketKey;
+    if (key === 'ALL') return list;
+    return list.filter((row) => {
+      const gross = Number(row.grossEarnings || 0);
+      const ded = Number(row.totalDeductions || 0);
+      const net = Number(row.netPay || 0);
+      if (key === 'NEGATIVE_NET') return net <= 0;
+      if (key === 'HIGH_DED_RATIO') return gross > 0 && ded / gross > 0.65;
+      if (key === 'DED_GT_GROSS') return gross > 0 && ded > gross;
+      return true;
+    });
+  }
+
+  publishHistory(): RunEvent[] {
+    const run = this.selectedRun;
+    if (!run) return [];
+    const events: RunEvent[] = [];
+    if (run.createdAt) {
+      events.push({ kind: 'SYSTEM', title: 'Run created', at: run.createdAt });
+    }
+    const approval = this.runApprovalStatusByRunId[run.id];
+    if (approval?.submittedAt || run.submittedAt) {
+      const note = approval?.submittedByUserId ? `Submitted by ${approval.submittedByUserId}` : undefined;
+      events.push({
+        kind: 'SUBMIT',
+        title: 'Run submitted',
+        at: String(approval?.submittedAt || run.submittedAt),
+        note,
+      });
+    }
+    if (approval?.approvedAt || run.approvedAt) {
+      const notes: string[] = [];
+      if (approval?.approvedByUserId) notes.push(`Approved by ${approval.approvedByUserId}`);
+      if (approval?.approvalComments) notes.push(approval.approvalComments);
+      if (run.approvalComments && !approval?.approvalComments) notes.push(run.approvalComments);
+      events.push({
+        kind: 'APPROVE',
+        title: 'Run approved',
+        at: String(approval?.approvedAt || run.approvedAt),
+        note: notes.join(' | ') || undefined,
+      });
+    }
+    if (approval?.rejectedAt || run.rejectedAt) {
+      const reason = approval?.rejectionReason || run.rejectionReason;
+      events.push({
+        kind: 'SYSTEM',
+        title: 'Run rejected',
+        at: String(approval?.rejectedAt || run.rejectedAt),
+        note: reason ? `Reason: ${reason}` : undefined,
+      });
+    }
+    const local = this.runEventHistory[run.id] || [];
+    const merged = [...events, ...local].sort(
+      (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+    );
+    const deduped: RunEvent[] = [];
+    const seen = new Set<string>();
+    for (const ev of merged) {
+      const key = `${ev.kind}|${ev.title}|${ev.at}|${ev.note || ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(ev);
+    }
+    return deduped;
+  }
+
+  visiblePublishHistory(): RunEvent[] {
+    const history = this.publishHistory();
+    return this.showFullHistory ? history : history.slice(0, 5);
+  }
+
+  toggleHistory(): void {
+    this.showFullHistory = !this.showFullHistory;
+  }
+
+  publishHistorySummary(): {
+    total: number;
+    approvals: number;
+    publishes: number;
+    rollbacks: number;
+    rejects: number;
+  } {
+    const history = this.publishHistory();
+    return {
+      total: history.length,
+      approvals: history.filter((x) => x.kind === 'APPROVE').length,
+      publishes: history.filter((x) => x.kind === 'PUBLISH').length,
+      rollbacks: history.filter((x) => x.kind === 'ROLLBACK').length,
+      rejects: history.filter((x) => x.title === 'Run rejected').length,
     };
-    this.runFile = null;
-    this.reloadRuns();
   }
 
-  downloadArchivedPayslipPdf(runId: string, employeeId: string): void {
-    this.runsApi.downloadArchivedPayslipPdf(runId, employeeId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => this.runsApi.saveBlob(blob, `payslip_${employeeId}_archived.pdf`),
-      error: (e) => { this.error = e?.error?.message || 'Archived payslip not available'; },
+  approvalStatusForSelectedRun(): RunApprovalStatus | null {
+    const runId = this.selectedRun?.id;
+    if (!runId) return null;
+    return this.runApprovalStatusByRunId[runId] || null;
+  }
+
+  runGuardrails(run: PayrollRunItem | null): GuardrailItem[] {
+    if (!run) return [];
+    return [
+      { key: 'IMPORT', label: 'Import Input', allowed: !this.actionGuardReason(run, 'IMPORT'), reason: this.actionGuardReason(run, 'IMPORT') || 'Ready' },
+      { key: 'PROCESS', label: 'Process', allowed: !this.actionGuardReason(run, 'PROCESS'), reason: this.actionGuardReason(run, 'PROCESS') || 'Ready' },
+      { key: 'SUBMIT', label: 'Submit', allowed: !this.actionGuardReason(run, 'SUBMIT'), reason: this.actionGuardReason(run, 'SUBMIT') || 'Ready' },
+      { key: 'APPROVE', label: 'Approve', allowed: !this.actionGuardReason(run, 'APPROVE'), reason: this.actionGuardReason(run, 'APPROVE') || 'Ready' },
+      { key: 'PUBLISH', label: 'Publish', allowed: !this.actionGuardReason(run, 'PUBLISH'), reason: this.actionGuardReason(run, 'PUBLISH') || 'Ready' },
+      { key: 'RERUN', label: 'Rerun', allowed: !this.actionGuardReason(run, 'RERUN'), reason: this.actionGuardReason(run, 'RERUN') || 'Ready' },
+      { key: 'ROLLBACK', label: 'Rollback', allowed: !this.actionGuardReason(run, 'ROLLBACK'), reason: this.actionGuardReason(run, 'ROLLBACK') || 'Ready' },
+    ];
+  }
+
+  actionAllowed(run: PayrollRunItem | null, action: GuardrailItem['key']): boolean {
+    return !this.actionGuardReason(run, action);
+  }
+
+  actionButtonDisabled(run: PayrollRunItem | null, action: GuardrailItem['key']): boolean {
+    return this.isConsoleBusy() || !this.actionAllowed(run, action);
+  }
+
+  statusClass(status: string): string {
+    const value = this.statusKey({ status } as PayrollRunItem);
+    if (value === 'APPROVED') return 'status-pill status-pill--ok';
+    if (value === 'PROCESSED' || value === 'SUBMITTED') return 'status-pill status-pill--info';
+    if (value === 'REJECTED') return 'status-pill status-pill--bad';
+    return 'status-pill';
+  }
+
+  monthLabel(month: number): string {
+    return this.monthOptions[month - 1] || '-';
+  }
+
+  trackById(index: number, row: any): string {
+    return String(row?.id ?? row?.employeeId ?? row?.empCode ?? index);
+  }
+
+  canProcess(run: PayrollRunItem | null): boolean {
+    return this.actionAllowed(run, 'PROCESS');
+  }
+
+  canSubmit(run: PayrollRunItem | null): boolean {
+    return this.actionAllowed(run, 'SUBMIT');
+  }
+
+  canApprove(run: PayrollRunItem | null): boolean {
+    return this.actionAllowed(run, 'APPROVE');
+  }
+
+  isPublished(run: PayrollRunItem | null): boolean {
+    return !!run && this.statusKey(run) === 'APPROVED';
+  }
+
+  canRerun(run: PayrollRunItem | null): boolean {
+    return this.actionAllowed(run, 'RERUN');
+  }
+
+  canRollback(run: PayrollRunItem | null): boolean {
+    return this.actionAllowed(run, 'ROLLBACK');
+  }
+
+  actionGuardReason(
+    run: PayrollRunItem | null,
+    action: GuardrailItem['key'],
+  ): string | null {
+    if (!run) return 'No run selected.';
+    const status = this.statusKey(run);
+    const hasEmployees = Number(run.employeeCount || 0) > 0;
+    const requiresSelectedContext = ['SUBMIT', 'APPROVE', 'PUBLISH', 'RERUN'].includes(action);
+    if (requiresSelectedContext && this.selectedRun?.id !== run.id) {
+      return 'Open this run in detail workspace first.';
+    }
+    const exceptions = this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
+
+    if (action === 'IMPORT') {
+      if (status === 'APPROVED') return 'Published run is locked for import.';
+      return null;
+    }
+
+    if (action === 'PROCESS') {
+      if (!(status === 'DRAFT' || status === 'REJECTED' || status === 'IN_PROGRESS')) {
+        return 'Only Draft/Rejected/In Progress runs can be processed.';
+      }
+      if (!hasEmployees) return 'Import employee inputs before processing.';
+      return null;
+    }
+
+    if (action === 'SUBMIT') {
+      if (status !== 'PROCESSED') return 'Only processed runs can be submitted.';
+      if (exceptions > 0) return `Resolve ${exceptions} validation exception(s) before submit.`;
+      return null;
+    }
+
+    if (action === 'APPROVE') {
+      if (status !== 'SUBMITTED') return 'Only submitted runs can be approved.';
+      if (exceptions > 0) return `Resolve ${exceptions} validation exception(s) before approval.`;
+      return null;
+    }
+
+    if (action === 'PUBLISH') {
+      if (status === 'APPROVED') return null;
+      if (status === 'SUBMITTED') {
+        if (exceptions > 0) return `Resolve ${exceptions} validation exception(s) before publish.`;
+        return null;
+      }
+      if (status === 'PROCESSED') {
+        if (exceptions > 0) return `Resolve ${exceptions} validation exception(s) before publish.`;
+        return null;
+      }
+      return 'Process and submit run before publish.';
+    }
+
+    if (action === 'RERUN') {
+      if (status === 'APPROVED') return 'Published run cannot be rerun.';
+      if (!(status === 'DRAFT' || status === 'REJECTED' || status === 'IN_PROGRESS')) {
+        return 'Only Draft/Rejected/In Progress runs can be rerun.';
+      }
+      if (!hasEmployees) return 'Import employee inputs before rerun.';
+      return null;
+    }
+
+    if (action === 'ROLLBACK') {
+      if (status !== 'REJECTED') return 'Only rejected runs can be rolled back.';
+      return null;
+    }
+
+    return null;
+  }
+
+  private loadRunEmployees(runId: string, toastOnError: boolean): void {
+    this.loadingRunDetail = true;
+    this.http
+      .get<any>(`/api/v1/payroll/runs/${runId}/employees`)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingRunDetail = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.runEmployees = this.toArray(res).map((row: any) => ({
+            employeeId: String(row?.employeeId || row?.employee_id || ''),
+            empCode: row?.empCode || row?.employeeCode || '-',
+            employeeName: row?.employeeName || '-',
+            grossEarnings: Number(row?.grossEarnings || 0),
+            totalDeductions: Number(row?.totalDeductions || 0),
+            netPay: Number(row?.netPay || 0),
+          }));
+        },
+        error: () => {
+          this.runEmployees = [];
+          if (toastOnError) {
+            this.toast.error('Could not load employee run preview.');
+            this.toast.error('Could not load employee run preview.');
+          }
+        },
+      });
+  }
+
+  private loadRunWorkspaceData(runId: string, toastOnError: boolean): void {
+    this.loadRunEmployees(runId, toastOnError);
+    this.loadApprovalStatus(runId, false);
+  }
+
+  private loadApprovalStatus(runId: string, toastOnError: boolean): void {
+    this.loadingApprovalStatus = true;
+    this.http
+      .get<any>(`/api/v1/payroll/runs/${runId}/approval-status`)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingApprovalStatus = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const row = res?.data || res || {};
+          this.runApprovalStatusByRunId[runId] = {
+            status: row?.status || null,
+            submittedByUserId: row?.submittedByUserId || row?.submitted_by_user_id || null,
+            submittedAt: row?.submittedAt || row?.submitted_at || null,
+            approvedByUserId: row?.approvedByUserId || row?.approved_by_user_id || null,
+            approvedAt: row?.approvedAt || row?.approved_at || null,
+            approvalComments: row?.approvalComments || row?.approval_comments || null,
+            rejectedByUserId: row?.rejectedByUserId || row?.rejected_by_user_id || null,
+            rejectedAt: row?.rejectedAt || row?.rejected_at || null,
+            rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
+          };
+        },
+        error: () => {
+          delete this.runApprovalStatusByRunId[runId];
+          if (toastOnError) {
+            this.toast.error('Could not load approval status for this run.');
+            this.toast.error('Could not load approval status for this run.');
+          }
+        },
+      });
+  }
+
+  private runQueryParams(): HttpParams {
+    let params = new HttpParams();
+    if (this.selectedClientId) params = params.set('clientId', this.selectedClientId);
+    if (this.selectedYear) params = params.set('periodYear', String(this.selectedYear));
+    if (this.selectedMonth) params = params.set('periodMonth', String(this.selectedMonth));
+    if (this.statusFilter) params = params.set('status', this.statusFilter);
+    return params;
+  }
+
+  private applyLocalSearch(rows: PayrollRunItem[]): PayrollRunItem[] {
+    const q = this.searchText.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) => {
+      const text = `${row.clientName || ''} ${row.status || ''} ${row.periodMonth}/${row.periodYear}`.toLowerCase();
+      return text.includes(q);
     });
   }
 
-  clientName(clientId: string): string {
-    return this.clients.find((c) => c.id === clientId)?.name || clientId;
+  private toArray(payload: any): any[] {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.rows)) return payload.rows;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   }
 
-  two(n: any): string {
-    const v = Number(n ?? 0);
-    return String(v).padStart(2, '0');
+  private statusKey(run: PayrollRunItem): string {
+    return String(run.status || '').toUpperCase();
   }
 
-  money(n: any): string {
-    const v = Number(n ?? 0);
-    if (!isFinite(v)) return '-';
-    return v.toFixed(2);
+  private generateYearOptions(): number[] {
+    const y = new Date().getFullYear();
+    return [y - 1, y, y + 1];
   }
 
-  // ── Processing Methods ──────────────────────────────────
-
-  onBreakupFileSelected(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.breakupFile = target.files && target.files.length ? target.files[0] : null;
-  }
-
-  uploadBreakup(): void {
-    if (!this.selectedRunId || !this.breakupFile) return;
-    this.uploadingBreakup = true;
-    this.processingMsg = '';
-    this.processingError = false;
-    this.setupApi.uploadBreakup(this.selectedRunId, this.breakupFile).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.uploadingBreakup = false; }),
-    ).subscribe({
-      next: (res: any) => {
-        this.processingMsg = `Breakup uploaded: ${res?.imported ?? 0} employees imported`;
-        this.breakupFile = null;
-        this.loadEmployees();
-      },
-      error: (e) => {
-        this.processingMsg = e?.error?.message || 'Upload failed';
-        this.processingError = true;
-      },
+  private addRunEvent(
+    runId: string,
+    kind: RunEvent['kind'],
+    title: string,
+    note?: string,
+  ): void {
+    const bucket = this.runEventHistory[runId] || [];
+    bucket.push({
+      kind,
+      title,
+      at: new Date().toISOString(),
+      note,
     });
+    this.runEventHistory[runId] = bucket;
   }
 
-  processRun(): void {
-    if (!this.selectedRunId) return;
-    this.processingRun = true;
-    this.processingMsg = '';
-    this.processingError = false;
-    this.setupApi.processRun(this.selectedRunId).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.processingRun = false; }),
-    ).subscribe({
-      next: (res: any) => {
-        this.processingMsg = `Processed ${res?.processed ?? 0} employees. Status: ${res?.status ?? 'DONE'}`;
-        this.loadEmployees();
-        this.reloadRuns();
-      },
-      error: (e) => {
-        this.processingMsg = e?.error?.message || 'Processing failed';
-        this.processingError = true;
-      },
-    });
-  }
-
-  generatePfEcr(): void {
-    if (!this.selectedRunId) return;
-    this.setupApi.generatePfEcr(this.selectedRunId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => this.runsApi.saveBlob(blob, `PF_ECR_${this.selectedRunId}.txt`),
-      error: (e) => {
-        this.processingMsg = e?.error?.message || 'PF ECR generation failed';
-        this.processingError = true;
-      },
-    });
-  }
-
-  generateEsi(): void {
-    if (!this.selectedRunId) return;
-    this.setupApi.generateEsi(this.selectedRunId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => this.runsApi.saveBlob(blob, `ESI_${this.selectedRunId}.txt`),
-      error: (e) => {
-        this.processingMsg = e?.error?.message || 'ESI generation failed';
-        this.processingError = true;
-      },
-    });
+  private isConsoleBusy(): boolean {
+    return (
+      this.actionBusy ||
+      this.importBusy ||
+      this.loadingRuns ||
+      this.loadingRunDetail
+    );
   }
 }

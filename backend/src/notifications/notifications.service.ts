@@ -89,6 +89,25 @@ export class NotificationsService {
   }
 
   // -------------------------
+  // Ticket lookup
+  // -------------------------
+
+  async findThreadsBySubject(
+    subject: string,
+    clientId?: string,
+  ): Promise<NotificationEntity[]> {
+    const qb = this.threadsRepo
+      .createQueryBuilder('t')
+      .where('t.subject = :subject', { subject });
+
+    if (clientId) {
+      qb.andWhere('t.clientId = :clientId', { clientId });
+    }
+
+    return qb.orderBy('t.createdAt', 'DESC').getMany();
+  }
+
+  // -------------------------
   // Ticket creation
   // -------------------------
 
@@ -180,12 +199,12 @@ export class NotificationsService {
   ) {
     const baseSql = `
       FROM notification_threads t
-      LEFT JOIN users fu ON fu.id = t.from_user_id
+      LEFT JOIN users fu ON fu.id = t.created_by_user_id
       LEFT JOIN roles fr ON fr.id = fu.role_id
-      LEFT JOIN users tu ON tu.id = t.to_user_id
+      LEFT JOIN users tu ON tu.id = t.assigned_to_user_id
       LEFT JOIN roles tr ON tr.id = tu.role_id
       LEFT JOIN clients c ON c.id = t.client_id
-      LEFT JOIN branches b ON b.id = t.branch_id
+      LEFT JOIN client_branches b ON b.id = t.branch_id
       LEFT JOIN LATERAL (
         SELECT MAX(m.created_at) AS last_message_at
         FROM notification_messages m
@@ -204,7 +223,7 @@ export class NotificationsService {
         t.client_id AS "clientId",
         c.client_name AS "clientName",
         t.branch_id AS "branchId",
-        b.branch_name AS "branchName",
+        b.branchname AS "branchName",
         t.status,
         t.created_at AS "createdAt",
         t.updated_at AS "updatedAt",
@@ -251,7 +270,7 @@ export class NotificationsService {
       // no user filter known
     } else {
       params.push(user.id);
-      wheres.push(`(t.to_user_id = $1 OR t.from_user_id = $1)`);
+      wheres.push(`(t.assigned_to_user_id = $1 OR t.created_by_user_id = $1)`);
     }
 
     if (status) {
@@ -281,7 +300,7 @@ export class NotificationsService {
     const unreadOnly = Number(q?.unreadOnly ?? 0) === 1;
 
     const params: any[] = [user.id];
-    const wheres: string[] = [`t.from_user_id = $1`];
+    const wheres: string[] = [`t.created_by_user_id = $1`];
 
     if (status) {
       params.push(status);
@@ -366,11 +385,19 @@ export class NotificationsService {
       thread.updatedAt = new Date();
       await manager.save(NotificationEntity, thread);
 
-      await manager.save(NotificationReadEntity, {
-        notificationId: threadId,
-        userId: user.id,
-        lastReadAt: new Date(),
+      const existingRead = await manager.findOne(NotificationReadEntity, {
+        where: { notificationId: threadId, userId: user.id },
       });
+      if (existingRead) {
+        existingRead.lastReadAt = new Date();
+        await manager.save(NotificationReadEntity, existingRead);
+      } else {
+        await manager.save(NotificationReadEntity, {
+          notificationId: threadId,
+          userId: user.id,
+          lastReadAt: new Date(),
+        });
+      }
     });
 
     return { ok: true };
@@ -421,7 +448,7 @@ export class NotificationsService {
     }
     if (q.assignedToUserId) {
       params.push(q.assignedToUserId);
-      wheres.push(`t.to_user_id = $${params.length}`);
+      wheres.push(`t.assigned_to_user_id = $${params.length}`);
     }
     if (q.unreadOnly === 1) {
       params.push(adminUserId);
@@ -468,11 +495,19 @@ export class NotificationsService {
       thread.status = 'OPEN';
       thread.updatedAt = new Date();
       await manager.save(NotificationEntity, thread);
-      await manager.save(NotificationReadEntity, {
-        notificationId: threadId,
-        userId: adminUserId,
-        lastReadAt: new Date(),
+      const existingRead = await manager.findOne(NotificationReadEntity, {
+        where: { notificationId: threadId, userId: adminUserId },
       });
+      if (existingRead) {
+        existingRead.lastReadAt = new Date();
+        await manager.save(NotificationReadEntity, existingRead);
+      } else {
+        await manager.save(NotificationReadEntity, {
+          notificationId: threadId,
+          userId: adminUserId,
+          lastReadAt: new Date(),
+        });
+      }
     });
     return { ok: true };
   }

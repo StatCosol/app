@@ -1,0 +1,24 @@
+import { Component } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+
+@Component({
+  selector: 'app-auditor-shell',
+  standalone: true,
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  template: `
+    <div class="flex min-h-screen">
+      <aside class="w-60 bg-amber-800 text-white flex flex-col">
+        <div class="p-5 text-xl font-bold tracking-wide border-b border-amber-600">StatCo Auditor</div>
+        <nav class="flex-1 p-3 space-y-1">
+          <a routerLink="dashboard" routerLinkActive="bg-amber-600" class="block px-3 py-2 rounded hover:bg-amber-600">Dashboard</a>
+          <a routerLink="audits" routerLinkActive="bg-amber-600" class="block px-3 py-2 rounded hover:bg-amber-600">Audits</a>
+          <a routerLink="reports" routerLinkActive="bg-amber-600" class="block px-3 py-2 rounded hover:bg-amber-600">Reports</a>
+        </nav>
+      </aside>
+      <main class="flex-1 bg-gray-50 p-6 overflow-auto">
+        <router-outlet />
+      </main>
+    </div>
+  `,
+})
+export class AuditorShellComponent {}

@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { BranchAccessService } from '../../auth/branch-access.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -56,6 +57,8 @@ const fileUploadOptions = {
   limits: { fileSize: MAX_MB * 1024 * 1024 },
 };
 
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'client/compliance', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT')
@@ -65,16 +68,19 @@ export class ClientComplianceController {
     private readonly branchAccess: BranchAccessService,
   ) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get('tasks')
   list(@Req() req: any, @Query() q: any) {
     return this.svc.clientListTasks(req.user, q);
   }
 
+  @ApiOperation({ summary: 'List Items' })
   @Get('tasks/:id/items')
   listItems(@Req() req: any, @Param('id') id: string) {
     return this.svc.clientListMcdItems(req.user, id);
   }
 
+  @ApiOperation({ summary: 'Upload Evidence' })
   @Post('tasks/:id/evidence')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async uploadEvidence(
@@ -99,6 +105,7 @@ export class ClientComplianceController {
     );
   }
 
+  @ApiOperation({ summary: 'Submit Task' })
   @Post('tasks/:id/submit')
   async submitTask(@Req() req: any, @Param('id') id: string) {
     // Master users cannot submit tasks — only branch users
@@ -109,5 +116,30 @@ export class ClientComplianceController {
       );
     }
     return this.svc.clientSubmitTask(req.user, id);
+  }
+
+  // ── Client Reupload Workflow ──
+
+  @ApiOperation({ summary: 'List Reupload Requests' })
+  @Get('reupload-requests')
+  listReuploadRequests(@Req() req: any, @Query() q: any) {
+    return this.svc.clientListReuploadRequests(req.user, q);
+  }
+
+  @ApiOperation({ summary: 'Reupload File' })
+  @Post('reupload-requests/:id/upload')
+  @UseInterceptors(FileInterceptor('file', fileUploadOptions))
+  reuploadFile(
+    @Req() req: any,
+    @Param('id') requestId: string,
+    @UploadedFile() file: any,
+  ) {
+    return this.svc.clientReuploadFile(req.user, requestId, file);
+  }
+
+  @ApiOperation({ summary: 'Submit Reupload' })
+  @Post('reupload-requests/:id/submit')
+  submitReupload(@Req() req: any, @Param('id') requestId: string) {
+    return this.svc.clientSubmitReupload(req.user, requestId);
   }
 }

@@ -1,19 +1,30 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { InboxComponent } from '../../../shared/notifications/inbox/inbox.component';
+import { ThreadLayoutComponent } from '../../../shared/thread';
+import { ContractorThreadApiService } from '../../../core/contractor-thread-api.service';
 import { PageHeaderComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-contractor-notifications',
   standalone: true,
-  imports: [CommonModule, InboxComponent, PageHeaderComponent],
+  imports: [CommonModule, ThreadLayoutComponent, PageHeaderComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <ui-page-header title="Contractor · Notifications" description="System alerts about submissions, approvals, rejections, escalations, and queries" icon="bell"></ui-page-header>
-      <div class="card">
-        <app-notification-inbox></app-notification-inbox>
-      </div>
+      <ui-page-header
+        title="Contractor · Notifications"
+        description="System alerts about submissions, approvals, rejections, escalations, and queries"
+        icon="bell">
+      </ui-page-header>
+      <app-thread-layout
+        [api]="api"
+        title="Notifications"
+        [canClose]="false"
+        [canResolve]="false"
+        [canReopen]="false">
+      </app-thread-layout>
     </main>
   `,
 })
-export class ContractorNotificationsComponent {}
+export class ContractorNotificationsComponent {
+  constructor(public api: ContractorThreadApiService) {}
+}

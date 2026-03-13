@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
+import { ToastService } from '../../shared/toast/toast.service';
 
 const API = `${environment.apiBaseUrl}/api/v1`;
 
@@ -161,7 +162,7 @@ export class ContractorReuploadRequestsComponent implements OnInit, OnDestroy {
     { label: 'Reverified', value: 'REVERIFIED' },
   ];
 
-  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
+  constructor(private http: HttpClient, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
   ngOnInit() {
     this.loadRequests();
@@ -212,7 +213,7 @@ export class ContractorReuploadRequestsComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.uploading[req.id] = false;
-        alert('Upload failed: ' + (err.error?.message || 'Unknown error'));
+        this.toast.error('Upload failed: ' + (err.error?.message || 'Unknown error'));
         event.target.value = '';
       }
     });
@@ -220,7 +221,7 @@ export class ContractorReuploadRequestsComponent implements OnInit, OnDestroy {
 
   submitReupload(req: ReuploadRequest) {
     if (!this.selectedFiles[req.id]) {
-      alert('Please upload a file first');
+      this.toast.warning('Please upload a file first');
       return;
     }
 
@@ -229,12 +230,12 @@ export class ContractorReuploadRequestsComponent implements OnInit, OnDestroy {
       next: () => {
         this.submitting[req.id] = false;
         delete this.selectedFiles[req.id];
-        alert('Reupload submitted successfully for CRM review');
+        this.toast.success('Reupload submitted successfully for CRM review');
         this.loadRequests();
       },
       error: (err) => {
         this.submitting[req.id] = false;
-        alert('Submit failed: ' + (err.error?.message || 'Unknown error'));
+        this.toast.error('Submit failed: ' + (err.error?.message || 'Unknown error'));
       }
     });
   }

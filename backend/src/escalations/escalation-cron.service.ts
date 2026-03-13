@@ -79,12 +79,18 @@ export class EscalationCronService {
         });
 
         escalated++;
-        this.logger.log(`Escalation created for branch ${b.branchname || b.id}: ${reason}`);
+        this.logger.log(
+          `Escalation created for branch ${b.branchname || b.id}: ${reason}`,
+        );
       } catch (err: any) {
-        this.logger.warn(`Escalation check failed for branch ${b.id}: ${err.message}`);
+        this.logger.warn(
+          `Escalation check failed for branch ${b.id}: ${err.message}`,
+        );
       }
     }
 
-    this.logger.log(`Auto-escalation complete: ${escalated} new escalations from ${branches.length} branches.`);
+    this.logger.log(
+      `Auto-escalation complete: ${escalated} new escalations from ${branches.length} branches.`,
+    );
   }
 }
