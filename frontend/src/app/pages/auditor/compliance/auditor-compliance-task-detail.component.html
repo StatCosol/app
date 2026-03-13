@@ -1,0 +1,70 @@
+<div class="p-4">
+  <div *ngIf="loading" class="text-sm text-gray-500">Loading…</div>
+
+  <div *ngIf="!loading && task" class="space-y-4">
+    <div class="border rounded p-4">
+      <div class="text-xs text-gray-500">Task</div>
+      <div class="text-lg font-semibold">{{ taskName() }}</div>
+      <div class="text-sm text-gray-600 mt-1">Due: {{ dueDate() }}</div>
+      <div class="text-sm mt-1">Status: <span class="font-medium">{{ statusText() }}</span></div>
+    </div>
+
+    <div class="border rounded p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="font-medium">Documents / Evidence</div>
+        <button class="px-3 py-2 text-sm bg-black text-white rounded"
+                (click)="submitReview()">
+          Submit Review
+        </button>
+      </div>
+
+      <div class="overflow-auto border rounded">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="p-2 text-left">Document</th>
+              <th class="p-2 text-left">Decision</th>
+              <th class="p-2 text-left">Remarks</th>
+              <th class="p-2 text-left">Download</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let d of docs" class="border-t">
+              <td class="p-2">{{ docName(d) }}</td>
+
+              <td class="p-2">
+                <select class="border rounded p-2 text-sm"
+                        [(ngModel)]="decision[docId(d)]">
+                  <option value="COMPLIED">Complied</option>
+                  <option value="NEEDS_REUPLOAD">Needs Reupload</option>
+                </select>
+              </td>
+
+              <td class="p-2">
+                <input class="border rounded p-2 text-sm w-full"
+                       placeholder="Remarks (required for reupload)"
+                       [(ngModel)]="remarks[docId(d)]" />
+              </td>
+
+              <td class="p-2">
+                <button class="px-2 py-1 text-xs border rounded"
+                        (click)="download(d)">
+                  Download
+                </button>
+              </td>
+            </tr>
+
+            <tr *ngIf="docs.length === 0">
+              <td colspan="4" class="p-4 text-center text-gray-500">No documents found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-xs text-gray-500 mt-2">
+        Tip: When selecting "Needs Reupload", add a clear remark so the contractor can fix and resubmit.
+      </div>
+    </div>
+  </div>
+</div>

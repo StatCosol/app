@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { ClientEntity } from '../../clients/entities/client.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
 
 @Entity('escalations')
 export class EscalationEntity {
@@ -8,8 +18,16 @@ export class EscalationEntity {
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
 
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
+
   @Column({ name: 'branch_id', type: 'uuid' })
   branchId: string;
+
+  @ManyToOne(() => BranchEntity, { eager: false })
+  @JoinColumn({ name: 'branch_id' })
+  branch?: BranchEntity;
 
   @Column({ name: 'reason', type: 'text' })
   reason: string;

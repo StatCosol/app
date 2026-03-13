@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { BranchApprovalsApiService, PendingNomination } from './branch-approvals-api.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-nomination-approvals',
@@ -155,7 +156,7 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
   rejectReason = '';
   private readonly destroy$ = new Subject<void>();
 
-  constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: BranchApprovalsApiService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.load();
@@ -189,7 +190,7 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => { this.processing.delete(nom.id); this.load(); },
-        error: () => { this.processing.delete(nom.id); alert('Failed to approve nomination.'); },
+        error: () => { this.processing.delete(nom.id); this.toast.error('Failed to approve nomination.'); },
       });
   }
 
@@ -208,7 +209,7 @@ export class NominationApprovalsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => { this.processing.delete(nom.id); this.rejectId = ''; this.load(); },
-        error: () => { this.processing.delete(nom.id); this.rejectId = ''; alert('Failed to reject nomination.'); },
+        error: () => { this.processing.delete(nom.id); this.rejectId = ''; this.toast.error('Failed to reject nomination.'); },
       });
   }
 }

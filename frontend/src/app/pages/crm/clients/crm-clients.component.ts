@@ -103,7 +103,6 @@ export class CrmClientsComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         catchError((err) => {
-          console.error(err);
           this.err = err?.error?.message || 'Failed to load clients';
           return of([]);
         }),

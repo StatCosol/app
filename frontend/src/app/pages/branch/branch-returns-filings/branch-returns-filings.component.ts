@@ -5,10 +5,10 @@ import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 import {
   BranchComplianceDocService,
   ChecklistItem,
-  BranchComplianceKpis,
 } from '../../../core/branch-compliance-doc.service';
 import {
   StatusBadgeComponent,
@@ -16,76 +16,27 @@ import {
   ModalComponent,
 } from '../../../shared/ui';
 
+type StatusFilter =
+  | 'ALL'
+  | 'NOT_UPLOADED'
+  | 'SUBMITTED'
+  | 'RESUBMITTED'
+  | 'REUPLOAD_REQUIRED'
+  | 'APPROVED'
+  | 'OVERDUE';
+
+interface TimelineEvent {
+  title: string;
+  timestamp: string;
+  note?: string | null;
+}
+
 @Component({
   selector: 'app-branch-returns-filings',
   standalone: true,
   imports: [CommonModule, FormsModule, StatusBadgeComponent, PageHeaderComponent, ModalComponent],
   templateUrl: './branch-returns-filings.component.html',
-  styles: [`
-    .page-container { max-width: 1280px; margin: 0 auto; padding: 0 1rem; }
-    .filter-bar {
-      display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
-      padding: 1rem 1.25rem; background: white; border-radius: 0.75rem;
-      border: 1px solid #e5e7eb; margin-bottom: 1.25rem;
-    }
-    .filter-select {
-      padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db;
-      font-size: 0.8125rem; background: white; color: #1e293b; min-width: 140px;
-    }
-    .filter-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
-    .doc-table { width: 100%; border-collapse: collapse; }
-    .doc-table th {
-      text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600;
-      color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
-      background: #f8fafc; border-bottom: 1px solid #e5e7eb;
-    }
-    .doc-table td {
-      padding: 0.75rem 1rem; font-size: 0.8125rem; color: #1e293b;
-      border-bottom: 1px solid #f1f5f9;
-    }
-    .doc-table tr:hover { background: #f8fafc; }
-    .btn-primary {
-      display: inline-flex; align-items: center; gap: 0.375rem;
-      padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 600;
-      color: white; border-radius: 0.5rem; cursor: pointer; border: none;
-      background: linear-gradient(135deg, #0a2656, #1a3a6e); transition: opacity 0.2s;
-    }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-outline {
-      display: inline-flex; align-items: center; gap: 0.375rem;
-      padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 500;
-      color: #3b82f6; border: 1px solid #bfdbfe; border-radius: 0.5rem;
-      background: white; cursor: pointer; transition: all 0.2s;
-    }
-    .btn-outline:hover { background: #eff6ff; }
-    .badge-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 0.375rem; }
-    .dot-grey { background: #9ca3af; }
-    .dot-blue { background: #3b82f6; }
-    .dot-green { background: #22c55e; }
-    .dot-orange { background: #f97316; }
-    .dot-purple { background: #8b5cf6; }
-    .dot-red { background: #ef4444; }
-    .remarks-text { font-size: 0.75rem; color: #dc2626; font-style: italic; margin-top: 0.25rem; }
-    .upload-zone {
-      border: 2px dashed #d1d5db; border-radius: 0.75rem; padding: 2rem;
-      text-align: center; cursor: pointer; transition: border-color 0.2s;
-    }
-    .upload-zone:hover { border-color: #3b82f6; }
-    .file-input { display: none; }
-    .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
-      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.5rem; }
-    .skeleton--row { height: 48px; margin-bottom: 0.5rem; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .frequency-tabs {
-      display: flex; gap: 0.25rem; background: #f1f5f9; border-radius: 0.5rem; padding: 0.25rem;
-    }
-    .freq-tab {
-      padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.8125rem; font-weight: 500;
-      cursor: pointer; transition: all 0.2s; border: none; background: transparent; color: #64748b;
-    }
-    .freq-tab.active { background: white; color: #0a2656; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
-  `],
+  styleUrls: ['./branch-returns-filings.component.scss'],
 })
 export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -94,17 +45,27 @@ export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
   loading = false;
   uploading = false;
   checklist: ChecklistItem[] = [];
+  filteredChecklist: ChecklistItem[] = [];
+  selectedItem: ChecklistItem | null = null;
+  timeline: TimelineEvent[] = [];
   branchId = '';
 
   selectedFrequency = 'YEARLY';
   selectedYear = new Date().getFullYear();
   selectedQuarter = 1;
   selectedHalf = 1;
+  selectedStatus: StatusFilter = 'ALL';
+  selectedLawArea = 'ALL';
+  selectedCategory = 'ALL';
+  searchTerm = '';
+  lawAreas: string[] = [];
+  categories: string[] = [];
 
   // Upload modal
   showUploadModal = false;
   uploadTarget: ChecklistItem | null = null;
   selectedFile: File | null = null;
+  acknowledgementRef = '';
   uploadRemarks = '';
 
   years: number[] = [];
@@ -132,6 +93,7 @@ export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
   ) {
     const currentYear = new Date().getFullYear();
     this.years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -170,6 +132,10 @@ export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
     this.load();
   }
 
+  trackByReturnCode(_: number, item: ChecklistItem): string {
+    return item.returnCode;
+  }
+
   load(): void {
     this.load$.next(); // cancel previous in-flight requests
     this.loading = true;
@@ -183,33 +149,75 @@ export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
     })
     .pipe(takeUntil(this.load$), takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
     .subscribe({
-      next: (res) => { this.checklist = res.data || []; this.cdr.detectChanges(); },
-      error: () => { this.checklist = []; this.cdr.detectChanges(); },
+      next: (res) => {
+        this.checklist = res.data || [];
+        this.lawAreas = this.unique(this.checklist.map((x) => x.lawArea));
+        this.categories = this.unique(this.checklist.map((x) => x.category || 'Other'));
+        this.applyFilters();
+        this.hydrateSelection(this.selectedItem?.returnCode);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.checklist = [];
+        this.filteredChecklist = [];
+        this.selectedItem = null;
+        this.timeline = [];
+        this.cdr.detectChanges();
+      },
     });
   }
 
-  getStatusColor(item: ChecklistItem): string {
-    const status = item.document?.status || 'NOT_UPLOADED';
-    const map: Record<string, string> = {
-      NOT_UPLOADED: 'dot-grey', SUBMITTED: 'dot-blue', APPROVED: 'dot-green',
-      REUPLOAD_REQUIRED: 'dot-orange', RESUBMITTED: 'dot-purple', OVERDUE: 'dot-red',
-    };
-    return map[status] || 'dot-grey';
+  applyFilters(): void {
+    const q = this.searchTerm.trim().toLowerCase();
+    this.filteredChecklist = this.checklist.filter((item) => {
+      if (this.selectedStatus !== 'ALL' && this.statusOf(item) !== this.selectedStatus) return false;
+      if (this.selectedLawArea !== 'ALL' && item.lawArea !== this.selectedLawArea) return false;
+      const category = item.category || 'Other';
+      if (this.selectedCategory !== 'ALL' && category !== this.selectedCategory) return false;
+      if (!q) return true;
+      const text = `${item.returnName} ${item.returnCode} ${item.lawArea} ${category}`.toLowerCase();
+      return text.includes(q);
+    });
+    this.hydrateSelection(this.selectedItem?.returnCode);
   }
 
-  getStatus(item: ChecklistItem): string {
+  statusOf(item: ChecklistItem): string {
     return item.document?.status || 'NOT_UPLOADED';
+  }
+
+  workflowState(item: ChecklistItem): string {
+    const status = this.statusOf(item);
+    if (status === 'APPROVED') return 'Approved by CRM';
+    if (status === 'SUBMITTED' || status === 'RESUBMITTED') return 'Submitted to CRM';
+    if (status === 'REUPLOAD_REQUIRED') return 'Returned by CRM';
+    if (status === 'OVERDUE') return 'Overdue';
+    return 'Pending upload';
+  }
+
+  workflowClass(item: ChecklistItem): string {
+    const status = this.statusOf(item);
+    if (status === 'APPROVED') return 'wf wf--approved';
+    if (status === 'SUBMITTED' || status === 'RESUBMITTED') return 'wf wf--submitted';
+    if (status === 'REUPLOAD_REQUIRED') return 'wf wf--returned';
+    if (status === 'OVERDUE') return 'wf wf--overdue';
+    return 'wf wf--pending';
   }
 
   canUpload(item: ChecklistItem): boolean {
     if (item.document?.isLocked) return false;
-    const status = item.document?.status;
+    const status = this.statusOf(item);
     return !status || status === 'NOT_UPLOADED' || status === 'REUPLOAD_REQUIRED' || status === 'OVERDUE';
+  }
+
+  selectItem(item: ChecklistItem): void {
+    this.selectedItem = item;
+    this.timeline = this.buildTimeline(item);
   }
 
   openUploadModal(item: ChecklistItem): void {
     this.uploadTarget = item;
     this.selectedFile = null;
+    this.acknowledgementRef = this.extractAckRef(item) || '';
     this.uploadRemarks = '';
     this.showUploadModal = true;
   }
@@ -218,6 +226,7 @@ export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
     this.showUploadModal = false;
     this.uploadTarget = null;
     this.selectedFile = null;
+    this.acknowledgementRef = '';
     this.uploadRemarks = '';
   }
 
@@ -249,20 +258,150 @@ export class BranchReturnsFilingsComponent implements OnInit, OnDestroy {
     if (this.selectedFrequency === 'HALF_YEARLY') {
       fd.append('periodHalf', String(this.selectedHalf));
     }
+    const remarksParts: string[] = [];
+    if (this.acknowledgementRef.trim()) {
+      remarksParts.push(`AckRef: ${this.acknowledgementRef.trim()}`);
+    }
     if (this.uploadRemarks.trim()) {
-      fd.append('remarks', this.uploadRemarks.trim());
+      remarksParts.push(this.uploadRemarks.trim());
+    }
+    if (remarksParts.length) {
+      fd.append('remarks', remarksParts.join(' | '));
     }
 
+    const focusCode = this.uploadTarget.returnCode;
     this.complianceDoc.uploadDocument(fd)
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.uploading = false; }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.uploading = false; this.cdr.detectChanges(); }))
       .subscribe({
-        next: () => { this.closeUploadModal(); this.load(); },
-        error: (err) => { alert(err?.error?.message || 'Upload failed.'); },
+        next: () => {
+          this.toast.success('Submitted to CRM review queue');
+          this.closeUploadModal();
+          this.loadAndSelect(focusCode);
+        },
+        error: (err) => { this.toast.error(err?.error?.message || 'Upload failed.'); },
       });
   }
 
   downloadFile(item: ChecklistItem): void {
     const url = (item as any).document?.uploadedFileUrl;
-    if (url) window.open(url, '_blank');
+    if (url) window.open(this.auth.authenticateUrl(url), '_blank');
+  }
+
+  periodLabel(): string {
+    if (this.selectedFrequency === 'QUARTERLY') return `Q${this.selectedQuarter} ${this.selectedYear}`;
+    if (this.selectedFrequency === 'HALF_YEARLY') return `H${this.selectedHalf} ${this.selectedYear}`;
+    return `${this.selectedYear}`;
+  }
+
+  dueDateLabel(item: ChecklistItem): string {
+    if (item.document?.dueDate) return new Date(item.document.dueDate).toLocaleDateString('en-GB');
+    if (item.dueDay) return `Day ${item.dueDay}`;
+    return '-';
+  }
+
+  extractAckRef(item: ChecklistItem): string {
+    const txt = item.document?.uploaderRemarks || '';
+    const match = txt.match(/ack(?:ref|nowledg(?:ement)?)\s*[:#-]\s*([^|;\n]+)/i);
+    return match ? match[1].trim() : '';
+  }
+
+  onFiltersChanged(): void {
+    this.applyFilters();
+  }
+
+  get totalItems(): number {
+    return this.checklist.length;
+  }
+
+  get uploadedCount(): number {
+    return this.checklist.filter((x) => !!x.document).length;
+  }
+
+  get pendingCount(): number {
+    return this.checklist.filter((x) => ['NOT_UPLOADED', 'OVERDUE'].includes(this.statusOf(x))).length;
+  }
+
+  get returnedCount(): number {
+    return this.checklist.filter((x) => this.statusOf(x) === 'REUPLOAD_REQUIRED').length;
+  }
+
+  get overdueCount(): number {
+    return this.checklist.filter((x) => this.statusOf(x) === 'OVERDUE').length;
+  }
+
+  private loadAndSelect(returnCode?: string): void {
+    this.load$.next();
+    this.loading = true;
+
+    this.complianceDoc.getChecklist({
+      branchId: this.branchId || undefined,
+      year: this.selectedYear,
+      frequency: this.selectedFrequency,
+      quarter: this.selectedFrequency === 'QUARTERLY' ? this.selectedQuarter : undefined,
+      half: this.selectedFrequency === 'HALF_YEARLY' ? this.selectedHalf : undefined,
+    })
+      .pipe(
+        takeUntil(this.load$),
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.checklist = res.data || [];
+          this.lawAreas = this.unique(this.checklist.map((x) => x.lawArea));
+          this.categories = this.unique(this.checklist.map((x) => x.category || 'Other'));
+          this.applyFilters();
+          this.hydrateSelection(returnCode);
+        },
+      });
+  }
+
+  private hydrateSelection(returnCode?: string): void {
+    if (!this.filteredChecklist.length) {
+      this.selectedItem = null;
+      this.timeline = [];
+      return;
+    }
+    if (returnCode) {
+      const item = this.filteredChecklist.find((x) => x.returnCode === returnCode);
+      if (item) {
+        this.selectItem(item);
+        return;
+      }
+    }
+    if (this.selectedItem) {
+      const existing = this.filteredChecklist.find((x) => x.returnCode === this.selectedItem?.returnCode);
+      if (existing) {
+        this.selectItem(existing);
+        return;
+      }
+    }
+    this.selectItem(this.filteredChecklist[0]);
+  }
+
+  private buildTimeline(item: ChecklistItem): TimelineEvent[] {
+    const events: TimelineEvent[] = [];
+    if (item.document?.uploadedAt) {
+      events.push({
+        title: item.document.version > 1 ? `Resubmitted (v${item.document.version})` : 'Submitted to CRM',
+        timestamp: item.document.uploadedAt,
+        note: item.document.uploaderRemarks,
+      });
+    }
+    if (item.document?.reviewedAt) {
+      events.push({
+        title: item.document.status === 'APPROVED' ? 'Approved by CRM' : 'Returned by CRM',
+        timestamp: item.document.reviewedAt,
+        note: item.document.remarks,
+      });
+    }
+    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  private unique(items: string[]): string[] {
+    return Array.from(new Set(items.filter(Boolean))).sort((a, b) => a.localeCompare(b));
   }
 }

@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AiRequestEntity, AiRequestModule, AiRequestStatus } from './entities/ai-request.entity';
+import {
+  AiRequestEntity,
+  AiRequestModule,
+  AiRequestStatus,
+} from './entities/ai-request.entity';
 import { AiResponseEntity } from './entities/ai-response.entity';
 
 /**
@@ -40,7 +44,10 @@ export class AiRequestLogService {
   }
 
   /** Update request status */
-  async updateRequestStatus(requestId: string, status: AiRequestStatus): Promise<void> {
+  async updateRequestStatus(
+    requestId: string,
+    status: AiRequestStatus,
+  ): Promise<void> {
     await this.reqRepo.update(requestId, { status });
   }
 
@@ -68,7 +75,12 @@ export class AiRequestLogService {
   async completeRequest(
     requestId: string,
     responseJson: Record<string, any>,
-    meta?: { confidence?: number; tokensUsed?: number; model?: string; responseText?: string },
+    meta?: {
+      confidence?: number;
+      tokensUsed?: number;
+      model?: string;
+      responseText?: string;
+    },
   ): Promise<AiResponseEntity> {
     await this.updateRequestStatus(requestId, 'DONE');
     return this.saveResponse({
@@ -95,10 +107,17 @@ export class AiRequestLogService {
   }
 
   /** List recent requests */
-  async listRequests(opts: { module?: string; status?: string; limit?: number }): Promise<AiRequestEntity[]> {
+  async listRequests(opts: {
+    module?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<AiRequestEntity[]> {
     const qb = this.reqRepo.createQueryBuilder('r');
     if (opts.module) qb.andWhere('r.module = :m', { m: opts.module });
     if (opts.status) qb.andWhere('r.status = :s', { s: opts.status });
-    return qb.orderBy('r.createdAt', 'DESC').take(opts.limit || 50).getMany();
+    return qb
+      .orderBy('r.createdAt', 'DESC')
+      .take(opts.limit || 50)
+      .getMany();
   }
 }

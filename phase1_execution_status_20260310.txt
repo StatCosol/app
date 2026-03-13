@@ -1,0 +1,57 @@
+Phase-1 Execution Status
+Timestamp: 2026-03-10 12:13:12
+Scope: Route + component implementation presence (frontend)
+
+1) Branch Monthly Compliance Workbench
+- Planned route: /branch/compliance/monthly
+- Actual route: /branch/compliance/monthly
+- Actual component: BranchMcdComponent
+- Source: frontend/src/app/pages/branch/branch.routes.ts
+- Status: IMPLEMENTED (route/component present; component naming differs from plan)
+
+2) Branch Periodic Uploads Workbench
+- Planned route: /branch/uploads/:periodicity
+- Actual route: /branch/uploads/:periodicity
+- Actual component: BranchPeriodicUploadsPageComponent
+- Source: frontend/src/app/pages/branch/branch.routes.ts
+- Status: IMPLEMENTED
+
+3) CRM Returns Filing Workspace
+- Planned route: /crm/returns
+- Actual route: /crm/returns
+- Actual component: CrmReturnsFilingsComponent
+- Source: frontend/src/app/pages/crm/crm.routes.ts
+- Status: IMPLEMENTED (component naming differs from plan)
+
+4) CRM Renewals Workspace
+- Planned route: /crm/renewals
+- Actual route: /crm/renewals
+- Actual component: CrmRenewalsComponent
+- Source: frontend/src/app/pages/crm/crm.routes.ts
+- Status: IMPLEMENTED
+
+5) CRM Amendments Workspace
+- Planned route: /crm/amendments
+- Actual route: /crm/amendments
+- Actual component: CrmAmendmentsComponent
+- Source: frontend/src/app/pages/crm/crm.routes.ts
+- Status: IMPLEMENTED
+
+6) Client Branch Detail Workspace
+- Planned route: /client/branches/:branchId
+- Actual route: /client/branches/:branchId
+- Actual component: BranchDetailComponent
+- Source: frontend/src/app/pages/client/client.routes.ts
+- Status: IMPLEMENTED (component naming differs from plan)
+
+7) Payroll Runs Processing Console
+- Planned route: /payroll/runs
+- Actual route: /payroll/runs
+- Actual component: PayrollRunsComponent
+- Source: frontend/src/app/pages/payroll/payroll.routes.ts
+- Status: IMPLEMENTED (component naming differs from plan)
+
+Notes
+- Planned component names in the execution sheet are not always the exact names used in current code.
+- Route and page coverage for all listed Phase-1 items exists in the current frontend.
+- Remaining work is primarily UX depth/polish and workflow completeness (not route creation).

@@ -8,7 +8,7 @@ import { HttpClient } from '@angular/common/http';
 import { forkJoin, Observable, of, Subject } from 'rxjs';
 import { timeout, catchError, finalize, takeUntil } from 'rxjs/operators';
 import {
-  PageHeaderComponent, ActionButtonComponent, StatCardComponent,
+  PageHeaderComponent, ActionButtonComponent,
   LoadingSpinnerComponent, DataTableComponent, TableCellDirective,
   StatusBadgeComponent, TableColumn,
 } from '../../shared/ui';
@@ -18,7 +18,7 @@ import {
   standalone: true,
   imports: [
     CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent,
-    StatCardComponent, LoadingSpinnerComponent, DataTableComponent,
+    LoadingSpinnerComponent, DataTableComponent,
     TableCellDirective, StatusBadgeComponent,
   ],
   templateUrl: './admin-reports.component.html',
@@ -186,7 +186,6 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       },
       error: (err) => {
-        console.error('Export failed:', err);
         this.error = 'Export failed. Please try again.';
       },
     });
@@ -291,7 +290,6 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         }));
       },
       error: (err) => {
-        console.error('Failed to load report data:', err);
         this.error = 'Unable to load reports. Please try again.';
         this.summary = null;
         this.overdue = [];

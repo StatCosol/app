@@ -6,6 +6,9 @@ import { finalize, timeout, catchError } from 'rxjs/operators';
 import { of, Subscription, Subject } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
 import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, ContractorOption } from './admin-clients.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { AuthService } from '../../../core/auth.service';
+import { INDIAN_STATES } from '../../../shared/utils/indian-states';
 import {
   PageHeaderComponent,
   StatusBadgeComponent,
@@ -38,6 +41,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   private routeSubscription?: Subscription;
   private readonly destroy$ = new Subject<void>();
   private cdr = inject(ChangeDetectorRef);
+  private dialog = inject(ConfirmDialogService);
+  private auth = inject(AuthService);
 
   // Client section
   clients: Client[] = [];
@@ -51,6 +56,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   };
   showMasterPassword = false;
   createdMasterUser: { email: string; password: string } | null = null;
+  regLogoFile: File | null = null;
+  regLogoPreviewUrl: string | null = null;
 
   // Branch section
   branches: Branch[] = [];
@@ -66,50 +73,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     status: 'ACTIVE',
     branchUserName: '',
     branchUserEmail: '',
+    branchUserMobile: '',
     branchUserPassword: ''
   };
   editingBranchId: string | null = null;
 
   createdBranchUser: { email: string; password: string } | null = null;
 
-  stateOptions = [
-    { code: 'AN', name: 'Andaman & Nicobar' },
-    { code: 'AP', name: 'Andhra Pradesh' },
-    { code: 'AR', name: 'Arunachal Pradesh' },
-    { code: 'AS', name: 'Assam' },
-    { code: 'BR', name: 'Bihar' },
-    { code: 'CH', name: 'Chandigarh' },
-    { code: 'CT', name: 'Chhattisgarh' },
-    { code: 'DN', name: 'Dadra & Nagar Haveli and Daman & Diu' },
-    { code: 'DL', name: 'Delhi' },
-    { code: 'GA', name: 'Goa' },
-    { code: 'GJ', name: 'Gujarat' },
-    { code: 'HR', name: 'Haryana' },
-    { code: 'HP', name: 'Himachal Pradesh' },
-    { code: 'JK', name: 'Jammu & Kashmir' },
-    { code: 'JH', name: 'Jharkhand' },
-    { code: 'KA', name: 'Karnataka' },
-    { code: 'KL', name: 'Kerala' },
-    { code: 'LA', name: 'Ladakh' },
-    { code: 'LD', name: 'Lakshadweep' },
-    { code: 'MP', name: 'Madhya Pradesh' },
-    { code: 'MH', name: 'Maharashtra' },
-    { code: 'MN', name: 'Manipur' },
-    { code: 'ML', name: 'Meghalaya' },
-    { code: 'MZ', name: 'Mizoram' },
-    { code: 'NL', name: 'Nagaland' },
-    { code: 'OR', name: 'Odisha' },
-    { code: 'PY', name: 'Puducherry' },
-    { code: 'PB', name: 'Punjab' },
-    { code: 'RJ', name: 'Rajasthan' },
-    { code: 'SK', name: 'Sikkim' },
-    { code: 'TN', name: 'Tamil Nadu' },
-    { code: 'TS', name: 'Telangana' },
-    { code: 'TR', name: 'Tripura' },
-    { code: 'UP', name: 'Uttar Pradesh' },
-    { code: 'UT', name: 'Uttarakhand' },
-    { code: 'WB', name: 'West Bengal' },
-  ];
+  stateOptions = INDIAN_STATES;
 
   // Compliance section
   compliances: BranchComplianceApplicability[] = [];
@@ -161,6 +132,20 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loadingReadiness = false;
   readinessResult: any = null;
 
+  // Master user edit state
+  editingMasterUser: { userId: string; name: string; email: string; mobile: string } | null = null;
+  savingMasterUser = false;
+  masterUserResetResult: { newPassword: string } | null = null;
+
+  // Logo upload state
+  logoUploadMode: 'file' | 'svg' = 'file';
+  logoFile: File | null = null;
+  logoPreviewUrl: string | null = null;
+  svgCodeInput = '';
+  uploadingLogo = false;
+  logoUploadMessage = '';
+  logoUploadError = '';
+
   // Table columns
   allClientsColumns: TableColumn[] = [
     { key: 'clientName', header: 'Company Name', sortable: true },
@@ -200,8 +185,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     { value: 'HO', label: 'Head Office' },
     { value: 'ZONAL', label: 'Zonal Office' },
     { value: 'SALES', label: 'Sales Office' },
+    { value: 'BRANCH', label: 'Branch Office' },
     { value: 'ESTABLISHMENT', label: 'Establishment' },
     { value: 'FACTORY', label: 'Factory' },
+    { value: 'WAREHOUSE', label: 'Warehouse' },
+    { value: 'SHOP', label: 'Shop' },
   ];
 
   readonly stateSelectOptions: SelectOption[] = this.stateOptions.map(s => ({ value: s.code, label: `${s.name} (${s.code})` }));
@@ -278,7 +266,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.loading = true;
     const safetyTimer = setTimeout(() => {
       if (this.loading) {
-        console.warn('[AdminClients] loadClients safety timeout fired');
         this.loading = false;
         this.cdr.detectChanges();
       }
@@ -286,7 +273,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getClients().pipe(
       timeout(20000),
       catchError((err) => {
-        console.error('[AdminClients] Load clients error:', err);
         this.error = 'Failed to load clients';
         return of([]);
       }),
@@ -343,12 +329,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.createClient(payload).pipe(
       timeout(12000),
       catchError((err) => {
-        console.error('Create client error:', err);
         this.error = err.error?.message || 'Failed to create client';
         throw err;
       }),
       takeUntil(this.destroy$),
-      finalize(() => this.loading = false)
+      finalize(() => { this.loading = false; this.cdr.detectChanges(); })
     ).subscribe({
       next: (res) => {
         this.success = 'Client registered successfully';
@@ -366,6 +351,16 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
           masterUserMobile: '',
           masterUserPassword: '',
         };
+        // Upload logo if selected during registration
+        if (res.id && this.regLogoFile) {
+          this.service.uploadLogo(res.id, this.regLogoFile).pipe(
+            timeout(15000),
+            catchError(() => of(null)),
+            takeUntil(this.destroy$),
+          ).subscribe();
+          this.regLogoFile = null;
+          this.regLogoPreviewUrl = null;
+        }
         this.loadClients();
         if (res.id) {
           this.openClient(res.id);
@@ -378,11 +373,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.router.navigate(['/admin/clients', clientId, 'branches']);
   }
 
-  deleteClient(client: Client) {
+  async deleteClient(client: Client) {
     if (!client?.id) return;
 
     const label = client.clientName || `Client #${client.id}`;
-    if (!confirm(`Deactivate client: ${label}?`)) return;
+    if (!(await this.dialog.confirm('Deactivate Client', `Deactivate client: ${label}?`, { variant: 'danger', confirmText: 'Deactivate' }))) return;
 
     this.loading = true;
     this.error = '';
@@ -391,7 +386,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.deleteClient(client.id).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Delete client error:', err);
         this.error = err.error?.message || 'Failed to delete client';
         return of(null);
       }),
@@ -402,7 +396,11 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (res) => {
         if (res) {
-          this.success = 'Client deleted';
+          if (res.status === 'PENDING') {
+            this.success = 'Deletion request sent to CEO for approval';
+          } else {
+            this.success = 'Client deleted';
+          }
         }
         this.loadClients();
       },
@@ -442,7 +440,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getClientUsers(clientId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load client users error:', err);
         this.error = 'Failed to load client users';
         return of([] as ClientUserLink[]);
       }),
@@ -458,7 +455,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getClientRoleUsers().pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load CLIENT users error:', err);
         return of([] as ClientUserOption[]);
       }),
       takeUntil(this.destroy$),
@@ -480,7 +476,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.addClientUser(this.selectedClient.id, this.selectedClientUserId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Link client user error:', err);
         this.error = err.error?.message || 'Failed to link client user';
         throw err;
       }),
@@ -497,9 +492,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     });
   }
 
-  unlinkClientUser(link: ClientUserLink) {
+  async unlinkClientUser(link: ClientUserLink) {
     if (!this.selectedClient) return;
-    if (!confirm(`Unlink client user ${link.name} (${link.email})?`)) return;
+    if (!(await this.dialog.confirm('Unlink User', `Unlink client user ${link.name} (${link.email})?`, { variant: 'danger', confirmText: 'Unlink' }))) return;
 
     this.loading = true;
     this.error = '';
@@ -508,7 +503,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.removeClientUser(this.selectedClient.id, link.userId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Unlink client user error:', err);
         this.error = 'Failed to unlink client user';
         return of(null);
       }),
@@ -534,7 +528,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getBranches(this.selectedClient.id).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load branches error:', err);
         if (err?.status === 401) {
           this.error = 'Unauthorized: Please log in.';
         } else if (err?.status === 403) {
@@ -547,7 +540,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         return of([]);
       }),
       takeUntil(this.destroy$),
-      finalize(() => this.loading = false)
+      finalize(() => { this.loading = false; this.cdr.detectChanges(); })
     ).subscribe({
       next: (res) => {
         this.deferUi(() => {
@@ -567,6 +560,22 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     if (!this.branchForm.branchName.trim()) {
       this.error = 'Branch name is required';
       return;
+    }
+
+    // Branch desk user is mandatory
+    if (!this.editingBranchId) {
+      if (!this.branchForm.branchUserName?.trim()) {
+        this.branchSaveError = 'Branch user name is required. Every branch must have a desk user.';
+        return;
+      }
+      if (!this.branchForm.branchUserEmail?.trim()) {
+        this.branchSaveError = 'Branch user email is required. Every branch must have a desk user.';
+        return;
+      }
+      if (!this.branchForm.branchUserMobile?.trim()) {
+        this.branchSaveError = 'Branch user mobile number is required. Every branch must have a desk user.';
+        return;
+      }
     }
 
     this.isSavingBranch = true;
@@ -629,7 +638,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
     this.service.deleteBranch(branchId).pipe(
       timeout(8000),
-      catchError((_err) => {
+      catchError((err) => {
         this.error = 'Failed to delete branch';
         return of(null);
       }),
@@ -657,13 +666,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       status: 'ACTIVE',
       branchUserName: '',
       branchUserEmail: '',
+      branchUserMobile: '',
       branchUserPassword: ''
     } as any;
 
     this.deferUi(() => {
       this.editingBranchId = null;
       this.branchForm = { ...defaults };
-      this.createdBranchUser = null;
       this.branchUserErrorMessage = '';
     });
   }
@@ -673,7 +682,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getCompliances().pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load compliances error:', err);
         return of([]);
       }),
       takeUntil(this.destroy$),
@@ -710,7 +718,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.recomputeBranchCompliances(branchId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Recompute compliances error:', err);
         return of(null);
       }),
       takeUntil(this.destroy$),
@@ -728,7 +735,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getBranchCompliances(branchId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load branch compliances error:', err);
         return of([]);
       }),
       takeUntil(this.destroy$),
@@ -772,7 +778,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getBranchContractors(branchId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load branch contractors error:', err);
         this.error = 'Failed to load branch contractors';
         return of([] as BranchContractorLink[]);
       }),
@@ -788,7 +793,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getContractorUsers(clientId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Load contractor users error:', err);
         return of([] as ContractorOption[]);
       }),
       takeUntil(this.destroy$),
@@ -810,7 +814,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.addBranchContractor(this.branchForContractors.id, this.selectedContractorUserId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Link contractor error:', err);
         this.error = err.error?.message || 'Failed to link contractor';
         throw err;
       }),
@@ -841,7 +844,6 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.removeBranchContractor(this.branchForContractors.id, link.userId).pipe(
       timeout(8000),
       catchError((err) => {
-        console.error('Unlink contractor error:', err);
         this.error = 'Failed to unlink contractor';
         return of(null);
       }),
@@ -916,6 +918,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.branchContractors = [];
     this.availableContractors = [];
     this.selectedContractorUserId = null;
+    this.editingMasterUser = null;
+    this.masterUserResetResult = null;
     this.activeTab = 'company';
     this.router.navigate(['/admin/clients']);
   }
@@ -997,5 +1001,157 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     ).subscribe((res) => {
       this.readinessResult = res;
     });
+  }
+
+  // ── Master User Edit ─────────────────────────────────────
+  startEditMasterUser(u: { userId: string; name: string; email: string; mobile: string | null }) {
+    this.editingMasterUser = {
+      userId: u.userId,
+      name: u.name,
+      email: u.email,
+      mobile: u.mobile || '',
+    };
+    this.masterUserResetResult = null;
+  }
+
+  cancelEditMasterUser() {
+    this.editingMasterUser = null;
+  }
+
+  saveMasterUser() {
+    if (!this.editingMasterUser || !this.selectedClient) return;
+
+    const mu = this.editingMasterUser;
+    if (!mu.name.trim()) {
+      this.error = 'Name is required';
+      return;
+    }
+    if (!mu.email.trim()) {
+      this.error = 'Email is required';
+      return;
+    }
+
+    this.savingMasterUser = true;
+    this.error = '';
+    this.success = '';
+
+    this.service.updateUser(mu.userId, {
+      name: mu.name.trim(),
+      email: mu.email.trim(),
+      mobile: mu.mobile?.trim() || undefined,
+    }).pipe(
+      timeout(8000),
+      catchError((err) => {
+        this.error = err.error?.message || 'Failed to update master user';
+        return of(null);
+      }),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.savingMasterUser = false;
+        this.cdr.detectChanges();
+      }),
+    ).subscribe((res) => {
+      if (res) {
+        this.success = 'Master user updated successfully';
+        this.editingMasterUser = null;
+        this.loadClientUsers(this.selectedClient!.id);
+      }
+    });
+  }
+
+  resetMasterUserPassword(userId: string) {
+    if (!confirm('Reset this user\'s password? A new password will be generated.')) return;
+
+    this.error = '';
+    this.success = '';
+    this.masterUserResetResult = null;
+
+    this.service.resetUserPassword(userId).pipe(
+      timeout(8000),
+      catchError((err) => {
+        this.error = err.error?.message || 'Failed to reset password';
+        return of(null);
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe((res) => {
+      if (res) {
+        this.masterUserResetResult = { newPassword: res.newPassword };
+        this.success = 'Password reset successfully';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  // ── Logo upload methods ──────────────────────────────────
+  onLogoFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.logoFile = file;
+    this.logoUploadMessage = '';
+    this.logoUploadError = '';
+    // Generate local preview
+    const reader = new FileReader();
+    reader.onload = (e) => { this.logoPreviewUrl = e.target?.result as string; this.cdr.detectChanges(); };
+    reader.readAsDataURL(file);
+  }
+
+  onRegLogoFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.regLogoFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => { this.regLogoPreviewUrl = e.target?.result as string; this.cdr.detectChanges(); };
+    reader.readAsDataURL(file);
+  }
+
+  removeRegLogo(): void {
+    this.regLogoFile = null;
+    this.regLogoPreviewUrl = null;
+  }
+
+  uploadLogo(): void {
+    if (!this.selectedClient) return;
+    if (this.logoUploadMode === 'file') {
+      if (!this.logoFile) { this.logoUploadError = 'Select a file first'; return; }
+      this.uploadingLogo = true;
+      this.logoUploadMessage = '';
+      this.logoUploadError = '';
+      this.service.uploadLogo(this.selectedClient.id, this.logoFile).pipe(
+        timeout(15000),
+        catchError((err) => { this.logoUploadError = err.error?.message || 'Upload failed'; return of(null); }),
+        finalize(() => { this.uploadingLogo = false; this.cdr.detectChanges(); }),
+        takeUntil(this.destroy$),
+      ).subscribe((res) => {
+        if (res) {
+          this.logoUploadMessage = 'Logo uploaded successfully';
+          this.selectedClient!.logoUrl = res.logoUrl;
+          this.logoFile = null;
+          this.logoPreviewUrl = null;
+        }
+      });
+    } else {
+      if (!this.svgCodeInput.trim()) { this.logoUploadError = 'Paste SVG code first'; return; }
+      this.uploadingLogo = true;
+      this.logoUploadMessage = '';
+      this.logoUploadError = '';
+      this.service.uploadSvgCode(this.selectedClient.id, this.svgCodeInput.trim()).pipe(
+        timeout(15000),
+        catchError((err) => { this.logoUploadError = err.error?.message || 'Upload failed'; return of(null); }),
+        finalize(() => { this.uploadingLogo = false; this.cdr.detectChanges(); }),
+        takeUntil(this.destroy$),
+      ).subscribe((res) => {
+        if (res) {
+          this.logoUploadMessage = 'SVG logo saved successfully';
+          this.selectedClient!.logoUrl = res.logoUrl;
+          this.svgCodeInput = '';
+        }
+      });
+    }
+  }
+
+  getAuthenticatedLogoUrl(url: string): string {
+    return this.auth.authenticateUrl(url);
   }
 }

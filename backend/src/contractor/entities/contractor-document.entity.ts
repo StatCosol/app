@@ -8,6 +8,8 @@ import {
   Index,
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity';
+import { ClientEntity } from '../../clients/entities/client.entity';
+import { BranchEntity } from '../../branches/entities/branch.entity';
 
 @Entity('contractor_documents')
 @Index('idx_cd_contractor_user_id', ['contractorUserId'])
@@ -32,8 +34,16 @@ export class ContractorDocumentEntity {
   @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
 
+  @ManyToOne(() => ClientEntity, { eager: false })
+  @JoinColumn({ name: 'client_id' })
+  client?: ClientEntity;
+
   @Column({ name: 'branch_id', type: 'uuid' })
   branchId: string;
+
+  @ManyToOne(() => BranchEntity, { eager: false })
+  @JoinColumn({ name: 'branch_id' })
+  branch?: BranchEntity;
 
   @Column({ name: 'doc_type', type: 'varchar', length: 255 })
   docType: string;
