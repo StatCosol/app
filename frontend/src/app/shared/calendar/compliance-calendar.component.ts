@@ -111,9 +111,16 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
 
     if (branchIds?.length) {
       // Branch user — locked to their branches
-      this.branches = branchIds.map((id) => ({ id, name: 'My Branch' }));
+      this.branches = branchIds.map((id) => ({ id, name: 'Branch' }));
       this.selectedBranchId = branchIds[0];
       this.reload();
+      this.api.list().pipe(takeUntil(this.destroy$)).subscribe({
+        next: (b: any[]) => {
+          const nameMap = new Map((b || []).map((x: any) => [x.id, x.branchName || x.name || 'Branch']));
+          this.branches = branchIds.map((id) => ({ id, name: nameMap.get(id) || 'Branch' }));
+          this.cdr.markForCheck();
+        },
+      });
     } else {
       // Master user — load all branches
       this.api

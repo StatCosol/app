@@ -20,7 +20,10 @@ import { AssignmentsService } from './assignments.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { ChangeAssignmentDto } from './dto/change-assignment.dto';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Assignments')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/assignments', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -36,11 +39,13 @@ export class AssignmentsController {
   //   GET  /api/admin/assignments/auditor
   //   POST /api/admin/assignments/auditor  { clientId, auditorId }
 
+  @ApiOperation({ summary: 'List Crm Assignments' })
   @Get('crm')
   async listCrmAssignments() {
     return this.assignmentsService.listAssignmentsByType('CRM');
   }
 
+  @ApiOperation({ summary: 'Assign Crm Compat' })
   @Post('crm')
   async assignCrmCompat(
     @Body() body: { clientId: string; crmId: string },
@@ -56,11 +61,13 @@ export class AssignmentsController {
     });
   }
 
+  @ApiOperation({ summary: 'List Auditor Assignments' })
   @Get('auditor')
   async listAuditorAssignments() {
     return this.assignmentsService.listAssignmentsByType('AUDITOR');
   }
 
+  @ApiOperation({ summary: 'Assign Auditor Compat' })
   @Post('auditor')
   async assignAuditorCompat(
     @Body() body: { clientId: string; auditorId: string },
@@ -80,6 +87,7 @@ export class AssignmentsController {
   // Branch-wise Auditor Assignments (new)
   // ---------------------------------------------------------------------------
 
+  @ApiOperation({ summary: 'List Branch Auditors' })
   @Get('branch-auditors')
   async listBranchAuditors(
     @Query('clientId') clientId?: string,
@@ -94,6 +102,7 @@ export class AssignmentsController {
     });
   }
 
+  @ApiOperation({ summary: 'Assign Auditor To Branch' })
   @Post('branch-auditors')
   async assignAuditorToBranch(
     @Body() body: { clientId: string; branchId: string; auditorId: string },
@@ -108,6 +117,7 @@ export class AssignmentsController {
     });
   }
 
+  @ApiOperation({ summary: 'End Branch Auditor' })
   @Delete('branch-auditors/:id')
   async endBranchAuditor(
     @Param('id', ParseUUIDPipe) id: string,
@@ -119,12 +129,14 @@ export class AssignmentsController {
     });
   }
 
+  @ApiOperation({ summary: 'Get All' })
   @Get()
   async getAll() {
     this.logger.log('GET /api/admin/assignments');
     return this.assignmentsService.getCurrentAssignmentsGrouped();
   }
 
+  @ApiOperation({ summary: 'Create' })
   @Post()
   async create(@Body() dto: CreateAssignmentDto, @Request() req) {
     this.logger.log('POST /api/admin/assignments', dto);
@@ -135,6 +147,7 @@ export class AssignmentsController {
     );
   }
 
+  @ApiOperation({ summary: 'Update Assignment' })
   @Put(':clientId')
   async updateAssignment(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -149,17 +162,20 @@ export class AssignmentsController {
     );
   }
 
+  @ApiOperation({ summary: 'Get Current' })
   @Get('current')
   async getCurrent() {
     return this.assignmentsService.getCurrentAssignments();
   }
 
+  @ApiOperation({ summary: 'Get History' })
   @Get('history')
   async getHistory(@Query('clientId') clientId?: string) {
     return this.assignmentsService.getAssignmentHistory(clientId);
   }
 
   // Per-client current assignments (admin)
+  @ApiOperation({ summary: 'Get Current By Client' })
   @Get('clients/:clientId/assignments/current')
   async getCurrentByClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -169,6 +185,7 @@ export class AssignmentsController {
   }
 
   // Per-client assignment history (admin)
+  @ApiOperation({ summary: 'Get History By Client' })
   @Get('clients/:clientId/assignments/history')
   async getHistoryByClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -177,6 +194,7 @@ export class AssignmentsController {
     return this.assignmentsService.getHistoryByClient(clientId, assignmentType);
   }
 
+  @ApiOperation({ summary: 'Update' })
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -191,6 +209,7 @@ export class AssignmentsController {
     );
   }
 
+  @ApiOperation({ summary: 'Unassign Client' })
   @Delete(':clientId')
   async unassignClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -220,6 +239,7 @@ export class AssignmentsController {
   }
 
   // New single-change endpoint for manual override
+  @ApiOperation({ summary: 'Change' })
   @Post('clients/:clientId/assignments/change')
   async change(
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -243,6 +263,7 @@ export class AssignmentsController {
 export class CrmClientsController {
   constructor(private assignmentsService: AssignmentsService) {}
 
+  @ApiOperation({ summary: 'Get Assigned' })
   @Get('assigned')
   async getAssigned(@Request() req) {
     return this.assignmentsService.getAssignedClientsForCrm(req.user.userId);
@@ -255,6 +276,7 @@ export class CrmClientsController {
 export class AuditorClientsController {
   constructor(private assignmentsService: AssignmentsService) {}
 
+  @ApiOperation({ summary: 'Get Assigned' })
   @Get('assigned')
   async getAssigned(@Request() req) {
     return this.assignmentsService.getAssignedClientsForAuditor(

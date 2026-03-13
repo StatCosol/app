@@ -834,6 +834,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
           this.runEmployees = [];
           if (toastOnError) {
             this.toast.error('Could not load employee run preview.');
+            this.toast.error('Could not load employee run preview.');
           }
         },
       });
@@ -873,6 +874,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         error: () => {
           delete this.runApprovalStatusByRunId[runId];
           if (toastOnError) {
+            this.toast.error('Could not load approval status for this run.');
             this.toast.error('Could not load approval status for this run.');
           }
         },

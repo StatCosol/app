@@ -85,37 +85,84 @@
       </svg>
       User Statistics Overview
     </h3>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      <ui-stat-card
-        [value]="summary.totalUsers || 0"
-        label="Total Users"
-        color="primary">
-      </ui-stat-card>
-      <ui-stat-card
-        [value]="summary.activeUsers || 0"
-        label="Active Users"
-        color="success">
-      </ui-stat-card>
-      <ui-stat-card
-        [value]="summary.inactiveUsers || 0"
-        label="Inactive"
-        color="gray">
-      </ui-stat-card>
-      <ui-stat-card
-        [value]="summary.newUsersThisMonth || 0"
-        label="Registered (30d)"
-        color="info">
-      </ui-stat-card>
-      <ui-stat-card
-        [value]="summary.deletedThisMonth || 0"
-        label="Deleted (30d)"
-        color="error">
-      </ui-stat-card>
-      <ui-stat-card
-        [value]="summary.assignmentsThisMonth || 0"
-        label="Assignments (30d)"
-        color="warning">
-      </ui-stat-card>
+    <div class="kpi-cards-grid-6">
+      <!-- Total Users -->
+      <div class="kpi-tile kpi-tile--blue">
+        <div class="kpi-tile__icon" style="background:#dbeafe">
+          <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Total Users</div>
+          <div class="kpi-tile__value">{{ summary.totalUsers || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Active Users -->
+      <div class="kpi-tile kpi-tile--green">
+        <div class="kpi-tile__icon" style="background:#d1fae5">
+          <svg width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Active Users</div>
+          <div class="kpi-tile__value">{{ summary.activeUsers || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Inactive -->
+      <div class="kpi-tile kpi-tile--gray">
+        <div class="kpi-tile__icon" style="background:#f1f5f9">
+          <svg width="24" height="24" fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Inactive</div>
+          <div class="kpi-tile__value">{{ summary.inactiveUsers || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Registered (30d) -->
+      <div class="kpi-tile kpi-tile--blue">
+        <div class="kpi-tile__icon" style="background:#dbeafe">
+          <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Registered (30d)</div>
+          <div class="kpi-tile__value">{{ summary.newUsersThisMonth || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Deleted (30d) -->
+      <div class="kpi-tile kpi-tile--red">
+        <div class="kpi-tile__icon" style="background:#fee2e2">
+          <svg width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Deleted (30d)</div>
+          <div class="kpi-tile__value">{{ summary.deletedThisMonth || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- Assignments (30d) -->
+      <div class="kpi-tile kpi-tile--amber">
+        <div class="kpi-tile__icon" style="background:#fef3c7">
+          <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+          </svg>
+        </div>
+        <div class="kpi-tile__body">
+          <div class="kpi-tile__label">Assignments (30d)</div>
+          <div class="kpi-tile__value">{{ summary.assignmentsThisMonth || 0 }}</div>
+        </div>
+      </div>
     </div>
     <ui-data-table
       [columns]="roleColumns"

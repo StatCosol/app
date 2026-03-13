@@ -1,0 +1,131 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+  <ui-page-header
+    title="Branch Overview"
+    subtitle="Company-wide branch compliance status and risk assessment">
+    <ui-button variant="secondary" size="sm" (clicked)="exportCsv()">Export CSV</ui-button>
+    <ui-button variant="secondary" size="sm" (clicked)="load()">Refresh</ui-button>
+  </ui-page-header>
+
+  <!-- KPI Strip -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <ui-stat-card label="Total Branches" [value]="kpiTotal" color="primary"></ui-stat-card>
+    <ui-stat-card label="High Risk" [value]="kpiHighRisk" color="error"></ui-stat-card>
+    <ui-stat-card label="Total Overdue" [value]="kpiOverdue" color="warning"></ui-stat-card>
+    <ui-stat-card label="Avg Compliance" [value]="kpiAvgCompliance + '%'" color="success"></ui-stat-card>
+  </div>
+
+  <!-- Filters -->
+  <div class="card mb-4">
+    <div class="flex flex-wrap items-end gap-4 p-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
+        <input type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+          [(ngModel)]="month" (change)="load()" />
+      </div>
+      <div class="flex-grow max-w-sm">
+        <label class="block text-xs font-medium text-gray-600 mb-1">Search</label>
+        <div class="relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input class="w-full pl-10 rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+            placeholder="Search by branch, client, state..."
+            [(ngModel)]="q" (keyup.enter)="load()" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">State</label>
+        <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+          [(ngModel)]="stateFilter" (ngModelChange)="applyLocalFilters()">
+          <option value="ALL">All States</option>
+          <option *ngFor="let state of stateOptions" [value]="state">{{ state }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Client</label>
+        <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+          [(ngModel)]="clientFilter" (ngModelChange)="applyLocalFilters()">
+          <option value="ALL">All Clients</option>
+          <option *ngFor="let client of clientOptions" [value]="client">{{ client }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Risk Band</label>
+        <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+          [(ngModel)]="riskBandFilter" (ngModelChange)="applyLocalFilters()">
+          <option value="ALL">All Risk Bands</option>
+          <option value="HIGH">High</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="LOW">Low</option>
+        </select>
+      </div>
+      <button (click)="clearFilters()" class="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && branches.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-gray-800 mb-3">Top 5 Risk Branches</h3>
+      <div *ngFor="let row of topRiskBranches" class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
+        <div class="min-w-0">
+          <div class="text-sm font-medium text-gray-900 truncate">{{ row.branchName }}</div>
+          <div class="text-xs text-gray-500 truncate">{{ row.clientName }}</div>
+        </div>
+        <div class="text-xs font-semibold text-red-600">{{ row.riskExposureScore }}%</div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-gray-800 mb-3">Top 5 Compliant Branches</h3>
+      <div *ngFor="let row of topCompliantBranches" class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
+        <div class="min-w-0">
+          <div class="text-sm font-medium text-gray-900 truncate">{{ row.branchName }}</div>
+          <div class="text-xs text-gray-500 truncate">{{ row.clientName }}</div>
+        </div>
+        <div class="text-xs font-semibold text-green-600">{{ row.compliancePercent }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading & Empty -->
+  <ui-loading-spinner *ngIf="loading" text="Loading branches..."></ui-loading-spinner>
+  <ui-empty-state *ngIf="!loading && branches.length === 0"
+    title="No branches found" message="Adjust your filters or check back later.">
+  </ui-empty-state>
+
+  <!-- Table -->
+  <ui-data-table *ngIf="!loading && branches.length"
+    [columns]="columns" [data]="branches" [loading]="loading"
+    [showPagination]="true" [totalItems]="total" [pageSize]="50"
+    emptyMessage="No branches found.">
+    <ng-template uiTableCell="branchName" let-row>
+      <span class="font-medium text-gray-900">{{ row.branchName }}</span>
+    </ng-template>
+    <ng-template uiTableCell="compliancePercent" let-row>
+      <div class="flex items-center justify-center gap-2">
+        <div class="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div class="h-full rounded-full"
+            [class]="row.compliancePercent >= 80 ? 'bg-green-500' : row.compliancePercent >= 50 ? 'bg-amber-500' : 'bg-red-500'"
+            [style.width.%]="row.compliancePercent"></div>
+        </div>
+        <span class="text-sm font-medium">{{ row.compliancePercent }}%</span>
+      </div>
+    </ng-template>
+    <ng-template uiTableCell="overdueCount" let-row>
+      <span [class]="row.overdueCount > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'">{{ row.overdueCount }}</span>
+    </ng-template>
+    <ng-template uiTableCell="auditScore" let-row>{{ row.auditScore ?? '-' }}</ng-template>
+    <ng-template uiTableCell="risk" let-row>
+      <ui-status-badge [status]="riskLabel(row.riskExposureScore)" size="sm"></ui-status-badge>
+    </ng-template>
+    <ng-template uiTableCell="action" let-row>
+      <a class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+        [routerLink]="['/ceo/branches', row.branchId]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        Detail
+      </a>
+    </ng-template>
+  </ui-data-table>
+</div>
