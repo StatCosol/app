@@ -240,7 +240,7 @@ export class CcoControlsComponent implements OnInit, OnDestroy {
     if (!this.selected || this.savingBase) return;
     const baseIssues = this.baseValidationIssues;
     if (baseIssues.length) {
-      this.toast.warning(baseIssues[0]);
+      this.toast.warning('Validation required', baseIssues[0]);
       return;
     }
     const type = this.selected.type;
@@ -370,7 +370,7 @@ export class CcoControlsComponent implements OnInit, OnDestroy {
     if (!this.selected || this.savingMeta) return;
     const metaIssues = this.metaValidationIssues;
     if (metaIssues.length) {
-      this.toast.warning(metaIssues[0]);
+      this.toast.warning('Metadata validation required', metaIssues[0]);
       return;
     }
     this.savingMeta = true;

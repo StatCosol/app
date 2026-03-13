@@ -16,7 +16,12 @@ export class RegisterTemplateEntity {
   @Column({ name: 'state_code', type: 'varchar', length: 10 })
   stateCode: string;
 
-  @Column({ name: 'establishment_type', type: 'varchar', length: 30, default: 'FACTORY' })
+  @Column({
+    name: 'establishment_type',
+    type: 'varchar',
+    length: 30,
+    default: 'FACTORY',
+  })
   establishmentType: string;
 
   @Column({ name: 'register_type', type: 'varchar', length: 60 })
@@ -31,7 +36,11 @@ export class RegisterTemplateEntity {
   @Column({ name: 'template_file_path', type: 'text', nullable: true })
   templateFilePath: string | null;
 
-  @Column({ name: 'column_definitions', type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({
+    name: 'column_definitions',
+    type: 'jsonb',
+    default: () => "'[]'::jsonb",
+  })
   columnDefinitions: any[];
 
   @Column({ name: 'is_active', type: 'boolean', default: true })

@@ -46,7 +46,9 @@ export class SlaComplianceResolverService {
     branch: BranchEntity;
     applicable: ApplicableRule[];
   }> {
-    const branch = await this.branchRepo.findOne({ where: { id: branchId } as any });
+    const branch = await this.branchRepo.findOne({
+      where: { id: branchId } as any,
+    });
     if (!branch) throw new NotFoundException('Branch not found');
 
     const stateCode: string | null = (branch as any).stateCode ?? null;
@@ -117,7 +119,8 @@ export class SlaComplianceResolverService {
   ): number {
     let score = 0;
     if (rule.stateCode && stateCode && rule.stateCode === stateCode) score += 2;
-    if (rule.establishmentType && estType && rule.establishmentType === estType) score += 1;
+    if (rule.establishmentType && estType && rule.establishmentType === estType)
+      score += 1;
     return score;
   }
 }

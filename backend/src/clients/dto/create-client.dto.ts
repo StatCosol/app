@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsUUID, IsEmail, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsEmail,
+  MinLength,
+} from 'class-validator';
 
 export class CreateClientDto {
   @IsOptional()

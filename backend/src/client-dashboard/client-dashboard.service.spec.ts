@@ -2,10 +2,7 @@ import { ClientDashboardService } from './client-dashboard.service';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
 
 // Minimal chainable query builder mock
-const qb = <T>(options: {
-  counts?: number[];
-  raws?: any[][];
-}) => {
+const qb = <T>(options: { counts?: number[]; raws?: any[][] }) => {
   let countIdx = 0;
   let rawIdx = 0;
   const builder: any = {
@@ -21,7 +18,7 @@ const qb = <T>(options: {
     getCount: jest.fn(async () => options.counts?.[countIdx++] ?? 0),
     getRawMany: jest.fn(async () => options.raws?.[rawIdx++] ?? []),
   };
-  return builder as any;
+  return builder;
 };
 
 const mockUsersService = {
@@ -75,7 +72,10 @@ describe('ClientDashboardService', () => {
     );
 
     const dto: ClientDashboardQueryDto = { month: '2026-02' } as any;
-    const res = await svc.getPfEsiSummary({ roleCode: 'CLIENT', userId: 'u1' }, dto);
+    const res: any = await svc.getPfEsiSummary(
+      { roleCode: 'CLIENT', userId: 'u1' },
+      dto,
+    );
 
     expect(res.pf.registered).toBe(2);
     expect(res.pf.notRegisteredApplicable).toBe(1);
@@ -112,7 +112,7 @@ describe('ClientDashboardService', () => {
     );
 
     const dto: ClientDashboardQueryDto = { month: '2026-02' } as any;
-    const res = await svc.getContractorUploadSummary(
+    const res: any = await svc.getContractorUploadSummary(
       { roleCode: 'CLIENT', userId: 'u1' },
       dto,
     );

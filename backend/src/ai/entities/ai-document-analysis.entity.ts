@@ -1,4 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+} from 'typeorm';
 
 @Entity({ name: 'ai_document_analyses' })
 export class AiDocumentAnalysisEntity {
@@ -11,7 +16,12 @@ export class AiDocumentAnalysisEntity {
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
-  @Column({ name: 'document_type', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'document_type',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   documentType: string | null;
 
   @Column({ name: 'file_name', type: 'varchar', length: 500, nullable: true })
@@ -32,10 +42,22 @@ export class AiDocumentAnalysisEntity {
   @Column({ name: 'days_until_expiry', type: 'int', nullable: true })
   daysUntilExpiry: number | null;
 
-  @Column({ name: 'amount_expected', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'amount_expected',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   amountExpected: number | null;
 
-  @Column({ name: 'amount_found', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'amount_found',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   amountFound: number | null;
 
   @Column({ name: 'headcount_expected', type: 'int', nullable: true })
@@ -47,7 +69,13 @@ export class AiDocumentAnalysisEntity {
   @Column({ name: 'ai_model', type: 'varchar', length: 100, nullable: true })
   aiModel: string | null;
 
-  @Column({ name: 'confidence_score', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'confidence_score',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   confidenceScore: number | null;
 
   @Column({ type: 'varchar', length: 30, default: 'ANALYZED' })

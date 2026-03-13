@@ -1,0 +1,57 @@
+services:
+  # ── PostgreSQL ─────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: statcompy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS:-Statco123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── NestJS Backend ─────────────────────────
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: ${DB_PASS:-Statco123}
+      DB_NAME: statcompy
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 12h
+      JWT_ACCESS_EXPIRES_SEC: 900
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+    volumes:
+      - uploads:/app/uploads
+
+  # ── Angular Frontend (Nginx) ───────────────
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
+  uploads:

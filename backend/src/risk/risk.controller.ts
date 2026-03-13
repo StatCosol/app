@@ -11,7 +11,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RiskService } from './risk.service';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Risk')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'risk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CCO', 'CEO', 'CRM', 'CLIENT')
@@ -24,6 +27,7 @@ export class RiskController {
   /**
    * GET /api/v1/risk/heatmap?month=YYYY-MM&clientId=...
    */
+  @ApiOperation({ summary: 'Heatmap' })
   @Get('heatmap')
   async heatmap(
     @Query('month') month: string,
@@ -59,7 +63,7 @@ export class RiskController {
       if (!assigned) throw new ForbiddenException('Client not assigned to you');
     } else {
       clientId = queryClientId;
-      if (!clientId) throw new ForbiddenException('clientId required');
+      if (!clientId) return { branches: [], month }; // Admin with no client filter → empty heatmap
     }
 
     return this.riskService.getHeatmap({ clientId, branchIds, month });
@@ -68,6 +72,7 @@ export class RiskController {
   /**
    * GET /api/v1/risk/trend?branchId=...&from=YYYY-MM-DD&to=YYYY-MM-DD
    */
+  @ApiOperation({ summary: 'Trend' })
   @Get('trend')
   async trend(
     @Query('branchId') branchId: string,

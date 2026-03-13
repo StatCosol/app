@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsEnum, IsInt, Min, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  Min,
+  IsBoolean,
+} from 'class-validator';
 import { Frequency } from '../../common/enums';
 
 export class UpdateComplianceMasterDto {

@@ -106,39 +106,16 @@
     <ui-loading-spinner *ngIf="loading" text="Loading contractors..."></ui-loading-spinner>
 
     <!-- Table -->
-    <div *ngIf="!loading" class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">User Code</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Name</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Mobile</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Client</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr *ngFor="let contractor of contractors" class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.userCode }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.name }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.email }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.mobile || '—' }}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{{ contractor.client?.clientName || '—' }}</td>
-            <td class="px-6 py-4 text-sm">
-              <span [ngClass]="contractor.isActive ? 'badge-success' : 'badge-secondary'">
-                {{ contractor.isActive ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="text-center py-12" *ngIf="contractors.length === 0">
-        <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-        </svg>
-        <p class="text-sm text-gray-500">No contractors registered yet. Click "Register New Contractor" to add one.</p>
-      </div>
-    </div>
+    <ui-data-table *ngIf="!loading"
+      [columns]="contractorColumns" [data]="contractors" [loading]="loading"
+      emptyMessage="No contractors registered yet. Click &quot;Register New Contractor&quot; to add one.">
+      <ng-template uiTableCell="mobile" let-row>{{ row.mobile || '—' }}</ng-template>
+      <ng-template uiTableCell="clientName" let-row>{{ row.client?.clientName || '—' }}</ng-template>
+      <ng-template uiTableCell="status" let-row>
+        <span [ngClass]="row.isActive ? 'badge-success' : 'badge-secondary'">
+          {{ row.isActive ? 'Active' : 'Inactive' }}
+        </span>
+      </ng-template>
+    </ui-data-table>
   </div>
 </div>

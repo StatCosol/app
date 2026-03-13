@@ -74,7 +74,7 @@ export class RiskMonitorCronService {
         `Risk monitor complete: ${processed} branches, ${alerts} alerts generated`,
       );
     } catch (err) {
-      this.logger.error('Risk monitor cron failed', (err as any)?.stack);
+      this.logger.error('Risk monitor cron failed', err?.stack);
     }
   }
 
@@ -140,7 +140,13 @@ export class RiskMonitorCronService {
 
       // 3) Auto remediation tasks for HIGH+ risk branches
       if (prob >= this.HIGH_THRESHOLD) {
-        await this.generateRemediationTasks(clientId, branchId, branchName, month, curRow);
+        await this.generateRemediationTasks(
+          clientId,
+          branchId,
+          branchName,
+          month,
+          curRow,
+        );
       }
 
       // 3) Escalation if CRITICAL for 2 consecutive months
@@ -182,14 +188,21 @@ export class RiskMonitorCronService {
           });
 
           // Escalation email
-          await this.sendEscalationEmail(branchName, month, prevMonth, prob, prevProb, curRow);
+          await this.sendEscalationEmail(
+            branchName,
+            month,
+            prevMonth,
+            prob,
+            prevProb,
+            curRow,
+          );
 
           alertCount++;
         }
       }
     } catch (err) {
       this.logger.warn(
-        `Risk monitor: error processing branch ${branchId}: ${(err as any)?.message}`,
+        `Risk monitor: error processing branch ${branchId}: ${err?.message}`,
       );
     }
 
@@ -199,11 +212,15 @@ export class RiskMonitorCronService {
   private buildMessage(row: any, level: string, month: string): string {
     const parts: string[] = [];
     parts.push(`Month: ${month}`);
-    parts.push(`Inspection Probability: ${row.inspectionProbability}% (${level})`);
+    parts.push(
+      `Inspection Probability: ${row.inspectionProbability}% (${level})`,
+    );
     parts.push(`Upload Completion: ${row.completionPercent}%`);
     parts.push(`Overdue SLA: ${row.overdueSla}`);
     parts.push(`High/Critical Items: ${row.highCritical}`);
-    parts.push(`Registration expiring: ${row.expiringRegistrations ? 'Yes' : 'No'}`);
+    parts.push(
+      `Registration expiring: ${row.expiringRegistrations ? 'Yes' : 'No'}`,
+    );
     if (row.reasons?.length) {
       parts.push(`Reasons: ${row.reasons.join('; ')}`);
     }
@@ -238,9 +255,10 @@ export class RiskMonitorCronService {
       if (!recipients.length) return;
 
       const color = level === 'CRITICAL' ? '#dc2626' : '#f97316';
-      const subject = level === 'CRITICAL'
-        ? `🚨 CRITICAL Risk Alert: ${branchName} (${row.inspectionProbability}%)`
-        : `⚠️ High Risk Alert: ${branchName} (${row.inspectionProbability}%)`;
+      const subject =
+        level === 'CRITICAL'
+          ? `🚨 CRITICAL Risk Alert: ${branchName} (${row.inspectionProbability}%)`
+          : `⚠️ High Risk Alert: ${branchName} (${row.inspectionProbability}%)`;
 
       // Get action plan for top 3 recommendations
       let actionHtml = '';
@@ -260,17 +278,24 @@ export class RiskMonitorCronService {
             </ol>
           `;
         }
-      } catch { /* ignore action plan errors in email */ }
+      } catch {
+        /* ignore action plan errors in email */
+      }
 
       // Build summary narrative
       const summaryText = [
         `Inspection probability: ${row.inspectionProbability}% (${level}).`,
         `Upload completion: ${row.completionPercent}%.`,
         `Overdue SLA tasks: ${row.overdueSla}.`,
-        row.expiringRegistrations ? 'Registration expiring within 30 days.' : '',
-      ].filter(Boolean).join(' ');
+        row.expiringRegistrations
+          ? 'Registration expiring within 30 days.'
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
 
-      const deepLink = `${process.env.FRONTEND_URL || 'https://app.statcosolutions.com'}/crm/branches/${row.branchId || ''}/compliance?month=${month}`;
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+      const deepLink = `${frontendUrl}/crm/branches/${row.branchId || ''}/compliance?month=${month}`;
 
       const bodyHtml = `
         <p style="font-size:14px;color:#374151;">
@@ -304,9 +329,16 @@ export class RiskMonitorCronService {
         </p>
       `;
 
-      await this.emailService.send(recipients, subject, `${level} Risk Alert`, bodyHtml);
+      await this.emailService.send(
+        recipients,
+        subject,
+        `${level} Risk Alert`,
+        bodyHtml,
+      );
     } catch (err) {
-      this.logger.warn(`Failed to send ${level} risk email for ${branchName}: ${(err as any)?.message}`);
+      this.logger.warn(
+        `Failed to send ${level} risk email for ${branchName}: ${err?.message}`,
+      );
     }
   }
 
@@ -347,9 +379,16 @@ export class RiskMonitorCronService {
         </p>
       `;
 
-      await this.emailService.send(recipients, subject, 'Escalation Alert', bodyHtml);
+      await this.emailService.send(
+        recipients,
+        subject,
+        'Escalation Alert',
+        bodyHtml,
+      );
     } catch (err) {
-      this.logger.warn(`Failed to send escalation email for ${branchName}: ${(err as any)?.message}`);
+      this.logger.warn(
+        `Failed to send escalation email for ${branchName}: ${err?.message}`,
+      );
     }
   }
 
@@ -425,7 +464,7 @@ export class RiskMonitorCronService {
         });
       } catch (err) {
         this.logger.warn(
-          `Failed to create remediation task ${t.key}: ${(err as any)?.message}`,
+          `Failed to create remediation task ${t.key}: ${err?.message}`,
         );
       }
     }

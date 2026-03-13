@@ -5,6 +5,8 @@ import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { CrmContractorDocumentsApi } from '../../../core/api/crm-contractor-documents.api';
+import { AuthService } from '../../../core/auth.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
   Breadcrumb,
@@ -101,7 +103,7 @@ import {
             <td class="text-right">
               <div class="action-btns">
                 <a *ngIf="doc.downloadUrl || doc.fileUrl"
-                   [href]="doc.downloadUrl || doc.fileUrl" target="_blank"
+                   [href]="authUrl(doc.downloadUrl || doc.fileUrl)" target="_blank"
                    class="btn-sm btn-outline">Download</a>
                 <button *ngIf="(doc.status || 'PENDING') === 'PENDING'"
                         (click)="review(doc, 'APPROVED')" class="btn-sm btn-approve"
@@ -229,8 +231,10 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: CrmContractorDocumentsApi,
+    private auth: AuthService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -241,6 +245,11 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /** Append JWT token to a URL for authenticated static file access */
+  authUrl(url: string): string {
+    return this.auth.authenticateUrl(url);
   }
 
   private loadKpis(): void {
@@ -300,7 +309,7 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
           this.loadKpis();
           this.loadDocuments();
         },
-        error: () => { this.processing.delete(id); alert('Review failed. Please try again.'); },
+        error: () => { this.processing.delete(id); this.toast.error('Review failed. Please try again.'); },
       });
   }
 

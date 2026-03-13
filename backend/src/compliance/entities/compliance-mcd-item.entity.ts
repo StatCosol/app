@@ -10,7 +10,13 @@ import {
 import { ComplianceTask } from './compliance-task.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 
-export type McdItemStatus = 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+export type McdItemStatus =
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'RETURNED'
+  | 'APPROVED';
 
 @Entity('compliance_mcd_items')
 export class ComplianceMcdItem {
