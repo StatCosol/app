@@ -18,7 +18,6 @@ import {
 } from './payroll-setup-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
-import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 type SetupTab =
   | 'statutory'
@@ -145,7 +144,6 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     private readonly setupApi: PayrollSetupApiService,
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
-    private readonly confirm: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -530,11 +528,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
 
   async deleteComp(component: PayrollComponent): Promise<void> {
     if (!this.selectedClientId) return;
-    const ok = await this.confirm.confirm(
-      'Delete Component',
-      `Delete component "${component.name}"?`,
-      { confirmText: 'Delete', variant: 'danger' },
-    );
+    const ok = window.confirm(`Delete component "${component.name}"?`);
     if (!ok) return;
 
     this.setupApi
@@ -636,10 +630,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
 
   async deleteRule(rule: ComponentRule): Promise<void> {
     if (!this.selectedClientId || !this.selectedComponent) return;
-    const ok = await this.confirm.confirm('Delete Rule', 'Delete this rule?', {
-      confirmText: 'Delete',
-      variant: 'danger',
-    });
+    const ok = window.confirm('Delete this rule?');
     if (!ok) return;
 
     this.setupApi
