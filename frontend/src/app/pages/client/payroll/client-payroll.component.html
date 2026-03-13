@@ -1,312 +1,428 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <ui-page-header 
-    title="Payroll (Confidential)" 
-    description="View and manage your payroll data securely" 
-    icon="lock-closed">
+<div class="page-wrap">
+  <ui-page-header
+    title="Client Payroll Monitoring"
+    subtitle="Track cycle progress, branch status, exceptions, and approval queue from one workspace.">
+    <ui-button variant="secondary" (clicked)="loadInputs()" [disabled]="loading">Refresh</ui-button>
   </ui-page-header>
 
-  <!-- Tabs -->
-  <div class="border-b border-gray-200 mb-6">
-    <nav class="-mb-px flex space-x-8">
-      <button
-        [class]="activeTab === 'inputs' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
-        (click)="switchTab('inputs')"
-      >
-        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        Payroll Inputs
-      </button>
-      <button
-        [class]="activeTab === 'registers' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-        class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
-        (click)="switchTab('registers')"
-      >
-        <svg class="w-5 h-5 inline-block mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        Registers & Reports
-      </button>
-    </nav>
+  <section class="workspace-card mb-6">
+    <div class="section-title">Filters</div>
+    <div class="filter-grid">
+      <label>
+        <span>Year</span>
+        <select [(ngModel)]="filters.periodYear" (ngModelChange)="onFiltersChanged()">
+          <option *ngFor="let y of yearOptions" [ngValue]="y.value">{{ y.label }}</option>
+        </select>
+      </label>
+      <label>
+        <span>Month</span>
+        <select [(ngModel)]="filters.periodMonth" (ngModelChange)="onFiltersChanged()">
+          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select [(ngModel)]="filters.status" (ngModelChange)="onFiltersChanged()">
+          <option *ngFor="let s of statusOptions" [ngValue]="s.value">{{ s.label }}</option>
+        </select>
+      </label>
+      <label>
+        <span>Branch</span>
+        <input
+          type="text"
+          [(ngModel)]="filters.branchId"
+          (ngModelChange)="onFiltersChanged()"
+          placeholder="Filter by branch id" />
+      </label>
+      <label class="wide">
+        <span>Search</span>
+        <input
+          type="text"
+          [(ngModel)]="filters.search"
+          (ngModelChange)="onFiltersChanged()"
+          placeholder="Title, branch, input id" />
+      </label>
+      <div class="actions">
+        <ui-button variant="secondary" (clicked)="clearFilters()">Reset</ui-button>
+      </div>
+    </div>
+  </section>
+
+  <div class="summary-grid mb-6">
+    <article class="summary-card">
+      <h4>Total Inputs</h4>
+      <div>{{ summary.total }}</div>
+    </article>
+    <article class="summary-card">
+      <h4>Pending Inputs</h4>
+      <div>{{ summary.pending }}</div>
+    </article>
+    <article class="summary-card">
+      <h4>Approval Queue</h4>
+      <div>{{ summary.approvals }}</div>
+    </article>
+    <article class="summary-card">
+      <h4>Exceptions</h4>
+      <div>{{ summary.exceptions }}</div>
+    </article>
+    <article class="summary-card">
+      <h4>Completed</h4>
+      <div>{{ summary.completed }}</div>
+    </article>
+    <article class="summary-card">
+      <h4>Active Branches</h4>
+      <div>{{ summary.branches }}</div>
+    </article>
   </div>
 
-  <!-- Payroll Inputs Tab -->
-  <div *ngIf="activeTab === 'inputs'">
-    <!-- Create Input Card -->
-    <div class="card mb-6" *ngIf="!selectedInput">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Create Payroll Input</h3>
+  <ui-loading-spinner *ngIf="loading" text="Loading payroll monitoring data..." size="lg"></ui-loading-spinner>
+
+  <ng-container *ngIf="!loading">
+    <section class="workspace-grid mb-6">
+      <article class="workspace-card">
+        <div class="section-head">
+          <h3>Branch Payroll Status</h3>
+          <span class="muted">Branch comparison view</span>
+        </div>
+        <div class="table-wrap" *ngIf="branchStatusRows.length; else noBranchRows">
+          <table>
+            <thead>
+              <tr>
+                <th>Branch</th>
+                <th>Total</th>
+                <th>Pending</th>
+                <th>Approvals</th>
+                <th>Exceptions</th>
+                <th>Completed</th>
+                <th>Last Period</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of branchStatusRows; trackBy: trackById">
+                <td>{{ row.branchId }}</td>
+                <td>{{ row.totalInputs }}</td>
+                <td>{{ row.pendingInputs }}</td>
+                <td>{{ row.approvalQueue }}</td>
+                <td>
+                  <span class="danger">{{ row.exceptions }}</span>
+                </td>
+                <td>{{ row.completed }}</td>
+                <td>{{ row.lastPeriod }}</td>
+                <td>
+                  <ui-button
+                    size="sm"
+                    variant="secondary"
+                    [disabled]="!row.latestInputId"
+                    (clicked)="openBranchLatest(row)">
+                    Open
+                  </ui-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="workspace-card">
+        <div class="section-head">
+          <h3>Processed Month History</h3>
+          <span class="muted">Last 12 cycles</span>
+        </div>
+        <div class="table-wrap compact" *ngIf="cycleHistoryRows.length; else noCycleRows">
+          <table>
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Total</th>
+                <th>Pending</th>
+                <th>Approvals</th>
+                <th>Exceptions</th>
+                <th>Completed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of cycleHistoryRows; trackBy: trackById">
+                <td>{{ row.periodLabel }}</td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.pending }}</td>
+                <td>{{ row.approvals }}</td>
+                <td>{{ row.exceptions }}</td>
+                <td>{{ row.completed }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="workspace-grid mb-6">
+      <article class="workspace-card">
+        <div class="section-head">
+          <h3>Pending Inputs</h3>
+          <span class="muted">Requires client action</span>
+        </div>
+        <div class="table-wrap" *ngIf="pendingInputs.length; else noPendingRows">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Branch</th>
+                <th>Period</th>
+                <th>Status</th>
+                <th>Files</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of pendingInputs; trackBy: trackById">
+                <td>{{ row.title }}</td>
+                <td>{{ toBranchLabel(row.branchId) }}</td>
+                <td>{{ periodLabel(row) }}</td>
+                <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
+                <td>{{ row.filesCount }}</td>
+                <td>
+                  <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Open</ui-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="workspace-card">
+        <div class="section-head">
+          <h3>Approval Queue</h3>
+          <span class="muted">Awaiting payroll processing</span>
+        </div>
+        <div class="table-wrap" *ngIf="approvalQueue.length; else noApprovalRows">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Branch</th>
+                <th>Period</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of approvalQueue; trackBy: trackById">
+                <td>{{ row.title }}</td>
+                <td>{{ toBranchLabel(row.branchId) }}</td>
+                <td>{{ periodLabel(row) }}</td>
+                <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
+                <td>{{ row.createdAt | date:'dd MMM yyyy' }}</td>
+                <td>
+                  <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Open</ui-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="workspace-card mb-6">
+      <div class="section-head">
+        <h3>Exception List</h3>
+        <span class="muted">Needs clarification or rejected</span>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <ui-form-input
-          id="title"
-          label="Title"
-          type="text"
-          [(ngModel)]="newInput.title"
-          placeholder="January Payroll Input">
-        </ui-form-input>
+      <div class="table-wrap" *ngIf="exceptionList.length; else noExceptions">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Branch</th>
+              <th>Period</th>
+              <th>Status</th>
+              <th>Files</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of exceptionList; trackBy: trackById">
+              <td>{{ row.title }}</td>
+              <td>{{ toBranchLabel(row.branchId) }}</td>
+              <td>{{ periodLabel(row) }}</td>
+              <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
+              <td>{{ row.filesCount }}</td>
+              <td>
+                <ui-button size="sm" variant="secondary" (clicked)="selectInput(row)">Drilldown</ui-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-        <ui-form-input
-          id="year"
-          label="Year"
-          type="number"
-          [(ngModel)]="newInput.periodYear">
-        </ui-form-input>
-
-        <ui-form-select
-          id="month"
-          label="Month"
-          [(ngModel)]="newInput.periodMonth"
-          [options]="monthOptions">
-        </ui-form-select>
-
-        <div class="form-group">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Upload Excel</label>
-          <input type="file" (change)="onInputFileSelected($event)" class="w-full" />
+    <section class="workspace-grid mb-6">
+      <article class="workspace-card">
+        <div class="section-head">
+          <h3>Create Payroll Input</h3>
+          <span class="muted">Start a new cycle input for payroll team</span>
         </div>
-        <div class="md:col-span-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-          <textarea
-            [(ngModel)]="newInput.notes"
-            rows="3"
-            class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"
-            placeholder="Optional notes for payroll team"
-          ></textarea>
+        <div class="form-grid">
+          <label class="wide">
+            <span>Title</span>
+            <input type="text" [(ngModel)]="newInput.title" placeholder="March payroll input" />
+          </label>
+          <label>
+            <span>Year</span>
+            <input type="number" [(ngModel)]="newInput.periodYear" />
+          </label>
+          <label>
+            <span>Month</span>
+            <select [(ngModel)]="newInput.periodMonth">
+              <option *ngFor="let m of monthOptions" [ngValue]="m.value" [disabled]="m.value === 0">
+                {{ m.label }}
+              </option>
+            </select>
+          </label>
+          <label>
+            <span>Branch ID</span>
+            <input type="text" [(ngModel)]="newInput.branchId" placeholder="Optional" />
+          </label>
+          <label class="wide">
+            <span>Notes</span>
+            <textarea rows="3" [(ngModel)]="newInput.notes" placeholder="Notes for payroll team"></textarea>
+          </label>
+          <label class="wide">
+            <span>Initial Attachment</span>
+            <input type="file" (change)="onCreateFileSelected($event)" />
+          </label>
         </div>
-        <div class="md:col-span-4 flex items-center gap-3">
-          <ui-button variant="primary" size="md" (clicked)="createInput()" [disabled]="creatingInput">
-            {{ creatingInput ? 'Creating...' : 'Create Input' }}
+        <div class="inline-actions">
+          <ui-button variant="primary" (clicked)="createInput()" [disabled]="creatingInput" [loading]="creatingInput">
+            Create Input
           </ui-button>
-          <span *ngIf="inputError" class="text-sm text-red-600">{{ inputError }}</span>
+          <span class="error" *ngIf="inputError">{{ inputError }}</span>
         </div>
-      </div>
-    </div>
+      </article>
 
-    <!-- Filters Card -->
-    <div class="card mb-6" *ngIf="!selectedInput">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Filter Payroll Inputs</h3>
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-        </svg>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <ui-form-select
-          id="filterYear"
-          label="Year"
-          [(ngModel)]="filters.periodYear"
-          (ngModelChange)="loadInputs()"
-          [options]="filterYearOptions">
-        </ui-form-select>
-
-        <ui-form-select
-          id="filterMonth"
-          label="Month"
-          [(ngModel)]="filters.periodMonth"
-          (ngModelChange)="loadInputs()"
-          [options]="monthOptions">
-        </ui-form-select>
-
-        <ui-form-select
-          id="filterStatus"
-          label="Status"
-          [(ngModel)]="filters.status"
-          (ngModelChange)="loadInputs()"
-          [options]="filterStatusOptions">
-        </ui-form-select>
-
-        <div class="flex items-end">
-          <ui-button variant="primary" size="md" class="w-full" (clicked)="loadInputs()">
-            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-            Refresh
-          </ui-button>
+      <article class="workspace-card" *ngIf="selectedInput; else noSelection">
+        <div class="section-head">
+          <h3>Input Detail: {{ selectedInput.title }}</h3>
+          <span class="muted">{{ selectedInput ? periodLabel(selectedInput) : '' }}</span>
         </div>
-      </div>
-    </div>
-
-    <!-- Inputs List -->
-    <div *ngIf="!selectedInput" class="card">
-      <ui-data-table
-        [columns]="inputColumns"
-        [data]="inputs"
-        [loading]="loading"
-        emptyMessage="No payroll inputs found for the selected period.">
-        <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status"></ui-status-badge>
-        </ng-template>
-        <ng-template uiTableCell="actions" let-row>
-          <ui-button variant="primary" size="sm" (clicked)="selectInput(row)">
-            View Details
-          </ui-button>
-        </ng-template>
-      </ui-data-table>
-    </div>
-
-    <!-- Input Details -->
-    <div *ngIf="selectedInput" class="space-y-6">
-      <!-- Detail Header -->
-      <div class="card">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-4">
-            <div>
-              <h3 class="text-xl font-semibold text-gray-900">
-                Payroll Input: {{ selectedInput.periodMonth | number:'2.0-0' }}/{{ selectedInput.periodYear }}
-              </h3>
-              <span [ngClass]="getStatusClass(selectedInput.status)" class="badge mt-2 inline-block">
-                {{ selectedInput.status }}
-              </span>
-            </div>
+        <div class="detail-top">
+          <div>
+            <div class="label">Branch</div>
+            <div>{{ toBranchLabel(selectedInput.branchId) }}</div>
           </div>
-          <ui-button variant="secondary" (clicked)="backToInputsList()">
-            Back to List
-          </ui-button>
-        </div>
-      </div>
-
-      <!-- Status History -->
-      <div class="card">
-        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Status History
-        </h4>
-        <div class="space-y-4">
-          <div *ngFor="let h of statusHistory" class="flex gap-4">
-            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-statco-blue-light/10 flex items-center justify-center">
-              <div class="w-3 h-3 rounded-full bg-statco-blue-light"></div>
-            </div>
-            <div class="flex-grow">
-              <div class="font-medium text-gray-900">{{ h.newStatus }}</div>
-              <div class="text-sm text-gray-600 mt-0.5">{{ formatDate(h.changedAt) }}</div>
-              <div *ngIf="h.remarks" class="text-sm text-gray-500 mt-1 italic">{{ h.remarks }}</div>
-            </div>
+          <div>
+            <div class="label">Status</div>
+            <ui-status-badge [status]="selectedInput.status"></ui-status-badge>
+          </div>
+          <div>
+            <div class="label">Created</div>
+            <div>{{ selectedInput.createdAt | date:'dd MMM yyyy, hh:mm a' }}</div>
           </div>
         </div>
-        <div *ngIf="statusHistory.length === 0" class="text-center py-8">
-          <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <p class="mt-2 text-sm text-gray-500">No status history available.</p>
-        </div>
-      </div>
 
-      <!-- Files -->
-      <div class="card">
-        <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          Uploaded Files
-        </h4>
-        <div class="space-y-2">
-          <div *ngFor="let file of inputFiles" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div class="flex-shrink-0">
-              <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-              </svg>
-            </div>
-            <div class="flex-grow">
-              <div class="font-medium text-gray-900">{{ file.fileName }}</div>
-              <div class="text-sm text-gray-600 mt-0.5">
-                Uploaded: {{ formatDate(file.createdAt) }}
-              </div>
-            </div>
-            <div>
-              <ui-button variant="secondary" (clicked)="downloadInputFile(file)">Download</ui-button>
-            </div>
-          </div>
-        </div>
-        <div *ngIf="inputFiles.length === 0" class="text-center py-8">
-          <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-          </svg>
-          <p class="mt-2 text-sm text-gray-500">No files uploaded yet.</p>
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="card" *ngIf="selectedInput.status === 'DRAFT'">
-        <h4 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h4>
-        <div class="flex gap-3">
-          <ui-button variant="primary" (clicked)="updateStatus('SUBMITTED')" [disabled]="updatingStatus" [loading]="updatingStatus">
-            Submit for Approval
+        <div class="inline-actions mb-4">
+          <ui-button
+            variant="primary"
+            [disabled]="!selectedInput || !canSubmit(selectedInput) || actionBusy"
+            [loading]="actionBusy"
+            (clicked)="submitSelectedInput()">
+            Submit/Re-submit
           </ui-button>
-          <ui-button variant="secondary" (clicked)="updateStatus('CANCELLED')" [disabled]="updatingStatus" [loading]="updatingStatus">
+          <ui-button
+            variant="secondary"
+            [disabled]="!selectedInput || !canCancel(selectedInput) || actionBusy"
+            [loading]="actionBusy"
+            (clicked)="cancelSelectedInput()">
             Cancel
           </ui-button>
+          <ui-button variant="ghost" [disabled]="detailLoading" (clicked)="refreshSelectedInput()">Reload Detail</ui-button>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Registers Tab -->
-  <div *ngIf="activeTab === 'registers'">
-    <!-- Filters Card -->
-    <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Filter Registers & Reports</h3>
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-        </svg>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <ui-form-select
-          id="regYear"
-          label="Year"
-          [(ngModel)]="registerFilters.periodYear"
-          (ngModelChange)="loadRegisters()"
-          [options]="yearOptions">
-        </ui-form-select>
+        <label class="mb-4 block">
+          <span class="label">Remarks for status update</span>
+          <textarea rows="2" [(ngModel)]="detailRemarks" placeholder="Optional remarks"></textarea>
+        </label>
 
-        <ui-form-select
-          id="regMonth"
-          label="Month"
-          [(ngModel)]="registerFilters.periodMonth"
-          (ngModelChange)="loadRegisters()"
-          [options]="monthOptions">
-        </ui-form-select>
-
-        <ui-form-select
-          id="regType"
-          label="Register Type"
-          [(ngModel)]="registerFilters.registerType"
-          (ngModelChange)="loadRegisters()"
-          [options]="registerTypeOptions">
-        </ui-form-select>
-
-        <div class="flex items-end">
-          <ui-button variant="primary" size="md" class="w-full" (clicked)="loadRegisters()">
-            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-            Refresh
-          </ui-button>
+        <div class="uploader mb-4">
+          <label>
+            <span>Doc Type</span>
+            <input type="text" [(ngModel)]="detailDocType" />
+          </label>
+          <label class="wide">
+            <span>Attachment</span>
+            <input type="file" (change)="onDetailFileSelected($event)" />
+          </label>
+          <div class="actions">
+            <ui-button
+              variant="secondary"
+              [disabled]="!detailUploadFile || uploadingFile"
+              [loading]="uploadingFile"
+              (clicked)="uploadDetailAttachment()">
+              Upload
+            </ui-button>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Registers Table -->
-    <div class="card">
-      <ui-data-table
-        [columns]="registerColumns"
-        [data]="registers"
-        emptyMessage="No registers found for the selected period.">
-        <ng-template uiTableCell="registerType" let-value>
-          <span class="badge badge-info">{{ value }}</span>
-        </ng-template>
-        <ng-template uiTableCell="actions" let-row>
-          <ui-button variant="primary" size="sm" (clicked)="downloadRegister(row)">
-            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Download
-          </ui-button>
-        </ng-template>
-      </ui-data-table>
-    </div>
-  </div>
+        <ui-loading-spinner *ngIf="detailLoading" text="Loading details..." size="md"></ui-loading-spinner>
+
+        <div *ngIf="!detailLoading" class="detail-grid">
+          <div>
+            <h4>Status Timeline</h4>
+            <div class="timeline" *ngIf="statusHistory.length; else noHistory">
+              <article class="timeline-item" *ngFor="let item of statusHistory; trackBy: trackById">
+                <div class="dot"></div>
+                <div class="content">
+                  <div class="event">
+                    {{ item.fromStatus || 'START' }} -> {{ item.toStatus }}
+                  </div>
+                  <div class="time">{{ item.changedAt | date:'dd MMM yyyy, hh:mm a' }}</div>
+                  <div class="remarks" *ngIf="item.remarks">{{ item.remarks }}</div>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div>
+            <h4>Attachments</h4>
+            <div class="files" *ngIf="inputFiles.length; else noFiles">
+              <article class="file-row" *ngFor="let file of inputFiles; trackBy: trackById">
+                <div>
+                  <div class="name">{{ file.fileName }}</div>
+                  <div class="meta">{{ file.createdAt | date:'dd MMM yyyy, hh:mm a' }}</div>
+                </div>
+                <ui-button size="sm" variant="secondary" (clicked)="downloadInputFile(file)">Download</ui-button>
+              </article>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </ng-container>
+
+  <ng-template #noBranchRows>
+    <ui-empty-state title="No branch data" description="No branch payroll status found for current filters."></ui-empty-state>
+  </ng-template>
+  <ng-template #noCycleRows>
+    <ui-empty-state title="No cycle history" description="Processed month history will appear once inputs are created."></ui-empty-state>
+  </ng-template>
+  <ng-template #noPendingRows>
+    <ui-empty-state title="No pending inputs" description="No inputs require client action for this selection."></ui-empty-state>
+  </ng-template>
+  <ng-template #noApprovalRows>
+    <ui-empty-state title="Approval queue is clear" description="No submitted inputs are waiting in queue."></ui-empty-state>
+  </ng-template>
+  <ng-template #noExceptions>
+    <ui-empty-state title="No exceptions" description="No needs-clarification or rejected inputs in current selection."></ui-empty-state>
+  </ng-template>
+  <ng-template #noSelection>
+    <article class="workspace-card">
+      <ui-empty-state title="Select an input" description="Open any item from pending, approval, or exception lists to see detail."></ui-empty-state>
+    </article>
+  </ng-template>
+  <ng-template #noHistory>
+    <ui-empty-state title="No timeline" description="Status history will appear after transitions."></ui-empty-state>
+  </ng-template>
+  <ng-template #noFiles>
+    <ui-empty-state title="No attachments" description="Upload input files for payroll processing."></ui-empty-state>
+  </ng-template>
 </div>

@@ -1,10 +1,9 @@
 <div class="page-container">
   <ui-page-header
-    title="Returns & Filings"
-    subtitle="Upload and track yearly, half-yearly, and quarterly compliance returns">
+    title="Periodic Returns & Filings"
+    subtitle="Quarterly, half-yearly, and yearly statutory upload workflow for branch operations">
   </ui-page-header>
 
-  <!-- Frequency Tabs + Year Filter -->
   <div class="filter-bar">
     <div class="frequency-tabs" *ngIf="showFrequencyTabs">
       <button
@@ -27,108 +26,185 @@
     <select class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
       <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
     </select>
+
+    <select class="filter-select" [(ngModel)]="selectedStatus" (change)="onFiltersChanged()">
+      <option value="ALL">All statuses</option>
+      <option value="NOT_UPLOADED">Pending upload</option>
+      <option value="SUBMITTED">Submitted</option>
+      <option value="RESUBMITTED">Resubmitted</option>
+      <option value="REUPLOAD_REQUIRED">Returned by CRM</option>
+      <option value="APPROVED">Approved</option>
+      <option value="OVERDUE">Overdue</option>
+    </select>
+
+    <select class="filter-select" [(ngModel)]="selectedLawArea" (change)="onFiltersChanged()">
+      <option value="ALL">All law areas</option>
+      <option *ngFor="let law of lawAreas" [value]="law">{{ law }}</option>
+    </select>
+
+    <select class="filter-select" [(ngModel)]="selectedCategory" (change)="onFiltersChanged()">
+      <option value="ALL">All categories</option>
+      <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+    </select>
+
+    <input
+      class="filter-input"
+      type="text"
+      placeholder="Search return name / code"
+      [(ngModel)]="searchTerm"
+      (input)="onFiltersChanged()">
   </div>
 
-  <!-- Loading -->
-  <div *ngIf="loading">
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-value">{{ totalItems }}</div>
+      <div class="summary-label">Total Applicable</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value">{{ uploadedCount }}</div>
+      <div class="summary-label">Uploaded</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value">{{ pendingCount }}</div>
+      <div class="summary-label">Pending</div>
+    </div>
+    <div class="summary-card summary-card--warn">
+      <div class="summary-value">{{ returnedCount }}</div>
+      <div class="summary-label">Returned by CRM</div>
+    </div>
+    <div class="summary-card summary-card--alert">
+      <div class="summary-value">{{ overdueCount }}</div>
+      <div class="summary-label">Overdue</div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading-block">
     <div *ngFor="let s of [1,2,3,4,5,6]" class="skeleton skeleton--row"></div>
   </div>
 
-  <!-- Table -->
-  <ng-container *ngIf="!loading">
-    <div *ngIf="checklist.length === 0" class="text-center py-12 text-gray-400">
-      <svg class="mx-auto w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-      </svg>
-      <p class="text-sm font-medium">No returns found for {{ selectedFrequency | lowercase }} filings in {{ selectedYear }}.</p>
-    </div>
+  <div *ngIf="!loading && !filteredChecklist.length" class="empty-state">
+    No returns found for {{ selectedFrequency | lowercase }} filings in {{ selectedYear }}.
+  </div>
 
-    <div *ngIf="checklist.length > 0" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <table class="doc-table">
-        <thead>
-          <tr>
-            <th style="width: 30%;">Return Name</th>
-            <th style="width: 12%;">Law Area</th>
-            <th style="width: 12%;">Applicable For</th>
-            <th style="width: 14%;">Status</th>
-            <th style="width: 10%;">Version</th>
-            <th style="width: 10%;">Due Date</th>
-            <th style="width: 12%;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of checklist">
-            <td>
-              <div class="font-medium">{{ item.returnName }}</div>
-              <div class="text-xs text-gray-400 mt-0.5">{{ item.returnCode }}</div>
-            </td>
-            <td>
-              <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ item.lawArea }}</span>
-            </td>
-            <td>
-              <span class="text-xs text-gray-500">{{ item.frequency }}</span>
-            </td>
-            <td>
-              <span class="inline-flex items-center">
-                <span class="badge-dot" [ngClass]="getStatusColor(item)"></span>
-                <ui-status-badge [status]="getStatus(item)" size="sm"></ui-status-badge>
-              </span>
-              <div *ngIf="item.document?.remarks" class="remarks-text">
-                <strong>Review:</strong> {{ item.document?.remarks }}
-              </div>
-              <div *ngIf="item.document?.uploaderRemarks" class="text-xs text-blue-600 italic mt-0.5">
-                <strong>Uploader:</strong> {{ item.document?.uploaderRemarks }}
-              </div>
-            </td>
-            <td>
-              <span *ngIf="item.document">v{{ item.document.version }}</span>
-              <span *ngIf="!item.document" class="text-gray-300">—</span>
-            </td>
-            <td>
-              <span *ngIf="item.document?.dueDate" class="text-xs text-gray-500">
-                {{ item.document?.dueDate | date:'dd MMM yyyy' }}
-              </span>
-              <span *ngIf="!item.document?.dueDate && item.dueDay" class="text-xs text-gray-400">
-                Day {{ item.dueDay }}
-              </span>
-              <span *ngIf="!item.document?.dueDate && !item.dueDay" class="text-gray-300">—</span>
-            </td>
-            <td>
-              <div class="flex items-center gap-2">
-                <button
-                  *ngIf="canUpload(item)"
-                  class="btn-outline"
-                  (click)="openUploadModal(item)">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                  </svg>
-                  Upload
-                </button>
-                <button
-                  *ngIf="item.document?.uploadedFileName"
-                  class="btn-outline"
-                  (click)="downloadFile(item)">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                  </svg>
-                  View
-                </button>
-                <span *ngIf="item.document?.isLocked" class="text-xs text-green-600 font-medium flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                  </svg>
-                  Locked
-                </span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </ng-container>
+  <div *ngIf="!loading && filteredChecklist.length" class="workbench-grid">
+    <section class="table-panel">
+      <div class="panel-head">
+        <h3>Upload Checklist</h3>
+        <span>{{ filteredChecklist.length }} item(s)</span>
+      </div>
+      <div class="table-wrap">
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Return Name</th>
+              <th>Law Area</th>
+              <th>Period</th>
+              <th>Due Date</th>
+              <th>Workflow</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let item of filteredChecklist; trackBy: trackByReturnCode"
+              [class.row-active]="selectedItem?.returnCode === item.returnCode"
+              (click)="selectItem(item)">
+              <td>
+                <div class="font-medium">{{ item.returnName }}</div>
+                <div class="meta-code">{{ item.returnCode }}</div>
+              </td>
+              <td>
+                <span class="meta-pill">{{ item.lawArea }}</span>
+              </td>
+              <td>{{ periodLabel() }}</td>
+              <td>{{ dueDateLabel(item) }}</td>
+              <td>
+                <span [class]="workflowClass(item)">{{ workflowState(item) }}</span>
+              </td>
+              <td>
+                <ui-status-badge [status]="statusOf(item)" size="sm"></ui-status-badge>
+              </td>
+              <td>
+                <div class="action-row">
+                  <button
+                    *ngIf="canUpload(item)"
+                    class="btn-outline"
+                    (click)="openUploadModal(item); $event.stopPropagation()">
+                    {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Resubmit' : 'Upload' }}
+                  </button>
+                  <button
+                    *ngIf="item.document?.uploadedFileName"
+                    class="btn-outline"
+                    (click)="downloadFile(item); $event.stopPropagation()">
+                    View
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-  <!-- Upload Modal -->
+    <aside class="detail-panel">
+      <div class="panel-head">
+        <h3>Detail & Notes</h3>
+        <span>{{ selectedItem?.returnCode || 'No selection' }}</span>
+      </div>
+
+      <ng-container *ngIf="selectedItem as item; else noSelection">
+        <div class="detail-body">
+          <div class="detail-title">{{ item.returnName }}</div>
+          <div class="detail-grid">
+            <div class="detail-cell">
+              <span class="label">Statutory Period</span>
+              <span class="value">{{ periodLabel() }}</span>
+            </div>
+            <div class="detail-cell">
+              <span class="label">Due</span>
+              <span class="value">{{ dueDateLabel(item) }}</span>
+            </div>
+            <div class="detail-cell">
+              <span class="label">Category</span>
+              <span class="value">{{ item.category || 'Other' }}</span>
+            </div>
+            <div class="detail-cell">
+              <span class="label">Ack/Reference</span>
+              <span class="value">{{ extractAckRef(item) || '-' }}</span>
+            </div>
+          </div>
+
+          <div class="note-card" *ngIf="item.document?.remarks">
+            <strong>Reviewer note:</strong> {{ item.document?.remarks }}
+          </div>
+          <div class="note-card note-card--uploader" *ngIf="item.document?.uploaderRemarks">
+            <strong>Uploader note:</strong> {{ item.document?.uploaderRemarks }}
+          </div>
+
+          <div class="timeline">
+            <div class="timeline-title">Notes History</div>
+            <div *ngIf="!timeline.length" class="timeline-empty">No history available for this filing item.</div>
+            <div class="timeline-item" *ngFor="let event of timeline">
+              <div class="dot"></div>
+              <div class="content">
+                <div class="head">
+                  <span>{{ event.title }}</span>
+                  <span>{{ event.timestamp | date:'dd MMM yyyy, HH:mm' }}</span>
+                </div>
+                <div *ngIf="event.note" class="event-note">{{ event.note }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-template #noSelection>
+        <div class="no-selection">Select an item to view filing details and reviewer notes.</div>
+      </ng-template>
+    </aside>
+  </div>
+
   <ui-modal
     *ngIf="showUploadModal"
     [isOpen]="showUploadModal"
@@ -143,7 +219,8 @@
         <strong>Period:</strong>
         <span *ngIf="selectedFrequency === 'QUARTERLY'">Q{{ selectedQuarter }} </span>
         <span *ngIf="selectedFrequency === 'HALF_YEARLY'">H{{ selectedHalf }} </span>
-        {{ selectedYear }}
+        {{ selectedYear }}<br>
+        <strong>Submission State:</strong> Submitted to CRM
       </div>
 
       <div
@@ -162,7 +239,7 @@
           <svg class="mx-auto w-10 h-10 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
           </svg>
-          <p class="text-sm text-gray-500">Drag & drop file here, or <span class="text-blue-600 font-medium">browse</span></p>
+          <p class="text-sm text-gray-500">Drag and drop file here, or <span class="text-blue-600 font-medium">browse</span></p>
           <p class="text-xs text-gray-400 mt-1">PDF, PNG, JPEG, XLS/XLSX (max 10 MB)</p>
         </div>
 
@@ -175,14 +252,22 @@
         </div>
       </div>
 
-      <!-- Remarks -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Remarks (Optional)</label>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Acknowledgement / Reference No.</label>
+        <input
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          type="text"
+          [(ngModel)]="acknowledgementRef"
+          placeholder="Enter ARN / acknowledgement / challan reference">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Comments (Optional)</label>
         <textarea
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           rows="2"
           [(ngModel)]="uploadRemarks"
-          placeholder="Add any remarks for the reviewer..."></textarea>
+          placeholder="Add filing comments for CRM reviewer..."></textarea>
       </div>
 
       <div class="flex justify-end gap-3 pt-2">
@@ -195,7 +280,7 @@
           class="btn-primary"
           [disabled]="!selectedFile || uploading"
           (click)="submitUpload()">
-          {{ uploading ? 'Uploading...' : 'Upload Return' }}
+          {{ uploading ? 'Submitting...' : 'Submit to CRM' }}
         </button>
       </div>
     </div>

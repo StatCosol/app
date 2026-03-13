@@ -356,7 +356,7 @@ export class AdminNotificationsComponent implements OnInit, OnDestroy {
           this.applyLocalFilters();
         },
         error: () => {
-          this.toast.error('Could not open thread detail.');
+          this.toast.error('Load failed', 'Could not open thread detail.');
         },
       });
   }
@@ -381,12 +381,12 @@ export class AdminNotificationsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Message added to thread.');
+          this.toast.success('Reply sent', 'Message added to thread.');
           this.openTicket(this.selectedId);
           this.loadTickets();
         },
         error: (err: any) => {
-          this.toast.error(err?.error?.message || 'Could not send reply.');
+          this.toast.error('Send failed', err?.error?.message || 'Could not send reply.');
         },
       });
   }
@@ -395,7 +395,7 @@ export class AdminNotificationsComponent implements OnInit, OnDestroy {
     if (!this.selectedId || this.updatingStatus) return;
     const blockedReason = this.getStatusTransitionBlocker(status);
     if (blockedReason) {
-      this.toast.warning(blockedReason);
+      this.toast.warning('Transition blocked', blockedReason);
       return;
     }
 
@@ -411,12 +411,12 @@ export class AdminNotificationsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success(`Thread marked ${status.replace('_', ' ').toLowerCase()}.`);
+          this.toast.success('Status updated', `Thread marked ${status.replace('_', ' ').toLowerCase()}.`);
           this.openTicket(this.selectedId);
           this.loadTickets();
         },
         error: (err: any) => {
-          this.toast.error(err?.error?.message || 'Could not update thread status.');
+          this.toast.error('Status update failed', err?.error?.message || 'Could not update thread status.');
         },
       });
   }

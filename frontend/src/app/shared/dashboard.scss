@@ -102,14 +102,191 @@ td:last-child, th:last-child {
   color: #9a3412;
 }
 
+// ═══════ Branch-style KPI Cards (shared) ═══════
+.kpi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 1024px) {
+  .kpi-cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .kpi-cards-grid { grid-template-columns: 1fr; }
+}
+
+.kpi-cards-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 768px) {
+  .kpi-cards-grid-5 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .kpi-cards-grid-5 { grid-template-columns: 1fr; }
+}
+
+.kpi-cards-grid-6 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 768px) {
+  .kpi-cards-grid-6 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .kpi-cards-grid-6 { grid-template-columns: 1fr; }
+}
+
+.kpi-cards-grid-8 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 768px) {
+  .kpi-cards-grid-8 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .kpi-cards-grid-8 { grid-template-columns: 1fr; }
+}
+
+.kpi-tile {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-decoration: none;
+  color: inherit;
+  cursor: default;
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+}
+a.kpi-tile { cursor: pointer; }
+
+.kpi-tile--blue    { border-left: 4px solid #3b82f6; }
+.kpi-tile--purple  { border-left: 4px solid #8b5cf6; }
+.kpi-tile--amber   { border-left: 4px solid #f59e0b; }
+.kpi-tile--red     { border-left: 4px solid #ef4444; }
+.kpi-tile--green   { border-left: 4px solid #10b981; }
+.kpi-tile--gray    { border-left: 4px solid #94a3b8; }
+.kpi-tile--emerald { border-left: 4px solid #059669; }
+
+.kpi-tile__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kpi-tile__body { flex: 1; min-width: 0; }
+.kpi-tile__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kpi-tile__value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.2;
+  margin: 0.25rem 0;
+}
+.kpi-tile__detail {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+// Status row (compliance %, uploads, observations)
+.status-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 768px) {
+  .status-cards-grid { grid-template-columns: 1fr; }
+}
+
+.status-tile {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.status-tile__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.status-tile__title { font-size: 0.875rem; font-weight: 600; color: #334155; }
+.status-tile__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.status-tile__note { font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; }
+.status-tile__bar {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.status-tile__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+// Section card (tables, actions)
+.section-tile {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 1.25rem;
+}
+.section-tile__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.section-tile__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
 // Mobile-first responsive tables
 @media (max-width: 768px) {
   table {
-    min-width: 100%; // Let it shrink to fit container
-    font-size: 13px; // Slightly smaller text on mobile
+    min-width: 100%;
+    font-size: 13px;
   }
   
   th, td {
-    padding: 8px 6px; // Reduce padding for mobile
+    padding: 8px 6px;
   }
 }

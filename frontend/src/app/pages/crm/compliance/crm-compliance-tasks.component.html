@@ -1,0 +1,181 @@
+<ui-page-header title="CRM Compliance Tasks" subtitle="Task approvals, rejections, and assignments"></ui-page-header>
+
+<div class="p-6">
+  <!-- ─── KPI Cards ─── -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6" *ngIf="kpis">
+    <button
+      class="bg-white rounded-lg border border-gray-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+      [class.ring-2]="status === ''"
+      [class.ring-statco-blue]="status === ''"
+      (click)="filterByStatus('')">
+      <div class="text-2xl font-bold text-gray-900">{{ kpis.total }}</div>
+      <div class="text-xs text-gray-500 mt-1">Total</div>
+    </button>
+
+    <button
+      class="bg-white rounded-lg border border-red-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+      [class.ring-2]="status === 'OVERDUE'"
+      [class.ring-red-500]="status === 'OVERDUE'"
+      (click)="filterByStatus('OVERDUE')">
+      <div class="text-2xl font-bold text-red-600">{{ kpis.overdue }}</div>
+      <div class="text-xs text-red-500 mt-1">Overdue</div>
+    </button>
+
+    <button
+      class="bg-white rounded-lg border border-amber-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+      (click)="filterByStatus('PENDING')">
+      <div class="text-2xl font-bold text-amber-600">{{ kpis.dueToday }}</div>
+      <div class="text-xs text-amber-500 mt-1">Due Today</div>
+    </button>
+
+    <button
+      class="bg-white rounded-lg border border-blue-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+      [class.ring-2]="status === 'SUBMITTED'"
+      [class.ring-blue-500]="status === 'SUBMITTED'"
+      (click)="filterByStatus('SUBMITTED')">
+      <div class="text-2xl font-bold text-blue-600">{{ kpis.submitted }}</div>
+      <div class="text-xs text-blue-500 mt-1">Awaiting Review</div>
+    </button>
+
+    <button
+      class="bg-white rounded-lg border border-green-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+      [class.ring-2]="status === 'APPROVED'"
+      [class.ring-green-500]="status === 'APPROVED'"
+      (click)="filterByStatus('APPROVED')">
+      <div class="text-2xl font-bold text-green-600">{{ kpis.approved }}</div>
+      <div class="text-xs text-green-500 mt-1">Approved</div>
+    </button>
+  </div>
+
+  <!-- ─── Secondary KPI Row ─── -->
+  <div class="grid grid-cols-3 md:grid-cols-4 gap-3 mb-6" *ngIf="kpis">
+    <button
+      class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
+      [class.ring-2]="status === 'PENDING'"
+      [class.ring-yellow-400]="status === 'PENDING'"
+      (click)="filterByStatus('PENDING')">
+      <span class="font-semibold text-yellow-600">{{ kpis.pending }}</span>
+      <span class="text-gray-500 ml-1">Pending</span>
+    </button>
+    <button
+      class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
+      [class.ring-2]="status === 'IN_PROGRESS'"
+      [class.ring-indigo-400]="status === 'IN_PROGRESS'"
+      (click)="filterByStatus('IN_PROGRESS')">
+      <span class="font-semibold text-indigo-600">{{ kpis.inProgress }}</span>
+      <span class="text-gray-500 ml-1">In Progress</span>
+    </button>
+    <button
+      class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
+      [class.ring-2]="status === 'REJECTED'"
+      [class.ring-orange-400]="status === 'REJECTED'"
+      (click)="filterByStatus('REJECTED')">
+      <span class="font-semibold text-orange-600">{{ kpis.rejected }}</span>
+      <span class="text-gray-500 ml-1">Rejected</span>
+    </button>
+    <div
+      class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center text-sm"
+      *ngIf="kpis.dueSoon">
+      <span class="font-semibold text-amber-600">{{ kpis.dueSoon }}</span>
+      <span class="text-gray-500 ml-1">Due in 3 days</span>
+    </div>
+  </div>
+
+  <!-- ─── Filters ─── -->
+  <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+      <input
+        class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
+        placeholder="Client ID"
+        [(ngModel)]="clientId" />
+
+      <input
+        class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
+        placeholder="Branch ID"
+        [(ngModel)]="branchId" />
+
+      <input
+        class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
+        placeholder="Month Key (YYYY-MM)"
+        [(ngModel)]="monthKey" />
+
+      <select
+        class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
+        [(ngModel)]="status">
+        <option value="">All Status</option>
+        <option value="OVERDUE">OVERDUE</option>
+        <option value="PENDING">PENDING</option>
+        <option value="IN_PROGRESS">IN_PROGRESS</option>
+        <option value="SUBMITTED">SUBMITTED</option>
+        <option value="APPROVED">APPROVED</option>
+        <option value="REJECTED">REJECTED</option>
+      </select>
+
+      <input
+        class="border border-gray-300 rounded-md px-3 py-2 text-sm md:col-span-2 focus:ring-statco-blue focus:border-statco-blue"
+        placeholder="Search (task name / code)"
+        [(ngModel)]="q"
+        (keyup.enter)="applyFilters()" />
+    </div>
+
+    <div class="flex items-center gap-3 mt-3">
+      <ui-button variant="primary" size="sm" (clicked)="applyFilters()">Apply Filters</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="resetFilters()">Reset</ui-button>
+    </div>
+  </div>
+
+  <!-- ─── Bulk Actions Bar ─── -->
+  <div
+    class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-between"
+    *ngIf="selectedCount > 0">
+    <span class="text-sm text-blue-800 font-medium">{{ selectedCount }} task(s) selected</span>
+    <div class="flex items-center gap-2">
+      <ui-button variant="primary" size="sm" (clicked)="bulkApprove()">Bulk Approve</ui-button>
+      <ui-button variant="danger" size="sm" (clicked)="bulkReject()">Bulk Reject</ui-button>
+    </div>
+  </div>
+
+  <!-- ─── States ─── -->
+  <ui-loading-spinner *ngIf="loading"></ui-loading-spinner>
+
+  <div *ngIf="error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+    {{ error }}
+  </div>
+
+  <!-- ─── Table ─── -->
+  <ui-data-table *ngIf="!loading"
+    [columns]="taskColumns" [data]="tasks" [loading]="loading"
+    [showPagination]="true" [totalItems]="total" [currentPage]="page" [pageSize]="limit"
+    (pageChange)="page = $event.page; load()"
+    emptyMessage="No tasks found.">
+    <ng-template uiTableCell="select" let-row>
+      <input type="checkbox"
+        *ngIf="canReview(row.status)"
+        [checked]="selectedIds.has(row.id)"
+        (change)="toggleSelect(row.id)"
+        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+    </ng-template>
+    <ng-template uiTableCell="taskName" let-row>
+      <div class="text-sm font-medium text-gray-900">{{ row.taskName || row.complianceName || row.compliance?.complianceName || '-' }}</div>
+      <div class="text-xs text-gray-500" *ngIf="row.taskCode">{{ row.taskCode }}</div>
+      <div class="text-xs text-gray-400 mt-0.5" *ngIf="row.remarks">Remark: {{ row.remarks }}</div>
+    </ng-template>
+    <ng-template uiTableCell="branch" let-row>{{ row.branch?.branchName || row.branchId || '-' }}</ng-template>
+    <ng-template uiTableCell="dueDate" let-row>
+      <div class="text-sm text-gray-600">{{ row.dueDate | date:'mediumDate' }}</div>
+      <div class="text-xs mt-0.5" [class]="slaClass(row.dueDate, row.status)" *ngIf="slaLabel(row.dueDate, row.status)">
+        {{ slaLabel(row.dueDate, row.status) }}
+      </div>
+    </ng-template>
+    <ng-template uiTableCell="status" let-row>
+      <ui-status-badge [status]="row.status"></ui-status-badge>
+    </ng-template>
+    <ng-template uiTableCell="actions" let-row>
+      <div class="flex items-center justify-end gap-2" *ngIf="canReview(row.status)">
+        <ui-button variant="primary" size="sm" (clicked)="approve(row)">Approve</ui-button>
+        <ui-button variant="danger" size="sm" (clicked)="reject(row)">Reject</ui-button>
+      </div>
+      <span *ngIf="!canReview(row.status)" class="text-xs text-gray-400">—</span>
+    </ng-template>
+  </ui-data-table>
+</div>

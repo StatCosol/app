@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('sla_compliance_items')
 export class SlaComplianceItemEntity {
@@ -17,7 +23,12 @@ export class SlaComplianceItemEntity {
   @Column({ type: 'varchar', length: 20, default: 'MONTHLY' })
   frequency: string; // MONTHLY / QUARTERLY / ANNUAL / ONE_TIME
 
-  @Column({ name: 'default_priority', type: 'varchar', length: 15, default: 'MEDIUM' })
+  @Column({
+    name: 'default_priority',
+    type: 'varchar',
+    length: 15,
+    default: 'MEDIUM',
+  })
   defaultPriority: string;
 
   @Column({ name: 'default_sla_days', type: 'int', default: 5 })

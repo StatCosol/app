@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
@@ -26,6 +26,8 @@ export type ContractorDocumentReuploadDto = {
 
 @Injectable()
 export class ContractorDocumentsService {
+  private readonly logger = new Logger(ContractorDocumentsService.name);
+
   constructor(
     @InjectRepository(ContractorDocumentEntity)
     private readonly repo: Repository<ContractorDocumentEntity>,
@@ -82,7 +84,11 @@ export class ContractorDocumentsService {
     });
 
     const saved = await this.repo.save(row);
-    this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
+    this.riskCache
+      .invalidateBranch(saved.branchId)
+      .catch((e) =>
+        this.logger.warn('riskCache invalidation failed', e?.message),
+      );
     return {
       id: saved.id,
       contractorUserId: saved.contractorUserId,
@@ -223,7 +229,11 @@ export class ContractorDocumentsService {
     doc.reviewedAt = new Date();
 
     const saved = await this.repo.save(doc);
-    this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
+    this.riskCache
+      .invalidateBranch(saved.branchId)
+      .catch((e) =>
+        this.logger.warn('riskCache invalidation failed', e?.message),
+      );
     return {
       id: saved.id,
       status: saved.status,
@@ -276,7 +286,11 @@ export class ContractorDocumentsService {
     doc.expiryDate = null;
 
     const saved = await this.repo.save(doc);
-    this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
+    this.riskCache
+      .invalidateBranch(saved.branchId)
+      .catch((e) =>
+        this.logger.warn('riskCache invalidation failed', e?.message),
+      );
     return {
       id: saved.id,
       contractorUserId: saved.contractorUserId,
