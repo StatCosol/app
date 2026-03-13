@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, LeaveBalance, LeavePolicy, LeaveApplication } from '../ess-api.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
@@ -63,7 +64,7 @@ export class EssLeaveComponent implements OnInit, OnDestroy {
 
   leaveTypeOptions: SelectOption[] = [];
 
-  constructor(private api: EssApiService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
+  constructor(private api: EssApiService, private cdr: ChangeDetectorRef, private dialog: ConfirmDialogService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadAll();
@@ -142,7 +143,7 @@ export class EssLeaveComponent implements OnInit, OnDestroy {
   }
 
   async cancelApplication(app: LeaveApplication): Promise<void> {
-    if (!window.confirm('Are you sure you want to cancel this leave application?')) return;
+    if (!(await this.dialog.confirm('Cancel Leave', 'Are you sure you want to cancel this leave application?', { variant: 'danger', confirmText: 'Cancel Leave' }))) return;
     this.api.cancelLeave((app as any).id)
     .pipe(
       takeUntil(this.destroy$),

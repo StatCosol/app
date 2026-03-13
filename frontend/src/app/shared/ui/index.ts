@@ -37,3 +37,14 @@ export { EmptyStateComponent } from './empty-state/empty-state.component';
 // Loading Spinner
 export { LoadingSpinnerComponent } from './loading-spinner/loading-spinner.component';
 export type { SpinnerSize, SpinnerColor } from './loading-spinner/loading-spinner.component';
+
+// Confirm Dialog
+export { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
+export { ConfirmDialogService } from './confirm-dialog/confirm-dialog.service';
+export type { DialogConfig, DialogResult } from './confirm-dialog/confirm-dialog.service';
+
+// AI Risk Score
+export { AiRiskScoreComponent } from './ai-risk-score/ai-risk-score.component';
+
+// Branch Audit KPI
+export { BranchAuditKpiComponent } from './branch-audit-kpi/branch-audit-kpi.component';

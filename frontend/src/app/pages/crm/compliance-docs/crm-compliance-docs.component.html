@@ -117,39 +117,29 @@
   </ui-empty-state>
 
   <!-- Documents table -->
-  <div *ngIf="!loading && documents.length > 0" class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-    <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Category</th>
-          <th>Period</th>
-          <th>File</th>
-          <th>Uploaded</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let doc of documents">
-          <td class="font-medium text-gray-900">{{ doc.title }}</td>
-          <td>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{{ getCategoryLabel(doc.category) }}</span>
-            <span *ngIf="doc.subCategory" class="ml-1 text-xs text-gray-500">{{ doc.subCategory }}</span>
-          </td>
-          <td class="text-gray-600">
-            {{ doc.periodLabel || (doc.periodYear ? (doc.periodMonth ? monthOptions[(doc.periodMonth || 1) - 1]?.label + ' ' : '') + doc.periodYear : '—') }}
-          </td>
-          <td class="text-gray-500 text-xs">
-            {{ doc.fileName }}<br/>
-            <span class="text-gray-400">{{ formatFileSize(doc.fileSize) }}</span>
-          </td>
-          <td class="text-gray-500 text-xs">{{ doc.createdAt | date:'mediumDate' }}</td>
-          <td>
-            <a class="action-link mr-3" [href]="getDownloadUrl(doc.id)" target="_blank">Download</a>
-            <span class="delete-link" (click)="deleteDoc(doc)">Delete</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <ui-data-table *ngIf="!loading && documents.length > 0"
+    [columns]="docColumns" [data]="documents" [loading]="loading"
+    emptyMessage="No documents yet.">
+    <ng-template uiTableCell="title" let-row>
+      <span class="font-medium text-gray-900">{{ row.title }}</span>
+    </ng-template>
+    <ng-template uiTableCell="category" let-row>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{{ getCategoryLabel(row.category) }}</span>
+      <span *ngIf="row.subCategory" class="ml-1 text-xs text-gray-500">{{ row.subCategory }}</span>
+    </ng-template>
+    <ng-template uiTableCell="period" let-row>
+      {{ row.periodLabel || (row.periodYear ? (row.periodMonth ? monthOptions[(row.periodMonth || 1) - 1]?.label + ' ' : '') + row.periodYear : '—') }}
+    </ng-template>
+    <ng-template uiTableCell="file" let-row>
+      <span class="text-gray-500 text-xs">{{ row.fileName }}</span><br/>
+      <span class="text-gray-400 text-xs">{{ formatFileSize(row.fileSize) }}</span>
+    </ng-template>
+    <ng-template uiTableCell="createdAt" let-row>
+      <span class="text-gray-500 text-xs">{{ row.createdAt | date:'mediumDate' }}</span>
+    </ng-template>
+    <ng-template uiTableCell="actions" let-row>
+      <a class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3" [href]="getDownloadUrl(row.id)" target="_blank">Download</a>
+      <span class="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer" (click)="deleteDoc(row)">Delete</span>
+    </ng-template>
+  </ui-data-table>
 </div>

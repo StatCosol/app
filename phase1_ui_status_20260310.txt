@@ -1,0 +1,16 @@
+Phase-1 UI status
+Timestamp: 2026-03-10 12:13:12
+
+[Branch Monthly Compliance] route=FOUND componentRef=MISSING
+  routeHit: frontend/src/app\shared\compliance\branch-compliance.component.ts:146:    const target = isBranchUser ? '/branch/compliance/monthly' : '/client/monthly-uploads';
+[Branch Periodic Uploads] route=MISSING componentRef=FOUND
+  compHit: frontend/src/app\pages\branch\branch.routes.ts:33:  import('./branch-periodic-uploads/branch-periodic-uploads-page.component').then(
+[CRM Returns Workspace] route=FOUND componentRef=MISSING
+  routeHit: frontend/src/app\core\menu\menu.config.ts:45:  { label: 'Returns / Filings', route: '/crm/returns', roles: ['CRM'] },
+[CRM Renewals Workspace] route=FOUND componentRef=MISSING
+  routeHit: frontend/src/app\pages\crm\crm-dashboard.component.ts:109:    { label: 'Renewals Workspace', route: '/crm/renewals' },
+[CRM Amendments Workspace] route=FOUND componentRef=MISSING
+  routeHit: frontend/src/app\pages\crm\crm-dashboard.component.ts:110:    { label: 'Amendments Workspace', route: '/crm/amendments' },
+[Client Branch Detail Workspace] route=MISSING componentRef=MISSING
+[Payroll Runs Console] route=FOUND componentRef=MISSING
+  routeHit: frontend/src/app\pages\payroll\payroll-setup-api.service.ts:79:  private runBase = `${environment.apiBaseUrl}/api/v1/payroll/runs`;

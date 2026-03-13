@@ -18,7 +18,9 @@ export class BranchComplianceCronService {
     this.logger.log('Running overdue compliance document check...');
     try {
       const result = await this.complianceService.markOverdueDocuments();
-      this.logger.log(`Overdue check complete. ${result.affected} documents marked as OVERDUE.`);
+      this.logger.log(
+        `Overdue check complete. ${result.affected} documents marked as OVERDUE.`,
+      );
     } catch (err) {
       this.logger.error('Overdue check failed', err);
     }

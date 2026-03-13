@@ -1,0 +1,586 @@
+﻿<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Payroll Structures Builder</h1>
+      <p>Create and version salary structures, map component formulas, and preview calculations before activation.</p>
+    </div>
+
+    <div class="head-controls">
+      <label>
+        Client
+        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
+          <option value="">Select client</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateStructure()">
+        + New Structure
+      </button>
+    </div>
+  </header>
+
+  <section class="summary-grid" *ngIf="selectedClientId">
+    <article class="summary-card">
+      <span class="label">Structures</span>
+      <strong>{{ structures.length }}</strong>
+      <span class="sub">Total versions</span>
+    </article>
+    <article class="summary-card summary-card--ok">
+      <span class="label">Active</span>
+      <strong>{{ activeStructureCount }}</strong>
+      <span class="sub">Currently active</span>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span class="label">Version History</span>
+      <strong>{{ currentVersionCount }}</strong>
+      <span class="sub">For selected structure</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">Mapped Components</span>
+      <strong>{{ mappedComponentCount }}</strong>
+      <span class="sub">Enabled mappings</span>
+    </article>
+  </section>
+
+  <div *ngIf="loading" class="loader">Loading structure workspace...</div>
+
+  <div *ngIf="!loading && !selectedClientId" class="empty-state">
+    Select a client to manage salary structures.
+  </div>
+
+  <section *ngIf="!loading && selectedClientId" class="workspace-grid">
+    <article class="card list-pane">
+      <header class="section-head">
+        <h2>Structure List</h2>
+        <span>{{ filteredStructures.length }} rows</span>
+      </header>
+
+      <div class="filter-row">
+        <label class="search-box">
+          Search
+          <input
+            type="search"
+            [(ngModel)]="structureSearch"
+            placeholder="Name / scope"
+          />
+        </label>
+
+        <label>
+          Status
+          <select [(ngModel)]="structureStatusFilter">
+            <option value="ALL">All</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </label>
+
+        <label>
+          Scope
+          <select [(ngModel)]="structureScopeFilter">
+            <option value="ALL">All</option>
+            <option *ngFor="let scope of scopeOptions" [value]="scope">{{ scope }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="table-wrap" *ngIf="filteredStructures.length; else noStructures">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Scope</th>
+              <th>Scope Target</th>
+              <th>Effective</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let row of filteredStructures; trackBy: trackStructure"
+              [class.selected]="selectedStructure?.id === row.id"
+              (click)="selectStructure(row)"
+            >
+              <td>
+                <div class="strong">{{ row.name }}</div>
+                <div class="minor">{{ row.id }}</div>
+              </td>
+              <td>{{ row.scopeType }}</td>
+              <td class="mono">{{ scopeContextText(row) }}</td>
+              <td>
+                <div>{{ formatDate(row.effectiveFrom) }}</div>
+                <div class="minor">to {{ formatDate(row.effectiveTo) }}</div>
+              </td>
+              <td><span [class]="structureStatusClass(row.isActive)">{{ row.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="text-right">
+                <button
+                  type="button"
+                  class="link"
+                  *ngIf="!row.isActive"
+                  [disabled]="saving || !canActivateStructure(row)"
+                  [title]="activateGuardReason(row) || ''"
+                  (click)="activateStructure(row); $event.stopPropagation()"
+                >
+                  Activate
+                </button>
+                <button type="button" class="link" (click)="openEditStructure(row); $event.stopPropagation()">Edit</button>
+                <button type="button" class="link link-danger" (click)="deleteStructure(row); $event.stopPropagation()">Delete</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-template #noStructures>
+        <div class="empty-mini">No structures available for this client.</div>
+      </ng-template>
+    </article>
+
+    <aside class="detail-stack">
+      <article class="card" *ngIf="selectedStructure as selected; else selectPrompt">
+        <header class="section-head">
+          <h2>{{ selected.name }}</h2>
+          <span [class]="structureStatusClass(!!selected.isActive)">
+            {{ selected.isActive ? 'Active' : 'Inactive' }}
+          </span>
+        </header>
+
+        <div class="kv-grid">
+          <div>
+            <span>Scope</span>
+            <strong>{{ selected.scopeType }}</strong>
+          </div>
+          <div>
+            <span>Scope Target</span>
+            <strong class="mono">{{ scopeContextText(selected) }}</strong>
+          </div>
+          <div>
+            <span>Rule Set</span>
+            <strong>{{ selectedRuleSetName }}</strong>
+          </div>
+          <div>
+            <span>Effective From</span>
+            <strong>{{ formatDate(selected.effectiveFrom) }}</strong>
+          </div>
+          <div>
+            <span>Effective To</span>
+            <strong>{{ formatDate(selected.effectiveTo) }}</strong>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-secondary" type="button" (click)="openCreateItem()">+ Add Mapping Item</button>
+          <button
+            class="btn btn-primary"
+            type="button"
+            *ngIf="!selected.isActive"
+            [disabled]="saving || !canActivateStructure(selected, true)"
+            [title]="activateGuardReason(selected, true) || ''"
+            (click)="activateStructure(selected)"
+          >
+            Activate Version
+          </button>
+        </div>
+
+        <div class="guardrail-grid">
+          <article class="guardrail-item" *ngFor="let guard of selectedGuardrailChecks">
+            <div class="guardrail-head">
+              <span>{{ guard.label }}</span>
+              <span [class]="guard.passed ? 'badge badge--good' : 'badge badge--warn'">
+                {{ guard.passed ? 'Ready' : 'Needs Attention' }}
+              </span>
+            </div>
+            <p>{{ guard.detail }}</p>
+          </article>
+        </div>
+      </article>
+
+      <ng-template #selectPrompt>
+        <article class="card empty-mini">Select a structure to manage mappings and versions.</article>
+      </ng-template>
+
+      <article class="card" *ngIf="selectedStructure">
+        <header class="section-head">
+          <h2>Version History</h2>
+          <span>{{ versionHistory.length }} versions</span>
+        </header>
+
+        <div class="timeline" *ngIf="versionHistory.length; else noVersions">
+          <div class="timeline-item" *ngFor="let version of versionHistory; trackBy: trackVersion">
+            <i [class.dot-active]="version.isActive" [class.dot-inactive]="!version.isActive"></i>
+            <div>
+              <strong>{{ formatDate(version.effectiveFrom) }} to {{ formatDate(version.effectiveTo) }}</strong>
+              <p>{{ version.scopeType }} | {{ version.isActive ? 'Active' : 'Inactive' }}</p>
+              <div class="timeline-meta">
+                <span [class]="versionWindowClass(version)">{{ versionWindowLabel(version) }}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="link"
+              *ngIf="selectedStructure.id !== version.id"
+              [disabled]="compareLoading"
+              (click)="loadCompareVersion(version.id)"
+            >
+              Compare
+            </button>
+          </div>
+        </div>
+
+        <ng-template #noVersions>
+          <div class="empty-mini">No historical versions found.</div>
+        </ng-template>
+      </article>
+
+      <article class="card" *ngIf="selectedStructure">
+        <header class="section-head">
+          <h2>Version Compare</h2>
+          <span *ngIf="compareVersionId">Comparing {{ filteredComparisonRows.length }} of {{ comparisonRows.length }} mapped components</span>
+          <span *ngIf="!compareVersionId">Select a version to compare</span>
+        </header>
+
+        <div class="compare-controls" *ngIf="compareCandidates.length; else noCompareCandidates">
+          <label>
+            Compare With
+            <select [(ngModel)]="compareVersionId" (ngModelChange)="loadCompareVersion($event)">
+              <option value="">Select version</option>
+              <option *ngFor="let version of compareCandidates" [value]="version.id">
+                {{ formatDate(version.effectiveFrom) }} to {{ formatDate(version.effectiveTo) }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Row Filter
+            <select [(ngModel)]="compareStateFilter">
+              <option value="ALL">All</option>
+              <option value="CHANGED">Changed</option>
+              <option value="ADDED">Added</option>
+              <option value="REMOVED">Removed</option>
+              <option value="SAME">Unchanged</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-ghost" [disabled]="!compareVersionId" (click)="clearCompareVersion()">
+            Clear
+          </button>
+        </div>
+
+        <ng-template #noCompareCandidates>
+          <div class="empty-mini">No additional versions to compare.</div>
+        </ng-template>
+
+        <div *ngIf="compareLoading" class="loader mini">Loading comparison data...</div>
+
+        <div class="summary-strip" *ngIf="!compareLoading && compareVersionId && comparisonRows.length">
+          <span class="badge badge--warn">Changed: {{ comparisonSummary.changed }}</span>
+          <span class="badge badge--good">Added: {{ comparisonSummary.added }}</span>
+          <span class="badge badge--bad">Removed: {{ comparisonSummary.removed }}</span>
+          <span class="badge badge--muted">Unchanged: {{ comparisonSummary.same }}</span>
+        </div>
+
+        <div class="table-wrap" *ngIf="!compareLoading && compareVersionId && filteredComparisonRows.length">
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Selected Version</th>
+                <th>Compared Version</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredComparisonRows">
+                <td>
+                  <div class="strong">{{ row.componentName }}</div>
+                  <div class="minor">{{ row.componentId }}</div>
+                </td>
+                <td class="mono">{{ row.selectedItem ? itemValueText(row.selectedItem) : '-' }}</td>
+                <td class="mono">{{ row.comparedItem ? itemValueText(row.comparedItem) : '-' }}</td>
+                <td>
+                  <span [class]="compareStatusClass(row.status)">{{ row.status }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="empty-mini" *ngIf="!compareLoading && compareVersionId && comparisonRows.length && !filteredComparisonRows.length">
+          No rows match the selected filter.
+        </div>
+
+        <div class="empty-mini" *ngIf="!compareLoading && compareVersionId && !comparisonRows.length">
+          No mappings available to compare for selected versions.
+        </div>
+      </article>
+    </aside>
+  </section>
+
+  <section class="card" *ngIf="selectedClientId">
+    <header class="section-head">
+      <h2>Component Mapping Grid</h2>
+      <span *ngIf="selectedStructure">{{ items.length }} items for selected structure</span>
+      <span *ngIf="!selectedStructure">Select a structure to view mapping items</span>
+    </header>
+
+    <div *ngIf="loadingItems" class="loader mini">Loading mapping items...</div>
+
+    <div class="table-wrap" *ngIf="!loadingItems && selectedStructure && items.length; else noItems">
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Method</th>
+            <th>Value / Formula</th>
+            <th>Priority</th>
+            <th>Enabled</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of items; trackBy: trackItem">
+            <td>
+              <div class="strong">{{ getComponentName(item.componentId) }}</div>
+              <div class="minor">{{ getComponentCode(item.componentId) || item.componentId }}</div>
+            </td>
+            <td><span [class]="itemMethodClass(item.calcMethod)">{{ item.calcMethod }}</span></td>
+            <td class="mono">{{ itemValueText(item) }}</td>
+            <td>{{ item.priority }}</td>
+            <td>{{ item.enabled ? 'Yes' : 'No' }}</td>
+            <td class="text-right">
+              <button type="button" class="link" (click)="openEditItem(item)">Edit</button>
+              <button type="button" class="link link-danger" (click)="deleteItem(item)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #noItems>
+      <div class="empty-mini" *ngIf="selectedStructure && !loadingItems">No mapping items configured yet.</div>
+      <div class="empty-mini" *ngIf="!selectedStructure">Select a structure first.</div>
+    </ng-template>
+  </section>
+
+  <section class="card" *ngIf="selectedClientId">
+    <header class="section-head">
+      <h2>Preview Calculation</h2>
+      <span>Engine preview for selected client and date context</span>
+    </header>
+
+    <div class="preview-form">
+      <label>
+        Gross Amount
+        <input type="number" [(ngModel)]="previewForm.grossAmount" min="1" />
+      </label>
+      <label>
+        As-of Date
+        <input type="date" [(ngModel)]="previewForm.asOfDate" />
+      </label>
+      <label>
+        Branch (optional)
+        <input type="text" [(ngModel)]="previewForm.branchId" placeholder="Branch ID" />
+      </label>
+      <label>
+        Employee (optional)
+        <input type="text" [(ngModel)]="previewForm.employeeId" placeholder="Employee ID" />
+      </label>
+      <button type="button" class="btn btn-primary" [disabled]="previewLoading" (click)="runPreview()">
+        {{ previewLoading ? 'Running...' : 'Run Preview' }}
+      </button>
+    </div>
+
+    <div class="table-wrap" *ngIf="previewRows.length">
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th class="text-right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of previewRows">
+            <td class="mono">{{ row.component }}</td>
+            <td class="text-right">{{ formatAmount(row.amount) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            <th class="text-right">{{ formatAmount(previewTotal) }}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="empty-mini" *ngIf="!previewRows.length">No preview results yet.</div>
+  </section>
+</div>
+
+<!-- Structure modal -->
+<div class="modal-backdrop" *ngIf="showStructureModal">
+  <div class="modal-card">
+    <header>
+      <h3>{{ editingStructure ? 'Edit Structure Version' : 'Create Structure Version' }}</h3>
+      <button type="button" class="link" (click)="showStructureModal = false">Close</button>
+    </header>
+
+    <div class="modal-grid">
+      <label>
+        Structure Name
+        <input type="text" [(ngModel)]="structureForm.name" placeholder="e.g. Standard Monthly Structure" />
+      </label>
+
+      <label>
+        Scope
+        <select [(ngModel)]="structureForm.scopeType" (ngModelChange)="onScopeTypeChange()">
+          <option *ngFor="let scope of scopeOptions" [value]="scope">{{ scope }}</option>
+        </select>
+      </label>
+
+      <label *ngIf="structureForm.scopeType === 'BRANCH'">
+        Branch ID
+        <input type="text" [(ngModel)]="structureForm.branchId" placeholder="Branch UUID" />
+      </label>
+
+      <label *ngIf="structureForm.scopeType === 'DEPARTMENT'">
+        Department ID
+        <input type="text" [(ngModel)]="structureForm.departmentId" placeholder="Department UUID" />
+      </label>
+
+      <label *ngIf="structureForm.scopeType === 'GRADE'">
+        Grade ID
+        <input type="text" [(ngModel)]="structureForm.gradeId" placeholder="Grade UUID" />
+      </label>
+
+      <label *ngIf="structureForm.scopeType === 'EMPLOYEE'">
+        Employee ID
+        <input type="text" [(ngModel)]="structureForm.employeeId" placeholder="Employee UUID" />
+      </label>
+
+      <label>
+        Effective From
+        <input type="date" [(ngModel)]="structureForm.effectiveFrom" />
+      </label>
+
+      <label>
+        Effective To
+        <input type="date" [(ngModel)]="structureForm.effectiveTo" />
+      </label>
+
+      <label class="span-2">
+        Linked Rule Set
+        <select [(ngModel)]="structureForm.ruleSetId">
+          <option value="">Select rule set</option>
+          <option *ngFor="let rs of ruleSetOptions" [value]="rs.value">{{ rs.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <footer>
+      <button type="button" class="btn btn-ghost" (click)="showStructureModal = false">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveStructure()">
+        {{ saving ? 'Saving...' : 'Save Structure' }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- Item modal -->
+<div class="modal-backdrop" *ngIf="showItemModal">
+  <div class="modal-card large">
+    <header>
+      <h3>{{ editingItem ? 'Edit Mapping Item' : 'Add Mapping Item' }}</h3>
+      <button type="button" class="link" (click)="showItemModal = false">Close</button>
+    </header>
+
+    <div class="modal-grid">
+      <label>
+        Component
+        <select [(ngModel)]="itemForm.componentId">
+          <option value="">Select component</option>
+          <option *ngFor="let comp of componentOptions" [value]="comp.value">{{ comp.label }}</option>
+        </select>
+      </label>
+
+      <label>
+        Calculation Method
+        <select [(ngModel)]="itemForm.calcMethod" (ngModelChange)="onCalcMethodChange()">
+          <option *ngFor="let method of calcMethodOptions" [value]="method">{{ method }}</option>
+        </select>
+      </label>
+
+      <label *ngIf="itemForm.calcMethod === 'FIXED'">
+        Fixed Amount
+        <input type="number" [(ngModel)]="itemForm.fixedAmount" />
+      </label>
+
+      <ng-container *ngIf="itemForm.calcMethod === 'PERCENT'">
+        <label>
+          Percentage
+          <input type="number" [(ngModel)]="itemForm.percentage" />
+        </label>
+
+        <label>
+          Base
+          <select [(ngModel)]="itemForm.percentageBase">
+            <option *ngFor="let base of percentageBaseOptions" [value]="base">{{ base }}</option>
+          </select>
+        </label>
+      </ng-container>
+
+      <label class="span-2" *ngIf="itemForm.calcMethod === 'FORMULA'">
+        Formula
+        <textarea rows="3" [(ngModel)]="itemForm.formula" placeholder="e.g. BASIC * 0.4 + HRA"></textarea>
+      </label>
+
+      <div class="span-2 token-block" *ngIf="itemForm.calcMethod === 'FORMULA'">
+        <strong>Formula Builder</strong>
+        <p>Click tokens to append.</p>
+
+        <div class="token-row">
+          <button type="button" *ngFor="let token of operatorTokens" (click)="insertFormulaToken(token)">{{ token }}</button>
+          <button type="button" *ngFor="let token of functionTokens" (click)="insertFormulaToken(token)">{{ token }}</button>
+        </div>
+
+        <div class="token-row wrap">
+          <button type="button" *ngFor="let comp of componentOptions" (click)="insertComponentToken(comp.value)">
+            {{ comp.label }}
+          </button>
+        </div>
+      </div>
+
+      <label>
+        Min Amount
+        <input type="number" [(ngModel)]="itemForm.minAmount" />
+      </label>
+
+      <label>
+        Max Amount
+        <input type="number" [(ngModel)]="itemForm.maxAmount" />
+      </label>
+
+      <label>
+        Rounding
+        <select [(ngModel)]="itemForm.roundingMode">
+          <option *ngFor="let mode of roundingOptions" [value]="mode">{{ mode }}</option>
+        </select>
+      </label>
+
+      <label>
+        Priority
+        <input type="number" [(ngModel)]="itemForm.priority" min="1" />
+      </label>
+
+      <label class="inline-checkbox span-2">
+        <input type="checkbox" [(ngModel)]="itemForm.enabled" />
+        Enabled
+      </label>
+    </div>
+
+    <footer>
+      <button type="button" class="btn btn-ghost" (click)="showItemModal = false">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveItem()">
+        {{ saving ? 'Saving...' : 'Save Item' }}
+      </button>
+    </footer>
+  </div>
+</div>

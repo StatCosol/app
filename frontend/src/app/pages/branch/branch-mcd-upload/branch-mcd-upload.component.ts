@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 import {
   BranchComplianceDocService,
   ChecklistItem,
@@ -150,6 +151,7 @@ export class BranchMcdUploadComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private toast: ToastService,
   ) {
     const currentYear = new Date().getFullYear();
     this.years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -313,14 +315,14 @@ export class BranchMcdUploadComponent implements OnInit, OnDestroy {
     }
 
     this.complianceDoc.uploadDocument(fd)
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.uploading = false; }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.uploading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => {
           this.closeUploadModal();
           this.load(); // Refresh
         },
         error: (err) => {
-          alert(err?.error?.message || 'Upload failed. Please try again.');
+          this.toast.error(err?.error?.message || 'Upload failed. Please try again.');
         },
       });
   }
@@ -329,7 +331,7 @@ export class BranchMcdUploadComponent implements OnInit, OnDestroy {
     if (item.document?.id) {
       // Open the file URL in a new tab
       const url = (item as any).document?.uploadedFileUrl;
-      if (url) window.open(url, '_blank');
+      if (url) window.open(this.auth.authenticateUrl(url), '_blank');
     }
   }
 

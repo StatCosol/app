@@ -18,6 +18,7 @@ import {
   AuditorAuditsResponse,
   AuditorObservationsResponse,
   AuditorEvidenceResponse,
+  AuditorReportsResponse,
   AuditorActivityResponse,
 } from '../pages/auditor/auditor-dashboard.dto';
 import { PfEsiSummaryResponse, ContractorUploadSummaryResponse } from '../pages/client/dashboard/client-dashboard.types';
@@ -151,10 +152,29 @@ export class DashboardService {
     return this.http.get<AuditorActivityResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/activity`);
   }
 
+  /** Get audit reports list (completed audits needing reports) */
+  getAuditorReports(filters: Record<string, string> = {}): Observable<AuditorReportsResponse> {
+    let params = new HttpParams();
+    Object.keys(filters).forEach((key) => {
+      if (filters[key]) {
+        params = params.set(key, filters[key]);
+      }
+    });
+    return this.http.get<AuditorReportsResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/reports`, { params });
+  }
+
   // ===== Legacy Endpoints =====
 
   contractor(): Observable<any> {
     return this.http.get(`${this.baseUrl}/api/v1/contractor/dashboard`);
+  }
+
+  /** Get monthly score trend for the logged-in contractor */
+  contractorScoreTrend(from?: string, to?: string): Observable<any[]> {
+    const params: any = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/contractor/score-trend`, { params });
   }
 
   client(): Observable<any> {
