@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { EssApiService, EssNomination } from '../ess-api.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-ess-nominations',
@@ -279,7 +281,7 @@ export class EssNominationsComponent implements OnInit, OnDestroy {
   resubmitId: string | null = null;
   private readonly destroy$ = new Subject<void>();
 
-  constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: EssApiService, private cdr: ChangeDetectorRef, private dialog: ConfirmDialogService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.loadNominations();
@@ -355,8 +357,8 @@ export class EssNominationsComponent implements OnInit, OnDestroy {
       });
   }
 
-  submitNomination(nom: EssNomination): void {
-    if (!confirm('Submit this nomination for approval? You will not be able to edit it afterwards.')) return;
+  async submitNomination(nom: EssNomination): Promise<void> {
+    if (!(await this.dialog.confirm('Submit Nomination', 'Submit this nomination for approval? You will not be able to edit it afterwards.'))) return;
     this.actionPending = true;
     this.api.submitNomination(nom.id)
       .pipe(
@@ -365,7 +367,7 @@ export class EssNominationsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => { this.actionPending = false; this.loadNominations(); },
-        error: (e) => { this.actionPending = false; alert(e?.error?.message || 'Failed to submit'); },
+        error: (e) => { this.actionPending = false; this.toast.error(e?.error?.message || 'Failed to submit'); },
       });
   }
 

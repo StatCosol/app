@@ -52,11 +52,7 @@ export class StatCardComponent {
     };
     return colors[this.color] || colors.primary;
   }
-
-  get valueColorClass(): string {
-    // Values now force white via template; keep return for compatibility
-    return 'text-white';
-  }
+  readonly valueColorClass = 'text-white';
 
   get iconBgClass(): string {
     const colors: Record<StatCardColor, string> = {

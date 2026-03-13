@@ -38,8 +38,16 @@ export class ClientsService {
     });
 
     // ── Validate master user field group completeness ───────
-    const hasMasterFields = !!(dto.masterUserName || dto.masterUserEmail || dto.masterUserPassword);
-    const hasAllMasterFields = !!(dto.masterUserName && dto.masterUserEmail && dto.masterUserPassword);
+    const hasMasterFields = !!(
+      dto.masterUserName ||
+      dto.masterUserEmail ||
+      dto.masterUserPassword
+    );
+    const hasAllMasterFields = !!(
+      dto.masterUserName &&
+      dto.masterUserEmail &&
+      dto.masterUserPassword
+    );
     if (hasMasterFields && !hasAllMasterFields) {
       throw new BadRequestException(
         'masterUserName, masterUserEmail, and masterUserPassword are all required when creating a master user',
@@ -81,7 +89,8 @@ export class ClientsService {
         existing.deletedAt = null;
         existing.deletedBy = null;
         existing.deleteReason = null;
-        existing.assignedCrmId = dto.assignedCrmId ?? existing.assignedCrmId ?? null;
+        existing.assignedCrmId =
+          dto.assignedCrmId ?? existing.assignedCrmId ?? null;
         existing.assignedAuditorId =
           dto.assignedAuditorId ?? existing.assignedAuditorId ?? null;
 
@@ -414,7 +423,8 @@ export class ClientsService {
       const dir = path.join(process.cwd(), uploadPath);
       fs.accessSync(dir, fs.constants.W_OK);
       storageOk = true;
-    } catch {
+    } catch (e) {
+      this.logger.warn('Upload directory not writable', (e as Error)?.message);
       storageOk = false;
     }
 
@@ -480,7 +490,9 @@ export class ClientsService {
   }
 
   async updateLogo(clientId: string, logoUrl: string | null) {
-    const client = await this.repo.findOne({ where: { id: clientId, isDeleted: false } });
+    const client = await this.repo.findOne({
+      where: { id: clientId, isDeleted: false },
+    });
     if (!client) throw new NotFoundException('Client not found');
     client.logoUrl = logoUrl;
     await this.repo.save(client);

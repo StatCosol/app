@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChecklistsController } from './checklists.controller';
+import { ChecklistsService } from './checklists.service';
 
 describe('ChecklistsController', () => {
   let controller: ChecklistsController;
@@ -7,6 +8,14 @@ describe('ChecklistsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ChecklistsController],
+      providers: [
+        {
+          provide: ChecklistsService,
+          useValue: {
+            getByBranch: jest.fn().mockResolvedValue([]),
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<ChecklistsController>(ChecklistsController);

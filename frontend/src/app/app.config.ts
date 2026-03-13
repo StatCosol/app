@@ -1,22 +1,25 @@
 
-import { ApplicationConfig } from '@angular/core';
-import { userInitializerProvider } from './user-initializer';
-import { provideRouter, withRouterConfig } from '@angular/router';
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
-import { HTTP_INTERCEPTORS } from '@angular/common/http';
-import { provideAnimations } from '@angular/platform-browser/animations';
-
+import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
-import { AuthInterceptor } from './core/auth.interceptor';
-import { ApiPrefixInterceptor } from './core/api-prefix.interceptor';
+import { apiPrefixInterceptor } from './core/interceptors/api-prefix.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { apiResponseInterceptor } from './core/interceptors/api-response.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideRouter(routes, withRouterConfig({ onSameUrlNavigation: 'reload' })),
-    provideHttpClient(withInterceptorsFromDi()),
-    { provide: HTTP_INTERCEPTORS, useClass: ApiPrefixInterceptor, multi: true },
-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
-    provideAnimations(),
-    userInitializerProvider,
+    provideBrowserGlobalErrorListeners(),
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes),
+    provideHttpClient(
+      withInterceptors([
+        apiPrefixInterceptor,
+        authInterceptor,
+        errorInterceptor,
+        apiResponseInterceptor,
+      ]),
+    ),
   ],
 };

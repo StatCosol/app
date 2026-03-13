@@ -11,7 +11,6 @@ import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
-  StatCardComponent,
   DataTableComponent,
   TableCellDirective,
   TableColumn,
@@ -39,7 +38,6 @@ import {
     CommonModule,
     FormsModule,
     PageHeaderComponent,
-    StatCardComponent,
     DataTableComponent,
     TableCellDirective,
     LoadingSpinnerComponent,
@@ -202,9 +200,9 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
         this.summary = data;
         this.cdr.detectChanges();
       },
-      error: (_err) => {
+      error: (err) => {
         this.loading = false;
-        this.errorMsg = _err?.error?.message || 'Failed to load dashboard summary';
+        this.errorMsg = err?.error?.message || 'Failed to load dashboard summary';
         this.cdr.detectChanges();
       },
     });
@@ -219,7 +217,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
         this.myAudits = response.items;
         this.cdr.detectChanges();
       },
-      error: (_err) => {
+      error: (err) => {
         this.toast.error('Failed to load audits');
         this.cdr.detectChanges();
       },
@@ -235,7 +233,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
         this.observations = response.items;
         this.cdr.detectChanges();
       },
-      error: (_err) => {
+      error: (err) => {
         this.toast.error('Failed to load observations');
         this.cdr.detectChanges();
       },
@@ -251,7 +249,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
         this.evidence = response.items;
         this.cdr.detectChanges();
       },
-      error: (_err) => {
+      error: (err) => {
         this.toast.error('Failed to load evidence');
         this.cdr.detectChanges();
       },
@@ -266,7 +264,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
         this.recentActivities = response.items;
         this.cdr.detectChanges();
       },
-      error: (_err) => {
+      error: (err) => {
         // Fail silently for optional timeline
         this.cdr.detectChanges();
       },

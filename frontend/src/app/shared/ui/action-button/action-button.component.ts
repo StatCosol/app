@@ -13,6 +13,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
     <ng-container *ngIf="routerLink; else buttonTemplate">
       <a [routerLink]="routerLink"
          [ngClass]="buttonClasses"
+         [style]="buttonStyle"
          [class.pointer-events-none]="disabled"
          [class.opacity-50]="disabled">
         <ng-container *ngTemplateOutlet="contentTemplate"></ng-container>
@@ -23,6 +24,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
       <button [type]="type"
               [disabled]="disabled || loading"
               [ngClass]="buttonClasses"
+              [style]="buttonStyle"
               (click)="handleClick($event)">
         <ng-container *ngTemplateOutlet="contentTemplate"></ng-container>
       </button>
@@ -55,18 +57,18 @@ export class ActionButtonComponent {
   }
 
   get buttonClasses(): string {
-    const base = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const base = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
     const sizeClasses: Record<ButtonSize, string> = {
       sm: 'px-3 py-1.5 text-xs',
-      md: 'px-4 py-2 text-sm',
+      md: 'px-4 py-2.5 text-sm',
       lg: 'px-6 py-3 text-base',
     };
 
     const variantClasses: Record<ButtonVariant, string> = {
-      primary: 'bg-statco-blue text-white hover:bg-statco-blue/90 focus:ring-statco-blue shadow-sm',
-      secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500',
-      danger: 'bg-error-600 text-white hover:bg-error-700 focus:ring-error-500 shadow-sm',
+      primary: 'text-white focus:ring-statco-blue shadow-sm hover:shadow-md hover:-translate-y-px',
+      secondary: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-gray-500 shadow-sm hover:-translate-y-px',
+      danger: 'text-white focus:ring-error-500 shadow-sm hover:shadow-md hover:-translate-y-px',
       outline: 'bg-transparent border-2 border-statco-blue text-statco-blue hover:bg-statco-blue hover:text-white focus:ring-statco-blue',
       ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
     };
@@ -74,5 +76,15 @@ export class ActionButtonComponent {
     const widthClass = this.fullWidth ? 'w-full' : '';
 
     return `${base} ${sizeClasses[this.size]} ${variantClasses[this.variant]} ${widthClass}`;
+  }
+
+  get buttonStyle(): string {
+    if (this.variant === 'primary') {
+      return 'background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%)';
+    }
+    if (this.variant === 'danger') {
+      return 'background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%)';
+    }
+    return '';
   }
 }

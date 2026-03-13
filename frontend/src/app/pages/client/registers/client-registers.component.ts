@@ -395,7 +395,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     this.previewRow = row;
     this.previewTitle = row.title || 'Register Preview';
     this.previewMode = this.resolvePreviewMode(row.fileType);
-    const url = this.downloadUrl(row);
+    const url = this.auth.authenticateUrl(this.downloadUrl(row));
     this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
     this.previewOpen = true;
   }
@@ -408,7 +408,8 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
   }
 
   download(row: RegisterRow): void {
-    this.http.get(this.downloadUrl(row), { responseType: 'blob' }).pipe(takeUntil(this.destroy$)).subscribe({
+    const authUrl = this.auth.authenticateUrl(this.downloadUrl(row));
+    this.http.get(authUrl, { responseType: 'blob' }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -520,7 +521,3 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 }
-
-
-
-

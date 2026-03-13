@@ -6,6 +6,7 @@ import { AuditObservationEntity } from './entities/audit-observation.entity';
 import { AuditsService } from './audits.service';
 import {
   AuditorAuditsController,
+  AuditorAuditsLegacyController,
   CrmAuditsController,
   ClientAuditsController,
   AuditKpiController,
@@ -32,10 +33,12 @@ import { AiModule } from '../ai/ai.module';
     AiModule,
   ],
   controllers: [
+    // Register the static KPI routes before the legacy /audits/:id alias.
+    AuditKpiController,
     CrmAuditsController,
     AuditorAuditsController,
+    AuditorAuditsLegacyController,
     ClientAuditsController,
-    AuditKpiController,
     AuditorObservationsController,
   ],
   providers: [AuditsService, AuditorObservationsService],

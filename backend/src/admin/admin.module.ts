@@ -26,7 +26,9 @@ import { ClientAssignmentHistoryEntity } from '../assignments/entities/client-as
 import { NotificationEntity } from '../notifications/entities/notification.entity';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AdminAuditLogsController } from './admin-audit-logs.controller';
+import { AdminListController } from './admin-list.controller';
 import { BranchesModule } from '../branches/branches.module';
+import { ListQueriesModule } from '../list-queries/list-queries.module';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { BranchesModule } from '../branches/branches.module';
     AuditsModule,
     AuditLogsModule,
     BranchesModule,
+    ListQueriesModule,
     TypeOrmModule.forFeature([
       PayrollTemplate,
       PayrollTemplateComponent,
@@ -57,6 +60,7 @@ import { BranchesModule } from '../branches/branches.module';
     AdminActionsController,
     AdminAuditLogsController,
     AdminReportsController,
+    AdminListController,
   ],
   providers: [
     AdminDigestService,
