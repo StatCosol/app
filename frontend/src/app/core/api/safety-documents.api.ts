@@ -3,8 +3,6 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
-/* ═══ Interfaces ═══ */
-
 export interface SafetyDocument {
   id: string;
   branchId: string;
@@ -65,8 +63,6 @@ export interface SafetyScore {
   }[];
 }
 
-/* ═══ Document type labels ═══ */
-
 export const SAFETY_DOCUMENT_TYPES = [
   'Fire Safety Certificate',
   'Factory License',
@@ -93,8 +89,6 @@ export const SAFETY_DOCUMENT_TYPES = [
   'Safety Audit Report',
   'Other',
 ];
-
-/* ═══ Category labels ═══ */
 
 export const SAFETY_CATEGORIES = [
   'Safety Inspections',
@@ -124,13 +118,15 @@ export class SafetyDocumentsApi {
 
   constructor(private http: HttpClient) {}
 
-  /* ── Branch endpoints ── */
-
   uploadDocument(formData: FormData): Observable<any> {
     return this.http.post<any>(`${this.base}/branch/safety-documents/upload`, formData);
   }
 
-  listForBranch(filters?: { documentType?: string; category?: string; frequency?: string }): Observable<SafetyDocument[]> {
+  listForBranch(filters?: {
+    documentType?: string;
+    category?: string;
+    frequency?: string;
+  }): Observable<SafetyDocument[]> {
     let params = new HttpParams();
     if (filters?.documentType) params = params.set('documentType', filters.documentType);
     if (filters?.category) params = params.set('category', filters.category);
@@ -150,7 +146,11 @@ export class SafetyDocumentsApi {
     return this.http.get<ExpiringDocument[]>(`${this.base}/branch/safety-documents/expiring`);
   }
 
-  getMasterList(filters?: { frequency?: string; category?: string; applicableTo?: string }): Observable<MasterDocument[]> {
+  getMasterList(filters?: {
+    frequency?: string;
+    category?: string;
+    applicableTo?: string;
+  }): Observable<MasterDocument[]> {
     let params = new HttpParams();
     if (filters?.frequency) params = params.set('frequency', filters.frequency);
     if (filters?.category) params = params.set('category', filters.category);
@@ -166,9 +166,12 @@ export class SafetyDocumentsApi {
     return this.http.get<SafetyScore>(`${this.base}/branch/safety-documents/safety-score`);
   }
 
-  /* ── Client endpoints ── */
-
-  listForClient(filters?: { branchId?: string; documentType?: string; category?: string; frequency?: string }): Observable<SafetyDocument[]> {
+  listForClient(filters?: {
+    branchId?: string;
+    documentType?: string;
+    category?: string;
+    frequency?: string;
+  }): Observable<SafetyDocument[]> {
     let params = new HttpParams();
     if (filters?.branchId) params = params.set('branchId', filters.branchId);
     if (filters?.documentType) params = params.set('documentType', filters.documentType);
@@ -189,9 +192,15 @@ export class SafetyDocumentsApi {
     return this.http.get<SafetyScore>(`${this.base}/client/safety-documents/safety-score`);
   }
 
-  /* ── CRM endpoints ── */
-
-  listForCrm(clientId: string, filters?: { branchId?: string; documentType?: string; category?: string; frequency?: string }): Observable<SafetyDocument[]> {
+  listForCrm(
+    clientId: string,
+    filters?: {
+      branchId?: string;
+      documentType?: string;
+      category?: string;
+      frequency?: string;
+    },
+  ): Observable<SafetyDocument[]> {
     let params = new HttpParams().set('clientId', clientId);
     if (filters?.branchId) params = params.set('branchId', filters.branchId);
     if (filters?.documentType) params = params.set('documentType', filters.documentType);
