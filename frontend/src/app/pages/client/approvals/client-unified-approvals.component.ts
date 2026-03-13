@@ -470,7 +470,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
           }
         },
         error: () => {
-          this.toast.error('Load Failed', 'Could not load approvals queue.');
+          this.toast.error('Could not load approvals queue.');
           this.queue = [];
           this.filteredQueue = [];
           this.selected = null;
@@ -540,12 +540,12 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: () => {
-        this.toast.success('Approved', `${this.selected?.type} request approved.`);
+        this.toast.success(`${this.selected?.type} request approved.`);
         this.pushAudit('APPROVED');
         this.load();
       },
       error: () => {
-        this.toast.error('Approve Failed', 'Could not approve this request.');
+        this.toast.error('Could not approve this request.');
       },
     });
   }
@@ -553,7 +553,7 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
   rejectSelected(): void {
     if (!this.selected || this.actionBusy) return;
     if (!this.rejectionReason.trim()) {
-      this.toast.info('Reason Required', 'Enter rejection reason before rejecting.');
+      this.toast.info('Enter rejection reason before rejecting.');
       return;
     }
     this.decisionType = 'REJECT';
@@ -573,12 +573,12 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: () => {
-        this.toast.success('Rejected', `${this.selected?.type} request rejected.`);
+        this.toast.success(`${this.selected?.type} request rejected.`);
         this.pushAudit('REJECTED');
         this.load();
       },
       error: () => {
-        this.toast.error('Reject Failed', 'Could not reject this request.');
+        this.toast.error('Could not reject this request.');
       },
     });
   }
@@ -840,4 +840,3 @@ export class ClientUnifiedApprovalsComponent implements OnInit, OnDestroy {
     });
   }
 }
-

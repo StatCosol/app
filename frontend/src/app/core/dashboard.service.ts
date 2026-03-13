@@ -18,6 +18,7 @@ import {
   AuditorAuditsResponse,
   AuditorObservationsResponse,
   AuditorEvidenceResponse,
+  AuditorReportsResponse,
   AuditorActivityResponse,
 } from '../pages/auditor/auditor-dashboard.dto';
 import { PfEsiSummaryResponse, ContractorUploadSummaryResponse } from '../pages/client/dashboard/client-dashboard.types';
@@ -152,12 +153,14 @@ export class DashboardService {
   }
 
   /** Get audit reports list (completed audits needing reports) */
-  getAuditorReports(filters: Record<string, string> = {}): Observable<any> {
+  getAuditorReports(filters: Record<string, string> = {}): Observable<AuditorReportsResponse> {
     let params = new HttpParams();
     Object.keys(filters).forEach((key) => {
-      if (filters[key]) params = params.set(key, filters[key]);
+      if (filters[key]) {
+        params = params.set(key, filters[key]);
+      }
     });
-    return this.http.get<any>(`${this.baseUrl}/api/v1/auditor/dashboard/reports`, { params });
+    return this.http.get<AuditorReportsResponse>(`${this.baseUrl}/api/v1/auditor/dashboard/reports`, { params });
   }
 
   // ===== Legacy Endpoints =====

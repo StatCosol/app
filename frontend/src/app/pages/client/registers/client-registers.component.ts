@@ -419,7 +419,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
         setTimeout(() => URL.revokeObjectURL(url), 1200);
       },
       error: (err) => {
-        this.toast.error('Download Failed', err?.error?.message || 'Could not download register.');
+        this.toast.error(err?.error?.message || 'Could not download register.');
       },
     });
   }
@@ -463,10 +463,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
           setTimeout(() => URL.revokeObjectURL(url), 1200);
         },
         error: (err) => {
-          this.toast.error(
-            'Pack Download Failed',
-            err?.error?.message || 'Could not generate pack.',
-          );
+          this.toast.error(err?.error?.message || 'Could not generate pack.');
         },
       });
   }
@@ -524,7 +521,3 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 }
-
-
-
-
