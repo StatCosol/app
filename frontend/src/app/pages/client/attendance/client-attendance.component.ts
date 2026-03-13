@@ -423,10 +423,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
           this.mismatches = [];
           this.lopRows = [];
           this.handoffHistory = [];
-          this.toast.error(
-            'Load Failed',
-            err?.error?.message || 'Could not load attendance workspace.',
-          );
+          this.toast.error(err?.error?.message || 'Could not load attendance workspace.');
         },
       });
   }
@@ -436,7 +433,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
     if (this.unresolvedMismatchCount > 0) {
       this.handoffMessage = `Resolve ${this.unresolvedMismatchCount} open mismatch(es) before approval.`;
       this.handoffError = true;
-      this.toast.error('Approval Blocked', this.handoffMessage);
+      this.toast.error(this.handoffMessage);
       return;
     }
     this.approving = true;
@@ -447,7 +444,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
       this.approving = false;
       this.attendanceApproved = true;
       this.handoffMessage = 'Attendance review approved. You can now handoff to payroll.';
-      this.toast.success('Attendance Approved', 'Attendance review approved for payroll handoff.');
+      this.toast.success('Attendance review approved for payroll handoff.');
       this.cdr.markForCheck();
     }, 300);
   }
@@ -499,7 +496,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
               next: () => {
                 this.handoffMessage = 'Attendance sent to payroll successfully.';
                 this.handoffError = false;
-                this.toast.success('Handoff Completed', 'Attendance has been submitted to payroll.');
+                this.toast.success('Attendance has been submitted to payroll.');
                 this.loadHandoffHistory(year, month);
               },
               error: (err) => {
@@ -507,7 +504,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
                   err?.error?.message ||
                   'Payroll input created, but auto-submit failed. Please submit manually from Payroll page.';
                 this.handoffError = true;
-                this.toast.error('Handoff Partial', this.handoffMessage);
+                this.toast.error(this.handoffMessage);
                 this.loadHandoffHistory(year, month);
               },
             });
@@ -515,7 +512,7 @@ export class ClientAttendanceComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.handoffMessage = err?.error?.message || 'Could not send attendance to payroll.';
           this.handoffError = true;
-          this.toast.error('Handoff Failed', this.handoffMessage);
+          this.toast.error(this.handoffMessage);
         },
       });
   }
