@@ -162,7 +162,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           this.allRows = [];
           this.filteredRows = [];
           this.selectedRow = null;
-          this.toast.error(err?.error?.message || 'Could not load contractor task center.');
+          this.toast.error(
+            'Load failed',
+            err?.error?.message || 'Could not load contractor task center.',
+          );
         },
       });
   }
@@ -254,11 +257,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Task moved to in-progress.');
+          this.toast.success('Task started', 'Task moved to in-progress.');
           this.load();
         },
         error: (err: any) =>
-          this.toast.error(err?.error?.message || 'Unable to start task.'),
+          this.toast.error(
+            'Action failed',
+            err?.error?.message || 'Unable to start task.',
+          ),
       });
   }
 
@@ -278,11 +284,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Sent for CRM/Auditor review.');
+          this.toast.success('Task submitted', 'Sent for CRM/Auditor review.');
           this.load();
         },
         error: (err: any) =>
-          this.toast.error(err?.error?.message || 'Unable to submit task.'),
+          this.toast.error(
+            'Submit failed',
+            err?.error?.message || 'Unable to submit task.',
+          ),
       });
   }
 
@@ -311,14 +320,17 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Evidence uploaded successfully.');
+          this.toast.success('File uploaded', 'Evidence uploaded successfully.');
           this.taskUploadFile = null;
           this.taskUploadNote = '';
           this.loadTaskDetail(this.selectedRow!.id, true);
           this.load();
         },
         error: (err: any) =>
-          this.toast.error(err?.error?.message || 'Could not upload evidence.'),
+          this.toast.error(
+            'Upload failed',
+            err?.error?.message || 'Could not upload evidence.',
+          ),
       });
   }
 
@@ -343,12 +355,15 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Comment added to task history.');
+          this.toast.success('Reply posted', 'Comment added to task history.');
           this.taskReply = '';
           this.loadTaskDetail(this.selectedRow!.id, true);
         },
         error: (err: any) =>
-          this.toast.error(err?.error?.message || 'Could not post reply.'),
+          this.toast.error(
+            'Reply failed',
+            err?.error?.message || 'Could not post reply.',
+          ),
       });
   }
 
@@ -373,12 +388,15 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Replacement file uploaded.');
+          this.toast.success('File uploaded', 'Replacement file uploaded.');
           this.reuploadFile = null;
           this.load();
         },
         error: (err: any) =>
-          this.toast.error(err?.error?.message || 'Could not upload replacement file.'),
+          this.toast.error(
+            'Upload failed',
+            err?.error?.message || 'Could not upload replacement file.',
+          ),
       });
   }
 
@@ -398,11 +416,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Reupload sent for verification.');
+          this.toast.success('Submitted', 'Reupload sent for verification.');
           this.load();
         },
         error: (err: any) =>
-          this.toast.error(err?.error?.message || 'Could not submit reupload.'),
+          this.toast.error(
+            'Submit failed',
+            err?.error?.message || 'Could not submit reupload.',
+          ),
       });
   }
 
@@ -510,7 +531,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           this.selectedTaskDetail = null;
           this.relatedReuploads = [];
           this.selectedTaskHistory = [];
-          this.toast.error(err?.error?.message || 'Could not load selected task.');
+          this.toast.error(
+            'Detail failed',
+            err?.error?.message || 'Could not load selected task.',
+          );
         },
       });
   }

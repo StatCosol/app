@@ -29,7 +29,9 @@ export class EsiGenerator {
     private readonly setupRepo: Repository<PayrollClientSetupEntity>,
   ) {}
 
-  async generate(runId: string): Promise<{ fileName: string; content: string }> {
+  async generate(
+    runId: string,
+  ): Promise<{ fileName: string; content: string }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
 
@@ -54,7 +56,9 @@ export class EsiGenerator {
       const valMap = new Map<string, number>();
       values.forEach((v) => valMap.set(v.componentCode, Number(v.amount)));
 
-      const esiWages = this.num(valMap.get('ESI_WAGES') ?? valMap.get('GROSS') ?? 0);
+      const esiWages = this.num(
+        valMap.get('ESI_WAGES') ?? valMap.get('GROSS') ?? 0,
+      );
 
       // Only generate for employees within ESI wage ceiling
       if (esiWages > esiCeiling) continue;
@@ -65,7 +69,11 @@ export class EsiGenerator {
 
       // Working days: days in period month minus NCP_DAYS
       const ncpDays = this.num(valMap.get('NCP_DAYS') ?? 0);
-      const daysInMonth = new Date(run.periodYear, run.periodMonth, 0).getDate();
+      const daysInMonth = new Date(
+        run.periodYear,
+        run.periodMonth,
+        0,
+      ).getDate();
       const workingDays = daysInMonth - ncpDays;
 
       const row = [

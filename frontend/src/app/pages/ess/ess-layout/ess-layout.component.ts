@@ -330,6 +330,16 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>',
     },
     {
+      label: 'Attendance',
+      route: '/ess/attendance',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M15.75 3v1.5M3.75 6.75h16.5M4.5 6.75v12A2.25 2.25 0 006.75 21h10.5a2.25 2.25 0 002.25-2.25v-12M8.25 11.25h.008v.008H8.25v-.008zm3.75 0h.008v.008H12v-.008zm3.75 0h.008v.008h-.008v-.008zm-7.5 3.75h.008v.008H8.25v-.008zm3.75 0h.008v.008H12v-.008z"/></svg>',
+    },
+    {
+      label: 'Documents',
+      route: '/ess/documents',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v4.125A2.625 2.625 0 0116.875 21H7.125A2.625 2.625 0 014.5 18.375V5.625A2.625 2.625 0 017.125 3h5.379a2.625 2.625 0 011.856.769l4.371 4.371a2.625 2.625 0 01.769 1.856V14.25zM13.5 3v4.5a1.5 1.5 0 001.5 1.5h4.5"/></svg>',
+    },
+    {
       label: 'Payslips',
       route: '/ess/payslips',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>',
@@ -346,7 +356,7 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
     }
     // Use logo from login response immediately (before API call)
     if (u?.clientLogoUrl) {
-      this.companyLogoUrl = u.clientLogoUrl;
+      this.companyLogoUrl = this.auth.authenticateUrl(u.clientLogoUrl);
     }
   }
 
@@ -356,7 +366,7 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (b) => {
           if (b?.clientName) this.companyName = b.clientName;
-          if (b?.logoUrl) this.companyLogoUrl = b.logoUrl;
+          if (b?.logoUrl) this.companyLogoUrl = this.auth.authenticateUrl(b.logoUrl);
         },
         error: () => {},
       });

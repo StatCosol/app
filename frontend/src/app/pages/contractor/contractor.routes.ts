@@ -3,8 +3,10 @@ import { roleGuard } from '../../core/role.guard';
 
 const ContractorLayoutComponent = () =>
   import('./contractor-layout/contractor-layout.component').then((m) => m.ContractorLayoutComponent);
-const ContractorDashboardComponent = () =>
-  import('./contractor-dashboard.component').then((m) => m.ContractorDashboardComponent);
+const ContractorDashboardUpgradePageComponent = () =>
+  import('./contractor-dashboard-upgrade-page.component').then(
+    (m) => m.ContractorDashboardUpgradePageComponent,
+  );
 const ContractorNotificationsComponent = () =>
   import('./notifications/contractor-notifications.component').then(
     (m) => m.ContractorNotificationsComponent,
@@ -17,8 +19,10 @@ const ContractorUnifiedTaskCenterPageComponent = () =>
   import('./tasks/contractor-unified-task-center-page.component').then(
     (m) => m.ContractorUnifiedTaskCenterPageComponent,
   );
-const ContractorProfileComponent = () =>
-  import('./contractor-profile.component').then((m) => m.ContractorProfileComponent);
+const ContractorProfileIdentityPageComponent = () =>
+  import('./contractor-profile-identity-page.component').then(
+    (m) => m.ContractorProfileIdentityPageComponent,
+  );
 
 export const CONTRACTOR_ROUTES: Routes = [
   {
@@ -26,7 +30,7 @@ export const CONTRACTOR_ROUTES: Routes = [
     loadComponent: ContractorLayoutComponent,
     canActivate: [roleGuard(['CONTRACTOR'])],
     children: [
-      { path: 'dashboard', loadComponent: ContractorDashboardComponent },
+      { path: 'dashboard', loadComponent: ContractorDashboardUpgradePageComponent },
       { path: 'notifications', loadComponent: ContractorNotificationsComponent },
       { path: 'support', loadComponent: ContractorSupportComponent },
       { path: 'compliance', loadComponent: ContractorComplianceComponent },
@@ -36,7 +40,7 @@ export const CONTRACTOR_ROUTES: Routes = [
       { path: 'reupload-requests', loadComponent: ContractorUnifiedTaskCenterPageComponent },
       { path: 'tasks', loadComponent: ContractorUnifiedTaskCenterPageComponent },
       { path: 'tasks/:id', loadComponent: ContractorUnifiedTaskCenterPageComponent },
-      { path: 'profile', loadComponent: ContractorProfileComponent },
+      { path: 'profile', loadComponent: ContractorProfileIdentityPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

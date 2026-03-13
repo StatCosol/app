@@ -7,6 +7,7 @@ import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { ComplianceService } from '../../core/compliance.service';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   PageHeaderComponent,
   DataTableComponent,
@@ -98,6 +99,7 @@ export class AuditorComplianceComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -182,10 +184,11 @@ export class AuditorComplianceComponent implements OnInit, OnDestroy {
     });
   }
 
-  shareReport(): void {
+  async shareReport(): Promise<void> {
     if (!this.selectedTask || this.sharing) return;
-    const notes = prompt('Audit report / findings (required)') || '';
-    if (!notes.trim()) return;
+    const result = await this.dialog.prompt('Audit Report', 'Audit report / findings (required)', { placeholder: 'Report findings' });
+    if (!result.confirmed || !result.value?.trim()) return;
+    const notes = result.value.trim();
     this.sharing = true;
     this.compliance.auditorShareReport(this.selectedTask.id, notes.trim()).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {

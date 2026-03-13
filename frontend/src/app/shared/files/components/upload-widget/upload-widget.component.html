@@ -1,0 +1,63 @@
+<div class="space-y-2">
+  <!-- Dropzone -->
+  <div *ngIf="config.showDropzone !== false"
+    class="relative border-2 border-dashed rounded-xl p-5 text-center transition-colors cursor-pointer"
+    [class.border-gray-300]="!dragOver && !config.disabled"
+    [class.border-blue-400]="dragOver"
+    [class.bg-blue-50]="dragOver"
+    [class.border-gray-200]="config.disabled"
+    [class.opacity-50]="config.disabled || uploading"
+    [class.pointer-events-none]="config.disabled || uploading"
+    (drop)="onDrop($event)"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)">
+
+    <!-- Icon -->
+    <div class="mx-auto w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+      </svg>
+    </div>
+
+    <p class="text-sm font-medium text-gray-700">{{ config.label || 'Upload' }}</p>
+    <p class="text-xs text-gray-400 mt-0.5">Drag &amp; drop or click to choose a file</p>
+    <p *ngIf="config.maxSizeMB" class="text-xs text-gray-400 mt-0.5">Max {{ config.maxSizeMB }} MB &middot; {{ config.accept || 'Any' }}</p>
+
+    <!-- Hidden input -->
+    <input type="file"
+      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+      [accept]="config.accept || ''"
+      [disabled]="config.disabled || uploading"
+      [multiple]="config.multiple || false"
+      (change)="onPick($any($event.target).files)" />
+  </div>
+
+  <!-- Compact button (when dropzone hidden) -->
+  <div *ngIf="config.showDropzone === false" class="inline-block relative">
+    <button type="button"
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
+      [disabled]="config.disabled || uploading">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+      </svg>
+      {{ config.label || 'Upload' }}
+    </button>
+    <input type="file"
+      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+      [accept]="config.accept || ''"
+      [disabled]="config.disabled || uploading"
+      [multiple]="config.multiple || false"
+      (change)="onPick($any($event.target).files)" />
+  </div>
+
+  <!-- Progress bar -->
+  <div *ngIf="uploading" class="space-y-1">
+    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+      <div class="h-full bg-blue-500 rounded-full transition-all duration-300"
+        [style.width.%]="progress"></div>
+    </div>
+    <p class="text-xs text-gray-500 text-right">{{ progress }}%</p>
+  </div>
+</div>

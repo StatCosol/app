@@ -89,41 +89,37 @@ BEGIN
     SELECT 1 FROM information_schema.tables
     WHERE table_name = 'client_assignment_history'
   ) THEN
-    -- Drop and recreate with canonical schema
-    DROP TABLE IF EXISTS client_assignment_history CASCADE;
+    -- Rename old table to match entity name (client_assignments_history)
+    ALTER TABLE client_assignment_history RENAME TO client_assignments_history;
+  END IF;
 
-    CREATE TABLE client_assignment_history (
+  -- Ensure canonical table exists with correct entity-matching name
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_name = 'client_assignments_history'
+  ) THEN
+    CREATE TABLE client_assignments_history (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID NOT NULL,
-      assigned_to_user_id UUID NOT NULL,
+      assigned_to_user_id UUID,
       assignment_type VARCHAR(50) NOT NULL,
-
-      -- Assignment period
-      start_date DATE NOT NULL,
-      end_date DATE,
-
-      -- Status and reason
-      status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
-      reason_for_change VARCHAR(255),
+      start_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+      end_date TIMESTAMPTZ,
       changed_by_user_id UUID,
-
-      -- Metadata
+      change_reason VARCHAR(255),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-      -- Foreign keys
-      CONSTRAINT fk_client_assignment_history_client
+      CONSTRAINT fk_client_assignments_history_client
         FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
-      CONSTRAINT fk_client_assignment_history_assigned_to
-        FOREIGN KEY (assigned_to_user_id) REFERENCES users(id) ON DELETE RESTRICT,
-      CONSTRAINT fk_client_assignment_history_changed_by
+      CONSTRAINT fk_client_assignments_history_assigned_to
+        FOREIGN KEY (assigned_to_user_id) REFERENCES users(id) ON DELETE SET NULL,
+      CONSTRAINT fk_client_assignments_history_changed_by
         FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
-    CREATE INDEX idx_client_assignment_history_client ON client_assignment_history(client_id);
-    CREATE INDEX idx_client_assignment_history_user ON client_assignment_history(assigned_to_user_id);
-    CREATE INDEX idx_client_assignment_history_type ON client_assignment_history(assignment_type);
-    CREATE INDEX idx_client_assignment_history_created ON client_assignment_history(created_at);
+    CREATE INDEX idx_client_assignments_history_client ON client_assignments_history(client_id);
+    CREATE INDEX idx_client_assignments_history_type ON client_assignments_history(assignment_type);
+    CREATE INDEX idx_client_assignments_history_composite ON client_assignments_history(client_id, assignment_type, start_date);
   END IF;
 END $$;
 

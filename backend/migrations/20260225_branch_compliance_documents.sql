@@ -65,74 +65,144 @@ CREATE TABLE IF NOT EXISTS compliance_documents (
 -- 3) Foreign Key Constraints
 -- ===========================================================
 -- company_id → clients.id
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT fk_compdoc_company
-  FOREIGN KEY (company_id) REFERENCES clients (id)
-  ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_compdoc_company') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT fk_compdoc_company
+      FOREIGN KEY (company_id) REFERENCES clients (id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- branch_id → client_branches.id (nullable)
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT fk_compdoc_branch
-  FOREIGN KEY (branch_id) REFERENCES client_branches (id)
-  ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_compdoc_branch') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT fk_compdoc_branch
+      FOREIGN KEY (branch_id) REFERENCES client_branches (id)
+      ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- return_code → compliance_return_master.return_code
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT fk_compdoc_return_code
-  FOREIGN KEY (return_code) REFERENCES compliance_return_master (return_code)
-  ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_compdoc_return_code') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT fk_compdoc_return_code
+      FOREIGN KEY (return_code) REFERENCES compliance_return_master (return_code)
+      ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- uploaded_by_user_id → users.id
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT fk_compdoc_uploaded_by
-  FOREIGN KEY (uploaded_by_user_id) REFERENCES users (id)
-  ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_compdoc_uploaded_by') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT fk_compdoc_uploaded_by
+      FOREIGN KEY (uploaded_by_user_id) REFERENCES users (id)
+      ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- reviewed_by_user_id → users.id
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT fk_compdoc_reviewed_by
-  FOREIGN KEY (reviewed_by_user_id) REFERENCES users (id)
-  ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_compdoc_reviewed_by') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT fk_compdoc_reviewed_by
+      FOREIGN KEY (reviewed_by_user_id) REFERENCES users (id)
+      ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Unique constraint: one document per return per period per branch
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT uq_compdoc_branch_return_period
-  UNIQUE (branch_id, return_code, period_year, period_month, period_quarter, period_half);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_compdoc_branch_return_period') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT uq_compdoc_branch_return_period
+      UNIQUE (branch_id, return_code, period_year, period_month, period_quarter, period_half);
+  END IF;
+END $$;
 
 -- ===========================================================
 -- 4) Check Constraints
 -- ===========================================================
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_status
-  CHECK (status IN ('NOT_UPLOADED','SUBMITTED','APPROVED','REUPLOAD_REQUIRED','RESUBMITTED','OVERDUE'));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_status') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_status
+      CHECK (status IN ('NOT_UPLOADED','SUBMITTED','APPROVED','REUPLOAD_REQUIRED','RESUBMITTED','OVERDUE'));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_frequency
-  CHECK (frequency IN ('MONTHLY','QUARTERLY','HALF_YEARLY','YEARLY'));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_frequency') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_frequency
+      CHECK (frequency IN ('MONTHLY','QUARTERLY','HALF_YEARLY','YEARLY'));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_module_source
-  CHECK (module_source IN ('BRANCHDESK','CRM','CONTRACTOR','AUDITXPERT'));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_module_source') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_module_source
+      CHECK (module_source IN ('BRANCHDESK','CRM','CONTRACTOR','AUDITXPERT'));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_document_scope
-  CHECK (document_scope IN ('BRANCH','CONTRACTOR','COMPANY'));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_document_scope') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_document_scope
+      CHECK (document_scope IN ('BRANCH','CONTRACTOR','COMPANY'));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_period_month
-  CHECK (period_month IS NULL OR (period_month >= 1 AND period_month <= 12));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_period_month') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_period_month
+      CHECK (period_month IS NULL OR (period_month >= 1 AND period_month <= 12));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_period_quarter
-  CHECK (period_quarter IS NULL OR (period_quarter >= 1 AND period_quarter <= 4));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_period_quarter') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_period_quarter
+      CHECK (period_quarter IS NULL OR (period_quarter >= 1 AND period_quarter <= 4));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_documents
-  ADD CONSTRAINT chk_compdoc_period_half
-  CHECK (period_half IS NULL OR (period_half >= 1 AND period_half <= 2));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_compdoc_period_half') THEN
+    ALTER TABLE compliance_documents
+      ADD CONSTRAINT chk_compdoc_period_half
+      CHECK (period_half IS NULL OR (period_half >= 1 AND period_half <= 2));
+  END IF;
+END $$;
 
-ALTER TABLE compliance_return_master
-  ADD CONSTRAINT chk_retmaster_frequency
-  CHECK (frequency IN ('MONTHLY','QUARTERLY','HALF_YEARLY','YEARLY'));
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_retmaster_frequency') THEN
+    ALTER TABLE compliance_return_master
+      ADD CONSTRAINT chk_retmaster_frequency
+      CHECK (frequency IN ('MONTHLY','QUARTERLY','HALF_YEARLY','YEARLY'));
+  END IF;
+END $$;
 
 -- ===========================================================
 -- 5) Basic Indexes

@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,8 @@ import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.s
 
 @Injectable()
 export class EmployeesService {
+  private readonly logger = new Logger(EmployeesService.name);
+
   constructor(
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
@@ -59,7 +62,55 @@ export class EmployeesService {
     clientId: string,
     branchId: string | null,
     dto: Partial<EmployeeEntity> & { stateCode?: string; branchCode?: string },
+    isBranchUser = false,
   ): Promise<EmployeeEntity> {
+    // Validate mandatory fields
+    if (!dto.phone?.trim())
+      throw new BadRequestException('Phone number is required');
+    if (!dto.aadhaar?.trim())
+      throw new BadRequestException('Aadhaar number is required');
+
+    // Age validation: must be 18 or older
+    if (dto.dateOfBirth) {
+      const dob = new Date(dto.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()))
+        age--;
+      if (age < 18) {
+        throw new BadRequestException(
+          `Employee must be at least 18 years old. Date of birth ${dto.dateOfBirth} indicates age ${age}.`,
+        );
+      }
+    }
+
+    // Check for duplicate phone within this client
+    const phoneNorm = dto.phone.replace(/\s+/g, '');
+    const existingByPhone = await this.empRepo.findOne({
+      where: { clientId, phone: phoneNorm },
+    });
+    if (existingByPhone) {
+      throw new BadRequestException(
+        `An employee with phone ${phoneNorm} already exists (${existingByPhone.firstName} ${existingByPhone.lastName || ''} - ${existingByPhone.employeeCode})`,
+      );
+    }
+
+    // Check for duplicate Aadhaar within this client
+    const aadhaarNorm = dto.aadhaar.replace(/\s+/g, '');
+    const existingByAadhaar = await this.empRepo.findOne({
+      where: { clientId, aadhaar: aadhaarNorm },
+    });
+    if (existingByAadhaar) {
+      throw new BadRequestException(
+        `An employee with Aadhaar ${aadhaarNorm} already exists (${existingByAadhaar.firstName} ${existingByAadhaar.lastName || ''} - ${existingByAadhaar.employeeCode})`,
+      );
+    }
+
+    // Normalize before saving
+    dto.phone = phoneNorm;
+    dto.aadhaar = aadhaarNorm;
+
     // Wrap code generation + save in a transaction so sequence is not wasted on failure
     return this.ds.transaction(async (manager) => {
       const year = new Date().getFullYear();
@@ -82,6 +133,7 @@ export class EmployeesService {
         clientId,
         branchId: branchId || dto.branchId || null,
         employeeCode: code,
+        approvalStatus: isBranchUser ? 'PENDING' : 'APPROVED',
       });
       return manager.save(emp);
     });
@@ -93,6 +145,7 @@ export class EmployeesService {
       branchId?: string;
       branchIds?: string[];
       isActive?: boolean;
+      approvalStatus?: string;
       search?: string;
       limit?: number;
       offset?: number;
@@ -105,10 +158,17 @@ export class EmployeesService {
     if (filters.branchId) {
       qb.andWhere('e.branchId = :branchId', { branchId: filters.branchId });
     } else if (filters.branchIds?.length) {
-      qb.andWhere('e.branchId IN (:...branchIds)', { branchIds: filters.branchIds });
+      qb.andWhere('e.branchId IN (:...branchIds)', {
+        branchIds: filters.branchIds,
+      });
     }
     if (filters.isActive !== undefined) {
       qb.andWhere('e.isActive = :isActive', { isActive: filters.isActive });
+    }
+    if (filters.approvalStatus) {
+      qb.andWhere('e.approvalStatus = :approvalStatus', {
+        approvalStatus: filters.approvalStatus,
+      });
     }
     if (filters.search) {
       qb.andWhere(
@@ -136,9 +196,50 @@ export class EmployeesService {
     dto: Partial<EmployeeEntity>,
   ): Promise<EmployeeEntity> {
     const emp = await this.findById(clientId, id);
+
+    // Validate & check duplicate phone if changed
+    if (dto.phone !== undefined) {
+      const phoneNorm = (dto.phone || '').replace(/\s+/g, '');
+      if (!phoneNorm) throw new BadRequestException('Phone number is required');
+      if (phoneNorm !== emp.phone) {
+        const dup = await this.empRepo.findOne({
+          where: { clientId, phone: phoneNorm },
+        });
+        if (dup && dup.id !== id) {
+          throw new BadRequestException(
+            `An employee with phone ${phoneNorm} already exists (${dup.firstName} ${dup.lastName || ''} - ${dup.employeeCode})`,
+          );
+        }
+      }
+      dto.phone = phoneNorm;
+    }
+
+    // Validate & check duplicate Aadhaar if changed
+    if (dto.aadhaar !== undefined) {
+      const aadhaarNorm = (dto.aadhaar || '').replace(/\s+/g, '');
+      if (!aadhaarNorm)
+        throw new BadRequestException('Aadhaar number is required');
+      if (aadhaarNorm !== emp.aadhaar) {
+        const dup = await this.empRepo.findOne({
+          where: { clientId, aadhaar: aadhaarNorm },
+        });
+        if (dup && dup.id !== id) {
+          throw new BadRequestException(
+            `An employee with Aadhaar ${aadhaarNorm} already exists (${dup.firstName} ${dup.lastName || ''} - ${dup.employeeCode})`,
+          );
+        }
+      }
+      dto.aadhaar = aadhaarNorm;
+    }
+
     Object.assign(emp, dto);
     const saved = await this.empRepo.save(emp);
-    if (saved.branchId) this.riskCache.invalidateBranch(saved.branchId).catch(() => {});
+    if (saved.branchId)
+      this.riskCache
+        .invalidateBranch(saved.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
     return saved;
   }
 
@@ -147,8 +248,32 @@ export class EmployeesService {
     emp.isActive = false;
     emp.dateOfExit = new Date().toISOString().split('T')[0];
     const deactivated = await this.empRepo.save(emp);
-    if (deactivated.branchId) this.riskCache.invalidateBranch(deactivated.branchId).catch(() => {});
+    if (deactivated.branchId)
+      this.riskCache
+        .invalidateBranch(deactivated.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
     return deactivated;
+  }
+
+  async approveEmployee(clientId: string, id: string): Promise<EmployeeEntity> {
+    const emp = await this.findById(clientId, id);
+    if (emp.approvalStatus === 'APPROVED') {
+      throw new BadRequestException('Employee is already approved');
+    }
+    emp.approvalStatus = 'APPROVED';
+    return this.empRepo.save(emp);
+  }
+
+  async rejectEmployee(clientId: string, id: string): Promise<EmployeeEntity> {
+    const emp = await this.findById(clientId, id);
+    if (emp.approvalStatus === 'REJECTED') {
+      throw new BadRequestException('Employee is already rejected');
+    }
+    emp.approvalStatus = 'REJECTED';
+    emp.isActive = false;
+    return this.empRepo.save(emp);
   }
 
   // ── Nominations ────────────────────────────────────────────

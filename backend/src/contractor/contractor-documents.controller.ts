@@ -28,6 +28,7 @@ import {
   ClientScoped,
   CrmAssignmentGuard,
 } from '../assignments/crm-assignment.guard';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -64,17 +65,21 @@ const fileUploadOptions = {
   limits: { fileSize: MAX_MB * 1024 * 1024 },
 };
 
+@ApiTags('Contractor')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'contractor/documents', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorDocumentsController {
   constructor(private readonly svc: ContractorDocumentsService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get()
   list(@Req() req: any, @Query() q: any) {
     return this.svc.contractorList(req.user, q);
   }
 
+  @ApiOperation({ summary: 'Upload' })
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   upload(
@@ -85,6 +90,7 @@ export class ContractorDocumentsController {
     return this.svc.contractorUpload(req.user, dto, file);
   }
 
+  @ApiOperation({ summary: 'Reupload' })
   @Post('reupload/:id')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   reupload(
@@ -103,12 +109,14 @@ export class ContractorDocumentsController {
 export class CrmContractorDocumentsController {
   constructor(private readonly svc: ContractorDocumentsService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get()
   @ClientScoped('clientId')
   list(@Req() req: any, @Query() q: any) {
     return this.svc.listByClient(req.user, q);
   }
 
+  @ApiOperation({ summary: 'Review' })
   @Post(':id/review')
   review(
     @Req() req: any,

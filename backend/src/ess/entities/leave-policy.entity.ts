@@ -26,7 +26,12 @@ export class LeavePolicyEntity {
   @Column({ name: 'leave_name', type: 'varchar', length: 100 })
   leaveName: string;
 
-  @Column({ name: 'accrual_method', type: 'varchar', length: 20, default: 'MONTHLY' })
+  @Column({
+    name: 'accrual_method',
+    type: 'varchar',
+    length: 20,
+    default: 'MONTHLY',
+  })
   accrualMethod: string;
 
   @Column({

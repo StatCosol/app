@@ -5,4 +5,8 @@ export const environment = {
    * This prevents hardcoded localhost URLs from breaking production builds.
    */
   apiBaseUrl: '',
+  supportPhone: '+91 9000607839',
+  supportPhoneHref: 'tel:+919000607839',
+  supportEmail: 'compliance@statcosol.com',
+  supportEmailHref: 'mailto:compliance@statcosol.com',
 };

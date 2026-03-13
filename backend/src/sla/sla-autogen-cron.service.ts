@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { SlaComplianceResolverService } from '../compliances/sla-compliance-resolver.service';
-import { SlaComplianceScheduleService, ScheduleEntry } from '../compliances/sla-compliance-schedule.service';
+import {
+  SlaComplianceScheduleService,
+  ScheduleEntry,
+} from '../compliances/sla-compliance-schedule.service';
 
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -36,15 +39,22 @@ export class SlaAutogenCronService {
         const c = await this.generateForBranch(b.clientid, b.id);
         created += c;
       } catch (err: any) {
-        this.logger.warn(`SLA autogen failed for branch ${b.id}: ${err.message}`);
+        this.logger.warn(
+          `SLA autogen failed for branch ${b.id}: ${err.message}`,
+        );
       }
     }
 
-    this.logger.log(`SLA auto-generation complete: ${created} tasks upserted across ${branches.length} branches.`);
+    this.logger.log(
+      `SLA auto-generation complete: ${created} tasks upserted across ${branches.length} branches.`,
+    );
   }
 
   // ──────────────────────────────────────────────
-  private async generateForBranch(clientId: string, branchId: string): Promise<number> {
+  private async generateForBranch(
+    clientId: string,
+    branchId: string,
+  ): Promise<number> {
     const today = this.startOfDay(new Date());
     let count = 0;
 
@@ -55,7 +65,11 @@ export class SlaAutogenCronService {
   }
 
   // ── REGISTRATIONS ──────────────────────────────
-  private async generateRegistrationTasks(clientId: string, branchId: string, today: Date): Promise<number> {
+  private async generateRegistrationTasks(
+    clientId: string,
+    branchId: string,
+    today: Date,
+  ): Promise<number> {
     const regs: any[] = await this.ds.query(
       `SELECT id, type, expiry_date
        FROM branch_registrations
@@ -74,17 +88,31 @@ export class SlaAutogenCronService {
       if (days > 60) continue;
 
       const priority: Priority =
-        days < 0 ? 'CRITICAL' :
-        days <= 7 ? 'HIGH' :
-        days <= 30 ? 'MEDIUM' : 'LOW';
+        days < 0
+          ? 'CRITICAL'
+          : days <= 7
+            ? 'HIGH'
+            : days <= 30
+              ? 'MEDIUM'
+              : 'LOW';
 
       const dueDate = days < 0 ? this.toISODate(today) : this.toISODate(exp);
-      const title = days < 0
-        ? `Renew expired registration: ${r.type}`
-        : `Renew registration before expiry: ${r.type}`;
+      const title =
+        days < 0
+          ? `Renew expired registration: ${r.type}`
+          : `Renew registration before expiry: ${r.type}`;
       const sourceKey = `REG:${r.id}`;
 
-      const ok = await this.upsertSla(clientId, branchId, 'REGISTRATION', r.id, sourceKey, title, priority, dueDate);
+      const ok = await this.upsertSla(
+        clientId,
+        branchId,
+        'REGISTRATION',
+        r.id,
+        sourceKey,
+        title,
+        priority,
+        dueDate,
+      );
       if (ok) count++;
     }
     return count;
@@ -136,7 +164,10 @@ export class SlaAutogenCronService {
 
         if (this.isSameDay(today, this.startOfDay(createDate))) {
           const ok = await this.upsertSla(
-            clientId, branchId, 'RETURNS', null,
+            clientId,
+            branchId,
+            'RETURNS',
+            null,
             `${entry.code}:${entry.dueDate}`,
             entry.name,
             entry.priority as Priority,
@@ -154,7 +185,10 @@ export class SlaAutogenCronService {
         // Create on window open day
         if (this.isSameDay(today, this.startOfDay(openDate))) {
           const ok = await this.upsertSla(
-            clientId, branchId, 'MCD', null,
+            clientId,
+            branchId,
+            'MCD',
+            null,
             `${entry.code}:${month}:OPEN`,
             `${entry.name} – opens`,
             entry.priority as Priority,
@@ -168,7 +202,10 @@ export class SlaAutogenCronService {
         reminderDate.setDate(closeDate.getDate() - 2);
         if (this.isSameDay(today, this.startOfDay(reminderDate))) {
           const ok = await this.upsertSla(
-            clientId, branchId, 'MCD', null,
+            clientId,
+            branchId,
+            'MCD',
+            null,
             `${entry.code}:${month}:REMINDER`,
             `${entry.name} – closing soon`,
             this.escalatePriority(entry.priority as Priority),
@@ -184,18 +221,24 @@ export class SlaAutogenCronService {
 
   /** Check if two dates are the same calendar day */
   private isSameDay(a: Date, b: Date): boolean {
-    return a.getFullYear() === b.getFullYear()
-      && a.getMonth() === b.getMonth()
-      && a.getDate() === b.getDate();
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
   }
 
   /** Bump priority one level up for reminders */
   private escalatePriority(p: Priority): Priority {
     switch (p) {
-      case 'LOW': return 'MEDIUM';
-      case 'MEDIUM': return 'HIGH';
-      case 'HIGH': return 'CRITICAL';
-      default: return 'CRITICAL';
+      case 'LOW':
+        return 'MEDIUM';
+      case 'MEDIUM':
+        return 'HIGH';
+      case 'HIGH':
+        return 'CRITICAL';
+      default:
+        return 'CRITICAL';
     }
   }
 
@@ -235,7 +278,16 @@ export class SlaAutogenCronService {
     await this.ds.query(
       `INSERT INTO sla_tasks (client_id, branch_id, module, entity_id, source_key, title, priority, due_date, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'OPEN')`,
-      [clientId, branchId, module, entityId, sourceKey, title, priority, dueDate],
+      [
+        clientId,
+        branchId,
+        module,
+        entityId,
+        sourceKey,
+        title,
+        priority,
+        dueDate,
+      ],
     );
     return true;
   }

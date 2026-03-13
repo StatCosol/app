@@ -38,12 +38,13 @@ export class StateSlabService {
     });
 
     // Fallback to ALL
-    const slabsAll = stateCode !== 'ALL'
-      ? await this.slabRepo.find({
-          where: { clientId, stateCode: 'ALL', componentCode },
-          order: { fromAmount: 'ASC' },
-        })
-      : [];
+    const slabsAll =
+      stateCode !== 'ALL'
+        ? await this.slabRepo.find({
+            where: { clientId, stateCode: 'ALL', componentCode },
+            order: { fromAmount: 'ASC' },
+          })
+        : [];
 
     const slabs = slabsState.length > 0 ? slabsState : slabsAll;
     if (slabs.length === 0) return 0;
@@ -56,7 +57,8 @@ export class StateSlabService {
       if (!inRange) continue;
 
       if (s.valueAmount != null) return Number(s.valueAmount);
-      if (s.valuePercent != null) return (baseAmount * Number(s.valuePercent)) / 100;
+      if (s.valuePercent != null)
+        return (baseAmount * Number(s.valuePercent)) / 100;
       return 0;
     }
 

@@ -21,7 +21,10 @@ import {
   ClientScoped,
   CrmAssignmentGuard,
 } from '../assignments/crm-assignment.guard';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Branches')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
@@ -60,6 +63,7 @@ export class CrmBranchesController {
     return branch;
   }
 
+  @ApiOperation({ summary: 'List By Client' })
   @Get('clients/:clientId/branches')
   @ClientScoped('clientId')
   @UseGuards(CrmAssignmentGuard)
@@ -70,6 +74,7 @@ export class CrmBranchesController {
     return this.branchesService.findByClient(clientId);
   }
 
+  @ApiOperation({ summary: 'Create Branch' })
   @Post('clients/:clientId/branches')
   @ClientScoped('clientId')
   @UseGuards(CrmAssignmentGuard)
@@ -88,6 +93,7 @@ export class CrmBranchesController {
 
   // ---- Branch compliances (CRM-scoped, read-only) ----
 
+  @ApiOperation({ summary: 'List Compliances' })
   @Get('branches/:id/compliances')
   async listCompliances(
     @Param('id', ParseUUIDPipe) id: string,
@@ -97,6 +103,7 @@ export class CrmBranchesController {
     return this.compliancesService.getBranchCompliances(id);
   }
 
+  @ApiOperation({ summary: 'Save Compliances' })
   @Post('branches/:id/compliances')
   async saveCompliances(
     @Param('id', ParseUUIDPipe) id: string,
@@ -114,6 +121,7 @@ export class CrmBranchesController {
 
   // ---- Branch edit/delete ----
 
+  @ApiOperation({ summary: 'Update Branch' })
   @Patch('branches/:id')
   async updateBranch(
     @Param('id', ParseUUIDPipe) id: string,
@@ -124,6 +132,7 @@ export class CrmBranchesController {
     return this.branchesService.update(id, dto);
   }
 
+  @ApiOperation({ summary: 'Delete Branch' })
   @Delete('branches/:id')
   async deleteBranch(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
     await this.ensureBranchAssigned(id, req.user.userId);
@@ -137,6 +146,7 @@ export class CrmBranchesController {
 
   // ---- Contractors per branch (CRM-scoped) ----
 
+  @ApiOperation({ summary: 'List Contractors' })
   @Get('branches/:id/contractors')
   async listContractors(
     @Param('id', ParseUUIDPipe) id: string,
@@ -146,6 +156,7 @@ export class CrmBranchesController {
     return this.branchesService.listContractors(id);
   }
 
+  @ApiOperation({ summary: 'Add Contractor' })
   @Post('branches/:id/contractors')
   async addContractor(
     @Param('id', ParseUUIDPipe) id: string,
@@ -156,6 +167,7 @@ export class CrmBranchesController {
     return this.branchesService.addContractor(id, userId);
   }
 
+  @ApiOperation({ summary: 'Remove Contractor' })
   @Delete('branches/:branchId/contractors/:userId')
   async removeContractor(
     @Param('branchId', ParseUUIDPipe) branchId: string,

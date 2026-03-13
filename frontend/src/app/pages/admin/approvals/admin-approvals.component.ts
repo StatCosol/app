@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
 import { finalize, timeout, takeUntil } from 'rxjs/operators';
 import { AdminApprovalsService } from '../../../core/admin-approvals.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { PageHeaderComponent, StatusBadgeComponent, ActionButtonComponent, LoadingSpinnerComponent, EmptyStateComponent } from '../../../shared/ui';
 
 @Component({
@@ -75,7 +76,7 @@ export class AdminApprovalsComponent implements OnInit, OnDestroy {
   requests: any[] = [];
   counts = { pending: 0, approved: 0, rejected: 0 };
 
-  constructor(private api: AdminApprovalsService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: AdminApprovalsService, private cdr: ChangeDetectorRef, private dialog: ConfirmDialogService) {}
 
   ngOnInit() {
     this.loadCounts();
@@ -111,11 +112,12 @@ export class AdminApprovalsComponent implements OnInit, OnDestroy {
     });
   }
 
-  approve(id: string) {
+  async approve(id: string) {
     if (this.actionId) return;
-    const notes = prompt('Approval notes (optional):');
+    const result = await this.dialog.prompt('Approve', 'Approval notes (optional):', { placeholder: 'Notes' });
+    if (!result.confirmed) return;
     this.actionId = id;
-    this.api.approve(id, notes || '').pipe(takeUntil(this.destroy$)).subscribe({
+    this.api.approve(id, result.value || '').pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionId = null;
         this.cdr.detectChanges();
@@ -126,12 +128,12 @@ export class AdminApprovalsComponent implements OnInit, OnDestroy {
     });
   }
 
-  reject(id: string) {
+  async reject(id: string) {
     if (this.actionId) return;
-    const notes = prompt('Rejection reason:');
-    if (!notes) { return; }
+    const result = await this.dialog.prompt('Reject', 'Rejection reason:', { placeholder: 'Reason' });
+    if (!result.confirmed || !result.value) { return; }
     this.actionId = id;
-    this.api.reject(id, notes).pipe(takeUntil(this.destroy$)).subscribe({
+    this.api.reject(id, result.value).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.actionId = null;
         this.cdr.detectChanges();
