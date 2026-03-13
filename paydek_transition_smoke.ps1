@@ -219,6 +219,23 @@ if (-not $ClientId) {
       $firstClient = [pscustomobject]@{ id = $m.Groups[1].Value }
     }
   }
+  if (-not $firstClient) {
+    $optionClients = Invoke-JsonApi -Method "GET" -Url "$BaseUrl/admin/options/clients" -Token $token
+    $optionArr = Get-DataArray -Json $optionClients.json
+    if ((@($optionArr).Count -eq 0) -and $optionClients.raw) {
+      $parsedOptionsRaw = Try-ParseJson -Raw $optionClients.raw
+      $optionArr = Get-DataArray -Json $parsedOptionsRaw
+    }
+    $firstOptionClient = @($optionArr) | Where-Object { $_ -and $_.id } | Select-Object -First 1
+    if ($firstOptionClient) {
+      $firstClient = [pscustomobject]@{ id = [string]$firstOptionClient.id }
+      $clients = $optionClients
+      $is2xx = ($optionClients.status -ge 200 -and $optionClients.status -lt 300)
+      Add-Check -Name "Resolve Client Fallback" -Ok $true -Status $optionClients.status -Details "source=admin/options/clients clientId=$($firstClient.id)"
+    } elseif (-not $is2xx) {
+      Add-Check -Name "Resolve Client Fallback" -Ok $false -Status $optionClients.status -Details ("source=admin/options/clients " + ($optionClients.raw -replace "`r?`n"," "))
+    }
+  }
   if ($is2xx -and $firstClient) {
     $ClientId = [string]$firstClient.id
     Add-Check -Name "Resolve Client" -Ok $true -Status $clients.status -Details "clientId=$ClientId"
