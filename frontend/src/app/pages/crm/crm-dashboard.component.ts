@@ -80,6 +80,12 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
     expiring30Count: 0,
     openObservationsCount: 0,
     mcdPendingCount: 0,
+    reuploadOpen: 0,
+    reuploadSubmitted: 0,
+    reuploadOpenClient: 0,
+    reuploadOpenBranch: 0,
+    reuploadSubmittedClient: 0,
+    reuploadSubmittedBranch: 0,
   };
 
   dueItems: ComplianceDueItem[] = [];
@@ -100,8 +106,8 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
   readonly shortcuts: ActionShortcut[] = [
     { label: 'Open Review Queue', route: '/crm/branch-docs-review' },
     { label: 'Returns Workspace', route: '/crm/returns' },
-    { label: 'Renewals Queue', route: '/crm/registrations', query: { focus: 'RENEWAL' } },
-    { label: 'Amendments Queue', route: '/crm/registrations', query: { focus: 'AMENDMENT' } },
+    { label: 'Renewals Workspace', route: '/crm/renewals' },
+    { label: 'Amendments Workspace', route: '/crm/amendments' },
     { label: 'Compliance Tracker', route: '/crm/compliance-tracker' },
     { label: 'Audit Management', route: '/crm/audits' },
   ];
@@ -169,7 +175,7 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.errorMsg = err?.error?.message || 'Failed to load CRM dashboard.';
-          this.toast.error(this.errorMsg);
+          this.toast.error('Load Failed', this.errorMsg);
         },
       });
   }
@@ -225,14 +231,14 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
 
   openWorkflowBoard(kind: 'RENEWAL' | 'AMENDMENT' | 'REGISTRATION'): void {
     if (kind === 'RENEWAL') {
-      this.router.navigate(['/crm/registrations'], { queryParams: { focus: 'RENEWAL' } });
+      this.router.navigate(['/crm/renewals']);
       return;
     }
     if (kind === 'AMENDMENT') {
-      this.router.navigate(['/crm/registrations'], { queryParams: { focus: 'AMENDMENT' } });
+      this.router.navigate(['/crm/amendments']);
       return;
     }
-    this.router.navigate(['/crm/registrations'], { queryParams: { focus: 'REGISTRATION' } });
+    this.router.navigate(['/crm/registrations']);
   }
 
   complianceCardClass(value: number): string {
@@ -347,3 +353,4 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
     return out;
   }
 }
+

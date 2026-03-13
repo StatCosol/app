@@ -26,19 +26,24 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 // ADMIN controller: view all tickets
+@ApiTags('Helpdesk')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'admin/helpdesk', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminHelpdeskController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get('tickets')
-  list(@Query() q: any) {
-    return this.svc.crmListTickets(null, q);
+  list(@Req() req: any, @Query() q: any) {
+    return this.svc.listTickets(req.user, q);
   }
 
+  @ApiOperation({ summary: 'Get Ticket' })
   @Get('tickets/:ticketId')
   getTicket(@Req() req: any, @Param('ticketId') ticketId: string) {
     return this.svc.getTicket(req.user, ticketId);
@@ -87,11 +92,13 @@ const uploadOptions = {
 export class ClientHelpdeskController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get('tickets')
   list(@Req() req: any, @Query() q: any) {
     return this.svc.listTickets(req.user, q);
   }
 
+  @ApiOperation({ summary: 'Create' })
   @Post('tickets')
   create(
     @Req() req: any,
@@ -100,6 +107,7 @@ export class ClientHelpdeskController {
     return this.svc.createTicket(req.user, dto);
   }
 
+  @ApiOperation({ summary: 'Get Ticket' })
   @Get('tickets/:ticketId')
   getTicket(@Req() req: any, @Param('ticketId') ticketId: string) {
     return this.svc.getTicket(req.user, ticketId);
@@ -113,11 +121,13 @@ export class ClientHelpdeskController {
 export class PfTeamHelpdeskController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  @ApiOperation({ summary: 'List' })
   @Get('tickets')
   list(@Req() req: any, @Query() q: any) {
     return this.svc.crmListTickets(req.user, q);
   }
 
+  @ApiOperation({ summary: 'Get Ticket' })
   @Get('tickets/:ticketId')
   getTicket(@Req() req: any, @Param('ticketId') ticketId: string) {
     return this.svc.getTicket(req.user, ticketId);
@@ -131,6 +141,7 @@ export class PfTeamHelpdeskController {
 export class HelpdeskMessagesController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  @ApiOperation({ summary: 'Post Message' })
   @Post('messages')
   postMessage(
     @Req() req: any,
@@ -140,6 +151,7 @@ export class HelpdeskMessagesController {
     return this.svc.postMessage(req.user, ticketId, dto);
   }
 
+  @ApiOperation({ summary: 'Upload File' })
   @Post('files')
   @UseInterceptors(FileInterceptor('file', uploadOptions))
   uploadFile(
@@ -151,6 +163,7 @@ export class HelpdeskMessagesController {
     return this.svc.uploadFile(req.user, ticketId, file);
   }
 
+  @ApiOperation({ summary: 'List Messages' })
   @Get('messages')
   listMessages(@Req() req: any, @Param('ticketId') ticketId: string) {
     return this.svc.getMessages(req.user, ticketId);
@@ -164,6 +177,17 @@ export class HelpdeskMessagesController {
 export class CrmHelpdeskController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  /**
+   * Compatibility alias for older clients expecting:
+   * GET /api/v1/crm/helpdesk
+   */
+  @ApiOperation({ summary: 'List (Compatibility)' })
+  @Get()
+  listCompat(@Req() req: any, @Query() q: any) {
+    return this.svc.crmListTickets(req.user, q);
+  }
+
+  @ApiOperation({ summary: 'List' })
   @Get('tickets')
   list(@Req() req: any, @Query() q: any) {
     return this.svc.crmListTickets(req.user, q);
@@ -178,6 +202,7 @@ export class CrmHelpdeskController {
 export class HelpdeskManagementController {
   constructor(private readonly svc: HelpdeskService) {}
 
+  @ApiOperation({ summary: 'Update Status' })
   @Patch('tickets/:id/status')
   updateStatus(
     @Req() req: any,

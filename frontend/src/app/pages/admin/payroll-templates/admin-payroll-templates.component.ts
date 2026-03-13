@@ -165,7 +165,7 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
         error: () => {
-          this.toast.error('Could not open template details.');
+          this.toast.error('Load failed', 'Could not open template details.');
         },
       });
   }
@@ -181,7 +181,7 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
     };
 
     if (!payload.name || !payload.fileName || !payload.filePath) {
-      this.toast.warning('Name, file name, and file path are required.');
+      this.toast.warning('Missing fields', 'Name, file name, and file path are required.');
       return;
     }
 
@@ -201,7 +201,8 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (saved: any) => {
           this.toast.success(
-            this.selectedTemplate ? 'Payroll template updated.' : 'Payroll template created.',
+            this.selectedTemplate ? 'Template updated' : 'Template created',
+            'Payroll template saved.',
           );
           const id = saved?.id || this.selectedTemplate?.id || null;
           this.loadAll();
@@ -213,7 +214,10 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
           }
         },
         error: (err: any) => {
-          this.toast.error(err?.error?.message || 'Could not save template.');
+          this.toast.error(
+            'Save failed',
+            err?.error?.message || 'Could not save template.',
+          );
         },
       });
   }
@@ -244,12 +248,17 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success(`Created ${proposedName}.`);
+          this.toast.success(
+            'Version created',
+            `Created ${proposedName}.`,
+          );
           this.loadAll();
         },
         error: (err: any) => {
           this.toast.error(
-            err?.error?.message || 'Could not create next version. Name might already exist.',
+            'Version create failed',
+            err?.error?.message ||
+              'Could not create next version. Name might already exist.',
           );
         },
       });
@@ -278,11 +287,14 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
 
   assignToClient(): void {
     if (!this.selectedTemplate) {
-      this.toast.warning('Pick a template before assignment.');
+      this.toast.warning('Select template', 'Pick a template before assignment.');
       return;
     }
     if (!this.assignmentForm.client_id || !this.assignmentForm.effective_from) {
-      this.toast.warning('Client and effective from date are required.');
+      this.toast.warning(
+        'Missing details',
+        'Client and effective from date are required.',
+      );
       return;
     }
 
@@ -303,11 +315,14 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.toast.success('Template linked to client.');
+          this.toast.success('Assigned', 'Template linked to client.');
           this.loadClientAssignments(this.assignmentForm.client_id);
         },
         error: (err: any) => {
-          this.toast.error(err?.error?.message || 'Could not assign template.');
+          this.toast.error(
+            'Assign failed',
+            err?.error?.message || 'Could not assign template.',
+          );
         },
       });
   }
@@ -380,3 +395,4 @@ export class AdminPayrollTemplatesComponent implements OnInit, OnDestroy {
     return `${y}-${m}-${day}`;
   }
 }
+

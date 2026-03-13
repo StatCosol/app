@@ -4,13 +4,17 @@ import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Reports')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'reports/audits', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditReportController {
   constructor(private readonly ds: DataSource) {}
 
   @Roles('ADMIN', 'CEO', 'CCO', 'AUDITOR')
+  @ApiOperation({ summary: 'Overdue' })
   @Get('overdue')
   async overdue(@CurrentUser() user: any) {
     const base = `

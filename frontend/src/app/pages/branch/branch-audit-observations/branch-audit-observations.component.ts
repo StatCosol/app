@@ -14,6 +14,11 @@ import { AuthService } from '../../../core/auth.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { HelpdeskService } from '../../../core/helpdesk.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { SharedTimelineComponent } from '../../../shared/components/timeline';
+import { TimelineEvent as SharedTimelineEvent } from '../../../shared/components/timeline/timeline.model';
+import { SharedFilePreviewModalComponent } from '../../../shared/components/file-preview';
+import { SharedFilePreviewData } from '../../../shared/components/file-preview/file-preview.model';
+import { DueDateBadgeComponent, StatusChipComponent } from '../../../shared/components/status';
 
 type ObservationSeverity = 'CRITICAL' | 'MAJOR' | 'MINOR';
 type ObservationStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
@@ -71,32 +76,17 @@ interface ClosureDraft {
   notes: string;
 }
 
-interface TimelineEvent {
-  id: string;
-  title: string;
-  createdAt: string;
-  actorRole?: string;
-  statusTo?: string | null;
-  comment?: string | null;
-  attachmentsCount?: number;
-}
-
-interface EvidencePreviewData {
-  id: string;
-  name: string;
-  fileName: string;
-  mimeType?: string | null;
-  fileSize?: number | null;
-  status?: string | null;
-  uploadedAt?: string | null;
-  url?: string | null;
-  rejectionReason?: string | null;
-}
-
 @Component({
   selector: 'app-branch-audit-observations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    SharedTimelineComponent,
+    SharedFilePreviewModalComponent,
+    StatusChipComponent,
+    DueDateBadgeComponent,
+  ],
   templateUrl: './branch-audit-observations.component.html',
   styleUrls: ['./branch-audit-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -116,11 +106,11 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   cases: ClosureCase[] = [];
   selectedCases: ClosureCase[] = [];
   selectedMessages: CaseMessage[] = [];
-  selectedTimeline: TimelineEvent[] = [];
+  selectedTimeline: SharedTimelineEvent[] = [];
 
   selectedEvidenceFiles: File[] = [];
   showEvidencePreview = false;
-  evidencePreviewData: EvidencePreviewData | null = null;
+  evidencePreviewData: SharedFilePreviewData | null = null;
   private localPreviewUrl: string | null = null;
 
   searchTerm = '';
@@ -355,6 +345,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
       status: this.activeCase ? 'PENDING_UPLOAD' : 'DRAFT',
       uploadedAt: new Date().toISOString(),
       url: objectUrl,
+      versions: [],
     };
     this.showEvidencePreview = true;
   }
@@ -368,6 +359,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
       status: caseRow.status,
       uploadedAt: caseRow.updatedAt || caseRow.createdAt || null,
       rejectionReason: caseRow.status === 'OPEN' ? null : '',
+      versions: [],
     };
     this.showEvidencePreview = true;
   }
@@ -380,10 +372,7 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
 
   downloadEvidencePreview(): void {
     const url = this.evidencePreviewData?.url;
-    if (!url) {
-      this.toast.error('No file URL is available for this evidence item.');
-      return;
-    }
+    if (!url) return;
     window.open(url, '_blank');
   }
 
@@ -515,46 +504,6 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
     if (severity === 'CRITICAL') return 'Critical';
     if (severity === 'MAJOR') return 'Major';
     return 'Minor';
-  }
-
-  badgeLabel(value: string | null | undefined): string {
-    const raw = String(value || '').trim();
-    if (!raw) return '-';
-    return raw.replace(/_/g, ' ');
-  }
-
-  badgeClass(value: string | null | undefined): string {
-    const raw = String(value || '').toUpperCase();
-    if (!raw) return 'badge badge--muted';
-    if (['CRITICAL', 'OPEN', 'OVERDUE', 'PENDING'].includes(raw)) return 'badge badge--bad';
-    if (['MAJOR', 'IN_PROGRESS', 'READY_FOR_VERIFICATION', 'UNDER_REVIEW'].includes(raw)) {
-      return 'badge badge--warn';
-    }
-    if (['CLOSED', 'RESOLVED', 'VERIFIED'].includes(raw)) return 'badge badge--good';
-    return 'badge badge--muted';
-  }
-
-  dueBadgeText(raw: string | null | undefined, closed = false): string {
-    if (!raw) return 'No due date';
-    if (closed) return 'Closed';
-    const due = new Date(raw).getTime();
-    if (Number.isNaN(due)) return 'No due date';
-    const days = Math.ceil((due - Date.now()) / (24 * 60 * 60 * 1000));
-    if (days < 0) return 'Overdue';
-    if (days === 0) return 'Due today';
-    if (days <= 3) return 'Due soon';
-    return 'On track';
-  }
-
-  dueBadgeClass(raw: string | null | undefined, closed = false): string {
-    if (!raw) return 'badge badge--muted';
-    if (closed) return 'badge badge--good';
-    const due = new Date(raw).getTime();
-    if (Number.isNaN(due)) return 'badge badge--muted';
-    const days = Math.ceil((due - Date.now()) / (24 * 60 * 60 * 1000));
-    if (days < 0) return 'badge badge--bad';
-    if (days <= 3) return 'badge badge--warn';
-    return 'badge badge--good';
   }
 
   dueClass(obs: ObservationRow): string {
@@ -725,18 +674,31 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
   }
 
   private uploadEvidenceFiles(ticketId: string): void {
-    void ticketId;
     if (!this.selectedEvidenceFiles.length) {
       this.refreshCases(this.selectedObservation?.id || '');
       return;
     }
 
     this.uploading = true;
-    const count = this.selectedEvidenceFiles.length;
-    this.selectedEvidenceFiles = [];
-    this.uploading = false;
-    this.toast.success(`Evidence references recorded for ${count} file(s).`);
-    this.refreshCases(this.selectedObservation?.id || '');
+    const uploads = this.selectedEvidenceFiles.map((f) =>
+      this.helpdeskService.uploadFile(ticketId, f).pipe(catchError(() => of(null))),
+    );
+
+    forkJoin(uploads)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.uploading = false;
+          this.selectedEvidenceFiles = [];
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Evidence files uploaded to closure case.');
+          this.refreshCases(this.selectedObservation?.id || '');
+        },
+      });
   }
 
   private mapObservation(raw: any): ObservationRow {
@@ -869,8 +831,8 @@ export class BranchAuditObservationsComponent implements OnInit, OnDestroy {
     observation: ObservationRow | null,
     cases: ClosureCase[],
     messages: CaseMessage[],
-  ): TimelineEvent[] {
-    const events: TimelineEvent[] = [];
+  ): SharedTimelineEvent[] {
+    const events: SharedTimelineEvent[] = [];
     if (observation) {
       events.push({
         id: `obs-${observation.id}`,

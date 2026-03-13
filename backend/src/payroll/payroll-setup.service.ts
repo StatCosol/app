@@ -32,11 +32,12 @@ export class PayrollSetupService {
   }
 
   async upsertSetup(clientId: string, dto: Partial<PayrollClientSetupEntity>) {
+    const payload = this.sanitizeSetupDto(dto);
     let setup = await this.setupRepo.findOne({ where: { clientId } });
     if (setup) {
-      Object.assign(setup, dto);
+      Object.assign(setup, payload);
     } else {
-      setup = this.setupRepo.create({ ...dto, clientId });
+      setup = this.setupRepo.create({ ...payload, clientId });
     }
     return this.setupRepo.save(setup);
   }
@@ -63,7 +64,9 @@ export class PayrollSetupService {
       where: { clientId, code: dto.code },
     });
     if (exists) {
-      throw new BadRequestException(`Component code '${dto.code}' already exists`);
+      throw new BadRequestException(
+        `Component code '${dto.code}' already exists`,
+      );
     }
     const comp = this.compRepo.create({ ...dto, clientId });
     return this.compRepo.save(comp);
@@ -154,5 +157,47 @@ export class PayrollSetupService {
       this.slabRepo.create({ ...s, ruleId }),
     );
     return this.slabRepo.save(slabs);
+  }
+
+  private sanitizeSetupDto(
+    dto: Partial<PayrollClientSetupEntity>,
+  ): Partial<PayrollClientSetupEntity> {
+    const out: Partial<PayrollClientSetupEntity> = {};
+    const copy = <K extends keyof PayrollClientSetupEntity>(key: K) => {
+      const value = dto[key];
+      if (value !== undefined) out[key] = value;
+    };
+
+    copy('pfEnabled');
+    copy('esiEnabled');
+    copy('ptEnabled');
+    copy('lwfEnabled');
+    copy('pfEmployerRate');
+    copy('pfEmployeeRate');
+    copy('esiEmployerRate');
+    copy('esiEmployeeRate');
+    copy('pfWageCeiling');
+    copy('esiWageCeiling');
+    copy('payCycle');
+    copy('effectiveFrom');
+    copy('cycleStartDay');
+    copy('payoutDay');
+    copy('lockDay');
+    copy('arrearMode');
+    copy('leaveAccrualPerMonth');
+    copy('maxCarryForward');
+    copy('allowCarryForward');
+    copy('lopMode');
+    copy('attendanceSource');
+    copy('attendanceCutoffDay');
+    copy('graceMinutes');
+    copy('autoLockAttendance');
+    copy('syncEnabled');
+    copy('enableLoanRecovery');
+    copy('enableAdvanceRecovery');
+    copy('defaultDeductionCapPct');
+    copy('recoveryOrder');
+
+    return out;
   }
 }

@@ -1,257 +1,122 @@
-import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AuditorAuditService, AuditorDocRow, ReuploadRequest } from '../../core/auditor-audit.service';
-import { Subject } from 'rxjs';
-import { takeUntil, finalize } from 'rxjs/operators';
-import { PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../shared/ui';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, combineLatest, of } from 'rxjs';
+import { catchError, finalize, takeUntil } from 'rxjs/operators';
+
+import { AuditsService } from '../../core/audits.service';
+import {
+  AuditorAuditService,
+  AuditorDocRow,
+  ReuploadRequest,
+} from '../../core/auditor-audit.service';
+import { AuditorObservationsService } from '../../core/auditor-observations.service';
+import { ToastService } from '../../shared/toast/toast.service';
+
+interface ChecklistItem {
+  label: string;
+  done: boolean;
+}
+
+interface ProgressStep {
+  label: string;
+  done: boolean;
+  active: boolean;
+}
+
+interface StatusAction {
+  label: string;
+  status: string;
+  disabled?: boolean;
+  reason?: string;
+}
+
+interface RiskBreakdown {
+  CRITICAL: number;
+  HIGH: number;
+  MEDIUM: number;
+  LOW: number;
+}
+
+interface GuardrailItem {
+  label: string;
+  passed: boolean;
+  detail: string;
+}
 
 @Component({
   standalone: true,
   selector: 'app-auditor-audit-workspace',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent],
-  template: `
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <ui-page-header
-        title="Audit Workspace"
-        description="Review documents and request re-uploads"
-        icon="clipboard-check"
-      ></ui-page-header>
-
-      <div class="card">
-        <div class="flex items-center border-b border-gray-200">
-          <button
-            class="px-6 py-3 font-semibold border-b-2 transition"
-            [class.border-blue-600]="activeTab === 'docs'"
-            [class.text-blue-600]="activeTab === 'docs'"
-            [class.border-transparent]="activeTab !== 'docs'"
-            [class.text-gray-600]="activeTab !== 'docs'"
-            (click)="activeTab = 'docs'; loadDocs()"
-          >
-            Documents
-          </button>
-          <button
-            class="px-6 py-3 font-semibold border-b-2 transition"
-            [class.border-blue-600]="activeTab === 'requests'"
-            [class.text-blue-600]="activeTab === 'requests'"
-            [class.border-transparent]="activeTab !== 'requests'"
-            [class.text-gray-600]="activeTab !== 'requests'"
-            (click)="activeTab = 'requests'; loadRequests()"
-          >
-            Reupload Requests
-          </button>
-        </div>
-
-        <!-- Filters -->
-        <div class="p-4 bg-gray-50 flex flex-wrap gap-3">
-          <input
-            type="text"
-            placeholder="Search..."
-            class="form-input w-48"
-            [(ngModel)]="filters.search"
-          />
-          <select class="form-select" [(ngModel)]="filters.clientId" (change)="loadData()">
-            <option value="">All Clients</option>
-            <!-- Add client options from API -->
-          </select>
-          <button class="btn-primary" (click)="loadData()">Apply Filters</button>
-        </div>
-
-        <!-- Documents Tab -->
-        <div *ngIf="activeTab === 'docs'" class="p-4">
-          <div *ngIf="loading" class="py-8">
-            <ui-loading-spinner text="Loading documents..." size="md"></ui-loading-spinner>
-          </div>
-
-          <div *ngIf="!loading && docs.length === 0" class="py-8">
-            <ui-empty-state
-              title="No documents found"
-              description="No documents match your filters."
-            ></ui-empty-state>
-          </div>
-
-          <div *ngIf="!loading && docs.length > 0" class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">File Name</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Compliance</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Unit</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Uploaded</th>
-                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100 bg-white">
-                <tr *ngFor="let doc of docs" class="hover:bg-gray-50">
-                  <td class="px-4 py-3">
-                    <div class="text-sm font-medium text-gray-900">{{ doc.fileName }}</div>
-                    <div class="text-xs text-gray-500">{{ formatFileSize(doc.fileSize) }}</div>
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-800">
-                    {{ doc.task?.compliance?.title || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-800">
-                    {{ doc.task?.branch?.branchName || '-' }}
-                  </td>
-                  <td class="px-4 py-3 text-sm text-gray-600">
-                    {{ formatDate(doc.createdAt) }}
-                  </td>
-                  <td class="px-4 py-3 text-right space-x-2">
-                    <button class="btn-secondary text-xs" (click)="openRemarkModal(doc)">
-                      Add Remark
-                    </button>
-                    <button class="btn-primary text-xs" (click)="openReuploadModal(doc)">
-                      Request Reupload
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Reupload Requests Tab -->
-        <div *ngIf="activeTab === 'requests'" class="p-4">
-          <div *ngIf="loading" class="py-8">
-            <ui-loading-spinner text="Loading requests..." size="md"></ui-loading-spinner>
-          </div>
-
-          <div *ngIf="!loading && requests.length === 0" class="py-8">
-            <ui-empty-state
-              title="No reupload requests"
-              description="No reupload requests found."
-            ></ui-empty-state>
-          </div>
-
-          <div *ngIf="!loading && requests.length > 0" class="space-y-3">
-            <div *ngFor="let req of requests" class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center gap-2 mb-2">
-                    <span class="text-sm font-semibold text-gray-900">Request #{{ req.id.substring(0, 8) }}</span>
-                    <ui-status-badge [status]="req.status"></ui-status-badge>
-                  </div>
-                  <div class="text-sm text-gray-700 mb-1"><strong>Reason:</strong> {{ req.reason }}</div>
-                  <div class="text-sm text-gray-700 mb-1"><strong>Remarks:</strong> {{ req.remarksVisible }}</div>
-                  <div class="text-xs text-gray-500">Target: {{ req.targetRole }} | Created: {{ formatDate(req.createdAt) }}</div>
-                  <div *ngIf="req.deadlineDate" class="text-xs text-amber-700 mt-1">
-                    Deadline: {{ formatDate(req.deadlineDate) }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Remark Modal -->
-    <div *ngIf="remarkModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" (click)="remarkModalOpen = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4" (click)="$event.stopPropagation()">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">Add Remark</h3>
-        </div>
-        <div class="px-6 py-4 space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Remark Text</label>
-            <textarea
-              class="form-input w-full"
-              rows="4"
-              [(ngModel)]="remarkForm.text"
-              placeholder="Enter your remark..."
-            ></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
-            <select class="form-select w-full" [(ngModel)]="remarkForm.visibility">
-              <option value="CONTRACTOR_VISIBLE">Visible to Contractor</option>
-              <option value="CLIENT_VISIBLE">Visible to Client</option>
-              <option value="INTERNAL">Internal Only</option>
-            </select>
-          </div>
-        </div>
-        <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3 rounded-b-lg">
-          <button class="btn-secondary" (click)="remarkModalOpen = false">Cancel</button>
-          <button class="btn-primary" (click)="submitRemark()" [disabled]="submitting || !remarkForm.text">
-            {{ submitting ? 'Submitting...' : 'Submit' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reupload Request Modal -->
-    <div *ngIf="reuploadModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" (click)="reuploadModalOpen = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4" (click)="$event.stopPropagation()">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">Request Re-upload</h3>
-        </div>
-        <div class="px-6 py-4 space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-            <select class="form-select w-full" [(ngModel)]="reuploadForm.reason">
-              <option value="">Select reason...</option>
-              <option value="Document unclear">Document unclear</option>
-              <option value="Missing information">Missing information</option>
-              <option value="Incorrect format">Incorrect format</option>
-              <option value="Non-compliant">Non-compliant</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Detailed Remarks</label>
-            <textarea
-              class="form-input w-full"
-              rows="4"
-              [(ngModel)]="reuploadForm.remarks"
-              placeholder="Provide detailed remarks..."
-            ></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Deadline (Optional)</label>
-            <input type="date" class="form-input w-full" [(ngModel)]="reuploadForm.deadlineDate" />
-          </div>
-        </div>
-        <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3 rounded-b-lg">
-          <button class="btn-secondary" (click)="reuploadModalOpen = false">Cancel</button>
-          <button class="btn-primary" (click)="submitReuploadRequest()" [disabled]="submitting || !reuploadForm.reason || !reuploadForm.remarks">
-            {{ submitting ? 'Submitting...' : 'Request Re-upload' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .form-input, .form-select {
-      @apply px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
-    }
-    .btn-primary {
-      @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed;
-    }
-    .btn-secondary {
-      @apply px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300;
-    }
-  `]
+  imports: [CommonModule, FormsModule],
+  templateUrl: './auditor-audit-workspace.component.html',
+  styleUrls: ['./auditor-audit-workspace.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
-  activeTab: 'docs' | 'requests' = 'docs';
+  private readonly destroy$ = new Subject<void>();
+
   loading = true;
-  submitting = false;
+  loadingAudit = false;
+  loadingEvidence = false;
+  loadingObservations = false;
+  busy = false;
 
-  private destroy$ = new Subject<void>();
-  docs: AuditorDocRow[] = [];
+  auditId: string | null = null;
+  audit: any | null = null;
+  assignedAudits: any[] = [];
+
+  evidenceRows: AuditorDocRow[] = [];
+  evidenceSearch = '';
+  selectedEvidence: AuditorDocRow | null = null;
+  showReuploadModal = false;
+  reuploadRemarks = '';
+
+  observations: any[] = [];
+  categories: any[] = [];
+  observationForm = {
+    categoryId: '',
+    observation: '',
+    consequences: '',
+    complianceRequirements: '',
+    elaboration: '',
+    clause: '',
+    recommendation: '',
+    risk: 'MEDIUM',
+  };
+
   requests: ReuploadRequest[] = [];
-  filters: any = { search: '', clientId: '' };
+  statusNote = '';
+  reportStage: 'DRAFT' | 'FINAL' | null = null;
+  reportUpdatedAt: string | null = null;
 
-  remarkModalOpen = false;
-  reuploadModalOpen = false;
-  selectedDoc: AuditorDocRow | null = null;
-  remarkForm: any = { text: '', visibility: 'CONTRACTOR_VISIBLE' };
-  reuploadForm: any = { reason: '', remarks: '', deadlineDate: '' };
+  readonly riskOptions = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
-  constructor(private auditService: AuditorAuditService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
+    private readonly auditsApi: AuditsService,
+    private readonly auditApi: AuditorAuditService,
+    private readonly observationsApi: AuditorObservationsService,
+    private readonly toast: ToastService,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
 
-  ngOnInit() {
-    this.loadDocs();
+  ngOnInit(): void {
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([params, query]) => {
+        const paramAuditId = params.get('auditId');
+        const queryAuditId = query.get('auditId');
+        const nextAuditId = paramAuditId || queryAuditId || null;
+        this.initializeForAudit(nextAuditId);
+      });
   }
 
   ngOnDestroy(): void {
@@ -259,106 +124,589 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  loadData() {
-    if (this.activeTab === 'docs') {
-      this.loadDocs();
-    } else {
-      this.loadRequests();
+  get hasAuditContext(): boolean {
+    return !!this.auditId;
+  }
+
+  get filteredEvidenceRows(): AuditorDocRow[] {
+    const q = this.evidenceSearch.trim().toLowerCase();
+    if (!q) return this.evidenceRows;
+    return this.evidenceRows.filter((row) => {
+      const text = `${row.fileName} ${row.task?.compliance?.title || ''} ${row.task?.status || ''}`.toLowerCase();
+      return text.includes(q);
+    });
+  }
+
+  get checklist(): ChecklistItem[] {
+    return [
+      { label: 'Audit scope loaded', done: !!this.audit },
+      { label: 'Evidence tray populated', done: this.evidenceRows.length > 0 },
+      { label: 'Observation draft logged', done: this.observations.length > 0 },
+      { label: 'Severity score calculated', done: this.audit?.score !== null && this.audit?.score !== undefined },
+      { label: 'Report draft finalized', done: this.isReportFinalized },
+      { label: 'Audit marked completed', done: this.statusKey(this.audit?.status) === 'COMPLETED' },
+    ];
+  }
+
+  get progressSteps(): ProgressStep[] {
+    const status = this.statusKey(this.audit?.status);
+    const draftReady = this.reportStage === 'DRAFT' || this.reportStage === 'FINAL';
+    return [
+      { label: 'Planned', done: ['PLANNED', 'IN_PROGRESS', 'COMPLETED'].includes(status), active: status === 'PLANNED' },
+      { label: 'Fieldwork', done: ['IN_PROGRESS', 'COMPLETED'].includes(status), active: status === 'IN_PROGRESS' },
+      { label: 'Report Draft', done: draftReady, active: status === 'IN_PROGRESS' && draftReady },
+      { label: 'Finalized', done: status === 'COMPLETED', active: status === 'COMPLETED' },
+    ];
+  }
+
+  get openObservationsCount(): number {
+    return this.observations.filter((o) => !['CLOSED', 'RESOLVED'].includes(this.statusKey(o.status))).length;
+  }
+
+  get highRiskCount(): number {
+    return this.observations.filter((o) => ['CRITICAL', 'HIGH'].includes(this.statusKey(o.risk))).length;
+  }
+
+  get riskBreakdown(): RiskBreakdown {
+    return this.observations.reduce(
+      (acc, o) => {
+        const risk = this.statusKey(o.risk) || 'LOW';
+        if (risk === 'CRITICAL') acc.CRITICAL += 1;
+        else if (risk === 'HIGH') acc.HIGH += 1;
+        else if (risk === 'MEDIUM') acc.MEDIUM += 1;
+        else acc.LOW += 1;
+        return acc;
+      },
+      { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 } as RiskBreakdown,
+    );
+  }
+
+  get canSubmitObservation(): boolean {
+    return !!this.auditId && this.observationForm.observation.trim().length >= 5;
+  }
+
+  get canRequestReupload(): boolean {
+    return !!this.selectedEvidence && this.reuploadRemarks.trim().length >= 5;
+  }
+
+  get isReportFinalized(): boolean {
+    return this.reportStage === 'FINAL';
+  }
+
+  get canCompleteAudit(): boolean {
+    return this.openObservationsCount === 0 && this.isReportFinalized && this.hasScore;
+  }
+
+  get hasScore(): boolean {
+    return this.audit?.score !== null && this.audit?.score !== undefined;
+  }
+
+  get statusGuardrails(): GuardrailItem[] {
+    return [
+      {
+        label: 'Scope Loaded',
+        passed: !!this.audit,
+        detail: this.audit ? `Audit ${this.audit.auditCode || this.audit.id}` : 'Audit context is missing',
+      },
+      {
+        label: 'Evidence Readiness',
+        passed: this.evidenceRows.length > 0,
+        detail: this.evidenceRows.length
+          ? `${this.evidenceRows.length} evidence files in tray`
+          : 'No evidence uploaded in this scope',
+      },
+      {
+        label: 'Observation Closure',
+        passed: this.openObservationsCount === 0,
+        detail:
+          this.openObservationsCount === 0
+            ? 'All observations are resolved/closed'
+            : `${this.openObservationsCount} observations still open`,
+      },
+      {
+        label: 'Report Finalization',
+        passed: this.isReportFinalized,
+        detail: this.isReportFinalized
+          ? `Final report available (${this.formatDate(this.reportUpdatedAt)})`
+          : 'Finalize report draft in Report Builder',
+      },
+      {
+        label: 'Severity Score',
+        passed: this.hasScore,
+        detail: this.hasScore ? `Score ${this.audit?.score}` : 'Severity score not calculated',
+      },
+    ];
+  }
+
+  get nextStatusActions(): StatusAction[] {
+    const status = this.statusKey(this.audit?.status);
+    if (status === 'PLANNED') {
+      const reason = this.actionGuardReason('IN_PROGRESS');
+      return [
+        {
+          label: 'Start Fieldwork',
+          status: 'IN_PROGRESS',
+          disabled: !!reason,
+          reason: reason || undefined,
+        },
+      ];
     }
+    if (status === 'IN_PROGRESS') {
+      const reason = this.actionGuardReason('COMPLETED');
+      return [
+        {
+          label: 'Mark Completed',
+          status: 'COMPLETED',
+          disabled: !!reason,
+          reason: reason || undefined,
+        },
+      ];
+    }
+    return [];
   }
 
-  loadDocs() {
+  get reportStageText(): string {
+    if (!this.reportStage) return 'Not Started';
+    return this.reportStage === 'FINAL' ? 'Final' : 'Draft';
+  }
+
+  trackAudit(_: number, row: any): string {
+    return String(row?.id || '');
+  }
+
+  trackEvidence(_: number, row: AuditorDocRow): string {
+    return String(row.id);
+  }
+
+  trackObservation(_: number, row: any): string {
+    return String(row?.id || '');
+  }
+
+  openAuditWorkspace(row: any): void {
+    if (!row?.id) return;
+    this.router.navigate(['/auditor/audits', row.id, 'workspace']);
+  }
+
+  refreshCockpit(): void {
+    if (!this.auditId) return;
+    this.loadCockpit(this.auditId);
+  }
+
+  openReportBuilder(): void {
+    if (!this.auditId) return;
+    this.router.navigate(['/auditor/reports', this.auditId, 'builder']);
+  }
+
+  updateAuditStatus(nextStatus: string): void {
+    if (!this.auditId || !nextStatus || this.busy) return;
+    const reason = this.actionGuardReason(nextStatus);
+    if (reason) {
+      this.toast.warning(reason);
+      return;
+    }
+
+    this.busy = true;
+    this.auditsApi
+      .auditorUpdateStatus(this.auditId, nextStatus, this.statusNote || undefined)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.busy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success(`Audit status moved to ${nextStatus}`);
+          this.statusNote = '';
+          this.refreshCockpit();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to update audit status'),
+      });
+  }
+
+  calculateScore(): void {
+    if (!this.auditId || this.busy) return;
+    this.busy = true;
+    this.auditsApi
+      .auditorCalculateScore(this.auditId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.busy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          if (this.audit) {
+            this.audit.score = Number(res?.score ?? this.audit.score ?? 0);
+          }
+          this.toast.success(`Score calculated: ${res?.score ?? '-'}`);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to calculate score'),
+      });
+  }
+
+  submitObservation(): void {
+    if (!this.canSubmitObservation || this.busy || !this.auditId) return;
+    this.busy = true;
+    this.observationsApi
+      .create({
+        auditId: this.auditId,
+        categoryId: this.observationForm.categoryId || undefined,
+        observation: this.observationForm.observation.trim(),
+        consequences: this.observationForm.consequences.trim() || undefined,
+        complianceRequirements: this.observationForm.complianceRequirements.trim() || undefined,
+        elaboration: this.observationForm.elaboration.trim() || undefined,
+        clause: this.observationForm.clause.trim() || undefined,
+        recommendation: this.observationForm.recommendation.trim() || undefined,
+        risk: this.observationForm.risk,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.busy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Observation added');
+          this.observationForm = {
+            categoryId: '',
+            observation: '',
+            consequences: '',
+            complianceRequirements: '',
+            elaboration: '',
+            clause: '',
+            recommendation: '',
+            risk: 'MEDIUM',
+          };
+          this.loadObservations();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to add observation'),
+      });
+  }
+
+  openReuploadModal(row: AuditorDocRow): void {
+    this.selectedEvidence = row;
+    this.reuploadRemarks = '';
+    this.showReuploadModal = true;
+  }
+
+  closeReuploadModal(): void {
+    this.showReuploadModal = false;
+    this.selectedEvidence = null;
+    this.reuploadRemarks = '';
+  }
+
+  submitReuploadRequest(): void {
+    if (!this.selectedEvidence || !this.canRequestReupload || this.busy) return;
+    const taskId = this.selectedEvidence.task?.id;
+    if (!taskId) {
+      this.toast.error('Task mapping missing for selected evidence');
+      return;
+    }
+
+    this.busy = true;
+    this.auditApi
+      .createReuploadRequests(String(taskId), [
+        {
+          docId: String(this.selectedEvidence.id),
+          remarks: this.reuploadRemarks.trim(),
+        },
+      ])
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.busy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Reupload request created');
+          this.closeReuploadModal();
+          this.loadReuploadRequests();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to create reupload request'),
+      });
+  }
+
+  evidenceStatus(row: AuditorDocRow): string {
+    return this.statusKey(row?.task?.status || 'PENDING_REVIEW');
+  }
+
+  riskClass(risk: string | null | undefined): string {
+    const key = this.statusKey(risk);
+    if (key === 'CRITICAL') return 'badge badge--bad';
+    if (key === 'HIGH') return 'badge badge--warn';
+    if (key === 'MEDIUM') return 'badge badge--info';
+    return 'badge badge--muted';
+  }
+
+  statusClass(status: string | null | undefined): string {
+    const key = this.statusKey(status);
+    if (key === 'COMPLETED' || key === 'CLOSED' || key === 'RESOLVED') return 'badge badge--good';
+    if (key === 'IN_PROGRESS' || key === 'ACKNOWLEDGED') return 'badge badge--info';
+    if (key === 'REJECTED' || key === 'CANCELLED') return 'badge badge--bad';
+    return 'badge badge--warn';
+  }
+
+  formatDate(input?: string | Date | null): string {
+    if (!input) return '-';
+    const d = input instanceof Date ? input : new Date(input);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  getDownloadUrl(doc: AuditorDocRow): string {
+    return this.auditApi.downloadDoc(doc.id);
+  }
+
+  openReuploadRequestCount(docId: number | string): number {
+    return this.requests.filter(
+      (r) => Number(r.documentId) === Number(docId) && this.statusKey(r.status) === 'OPEN',
+    ).length;
+  }
+
+  private initializeForAudit(auditId: string | null): void {
+    this.auditId = auditId;
+    this.audit = null;
+    this.assignedAudits = [];
+    this.evidenceRows = [];
+    this.observations = [];
+    this.requests = [];
+    this.reportStage = null;
+    this.reportUpdatedAt = null;
     this.loading = true;
-    this.auditService.listDocs(this.filters).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; }),
-    ).subscribe({
-      next: (res: any) => {
-        this.docs = res.data || [];
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.docs = [];
-        this.cdr.detectChanges();
-      }
-    });
+
+    this.loadCategories();
+
+    if (!auditId) {
+      this.loadAuditSelector();
+      return;
+    }
+    this.loadCockpit(auditId);
   }
 
-  loadRequests() {
-    this.loading = true;
-    this.auditService.listReuploadRequests(this.filters).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; }),
-    ).subscribe({
-      next: (res: any) => {
-        this.requests = res.data || [];
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.requests = [];
-        this.cdr.detectChanges();
-      }
-    });
+  private loadAuditSelector(): void {
+    this.auditsApi
+      .auditorListAudits({ pageSize: 50 })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          this.assignedAudits = Array.isArray(res) ? res : (res?.data || []);
+        },
+        error: (err) => {
+          this.assignedAudits = [];
+          this.toast.error(err?.error?.message || 'Failed to load assigned audits');
+        },
+      });
   }
 
-  openRemarkModal(doc: AuditorDocRow) {
-    this.selectedDoc = doc;
-    this.remarkForm = { text: '', visibility: 'CONTRACTOR_VISIBLE' };
-    this.remarkModalOpen = true;
+  private loadCockpit(auditId: string): void {
+    this.loadingAudit = true;
+    this.auditsApi
+      .auditorGetAudit(auditId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingAudit = false;
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (audit) => {
+          this.audit = audit || null;
+          this.loadReportStatus();
+          this.loadEvidence();
+          this.loadObservations();
+        },
+        error: (err) => {
+          this.audit = null;
+          this.toast.error(err?.error?.message || 'Failed to load audit details');
+        },
+      });
   }
 
-  openReuploadModal(doc: AuditorDocRow) {
-    this.selectedDoc = doc;
-    this.reuploadForm = { reason: '', remarks: '', deadlineDate: '' };
-    this.reuploadModalOpen = true;
+  private loadEvidence(): void {
+    if (!this.audit) return;
+    this.loadingEvidence = true;
+    const filters: {
+      clientId: string;
+      month?: string;
+      year?: string;
+    } = {
+      clientId: String(this.audit.clientId),
+    };
+
+    const monthlyPeriod = this.parseMonthlyPeriod(this.audit.periodCode);
+    if (monthlyPeriod) {
+      filters['month'] = String(monthlyPeriod.month);
+      filters['year'] = String(monthlyPeriod.year);
+    }
+
+    this.auditApi
+      .listDocs(filters)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingEvidence = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const docs = res?.data || [];
+          this.evidenceRows = docs.filter((d) => {
+            const taskClientId = d.task?.clientId || d.task?.client_id;
+            if (taskClientId && String(taskClientId) !== String(this.audit?.clientId)) {
+              return false;
+            }
+            if (this.audit?.branchId) {
+              const taskBranchId = d.task?.branchId || d.task?.branch_id;
+              if (taskBranchId && String(taskBranchId) !== String(this.audit.branchId)) {
+                return false;
+              }
+            }
+            return true;
+          });
+          this.loadReuploadRequests();
+        },
+        error: () => {
+          this.evidenceRows = [];
+          this.requests = [];
+        },
+      });
   }
 
-  submitRemark() {
-    if (!this.selectedDoc || !this.remarkForm.text) return;
-    this.submitting = true;
-    this.auditService.addRemark(this.selectedDoc.id, this.remarkForm).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.submitting = false;
-        this.remarkModalOpen = false;
-        alert('Remark added successfully');
-      },
-      error: () => {
-        this.submitting = false;
-        alert('Failed to add remark');
-      }
-    });
+  private loadObservations(): void {
+    if (!this.auditId) return;
+    this.loadingObservations = true;
+    this.observationsApi
+      .list(this.auditId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingObservations = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows: any) => {
+          this.observations = Array.isArray(rows) ? rows : [];
+        },
+        error: () => {
+          this.observations = [];
+        },
+      });
   }
 
-  submitReuploadRequest() {
-    if (!this.selectedDoc || !this.reuploadForm.reason || !this.reuploadForm.remarks) return;
-    this.submitting = true;
-    this.auditService.requestReupload(this.selectedDoc.id, this.reuploadForm).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.submitting = false;
-        this.reuploadModalOpen = false;
-        alert('Reupload request submitted successfully');
-        this.loadData();
-      },
-      error: () => {
-        this.submitting = false;
-        alert('Failed to submit reupload request');
-      }
-    });
+  private loadCategories(): void {
+    if (this.categories.length) return;
+    this.observationsApi
+      .listCategories()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: any) => {
+          this.categories = Array.isArray(rows) ? rows : [];
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.categories = [];
+        },
+      });
   }
 
-  formatDate(date: string | null): string {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  private loadReuploadRequests(): void {
+    if (!this.audit || !this.evidenceRows.length) {
+      this.requests = [];
+      return;
+    }
+    const evidenceIds = new Set(this.evidenceRows.map((row) => Number(row.id)));
+    this.auditApi
+      .listReuploadRequests({ status: 'OPEN' })
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of({ data: [] as ReuploadRequest[] })),
+      )
+      .subscribe((res) => {
+        const rows = res?.data || [];
+        this.requests = rows.filter((r) => evidenceIds.has(Number(r.documentId)));
+        this.cdr.markForCheck();
+      });
   }
 
-  formatFileSize(bytes: number | null): string {
-    if (!bytes) return '-';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
+  private loadReportStatus(): void {
+    if (!this.auditId) {
+      this.reportStage = null;
+      this.reportUpdatedAt = null;
+      return;
+    }
+
+    this.auditsApi
+      .auditorGetReport(this.auditId)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of(null)),
+      )
+      .subscribe((report) => {
+        if (!report) {
+          this.reportStage = null;
+          this.reportUpdatedAt = null;
+          this.cdr.markForCheck();
+          return;
+        }
+
+        const stage = String(report.stage || '').toUpperCase();
+        this.reportStage = stage === 'FINAL' ? 'FINAL' : stage === 'DRAFT' ? 'DRAFT' : null;
+        this.reportUpdatedAt = report.updatedAt || null;
+        this.cdr.markForCheck();
+      });
+  }
+
+  private parseMonthlyPeriod(periodCode?: string | null): { year: number; month: number } | null {
+    if (!periodCode) return null;
+    const match = /^(\d{4})-(\d{2})$/.exec(String(periodCode));
+    if (!match) return null;
+    return { year: Number(match[1]), month: Number(match[2]) };
+  }
+
+  private statusKey(value: string | null | undefined): string {
+    return String(value || '').toUpperCase();
+  }
+
+  private actionGuardReason(nextStatus: string): string | null {
+    const status = this.statusKey(this.audit?.status);
+    const next = this.statusKey(nextStatus);
+    if (next === 'IN_PROGRESS') {
+      if (status !== 'PLANNED') return `Current status ${status} cannot move to ${next}.`;
+      if (!this.audit) return 'Audit scope is not loaded.';
+      if (!this.evidenceRows.length) return 'Add evidence before starting fieldwork.';
+      return null;
+    }
+
+    if (next === 'COMPLETED') {
+      if (status !== 'IN_PROGRESS') return `Current status ${status} cannot move to ${next}.`;
+      if (!this.isReportFinalized) return 'Finalize report before completing audit.';
+      if (this.openObservationsCount > 0) return 'Close all open observations before completion.';
+      if (!this.hasScore) return 'Calculate severity score before completion.';
+      return null;
+    }
+
+    return null;
   }
 }

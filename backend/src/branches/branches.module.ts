@@ -7,6 +7,7 @@ import { BranchDocumentEntity } from './entities/branch-document.entity';
 import { BranchRegistrationEntity } from './entities/branch-registration.entity';
 import { BranchesController } from './branches.controller';
 import { BranchesCommonController } from './branches-common.controller';
+import { BranchReportsController } from './branch-reports.controller';
 import { CrmBranchesController } from './crm-branches.controller';
 import { ClientBranchesController } from './client-branches.controller';
 import { CrmBranchCompliancesController } from './crm-branch-compliances.controller';
@@ -29,7 +30,10 @@ import { ComplianceMasterEntity } from '../compliances/entities/compliance-maste
 import { ApprovalRequestEntity } from '../admin/entities/approval-request.entity';
 import { RegistrationAlertEntity } from './entities/registration-alert.entity';
 import { BranchRegistrationReminderService } from './branch-registration-reminder.service';
+import { BranchListController } from './branch-list.controller';
+import { BranchUploadsController } from './branch-uploads.controller';
 import { EmailModule } from '../email/email.module';
+import { ListQueriesModule } from '../list-queries/list-queries.module';
 
 @Module({
   imports: [
@@ -51,6 +55,7 @@ import { EmailModule } from '../email/email.module';
     AuditLogsModule,
     AuthModule,
     EmailModule,
+    ListQueriesModule,
   ],
   controllers: [
     BranchesController,
@@ -61,8 +66,16 @@ import { EmailModule } from '../email/email.module';
     CrmBranchCompliancesController,
     CrmBranchDocumentsController,
     CrmBranchRegistrationsController,
+    BranchReportsController,
+    BranchListController,
+    BranchUploadsController,
   ],
-  providers: [BranchesService, BranchDocumentsService, BranchRegistrationsService, BranchRegistrationReminderService],
+  providers: [
+    BranchesService,
+    BranchDocumentsService,
+    BranchRegistrationsService,
+    BranchRegistrationReminderService,
+  ],
   exports: [BranchesService],
 })
 export class BranchesModule {}

@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-
 import { environment } from '../../../environments/environment';
 
 export interface SafetyRequiredDoc {
@@ -31,27 +30,62 @@ export class BranchSafetyApiService {
   private readonly base = `${environment.apiBaseUrl}/api/v1`;
   private readonly legacyBase = `${environment.apiBaseUrl}/api`;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private http: HttpClient) {}
 
+  /** Get required safety docs based on branch facts */
   getRequiredDocs(branchId: string, month?: string): Observable<SafetyRequiredDoc[]> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
 
+    const primaryUrl = `${this.base}/branch/${branchId}/safety/required`;
     const legacyUrl = `${this.legacyBase}/branch/${branchId}/safety/required`;
-    const versionedUrl = `${this.base}/branch/${branchId}/safety/required`;
     const masterUrl = `${this.base}/branch/safety-documents/master`;
 
+    // Prefer non-versioned route first; current backend maps under /api/*
+    // and keeps /api/v1 only on some deployments.
     return this.http.get<SafetyRequiredDoc[]>(legacyUrl, { params }).pipe(
       catchError((legacyErr: any) => {
         if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
-        return this.http.get<SafetyRequiredDoc[]>(versionedUrl, { params }).pipe(
-          catchError((versionedErr: any) => {
-            if (!this.isNotFound(versionedErr)) return throwError(() => versionedErr);
+        return this.http.get<SafetyRequiredDoc[]>(primaryUrl, { params }).pipe(
+          catchError((primaryErr: any) => {
+            if (!this.isNotFound(primaryErr)) return throwError(() => primaryErr);
+            // Last fallback for older deployments: build "required" list from safety master.
             return this.http.get<SafetyMasterRow[]>(masterUrl).pipe(
               map((rows) => (rows || []).map((row) => this.toRequiredDoc(row))),
             );
           }),
         );
+      }),
+    );
+  }
+
+  /** Upload a safety document */
+  uploadDoc(branchId: string, docMasterId: number, file: File, remarks?: string): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('docMasterId', String(docMasterId));
+    if (remarks) fd.append('remarks', remarks);
+
+    const primaryUrl = `${this.base}/branch/${branchId}/safety/upload`;
+    const legacyUrl = `${this.legacyBase}/branch/${branchId}/safety/upload`;
+    return this.http.post(legacyUrl, fd).pipe(
+      catchError((legacyErr: any) => {
+        if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
+        return this.http.post(primaryUrl, fd);
+      }),
+    );
+  }
+
+  /** Get upload status for a month */
+  getStatus(branchId: string, month: string): Observable<any> {
+    const params = new HttpParams().set('month', month);
+    const primaryUrl = `${this.base}/branch/${branchId}/safety/status`;
+    const legacyUrl = `${this.legacyBase}/branch/${branchId}/safety/status`;
+
+    return this.http.get(legacyUrl, { params }).pipe(
+      catchError((legacyErr: any) => {
+        if (!this.isNotFound(legacyErr)) return throwError(() => legacyErr);
+        return this.http.get(primaryUrl, { params });
       }),
     );
   }

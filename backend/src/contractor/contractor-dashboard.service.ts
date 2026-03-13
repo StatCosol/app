@@ -92,7 +92,9 @@ export class ContractorDashboardService {
       .select('r.contractor_user_id', 'contractorId')
       .addSelect('COUNT(*)', 'requiredCount')
       .where('r.client_id = :clientId', { clientId })
-      .andWhere('r.contractor_user_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('r.contractor_user_id IN (:...contractorIds)', {
+        contractorIds,
+      })
       .andWhere('r.is_required = TRUE');
     if (branchIds && branchIds.length) {
       qb.andWhere('(r.branch_id IS NULL OR r.branch_id IN (:...branchIds))', {
@@ -128,7 +130,9 @@ export class ContractorDashboardService {
         'expiredCount',
       )
       .where('d.client_id = :clientId', { clientId })
-      .andWhere('d.contractor_user_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('d.contractor_user_id IN (:...contractorIds)', {
+        contractorIds,
+      })
       .andWhere('d.created_at BETWEEN :start AND :end', { start, end });
     if (branchIds.length) {
       qb.andWhere('d.branch_id IN (:...branchIds)', { branchIds });
@@ -179,7 +183,9 @@ export class ContractorDashboardService {
       )
       .addSelect('COUNT(DISTINCT d.doc_type)', 'uploadedDistinct')
       .where('d.client_id = :clientId', { clientId })
-      .andWhere('d.contractor_user_id IN (:...contractorIds)', { contractorIds })
+      .andWhere('d.contractor_user_id IN (:...contractorIds)', {
+        contractorIds,
+      })
       .andWhere('d.created_at BETWEEN :start AND :end', { start, end });
 
     if (branchIds.length) {

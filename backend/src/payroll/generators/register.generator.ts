@@ -71,8 +71,12 @@ export class RegisterGenerator {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(template.title);
 
-    const columnDefs: { key: string; header: string; source?: string; width?: number }[] =
-      template.columnDefinitions || [];
+    const columnDefs: {
+      key: string;
+      header: string;
+      source?: string;
+      width?: number;
+    }[] = template.columnDefinitions || [];
 
     // Set columns
     sheet.columns = columnDefs.map((col) => ({
@@ -192,7 +196,8 @@ export class RegisterGenerator {
       preparedByUserId: userId,
       fileName,
       filePath,
-      fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      fileType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       fileSize: String(stats.size),
       registerType,
       stateCode,
@@ -205,6 +210,9 @@ export class RegisterGenerator {
   async listTemplates(stateCode?: string) {
     const where: any = { isActive: true };
     if (stateCode) where.stateCode = stateCode;
-    return this.templateRepo.find({ where, order: { stateCode: 'ASC', registerType: 'ASC' } });
+    return this.templateRepo.find({
+      where,
+      order: { stateCode: 'ASC', registerType: 'ASC' },
+    });
   }
 }

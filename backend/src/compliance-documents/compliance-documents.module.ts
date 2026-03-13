@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ComplianceDocumentEntity } from './entities/compliance-document.entity';
+import { ComplianceDocLibraryEntity } from './entities/compliance-document.entity';
 import { ComplianceDocumentVisibilityEntity } from './entities/compliance-document-visibility.entity';
 import { CompanySettingsEntity } from './entities/company-settings.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
@@ -14,7 +14,7 @@ import { AuthModule } from '../auth/auth.module';
   imports: [
     AuthModule,
     TypeOrmModule.forFeature([
-      ComplianceDocumentEntity,
+      ComplianceDocLibraryEntity,
       ComplianceDocumentVisibilityEntity,
       CompanySettingsEntity,
       ClientAssignmentCurrentEntity,

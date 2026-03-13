@@ -7,6 +7,7 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { CrmDueItemsService } from '../../../core/crm-due-items.service';
 import { DueItemRow, DueKpis, DueTab } from '../../../shared/models/crm-due-items.model';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -88,6 +89,7 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly svc: CrmDueItemsService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -160,7 +162,7 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async approve(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    if (!window.confirm(`Approve "${item.title}" for ${item.branchName}?`)) {
+    if (!(await this.dialog.confirm('Approve renewal', `Approve "${item.title}" for ${item.branchName}?`, { confirmText: 'Approve' }))) {
       return;
     }
 
@@ -186,9 +188,12 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async reject(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt('Provide rejection remarks for audit trail.', '');
-    if (raw === null) return;
-    const remarks = raw.trim();
+    const result = await this.dialog.prompt('Reject renewal', 'Provide rejection remarks for audit trail.', {
+      placeholder: 'Reason for rejection',
+      confirmText: 'Reject',
+    });
+    const remarks = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!remarks) {
       this.toast.error('Remarks are required for rejection.');
       return;
@@ -216,12 +221,13 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async returnForUpdate(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt(
-      'Ask branch to update renewal documents/details.',
-      'Please recheck documents and resubmit with corrections.',
-    );
-    if (raw === null) return;
-    const message = raw.trim();
+    const result = await this.dialog.prompt('Return to branch', 'Ask branch to update renewal documents/details.', {
+      placeholder: 'Message to branch',
+      defaultValue: 'Please recheck documents and resubmit with corrections.',
+      confirmText: 'Send Request',
+    });
+    const message = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!message) {
       this.toast.error('Message is required.');
       return;
@@ -249,12 +255,13 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async assignOwner(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt(
-      'Assign CRM owner for this renewal follow-up.',
-      item.ownerAssigned || '',
-    );
-    if (raw === null) return;
-    const owner = raw.trim();
+    const result = await this.dialog.prompt('Assign owner', 'Assign CRM owner for this renewal follow-up.', {
+      placeholder: 'Owner name or user ID',
+      defaultValue: item.ownerAssigned || '',
+      confirmText: 'Assign',
+    });
+    const owner = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!owner) {
       this.toast.error('Owner is required.');
       return;
@@ -282,12 +289,13 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
 
   async sendReminder(item: DueItemRow): Promise<void> {
     if (this.actionBusy) return;
-    const raw = window.prompt(
-      'Send reminder to branch for pending renewal.',
-      'Follow-up reminder: Please submit pending renewal updates today.',
-    );
-    if (raw === null) return;
-    const message = raw.trim();
+    const result = await this.dialog.prompt('Send follow-up reminder', 'Send reminder to branch for pending renewal.', {
+      placeholder: 'Reminder message',
+      defaultValue: 'Follow-up reminder: Please submit pending renewal updates today.',
+      confirmText: 'Send Reminder',
+    });
+    const message = (result.value || '').trim();
+    if (!result.confirmed) return;
     if (!message) {
       this.toast.error('Reminder message is required.');
       return;

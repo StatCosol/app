@@ -26,8 +26,9 @@ export interface CreateBranchRequest {
   status?: string;
   stateCode?: 'AP' | 'TG' | 'TN' | 'KA';
   establishmentType?: 'FACTORY' | 'ESTABLISHMENT' | 'WAREHOUSE' | 'SHOP' | 'HO' | 'BRANCH';
-  branchUserName?: string;
-  branchUserEmail?: string;
+  branchUserName: string;
+  branchUserEmail: string;
+  branchUserMobile: string;
   branchUserPassword?: string;
 }
 
