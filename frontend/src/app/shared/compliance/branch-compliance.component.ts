@@ -89,8 +89,15 @@ export class BranchComplianceComponent implements OnInit {
     const mapped = this.auth.getBranchIds();
     if (mapped?.length) {
       this.branchId = mapped[0];
-      this.branches = [{ id: mapped[0], name: 'My Branch' }];
+      this.branches = mapped.map(id => ({ id, name: 'Branch' }));
       this.load();
+      this.api.list().subscribe({
+        next: (b: any[]) => {
+          const nameMap = new Map((b || []).map((x: any) => [x.id, x.name || x.branchName || x.title || 'Branch']));
+          this.branches = mapped.map(id => ({ id, name: nameMap.get(id) || 'Branch' }));
+          this.cdr.markForCheck();
+        },
+      });
       return;
     }
 
@@ -135,9 +142,9 @@ export class BranchComplianceComponent implements OnInit {
 
   // Navigate to unified Monthly Uploads page
   upload(it: any) {
-    // Determine correct portal prefix
-    const prefix = this.auth.getBranchIds()?.length ? '/branch' : '/client';
-    this.router.navigate([`${prefix}/monthly-uploads`], {
+    const isBranchUser = (this.auth.getBranchIds()?.length || 0) > 0;
+    const target = isBranchUser ? '/branch/compliance/monthly' : '/client/monthly-uploads';
+    this.router.navigate([target], {
       queryParams: {
         branchId: this.branchId,
         month: this.month,

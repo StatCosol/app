@@ -28,12 +28,12 @@ export class AuditsKpiApi {
 
   getBranchAuditKpi(branchId: string, from: string, to: string): Observable<BranchAuditKpiResponse> {
     return this.http.get<BranchAuditKpiResponse>(
-      `${this.baseUrl}/api/v1/audits/kpi/branch/${branchId}`,
+      `${this.baseUrl}/api/v1/audit-kpi/branch/${branchId}`,
       { params: { from, to } },
     );
   }
 
   getBranchAuditKpiSingle(branchId: string, periodCode: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/v1/audits/kpi/branch/${branchId}/${periodCode}`);
+    return this.http.get(`${this.baseUrl}/api/v1/audit-kpi/branch/${branchId}/${periodCode}`);
   }
 }

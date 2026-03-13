@@ -1,155 +1,232 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <!-- Page Header -->
-  <div class="flex items-center justify-between mb-6">
-    <ui-page-header 
-      title="Audit Observations" 
-      description="Record findings using DTSS format" 
-      icon="clipboard-list">
-    </ui-page-header>
-    <ui-button variant="primary" (clicked)="openForm()" *ngIf="!showForm">
-      <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-      </svg>
-      Add Observation
-    </ui-button>
-  </div>
-
-  <!-- DTSS Form -->
-  <div class="card mb-6" *ngIf="showForm">
-    <h3 class="text-xl font-semibold text-gray-900 mb-6">{{ editingId ? 'Edit' : 'Record' }} Observation (DTSS Format)</h3>
-    
-    <div class="space-y-6">
-      <ui-form-select
-        label="Category"
-        [(ngModel)]="form.categoryId"
-        placeholder="Select Category"
-        [options]="categoryOptions">
-      </ui-form-select>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">1. Observation *</label>
-        <p class="text-xs text-gray-500 mb-2">What was observed during the audit?</p>
-        <textarea 
-          [(ngModel)]="form.observation" 
-          class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" 
-          rows="3" 
-          placeholder="Describe the observation...">
-        </textarea>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">2. Consequences</label>
-        <p class="text-xs text-gray-500 mb-2">What could happen if this is not addressed?</p>
-        <textarea 
-          [(ngModel)]="form.consequences" 
-          class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" 
-          rows="3" 
-          placeholder="Potential legal, financial, or operational consequences...">
-        </textarea>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">3. Compliance Requirements</label>
-        <p class="text-xs text-gray-500 mb-2">Which law, rule, or standard applies?</p>
-        <textarea 
-          [(ngModel)]="form.complianceRequirements" 
-          class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" 
-          rows="2" 
-          placeholder="Cite specific sections of applicable laws...">
-        </textarea>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">4. Elaboration</label>
-        <p class="text-xs text-gray-500 mb-2">Full detailed explanation and context</p>
-        <textarea 
-          [(ngModel)]="form.elaboration" 
-          class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" 
-          rows="4" 
-          placeholder="Provide comprehensive details, context, and recommendations...">
-        </textarea>
-      </div>
-
-      <ui-form-select
-        label="Status"
-        [(ngModel)]="form.status"
-        [options]="statusOptions">
-      </ui-form-select>
-
-      <div class="flex gap-2">
-        <ui-button variant="primary" [disabled]="saving" (clicked)="save()">
-          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-          {{ saving ? 'Saving...' : (editingId ? 'Update' : 'Save') + ' Observation' }}
-        </ui-button>
-        <ui-button variant="secondary" (clicked)="cancelForm()">Cancel</ui-button>
-      </div>
+<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Observations Verification</h1>
+      <p>Track observation lifecycle with branch response, CAPA details, evidence preview, verification actions, and ageing visibility.</p>
     </div>
-  </div>
+    <div class="head-controls">
+      <button type="button" class="btn btn-secondary" [disabled]="!filterAuditId" (click)="exportPdf()">Export PDF</button>
+    </div>
+  </header>
 
-  <!-- Observations List -->
-  <div *ngIf="!showForm">
-    <!-- Loading State -->
-    <ui-loading-spinner *ngIf="loading" text="Loading observations..." size="lg"></ui-loading-spinner>
+  <section class="summary-grid">
+    <article class="summary-card summary-card--warn">
+      <span class="label">Open</span>
+      <strong>{{ openCount }}</strong>
+      <span class="sub">Needs action</span>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span class="label">Verification Pending</span>
+      <strong>{{ verificationPendingCount }}</strong>
+      <span class="sub">Resolved, not closed</span>
+    </article>
+    <article class="summary-card summary-card--good">
+      <span class="label">Closed</span>
+      <strong>{{ closedCount }}</strong>
+      <span class="sub">Verified</span>
+    </article>
+  </section>
 
-    <!-- Observation Cards -->
-    <div class="space-y-4">
-      <div class="card border-l-4 border-statco-blue-light" *ngFor="let obs of observations; let i = index">
-        <!-- Card Header -->
-        <div class="flex items-start justify-between mb-4 pb-4 border-b border-gray-200">
-          <div class="flex items-center gap-3">
-            <div class="bg-statco-blue text-white text-sm font-bold px-3 py-1 rounded">
-              #{{ obs.sequenceNumber || (i + 1) }}
-            </div>
-            <div class="flex gap-2">
-              <ui-status-badge variant="gray" [label]="obs.category.name" *ngIf="obs.category"></ui-status-badge>
-              <ui-status-badge [status]="obs.status"></ui-status-badge>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <ui-button variant="secondary" [disabled]="saving" (clicked)="editObservation(obs)">Edit</ui-button>
-            <ui-button variant="danger" [disabled]="deletingId === obs.id" (clicked)="deleteObservation(obs.id)">
-              {{ deletingId === obs.id ? 'Deleting...' : 'Delete' }}
-            </ui-button>
-          </div>
-        </div>
+  <section class="card">
+    <div class="filter-row">
+      <label>
+        Audit
+        <select [(ngModel)]="filterAuditId" (ngModelChange)="loadObservations()">
+          <option value="">All assigned audits</option>
+          <option *ngFor="let audit of audits" [value]="audit.id">
+            {{ audit.auditCode || audit.id }} | {{ audit.periodCode || '-' }}
+          </option>
+        </select>
+      </label>
 
-        <!-- Observation Sections -->
-        <div class="space-y-4">
+      <label>
+        Status
+        <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+          <option *ngFor="let status of statusOptions" [value]="status">{{ status || 'All' }}</option>
+        </select>
+      </label>
+
+      <label>
+        Risk
+        <select [(ngModel)]="filterRisk" (ngModelChange)="applyFilters()">
+          <option *ngFor="let risk of riskOptions" [value]="risk">{{ risk || 'All' }}</option>
+        </select>
+      </label>
+
+      <label class="search-box">
+        Search
+        <input type="search" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
+      </label>
+
+      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+    </div>
+  </section>
+
+  <div *ngIf="loading" class="loader">Loading observations...</div>
+
+  <section class="workspace-grid" *ngIf="!loading">
+    <article class="card list-pane">
+      <header class="section-head">
+        <h2>Observation Status List</h2>
+        <span>{{ filteredRows.length }} rows</span>
+      </header>
+
+      <div class="table-wrap" *ngIf="filteredRows.length; else noRows">
+        <table>
+          <thead>
+            <tr>
+              <th>Observation</th>
+              <th>Risk</th>
+              <th>Status</th>
+              <th>Ageing</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let row of filteredRows; trackBy: trackObs"
+              (click)="selectObservation(row)"
+              [class.selected]="selected?.id === row.id"
+            >
+              <td>
+                <div class="strong">{{ row.observation || '-' }}</div>
+                <div class="minor">{{ row.clause || '-' }} | {{ formatDate(row.createdAt) }}</div>
+              </td>
+              <td><span [class]="riskClass(row.risk)">{{ row.risk || 'LOW' }}</span></td>
+              <td><span [class]="statusClass(row.status)">{{ row.status || 'OPEN' }}</span></td>
+              <td><span [class]="ageClass(row)">{{ ageDaysFor(row) }}d</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-template #noRows>
+        <div class="empty-mini">No observations match current filters.</div>
+      </ng-template>
+    </article>
+
+    <aside class="detail-stack">
+      <article class="card" *ngIf="selected as item; else selectPrompt">
+        <header class="section-head">
+          <h2>Branch Response Panel</h2>
+          <span [class]="statusClass(item.status)">{{ item.status || 'OPEN' }}</span>
+        </header>
+
+        <div class="kv-grid">
           <div>
-            <div class="text-sm font-semibold text-statco-blue mb-2">🔍 Observation</div>
-            <div class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{{ obs.observation }}</div>
+            <span>Category</span>
+            <strong>{{ item.category?.name || 'Uncategorized' }}</strong>
+            <p>Risk {{ item.risk || 'LOW' }}</p>
           </div>
-
-          <div *ngIf="obs.consequences">
-            <div class="text-sm font-semibold text-statco-blue mb-2">⚠️ Consequences</div>
-            <div class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{{ obs.consequences }}</div>
-          </div>
-
-          <div *ngIf="obs.complianceRequirements">
-            <div class="text-sm font-semibold text-statco-blue mb-2">📋 Compliance Requirements</div>
-            <div class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{{ obs.complianceRequirements }}</div>
-          </div>
-
-          <div *ngIf="obs.elaboration">
-            <div class="text-sm font-semibold text-statco-blue mb-2">📝 Elaboration</div>
-            <div class="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{{ obs.elaboration }}</div>
+          <div>
+            <span>Status Ageing</span>
+            <strong>{{ selectedAgeDays }} days</strong>
+            <p>Created {{ formatDate(item.createdAt) }}</p>
           </div>
         </div>
 
-        <!-- Footer -->
-        <div class="mt-4 pt-4 border-t border-gray-200">
-          <small class="text-gray-500">Created: {{ obs.createdAt | date:'short' }}</small>
-        </div>
-      </div>
-    </div>
+        <label class="field">
+          Branch Reply / Elaborated Response
+          <textarea rows="3" [(ngModel)]="branchResponseDraft" placeholder="Branch response or verification context"></textarea>
+        </label>
 
-    <!-- Empty State -->
-    <ui-empty-state
-      *ngIf="!loading && observations.length === 0"
-      title="No observations recorded yet"
-      description="Click 'Add Observation' to start">
-    </ui-empty-state>
-  </div>
+        <label class="field">
+          Verification Notes
+          <textarea rows="2" [(ngModel)]="verificationNotes" placeholder="Notes for verify/reopen actions"></textarea>
+        </label>
+
+        <div class="action-row">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            [disabled]="busy || !canAcknowledge"
+            [title]="canAcknowledge ? '' : actionGuardrails[0].detail"
+            (click)="markAcknowledged()"
+          >
+            Acknowledge
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="busy || !canResolve"
+            [title]="canResolve ? '' : actionGuardrails[1].detail"
+            (click)="markResolved()"
+          >
+            Mark Resolved
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="busy || !canVerifyClosure"
+            [title]="canVerifyClosure ? '' : actionGuardrails[2].detail"
+            (click)="verifyClosure()"
+          >
+            Verify &amp; Close
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            [disabled]="busy || !canReopen"
+            [title]="canReopen ? '' : actionGuardrails[3].detail"
+            (click)="reopenSelected()"
+          >
+            Reopen
+          </button>
+        </div>
+
+        <div class="guardrail-card">
+          <div class="guardrail-row" *ngFor="let guard of actionGuardrails">
+            <span class="guardrail-label">{{ guard.label }}</span>
+            <span class="guardrail-ok" *ngIf="guard.passed">Ready</span>
+            <span class="guardrail-blocked" *ngIf="!guard.passed">{{ guard.detail }}</span>
+          </div>
+        </div>
+      </article>
+
+      <ng-template #selectPrompt>
+        <article class="card empty-mini">Select an observation to review CAPA and verification details.</article>
+      </ng-template>
+
+      <article class="card" *ngIf="selected as item">
+        <header class="section-head">
+          <h2>CAPA Detail Card</h2>
+          <span>{{ item.id }}</span>
+        </header>
+
+        <label class="field">
+          Corrective / Preventive Action
+          <textarea rows="3" [(ngModel)]="capaDraft" placeholder="Define owner action and closure details"></textarea>
+        </label>
+
+        <div class="action-row">
+          <button type="button" class="btn btn-primary" [disabled]="busy" (click)="saveCapaDetails()">Save CAPA Details</button>
+        </div>
+
+        <div class="obs-preview">
+          <h3>Observation Text</h3>
+          <p>{{ item.observation || '-' }}</p>
+          <h3>Consequences</h3>
+          <p>{{ item.consequences || '-' }}</p>
+          <h3>Compliance Requirement</h3>
+          <p>{{ item.complianceRequirements || '-' }}</p>
+        </div>
+      </article>
+
+      <article class="card" *ngIf="selected as item">
+        <header class="section-head">
+          <h2>Evidence Preview Panel</h2>
+          <span>{{ evidencePaths(item).length }} files</span>
+        </header>
+
+        <div class="evidence-list" *ngIf="evidencePaths(item).length; else noEvidence">
+          <a *ngFor="let path of evidencePaths(item)" [href]="evidenceUrl(path)" target="_blank" class="evidence-link">
+            {{ path }}
+          </a>
+        </div>
+
+        <ng-template #noEvidence>
+          <div class="empty-mini">No evidence paths attached to this observation.</div>
+        </ng-template>
+      </article>
+    </aside>
+  </section>
 </div>

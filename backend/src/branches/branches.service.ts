@@ -78,27 +78,35 @@ export class BranchesService {
       afterJson: saved as any,
     });
 
-    // Auto-create branch user if branchUserName + branchUserEmail provided
+    // Branch desk user is mandatory for branch-level supervision
+    if (
+      !dto.branchUserName?.trim() ||
+      !dto.branchUserEmail?.trim() ||
+      !dto.branchUserMobile?.trim()
+    ) {
+      throw new BadRequestException(
+        'Branch user name, email, and mobile number are required. Every branch must have a desk user for branch-level supervision.',
+      );
+    }
+
     let branchUser: { email: string; password: string; userId: string } | null =
       null;
     let branchUserError: string | null = null;
 
-    if (dto.branchUserName && dto.branchUserEmail) {
-      branchUser = await this.createBranchUser(
-        clientid,
-        saved.id,
-        dto.branchUserName,
-        dto.branchUserEmail,
-        dto.branchUserPassword,
-      ).catch((err: any) => {
-        // Do not fail branch creation if branch-user auto-provisioning fails (e.g., duplicate email/FK issues)
-        branchUserError = err?.message || 'Failed to auto-create branch user';
-        this.logger.warn(
-          `Branch created but branch user could not be auto-created (branchId=${saved.id}): ${branchUserError}`,
-        );
-        return null;
-      });
-    }
+    branchUser = await this.createBranchUser(
+      clientid,
+      saved.id,
+      dto.branchUserName.trim(),
+      dto.branchUserEmail.trim(),
+      dto.branchUserMobile.trim(),
+      dto.branchUserPassword,
+    ).catch((err: any) => {
+      branchUserError = err?.message || 'Failed to create branch user';
+      this.logger.warn(
+        `Branch created but branch user could not be created (branchId=${saved.id}): ${branchUserError}`,
+      );
+      return null;
+    });
 
     return { ...saved, branchUser, branchUserError };
   }
@@ -112,10 +120,13 @@ export class BranchesService {
     branchId: string,
     name: string,
     email: string,
+    mobile: string,
     password?: string,
   ): Promise<{ email: string; password: string; userId: string }> {
     // Guard: ensure branch exists before linking
-    const branchExists = await this.branchRepo.findOne({ where: { id: branchId } });
+    const branchExists = await this.branchRepo.findOne({
+      where: { id: branchId },
+    });
     if (!branchExists) {
       throw new BadRequestException(
         `Cannot create branch user: branch ${branchId} not found`,
@@ -146,6 +157,7 @@ export class BranchesService {
       roleId,
       name,
       email,
+      mobile,
       password: plainPassword,
       clientId,
       userType: 'BRANCH',
@@ -200,7 +212,10 @@ export class BranchesService {
     try {
       await this.complianceApplicabilityService.recomputeForBranch(saved.id);
     } catch (err) {
-      this.logger.error('recomputeForBranch failed (branch saved OK):', err?.message ?? err);
+      this.logger.error(
+        'recomputeForBranch failed (branch saved OK):',
+        err?.message ?? err,
+      );
     }
     return saved;
   }

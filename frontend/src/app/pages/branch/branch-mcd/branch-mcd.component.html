@@ -1,0 +1,285 @@
+<div class="page">
+  <ui-page-header
+    title="Monthly Compliance Workbench"
+    subtitle="Branch-first execution board for due uploads, query returns, and closure tracking">
+  </ui-page-header>
+
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <label class="field-label">Month</label>
+      <select class="field-select" [(ngModel)]="selectedMonth" (change)="onPeriodChange()">
+        <option *ngFor="let month of months" [ngValue]="month.value">{{ month.label }}</option>
+      </select>
+    </div>
+
+    <div class="toolbar-group">
+      <label class="field-label">Year</label>
+      <select class="field-select" [(ngModel)]="selectedYear" (change)="onPeriodChange()">
+        <option *ngFor="let year of years" [ngValue]="year">{{ year }}</option>
+      </select>
+    </div>
+
+    <div class="toolbar-group toolbar-group--wide">
+      <label class="field-label">Search</label>
+      <input
+        class="field-input"
+        type="text"
+        placeholder="Search by return name, code, law area"
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()">
+    </div>
+
+    <div class="toolbar-group">
+      <label class="field-label">Status</label>
+      <select class="field-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+        <option value="ALL">All items</option>
+        <option value="PENDING_UPLOAD">Pending upload</option>
+        <option value="QUERY_PENDING">Query pending</option>
+        <option value="SUBMITTED">Submitted</option>
+        <option value="APPROVED">Approved</option>
+      </select>
+    </div>
+
+    <div class="toolbar-group">
+      <label class="field-label">Law Area</label>
+      <select class="field-select" [(ngModel)]="lawAreaFilter" (change)="applyFilters()">
+        <option value="ALL">All law areas</option>
+        <option *ngFor="let law of lawAreas" [value]="law">{{ law }}</option>
+      </select>
+    </div>
+
+    <div class="toolbar-group">
+      <label class="field-label">Category</label>
+      <select class="field-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
+        <option value="ALL">All categories</option>
+        <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+      </select>
+    </div>
+
+    <button class="btn-refresh" (click)="load(selectedItem?.returnCode)">Refresh</button>
+    <button class="btn-refresh" (click)="exportMonthSheet()">Export Month Sheet</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <span class="summary-value">{{ completenessPct }}%</span>
+      <span class="summary-label">Upload completeness</span>
+      <span class="summary-meta">{{ uploadedCount }} / {{ totalItems }} uploaded</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-value">{{ totalItems }}</span>
+      <span class="summary-label">Total applicable</span>
+      <span class="summary-meta">{{ selectedMonthLabel }} {{ selectedYear }}</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-value">{{ pendingCount }}</span>
+      <span class="summary-label">Pending upload</span>
+      <span class="summary-meta">Not uploaded + overdue</span>
+    </div>
+    <div class="summary-card summary-card--warn">
+      <span class="summary-value">{{ returnedCount }}</span>
+      <span class="summary-label">Returned items</span>
+      <span class="summary-meta">Reupload required by reviewer</span>
+    </div>
+    <div class="summary-card summary-card--warn">
+      <span class="summary-value">{{ pendingQueryCount }}</span>
+      <span class="summary-label">Pending query items</span>
+      <span class="summary-meta">Items needing clarification/reupload</span>
+    </div>
+    <div class="summary-card summary-card--alert">
+      <span class="summary-value">{{ overdueCount }}</span>
+      <span class="summary-label">Overdue items</span>
+      <span class="summary-meta">Need immediate action</span>
+    </div>
+    <div class="summary-card summary-card--month-close" [class.summary-card--month-close-open]="monthCloseStatus === 'OPEN'">
+      <span class="summary-value">{{ monthCloseStatus === 'NO_ITEMS' ? '-' : monthCloseStatus }}</span>
+      <span class="summary-label">Month close status</span>
+      <span class="summary-meta">{{ monthCloseLabel }}</span>
+      <div class="close-progress" *ngIf="monthCloseStatus !== 'NO_ITEMS'">
+        <span [style.width.%]="monthCloseProgressPct"></span>
+      </div>
+      <span class="summary-meta" *ngIf="monthCloseStatus !== 'NO_ITEMS'">{{ monthCloseProgressPct }}% closure complete</span>
+    </div>
+  </div>
+
+  <div class="workbench">
+    <section class="panel">
+      <header class="panel-head">
+        <h2 class="panel-title">Applicable Upload List</h2>
+        <span class="panel-meta">{{ filteredChecklist.length }} / {{ checklist.length }}</span>
+      </header>
+
+      <div *ngIf="loading" class="loading-list">
+        <div class="skeleton-row" *ngFor="let row of [1,2,3,4,5,6]"></div>
+      </div>
+
+      <div *ngIf="!loading && !filteredChecklist.length" class="empty">
+        No applicable monthly compliance items match current filters.
+      </div>
+
+      <div *ngIf="!loading && filteredChecklist.length" class="list">
+        <button
+          *ngFor="let item of filteredChecklist; trackBy: trackByReturnCode"
+          type="button"
+          class="list-row"
+          [class.list-row--active]="selectedItem?.returnCode === item.returnCode"
+          [class.list-row--returned]="statusOf(item) === 'REUPLOAD_REQUIRED'"
+          (click)="selectItem(item)">
+          <div class="row-main">
+            <span class="row-title">{{ item.returnName }}</span>
+            <span class="row-code">{{ item.returnCode }}</span>
+          </div>
+          <div class="row-sub">{{ item.lawArea }}<span *ngIf="item.category"> | {{ item.category }}</span></div>
+          <div class="row-status">
+            <ui-status-badge [status]="statusOf(item)" size="sm"></ui-status-badge>
+            <span class="marker marker--due" *ngIf="isDueNow(item)">Due now</span>
+            <span class="marker marker--query" *ngIf="isQueryPending(item)">Pending query</span>
+            <span class="marker marker--overdue" *ngIf="isOverdue(item)">Overdue</span>
+          </div>
+          <div class="row-due">{{ dueLabel(item) }}</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel detail">
+      <ng-container *ngIf="selectedItem as item; else selectPrompt">
+        <header class="panel-head panel-head--detail">
+          <div>
+            <h2 class="panel-title">{{ item.returnName }}</h2>
+            <div class="panel-meta">{{ item.returnCode }} | {{ item.lawArea }}</div>
+          </div>
+          <ui-status-badge [status]="statusOf(item)"></ui-status-badge>
+        </header>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <span class="detail-label">Due Date</span>
+            <span class="detail-value">{{ resolveDueDate(item) ? (resolveDueDate(item) | date:'dd MMM yyyy') : 'Not configured' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Version</span>
+            <span class="detail-value">{{ item.document?.version || 0 }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Uploaded</span>
+            <span class="detail-value">{{ item.document?.uploadedAt ? (item.document?.uploadedAt | date:'dd MMM yyyy, HH:mm') : 'Not uploaded' }}</span>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Review State</span>
+            <span class="detail-value">{{ item.document?.reviewedAt ? (item.document?.reviewedAt | date:'dd MMM yyyy, HH:mm') : 'Pending review' }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="item.document?.remarks" class="note note--review">
+          <strong>Reviewer remarks:</strong> {{ item.document?.remarks }}
+        </div>
+
+        <div *ngIf="item.document?.uploaderRemarks" class="note note--uploader">
+          <strong>Uploader remarks:</strong> {{ item.document?.uploaderRemarks }}
+        </div>
+
+        <div class="attachment">
+          <div class="attachment-meta">
+            <span class="attachment-title">Latest Attachment</span>
+            <span class="attachment-file">{{ selectedLatestDoc?.uploadedFileName || 'No file uploaded yet' }}</span>
+          </div>
+          <button
+            class="btn-link"
+            type="button"
+            (click)="openDocument(item)"
+            [disabled]="!selectedLatestDoc?.uploadedFileUrl">
+            View file
+          </button>
+        </div>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn-primary"
+            *ngIf="canUpload(item)"
+            (click)="openUploadModal(item)">
+            {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Reupload Document' : 'Upload Document' }}
+          </button>
+          <button
+            type="button"
+            class="btn-secondary"
+            [disabled]="!selectedLatestDoc?.uploadedFileUrl"
+            (click)="openDocument(item)">
+            Open current file
+          </button>
+        </div>
+
+        <div class="timeline">
+          <h3 class="timeline-title">Activity Timeline</h3>
+          <div *ngIf="!selectedTimeline.length" class="timeline-empty">
+            No activity recorded yet for this item.
+          </div>
+          <div *ngFor="let event of selectedTimeline" class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-body">
+              <div class="timeline-head">
+                <span class="timeline-event">{{ event.title }}</span>
+                <span class="timeline-time">{{ event.timestamp | date:'dd MMM yyyy, HH:mm' }}</span>
+              </div>
+              <div *ngIf="event.note" class="timeline-note">{{ event.note }}</div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-template #selectPrompt>
+        <div class="empty empty--detail">Select a checklist item to review details and upload actions.</div>
+      </ng-template>
+    </section>
+  </div>
+
+  <ui-modal
+    *ngIf="showUploadModal"
+    [isOpen]="showUploadModal"
+    [title]="'Upload: ' + (uploadTarget?.returnName || '')"
+    size="md"
+    (closed)="closeUploadModal()">
+    <div class="upload-body">
+      <div class="upload-meta">
+        <strong>Return:</strong> {{ uploadTarget?.returnCode }}<br>
+        <strong>Period:</strong> {{ selectedMonthLabel }} {{ selectedYear }}
+      </div>
+
+      <div
+        class="upload-zone"
+        (drop)="onFileDrop($event)"
+        (dragover)="onDragOver($event)"
+        (click)="uploadInput.click()">
+        <input
+          #uploadInput
+          class="upload-hidden"
+          type="file"
+          accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls"
+          (change)="onFileSelected($event)">
+        <div *ngIf="!selectedFile">
+          Drop file here or click to browse
+        </div>
+        <div *ngIf="selectedFile">
+          {{ selectedFile.name }} ({{ (selectedFile.size / 1024).toFixed(0) }} KB)
+        </div>
+      </div>
+
+      <div class="upload-remarks">
+        <label class="field-label">Remarks (optional)</label>
+        <textarea
+          class="field-textarea"
+          [(ngModel)]="uploadRemarks"
+          rows="3"
+          placeholder="Add context for reviewer"></textarea>
+      </div>
+
+      <div class="upload-actions">
+        <button class="btn-secondary" type="button" (click)="closeUploadModal()">Cancel</button>
+        <button class="btn-primary" type="button" [disabled]="!selectedFile || uploading" (click)="submitUpload()">
+          {{ uploading ? 'Uploading...' : 'Upload' }}
+        </button>
+      </div>
+    </div>
+    <div slot="footer"></div>
+  </ui-modal>
+</div>

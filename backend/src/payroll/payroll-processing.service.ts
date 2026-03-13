@@ -18,13 +18,23 @@ import { PayrollComponentSlabEntity } from './entities/payroll-component-slab.en
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { StatutoryCalculatorService } from './services/statutory-calculator.service';
 import { StateStatutoryService } from './services/state-statutory.service';
+import { evaluateFormula, FormulaError } from './engine/expression';
 
 /** Component codes that are system-generated — skip during upload validation */
 const SYSTEM_CODES = new Set([
-  'PF_WAGES', 'PF_EMP', 'PF_ER', 'PF_EPS', 'PF_DIFF',
-  'ESI_WAGES', 'ESI_EMP', 'ESI_ER',
-  'PT', 'LWF_EMP', 'LWF_ER',
-  'GROSS', 'NET_PAY',
+  'PF_WAGES',
+  'PF_EMP',
+  'PF_ER',
+  'PF_EPS',
+  'PF_DIFF',
+  'ESI_WAGES',
+  'ESI_EMP',
+  'ESI_ER',
+  'PT',
+  'LWF_EMP',
+  'LWF_ER',
+  'GROSS',
+  'NET_PAY',
 ]);
 
 @Injectable()
@@ -82,7 +92,10 @@ export class PayrollProcessingService {
     const componentCols: { col: number; code: string }[] = [];
     headers.forEach((h, i) => {
       if (i !== codeCol && i !== nameCol && h) {
-        componentCols.push({ col: i, code: h.replace(/\s/g, '_').toUpperCase() });
+        componentCols.push({
+          col: i,
+          code: h.replace(/\s/g, '_').toUpperCase(),
+        });
       }
     });
 
@@ -95,9 +108,7 @@ export class PayrollProcessingService {
     // Allow system codes in upload without error, but don't require them
     const allowedCodes = new Set([...knownCodes, ...SYSTEM_CODES]);
 
-    const unknownCols = componentCols.filter(
-      (c) => !allowedCodes.has(c.code),
-    );
+    const unknownCols = componentCols.filter((c) => !allowedCodes.has(c.code));
     const warnings: string[] = [];
     if (unknownCols.length > 0) {
       warnings.push(
@@ -112,9 +123,7 @@ export class PayrollProcessingService {
     const uploadedCodes = new Set(componentCols.map((c) => c.code));
     const missingRequired = requiredCodes.filter((c) => !uploadedCodes.has(c));
     if (missingRequired.length > 0) {
-      warnings.push(
-        `Missing required columns: ${missingRequired.join(', ')}`,
-      );
+      warnings.push(`Missing required columns: ${missingRequired.join(', ')}`);
     }
 
     // ── Preload: bulk-fetch all master employees and existing run employees ──
@@ -159,13 +168,16 @@ export class PayrollProcessingService {
         if (!knownCodes.has(cc.code)) continue;
         const amt = this.cellNum(row.getCell(cc.col + 1).value);
         if (amt !== null && amt < 0) {
-          errors.push(`Row ${r}: Negative amount (${amt}) for component "${cc.code}"`);
+          errors.push(
+            `Row ${r}: Negative amount (${amt}) for component "${cc.code}"`,
+          );
         }
       }
 
-      const empName = nameCol >= 0
-        ? this.cellStr(row.getCell(nameCol + 1).value) || empCode
-        : empCode;
+      const empName =
+        nameCol >= 0
+          ? this.cellStr(row.getCell(nameCol + 1).value) || empCode
+          : empCode;
 
       // Collect component values for this row
       const rowValues: { code: string; amount: number }[] = [];
@@ -196,7 +208,9 @@ export class PayrollProcessingService {
         const existingRunEmp = runEmpByCode.get(pr.empCode);
 
         if (!masterEmp) {
-          warnings.push(`Row ${pr.rowNum}: Employee code "${pr.empCode}" not found in master`);
+          warnings.push(
+            `Row ${pr.rowNum}: Employee code "${pr.empCode}" not found in master`,
+          );
         }
 
         const fullName = masterEmp
@@ -219,10 +233,13 @@ export class PayrollProcessingService {
         } else if (masterEmp) {
           existingRunEmp.uan = masterEmp.uan || existingRunEmp.uan;
           existingRunEmp.esic = masterEmp.esic || existingRunEmp.esic;
-          existingRunEmp.stateCode = masterEmp.stateCode || existingRunEmp.stateCode;
-          existingRunEmp.designation = masterEmp.designation || existingRunEmp.designation;
+          existingRunEmp.stateCode =
+            masterEmp.stateCode || existingRunEmp.stateCode;
+          existingRunEmp.designation =
+            masterEmp.designation || existingRunEmp.designation;
           existingRunEmp.employeeId = masterEmp.id || existingRunEmp.employeeId;
-          existingRunEmp.branchId = masterEmp.branchId || existingRunEmp.branchId;
+          existingRunEmp.branchId =
+            masterEmp.branchId || existingRunEmp.branchId;
           existingRunEmp.employeeName = fullName;
           updateRunEmps.push(existingRunEmp);
         }
@@ -283,7 +300,9 @@ export class PayrollProcessingService {
 
     return {
       imported,
-      componentColumns: componentCols.filter((c) => knownCodes.has(c.code)).map((c) => c.code),
+      componentColumns: componentCols
+        .filter((c) => knownCodes.has(c.code))
+        .map((c) => c.code),
       warnings,
       errors,
     };
@@ -294,9 +313,14 @@ export class PayrollProcessingService {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
 
-    if (run.status === 'PROCESSED' || run.status === 'APPROVED') {
+    const currentStatus = String(run.status || '').toUpperCase();
+    if (
+      currentStatus !== 'DRAFT' &&
+      currentStatus !== 'REJECTED' &&
+      currentStatus !== 'IN_PROGRESS'
+    ) {
       throw new ConflictException(
-        `Payroll run is already ${run.status}. Revert to DRAFT before reprocessing.`,
+        `Payroll run is "${currentStatus}". Only DRAFT, REJECTED, or IN_PROGRESS runs can be processed.`,
       );
     }
 
@@ -339,11 +363,15 @@ export class PayrollProcessingService {
         where: { runEmployeeId: emp.id },
       });
       const valueMap = new Map<string, number>();
-      existingValues.forEach((v) => valueMap.set(v.componentCode, Number(v.amount)));
+      existingValues.forEach((v) =>
+        valueMap.set(v.componentCode, Number(v.amount)),
+      );
 
       // Track which codes were uploaded (so we don't override them)
       const uploadedCodes = new Set(
-        existingValues.filter((v) => v.source === 'UPLOADED').map((v) => v.componentCode),
+        existingValues
+          .filter((v) => v.source === 'UPLOADED')
+          .map((v) => v.componentCode),
       );
 
       // ── 1. Apply rules for components that have no uploaded value ──
@@ -369,7 +397,9 @@ export class PayrollProcessingService {
 
       // ── 2. Statutory PF/ESI via StatutoryCalculatorService ──
       const valuesObj: Record<string, number> = {};
-      valueMap.forEach((v, k) => { valuesObj[k] = v; });
+      valueMap.forEach((v, k) => {
+        valuesObj[k] = v;
+      });
 
       const afterStat = this.statutory.compute({
         values: valuesObj,
@@ -393,7 +423,7 @@ export class PayrollProcessingService {
       }
 
       // ── 5. Compute totals ──
-      let grossEarnings = finalValues['GROSS'] ?? 0;
+      const grossEarnings = finalValues['GROSS'] ?? 0;
       let totalDeductions = 0;
       let employerCost = 0;
 
@@ -404,15 +434,17 @@ export class PayrollProcessingService {
       }
 
       // Statutory employee deductions
-      totalDeductions += (finalValues['PF_EMP'] || 0)
-        + (finalValues['ESI_EMP'] || 0)
-        + (finalValues['PT'] || 0)
-        + (finalValues['LWF_EMP'] || 0);
+      totalDeductions +=
+        (finalValues['PF_EMP'] || 0) +
+        (finalValues['ESI_EMP'] || 0) +
+        (finalValues['PT'] || 0) +
+        (finalValues['LWF_EMP'] || 0);
 
       // Statutory employer costs
-      employerCost += (finalValues['PF_ER'] || 0)
-        + (finalValues['ESI_ER'] || 0)
-        + (finalValues['LWF_ER'] || 0);
+      employerCost +=
+        (finalValues['PF_ER'] || 0) +
+        (finalValues['ESI_ER'] || 0) +
+        (finalValues['LWF_ER'] || 0);
 
       const netPay = grossEarnings - totalDeductions;
 
@@ -427,6 +459,15 @@ export class PayrollProcessingService {
     }
 
     run.status = 'PROCESSED';
+    // Reset approval metadata when run enters a new processing cycle.
+    run.submittedByUserId = null;
+    run.submittedAt = null;
+    run.approvedByUserId = null;
+    run.approvedAt = null;
+    run.approvalComments = null;
+    run.rejectedByUserId = null;
+    run.rejectedAt = null;
+    run.rejectionReason = null;
     await this.runRepo.save(run);
 
     return { processed: employees.length, status: 'PROCESSED' };
@@ -444,7 +485,7 @@ export class PayrollProcessingService {
     if (rule.ruleType === 'PERCENTAGE' && rule.baseComponent) {
       const base = valueMap.get(rule.baseComponent);
       if (base !== undefined && rule.percentage) {
-        return Math.round(base * Number(rule.percentage) / 100);
+        return Math.round((base * Number(rule.percentage)) / 100);
       }
     }
     if (rule.ruleType === 'SLAB' && rule.baseComponent) {
@@ -458,9 +499,31 @@ export class PayrollProcessingService {
         const from = Number(slab.fromAmount);
         const to = slab.toAmount ? Number(slab.toAmount) : Infinity;
         if (base >= from && base <= to) {
-          if (slab.slabPct) return Math.round(base * Number(slab.slabPct) / 100);
+          if (slab.slabPct)
+            return Math.round((base * Number(slab.slabPct)) / 100);
           if (slab.slabFixed) return Number(slab.slabFixed);
         }
+      }
+    }
+    if (rule.ruleType === 'FORMULA' && rule.formula) {
+      try {
+        const vars: Record<string, number> = {};
+        valueMap.forEach((v, k) => {
+          vars[k] = v;
+        });
+        return evaluateFormula(rule.formula, {
+          vars,
+          param: () => 0,
+          earningsSum: () => {
+            let sum = 0;
+            valueMap.forEach((v) => {
+              sum += v;
+            });
+            return sum;
+          },
+        });
+      } catch {
+        return null;
       }
     }
     return null;

@@ -8,7 +8,10 @@ import {
   OverrideMode,
 } from './branch-compliance-override.service';
 import { AccessPolicyService } from '../auth/policies/access-policy.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Compliance')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'branch-compliances', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BranchComplianceOverrideController {
@@ -18,6 +21,7 @@ export class BranchComplianceOverrideController {
   ) {}
 
   @Roles('ADMIN', 'CCO', 'CRM')
+  @ApiOperation({ summary: 'Override' })
   @Post('override')
   async override(
     @Body()

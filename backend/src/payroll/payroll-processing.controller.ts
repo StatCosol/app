@@ -24,6 +24,7 @@ import { PayrollProcessingService } from './payroll-processing.service';
 import { PfEcrGenerator } from './generators/pf-ecr.generator';
 import { EsiGenerator } from './generators/esi.generator';
 import { RegisterGenerator } from './generators/register.generator';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -55,6 +56,8 @@ const breakupUploadOptions = {
   limits: { fileSize: 10 * 1024 * 1024 },
 };
 
+@ApiTags('Payroll')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/runs', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('PAYROLL', 'ADMIN')
@@ -67,23 +70,23 @@ export class PayrollProcessingController {
   ) {}
 
   // Upload breakup Excel
+  @ApiOperation({ summary: 'Upload Breakup' })
   @Post(':runId/upload-breakup')
   @UseInterceptors(FileInterceptor('file', breakupUploadOptions))
-  uploadBreakup(
-    @Param('runId') runId: string,
-    @UploadedFile() file: any,
-  ) {
+  uploadBreakup(@Param('runId') runId: string, @UploadedFile() file: any) {
     if (!file) throw new BadRequestException('File is required');
     return this.processingSvc.uploadBreakup(runId, file);
   }
 
   // Process payroll run (compute statutory deductions)
+  @ApiOperation({ summary: 'Process Run' })
   @Post(':runId/process')
   processRun(@Param('runId') runId: string) {
     return this.processingSvc.processRun(runId);
   }
 
   // Generate PF ECR text file
+  @ApiOperation({ summary: 'Generate Pf Ecr' })
   @Post(':runId/generate/pf-ecr')
   async generatePfEcr(@Param('runId') runId: string, @Res() res: Response) {
     const result = await this.pfEcr.generate(runId);
@@ -96,6 +99,7 @@ export class PayrollProcessingController {
   }
 
   // Generate ESI contribution file
+  @ApiOperation({ summary: 'Generate Esi' })
   @Post(':runId/generate/esi')
   async generateEsi(@Param('runId') runId: string, @Res() res: Response) {
     const result = await this.esi.generate(runId);
@@ -108,6 +112,7 @@ export class PayrollProcessingController {
   }
 
   // Generate state-wise register
+  @ApiOperation({ summary: 'Generate Register' })
   @Post(':runId/generate/registers')
   generateRegister(
     @Req() req: any,
@@ -118,10 +123,16 @@ export class PayrollProcessingController {
     if (!stateCode || !registerType) {
       throw new BadRequestException('stateCode and registerType are required');
     }
-    return this.register.generate(runId, stateCode, registerType, req.user.userId);
+    return this.register.generate(
+      runId,
+      stateCode,
+      registerType,
+      req.user.userId,
+    );
   }
 
   // List available register templates
+  @ApiOperation({ summary: 'List Templates' })
   @Get('register-templates')
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   listTemplates(@Query('stateCode') stateCode?: string) {

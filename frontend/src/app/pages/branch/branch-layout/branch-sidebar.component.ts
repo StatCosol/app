@@ -392,8 +392,8 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
       if (b) totalBadges += b.overdue + b.reupload;
     }
 
-    // Apply aggregate badge to Monthly Uploads child
-    const uploadsChild = complianceGroup.children.find(c => c.route.endsWith('/monthly-uploads'));
+    // Apply aggregate badge to periodic uploads child
+    const uploadsChild = complianceGroup.children.find(c => c.route.endsWith('/uploads/monthly'));
     if (uploadsChild) {
       uploadsChild.badge = totalBadges > 0 ? totalBadges : undefined;
     }
@@ -403,7 +403,12 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   private autoExpandCompliance(): void {
     const url = this.router.url;
     const complianceGroup = this.navItems.find(i => i.children);
-    if (complianceGroup && url.includes('/branch/compliance')) {
+    if (
+      complianceGroup &&
+      (url.includes('/branch/compliance') ||
+        url.includes('/branch/uploads') ||
+        url.includes('/branch/monthly-uploads'))
+    ) {
       complianceGroup.expanded = true;
     }
   }
@@ -453,15 +458,22 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
         expanded: false,
         children: [
           { label: 'Branch Compliance',    route: '/branch/compliance',              icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
-          { label: 'Monthly Uploads',      route: '/branch/monthly-uploads',         icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Monthly Workbench',    route: '/branch/compliance/monthly',      icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Monthly Uploads',      route: '/branch/uploads/monthly',         icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Periodic Uploads',     route: '/branch/uploads',                 icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Registrations',        route: '/branch/registrations',           icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Compliance Calendar',  route: '/branch/calendar',                icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Risk Heatmap',        route: '/branch/heatmap',                icon: this.svg('M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z') },
           { label: 'SLA Tracker',          route: '/branch/sla',                     icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Risk Trend',           route: '/branch/risk-trend',              icon: this.svg('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6') },
           { label: 'Escalations',          route: '/branch/escalations',             icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
-          { label: 'Audit Observations',   route: '/branch/audit-observations',      icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
+          { label: 'Reupload Requests',    route: '/branch/compliance/reupload-inbox', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
+          { label: 'Audit Observations',   route: '/branch/audits/observations',     icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
         ],
       },
       { label: 'Documents',              route: '/branch/documents',           icon: this.svg('M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z') },
+      { label: 'Unit Documents',          route: '/branch/unit-documents',      icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+      { label: 'Safety',                  route: '/branch/safety',              icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
       { label: 'Reports',                route: '/branch/reports',             icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
       { label: 'Notifications',          route: '/branch/notifications',       icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
       { label: 'Helpdesk',               route: '/branch/helpdesk',            icon: this.svg('M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z') },

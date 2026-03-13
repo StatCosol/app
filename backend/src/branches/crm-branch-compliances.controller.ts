@@ -18,7 +18,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { BranchesService } from './branches.service';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Branches')
+@ApiBearerAuth('JWT')
 @Controller({ path: 'crm', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
@@ -33,6 +36,7 @@ export class CrmBranchCompliancesController {
   ) {}
 
   // 1. List master compliances
+  @ApiOperation({ summary: 'List Master Compliances' })
   @Get('compliances/master')
   async listMasterCompliances() {
     return this.complianceRepo.find({
@@ -43,6 +47,7 @@ export class CrmBranchCompliancesController {
   }
 
   // 2. Get branch selected compliances
+  @ApiOperation({ summary: 'Get Branch Applicable Compliances' })
   @Get('branches/:branchId/applicable-compliances')
   async getBranchApplicableCompliances(
     @Param('branchId', ParseUUIDPipe) branchId: string,
@@ -66,6 +71,7 @@ export class CrmBranchCompliancesController {
   }
 
   // 3. Save branch selected compliances
+  @ApiOperation({ summary: 'Save Branch Applicable Compliances' })
   @Post('branches/:branchId/applicable-compliances')
   async saveBranchApplicableCompliances(
     @Param('branchId', ParseUUIDPipe) branchId: string,
