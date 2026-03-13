@@ -222,7 +222,6 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
       { metric: 'Employees Pending', value: this.pendingCountFor('employees') },
       { metric: 'Contractors At Risk', value: this.pendingCountFor('contractors') },
     ];
-
     ReportsService.exportCsv(
       rows,
       [

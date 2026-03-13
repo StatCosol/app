@@ -57,7 +57,7 @@
   <ui-empty-state
     *ngIf="!loadingRuns && !filteredRuns.length"
     title="No Payroll Runs"
-    message="No runs found for the selected filters.">
+    description="No runs found for the selected filters.">
   </ui-empty-state>
 
   <section class="console-grid" *ngIf="!loadingRuns && filteredRuns.length">
@@ -286,4 +286,3 @@
     </div>
   </section>
 </div>
-
