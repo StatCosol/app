@@ -567,7 +567,7 @@ export class NotificationsService {
     role: string;
   }> {
     const rows = await this.dataSource.query(
-      `SELECT id, role FROM users WHERE role='ADMIN' AND is_active=TRUE AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`,
+      `SELECT u.id, r.code AS role FROM users u JOIN roles r ON r.id = u.role_id WHERE r.code = 'ADMIN' AND u.is_active = TRUE AND u.deleted_at IS NULL ORDER BY u.created_at ASC LIMIT 1`,
       [],
     );
     if (!rows?.length)
@@ -589,9 +589,10 @@ export class NotificationsService {
   ) {
     const rows = await this.dataSource.query(
       `
-      SELECT ca.assigned_to_user_id AS user_id, u.role
+      SELECT ca.assigned_to_user_id AS user_id, r.code AS role
       FROM client_assignments_current ca
       JOIN users u ON u.id = ca.assigned_to_user_id
+      JOIN roles r ON r.id = u.role_id
       WHERE ca.client_id = $1
         AND ca.assignment_type = $2
         AND u.is_active = TRUE

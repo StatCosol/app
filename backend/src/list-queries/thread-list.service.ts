@@ -9,7 +9,7 @@ import {
   paginate,
   SortConfig,
 } from '../common/db/paginate-qb';
-import { NotificationThread } from '../notifications/entities/notification-thread.entity';
+import { NotificationEntity } from '../notifications/entities/notification.entity';
 import { HelpdeskTicketEntity } from '../helpdesk/entities/helpdesk-ticket.entity';
 
 @Injectable()
@@ -37,10 +37,10 @@ export class ThreadListService {
   async listThreads(
     user: ReqUser,
     q: ScopedListQueryDto,
-  ): Promise<Page<NotificationThread>> {
+  ): Promise<Page<NotificationEntity>> {
     const scopeResult = await this.scope.getScope(user);
     const qb = this.ds
-      .getRepository(NotificationThread)
+      .getRepository(NotificationEntity)
       .createQueryBuilder('th')
       .leftJoinAndSelect('th.client', 'client')
       .leftJoinAndSelect('th.branch', 'branch')
