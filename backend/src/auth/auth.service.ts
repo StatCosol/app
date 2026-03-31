@@ -15,6 +15,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly dataSource: DataSource,
     private readonly emailService: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -46,6 +48,7 @@ export class AuthService {
         'c.id',
         'c.clientCode',
         'c.clientName',
+        'c.logoUrl',
       ])
       .where('LOWER(u.email) = LOWER(:email)', { email })
       .getOne();
@@ -65,6 +68,13 @@ export class AuthService {
 
     const role = await this.usersService.getRoleById(user.roleId);
 
+    // Block EMPLOYEE users – they must use the ESS portal login
+    if (role.code === 'EMPLOYEE') {
+      throw new UnauthorizedException(
+        'Employees must log in through the ESS portal',
+      );
+    }
+
     // Resolve branch mappings for CLIENT users
     let branchIds: string[] = [];
     let isMasterUser = false;
@@ -79,6 +89,12 @@ export class AuthService {
 
     const tokens = await this.issueTokens(user.id, role.code, user, branchIds);
 
+    // Record last login timestamp (fire-and-forget)
+    this.dataSource.query(
+      `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
+      [user.id],
+    ).catch(() => {});
+
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -87,19 +103,19 @@ export class AuthService {
         userId: user.id,
         email: user.email,
         roleCode: role.code,
-        fullName: (user as any).fullName ?? user.name ?? null,
+        fullName: user.name ?? null,
         name: user.name,
         clientId: user.clientId ?? null,
         clientName: user.client?.clientName ?? null,
-        clientLogoUrl: (user.client as any)?.logoUrl ?? null,
-        crmId: (user as any).crmId ?? null,
+        clientLogoUrl: user.client?.logoUrl ?? null,
+        crmId: null,
         userType:
           role.code === 'CLIENT'
             ? (user.userType ?? (isMasterUser ? 'MASTER' : 'BRANCH'))
             : (user.userType ?? null),
         isMasterUser,
         branchIds,
-        employeeId: (user as any).employeeId ?? null,
+        employeeId: user.employeeId ?? null,
       },
     };
   }
@@ -128,6 +144,7 @@ export class AuthService {
         'c.id',
         'c.clientCode',
         'c.clientName',
+        'c.logoUrl',
       ])
       .where('LOWER(u.email) = LOWER(:email)', { email })
       .getOne();
@@ -149,15 +166,42 @@ export class AuthService {
       throw new UnauthorizedException('This login is for employees only');
     }
 
-    // Verify company code matches the user's client
-    if (
-      !user.client ||
-      user.client.clientCode?.toUpperCase() !== companyCode
-    ) {
-      throw new UnauthorizedException('Company code does not match your account');
+    // Verify company code matches the user's client.
+    // Accept known aliases derived from client metadata to support
+    // user-facing codes like "VEDHA" for "Vedha Entech ...".
+    const normalize = (value?: string | null) =>
+      (value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+
+    const clientCode = normalize(user.client?.clientCode);
+    const clientName = (user.client?.clientName || '').trim();
+    const firstWord = normalize(clientName.split(/\s+/)[0] || '');
+    const initials = normalize(
+      clientName
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((token) => token[0])
+        .join(''),
+    );
+
+    const provided = normalize(companyCode);
+    const allowedCodes = new Set([clientCode, firstWord, initials]);
+
+    if (!user.client || !allowedCodes.has(provided)) {
+      throw new UnauthorizedException(
+        'Company code does not match your account',
+      );
     }
 
     const tokens = await this.issueTokens(user.id, role.code, user);
+
+    // Record last login timestamp (fire-and-forget)
+    this.dataSource.query(
+      `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
+      [user.id],
+    ).catch(() => {});
 
     return {
       accessToken: tokens.accessToken,
@@ -167,14 +211,14 @@ export class AuthService {
         userId: user.id,
         email: user.email,
         roleCode: role.code,
-        fullName: (user as any).fullName ?? user.name ?? null,
+        fullName: user.name ?? null,
         name: user.name,
         clientId: user.clientId ?? null,
         clientCode: user.client?.clientCode ?? null,
         clientName: user.client?.clientName ?? null,
-        clientLogoUrl: (user.client as any)?.logoUrl ?? null,
+        clientLogoUrl: user.client?.logoUrl ?? null,
         userType: user.userType ?? null,
-        employeeId: (user as any).employeeId ?? null,
+        employeeId: user.employeeId ?? null,
       },
     };
   }
@@ -232,7 +276,10 @@ export class AuthService {
       { expiresIn: '1h' },
     );
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+    const frontendUrl = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:4200',
+    );
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
     const bodyHtml = `
       <p>You requested a password reset for your StatCo account.</p>
