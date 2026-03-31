@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationEntity } from './entities/notification.entity';
 import { NotificationMessageEntity } from './entities/notification-message.entity';
 import { NotificationReadEntity } from './entities/notification-read.entity';
-import { NotificationThread } from './entities/notification-thread.entity';
 import { NotificationsService } from './notifications.service';
 import { AdminNotificationsController } from './admin-notifications.controller';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
@@ -20,7 +19,6 @@ import { AssignmentsModule } from '../assignments/assignments.module';
       NotificationEntity,
       NotificationMessageEntity,
       NotificationReadEntity,
-      NotificationThread,
       ClientAssignmentCurrentEntity,
     ]),
     forwardRef(() => AssignmentsModule),
