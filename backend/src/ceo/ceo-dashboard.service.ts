@@ -37,7 +37,9 @@ export class CeoDashboardService {
       return { startDate: null, endDate: null };
     }
 
-    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+    const end = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
+    );
     return {
       startDate: start.toISOString().slice(0, 10),
       endDate: end.toISOString().slice(0, 10),
@@ -48,7 +50,7 @@ export class CeoDashboardService {
    * CEO branch workspace list.
    * Aggregates branch-level compliance, overdue, audit score, and risk.
    */
-  async getBranchWorkspaceList(query: any) {
+  async getBranchWorkspaceList(query: { month?: string; state?: string; client?: string; q?: string; riskBand?: string }) {
     const { year, month } = this.resolveMonthParts(query?.month);
     const { startDate, endDate } = this.resolveMonthBounds(query?.month);
 
@@ -139,7 +141,7 @@ export class CeoDashboardService {
    * CEO branch workspace detail.
    * Returns compliance, audit, payroll, contractor, and alert drill-down metrics.
    */
-  async getBranchWorkspaceDetail(branchId: string, query: any) {
+  async getBranchWorkspaceDetail(branchId: string, query: { month?: string }) {
     const { year, month } = this.resolveMonthParts(query?.month);
     const { startDate, endDate } = this.resolveMonthBounds(query?.month);
 
@@ -240,7 +242,7 @@ export class CeoDashboardService {
       `
       SELECT
         COUNT(*)::int AS open_queries
-      FROM notification_threads nt
+      FROM notifications nt
       WHERE nt.branch_id = $1
         AND nt.status IN ('OPEN', 'IN_PROGRESS', 'RESPONDED')
       `,
@@ -332,7 +334,9 @@ export class CeoDashboardService {
         ongoing: Number(auditSummary?.ongoing_audits || 0),
         completed: completedAudits,
         avgScore: Number(auditSummary?.avg_audit_score || 0),
-        openHighRiskObservations: Number(observationSummary?.high_risk_open || 0),
+        openHighRiskObservations: Number(
+          observationSummary?.high_risk_open || 0,
+        ),
       },
       payrollRisk: {
         totalRuns: payrollRuns,
@@ -358,7 +362,7 @@ export class CeoDashboardService {
   /**
    * Get high-level executive summary KPIs
    */
-  async getSummary(query: any) {
+  async getSummary(query: unknown) {
     const sql = `
       SELECT
         (SELECT COUNT(*) FROM clients WHERE is_active = true AND is_deleted = false) AS total_clients,
@@ -383,9 +387,9 @@ export class CeoDashboardService {
   /**
    * Get client overview with branch counts and metrics
    */
-  async getClientOverview(query: any) {
-    const limit = parseInt(query.limit) || 100;
-    const offset = parseInt(query.offset) || 0;
+  async getClientOverview(query: { limit?: number | string; offset?: number | string; search?: string }) {
+    const limit = Number(query.limit) || 100;
+    const offset = Number(query.offset) || 0;
     const search = query.search || '';
 
     const sql = `
@@ -418,7 +422,7 @@ export class CeoDashboardService {
   /**
    * Get CCO and CRM team performance metrics
    */
-  async getCcoCrmPerformance(query: any) {
+  async getCcoCrmPerformance(query: unknown) {
     const sql = `
       WITH team_metrics AS (
         SELECT
@@ -454,7 +458,7 @@ export class CeoDashboardService {
   /**
    * Get governance and compliance statistics
    */
-  async getGovernanceCompliance(query: any) {
+  async getGovernanceCompliance(query: unknown) {
     const sql = `
       SELECT
         (SELECT COUNT(*) FROM audits WHERE status = 'COMPLETED') as completed_audits,
@@ -486,9 +490,9 @@ export class CeoDashboardService {
   /**
    * Get recent escalations requiring CEO attention
    */
-  async getRecentEscalations(query: any) {
-    const limit = parseInt(query.limit) || 50;
-    const offset = parseInt(query.offset) || 0;
+  async getRecentEscalations(query: { limit?: number | string; offset?: number | string; status?: string }) {
+    const limit = Number(query.limit) || 50;
+    const offset = Number(query.offset) || 0;
     const status = query.status || 'PENDING';
 
     const sql = `
@@ -525,8 +529,8 @@ export class CeoDashboardService {
    * Get monthly compliance trend for the last N months
    * Returns compliance rate, overdue count, audit score per month
    */
-  async getComplianceTrend(query: any) {
-    const months = parseInt(query.months) || 12;
+  async getComplianceTrend(query: { months?: number | string }) {
+    const months = Number(query.months) || 12;
 
     const sql = `
       WITH month_series AS (
@@ -581,8 +585,8 @@ export class CeoDashboardService {
    * Get top and bottom branch rankings for executive view.
    * Ranking is based on overdue ratio for the selected month.
    */
-  async getBranchRankings(query: any) {
-    const limit = Math.max(1, Math.min(parseInt(query.limit, 10) || 10, 25));
+  async getBranchRankings(query: { limit?: number | string; month?: string }) {
+    const limit = Math.max(1, Math.min(Number(query.limit) || 10, 25));
     const { startDate, endDate } = this.resolveMonthBounds(query.month);
 
     const baseSql = `
@@ -644,8 +648,8 @@ export class CeoDashboardService {
   /**
    * Get monthly audit closure trend for board-level monitoring.
    */
-  async getAuditClosureTrend(query: any) {
-    const months = Math.max(3, Math.min(parseInt(query.months, 10) || 12, 24));
+  async getAuditClosureTrend(query: { months?: number | string }) {
+    const months = Math.max(3, Math.min(Number(query.months) || 12, 24));
 
     const sql = `
       WITH month_series AS (

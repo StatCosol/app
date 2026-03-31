@@ -13,6 +13,7 @@ import { ReplyNotificationDto } from './dto/reply-notification.dto';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
 import { RaiseNotificationDto } from './dto/raise-notification.dto';
 import { ClientAssignment } from '../assignments/entities/client-assignment.entity';
+import { ReqUser } from '../access/access-scope.service';
 
 type RoleCode =
   | 'ADMIN'
@@ -23,6 +24,13 @@ type RoleCode =
   | 'CEO'
   | 'CCO';
 type UserCtx = { id: string; role: string };
+
+type NotificationsListQuery = {
+  page?: string | number;
+  limit?: string | number;
+  status?: string;
+  unreadOnly?: string | number;
+};
 
 @Injectable()
 export class NotificationsService {
@@ -113,7 +121,7 @@ export class NotificationsService {
 
   async createTicket(
     actorUserId: string,
-    _actorRole: RoleCode,
+    _actorRole: string,
     dto: CreateNotificationDto,
   ): Promise<{
     threadId: string;
@@ -176,14 +184,14 @@ export class NotificationsService {
   // Shared inbox APIs
   // -------------------------
 
-  private normalizePaging(q: any) {
+  private normalizePaging(q: NotificationsListQuery) {
     const page = Math.max(1, Number(q?.page ?? 1));
     const limit = Math.min(100, Math.max(10, Number(q?.limit ?? 20)));
     return { page, limit, skip: (page - 1) * limit };
   }
 
-  private canAccessThread(user: any, thread: NotificationEntity): boolean {
-    const role: RoleCode | undefined = user?.roleCode;
+  private canAccessThread(user: ReqUser, thread: NotificationEntity): boolean {
+    const role: RoleCode | undefined = user?.roleCode as RoleCode | undefined;
     const userId: string | undefined = user?.id;
     if (!role || !userId) return false;
     if (role === 'ADMIN' || role === 'CEO' || role === 'CCO') return true;
@@ -194,11 +202,11 @@ export class NotificationsService {
 
   private async listThreadsRaw(
     whereSql: string,
-    params: any[],
+    params: unknown[],
     paging: { skip: number; limit: number },
   ) {
     const baseSql = `
-      FROM notification_threads t
+      FROM notifications t
       LEFT JOIN users fu ON fu.id = t.created_by_user_id
       LEFT JOIN roles fr ON fr.id = fu.role_id
       LEFT JOIN users tu ON tu.id = t.assigned_to_user_id
@@ -255,12 +263,12 @@ export class NotificationsService {
     return { total, data };
   }
 
-  async listTicketsForUser(user: any, q: any) {
+  async listTicketsForUser(user: ReqUser, q: NotificationsListQuery) {
     const { page, limit, skip } = this.normalizePaging(q);
     const status = q?.status;
     const unreadOnly = Number(q?.unreadOnly ?? 0) === 1;
 
-    const params: any[] = [];
+    const params: unknown[] = [];
     const wheres: string[] = [];
 
     // Scope:
@@ -294,12 +302,12 @@ export class NotificationsService {
     return { page, limit, total, data };
   }
 
-  async listTicketsCreatedBy(user: any, q: any) {
+  async listTicketsCreatedBy(user: ReqUser, q: NotificationsListQuery) {
     const { page, limit, skip } = this.normalizePaging(q);
     const status = q?.status;
     const unreadOnly = Number(q?.unreadOnly ?? 0) === 1;
 
-    const params: any[] = [user.id];
+    const params: unknown[] = [user.id];
     const wheres: string[] = [`t.created_by_user_id = $1`];
 
     if (status) {
@@ -323,7 +331,7 @@ export class NotificationsService {
     return { page, limit, total, data };
   }
 
-  async getThreadDetailForUser(user: any, threadId: string) {
+  async getThreadDetailForUser(user: ReqUser, threadId: string) {
     const thread = await this.threadsRepo.findOne({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Notification not found');
     if (!this.canAccessThread(user, thread))
@@ -366,7 +374,11 @@ export class NotificationsService {
     };
   }
 
-  async replyAsUser(user: any, threadId: string, dto: ReplyNotificationDto) {
+  async replyAsUser(
+    user: ReqUser,
+    threadId: string,
+    dto: ReplyNotificationDto,
+  ) {
     const thread = await this.threadsRepo.findOne({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Notification not found');
     if (!this.canAccessThread(user, thread))
@@ -403,7 +415,7 @@ export class NotificationsService {
     return { ok: true };
   }
 
-  async closeThread(user: any, threadId: string) {
+  async closeThread(user: ReqUser, threadId: string) {
     const thread = await this.threadsRepo.findOne({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Notification not found');
     if (!this.canAccessThread(user, thread))
@@ -414,7 +426,7 @@ export class NotificationsService {
     return { status: 'CLOSED' };
   }
 
-  async reopenThread(user: any, threadId: string) {
+  async reopenThread(user: ReqUser, threadId: string) {
     const thread = await this.threadsRepo.findOne({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Notification not found');
     if (!this.canAccessThread(user, thread))
@@ -431,7 +443,7 @@ export class NotificationsService {
 
   async listTicketsForAdmin(adminUserId: string, q: ListNotificationsDto) {
     const { page, limit, skip } = this.normalizePaging(q);
-    const params: any[] = [];
+    const params: unknown[] = [];
     const wheres: string[] = [];
 
     if (q.status) {
@@ -471,14 +483,14 @@ export class NotificationsService {
     if (!thread) throw new NotFoundException('Notification not found');
     const messages = await this.messagesRepo.find({
       where: { notificationId: threadId },
-      order: { createdAt: 'ASC' as any },
+      order: { createdAt: 'ASC' },
     });
     return { ticket: thread, messages };
   }
 
   async replyAsAdmin(
     adminUserId: string,
-    _adminRole: RoleCode,
+    _adminRole: string,
     threadId: string,
     dto: ReplyNotificationDto,
   ) {
@@ -525,7 +537,7 @@ export class NotificationsService {
       notificationId: threadId,
       userId,
       lastReadAt: new Date(),
-    } as any);
+    });
     return { ok: true };
   }
 
@@ -726,7 +738,7 @@ export class NotificationsService {
   }): Promise<NotificationEntity> {
     // Dedup: if source_key already exists for this client, skip
     const existing = await this.threadsRepo.findOne({
-      where: { clientId: input.clientId, sourceKey: input.sourceKey } as any,
+      where: { clientId: input.clientId, sourceKey: input.sourceKey },
     });
     if (existing) return existing;
 
@@ -745,7 +757,7 @@ export class NotificationsService {
         assignedToUserId: adminUserId,
         assignedToRole: 'ADMIN',
         sourceKey: input.sourceKey,
-      } as any);
+      });
       const saved = await manager.save(NotificationEntity, thread);
 
       const msg = manager.create(NotificationMessageEntity, {
