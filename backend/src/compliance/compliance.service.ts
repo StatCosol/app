@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
 import { ComplianceTask, TaskStatus } from './entities/compliance-task.entity';
 import { ComplianceEvidence } from './entities/compliance-evidence.entity';
@@ -26,6 +26,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { Cron } from '@nestjs/schedule';
 import { EmailService } from '../email/email.service';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class ComplianceService {
@@ -60,7 +61,7 @@ export class ComplianceService {
   ) {}
 
   // Common: list compliance master entries for admin/frontends
-  async listComplianceMaster(user: any) {
+  async listComplianceMaster(user: ReqUser) {
     this.assertRole(user, ['ADMIN']);
     return this.masters.find({
       where: { isActive: true },
@@ -69,7 +70,7 @@ export class ComplianceService {
   }
 
   // ---------- Helpers ----------
-  private assertRole(user: any, allowed: string[]) {
+  private assertRole(user: ReqUser, allowed: string[]) {
     if (!allowed.includes(user?.roleCode)) {
       throw new ForbiddenException('Access denied');
     }
@@ -97,7 +98,7 @@ export class ComplianceService {
     const nextMonth = periodMonth === 12 ? 1 : periodMonth + 1;
     const nextYear = periodMonth === 12 ? periodYear + 1 : periodYear;
     const start = new Date(Date.UTC(nextYear, nextMonth - 1, 20));
-    const end = new Date(Date.UTC(nextYear, nextMonth - 1, 25));
+    const end = new Date(Date.UTC(nextYear, nextMonth - 1, 27));
     return {
       startDate: this.toDateOnly(start),
       endDate: this.toDateOnly(end),
@@ -137,7 +138,7 @@ export class ComplianceService {
   ) {
     const assigned =
       await this.assignmentsService.getAssignedClientsForAuditor(auditorUserId);
-    const ok = (assigned || []).some((c: any) => c.id === clientId);
+    const ok = (assigned || []).some((c) => c.id === clientId);
     if (!ok)
       throw new ForbiddenException('Client not assigned to this auditor');
   }
@@ -198,14 +199,174 @@ export class ComplianceService {
     return this.toDateOnly(d);
   }
 
+  private normalizeComplianceSearch(value: unknown): string {
+    const raw =
+      typeof value === 'string' || typeof value === 'number'
+        ? String(value)
+        : '';
+    return raw
+      .trim()
+      .toUpperCase()
+      .replace(/&/g, ' AND ')
+      .replace(/[^A-Z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private complianceSearchTerms(...values: unknown[]): string[] {
+    const terms = new Set<string>();
+    const keywordTerms: Array<{ code: string; terms: string[] }> = [
+      {
+        code: 'MCD',
+        terms: ['MCD', 'MONTHLY COMPLIANCE', 'MONTHLY COMPLIANCE DOCUMENT'],
+      },
+      { code: 'PF', terms: ['PF', 'PROVIDENT FUND'] },
+      { code: 'ESI', terms: ['ESI', 'EMPLOYEES STATE INSURANCE'] },
+      { code: 'PT', terms: ['PT', 'PROFESSIONAL TAX'] },
+      { code: 'LWF', terms: ['LWF', 'LABOUR WELFARE FUND'] },
+      { code: 'GST', terms: ['GST'] },
+      { code: 'TDS', terms: ['TDS'] },
+      { code: 'ROC', terms: ['ROC'] },
+    ];
+
+    for (const value of values) {
+      const normalized = this.normalizeComplianceSearch(value);
+      if (!normalized) continue;
+
+      const tokens = normalized.split(' ').filter(Boolean);
+      terms.add(normalized);
+
+      for (const entry of keywordTerms) {
+        if (tokens.includes(entry.code)) {
+          entry.terms.forEach((term) => terms.add(term));
+        }
+      }
+    }
+
+    return Array.from(terms);
+  }
+
+  private deriveComplianceCode(...values: unknown[]): string {
+    const combined = values
+      .map((value) => this.normalizeComplianceSearch(value))
+      .filter(Boolean)
+      .join(' ');
+    if (!combined) return '';
+
+    const tokens = combined.split(' ').filter(Boolean);
+    const hasToken = (token: string) => tokens.includes(token);
+    const hasPhrase = (phrase: string) => combined.includes(phrase);
+
+    if (
+      hasToken('MCD') ||
+      hasPhrase('MONTHLY COMPLIANCE DOCUMENT') ||
+      hasPhrase('MONTHLY COMPLIANCE DOCKET') ||
+      hasPhrase('MONTHLY COMPLIANCE')
+    ) {
+      return 'MCD_UPLOAD';
+    }
+    if (hasToken('PF') || hasPhrase('PROVIDENT FUND')) {
+      return 'PF_PAYMENT';
+    }
+    if (hasToken('ESI') || hasPhrase('EMPLOYEES STATE INSURANCE')) {
+      return 'ESI_PAYMENT';
+    }
+    if (hasToken('PT') || hasPhrase('PROFESSIONAL TAX')) {
+      return 'PT_PAYMENT';
+    }
+    if (hasToken('LWF') || hasPhrase('LABOUR WELFARE FUND')) {
+      return 'LWF_PAYMENT';
+    }
+    if (hasToken('GST')) {
+      return 'GST_RETURN';
+    }
+    if (hasToken('TDS')) {
+      return 'TDS_RETURN';
+    }
+    if (hasToken('ROC')) {
+      return 'ROC_FILINGS';
+    }
+
+    return combined.replace(/\s+/g, '_');
+  }
+
+  private requestedComplianceCodes(...values: unknown[]): string[] {
+    const codes = new Set<string>();
+    for (const value of values) {
+      const code = this.normalizeComplianceSearch(value).replace(/\s+/g, '_');
+      if (code) codes.add(code);
+      const derived = this.deriveComplianceCode(value);
+      if (derived) codes.add(derived);
+    }
+    return Array.from(codes);
+  }
+
+  private taskComplianceCode(task: ComplianceTask): string {
+    const masterCode = this.normalizeComplianceSearch(
+      task.compliance?.code,
+    ).replace(/\s+/g, '_');
+    if (masterCode) return masterCode;
+
+    const code = this.deriveComplianceCode(
+      task.compliance?.complianceName,
+      task.title,
+      task.description,
+    );
+    if (code) return code;
+
+    return '';
+  }
+
+  private taskComplianceTitle(task: ComplianceTask): string {
+    return task.compliance?.complianceName || task.title || 'Untitled';
+  }
+
+  private requestedCodePredicate(
+    requestedCodes: string[],
+    searchTerms: string[],
+  ): Brackets | null {
+    if (!requestedCodes.length && !searchTerms.length) return null;
+
+    return new Brackets((subQb) => {
+      if (requestedCodes.length) {
+        subQb.orWhere(
+          `UPPER(COALESCE(compliance.code, '')) IN (:...requestedCodes)`,
+          {
+            requestedCodes,
+          },
+        );
+      }
+
+      searchTerms.forEach((term, index) => {
+        const titleParam = `taskSearchTitle${index}`;
+        const descParam = `taskSearchDesc${index}`;
+        const complianceParam = `taskSearchCompliance${index}`;
+        const likeValue = `%${term}%`;
+
+        subQb.orWhere(`UPPER(COALESCE(t.title, '')) LIKE :${titleParam}`, {
+          [titleParam]: likeValue,
+        });
+        subQb.orWhere(`UPPER(COALESCE(t.description, '')) LIKE :${descParam}`, {
+          [descParam]: likeValue,
+        });
+        subQb.orWhere(
+          `UPPER(COALESCE(compliance.complianceName, '')) LIKE :${complianceParam}`,
+          {
+            [complianceParam]: likeValue,
+          },
+        );
+      });
+    });
+  }
+
   // ---------- Dashboards ----------
 
-  async crmDashboard(user: any) {
+  async crmDashboard(user: ReqUser) {
     this.assertRole(user, ['CRM']);
 
     const assignedClients =
       await this.assignmentsService.getAssignedClientsForCrm(user.userId);
-    const clientIds = assignedClients.map((c: any) => c.id);
+    const clientIds = assignedClients.map((c) => c.id);
 
     if (!clientIds.length) {
       return {
@@ -322,16 +483,18 @@ export class ComplianceService {
     return {
       clients: clientIds.length,
       tasks,
-      topOverdueBranches: topOverdue.map((r: any) => ({
-        branchName: String(r.branchName),
-        count: Number(r.count),
-      })),
+      topOverdueBranches: topOverdue.map(
+        (r: { branchName: string; count: string }) => ({
+          branchName: String(r.branchName),
+          count: Number(r.count),
+        }),
+      ),
       contractorPerformance: Array.from(contractorMap.values()),
       reuploadBacklog,
     };
   }
 
-  async contractorDashboard(user: any) {
+  async contractorDashboard(user: ReqUser) {
     this.assertRole(user, ['CONTRACTOR']);
     const scope = await this.getContractorScope(user.userId);
 
@@ -392,7 +555,7 @@ export class ComplianceService {
     };
   }
 
-  async clientDashboard(user: any) {
+  async clientDashboard(user: ReqUser) {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
@@ -494,10 +657,9 @@ export class ComplianceService {
       .limit(10)
       .getMany();
 
-    const overduePreview = overdueRows.map((t: any) => ({
+    const overduePreview = overdueRows.map((t) => ({
       id: t.id,
-      complianceTitle:
-        t.compliance?.complianceName || t.compliance?.title || 'Untitled',
+      complianceTitle: t.compliance?.complianceName || 'Untitled',
       branchName: t.branch?.branchName || '-',
       status: 'OVERDUE',
       dueDate: t.dueDate,
@@ -518,7 +680,7 @@ export class ComplianceService {
     };
   }
 
-  async adminDashboard(user: any) {
+  async adminDashboard(user: ReqUser) {
     this.assertRole(user, ['ADMIN']);
 
     const totalClients = await this.assignmentsService.getCurrentAssignments();
@@ -527,19 +689,19 @@ export class ComplianceService {
     const crmLoad: Record<string, number> = {};
     const auditorLoad: Record<string, number> = {};
 
-    for (const a of totalClients as any[]) {
-      if (a.crmUserId) {
-        const key = String(a.crmUserId);
+    for (const a of totalClients) {
+      if (a.crmId) {
+        const key = String(a.crmId);
         crmLoad[key] = (crmLoad[key] || 0) + 1;
       }
-      if (a.auditorUserId) {
-        const key = String(a.auditorUserId);
+      if (a.auditorId) {
+        const key = String(a.auditorId);
         auditorLoad[key] = (auditorLoad[key] || 0) + 1;
       }
     }
 
     const overdueCount = await this.tasks.count({
-      where: { status: 'OVERDUE' as any },
+      where: { status: 'OVERDUE' },
     });
 
     const slaRows = await this.tasks
@@ -564,23 +726,32 @@ export class ComplianceService {
       crmLoad,
       auditorLoad,
       overdueCount,
-      slaBreaches: slaRows.map((r: any) => ({
-        id: Number(r.id),
-        clientId: String(r.clientId),
-        dueDate: String(r.dueDate),
-        status: String(r.status),
-        complianceName: r.complianceName as string | null,
-        branchName: r.branchName as string | null,
-      })),
+      slaBreaches: slaRows.map(
+        (r: {
+          id: string;
+          clientId: string;
+          dueDate: string;
+          status: string;
+          complianceName: string | null;
+          branchName: string | null;
+        }) => ({
+          id: Number(r.id),
+          clientId: String(r.clientId),
+          dueDate: String(r.dueDate),
+          status: String(r.status),
+          complianceName: r.complianceName,
+          branchName: r.branchName,
+        }),
+      ),
     };
   }
 
-  async auditorDashboard(user: any) {
+  async auditorDashboard(user: ReqUser) {
     this.assertRole(user, ['AUDITOR']);
 
     const assignedClients =
       await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
-    const clientIds = assignedClients.map((c: any) => c.id);
+    const clientIds = assignedClients.map((c) => c.id);
 
     if (!clientIds.length) {
       return {
@@ -693,10 +864,12 @@ export class ComplianceService {
     return {
       clients: clientIds.length,
       tasks,
-      topOverdueBranches: topOverdue.map((r: any) => ({
-        branchName: String(r.branchName),
-        count: Number(r.count),
-      })),
+      topOverdueBranches: topOverdue.map(
+        (r: { branchName: string; count: string }) => ({
+          branchName: String(r.branchName),
+          count: Number(r.count),
+        }),
+      ),
       contractorPerformance: Array.from(contractorMap.values()),
       reuploadBacklog: await this.getReuploadBacklogKpis(clientIds),
     };
@@ -730,9 +903,13 @@ export class ComplianceService {
       Number(
         counts
           .filter(
-            (c: any) => c.status === status && (!role || c.targetRole === role),
+            (c: { status: string; targetRole: string; count: string }) =>
+              c.status === status && (!role || c.targetRole === role),
           )
-          .reduce((acc: number, c: any) => acc + Number(c.count || 0), 0),
+          .reduce(
+            (acc: number, c: { count: string }) => acc + Number(c.count || 0),
+            0,
+          ),
       );
 
     const open = sumBy('OPEN');
@@ -778,7 +955,7 @@ export class ComplianceService {
 
   // ---------- CRM APIs ----------
 
-  async crmTaskKpis(user: any) {
+  async crmTaskKpis(user: ReqUser) {
     this.assertRole(user, ['CRM']);
     const clientIds = await this.getCrmAssignedClientIds(user.userId);
     if (!clientIds.length) {
@@ -823,19 +1000,25 @@ export class ComplianceService {
       .getRawMany();
 
     const statusCount = (st: string) =>
-      Number(rows.find((r: any) => r.status === st)?.count || 0);
+      Number(
+        rows.find((r: { status: string; count: string }) => r.status === st)
+          ?.count || 0,
+      );
 
-    const total = rows.reduce((s, r: any) => s + Number(r.count || 0), 0);
+    const total = rows.reduce(
+      (s, r: { count: string }) => s + Number(r.count || 0),
+      0,
+    );
     const overdue = rows.reduce(
-      (s, r: any) => s + Number(r.overdueCount || 0),
+      (s, r: { overdueCount: string }) => s + Number(r.overdueCount || 0),
       0,
     );
     const dueToday = rows.reduce(
-      (s, r: any) => s + Number(r.dueTodayCount || 0),
+      (s, r: { dueTodayCount: string }) => s + Number(r.dueTodayCount || 0),
       0,
     );
     const dueSoon = rows.reduce(
-      (s, r: any) => s + Number(r.dueSoonCount || 0),
+      (s, r: { dueSoonCount: string }) => s + Number(r.dueSoonCount || 0),
       0,
     );
 
@@ -852,7 +1035,7 @@ export class ComplianceService {
     };
   }
 
-  async crmBulkApprove(user: any, taskIds: number[], remarks?: string) {
+  async crmBulkApprove(user: ReqUser, taskIds: number[], remarks?: string) {
     this.assertRole(user, ['CRM']);
     if (!taskIds?.length) throw new BadRequestException('taskIds required');
 
@@ -862,8 +1045,12 @@ export class ComplianceService {
       try {
         await this.crmApprove(user, String(id), remarks);
         results.push({ id, ok: true });
-      } catch (e: any) {
-        results.push({ id, ok: false, error: e.message || 'Failed' });
+      } catch (e: unknown) {
+        results.push({
+          id,
+          ok: false,
+          error: (e as Error).message || 'Failed',
+        });
       }
     }
 
@@ -874,7 +1061,7 @@ export class ComplianceService {
     };
   }
 
-  async crmBulkReject(user: any, taskIds: number[], remarks: string) {
+  async crmBulkReject(user: ReqUser, taskIds: number[], remarks: string) {
     this.assertRole(user, ['CRM']);
     if (!taskIds?.length) throw new BadRequestException('taskIds required');
     if (!remarks?.trim()) throw new BadRequestException('remarks required');
@@ -885,8 +1072,12 @@ export class ComplianceService {
       try {
         await this.crmReject(user, String(id), remarks);
         results.push({ id, ok: true });
-      } catch (e: any) {
-        results.push({ id, ok: false, error: e.message || 'Failed' });
+      } catch (e: unknown) {
+        results.push({
+          id,
+          ok: false,
+          error: (e as Error).message || 'Failed',
+        });
       }
     }
 
@@ -898,7 +1089,7 @@ export class ComplianceService {
   }
 
   async crmCreateTask(
-    user: any,
+    user: ReqUser,
     dto: {
       clientId: string;
       branchId?: string;
@@ -999,37 +1190,71 @@ export class ComplianceService {
     return { id: saved.id };
   }
 
-  async crmListTasks(user: any, q: any) {
+  async crmListTasks(user: ReqUser, q: Record<string, string>) {
     this.assertRole(user, ['CRM']);
 
     const clientId = q.clientId ? String(q.clientId) : null;
     if (clientId) await this.assertCrmAssignedToClient(user.userId, clientId);
 
-    const qb = this.tasks
-      .createQueryBuilder('t')
-      .leftJoinAndSelect('t.compliance', 'compliance')
-      .leftJoinAndSelect('t.branch', 'branch')
-      .leftJoinAndSelect('t.assignedTo', 'assignedTo')
-      .where('t.assignedByUserId = :crmId', { crmId: user.userId });
+    // Scope to all clients assigned to this CRM user
+    const assignedClientIds = clientId
+      ? [clientId]
+      : await this.getCrmAssignedClientIds(user.userId);
 
-    if (clientId) qb.andWhere('t.clientId = :clientId', { clientId });
-    if (q.branchId)
-      qb.andWhere('t.branchId = :bid', { bid: String(q.branchId) });
-    if (q.status) qb.andWhere('t.status = :st', { st: q.status });
-    if (q.year) qb.andWhere('t.periodYear = :yy', { yy: Number(q.year) });
-    if (q.month) qb.andWhere('t.periodMonth = :mm', { mm: Number(q.month) });
+    if (!assignedClientIds.length) {
+      return { items: [], total: 0 };
+    }
 
-    qb.orderBy('t.id', 'DESC');
+    const page = Math.max(1, Number(q.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
 
-    const data = await qb.getMany();
+    const buildCrmQuery = () => {
+      const qb = this.tasks
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.compliance', 'compliance')
+        .leftJoinAndSelect('t.branch', 'branch')
+        .leftJoinAndSelect('t.assignedTo', 'assignedTo')
+        .leftJoinAndSelect('t.approvedBy', 'approvedBy')
+        .where('t.clientId IN (:...assignedClientIds)', { assignedClientIds });
+
+      if (q.branchId)
+        qb.andWhere('t.branchId = :bid', { bid: String(q.branchId) });
+      if (q.status) qb.andWhere('t.status = :st', { st: q.status });
+      if (q.year) qb.andWhere('t.periodYear = :yy', { yy: Number(q.year) });
+      if (q.month) qb.andWhere('t.periodMonth = :mm', { mm: Number(q.month) });
+      if (q.monthKey) {
+        const [y, m] = q.monthKey.split('-').map(Number);
+        if (y && m) {
+          qb.andWhere('t.periodYear = :yy', { yy: y });
+          qb.andWhere('t.periodMonth = :mm', { mm: m });
+        }
+      }
+      if (q.q) {
+        qb.andWhere(
+          '(compliance.name ILIKE :search OR t.taskCode ILIKE :search)',
+          { search: `%${q.q}%` },
+        );
+      }
+
+      qb.orderBy('t.id', 'DESC');
+      return qb;
+    };
+
+    const qb = buildCrmQuery();
+    const total = await qb.getCount();
+    const data = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
     const mapped = data.map((t) => ({
       ...t,
       status: this.computeOverdueStatus(t),
     }));
-    return { data: mapped };
+    return { items: mapped, total };
   }
 
-  async crmGetTaskDetail(user: any, taskId: string) {
+  async crmGetTaskDetail(user: ReqUser, taskId: string) {
     this.assertRole(user, ['CRM']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1076,7 +1301,7 @@ export class ComplianceService {
     };
   }
 
-  async crmAssignTask(user: any, taskId: string, assignedToUserId: string) {
+  async crmAssignTask(user: ReqUser, taskId: string, assignedToUserId: string) {
     this.assertRole(user, ['CRM']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1113,7 +1338,7 @@ export class ComplianceService {
     return { message: 'assigned' };
   }
 
-  async crmApprove(user: any, taskId: string, remarks?: string) {
+  async crmApprove(user: ReqUser, taskId: string, remarks?: string) {
     this.assertRole(user, ['CRM']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1124,7 +1349,12 @@ export class ComplianceService {
 
     await this.tasks.update(
       { id: taskIdNum },
-      { status: 'APPROVED', remarks: remarks ?? t.remarks ?? null },
+      {
+        status: 'APPROVED',
+        remarks: remarks ?? t.remarks ?? null,
+        approvedByUserId: user.userId,
+        approvedAt: new Date(),
+      },
     );
 
     // Invalidate risk cache for this branch
@@ -1168,7 +1398,7 @@ export class ComplianceService {
     return { status: 'APPROVED' };
   }
 
-  async crmReject(user: any, taskId: string, remarks: string) {
+  async crmReject(user: ReqUser, taskId: string, remarks: string) {
     this.assertRole(user, ['CRM']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1224,7 +1454,7 @@ export class ComplianceService {
   }
 
   // ---------- Contractor APIs ----------
-  async contractorListTasks(user: any, q: any) {
+  async contractorListTasks(user: ReqUser, q: Record<string, string>) {
     this.assertRole(user, ['CONTRACTOR']);
     const scope = await this.getContractorScope(user.userId);
 
@@ -1259,7 +1489,7 @@ export class ComplianceService {
     return { data: mapped };
   }
 
-  async contractorGetTaskDetail(user: any, taskId: string) {
+  async contractorGetTaskDetail(user: ReqUser, taskId: string) {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1295,7 +1525,7 @@ export class ComplianceService {
     };
   }
 
-  async contractorAddComment(user: any, taskId: string, message: string) {
+  async contractorAddComment(user: ReqUser, taskId: string, message: string) {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1316,7 +1546,7 @@ export class ComplianceService {
     return { message: 'commented' };
   }
 
-  async contractorSetInProgress(user: any, taskId: string) {
+  async contractorSetInProgress(user: ReqUser, taskId: string) {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1349,7 +1579,7 @@ export class ComplianceService {
     return { status: 'IN_PROGRESS' };
   }
 
-  async contractorSubmit(user: any, taskId: string) {
+  async contractorSubmit(user: ReqUser, taskId: string) {
     this.assertRole(user, ['CONTRACTOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1425,10 +1655,54 @@ export class ComplianceService {
     return { status: 'SUBMITTED' };
   }
 
-  async contractorUploadEvidence(
-    user: any,
+  async contractorMarkNotApplicable(
+    user: ReqUser,
     taskId: string,
-    file: any,
+    remarks: string,
+  ) {
+    this.assertRole(user, ['CONTRACTOR']);
+    if (!remarks || !remarks.trim()) {
+      throw new BadRequestException('Remarks are required');
+    }
+
+    const taskIdNum = Number(taskId);
+    const t = await this.loadTaskOrThrow(taskIdNum);
+
+    const scope = await this.getContractorScope(user.userId);
+    if (String(t.clientId) !== String(scope.clientId))
+      throw new ForbiddenException('Not your client');
+    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+      throw new ForbiddenException('Not your branch');
+    }
+
+    const allowed: TaskStatus[] = [
+      'PENDING',
+      'IN_PROGRESS',
+      'REJECTED',
+      'OVERDUE',
+    ];
+    if (!allowed.includes(t.status)) {
+      throw new BadRequestException(
+        'Cannot mark as Not Applicable from current status',
+      );
+    }
+
+    await this.tasks.update(
+      { id: taskIdNum },
+      {
+        status: 'NOT_APPLICABLE' as TaskStatus,
+        remarks: remarks.trim(),
+        assignedToUserId: t.assignedToUserId || user.userId,
+      },
+    );
+
+    return { status: 'NOT_APPLICABLE' };
+  }
+
+  async contractorUploadEvidence(
+    user: ReqUser,
+    taskId: string,
+    file: Express.Multer.File,
     notes?: string,
   ) {
     this.assertRole(user, ['CONTRACTOR']);
@@ -1472,12 +1746,12 @@ export class ComplianceService {
   }
 
   // ---------- Auditor APIs ----------
-  async auditorListTasks(user: any, q: any) {
+  async auditorListTasks(user: ReqUser, q: Record<string, string>) {
     this.assertRole(user, ['AUDITOR']);
 
     const assignedClients =
       await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
-    const clientIds = assignedClients.map((c: any) => c.id);
+    const clientIds = assignedClients.map((c) => c.id);
 
     if (!clientIds.length) {
       return { data: [] };
@@ -1512,7 +1786,7 @@ export class ComplianceService {
     return { data: mapped };
   }
 
-  async auditorGetTaskDetail(user: any, taskId: string) {
+  async auditorGetTaskDetail(user: ReqUser, taskId: string) {
     this.assertRole(user, ['AUDITOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1541,7 +1815,7 @@ export class ComplianceService {
     };
   }
 
-  async auditorShareReport(user: any, taskId: string, notes: string) {
+  async auditorShareReport(user: ReqUser, taskId: string, notes: string) {
     this.assertRole(user, ['AUDITOR']);
     const taskIdNum = Number(taskId);
     const t = await this.loadTaskOrThrow(taskIdNum);
@@ -1585,44 +1859,98 @@ export class ComplianceService {
   }
 
   // ---------- Client APIs (read-only) ----------
-  async clientListTasks(user: any, q: any) {
+  async clientListTasks(user: ReqUser, q: Record<string, string>) {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
-    const qb = this.tasks
-      .createQueryBuilder('t')
-      .leftJoinAndSelect('t.compliance', 'compliance')
-      .leftJoinAndSelect('t.branch', 'branch')
-      .where('t.clientId = :clientId', { clientId: String(user.clientId) });
+    const buildQuery = () => {
+      const qb = this.tasks
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.compliance', 'compliance')
+        .leftJoinAndSelect('t.branch', 'branch')
+        .where('t.clientId = :clientId', { clientId: String(user.clientId) });
 
-    if (q.branchId)
-      qb.andWhere('t.branchId = :bid', { bid: String(q.branchId) });
-    if (q.status && q.status !== 'ALL')
-      qb.andWhere('t.status = :st', { st: q.status });
-    if (q.year) qb.andWhere('t.periodYear = :yy', { yy: Number(q.year) });
-    if (q.month) qb.andWhere('t.periodMonth = :mm', { mm: Number(q.month) });
-    if (q.frequency)
-      qb.andWhere('t.frequency = :freq', { freq: String(q.frequency) });
+      if (q.branchId)
+        qb.andWhere('t.branchId = :bid', { bid: String(q.branchId) });
+      if (q.status && q.status !== 'ALL')
+        qb.andWhere('t.status = :st', { st: q.status });
+      if (q.year) qb.andWhere('t.periodYear = :yy', { yy: Number(q.year) });
+      if (q.month) qb.andWhere('t.periodMonth = :mm', { mm: Number(q.month) });
+      if (q.frequency)
+        qb.andWhere('t.frequency = :freq', { freq: String(q.frequency) });
+      const requestedCodes = this.requestedComplianceCodes(q.code);
+      const searchTerms = this.complianceSearchTerms(q.code, q.title);
+      const requestedCodePredicate = this.requestedCodePredicate(
+        requestedCodes,
+        searchTerms,
+      );
+      if (requestedCodePredicate) {
+        qb.andWhere(requestedCodePredicate);
+      }
+      qb.orderBy('t.dueDate', 'ASC');
+      return { qb, requestedCodes };
+    };
 
-    qb.orderBy('t.dueDate', 'ASC');
+    let { qb, requestedCodes } = buildQuery();
+    let data = await qb.getMany();
 
-    const data = await qb.getMany();
-    const mapped = data.map((t) => {
+    // Auto-generate monthly tasks if none exist for the requested period
+    if (
+      data.length === 0 &&
+      q.frequency === 'MONTHLY' &&
+      q.branchId &&
+      q.month &&
+      q.year
+    ) {
+      const generated = await this.autoGenerateMonthlyTasks(
+        String(user.clientId),
+        String(q.branchId),
+        Number(q.year),
+        Number(q.month),
+      );
+      if (generated > 0) {
+        ({ qb, requestedCodes } = buildQuery());
+        data = await qb.getMany();
+      }
+    }
+    let mapped = data.map((t) => {
       const dueDate =
         t.dueDate ||
         (t.frequency === 'MONTHLY'
           ? this.computeMonthlyDueDate(t.periodYear, t.periodMonth || undefined)
           : null);
+      const complianceTitle = this.taskComplianceTitle(t);
+      const complianceCode = this.taskComplianceCode(t);
       const taskWithDue = {
         ...t,
         dueDate: dueDate || t.dueDate,
       } as ComplianceTask;
       return {
         ...taskWithDue,
+        complianceTitle,
+        complianceCode,
+        branchName: t.branch?.branchName || null,
         status: this.computeOverdueStatus(taskWithDue),
         evidenceCount: 0,
       };
     });
+
+    if (requestedCodes.length) {
+      mapped = mapped.filter((task) =>
+        requestedCodes.includes(String(task.complianceCode || '')),
+      );
+    }
+
+    // Deduplicate tasks with same compliance+branch+period (keep earliest by id)
+    {
+      const seen = new Set<string>();
+      mapped = mapped.filter((t) => {
+        const key = `${t.complianceId ?? t.complianceCode}|${t.branchId}|${t.periodYear}|${t.periodMonth}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
 
     // Attach evidence counts so client can see how many files were uploaded per task
     if (mapped.length) {
@@ -1648,7 +1976,239 @@ export class ComplianceService {
     return { data: mapped };
   }
 
-  async clientListMcdItems(user: any, taskId: string | number) {
+  /**
+   * Compute a stable int32 hash for use as a PostgreSQL advisory lock key.
+   */
+  private computeAutoGenLockKey(
+    clientId: string,
+    branchId: string,
+    year: number,
+    month: number,
+  ): number {
+    const str = `autogen:${clientId}:${branchId}:${year}:${month}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    return hash;
+  }
+
+  /**
+   * Auto-generate monthly compliance tasks for a client/branch if none exist
+   * for the given period. Creates one task per active MONTHLY compliance master
+   * and seeds standard MCD checklist items for each task.
+   * Uses a transactional advisory lock to prevent duplicate generation from
+   * concurrent requests.
+   */
+  async autoGenerateMonthlyTasks(
+    clientId: string,
+    branchId: string,
+    year: number,
+    month: number,
+  ): Promise<number> {
+    try {
+      // Use a transaction with advisory lock to prevent race conditions
+      return await this.tasks.manager.transaction(async (em) => {
+        const lockKey = this.computeAutoGenLockKey(clientId, branchId, year, month);
+        await em.query('SELECT pg_advisory_xact_lock($1)', [lockKey]);
+
+        // Check no tasks exist (safe under advisory lock)
+        const existingTasks = await em.find(ComplianceTask, {
+          where: {
+            clientId,
+            branchId,
+            periodYear: year,
+            periodMonth: month,
+            frequency: 'MONTHLY',
+          },
+        });
+
+        // If tasks exist, backfill MCD items for tasks that are missing them
+        if (existingTasks.length > 0) {
+          let backfilled = 0;
+          for (const task of existingTasks) {
+            const itemCount = await em.count(ComplianceMcdItem, { where: { taskId: task.id } });
+            if (itemCount === 0) {
+              const master = await em.findOne(ComplianceMasterEntity, { where: { id: task.complianceId } });
+              const mcdTemplate = this.getMcdTemplate(master?.code || '');
+              for (const tmpl of mcdTemplate) {
+                const item = em.create(ComplianceMcdItem, {
+                  taskId: task.id,
+                  itemKey: tmpl.key,
+                  itemLabel: tmpl.label,
+                  unitType: tmpl.unitType || null,
+                  stateCode: null,
+                  required: true,
+                  status: 'PENDING' as McdItemStatus,
+                  remarks: null,
+                });
+                await em.save(item);
+                backfilled++;
+              }
+            }
+          }
+          if (backfilled > 0) {
+            this.logger.log(
+              `Backfilled ${backfilled} MCD items for existing tasks client=${clientId} branch=${branchId} period=${year}-${String(month).padStart(2, '0')}`,
+            );
+          }
+          return 0;
+        }
+
+        // Verify the branch belongs to this client
+        const branch = await em.findOne(BranchEntity, {
+          where: { id: branchId, clientId },
+        });
+        if (!branch) return 0;
+
+        // Get all active monthly compliance masters
+        const monthlyMasters = await em.find(ComplianceMasterEntity, {
+          where: { isActive: true, frequency: 'MONTHLY' as any },
+          order: { code: 'ASC' },
+        });
+        if (!monthlyMasters.length) return 0;
+
+        // Find a CRM user assigned to this client (for assignedByUserId)
+        let assignedByUserId: string | null = null;
+        try {
+          const crmRow: any = await em.query(
+            `SELECT assigned_to_user_id FROM client_assignments_current
+             WHERE client_id = $1 AND assignment_type = 'CRM' LIMIT 1`,
+            [clientId],
+          );
+          if (crmRow?.length) assignedByUserId = crmRow[0].assigned_to_user_id;
+        } catch { /* ignore */ }
+
+        // Fallback: find any admin user
+        if (!assignedByUserId) {
+          const adminRow: any = await em
+            .getRepository(UserEntity)
+            .createQueryBuilder('u')
+            .innerJoin('roles', 'r', 'r.id = u.role_id')
+            .where('r.code = :code', { code: 'ADMIN' })
+            .andWhere('u.isActive = true')
+            .andWhere('u.deletedAt IS NULL')
+            .orderBy('u.createdAt', 'ASC')
+            .getOne();
+          if (adminRow) assignedByUserId = adminRow.id;
+        }
+        if (!assignedByUserId) return 0;
+
+        const periodLabel = `${year}-${String(month).padStart(2, '0')}`;
+        const window = this.computeUploadWindow(year, month);
+        const dueDate = window?.endDate || `${year}-${String(month).padStart(2, '0')}-28`;
+
+        let created = 0;
+        for (const cm of monthlyMasters) {
+          const task = em.create(ComplianceTask, {
+            clientId,
+            branchId,
+            complianceId: cm.id,
+            title: cm.complianceName,
+            description: `${cm.complianceName} for ${periodLabel}`,
+            frequency: 'MONTHLY',
+            periodYear: year,
+            periodMonth: month,
+            periodLabel,
+            assignedToUserId: null,
+            assignedByUserId,
+            dueDate,
+            status: 'PENDING' as TaskStatus,
+            remarks: null,
+          });
+          const saved = await em.save(task);
+
+          // Seed standard MCD checklist items for this task
+          const mcdTemplate = this.getMcdTemplate(cm.code);
+          for (const tmpl of mcdTemplate) {
+            const item = em.create(ComplianceMcdItem, {
+              taskId: saved.id,
+              itemKey: tmpl.key,
+              itemLabel: tmpl.label,
+              unitType: tmpl.unitType || null,
+              stateCode: null,
+              required: true,
+              status: 'PENDING' as McdItemStatus,
+              remarks: null,
+            });
+            await em.save(item);
+          }
+          created++;
+        }
+
+        this.logger.log(
+          `Auto-generated ${created} monthly tasks for client=${clientId} branch=${branchId} period=${periodLabel}`,
+        );
+        return created;
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Auto-generate monthly tasks failed: ${(err as Error).message}`,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * Standard MCD checklist items per compliance code.
+   * Returns a list of {key, label, unitType} items.
+   */
+  private getMcdTemplate(
+    code: string,
+  ): Array<{ key: string; label: string; unitType?: string }> {
+    const templates: Record<
+      string,
+      Array<{ key: string; label: string; unitType?: string }>
+    > = {
+      PF: [
+        { key: 'PF_CHALLAN', label: 'PF Challan (Monthly)', unitType: 'CHALLAN' },
+        { key: 'PF_ECR', label: 'PF ECR Filing', unitType: 'RETURN' },
+        { key: 'PF_PAYMENT_RECEIPT', label: 'PF Payment Receipt', unitType: 'RECEIPT' },
+      ],
+      ESI: [
+        { key: 'ESI_CHALLAN', label: 'ESI Challan (Monthly)', unitType: 'CHALLAN' },
+        { key: 'ESI_RETURN', label: 'ESI Monthly Return', unitType: 'RETURN' },
+        { key: 'ESI_PAYMENT_RECEIPT', label: 'ESI Payment Receipt', unitType: 'RECEIPT' },
+      ],
+      PT: [
+        { key: 'PT_CHALLAN', label: 'Professional Tax Challan', unitType: 'CHALLAN' },
+        { key: 'PT_RETURN', label: 'PT Monthly Return', unitType: 'RETURN' },
+      ],
+      LWF: [
+        { key: 'LWF_CHALLAN', label: 'Labour Welfare Fund Challan', unitType: 'CHALLAN' },
+        { key: 'LWF_RECEIPT', label: 'LWF Payment Receipt', unitType: 'RECEIPT' },
+      ],
+      TDS: [
+        { key: 'TDS_CHALLAN', label: 'TDS Challan (26QB/26QC)', unitType: 'CHALLAN' },
+        { key: 'TDS_RETURN', label: 'TDS Monthly Return', unitType: 'RETURN' },
+      ],
+      GST: [
+        { key: 'GST_3B', label: 'GSTR-3B Filing', unitType: 'RETURN' },
+        { key: 'GST_CHALLAN', label: 'GST Payment Challan', unitType: 'CHALLAN' },
+      ],
+      MCD: [
+        { key: 'MCD_UPLOAD', label: 'Monthly Compliance Document Upload', unitType: 'DOCUMENT' },
+        { key: 'MCD_SUMMARY', label: 'MCD Summary Sheet', unitType: 'DOCUMENT' },
+      ],
+    };
+
+    // Normalized lookup: try exact code, then prefix match
+    const upper = (code || '').toUpperCase().trim();
+    if (templates[upper]) return templates[upper];
+
+    // Prefix match (e.g., "PF_MONTHLY" → PF)
+    for (const prefix of Object.keys(templates)) {
+      if (upper.startsWith(prefix)) return templates[prefix];
+    }
+
+    // Default generic template
+    return [
+      { key: `${upper}_UPLOAD`, label: `${code} — Monthly Upload`, unitType: 'DOCUMENT' },
+      { key: `${upper}_RECEIPT`, label: `${code} — Payment Receipt`, unitType: 'RECEIPT' },
+    ];
+  }
+
+  async clientListMcdItems(user: ReqUser, taskId: string | number) {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
@@ -1663,22 +2223,35 @@ export class ComplianceService {
       if (!items.length) return { data: [] };
 
       const itemIds = items.map((i) => i.id);
-      const evidenceRows = await this.evidence
-        .createQueryBuilder('e')
-        .select('e.mcdItemId', 'mcdItemId')
-        .addSelect('COUNT(*)', 'cnt')
-        .where('e.mcdItemId IN (:...itemIds)', { itemIds })
-        .groupBy('e.mcdItemId')
-        .getRawMany();
 
-      const evMap = new Map<number, number>();
-      for (const r of evidenceRows) {
-        evMap.set(Number(r.mcdItemId), Number(r.cnt));
+      // Fetch full evidence records (not just count)
+      const evidenceRecords = await this.evidence
+        .createQueryBuilder('e')
+        .select(['e.id', 'e.mcdItemId', 'e.fileName', 'e.filePath', 'e.fileType', 'e.fileSize', 'e.notes', 'e.createdAt'])
+        .where('e.mcdItemId IN (:...itemIds)', { itemIds })
+        .orderBy('e.createdAt', 'DESC')
+        .getMany();
+
+      const evMap = new Map<number, any[]>();
+      for (const r of evidenceRecords) {
+        const key = Number(r.mcdItemId);
+        if (!evMap.has(key)) evMap.set(key, []);
+        evMap.get(key)!.push({
+          id: r.id,
+          fileName: r.fileName,
+          filePath: r.filePath,
+          fileType: r.fileType,
+          fileSize: r.fileSize,
+          notes: r.notes,
+          createdAt: r.createdAt,
+        });
       }
 
       const data = items.map((i) => ({
         ...i,
-        evidenceCount: evMap.get(i.id) || 0,
+        uploadedByRole: i.uploadedByRole || null,
+        evidenceCount: evMap.get(i.id)?.length || 0,
+        evidenceFiles: evMap.get(i.id) || [],
       }));
 
       return { data };
@@ -1689,9 +2262,9 @@ export class ComplianceService {
   }
 
   async clientUploadEvidence(
-    user: any,
+    user: ReqUser,
     taskId: string,
-    file: any,
+    file: Express.Multer.File,
     notes?: string,
     mcdItemId?: string | number,
   ) {
@@ -1737,6 +2310,10 @@ export class ComplianceService {
       if (!mcdItem) throw new BadRequestException('MCD item not found');
       if (mcdItem.taskId !== taskIdNum)
         throw new ForbiddenException('Item not part of this task');
+      if (mcdItem.uploadedByRole === 'CRM')
+        throw new BadRequestException('This item was uploaded by CRM and cannot be modified by client');
+      if (mcdItem.status === 'APPROVED' || mcdItem.status === 'VERIFIED')
+        throw new BadRequestException('Cannot upload for an already approved/verified item');
     }
 
     const ev = this.evidence.create({
@@ -1751,6 +2328,14 @@ export class ComplianceService {
     });
     await this.evidence.save(ev);
 
+    // Mark MCD item as SUBMITTED and record uploaded by CLIENT
+    if (mcdItem) {
+      await this.mcdItems.update(
+        { id: mcdItem.id },
+        { status: 'SUBMITTED' as any, uploadedByRole: 'CLIENT', remarks: null },
+      );
+    }
+
     if (['PENDING', 'REJECTED', 'OVERDUE'].includes(t.status)) {
       await this.tasks.update({ id: taskIdNum }, { status: 'IN_PROGRESS' });
     }
@@ -1758,7 +2343,7 @@ export class ComplianceService {
     return { message: 'uploaded' };
   }
 
-  async clientSubmitTask(user: any, taskId: string) {
+  async clientSubmitTask(user: ReqUser, taskId: string) {
     this.assertRole(user, ['CLIENT']);
 
     const taskIdNum = Number(taskId);
@@ -1823,7 +2408,7 @@ export class ComplianceService {
   }
 
   // ---------- Admin APIs ----------
-  async adminListTasks(user: any, q: any) {
+  async adminListTasks(user: ReqUser, q: Record<string, string>) {
     this.assertRole(user, ['ADMIN']);
     try {
       const qb = this.tasks
@@ -1858,7 +2443,7 @@ export class ComplianceService {
   /**
    * List documents (evidence) for auditor to review
    */
-  async auditorListDocs(user: any, filters: any) {
+  async auditorListDocs(user: ReqUser, filters: Record<string, string>) {
     this.assertRole(user, ['AUDITOR']);
 
     const assignedClients =
@@ -1897,27 +2482,12 @@ export class ComplianceService {
    * Add auditor remark to a document
    */
   async auditorAddRemark(
-    user: any,
+    user: ReqUser,
     docId: string,
     dto: { text: string; visibility: string },
   ) {
     this.assertRole(user, ['AUDITOR']);
     throw new ForbiddenException('Auditors cannot review compliance documents');
-    const doc = await this.getEvidenceWithTaskOrThrow(docId);
-
-    await this.assertAuditorAssignedToClient(user.userId, doc.task.clientId);
-
-    const remark = this.remarkRepo.create({
-      documentId: doc.id,
-      documentType: 'COMPLIANCE_EVIDENCE',
-      createdByRole: 'AUDITOR',
-      createdByUserId: user.userId,
-      visibility: dto.visibility || 'CONTRACTOR_VISIBLE',
-      text: dto.text,
-    });
-
-    await this.remarkRepo.save(remark);
-    return { message: 'Remark added', remarkId: remark.id };
   }
 
   // ---------- Client (LegitX) Reupload APIs ----------
@@ -1925,7 +2495,10 @@ export class ComplianceService {
   /**
    * List reupload requests for client master user (targetRole = CLIENT)
    */
-  async clientListReuploadRequests(user: any, filters?: any) {
+  async clientListReuploadRequests(
+    user: ReqUser,
+    filters?: Record<string, string>,
+  ) {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
@@ -1947,7 +2520,11 @@ export class ComplianceService {
   /**
    * Upload corrected file for a client reupload request
    */
-  async clientReuploadFile(user: any, requestId: string, file: any) {
+  async clientReuploadFile(
+    user: ReqUser,
+    requestId: string,
+    file: Express.Multer.File,
+  ) {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
@@ -2009,7 +2586,7 @@ export class ComplianceService {
   /**
    * Submit client reupload for auditor re-verification
    */
-  async clientSubmitReupload(user: any, requestId: string) {
+  async clientSubmitReupload(user: ReqUser, requestId: string) {
     this.assertRole(user, ['CLIENT']);
     if (!user.clientId) throw new ForbiddenException('Client missing clientId');
 
@@ -2090,9 +2667,12 @@ export class ComplianceService {
   /**
    * List reupload requests for branch user (targetRole = BRANCH)
    */
-  async branchListReuploadRequests(user: any, filters?: any) {
+  async branchListReuploadRequests(
+    user: ReqUser,
+    filters?: Record<string, string>,
+  ) {
     this.assertRole(user, ['CLIENT']);
-    const branchId = user.branchIds?.[0] || user.branchId;
+    const branchId = user.branchIds?.[0];
     if (!branchId) throw new ForbiddenException('Branch user missing branchId');
 
     const qb = this.reuploadReqRepo
@@ -2113,9 +2693,13 @@ export class ComplianceService {
   /**
    * Upload corrected file for a branch reupload request
    */
-  async branchReuploadFile(user: any, requestId: string, file: any) {
+  async branchReuploadFile(
+    user: ReqUser,
+    requestId: string,
+    file: Express.Multer.File,
+  ) {
     this.assertRole(user, ['CLIENT']);
-    const branchId = user.branchIds?.[0] || user.branchId;
+    const branchId = user.branchIds?.[0];
     if (!branchId) throw new ForbiddenException('Branch user missing branchId');
 
     const request = await this.reuploadReqRepo.findOne({
@@ -2176,9 +2760,9 @@ export class ComplianceService {
   /**
    * Submit branch reupload for auditor re-verification
    */
-  async branchSubmitReupload(user: any, requestId: string) {
+  async branchSubmitReupload(user: ReqUser, requestId: string) {
     this.assertRole(user, ['CLIENT']);
-    const branchId = user.branchIds?.[0] || user.branchId;
+    const branchId = user.branchIds?.[0];
     if (!branchId) throw new ForbiddenException('Branch user missing branchId');
 
     const request = await this.reuploadReqRepo.findOne({
@@ -2253,12 +2837,58 @@ export class ComplianceService {
     return { message: 'Reupload submitted for review', status: 'SUBMITTED' };
   }
 
+  /**
+   * Mark a branch reupload request as Not Applicable with remarks
+   */
+  async branchMarkReuploadNotApplicable(
+    user: ReqUser,
+    requestId: string,
+    remarks: string,
+  ) {
+    this.assertRole(user, ['CLIENT']);
+    if (!remarks || !remarks.trim()) {
+      throw new BadRequestException('Remarks are required');
+    }
+
+    const branchId = user.branchIds?.[0];
+    if (!branchId) throw new ForbiddenException('Branch user missing branchId');
+
+    const request = await this.reuploadReqRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Reupload request not found');
+
+    if (
+      request.targetRole !== 'BRANCH' ||
+      String(request.unitId) !== String(branchId)
+    ) {
+      throw new ForbiddenException('Not your request');
+    }
+    if (request.status !== 'OPEN') {
+      throw new BadRequestException('Request is not open');
+    }
+
+    await this.reuploadReqRepo.update(
+      { id: requestId },
+      {
+        status: 'NOT_APPLICABLE',
+        crmRemarks: `[NOT APPLICABLE] ${remarks.trim()}`,
+        submittedAt: new Date(),
+      },
+    );
+
+    return { message: 'Marked as Not Applicable', status: 'NOT_APPLICABLE' };
+  }
+
   // ---------- Contractor Reupload APIs ----------
 
   /**
    * List reupload requests for logged-in contractor
    */
-  async contractorListReuploadRequests(user: any, filters: any) {
+  async contractorListReuploadRequests(
+    user: ReqUser,
+    filters: Record<string, string>,
+  ) {
     this.assertRole(user, ['CONTRACTOR']);
 
     const qb = this.reuploadReqRepo
@@ -2279,7 +2909,7 @@ export class ComplianceService {
   /**
    * Get remarks visible to contractor for a document
    */
-  async contractorGetDocRemarks(user: any, docId: string) {
+  async contractorGetDocRemarks(user: ReqUser, docId: string) {
     this.assertRole(user, ['CONTRACTOR']);
 
     const doc = await this.getEvidenceWithTaskOrThrow(docId);
@@ -2304,7 +2934,11 @@ export class ComplianceService {
   /**
    * Upload file in response to reupload request
    */
-  async contractorReuploadFile(user: any, requestId: string, file: any) {
+  async contractorReuploadFile(
+    user: ReqUser,
+    requestId: string,
+    file: Express.Multer.File,
+  ) {
     this.assertRole(user, ['CONTRACTOR']);
 
     const request = await this.reuploadReqRepo.findOne({
@@ -2371,7 +3005,7 @@ export class ComplianceService {
   /**
    * Submit reupload (mark as submitted for CRM review)
    */
-  async contractorSubmitReupload(user: any, requestId: string) {
+  async contractorSubmitReupload(user: ReqUser, requestId: string) {
     this.assertRole(user, ['CONTRACTOR']);
 
     const request = await this.reuploadReqRepo.findOne({
@@ -2453,7 +3087,7 @@ export class ComplianceService {
 
   // ---------- Auditor: Create Reupload Requests ----------
   async createReuploadRequestsFromAuditor(
-    user: any,
+    user: ReqUser,
     dto: { taskId: string; items: { docId: string; remarks: string }[] },
   ) {
     this.assertRole(user, ['AUDITOR']);
@@ -2468,7 +3102,7 @@ export class ComplianceService {
       String(task.clientId),
     );
 
-    const created: any[] = [];
+    const created: DocumentReuploadRequest[] = [];
     for (const item of dto.items) {
       const evidenceId = Number(item.docId);
 
@@ -2553,12 +3187,12 @@ export class ComplianceService {
   }
 
   // ---------- Auditor: List Reupload Requests for Re-verification ----------
-  async auditorListReuploadRequests(user: any, q: any) {
+  async auditorListReuploadRequests(user: ReqUser, q: Record<string, string>) {
     this.assertRole(user, ['AUDITOR']);
 
     const assignedClients =
       await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
-    const clientIds = assignedClients.map((c: any) => c.id);
+    const clientIds = assignedClients.map((c) => c.id);
 
     if (!clientIds.length) return { data: [] };
 
@@ -2642,7 +3276,11 @@ export class ComplianceService {
   }
 
   // ---------- Auditor: Approve Reupload (close request) ----------
-  async auditorApproveReupload(user: any, requestId: string, remarks?: string) {
+  async auditorApproveReupload(
+    user: ReqUser,
+    requestId: string,
+    remarks?: string,
+  ) {
     this.assertRole(user, ['AUDITOR']);
 
     const request = await this.reuploadReqRepo.findOne({
@@ -2676,7 +3314,7 @@ export class ComplianceService {
       where: { id: Number(request.documentId) },
     });
     if (evidence?.taskId) {
-      await this.syncTaskStatusAfterReupload(evidence.taskId);
+      await this.syncTaskStatusAfterReupload(evidence.taskId, user.userId);
     }
 
     // Notify contractor of approval
@@ -2725,7 +3363,11 @@ export class ComplianceService {
   }
 
   // ---------- Auditor: Reject Reupload (re-open for contractor) ----------
-  async auditorRejectReupload(user: any, requestId: string, remarks: string) {
+  async auditorRejectReupload(
+    user: ReqUser,
+    requestId: string,
+    remarks: string,
+  ) {
     this.assertRole(user, ['AUDITOR']);
 
     if (!remarks?.trim()) {
@@ -2834,7 +3476,7 @@ export class ComplianceService {
     message: string,
   ): Promise<void> {
     try {
-      await this.notifications.createTicket(actorUserId, actorRole as any, {
+      await this.notifications.createTicket(actorUserId, actorRole, {
         queryType: 'COMPLIANCE',
         subject,
         message,
@@ -2849,7 +3491,7 @@ export class ComplianceService {
   }
 
   // ---------- Helper: Sync task status after reupload decisions ----------
-  private async syncTaskStatusAfterReupload(taskId: number) {
+  private async syncTaskStatusAfterReupload(taskId: number, approverUserId?: string) {
     // Find all reupload requests linked to evidence of this task
     const taskEvidence = await this.evidence.find({
       where: { taskId },
@@ -2875,7 +3517,14 @@ export class ComplianceService {
         task &&
         (task.status === 'SUBMITTED' || task.status === 'IN_PROGRESS')
       ) {
-        await this.tasks.update({ id: taskId }, { status: 'APPROVED' });
+        await this.tasks.update(
+          { id: taskId },
+          {
+            status: 'APPROVED',
+            approvedByUserId: approverUserId ?? null,
+            approvedAt: new Date(),
+          },
+        );
         if (task.branchId) {
           this.riskCache
             .invalidateBranch(task.branchId)
@@ -2892,10 +3541,10 @@ export class ComplianceService {
   private async getCrmAssignedClientIds(userId: string): Promise<string[]> {
     const clients =
       await this.assignmentsService.getAssignedClientsForCrm(userId);
-    return clients.map((c: any) => c.id);
+    return clients.map((c) => c.id);
   }
 
-  async crmListReuploadRequests(user: any, q: any) {
+  async crmListReuploadRequests(user: ReqUser, q: Record<string, string>) {
     const clientIds = await this.getCrmAssignedClientIds(user.id);
     if (!clientIds?.length) return { items: [], total: 0, page: 1, limit: 25 };
 
@@ -2971,10 +3620,7 @@ export class ComplianceService {
     if (branchIds.length) {
       const bRows = await this.branches.find({ where: { id: In(branchIds) } });
       branchMap = Object.fromEntries(
-        bRows.map((b) => [
-          b.id,
-          (b as any).branchName || (b as any).branch_name || 'N/A',
-        ]),
+        bRows.map((b) => [b.id, b.branchName || 'N/A']),
       );
     }
 
@@ -2985,7 +3631,10 @@ export class ComplianceService {
         [clientIdsUsed],
       );
       clientMap = Object.fromEntries(
-        cRows.map((c: any) => [c.id, c.clientName]),
+        cRows.map((c: { id: string; clientName: string }) => [
+          c.id,
+          c.clientName,
+        ]),
       );
     }
 
@@ -2998,7 +3647,7 @@ export class ComplianceService {
     return { items, total, page, limit };
   }
 
-  async crmTopOverdueReuploadUnits(user: any, q: any) {
+  async crmTopOverdueReuploadUnits(user: ReqUser, q: Record<string, string>) {
     const clientIds = await this.getCrmAssignedClientIds(user.id);
     if (!clientIds?.length) return [];
 
@@ -3027,26 +3676,32 @@ export class ComplianceService {
       .getRawMany();
 
     // Enrich unit names
-    const unitIds = rows.filter((r: any) => r.unitId).map((r: any) => r.unitId);
+    const unitIds = rows
+      .filter((r: { unitId: string | null }) => r.unitId)
+      .map((r: { unitId: string | null }) => r.unitId);
     let unitMap: Record<string, string> = {};
     if (unitIds.length) {
       const bRows = await this.branches.find({ where: { id: In(unitIds) } });
       unitMap = Object.fromEntries(
-        bRows.map((b) => [
-          b.id,
-          (b as any).branchName || (b as any).branch_name || 'N/A',
-        ]),
+        bRows.map((b) => [b.id, b.branchName || 'N/A']),
       );
     }
 
-    return rows.map((x: any) => ({
-      unitId: x.unitId || null,
-      unitName: x.unitId
-        ? unitMap[x.unitId] || 'N/A'
-        : 'Client Master (no unit)',
-      count: Number(x.count || 0),
-      open: Number(x.open || 0),
-      submitted: Number(x.submitted || 0),
-    }));
+    return rows.map(
+      (x: {
+        unitId: string | null;
+        count: string;
+        open: string;
+        submitted: string;
+      }) => ({
+        unitId: x.unitId || null,
+        unitName: x.unitId
+          ? unitMap[x.unitId] || 'N/A'
+          : 'Client Master (no unit)',
+        count: Number(x.count || 0),
+        open: Number(x.open || 0),
+        submitted: Number(x.submitted || 0),
+      }),
+    );
   }
 }
