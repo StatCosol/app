@@ -2,41 +2,40 @@
   <ui-page-header
     title="Payroll Runs Console"
     subtitle="Step-based payroll execution console with import status, validation exceptions, preview totals, approval, publish, and rerun controls">
-    <ui-button variant="secondary" size="sm" (clicked)="loadRuns()">Refresh</ui-button>
+    <div class="flex items-center gap-3">
+      <ui-button variant="primary" size="sm" (clicked)="createRun()" [disabled]="creatingRun">
+        {{ creatingRun ? 'Creating...' : '+ New Run' }}
+      </ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="loadRuns()">Refresh</ui-button>
+      <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
+    </div>
   </ui-page-header>
 
   <section class="filter-card">
     <div class="filter-grid">
       <div class="field">
-        <label>Client</label>
-        <select [(ngModel)]="selectedClientId">
-          <option value="">All Clients</option>
-          <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Month</label>
-        <select [(ngModel)]="selectedMonth">
+        <label for="run-month">Month</label>
+        <select id="run-month" name="selectedMonth" [(ngModel)]="selectedMonth">
           <option [ngValue]="0">All Months</option>
           <option *ngFor="let month of monthOptions; index as idx" [ngValue]="idx + 1">{{ month }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Year</label>
-        <select [(ngModel)]="selectedYear">
+        <label for="run-year">Year</label>
+        <select id="run-year" name="selectedYear" [(ngModel)]="selectedYear">
           <option [ngValue]="0">All Years</option>
           <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Status</label>
-        <select [(ngModel)]="statusFilter">
+        <label for="run-status">Status</label>
+        <select id="run-status" name="statusFilter" [(ngModel)]="statusFilter">
           <option *ngFor="let status of statusOptions" [value]="status">{{ status || 'All Statuses' }}</option>
         </select>
       </div>
       <div class="field field--wide">
-        <label>Search</label>
-        <input type="text" [(ngModel)]="searchText" (input)="onSearchChange()" placeholder="Client, status, or period" />
+        <label for="run-search">Search</label>
+        <input autocomplete="off" id="run-search" type="text" name="searchText" [(ngModel)]="searchText" (input)="onSearchChange()" placeholder="Client, status, or period" />
       </div>
     </div>
     <div class="filter-actions">
@@ -86,7 +85,17 @@
               <td>{{ monthLabel(run.periodMonth) }} {{ run.periodYear }}</td>
               <td><span [class]="statusClass(run.status)">{{ run.status }}</span></td>
               <td>{{ run.employeeCount || 0 }}</td>
-              <td><ui-button variant="ghost" size="sm" (clicked)="selectRun(run)">View</ui-button></td>
+              <td>
+                <ui-button variant="ghost" size="sm" (clicked)="selectRun(run)">View</ui-button>
+                <ui-button
+                  variant="danger"
+                  size="sm"
+                  (clicked)="deleteRun(run)"
+                  [disabled]="!canDeleteRun(run)"
+                  [title]="canDeleteRun(run) ? 'Delete draft run' : 'Only draft runs can be deleted'">
+                  Delete
+                </ui-button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -126,12 +135,14 @@
       </div>
 
       <div class="import-box">
-        <div class="import-title">Attendance/Input Import</div>
+        <div class="import-title">Attendance Upload</div>
+        <div class="import-hint">Excel with columns: Employee Code, Employee Name, Working Days, Payable Days, OT Hours, Other Earnings, Arrears Attendance Bonus, Other Deductions</div>
         <div class="import-row">
-          <input type="file" (change)="onImportFileSelected($event)" />
+          <input type="file" name="importFile" accept=".xlsx,.xls,.csv" (change)="onImportFileSelected($event)" />
           <ui-button variant="primary" size="sm" (clicked)="uploadRunImport()" [disabled]="actionButtonDisabled(run,'IMPORT')">
-            {{ importBusy ? 'Uploading...' : 'Upload Import' }}
+            {{ importBusy ? 'Uploading...' : 'Upload Attendance' }}
           </ui-button>
+          <ui-button variant="ghost" size="sm" (clicked)="downloadAttendanceTemplate()">Download Template</ui-button>
         </div>
         <div class="guard-note" *ngIf="!actionAllowed(run,'IMPORT')">{{ actionGuardReason(run, 'IMPORT') }}</div>
       </div>
@@ -166,13 +177,25 @@
           <ui-button variant="primary" size="sm" (clicked)="publishRun(run)" [disabled]="actionButtonDisabled(run,'PUBLISH')">
             {{ isPublished(run) ? 'Download Payslips' : (canSubmit(run) ? 'Submit & Publish' : (canApprove(run) ? 'Approve & Publish' : 'Publish')) }}
           </ui-button>
+          <ui-button variant="danger" size="sm" (clicked)="rejectRun(run)" [disabled]="actionButtonDisabled(run,'REJECT')">
+            Reject
+          </ui-button>
           <ui-button variant="secondary" size="sm" (clicked)="rerunRun(run)" [disabled]="actionButtonDisabled(run,'RERUN') || isPublished(run)">
             Rerun
           </ui-button>
           <ui-button variant="ghost" size="sm" (clicked)="rollbackRun(run)" [disabled]="actionButtonDisabled(run,'ROLLBACK')">
             Rollback
           </ui-button>
+          <ui-button
+            variant="danger"
+            size="sm"
+            (clicked)="deleteRun(run)"
+            [disabled]="actionBusy || importBusy || loadingRuns || loadingRunDetail || !canDeleteRun(run)"
+            [title]="canDeleteRun(run) ? 'Delete draft run' : 'Only draft runs can be deleted'">
+            Delete Draft
+          </ui-button>
         </div>
+        <div class="guard-note" *ngIf="!canDeleteRun(run)">Delete is available only when run status is DRAFT.</div>
       </div>
 
       <div class="guardrail-card">
@@ -260,7 +283,64 @@
       </div>
 
       <div class="employee-preview">
-        <div class="actions-title">Payroll Preview Employees</div>
+        <div class="emp-preview-header">
+          <div class="actions-title">Payroll Preview Employees</div>
+          <button class="btn-add-emp" (click)="toggleAddEmployeePanel()" [disabled]="addEmpBusy">
+            {{ showAddEmployeePanel ? '✕ Close' : '+ Add Employee' }}
+          </button>
+        </div>
+
+        <!-- Add Employee Panel -->
+        <div class="add-emp-panel" *ngIf="showAddEmployeePanel">
+          <!-- Upload CSV Section -->
+          <div class="add-emp-upload-section">
+            <div class="add-emp-upload-label">Upload CSV with Employee Codes</div>
+            <div class="add-emp-upload-hint">CSV file with employee codes in the first column (one per row)</div>
+            <div class="add-emp-upload-row">
+              <input type="file" accept=".csv,.txt" (change)="onAddEmpFileSelected($event)" />
+              <button class="btn-confirm-add" (click)="uploadAddEmpFile()" [disabled]="addEmpUploadBusy || !addEmpParsedCodes.length">
+                {{ addEmpUploadBusy ? 'Adding...' : 'Upload & Add (' + addEmpParsedCodes.length + ')' }}
+              </button>
+            </div>
+            <div class="add-emp-parsed" *ngIf="addEmpParsedCodes.length">
+              Parsed {{ addEmpParsedCodes.length }} code(s): {{ addEmpParsedCodes.slice(0, 5).join(', ') }}{{ addEmpParsedCodes.length > 5 ? '...' : '' }}
+            </div>
+          </div>
+
+          <div class="add-emp-divider">OR select manually</div>
+
+          <!-- Manual Search & Select -->
+          <input
+            type="text"
+            class="add-emp-search"
+            placeholder="Search by name or code..."
+            [(ngModel)]="addEmpSearch"
+            (ngModelChange)="filterAddEmpList()"
+          />
+          <ui-loading-spinner *ngIf="addEmpLoading" text="Loading employees..."></ui-loading-spinner>
+          <div class="add-emp-list" *ngIf="!addEmpLoading">
+            <div *ngIf="!addEmpFiltered.length" class="add-emp-empty">No employees available to add.</div>
+            <label
+              class="add-emp-item"
+              *ngFor="let emp of addEmpFiltered"
+              [class.selected]="addEmpSelected.has(emp.employeeCode)"
+            >
+              <input
+                type="checkbox"
+                [checked]="addEmpSelected.has(emp.employeeCode)"
+                (change)="toggleAddEmpSelect(emp.employeeCode)"
+              />
+              <span class="add-emp-name">{{ emp.name }}</span>
+              <span class="add-emp-code">{{ emp.employeeCode }}</span>
+            </label>
+          </div>
+          <div class="add-emp-actions" *ngIf="addEmpSelected.size">
+            <button class="btn-confirm-add" (click)="confirmAddEmployees()" [disabled]="addEmpBusy">
+              {{ addEmpBusy ? 'Adding...' : 'Add ' + addEmpSelected.size + ' Employee(s) to Run' }}
+            </button>
+          </div>
+        </div>
+
         <ui-loading-spinner *ngIf="loadingRunDetail" text="Loading employee preview..."></ui-loading-spinner>
         <div class="table-wrap" *ngIf="!loadingRunDetail && runEmployees.length">
           <table class="data-table compact">
