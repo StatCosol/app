@@ -2,12 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
-  Req,
   Res,
   UseGuards,
   UseInterceptors,
@@ -23,13 +24,43 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ClientMasterGuard } from '../auth/policies/client-master.guard';
+import { ClientPayrollToggleGuard } from '../auth/policies/client-payroll-toggle.guard';
 
 import { PayrollService } from './payroll.service';
 import { SaveClientPayslipLayoutDto } from './dto/save-client-payslip-layout.dto';
 import { SaveClientComponentsDto } from './dto/save-client-components.dto';
 import { ClientUpdatePayrollInputStatusDto } from './dto/client-update-payroll-input-status.dto';
 import { UpdatePayrollInputStatusDto } from './dto/update-payroll-input-status.dto';
+import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
+import {
+  CreatePayrollQueryDto,
+  AddQueryMessageDto,
+  ResolveQueryDto,
+  UpdateQueryStatusDto,
+} from './dto/payroll-query.dto';
+import { CreateFnfDto, UpdateFnfStatusDto } from './dto/payroll-fnf.dto';
+import {
+  ClientCreatePayrollInputDto,
+  ClientUploadPayrollInputFileDto,
+  ClientUploadRegisterRecordDto,
+  ClientUpdatePayrollSettingsDto,
+} from './dto/client-payroll-input.dto';
+import { RejectRegisterDto } from './dto/payroll-setup.dto';
+import {
+  PayrollSummaryQueryDto,
+  PayrollEmployeesQueryDto,
+  PayslipsQueryDto,
+  RegistersQueryDto,
+  PayrollRunsQueryDto,
+  QueriesListQueryDto,
+  FnfListQueryDto,
+  ClientPayrollPeriodQueryDto,
+  ClientRegistersQueryDto,
+  AuditorRegistersQueryDto,
+} from './dto/payroll-query-params.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -39,12 +70,12 @@ const MAX_MB = 10;
 
 function makeStorage(folder: string) {
   return diskStorage({
-    destination: (req, file, cb) => {
+    destination: (_req, _file, cb) => {
       const base = path.join(process.cwd(), 'uploads', folder);
       ensureDir(base);
       cb(null, base);
     },
-    filename: (req, file, cb) => {
+    filename: (_req, file, cb) => {
       const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
       cb(null, `${Date.now()}_${safe}`);
     },
@@ -62,7 +93,7 @@ const allowedMimes = [
 
 const commonUploadOptions = (folder: string) => ({
   storage: makeStorage(folder),
-  fileFilter: (req: any, file: any, cb: any) => {
+  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
     if (!allowedMimes.includes(file.mimetype)) {
       return cb(new BadRequestException('File type not allowed'), false);
     }
@@ -81,36 +112,61 @@ const templateUploadOptions = commonUploadOptions('payroll-templates');
 export class PayrollController {
   constructor(private readonly svc: PayrollService) {}
 
+  // One-time: Seed March 2026 EL from paysheet data
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Seed March 2026 EL data' })
+  @Post('admin/seed-march-el/:runId')
+  seedMarchEl(@Param('runId') runId: string) {
+    return this.svc.seedMarchEl(runId);
+  }
+
+  // One-time: Remove employees not in paysheet from a run
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Remove not-in-sheet employees from run' })
+  @Post('admin/remove-not-in-sheet/:runId')
+  removeNotInSheet(@Param('runId') runId: string) {
+    return this.svc.removeNotInSheet(runId);
+  }
+
   // Frontend expects: GET /api/payroll/summary
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Payroll Summary' })
   @Get('summary')
-  getPayrollSummary(@Req() req: any, @Query() q: any) {
-    return this.svc.getPayrollSummary(req.user, q);
+  getPayrollSummary(
+    @CurrentUser() user: ReqUser,
+    @Query() q: PayrollSummaryQueryDto,
+  ) {
+    return this.svc.getPayrollSummary(user, q);
   }
 
   // Alias for dashboards: GET /api/payroll/dashboard
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Payroll Dashboard' })
   @Get('dashboard')
-  getPayrollDashboard(@Req() req: any, @Query() q: any) {
-    return this.svc.getPayrollSummary(req.user, q);
+  getPayrollDashboard(
+    @CurrentUser() user: ReqUser,
+    @Query() q: PayrollSummaryQueryDto,
+  ) {
+    return this.svc.getPayrollSummary(user, q);
   }
 
   // PF/ESI drill-down: GET /api/payroll/pf-esi-summary
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Pf Esi Summary' })
   @Get('pf-esi-summary')
-  getPfEsiSummary(@Req() req: any) {
-    return this.svc.getPfEsiSummary(req.user);
+  getPfEsiSummary(@CurrentUser() user: ReqUser) {
+    return this.svc.getPfEsiSummary(user);
   }
 
   // Employee list for PAYROLL users: GET /api/payroll/employees
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Payroll Employees' })
   @Get('employees')
-  getPayrollEmployees(@Req() req: any, @Query() q: any) {
-    return this.svc.getPayrollEmployees(req.user, q);
+  getPayrollEmployees(
+    @CurrentUser() user: ReqUser,
+    @Query() q: PayrollEmployeesQueryDto,
+  ) {
+    return this.svc.getPayrollEmployees(user, q);
   }
 
   // Employee detail for PAYROLL users: GET /api/payroll/employees/:employeeId
@@ -118,18 +174,18 @@ export class PayrollController {
   @ApiOperation({ summary: 'Get Payroll Employee Detail' })
   @Get('employees/:employeeId')
   getPayrollEmployeeDetail(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('employeeId') employeeId: string,
   ) {
-    return this.svc.getPayrollEmployeeDetail(req.user, employeeId);
+    return this.svc.getPayrollEmployeeDetail(user, employeeId);
   }
 
   // Frontend expects: GET /api/payroll/clients
   @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Get Assigned Clients' })
   @Get('clients')
-  getAssignedClients(@Req() req: any) {
-    return this.svc.getAssignedClients(req.user);
+  getAssignedClients(@CurrentUser() user: ReqUser) {
+    return this.svc.getAssignedClients(user);
   }
 
   // GET /api/payroll/templates — real DB query
@@ -144,24 +200,33 @@ export class PayrollController {
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'List Payslips' })
   @Get('payslips')
-  async listPayslips(@Req() req: any, @Query() q: any) {
-    return this.svc.listPayslips(req.user, q);
+  async listPayslips(
+    @CurrentUser() user: ReqUser,
+    @Query() q: PayslipsQueryDto,
+  ) {
+    return this.svc.listPayslips(user, q);
   }
 
   // Existing endpoint (kept): GET /api/payroll/registers-records
   @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @ApiOperation({ summary: 'List Registers Records' })
   @Get('registers-records')
-  listRegistersRecords(@Req() req: any, @Query() q: any) {
-    return this.svc.payrollListRegistersRecords(req.user, q);
+  listRegistersRecords(
+    @CurrentUser() user: ReqUser,
+    @Query() q: RegistersQueryDto,
+  ) {
+    return this.svc.payrollListRegistersFormatted(user, q);
   }
 
   // Frontend expects: GET /api/payroll/registers (alias)
   @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @ApiOperation({ summary: 'List Registers Alias' })
   @Get('registers')
-  listRegistersAlias(@Req() req: any, @Query() q: any) {
-    return this.svc.payrollListRegistersRecords(req.user, q);
+  listRegistersAlias(
+    @CurrentUser() user: ReqUser,
+    @Query() q: RegistersQueryDto,
+  ) {
+    return this.svc.payrollListRegistersFormatted(user, q);
   }
 
   // Frontend expects: GET /api/payroll/registers/:id/download
@@ -169,11 +234,11 @@ export class PayrollController {
   @ApiOperation({ summary: 'Download Register' })
   @Get('registers/:id/download')
   async downloadRegister(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.downloadRegisterForPayroll(req.user, id);
+    const out = await this.svc.downloadRegisterForPayroll(user, id);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -182,16 +247,28 @@ export class PayrollController {
     res.end(out.buffer);
   }
 
+  // GET /api/payroll/registers/download-pack  — bulk ZIP download
+  @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
+  @ApiOperation({ summary: 'Download Registers Pack (ZIP)' })
+  @Get('registers/download-pack')
+  async downloadRegistersPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: RegistersQueryDto,
+    @Res() res: Response,
+  ) {
+    await this.svc.streamPayrollRegistersPack(user, q, res);
+  }
+
   // Alias: GET /api/payroll/registers-records/:id/download
   @Roles('PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Download Register Record' })
   @Get('registers-records/:id/download')
   async downloadRegisterRecord(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.downloadRegisterForPayroll(req.user, id);
+    const out = await this.svc.downloadRegisterForPayroll(user, id);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -204,32 +281,47 @@ export class PayrollController {
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Approve Register' })
   @Patch('registers/:id/approve')
-  approveRegister(@Req() req: any, @Param('id') id: string) {
-    return this.svc.approveRegister(req.user, id);
+  approveRegister(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.approveRegister(user, id);
   }
 
   // Reject register: PATCH /api/payroll/registers/:id/reject
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Reject Register' })
   @Patch('registers/:id/reject')
-  rejectRegister(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.svc.rejectRegister(req.user, id, body?.reason);
+  rejectRegister(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: RejectRegisterDto,
+  ) {
+    return this.svc.rejectRegister(user, id, body?.reason);
   }
 
   // Frontend expects: GET /api/payroll/runs
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'List Runs' })
   @Get('runs')
-  listRuns(@Req() req: any, @Query() q: any) {
-    return this.svc.listPayrollRuns(req.user, q);
+  listRuns(@CurrentUser() user: ReqUser, @Query() q: PayrollRunsQueryDto) {
+    return this.svc.listPayrollRuns(user, q);
   }
 
   // Create payroll run
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Create Run' })
   @Post('runs')
-  createRun(@Req() req: any, @Body() dto: any) {
-    return this.svc.createPayrollRun(req.user, dto);
+  createRun(@CurrentUser() user: ReqUser, @Body() dto: CreatePayrollRunDto) {
+    return this.svc.createPayrollRun(user, dto);
+  }
+
+  // Delete draft payroll run
+  @Roles('PAYROLL', 'ADMIN')
+  @ApiOperation({ summary: 'Delete Draft Run' })
+  @Delete('runs/:runId')
+  deleteRun(
+    @CurrentUser() user: ReqUser,
+    @Param('runId', ParseUUIDPipe) runId: string,
+  ) {
+    return this.svc.deleteDraftPayrollRun(user, runId);
   }
 
   // Upload payroll run employees (Excel/CSV)
@@ -240,19 +332,22 @@ export class PayrollController {
     FileInterceptor('file', commonUploadOptions('payroll-run-employees')),
   )
   uploadRunEmployees(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('runId') runId: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.svc.uploadPayrollRunEmployees(req.user, runId, file);
+    return this.svc.uploadPayrollRunEmployees(user, runId, file);
   }
 
   // Frontend expects: GET /api/payroll/runs/:runId/employees
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'List Run Employees' })
   @Get('runs/:runId/employees')
-  listRunEmployees(@Req() req: any, @Param('runId') runId: string) {
-    return this.svc.listPayrollRunEmployees(req.user, runId);
+  listRunEmployees(
+    @CurrentUser() user: ReqUser,
+    @Param('runId') runId: string,
+  ) {
+    return this.svc.listPayrollRunEmployees(user, runId);
   }
 
   // Frontend expects: GET /api/payroll/runs/:runId/employees/:employeeId/payslip.pdf
@@ -260,13 +355,13 @@ export class PayrollController {
   @ApiOperation({ summary: 'Download Generated Payslip' })
   @Get('runs/:runId/employees/:employeeId/payslip.pdf')
   async downloadGeneratedPayslip(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('runId') runId: string,
     @Param('employeeId') employeeId: string,
     @Res() res: Response,
   ) {
     const out = await this.svc.generatePayslipPdfForPayroll(
-      req.user,
+      user,
       runId,
       employeeId,
     );
@@ -286,13 +381,13 @@ export class PayrollController {
   @Get('runs/:runId/employees/:employeeId/payslip.archived.pdf')
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   async downloadArchivedPayslip(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('runId') runId: string,
     @Param('employeeId') employeeId: string,
     @Res() res: Response,
   ) {
     const out = await this.svc.downloadArchivedPayslipForPayroll(
-      req.user,
+      user,
       runId,
       employeeId,
     );
@@ -308,8 +403,11 @@ export class PayrollController {
   @ApiOperation({ summary: 'Archive Run Payslips' })
   @Post('runs/:runId/payslips/archive')
   @Roles('PAYROLL', 'ADMIN')
-  archiveRunPayslips(@Req() req: any, @Param('runId') runId: string) {
-    return this.svc.archiveRunPayslips(req.user, runId);
+  archiveRunPayslips(
+    @CurrentUser() user: ReqUser,
+    @Param('runId') runId: string,
+  ) {
+    return this.svc.archiveRunPayslips(user, runId);
   }
 
   // Frontend expects: GET /api/payroll/runs/:runId/payslips.zip
@@ -317,11 +415,11 @@ export class PayrollController {
   @ApiOperation({ summary: 'Download Payslips Zip' })
   @Get('runs/:runId/payslips.zip')
   async downloadPayslipsZip(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('runId') runId: string,
     @Res() res: Response,
   ) {
-    await this.svc.streamPayslipsZip(req.user, runId, res);
+    await this.svc.streamPayslipsZip(user, runId, res);
   }
 
   /**
@@ -331,8 +429,11 @@ export class PayrollController {
   @ApiOperation({ summary: 'List Payroll Input Files For Payroll' })
   @Get('inputs/:id/files')
   @Roles('PAYROLL', 'ADMIN', 'CRM')
-  listPayrollInputFilesForPayroll(@Req() req: any, @Param('id') id: string) {
-    return this.svc.listPayrollInputFilesForPayroll(req.user, id);
+  listPayrollInputFilesForPayroll(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+  ) {
+    return this.svc.listPayrollInputFilesForPayroll(user, id);
   }
 
   // Payroll review: update input status (approve / reject / need clarification)
@@ -340,11 +441,11 @@ export class PayrollController {
   @ApiOperation({ summary: 'Update Payroll Input Status' })
   @Patch('inputs/:id/status')
   updatePayrollInputStatus(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() dto: UpdatePayrollInputStatusDto,
   ) {
-    return this.svc.updatePayrollInputStatus(req.user, id, dto);
+    return this.svc.updatePayrollInputStatus(user, id, dto);
   }
 
   // Payroll download: GET /api/payroll/inputs/files/:id/download
@@ -352,11 +453,11 @@ export class PayrollController {
   @ApiOperation({ summary: 'Download Payroll Input File' })
   @Get('inputs/files/:id/download')
   async downloadPayrollInputFile(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.downloadPayrollInputFileForPayroll(req.user, id);
+    const out = await this.svc.downloadPayrollInputFileForPayroll(user, id);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -371,34 +472,34 @@ export class PayrollController {
   @Post('clients/:clientId/template')
   @UseInterceptors(FileInterceptor('file', templateUploadOptions))
   uploadClientTemplate(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: { effectiveFrom?: string; effectiveTo?: string },
   ) {
     if (!file) throw new BadRequestException('File is required');
-    return this.svc.payrollUploadClientTemplate(req.user, clientId, file, dto);
+    return this.svc.payrollUploadClientTemplate(user, clientId, file, dto);
   }
 
   @ApiOperation({ summary: 'Get Client Template Meta' })
   @Get('clients/:clientId/template')
   @Roles('PAYROLL', 'ADMIN', 'CRM')
-  getClientTemplateMeta(@Req() req: any, @Param('clientId') clientId: string) {
-    return this.svc.payrollGetClientTemplateMeta(req.user, clientId);
+  getClientTemplateMeta(
+    @CurrentUser() user: ReqUser,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.svc.payrollGetClientTemplateMeta(user, clientId);
   }
 
   @ApiOperation({ summary: 'Download Client Template' })
   @Get('clients/:clientId/template/download')
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   async downloadClientTemplate(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.payrollDownloadClientTemplate(
-      req.user,
-      clientId,
-    );
+    const out = await this.svc.payrollDownloadClientTemplate(user, clientId);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -411,123 +512,208 @@ export class PayrollController {
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'List Queries' })
   @Get('queries')
-  listQueries(@Req() req: any, @Query() q: any) {
-    return this.svc.listQueries(req.user, q);
+  listQueries(
+    @CurrentUser() user: ReqUser,
+    @Query() q: QueriesListQueryDto,
+  ) {
+    return this.svc.listQueries(user, q);
   }
 
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Query Detail' })
   @Get('queries/:queryId')
-  getQueryDetail(@Req() req: any, @Param('queryId') queryId: string) {
-    return this.svc.getQueryDetail(req.user, queryId);
+  getQueryDetail(
+    @CurrentUser() user: ReqUser,
+    @Param('queryId') queryId: string,
+  ) {
+    return this.svc.getQueryDetail(user, queryId);
   }
 
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Create Query' })
   @Post('queries')
-  createQuery(@Req() req: any, @Body() dto: any) {
-    return this.svc.createQuery(req.user, dto);
+  createQuery(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: CreatePayrollQueryDto,
+  ) {
+    return this.svc.createQuery(user, dto);
   }
 
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Add Query Message' })
   @Post('queries/:queryId/messages')
   addQueryMessage(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('queryId') queryId: string,
-    @Body() dto: any,
+    @Body() dto: AddQueryMessageDto,
   ) {
-    return this.svc.addQueryMessage(req.user, queryId, dto.message);
+    return this.svc.addQueryMessage(user, queryId, dto.message);
   }
 
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Resolve Query' })
   @Patch('queries/:queryId/resolve')
   resolveQuery(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('queryId') queryId: string,
-    @Body() dto: any,
+    @Body() dto: ResolveQueryDto,
   ) {
-    return this.svc.resolveQuery(req.user, queryId, dto.resolution);
+    return this.svc.resolveQuery(user, queryId, dto.resolution);
   }
 
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Update Query Status' })
   @Patch('queries/:queryId/status')
   updateQueryStatus(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('queryId') queryId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateQueryStatusDto,
   ) {
-    return this.svc.updateQueryStatus(req.user, queryId, dto.status);
+    return this.svc.updateQueryStatus(user, queryId, dto.status);
   }
 
   // ── Full & Final ──────────────────────────────────
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'List Fnf' })
   @Get('fnf')
-  listFnf(@Req() req: any, @Query() q: any) {
-    return this.svc.listFnf(req.user, q);
+  listFnf(@CurrentUser() user: ReqUser, @Query() q: FnfListQueryDto) {
+    return this.svc.listFnf(user, q);
   }
 
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'Get Fnf Detail' })
   @Get('fnf/:fnfId')
-  getFnfDetail(@Req() req: any, @Param('fnfId') fnfId: string) {
-    return this.svc.getFnfDetail(req.user, fnfId);
+  getFnfDetail(@CurrentUser() user: ReqUser, @Param('fnfId') fnfId: string) {
+    return this.svc.getFnfDetail(user, fnfId);
   }
 
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Create Fnf' })
   @Post('fnf')
-  createFnf(@Req() req: any, @Body() dto: any) {
-    return this.svc.createFnf(req.user, dto);
+  createFnf(@CurrentUser() user: ReqUser, @Body() dto: CreateFnfDto) {
+    return this.svc.createFnf(user, dto);
   }
 
   @Roles('PAYROLL', 'ADMIN')
   @ApiOperation({ summary: 'Update Fnf Status' })
   @Patch('fnf/:fnfId/status')
   updateFnfStatus(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('fnfId') fnfId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateFnfStatusDto,
   ) {
-    return this.svc.updateFnfStatus(req.user, fnfId, dto);
+    return this.svc.updateFnfStatus(user, fnfId, dto);
+  }
+
+  // ── F&F Settlement Documents ──────────────────────
+  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @ApiOperation({ summary: 'Upload FnF settlement document' })
+  @Post('fnf/:fnfId/documents')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const dir = path.join(process.cwd(), 'uploads', 'fnf-documents');
+          fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = path.extname(file.originalname).toLowerCase();
+          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  uploadFnfDocument(
+    @CurrentUser() user: ReqUser,
+    @Param('fnfId', ParseUUIDPipe) fnfId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('docType') docType: string,
+    @Body('docName') docName: string,
+    @Body('remarks') remarks?: string,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    if (!docType) throw new BadRequestException('docType is required');
+    return this.svc.uploadFnfDocument(user, fnfId, {
+      fileName: file.filename,
+      filePath: file.path,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+    }, docType, docName || file.originalname, remarks);
+  }
+
+  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @ApiOperation({ summary: 'List FnF documents' })
+  @Get('fnf/:fnfId/documents')
+  listFnfDocuments(
+    @CurrentUser() user: ReqUser,
+    @Param('fnfId', ParseUUIDPipe) fnfId: string,
+  ) {
+    return this.svc.listFnfDocuments(user, fnfId);
+  }
+
+  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @ApiOperation({ summary: 'Download FnF document' })
+  @Get('fnf/documents/:docId/download')
+  async downloadFnfDocument(
+    @CurrentUser() user: ReqUser,
+    @Param('docId', ParseUUIDPipe) docId: string,
+    @Res() res: Response,
+  ) {
+    const doc = await this.svc.getFnfDocument(user, docId);
+    if (!fs.existsSync(doc.filePath)) {
+      throw new BadRequestException('File not found on server');
+    }
+    res.download(doc.filePath, doc.docName || doc.fileName);
+  }
+
+  @Roles('PAYROLL', 'ADMIN')
+  @ApiOperation({ summary: 'Delete FnF document' })
+  @Delete('fnf/documents/:docId')
+  deleteFnfDocument(
+    @CurrentUser() user: ReqUser,
+    @Param('docId', ParseUUIDPipe) docId: string,
+  ) {
+    return this.svc.deleteFnfDocument(user, docId);
   }
 }
 
 @Controller({ path: 'client/payroll/inputs', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard, ClientMasterGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ClientPayrollToggleGuard)
 @Roles('CLIENT')
 export class ClientPayrollInputsController {
   constructor(private readonly svc: PayrollService) {}
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  list(@Req() req: any, @Query() q: any) {
-    return this.svc.clientListPayrollInputs(req.user, q);
+  list(@CurrentUser() user: ReqUser, @Query() q: ClientPayrollPeriodQueryDto) {
+    return this.svc.clientListPayrollInputs(user, q);
   }
 
   @ApiOperation({ summary: 'Create' })
   @Post()
-  create(@Req() req: any, @Body() dto: any) {
-    return this.svc.clientCreatePayrollInput(req.user, dto);
+  create(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: ClientCreatePayrollInputDto,
+  ) {
+    return this.svc.clientCreatePayrollInput(user, dto);
   }
 
   @ApiOperation({ summary: 'Update Status' })
   @Patch(':id/status')
   updateStatus(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() dto: ClientUpdatePayrollInputStatusDto,
   ) {
-    return this.svc.clientUpdatePayrollInputStatus(req.user, id, dto);
+    return this.svc.clientUpdatePayrollInputStatus(user, id, dto);
   }
 
   @ApiOperation({ summary: 'Get Status History' })
   @Get(':id/status-history')
-  getStatusHistory(@Req() req: any, @Param('id') id: string) {
-    return this.svc.clientGetPayrollInputStatusHistory(req.user, id);
+  getStatusHistory(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.clientGetPayrollInputStatusHistory(user, id);
   }
 
   @ApiOperation({ summary: 'File Interceptor' })
@@ -536,29 +722,29 @@ export class ClientPayrollInputsController {
     FileInterceptor('file', commonUploadOptions('payroll-inputs')),
   )
   uploadFile(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
-    @Body() dto: any,
-    @UploadedFile() file: any,
+    @Body() dto: ClientUploadPayrollInputFileDto,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.svc.clientUploadPayrollInputFile(req.user, id, dto, file);
+    return this.svc.clientUploadPayrollInputFile(user, id, dto, file);
   }
 
   @ApiOperation({ summary: 'List Files' })
   @Get(':id/files')
-  listFiles(@Req() req: any, @Param('id') id: string) {
-    return this.svc.clientListPayrollInputFiles(req.user, id);
+  listFiles(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.clientListPayrollInputFiles(user, id);
   }
 
   // Client download: GET /api/client/payroll/inputs/files/:id/download
   @ApiOperation({ summary: 'Download File' })
   @Get('files/:id/download')
   async downloadFile(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.downloadPayrollInputFileForClient(req.user, id);
+    const out = await this.svc.downloadPayrollInputFileForClient(user, id);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -569,28 +755,34 @@ export class ClientPayrollInputsController {
 }
 
 @Controller({ path: 'client/payroll', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard, ClientMasterGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ClientPayrollToggleGuard)
 @Roles('CLIENT')
 export class ClientPayrollMonitoringController {
   constructor(private readonly svc: PayrollService) {}
 
-  private toArray(payload: any): any[] {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.items)) return payload.items;
-    if (Array.isArray(payload?.data)) return payload.data;
+  private toArray(payload: unknown): Record<string, unknown>[] {
+    if (Array.isArray(payload)) return payload as Record<string, unknown>[];
+    if (payload && typeof payload === 'object') {
+      const obj = payload as Record<string, unknown>;
+      if (Array.isArray(obj.items)) return obj.items as Record<string, unknown>[];
+      if (Array.isArray(obj.data)) return obj.data as Record<string, unknown>[];
+    }
     return [];
   }
 
   @ApiOperation({ summary: 'List Client Payroll Runs' })
   @Get('runs')
-  async runs(@Req() req: any, @Query() q: any) {
-    return this.svc.clientListPayrollInputs(req.user, q);
+  async runs(@CurrentUser() user: ReqUser, @Query() q: ClientPayrollPeriodQueryDto) {
+    return this.svc.clientListPayrollRuns(user, q);
   }
 
   @ApiOperation({ summary: 'Get Client Payroll Status By Branch' })
   @Get('status-by-branch')
-  async statusByBranch(@Req() req: any, @Query() q: any) {
-    const rows = this.toArray(await this.svc.clientListPayrollInputs(req.user, q));
+  async statusByBranch(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollPeriodQueryDto,
+  ) {
+    const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
     const map = new Map<
       string,
       {
@@ -629,7 +821,8 @@ export class ClientPayrollMonitoringController {
 
       if (
         createdAt &&
-        (!existing.latestCreatedAt || createdAt.localeCompare(existing.latestCreatedAt) > 0)
+        (!existing.latestCreatedAt ||
+          createdAt.localeCompare(existing.latestCreatedAt) > 0)
       ) {
         existing.latestCreatedAt = createdAt;
         existing.latestInputId = String(row?.id || '');
@@ -638,16 +831,21 @@ export class ClientPayrollMonitoringController {
     }
 
     return Array.from(map.values()).sort((a, b) => {
-      if (b.pendingInputs !== a.pendingInputs) return b.pendingInputs - a.pendingInputs;
-      if (b.approvalQueue !== a.approvalQueue) return b.approvalQueue - a.approvalQueue;
+      if (b.pendingInputs !== a.pendingInputs)
+        return b.pendingInputs - a.pendingInputs;
+      if (b.approvalQueue !== a.approvalQueue)
+        return b.approvalQueue - a.approvalQueue;
       return String(a.branchId).localeCompare(String(b.branchId));
     });
   }
 
   @ApiOperation({ summary: 'List Client Payroll Exceptions' })
   @Get('exceptions')
-  async exceptions(@Req() req: any, @Query() q: any) {
-    const rows = this.toArray(await this.svc.clientListPayrollInputs(req.user, q));
+  async exceptions(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollPeriodQueryDto,
+  ) {
+    const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
     return rows.filter((row) =>
       ['NEEDS_CLARIFICATION', 'REJECTED'].includes(
         String(row?.status || '').toUpperCase(),
@@ -657,8 +855,11 @@ export class ClientPayrollMonitoringController {
 
   @ApiOperation({ summary: 'List Client Pending Payroll Inputs' })
   @Get('pending-inputs')
-  async pendingInputs(@Req() req: any, @Query() q: any) {
-    const rows = this.toArray(await this.svc.clientListPayrollInputs(req.user, q));
+  async pendingInputs(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollPeriodQueryDto,
+  ) {
+    const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
     return rows.filter((row) =>
       ['DRAFT', 'NEEDS_CLARIFICATION', 'REJECTED'].includes(
         String(row?.status || '').toUpperCase(),
@@ -668,9 +869,14 @@ export class ClientPayrollMonitoringController {
 
   @ApiOperation({ summary: 'List Client Payroll Approvals Queue' })
   @Get('approvals')
-  async approvals(@Req() req: any, @Query() q: any) {
-    const rows = this.toArray(await this.svc.clientListPayrollInputs(req.user, q));
-    return rows.filter((row) => String(row?.status || '').toUpperCase() === 'SUBMITTED');
+  async approvals(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollPeriodQueryDto,
+  ) {
+    const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
+    return rows.filter(
+      (row) => String(row?.status || '').toUpperCase() === 'SUBMITTED',
+    );
   }
 }
 
@@ -682,14 +888,14 @@ export class ClientPayrollTemplateController {
 
   @ApiOperation({ summary: 'Get Template Meta' })
   @Get()
-  getTemplateMeta(@Req() req: any) {
-    return this.svc.clientGetPayrollTemplateMeta(req.user);
+  getTemplateMeta(@CurrentUser() user: ReqUser) {
+    return this.svc.clientGetPayrollTemplateMeta(user);
   }
 
   @ApiOperation({ summary: 'Download' })
   @Get('download')
-  async download(@Req() req: any, @Res() res: Response) {
-    const out = await this.svc.clientDownloadPayrollTemplate(req.user);
+  async download(@CurrentUser() user: ReqUser, @Res() res: Response) {
+    const out = await this.svc.clientDownloadPayrollTemplate(user);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -707,14 +913,18 @@ export class ClientRegistersRecordsController {
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  list(@Req() req: any, @Query() q: any) {
-    return this.svc.clientListRegistersRecords(req.user, q);
+  list(@CurrentUser() user: ReqUser, @Query() q: ClientRegistersQueryDto) {
+    return this.svc.clientListRegistersRecords(user, q);
   }
 
   @ApiOperation({ summary: 'Download Registers Pack' })
   @Get('download-pack')
-  async downloadPack(@Req() req: any, @Query() q: any, @Res() res: Response) {
-    await this.svc.streamClientRegistersPack(req.user, q, res);
+  async downloadPack(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientRegistersQueryDto,
+    @Res() res: Response,
+  ) {
+    await this.svc.streamClientRegistersPack(user, q, res);
   }
 
   @ApiOperation({ summary: 'File Interceptor' })
@@ -722,18 +932,22 @@ export class ClientRegistersRecordsController {
   @UseInterceptors(
     FileInterceptor('file', commonUploadOptions('registers-records')),
   )
-  upload(@Req() req: any, @Body() dto: any, @UploadedFile() file: any) {
-    return this.svc.clientUploadRegisterRecord(req.user, dto, file);
+  upload(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: ClientUploadRegisterRecordDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.svc.clientUploadRegisterRecord(user, dto, file);
   }
 
   @ApiOperation({ summary: 'Download' })
   @Get(':id/download')
   async download(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.downloadRegisterForClient(req.user, id);
+    const out = await this.svc.downloadRegisterForClient(user, id);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -752,18 +966,21 @@ export class ClientComponentsEffectiveController {
 
   @ApiOperation({ summary: 'Get Effective Components' })
   @Get(':clientId')
-  getEffectiveComponents(@Req() req: any, @Param('clientId') clientId: string) {
-    return this.svc.getClientEffectiveComponents(req.user, clientId);
+  getEffectiveComponents(
+    @CurrentUser() user: ReqUser,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.svc.getClientEffectiveComponents(user, clientId);
   }
 
   @ApiOperation({ summary: 'Save Effective Components' })
   @Post(':clientId')
   saveEffectiveComponents(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Body() dto: SaveClientComponentsDto,
   ) {
-    return this.svc.saveClientComponentOverrides(req.user, clientId, dto);
+    return this.svc.saveClientComponentOverrides(user, clientId, dto);
   }
 }
 
@@ -776,18 +993,21 @@ export class ClientPayslipLayoutController {
 
   @ApiOperation({ summary: 'Get Payslip Layout' })
   @Get(':clientId')
-  getPayslipLayout(@Req() req: any, @Param('clientId') clientId: string) {
-    return this.svc.getClientPayslipLayout(req.user, clientId);
+  getPayslipLayout(
+    @CurrentUser() user: ReqUser,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.svc.getClientPayslipLayout(user, clientId);
   }
 
   @ApiOperation({ summary: 'Save Payslip Layout' })
   @Post(':clientId')
   savePayslipLayout(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
     @Body() dto: SaveClientPayslipLayoutDto,
   ) {
-    return this.svc.saveClientPayslipLayout(req.user, clientId, dto);
+    return this.svc.saveClientPayslipLayout(user, clientId, dto);
   }
 }
 
@@ -799,14 +1019,17 @@ export class ClientPayrollSettingsController {
 
   @ApiOperation({ summary: 'Get' })
   @Get()
-  get(@Req() req: any) {
-    return this.svc.clientGetPayrollSettings(req.user);
+  get(@CurrentUser() user: ReqUser) {
+    return this.svc.clientGetPayrollSettings(user);
   }
 
   @ApiOperation({ summary: 'Update' })
   @Post()
-  update(@Req() req: any, @Body() dto: any) {
-    return this.svc.clientUpdatePayrollSettings(req.user, dto);
+  update(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: ClientUpdatePayrollSettingsDto,
+  ) {
+    return this.svc.clientUpdatePayrollSettings(user, dto);
   }
 }
 
@@ -819,18 +1042,18 @@ export class AuditorRegistersController {
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  list(@Req() req: any, @Query() q: any) {
-    return this.svc.auditorListRegisters(req.user, q);
+  list(@CurrentUser() user: ReqUser, @Query() q: AuditorRegistersQueryDto) {
+    return this.svc.auditorListRegisters(user, q);
   }
 
   @ApiOperation({ summary: 'Download' })
   @Get(':id/download')
   async download(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const out = await this.svc.downloadRegisterForAuditor(req.user, id);
+    const out = await this.svc.downloadRegisterForAuditor(user, id);
     res.setHeader('Content-Type', out.fileType || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
