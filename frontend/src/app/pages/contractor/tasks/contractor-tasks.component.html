@@ -1,9 +1,18 @@
 ﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    title="Unified Task Center"
-    description="One workspace for compliance tasks, scheduled audits, and reupload requests"
+    title="My Workboard"
+    description="Simple page to upload documents, fix rejected files, and complete audit work"
     icon="clipboard-list">
   </ui-page-header>
+
+  <div class="task-center-card helper-strip">
+    <div class="helper-strip__title">How to use this page</div>
+    <div class="helper-strip__steps">
+      <span>1. Select an item from the left list</span>
+      <span>2. Upload or fix documents on the right side</span>
+      <span>3. Click submit when done</span>
+    </div>
+  </div>
 
   <div class="summary-grid">
     <div
@@ -24,37 +33,37 @@
   <div class="task-center-card filter-panel">
     <div class="filter-grid">
       <label class="filter-field filter-field--search">
-        <span>Search</span>
+        <span>Find Item</span>
         <input autocomplete="off"
           type="text"
           id="ct-search"
           name="search"
           [(ngModel)]="search"
           (ngModelChange)="applyFilters()"
-          placeholder="Task title, reason, branch..." />
+            placeholder="Type task name, branch, or reason..." />
       </label>
 
       <label class="filter-field">
-        <span>Type</span>
+        <span>Work Type</span>
         <select id="ct-type" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
-          <option value="ALL">All</option>
-          <option value="TASK">Tasks</option>
-          <option value="AUDIT">Scheduled audits</option>
-          <option value="REUPLOAD">Reupload requests</option>
+          <option value="ALL">{{ rowTypeLabel('ALL') }}</option>
+          <option value="TASK">{{ rowTypeLabel('TASK') }}</option>
+          <option value="AUDIT">{{ rowTypeLabel('AUDIT') }}</option>
+          <option value="REUPLOAD">{{ rowTypeLabel('REUPLOAD') }}</option>
         </select>
       </label>
 
       <label class="filter-field">
-        <span>Status</span>
+        <span>Current Stage</span>
         <select id="ct-status" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
           <option *ngFor="let status of statusOptions" [value]="status">
-            {{ status }}
+            {{ statusLabel(status) }}
           </option>
         </select>
       </label>
 
       <label class="filter-field">
-        <span>Due</span>
+        <span>Date Filter</span>
         <select id="ct-due" name="dueFilter" [(ngModel)]="dueFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All due dates</option>
           <option value="OVERDUE">Overdue</option>
@@ -64,7 +73,7 @@
       </label>
 
       <label class="filter-field">
-        <span>Branch</span>
+        <span>Location / Branch</span>
         <select id="ct-branch" name="branchFilter" [(ngModel)]="branchFilter" (ngModelChange)="applyFilters()">
           <option value="">All branches</option>
           <option *ngFor="let branch of uniqueBranches" [value]="branch">
@@ -78,13 +87,13 @@
   <ui-loading-spinner
     *ngIf="loading"
     size="lg"
-    text="Loading contractor task center...">
+    text="Loading your workboard...">
   </ui-loading-spinner>
 
   <div *ngIf="!loading" class="task-center-layout">
     <section class="task-center-card list-panel">
       <div class="panel-head">
-        <h3>Task list</h3>
+        <h3>Your Pending Work</h3>
         <span>{{ filteredRows.length }} item(s)</span>
       </div>
 
@@ -101,7 +110,7 @@
               'type-pill--audit': row.rowType === 'AUDIT',
               'type-pill--reupload': row.rowType === 'REUPLOAD'
             }">
-              {{ row.rowType }}
+              {{ rowTypeLabel(row.rowType) }}
             </span>
             <ui-status-badge [status]="row.status"></ui-status-badge>
           </div>
@@ -121,26 +130,31 @@
                }">
             {{ dueText(row) }}
           </div>
+
+          <div class="list-row__hint">{{ nextStepHint(row) }}</div>
         </button>
       </div>
 
       <ng-template #noRows>
         <ui-empty-state
           title="No items found"
-          description="No tasks or reupload requests match current filters.">
+          description="Try changing filters to see your pending work.">
         </ui-empty-state>
       </ng-template>
     </section>
 
     <section class="task-center-card detail-panel" *ngIf="selectedRow; else chooseRow">
       <div class="panel-head">
-        <h3>Detail panel</h3>
-        <span>{{ selectedRow.rowType }}</span>
+        <h3>Step-by-Step Action Area</h3>
+        <span>{{ rowTypeLabel(selectedRow.rowType) }}</span>
       </div>
 
       <ui-loading-spinner *ngIf="detailLoading" size="md" text="Loading detail..."></ui-loading-spinner>
 
       <div *ngIf="!detailLoading && selectedRow.rowType === 'TASK'" class="detail-content">
+        <div class="alert alert--neutral">
+          <strong>What to do:</strong> Start task, upload file, then submit for review.
+        </div>
         <div class="entity-head">
           <h4>{{ selectedRow.title }}</h4>
           <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
@@ -148,8 +162,8 @@
 
         <div class="entity-meta">
           <span>Branch: {{ selectedRow.branchName || '-' }}</span>
-          <span>Due: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
-          <span>Evidence: {{ selectedTaskDetail?.evidenceCount || selectedRow.evidenceCount || 0 }}</span>
+          <span>Last date: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
+          <span>Uploaded files: {{ selectedTaskDetail?.evidenceCount || selectedRow.evidenceCount || 0 }}</span>
         </div>
 
         <div class="alert alert--danger" *ngIf="selectedRow.status === 'REJECTED' && (selectedTaskDetail?.remarks || selectedRow.remarks)">
@@ -174,25 +188,25 @@
         </div>
 
         <div class="action-card">
-          <h5>Upload evidence</h5>
+          <h5>Upload Document</h5>
           <input type="file" id="ct-file" name="taskFile" (change)="onTaskFileSelected($event)" />
           <textarea autocomplete="off"
             id="ct-upload-note"
             name="taskUploadNote"
             [(ngModel)]="taskUploadNote"
             rows="2"
-            placeholder="Optional note for this upload"></textarea>
+            placeholder="Optional note (example: salary sheet for April)"></textarea>
           <button
             type="button"
             class="btn btn--primary"
             [disabled]="actionBusy || !taskUploadFile"
             (click)="uploadTaskEvidence()">
-            Upload file
+            Upload document
           </button>
         </div>
 
         <div class="action-card">
-          <h5>Reply / Comment</h5>
+          <h5>Message to Reviewer (Optional)</h5>
           <textarea autocomplete="off"
             id="ct-reply"
             name="taskReply"
@@ -204,7 +218,7 @@
             class="btn btn--ghost"
             [disabled]="actionBusy || !taskReply.trim()"
             (click)="sendTaskReply()">
-            Post reply
+            Send message
           </button>
         </div>
 
@@ -220,7 +234,7 @@
         </div>
 
         <div class="timeline-block">
-          <h5>History timeline</h5>
+          <h5>Activity History</h5>
           <div *ngIf="selectedTaskHistory.length; else noHistory" class="timeline">
             <div class="timeline-item" *ngFor="let event of selectedTaskHistory">
               <div class="timeline-item__dot"></div>
@@ -240,6 +254,9 @@
       </div>
 
       <div *ngIf="!detailLoading && selectedRow.rowType === 'REUPLOAD'" class="detail-content">
+        <div class="alert alert--warning">
+          <strong>What to do:</strong> Upload corrected file and submit it again.
+        </div>
         <div class="entity-head">
           <h4>{{ selectedRow.title }}</h4>
           <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
@@ -259,7 +276,7 @@
         </div>
 
         <div class="action-card">
-          <h5>Upload replacement</h5>
+          <h5>Upload Corrected File</h5>
           <input type="file" (change)="onReuploadFileSelected($event)" />
           <div class="action-row">
             <button
@@ -267,7 +284,7 @@
               class="btn btn--primary"
               [disabled]="actionBusy || !reuploadFile"
               (click)="uploadReuploadFile()">
-              Upload replacement
+              Upload corrected file
             </button>
             <button
               type="button"
@@ -280,7 +297,7 @@
         </div>
 
         <div class="timeline-block">
-          <h5>Reupload timeline</h5>
+          <h5>Correction History</h5>
           <div *ngIf="selectedTaskHistory.length; else noReuploadHistory" class="timeline">
             <div class="timeline-item" *ngFor="let event of selectedTaskHistory">
               <div class="timeline-item__dot"></div>
@@ -300,6 +317,9 @@
       </div>
 
       <div *ngIf="!detailLoading && selectedRow.rowType === 'AUDIT'" class="detail-content">
+        <div class="alert alert--info">
+          <strong>What to do:</strong> Upload all required compliance documents. If any document is rejected, upload corrected version below.
+        </div>
         <div class="entity-head">
           <h4>{{ selectedRow.title }}</h4>
           <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
@@ -342,36 +362,62 @@
         </div>
 
         <!-- Upload audit compliance documents -->
-        <div class="action-card">
-          <h5>Upload Compliance Documents</h5>
-          <p class="text-sm text-gray-600" style="margin-bottom: 0.75rem;">
-            Upload documents for auditor review (e.g. wage register, PF challans, ESI returns).
+        <div class="action-card action-card--wizard">
+          <h5>Upload Audit Documents (Easy Steps)</h5>
+          <p class="text-sm text-gray-600" style="margin-bottom: 0.25rem;">
+            Do not worry about technical terms. Follow these steps one by one.
           </p>
-          <div class="form-group">
-            <label class="form-label">Document Type <span class="required">*</span></label>
-            <input
-              type="text"
-              class="form-control"
-              placeholder="e.g. Wage Register, PF Challan, ESI Return"
-              [(ngModel)]="auditDocType" />
+
+          <div class="wizard-step">
+            <div class="wizard-step__title">Step 1: Pick document from common checklist</div>
+            <div class="wizard-doc-grid">
+              <button
+                type="button"
+                class="wizard-doc-card"
+                *ngFor="let item of auditDocTemplates"
+                (click)="useAuditDocTemplate(item)">
+                <div class="wizard-doc-card__head">{{ item.label }}</div>
+                <div class="wizard-doc-card__text">{{ item.helpText }}</div>
+                <div class="wizard-doc-card__hint">Use this</div>
+              </button>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Title <span class="required">*</span></label>
-            <input
-              type="text"
-              class="form-control"
-              placeholder="Brief description of this document"
-              [(ngModel)]="auditDocTitle" />
+
+          <div class="wizard-step">
+            <div class="wizard-step__title">Step 2: Fill details and select file</div>
+            <div class="form-group">
+              <label class="form-label">Document Type <span class="required">*</span></label>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Example: WAGE_REGISTER / PF_CHALLAN"
+                [(ngModel)]="auditDocType" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Document Title <span class="required">*</span></label>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Example: PF Challan - Apr 2026"
+                [(ngModel)]="auditDocTitle" />
+            </div>
+            <div class="wizard-file-row">
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onAuditDocFileSelected($event)" />
+              <div class="wizard-file-help">Allowed files: PDF, PNG, JPG, JPEG, XLSX</div>
+            </div>
           </div>
-          <div class="action-row">
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onAuditDocFileSelected($event)" />
-            <button
-              type="button"
-              class="btn btn--primary"
-              [disabled]="auditDocUploading || !auditDocFile || !auditDocType.trim() || !auditDocTitle.trim()"
-              (click)="uploadAuditDocument()">
-              {{ auditDocUploading ? 'Uploading…' : 'Upload Document' }}
-            </button>
+
+          <div class="wizard-step">
+            <div class="wizard-step__title">Step 3: Upload</div>
+            <div class="action-row">
+              <button
+                type="button"
+                class="btn btn--primary"
+                [disabled]="auditDocUploading || !auditDocFile || !auditDocType.trim() || !auditDocTitle.trim()"
+                (click)="uploadAuditDocument()">
+                {{ auditDocUploading ? 'Uploading…' : 'Upload Document Now' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -395,7 +441,7 @@
                   class="btn btn--primary"
                   [disabled]="actionBusy || !auditNcFiles[nc.id]"
                   (click)="uploadAuditNcFile(nc.id)">
-                  Upload corrected document
+                  Upload corrected file
                 </button>
               </div>
             </div>
@@ -415,8 +461,8 @@
   <ng-template #chooseRow>
     <section class="task-center-card detail-panel detail-panel--empty">
       <ui-empty-state
-        title="Select an item"
-        description="Choose a task or reupload request to open detail workflow.">
+        title="Select an item from the left"
+        description="Then follow the simple steps shown here.">
       </ui-empty-state>
     </section>
   </ng-template>

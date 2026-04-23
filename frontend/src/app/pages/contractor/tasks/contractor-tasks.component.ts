@@ -69,6 +69,13 @@ interface AuditNonComplianceRow {
   branchName: string;
 }
 
+interface AuditDocTemplate {
+  label: string;
+  docType: string;
+  titleHint: string;
+  helpText: string;
+}
+
 @Component({
   standalone: true,
   selector: 'app-contractor-tasks',
@@ -135,6 +142,39 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   auditDocType = '';
   auditDocTitle = '';
   auditDocUploading = false;
+
+  readonly auditDocTemplates: AuditDocTemplate[] = [
+    {
+      label: 'Wage Register',
+      docType: 'WAGE_REGISTER',
+      titleHint: 'Wage Register - <Month Year>',
+      helpText: 'Monthly wage sheet signed or approved by your team.',
+    },
+    {
+      label: 'PF Challan',
+      docType: 'PF_CHALLAN',
+      titleHint: 'PF Challan - <Month Year>',
+      helpText: 'Provident Fund challan or payment receipt.',
+    },
+    {
+      label: 'ESI Challan',
+      docType: 'ESI_CHALLAN',
+      titleHint: 'ESI Challan - <Month Year>',
+      helpText: 'ESI payment proof for the selected period.',
+    },
+    {
+      label: 'Attendance Sheet',
+      docType: 'ATTENDANCE_SHEET',
+      titleHint: 'Attendance Sheet - <Month Year>',
+      helpText: 'Attendance register used for payroll processing.',
+    },
+    {
+      label: 'Salary Slip Summary',
+      docType: 'SALARY_SLIP',
+      titleHint: 'Salary Slip Summary - <Month Year>',
+      helpText: 'Salary slip set or payroll summary for workers.',
+    },
+  ];
 
   private pendingTaskIdFromRoute: string | null = null;
 
@@ -536,6 +576,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  useAuditDocTemplate(template: AuditDocTemplate): void {
+    this.auditDocType = template.docType;
+    if (!this.auditDocTitle.trim()) {
+      this.auditDocTitle = template.titleHint;
+    }
+    this.cdr.markForCheck();
+  }
+
   uploadAuditDocument(): void {
     const row = this.selectedRow;
     if (!row || row.rowType !== 'AUDIT' || this.auditDocUploading) return;
@@ -584,6 +632,43 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           err?.error?.message || 'Could not upload audit document.',
         ),
     });
+  }
+
+  rowTypeLabel(type: string): string {
+    const map: Record<string, string> = {
+      ALL: 'All Work',
+      TASK: 'Compliance Task',
+      AUDIT: 'Audit',
+      REUPLOAD: 'Re-upload',
+    };
+    return map[type] ?? type;
+  }
+
+  statusLabel(status: string): string {
+    if (status === 'ALL') return 'All Stages';
+    return status
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  nextStepHint(row: UnifiedWorkRow): string {
+    if (row.rowType === 'TASK') {
+      if (row.status === 'PENDING' || row.status === 'OPEN') return 'Click to start';
+      if (row.status === 'IN_PROGRESS') return 'Upload evidence & submit';
+      if (row.status === 'SUBMITTED') return 'Awaiting review';
+      if (row.status === 'REJECTED' || row.status === 'CORRECTION_PENDING') return 'Correction needed';
+    }
+    if (row.rowType === 'REUPLOAD') {
+      if (row.status === 'OPEN' || row.status === 'PENDING') return 'Upload replacement file';
+      if (row.status === 'SUBMITTED') return 'Awaiting verification';
+    }
+    if (row.rowType === 'AUDIT') {
+      if (row.status === 'PLANNED') return 'Upload your compliance docs';
+      if (row.status === 'IN_PROGRESS') return 'Audit in progress';
+      if (row.status === 'COMPLETED') return 'Audit completed';
+    }
+    return '';
   }
 
   dueText(row: UnifiedWorkRow): string {
@@ -888,6 +973,13 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       } else if (this.statusOptions.includes(qStatus)) {
         this.statusFilter = qStatus;
       }
+    }
+
+    const qType = (this.route.snapshot.queryParamMap.get('type') || '')
+      .trim()
+      .toUpperCase() as 'ALL' | RowType;
+    if (['TASK', 'AUDIT', 'REUPLOAD'].includes(qType)) {
+      this.typeFilter = qType;
     }
 
     const path = this.route.snapshot.routeConfig?.path || '';

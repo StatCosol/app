@@ -198,6 +198,11 @@
   color: #9a3412;
 }
 
+.type-pill--audit {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
 .list-row__title {
   font-size: 0.88rem;
   font-weight: 700;
@@ -279,6 +284,49 @@
   color: #334155;
 }
 
+.alert--info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+// Audit score display
+.audit-score-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.audit-score-circle {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.audit-score-circle--green  { background: #16a34a; }
+.audit-score-circle--amber  { background: #d97706; }
+.audit-score-circle--red    { background: #dc2626; }
+
+.audit-score-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .action-row {
   display: flex;
   gap: 0.6rem;
@@ -320,6 +368,76 @@
   padding: 0.7rem;
   display: grid;
   gap: 0.55rem;
+}
+
+.action-card--wizard {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #dbeafe;
+}
+
+.wizard-step {
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 0.6rem;
+  background: #fff;
+}
+
+.wizard-step__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin-bottom: 0.5rem;
+}
+
+.wizard-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.wizard-doc-card {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 0.7rem;
+  padding: 0.55rem;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.wizard-doc-card:hover {
+  transform: translateY(-1px);
+  border-color: #60a5fa;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
+}
+
+.wizard-doc-card__head {
+  font-size: 0.79rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.wizard-doc-card__text {
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: #475569;
+}
+
+.wizard-doc-card__hint {
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.wizard-file-row {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.wizard-file-help {
+  font-size: 0.72rem;
+  color: #64748b;
 }
 
 .action-card h5,
@@ -427,6 +545,10 @@
 
   .filter-field--search {
     grid-column: span 2;
+  }
+
+  .wizard-doc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
