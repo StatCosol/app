@@ -49,5 +49,21 @@ export class ContractorProfileApiService {
   getContractorDocuments(query: Record<string, any> = {}): Observable<any> {
     return this.http.get('/api/v1/contractor/documents', { params: query });
   }
+
+  uploadAuditDocument(params: {
+    auditId: string;
+    branchId: string;
+    docType: string;
+    title: string;
+    file: File;
+  }): Observable<any> {
+    const form = new FormData();
+    form.append('file', params.file);
+    form.append('auditId', params.auditId);
+    form.append('branchId', params.branchId);
+    form.append('docType', params.docType);
+    form.append('title', params.title);
+    return this.http.post('/api/v1/contractor/documents/upload', form);
+  }
 }
 

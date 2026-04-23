@@ -1,7 +1,7 @@
 ﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     title="Unified Task Center"
-    description="One workspace for compliance tasks and reupload requests"
+    description="One workspace for compliance tasks, scheduled audits, and reupload requests"
     icon="clipboard-list">
   </ui-page-header>
 
@@ -25,8 +25,10 @@
     <div class="filter-grid">
       <label class="filter-field filter-field--search">
         <span>Search</span>
-        <input
+        <input autocomplete="off"
           type="text"
+          id="ct-search"
+          name="search"
           [(ngModel)]="search"
           (ngModelChange)="applyFilters()"
           placeholder="Task title, reason, branch..." />
@@ -34,16 +36,17 @@
 
       <label class="filter-field">
         <span>Type</span>
-        <select [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
+        <select id="ct-type" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All</option>
           <option value="TASK">Tasks</option>
+          <option value="AUDIT">Scheduled audits</option>
           <option value="REUPLOAD">Reupload requests</option>
         </select>
       </label>
 
       <label class="filter-field">
         <span>Status</span>
-        <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+        <select id="ct-status" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
           <option *ngFor="let status of statusOptions" [value]="status">
             {{ status }}
           </option>
@@ -52,7 +55,7 @@
 
       <label class="filter-field">
         <span>Due</span>
-        <select [(ngModel)]="dueFilter" (ngModelChange)="applyFilters()">
+        <select id="ct-due" name="dueFilter" [(ngModel)]="dueFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All due dates</option>
           <option value="OVERDUE">Overdue</option>
           <option value="DUE_TODAY">Due today</option>
@@ -62,7 +65,7 @@
 
       <label class="filter-field">
         <span>Branch</span>
-        <select [(ngModel)]="branchFilter" (ngModelChange)="applyFilters()">
+        <select id="ct-branch" name="branchFilter" [(ngModel)]="branchFilter" (ngModelChange)="applyFilters()">
           <option value="">All branches</option>
           <option *ngFor="let branch of uniqueBranches" [value]="branch">
             {{ branch }}
@@ -93,7 +96,11 @@
           [class.list-row--active]="selectedRow?.id === row.id && selectedRow?.rowType === row.rowType"
           (click)="selectRow(row)">
           <div class="list-row__top">
-            <span class="type-pill" [ngClass]="row.rowType === 'TASK' ? 'type-pill--task' : 'type-pill--reupload'">
+            <span class="type-pill" [ngClass]="{
+              'type-pill--task': row.rowType === 'TASK',
+              'type-pill--audit': row.rowType === 'AUDIT',
+              'type-pill--reupload': row.rowType === 'REUPLOAD'
+            }">
               {{ row.rowType }}
             </span>
             <ui-status-badge [status]="row.status"></ui-status-badge>
@@ -168,8 +175,10 @@
 
         <div class="action-card">
           <h5>Upload evidence</h5>
-          <input type="file" (change)="onTaskFileSelected($event)" />
-          <textarea
+          <input type="file" id="ct-file" name="taskFile" (change)="onTaskFileSelected($event)" />
+          <textarea autocomplete="off"
+            id="ct-upload-note"
+            name="taskUploadNote"
             [(ngModel)]="taskUploadNote"
             rows="2"
             placeholder="Optional note for this upload"></textarea>
@@ -184,7 +193,9 @@
 
         <div class="action-card">
           <h5>Reply / Comment</h5>
-          <textarea
+          <textarea autocomplete="off"
+            id="ct-reply"
+            name="taskReply"
             [(ngModel)]="taskReply"
             rows="3"
             placeholder="Add a reply or clarification"></textarea>
@@ -201,7 +212,7 @@
           <h5>Linked reupload requests</h5>
           <div class="linked-reupload-list">
             <div class="linked-reupload-item" *ngFor="let req of relatedReuploads">
-              <div class="linked-reupload-item__title">Request #{{ req.id.slice(0, 8) }}</div>
+              <div class="linked-reupload-item__title">Request #{{ req.id?.slice(0, 8) }}</div>
               <div class="linked-reupload-item__meta">{{ req.reason || req.remarks || 'No reason' }}</div>
               <ui-status-badge [status]="req.status"></ui-status-badge>
             </div>
@@ -235,7 +246,7 @@
         </div>
 
         <div class="entity-meta">
-          <span>Document: #{{ selectedRow.documentId || '-' }}</span>
+          <span>Task: {{ selectedRow.title || '-' }}</span>
           <span>Deadline: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
           <span>Submitted: {{ selectedRow.submittedAt ? (selectedRow.submittedAt | date: 'medium') : 'Not submitted' }}</span>
         </div>
@@ -286,6 +297,117 @@
             <div class="timeline-empty">No timeline events available.</div>
           </ng-template>
         </div>
+      </div>
+
+      <div *ngIf="!detailLoading && selectedRow.rowType === 'AUDIT'" class="detail-content">
+        <div class="entity-head">
+          <h4>{{ selectedRow.title }}</h4>
+          <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
+        </div>
+
+        <!-- Audit score -->
+        <div class="audit-score-block" *ngIf="selectedRow.score !== null && selectedRow.score !== undefined; else noScore">
+          <div class="audit-score-circle"
+               [ngClass]="{
+                 'audit-score-circle--green': selectedRow.score >= 80,
+                 'audit-score-circle--amber': selectedRow.score >= 60 && selectedRow.score < 80,
+                 'audit-score-circle--red': selectedRow.score < 60
+               }">
+            {{ selectedRow.score | number:'1.0-1' }}%
+          </div>
+          <div class="audit-score-label">Compliance Score</div>
+        </div>
+        <ng-template #noScore>
+          <div class="alert alert--neutral" *ngIf="selectedRow.status !== 'PLANNED'">Score not yet calculated for this audit.</div>
+        </ng-template>
+
+        <!-- Schedule & metadata -->
+        <div class="entity-meta">
+          <span>Client: {{ selectedRow.clientName || '-' }}</span>
+          <span>Branch: {{ selectedRow.branchName || '-' }}</span>
+          <span>Period: {{ selectedRow.periodCode || '-' }}</span>
+          <span>Frequency: {{ selectedRow.frequency || '-' }}</span>
+          <span>Scheduled: {{ selectedRow.scheduledDate ? (selectedRow.scheduledDate | date: 'mediumDate') : '-' }}</span>
+          <span>Due: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
+          <span>Auditor: {{ selectedRow.auditorName || '-' }}</span>
+          <span *ngIf="selectedRow.submittedAt">Submitted: {{ selectedRow.submittedAt | date: 'mediumDate' }}</span>
+        </div>
+
+        <div class="alert alert--neutral" *ngIf="selectedRow.remarks">
+          <strong>Notes from CRM:</strong> {{ selectedRow.remarks }}
+        </div>
+
+        <div class="alert alert--info" *ngIf="selectedRow.finalRemark">
+          <strong>Auditor final remark:</strong> {{ selectedRow.finalRemark }}
+        </div>
+
+        <!-- Upload audit compliance documents -->
+        <div class="action-card">
+          <h5>Upload Compliance Documents</h5>
+          <p class="text-sm text-gray-600" style="margin-bottom: 0.75rem;">
+            Upload documents for auditor review (e.g. wage register, PF challans, ESI returns).
+          </p>
+          <div class="form-group">
+            <label class="form-label">Document Type <span class="required">*</span></label>
+            <input
+              type="text"
+              class="form-control"
+              placeholder="e.g. Wage Register, PF Challan, ESI Return"
+              [(ngModel)]="auditDocType" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Title <span class="required">*</span></label>
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Brief description of this document"
+              [(ngModel)]="auditDocTitle" />
+          </div>
+          <div class="action-row">
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onAuditDocFileSelected($event)" />
+            <button
+              type="button"
+              class="btn btn--primary"
+              [disabled]="auditDocUploading || !auditDocFile || !auditDocType.trim() || !auditDocTitle.trim()"
+              (click)="uploadAuditDocument()">
+              {{ auditDocUploading ? 'Uploading…' : 'Upload Document' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- NC correction uploads -->
+        <div class="action-card" *ngIf="auditNonCompliances.length; else noAuditNc">
+          <h5>Documents requiring correction ({{ auditNonCompliances.length }})</h5>
+          <div class="linked-reupload-list">
+            <div class="linked-reupload-item" *ngFor="let nc of auditNonCompliances">
+              <div class="entity-head">
+                <h5>{{ nc.documentName }}</h5>
+                <ui-status-badge [status]="nc.status"></ui-status-badge>
+              </div>
+              <div class="linked-reupload-item__meta">Raised: {{ nc.raisedAt ? (nc.raisedAt | date: 'medium') : '—' }}</div>
+              <div class="alert alert--warning" *ngIf="nc.remark">
+                <strong>Auditor remark:</strong> {{ nc.remark }}
+              </div>
+              <div class="action-row">
+                <input type="file" (change)="onAuditNcFileSelected($event, nc.id)" />
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  [disabled]="actionBusy || !auditNcFiles[nc.id]"
+                  (click)="uploadAuditNcFile(nc.id)">
+                  Upload corrected document
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #noAuditNc>
+          <div class="alert alert--neutral">
+            <strong>No corrections pending.</strong>
+            If the auditor marks any documents as non-compliant, they will appear here for you to upload corrected versions.
+          </div>
+        </ng-template>
       </div>
     </section>
   </div>

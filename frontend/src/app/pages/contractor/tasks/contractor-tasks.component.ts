@@ -12,6 +12,8 @@ import { Subject, forkJoin } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
 import { ComplianceService } from '../../../core/compliance.service';
+import { AuditsService } from '../../../core/audits.service';
+import { ContractorProfileApiService } from '../../../core/contractor-profile-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   EmptyStateComponent,
@@ -20,7 +22,7 @@ import {
   StatusBadgeComponent,
 } from '../../../shared/ui';
 
-type RowType = 'TASK' | 'REUPLOAD';
+type RowType = 'TASK' | 'REUPLOAD' | 'AUDIT';
 
 interface UnifiedWorkRow {
   id: string;
@@ -37,6 +39,14 @@ interface UnifiedWorkRow {
   submittedAt?: string | null;
   updatedAt?: string | null;
   evidenceCount?: number;
+  // Audit-specific
+  score?: number | null;
+  auditorName?: string;
+  periodCode?: string;
+  frequency?: string;
+  finalRemark?: string;
+  scheduledDate?: string | null;
+  branchId?: string | null;
 }
 
 interface TimelineEvent {
@@ -45,6 +55,18 @@ interface TimelineEvent {
   description: string;
   at: string;
   status?: string;
+}
+
+interface AuditNonComplianceRow {
+  id: string;
+  auditId: string;
+  documentName: string;
+  remark: string;
+  status: string;
+  raisedAt: string | null;
+  auditCode: string;
+  auditType: string;
+  branchName: string;
 }
 
 @Component({
@@ -73,6 +95,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   selectedTaskDetail: any = null;
   selectedTaskHistory: TimelineEvent[] = [];
   relatedReuploads: UnifiedWorkRow[] = [];
+  auditNonCompliances: AuditNonComplianceRow[] = [];
 
   loading = false;
   detailLoading = false;
@@ -95,17 +118,30 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     'APPROVED',
     'REVERIFIED',
     'CLOSED',
+    'PLANNED',
+    'COMPLETED',
+    'CORRECTION_PENDING',
+    'REVERIFICATION_PENDING',
   ];
 
   taskUploadFile: File | null = null;
   taskUploadNote = '';
   taskReply = '';
   reuploadFile: File | null = null;
+  auditNcFiles: Record<string, File | null> = {};
+
+  // Audit primary document upload
+  auditDocFile: File | null = null;
+  auditDocType = '';
+  auditDocTitle = '';
+  auditDocUploading = false;
 
   private pendingTaskIdFromRoute: string | null = null;
 
   constructor(
     private api: ComplianceService,
+    private auditsApi: AuditsService,
+    private contractorProfileApi: ContractorProfileApiService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
     private toast: ToastService,
@@ -135,6 +171,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     forkJoin({
       tasks: this.api.getContractorTasks({}),
       reuploads: this.api.contractorGetReuploadRequests({}),
+      audits: this.auditsApi.contractorListAudits({}),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -144,15 +181,18 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: ({ tasks, reuploads }) => {
+        next: ({ tasks, reuploads, audits }) => {
           const taskRows = this.toArray(tasks).map((t: any) =>
             this.mapTaskRow(t),
           );
           const reuploadRows = this.toArray(reuploads).map((r: any) =>
             this.mapReuploadRow(r),
           );
+          const auditRows = this.toArray(audits).map((a: any) =>
+            this.mapAuditRow(a),
+          );
 
-          this.allRows = [...taskRows, ...reuploadRows].sort(
+          this.allRows = [...taskRows, ...reuploadRows, ...auditRows].sort(
             (a, b) => this.dateValue(a.dueDate) - this.dateValue(b.dueDate),
           );
           this.applyFilters();
@@ -229,14 +269,25 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     this.taskUploadNote = '';
     this.taskReply = '';
     this.reuploadFile = null;
+    this.auditNcFiles = {};
 
     if (row.rowType === 'TASK') {
+      this.auditNonCompliances = [];
       this.loadTaskDetail(row.id);
+      return;
+    }
+
+    if (row.rowType === 'AUDIT') {
+      this.selectedTaskDetail = null;
+      this.relatedReuploads = [];
+      this.selectedTaskHistory = [];
+      this.loadAuditNonCompliances(row.id);
       return;
     }
 
     this.selectedTaskDetail = null;
     this.relatedReuploads = [];
+    this.auditNonCompliances = [];
     this.selectedTaskHistory = this.buildReuploadTimeline(row);
     this.cdr.markForCheck();
   }
@@ -439,6 +490,102 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onAuditNcFileSelected(event: Event, ncId: string): void {
+    const file = (event.target as HTMLInputElement)?.files?.[0] || null;
+    this.auditNcFiles[ncId] = file;
+    this.cdr.markForCheck();
+  }
+
+  uploadAuditNcFile(ncId: string): void {
+    const file = this.auditNcFiles[ncId] || null;
+    if (!this.selectedRow || this.selectedRow.rowType !== 'AUDIT' || !file || this.actionBusy) {
+      return;
+    }
+
+    this.actionBusy = true;
+    this.auditsApi
+      .contractorUploadCorrectedFile(ncId, file)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('File uploaded', 'Corrected audit document uploaded.');
+          delete this.auditNcFiles[ncId];
+          this.loadAuditNonCompliances(this.selectedRow!.id, true);
+          this.load();
+        },
+        error: (err: any) =>
+          this.toast.error(
+            'Upload failed',
+            err?.error?.message || 'Could not upload corrected audit document.',
+          ),
+      });
+  }
+
+  onAuditDocFileSelected(event: Event): void {
+    const file = (event.target as HTMLInputElement)?.files?.[0] || null;
+    this.auditDocFile = file;
+    if (file && !this.auditDocTitle) {
+      this.auditDocTitle = file.name.replace(/\.[^.]+$/, '');
+    }
+    this.cdr.markForCheck();
+  }
+
+  uploadAuditDocument(): void {
+    const row = this.selectedRow;
+    if (!row || row.rowType !== 'AUDIT' || this.auditDocUploading) return;
+    if (!this.auditDocFile) {
+      this.toast.error('Select a file to upload');
+      return;
+    }
+    if (!this.auditDocType.trim()) {
+      this.toast.error('Document type is required');
+      return;
+    }
+    if (!this.auditDocTitle.trim()) {
+      this.toast.error('Document title is required');
+      return;
+    }
+    if (!row.branchId) {
+      this.toast.error('Audit has no branch linked — cannot upload');
+      return;
+    }
+
+    this.auditDocUploading = true;
+    this.cdr.markForCheck();
+    this.contractorProfileApi.uploadAuditDocument({
+      auditId: row.id,
+      branchId: row.branchId,
+      docType: this.auditDocType.trim(),
+      title: this.auditDocTitle.trim(),
+      file: this.auditDocFile,
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.auditDocUploading = false;
+        this.cdr.markForCheck();
+      }),
+    ).subscribe({
+      next: () => {
+        this.toast.success('Document uploaded', 'Audit document uploaded for review.');
+        this.auditDocFile = null;
+        this.auditDocType = '';
+        this.auditDocTitle = '';
+        this.cdr.markForCheck();
+      },
+      error: (err: any) =>
+        this.toast.error(
+          'Upload failed',
+          err?.error?.message || 'Could not upload audit document.',
+        ),
+    });
+  }
+
   dueText(row: UnifiedWorkRow): string {
     if (!row.dueDate) return 'No due date';
     const due = new Date(row.dueDate);
@@ -539,6 +686,36 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       });
   }
 
+  private loadAuditNonCompliances(auditId: string, silent = false): void {
+    this.detailLoading = !silent;
+    this.auditsApi
+      .contractorListNonCompliances()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.detailLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          const allRows = this.toArray(rows).map((row: any) =>
+            this.mapAuditNcRow(row),
+          );
+          this.auditNonCompliances = allRows.filter(
+            (row: AuditNonComplianceRow) => row.auditId === auditId,
+          );
+        },
+        error: (err: any) => {
+          this.auditNonCompliances = [];
+          this.toast.error(
+            'Detail failed',
+            err?.error?.message || 'Could not load audit non-compliances.',
+          );
+        },
+      });
+  }
+
   private buildReuploadTimeline(row: UnifiedWorkRow): TimelineEvent[] {
     const events: TimelineEvent[] = [];
     if (row.createdAt) {
@@ -623,6 +800,54 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     };
   }
 
+  private mapAuditRow(audit: any): UnifiedWorkRow {
+    const branchName = this.firstDefined(audit?.branch?.branchName, audit?.branchName, '-');
+    const auditCode = this.firstDefined(audit?.auditCode, audit?.id, 'Audit');
+    const auditType = this.firstDefined(audit?.auditType, 'CONTRACTOR_AUDIT');
+    const periodCode = this.firstDefined(audit?.periodCode, String(audit?.periodYear || ''), '');
+    const auditorFirst = audit?.assignedAuditor?.firstName || '';
+    const auditorLast = audit?.assignedAuditor?.lastName || '';
+    const auditorName = [auditorFirst, auditorLast].filter(Boolean).join(' ') ||
+      (this.firstDefined(audit?.auditorName, '') as string) || '-';
+    const rawScore = audit?.score;
+    const score = rawScore !== null && rawScore !== undefined ? Number(rawScore) : null;
+    return {
+      id: String(audit?.id || ''),
+      rowType: 'AUDIT',
+      title: `${auditCode} — ${auditType}${periodCode ? ' (' + periodCode + ')' : ''}`,
+      status: this.normalizeStatus(audit?.status || 'PLANNED'),
+      dueDate: this.firstDefined(audit?.scheduledDate, audit?.scheduled_date, audit?.dueDate, audit?.due_date, null),
+      scheduledDate: this.firstDefined(audit?.scheduledDate, audit?.scheduled_date, null),
+      branchName: String(branchName || '-'),
+      clientName: this.firstDefined(audit?.client?.clientName, audit?.clientName, '-') as string,
+      reason: this.firstDefined(audit?.notes, ''),
+      remarks: this.firstDefined(audit?.notes, ''),
+      score,
+      auditorName,
+      periodCode: String(periodCode || ''),
+      frequency: this.firstDefined(audit?.frequency, '') as string,
+      finalRemark: this.firstDefined(audit?.finalRemark, audit?.final_remark, '') as string,
+      createdAt: this.firstDefined(audit?.createdAt, audit?.created_at, null),
+      submittedAt: this.firstDefined(audit?.submittedAt, audit?.submitted_at, null),
+      updatedAt: this.firstDefined(audit?.updatedAt, audit?.updated_at, null),
+      branchId: this.firstDefined(audit?.branchId, audit?.branch_id, null),
+    };
+  }
+
+  private mapAuditNcRow(row: any): AuditNonComplianceRow {
+    return {
+      id: String(this.firstDefined(row?.id, '')),
+      auditId: String(this.firstDefined(row?.auditId, row?.audit_id, '')),
+      documentName: String(this.firstDefined(row?.documentName, 'Document')),
+      remark: String(this.firstDefined(row?.remark, '')),
+      status: this.normalizeStatus(row?.status || 'OPEN'),
+      raisedAt: this.firstDefined(row?.raisedAt, row?.raised_at, null),
+      auditCode: String(this.firstDefined(row?.auditCode, '-')),
+      auditType: String(this.firstDefined(row?.auditType, '-')),
+      branchName: String(this.firstDefined(row?.branchName, '-')),
+    };
+  }
+
   private tryRestoreSelection(): void {
     if (this.pendingTaskIdFromRoute) {
       this.selectFromRouteId(this.pendingTaskIdFromRoute);
@@ -689,9 +914,16 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private isOpenStatus(status: string): boolean {
-    return ['OPEN', 'PENDING', 'IN_PROGRESS', 'REJECTED', 'OVERDUE'].includes(
-      status,
-    );
+    return [
+      'OPEN',
+      'PENDING',
+      'IN_PROGRESS',
+      'REJECTED',
+      'OVERDUE',
+      'PLANNED',
+      'CORRECTION_PENDING',
+      'REVERIFICATION_PENDING',
+    ].includes(status);
   }
 
   private isOverdueStatus(status: string, dueDate: string | null): boolean {
