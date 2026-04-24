@@ -16,7 +16,8 @@ export type ReturnStatus =
   | 'IN_PROGRESS'
   | 'SUBMITTED'
   | 'APPROVED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'NOT_APPLICABLE';
 
 @Entity({ name: 'compliance_returns' })
 @Index(['clientId', 'branchId', 'periodYear', 'periodMonth'])
@@ -50,7 +51,7 @@ export class ComplianceReturnEntity {
   @Column({ name: 'period_month', type: 'int', nullable: true })
   periodMonth!: number | null;
 
-  @Column({ name: 'period_label', type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'period_label', type: 'varchar', length: 200, nullable: true })
   periodLabel!: string | null;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
@@ -86,8 +87,19 @@ export class ComplianceReturnEntity {
   @Column({ name: 'challan_file_path', type: 'text', nullable: true })
   challanFilePath!: string | null;
 
+  @Column({
+    name: 'created_by_role',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  createdByRole!: string | null;
+
   @Column({ name: 'crm_owner', type: 'varchar', length: 150, nullable: true })
   crmOwner!: string | null;
+
+  @Column({ name: 'status_change_reason', type: 'text', nullable: true })
+  statusChangeReason!: string | null;
 
   @Column({ name: 'crm_last_reminder_at', type: 'timestamptz', nullable: true })
   crmLastReminderAt!: Date | null;
@@ -97,6 +109,15 @@ export class ComplianceReturnEntity {
 
   @Column({ name: 'crm_last_note_at', type: 'timestamptz', nullable: true })
   crmLastNoteAt!: Date | null;
+
+  @Column({ name: 'uploaded_by_role', type: 'varchar', length: 20, nullable: true })
+  uploadedByRole!: string | null;
+
+  @Column({ name: 'acting_on_behalf', type: 'boolean', default: false })
+  actingOnBehalf!: boolean;
+
+  @Column({ name: 'original_owner_role', type: 'varchar', length: 20, nullable: true })
+  originalOwnerRole!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

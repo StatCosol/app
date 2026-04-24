@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull, EntityManager } from 'typeorm';
+import { Repository, DataSource, IsNull, EntityManager, FindOptionsWhere } from 'typeorm';
 import {
   ClientAssignmentCurrentEntity,
   AssignmentType,
@@ -15,6 +15,7 @@ import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { UsersService } from '../users/users.service';
 import { ClientsService } from '../clients/clients.service';
+import { ClientEntity } from '../clients/entities/client.entity';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { BranchEntity } from '../branches/entities/branch.entity';
 
@@ -77,23 +78,27 @@ export class AssignmentsService {
     assignmentType: AssignmentType,
     userId: string | null,
   ) {
-    const col =
-      assignmentType === 'CRM' ? 'assigned_crm_id' : 'assigned_auditor_id';
-    await manager.query(`UPDATE clients SET ${col} = $1 WHERE id = $2`, [
+    const ALLOWED_COLS: Record<string, string> = {
+      CRM: 'assigned_crm_id',
+      AUDITOR: 'assigned_auditor_id',
+    };
+    const col = ALLOWED_COLS[assignmentType];
+    if (!col) return; // unknown type — skip silently
+    await manager.query(`UPDATE clients SET "${col}" = $1 WHERE id = $2`, [
       userId,
       clientId,
     ]);
   }
 
   async getCurrent(clientId: string, assignmentType?: AssignmentType) {
-    const where: any = { clientId };
+    const where: FindOptionsWhere<ClientAssignmentCurrentEntity> = { clientId };
     if (assignmentType) where.assignmentType = assignmentType;
     return this.currentRepo.find({ where, order: { assignmentType: 'ASC' } });
   }
 
   async getHistory(clientId: string, assignmentType?: AssignmentType) {
     try {
-      const where: any = { clientId };
+      const where: FindOptionsWhere<ClientAssignmentHistoryEntity> = { clientId };
       if (assignmentType) where.assignmentType = assignmentType;
       return await this.historyRepo.find({
         where,
@@ -182,7 +187,7 @@ export class AssignmentsService {
           clientId: input.clientId,
           assignmentType: input.assignmentType,
           assignedToUserId: null,
-        } as any;
+        } as unknown as ClientAssignmentCurrentEntity;
       }
 
       // Upsert current assignment
@@ -197,7 +202,7 @@ export class AssignmentsService {
         .createQueryBuilder()
         .insert()
         .into(ClientAssignmentCurrentEntity)
-        .values(upsert as any)
+        .values(upsert)
         .orUpdate(
           ['assigned_to_user_id', 'start_date', 'updated_at'],
           ['client_id', 'assignment_type'],
@@ -230,7 +235,7 @@ export class AssignmentsService {
       performedRole: input.actorRole ?? null,
       reason: input.changeReason,
       beforeJson: null,
-      afterJson: after,
+      afterJson: after as unknown as Record<string, unknown>,
     });
 
     return after;
@@ -353,41 +358,69 @@ export class AssignmentsService {
   }
 
   async getCurrentAssignmentsGrouped() {
-    const rows = await this.currentRepo.find({
-      order: { clientId: 'ASC', assignmentType: 'ASC' },
-    });
+    const rows: Array<{
+      client_id: string;
+      client_name: string;
+      assignment_type: string;
+      assigned_to_user_id: string | null;
+      user_name: string | null;
+      start_date: Date | null;
+    }> = await this.dataSource.query(`
+      SELECT
+        ca.client_id,
+        c.client_name,
+        ca.assignment_type,
+        ca.assigned_to_user_id,
+        u.name AS user_name,
+        ca.start_date
+      FROM client_assignments_current ca
+      JOIN clients c ON c.id = ca.client_id
+      LEFT JOIN users u ON u.id = ca.assigned_to_user_id
+      ORDER BY ca.client_id, ca.assignment_type
+    `);
 
     const map = new Map<
       string,
       {
         clientId: string;
+        clientName: string;
         crmId: string | null;
+        crmName: string | null;
         auditorId: string | null;
+        auditorName: string | null;
         startDate: Date | null;
         status: 'ASSIGNED' | 'PENDING';
       }
     >();
 
     for (const r of rows) {
-      if (!map.has(r.clientId)) {
-        map.set(r.clientId, {
-          clientId: r.clientId,
+      if (!map.has(r.client_id)) {
+        map.set(r.client_id, {
+          clientId: r.client_id,
+          clientName: r.client_name || r.client_id,
           crmId: null,
+          crmName: null,
           auditorId: null,
-          startDate: r.startDate ?? null,
+          auditorName: null,
+          startDate: r.start_date ?? null,
           status: 'PENDING',
         });
       }
 
-      const rec = map.get(r.clientId)!;
+      const rec = map.get(r.client_id)!;
 
-      if (r.startDate && (!rec.startDate || r.startDate < rec.startDate)) {
-        rec.startDate = r.startDate;
+      if (r.start_date && (!rec.startDate || r.start_date < rec.startDate)) {
+        rec.startDate = r.start_date;
       }
 
-      if (r.assignmentType === 'CRM') rec.crmId = r.assignedToUserId ?? null;
-      if (r.assignmentType === 'AUDITOR')
-        rec.auditorId = r.assignedToUserId ?? null;
+      if (r.assignment_type === 'CRM') {
+        rec.crmId = r.assigned_to_user_id ?? null;
+        rec.crmName = r.user_name ?? null;
+      }
+      if (r.assignment_type === 'AUDITOR') {
+        rec.auditorId = r.assigned_to_user_id ?? null;
+        rec.auditorName = r.user_name ?? null;
+      }
 
       rec.status = rec.crmId || rec.auditorId ? 'ASSIGNED' : 'PENDING';
     }
@@ -398,7 +431,7 @@ export class AssignmentsService {
 
   async getAssignmentHistory(clientId?: string) {
     try {
-      const where: any = {};
+      const where: FindOptionsWhere<ClientAssignmentHistoryEntity> = {};
       if (clientId) where.clientId = clientId;
       return await this.historyRepo.find({
         where,
@@ -421,10 +454,20 @@ export class AssignmentsService {
     });
 
     // Resolve names best-effort (do not fail the whole API if a row points to a deleted record)
-    const out: any[] = [];
+    const out: Array<{
+      id: string;
+      clientId: string;
+      clientName: string | null;
+      assignmentType: AssignmentType;
+      assignedToUserId: string | null;
+      assignedToName: string | null;
+      startDate: Date | null;
+      endDate: null;
+      status: string;
+    }> = [];
     for (const r of rows) {
-      let client: any = null;
-      let assignedTo: any = null;
+      let client: ClientEntity | null = null;
+      let assignedTo: { name: string } | null = null;
       try {
         client = await this.clientsService.getOrFail(r.clientId);
       } catch (_) {
@@ -441,7 +484,7 @@ export class AssignmentsService {
       out.push({
         id: r.id,
         clientId: r.clientId,
-        clientName: client?.clientName ?? client?.name ?? null,
+        clientName: client?.clientName ?? null,
         assignmentType: r.assignmentType,
         assignedToUserId: r.assignedToUserId ?? null,
         assignedToName: assignedTo?.name ?? null,
@@ -458,7 +501,7 @@ export class AssignmentsService {
     const currents = await this.currentRepo.find({
       where: { assignmentType: 'CRM', assignedToUserId: userId },
     });
-    const clients: any[] = [];
+    const clients: ClientEntity[] = [];
     for (const c of currents) {
       try {
         const client = await this.clientsService.getOrFail(c.clientId);
@@ -475,12 +518,24 @@ export class AssignmentsService {
     const currents = await this.currentRepo.find({
       where: { assignmentType: 'AUDITOR', assignedToUserId: userId },
     });
-    const clients: any[] = [];
-    for (const c of currents) {
+
+    const branchAssignments = await this.branchAuditorRepo.find({
+      where: { auditorUserId: userId, isActive: true },
+      select: ['clientId'],
+    });
+
+    const clientIds = new Set<string>([
+      ...currents.map((c) => String(c.clientId)),
+      ...branchAssignments.map((b) => String(b.clientId)),
+    ]);
+
+    const clients: ClientEntity[] = [];
+    for (const clientId of clientIds) {
       try {
-        const client = await this.clientsService.getOrFail(c.clientId);
-        if (client.status === 'ACTIVE' && !client.isDeleted)
+        const client = await this.clientsService.getOrFail(clientId);
+        if (client.status === 'ACTIVE' && !client.isDeleted) {
           clients.push(client);
+        }
       } catch (_) {
         // ignore missing
       }
@@ -539,7 +594,7 @@ export class AssignmentsService {
     branchId?: string;
     activeOnly?: boolean;
   }) {
-    const where: any = {};
+    const where: FindOptionsWhere<BranchAuditorAssignmentEntity> = {};
     if (filters?.clientId) where.clientId = filters.clientId;
     if (filters?.auditorUserId) where.auditorUserId = filters.auditorUserId;
     if (filters?.branchId) where.branchId = filters.branchId;
@@ -555,9 +610,9 @@ export class AssignmentsService {
       id: r.id,
       clientId: r.clientId,
       branchId: r.branchId,
-      branchName: (r as any).branch?.branchName ?? null,
+      branchName: r.branch?.branchName ?? null,
       auditorUserId: r.auditorUserId,
-      auditorName: (r as any).auditorUser?.name ?? null,
+      auditorName: r.auditorUser?.name ?? null,
       startDate: r.startDate,
       endDate: r.endDate,
       isActive: r.isActive,
@@ -622,16 +677,16 @@ export class AssignmentsService {
       // Audit log (best effort)
       try {
         await this.auditLogs.log({
-          actorUserId: input.actorUserId ?? null,
-          actorRole: input.actorRole ?? null,
-          action: 'ASSIGN_AUDITOR_TO_BRANCH',
+          performedBy: input.actorUserId ?? null,
+          performedRole: input.actorRole ?? null,
+          action: 'ASSIGN',
           entityType: 'BRANCH',
           entityId: input.branchId,
           meta: {
             clientId: input.clientId,
             auditorUserId: input.auditorUserId,
           },
-        } as any);
+        });
       } catch (_) {
         // Audit log is best-effort; ignore failures
       }
@@ -656,13 +711,13 @@ export class AssignmentsService {
 
     try {
       await this.auditLogs.log({
-        actorUserId: actor?.actorUserId ?? null,
-        actorRole: actor?.actorRole ?? null,
-        action: 'END_BRANCH_AUDITOR_ASSIGNMENT',
+        performedBy: actor?.actorUserId ?? null,
+        performedRole: actor?.actorRole ?? null,
+        action: 'UNASSIGN',
         entityType: 'BRANCH',
         entityId: row.branchId,
         meta: { assignmentId: id },
-      } as any);
+      });
     } catch (_) {
       // Audit log is best-effort; ignore failures
     }
@@ -679,9 +734,9 @@ export class AssignmentsService {
 
     return rows.map((r) => ({
       clientId: r.clientId,
-      clientName: (r as any).client?.clientName ?? null,
+      clientName: r.client?.clientName ?? null,
       branchId: r.branchId,
-      branchName: (r as any).branch?.branchName ?? null,
+      branchName: r.branch?.branchName ?? null,
     }));
   }
 }

@@ -35,7 +35,7 @@
 - Configure SPF/DKIM/DMARC on your domain to reduce spam flagging.
 
 ## 5. Cron Jobs & Scheduled Tasks
-- Ensure the main app process (the one running `node dist/main`) is long-lived (pm2, systemd, Docker, or Kubernetes).
+- Ensure the main app process (the one running `node dist/src/main.js`) is long-lived (pm2, systemd, Docker, or Kubernetes).
 - Verify the following scheduled jobs execute in production:
   - Assignment rotation.
   - Overdue marking + notifications.

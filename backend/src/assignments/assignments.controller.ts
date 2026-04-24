@@ -5,7 +5,6 @@ import {
   Body,
   Query,
   UseGuards,
-  Request,
   Patch,
   Param,
   Delete,
@@ -21,6 +20,8 @@ import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { ChangeAssignmentDto } from './dto/change-assignment.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Assignments')
 @ApiBearerAuth('JWT')
@@ -49,14 +50,14 @@ export class AssignmentsController {
   @Post('crm')
   async assignCrmCompat(
     @Body() body: { clientId: string; crmId: string },
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.assignmentsService.changeAssignment({
       clientId: body.clientId,
       assignmentType: 'CRM',
       assignedToUserId: body.crmId,
-      actorUserId: req.user?.userId ?? null,
-      actorRole: req.user?.roleCode ?? null,
+      actorUserId: user?.userId ?? null,
+      actorRole: user?.roleCode ?? null,
       changeReason: 'MANUAL',
     });
   }
@@ -71,14 +72,14 @@ export class AssignmentsController {
   @Post('auditor')
   async assignAuditorCompat(
     @Body() body: { clientId: string; auditorId: string },
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.assignmentsService.changeAssignment({
       clientId: body.clientId,
       assignmentType: 'AUDITOR',
       assignedToUserId: body.auditorId,
-      actorUserId: req.user?.userId ?? null,
-      actorRole: req.user?.roleCode ?? null,
+      actorUserId: user?.userId ?? null,
+      actorRole: user?.roleCode ?? null,
       changeReason: 'MANUAL',
     });
   }
@@ -106,14 +107,14 @@ export class AssignmentsController {
   @Post('branch-auditors')
   async assignAuditorToBranch(
     @Body() body: { clientId: string; branchId: string; auditorId: string },
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.assignmentsService.assignAuditorToBranch({
       clientId: body.clientId,
       branchId: body.branchId,
       auditorUserId: body.auditorId,
-      actorUserId: req.user?.userId ?? null,
-      actorRole: req.user?.roleCode ?? null,
+      actorUserId: user?.userId ?? null,
+      actorRole: user?.roleCode ?? null,
     });
   }
 
@@ -121,11 +122,11 @@ export class AssignmentsController {
   @Delete('branch-auditors/:id')
   async endBranchAuditor(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.assignmentsService.endBranchAuditorAssignment(id, {
-      actorUserId: req.user?.userId ?? null,
-      actorRole: req.user?.roleCode ?? null,
+      actorUserId: user?.userId ?? null,
+      actorRole: user?.roleCode ?? null,
     });
   }
 
@@ -138,12 +139,12 @@ export class AssignmentsController {
 
   @ApiOperation({ summary: 'Create' })
   @Post()
-  async create(@Body() dto: CreateAssignmentDto, @Request() req) {
+  async create(@Body() dto: CreateAssignmentDto, @CurrentUser() user: ReqUser) {
     this.logger.log('POST /api/admin/assignments', dto);
     return this.assignmentsService.createAssignment(
       dto,
-      req.user.userId,
-      req.user.roleCode,
+      user.userId,
+      user.roleCode,
     );
   }
 
@@ -152,13 +153,13 @@ export class AssignmentsController {
   async updateAssignment(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Body() dto: CreateAssignmentDto,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.assignmentsService.updateAssignment(
       clientId,
       dto,
-      req.user?.userId ?? null,
-      req.user?.roleCode ?? null,
+      user?.userId ?? null,
+      user?.roleCode ?? null,
     );
   }
 
@@ -199,30 +200,25 @@ export class AssignmentsController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAssignmentDto,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.assignmentsService.update(
-      id,
-      dto,
-      req.user.userId,
-      req.user.roleCode,
-    );
+    return this.assignmentsService.update(id, dto, user.userId, user.roleCode);
   }
 
   @ApiOperation({ summary: 'Unassign Client' })
   @Delete(':clientId')
   async unassignClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    const actorUserId = req.user?.userId ?? null;
+    const actorUserId = user?.userId ?? null;
 
     await this.assignmentsService.changeAssignment({
       clientId,
       assignmentType: 'CRM',
       assignedToUserId: null,
       actorUserId,
-      actorRole: req.user?.roleCode ?? null,
+      actorRole: user?.roleCode ?? null,
       changeReason: 'UNASSIGN',
     });
 
@@ -231,7 +227,7 @@ export class AssignmentsController {
       assignmentType: 'AUDITOR',
       assignedToUserId: null,
       actorUserId,
-      actorRole: req.user?.roleCode ?? null,
+      actorRole: user?.roleCode ?? null,
       changeReason: 'UNASSIGN',
     });
 
@@ -244,14 +240,14 @@ export class AssignmentsController {
   async change(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Body() dto: ChangeAssignmentDto,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.assignmentsService.changeAssignment({
       clientId,
       assignmentType: dto.assignmentType,
       assignedToUserId: dto.assignedToUserId,
-      actorUserId: req.user?.userId ?? null,
-      actorRole: req.user?.roleCode ?? null,
+      actorUserId: user?.userId ?? null,
+      actorRole: user?.roleCode ?? null,
       changeReason: dto.changeReason,
     });
   }
@@ -265,8 +261,8 @@ export class CrmClientsController {
 
   @ApiOperation({ summary: 'Get Assigned' })
   @Get('assigned')
-  async getAssigned(@Request() req) {
-    return this.assignmentsService.getAssignedClientsForCrm(req.user.userId);
+  async getAssigned(@CurrentUser() user: ReqUser) {
+    return this.assignmentsService.getAssignedClientsForCrm(user.userId);
   }
 }
 
@@ -278,9 +274,7 @@ export class AuditorClientsController {
 
   @ApiOperation({ summary: 'Get Assigned' })
   @Get('assigned')
-  async getAssigned(@Request() req) {
-    return this.assignmentsService.getAssignedClientsForAuditor(
-      req.user.userId,
-    );
+  async getAssigned(@CurrentUser() user: ReqUser) {
+    return this.assignmentsService.getAssignedClientsForAuditor(user.userId);
   }
 }

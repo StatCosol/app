@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ThreadMessage } from './thread.model';
 
 @Component({
-  selector: 'thread-message-panel',
+  selector: 'ui-thread-message-panel',
   standalone: true,
   imports: [CommonModule],
   template: `

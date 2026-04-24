@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
+import { ReqUser } from '../access/access-scope.service';
 
 export type ContractorDocumentCreateDto = {
   clientId?: string; // optional: will default to logged-in user's clientId
@@ -37,9 +38,9 @@ export class ContractorDocumentsService {
   ) {}
 
   async contractorUpload(
-    user: any,
+    user: ReqUser,
     dto: ContractorDocumentCreateDto,
-    file: any,
+    file: Express.Multer.File,
   ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {
@@ -107,7 +108,7 @@ export class ContractorDocumentsService {
     };
   }
 
-  async contractorList(user: any, q: any) {
+  async contractorList(user: ReqUser, q: Record<string, string>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {
       throw new BadRequestException('Contractor is not linked to a client');
@@ -158,7 +159,7 @@ export class ContractorDocumentsService {
   }
 
   /** CRM/Admin listing: can list any contractor's documents within a client. */
-  async listByClient(user: any, q: any) {
+  async listByClient(_user: ReqUser, q: Record<string, string>) {
     if (!q?.clientId) throw new BadRequestException('clientId is required');
 
     const qb = this.repo
@@ -208,7 +209,7 @@ export class ContractorDocumentsService {
   }
 
   async reviewDocument(
-    user: any,
+    user: ReqUser,
     id: string,
     dto: ContractorDocumentReviewDto,
   ) {
@@ -245,10 +246,10 @@ export class ContractorDocumentsService {
   }
 
   async contractorReupload(
-    user: any,
+    user: ReqUser,
     id: string,
     dto: ContractorDocumentReuploadDto,
-    file: any,
+    file: Express.Multer.File,
   ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {

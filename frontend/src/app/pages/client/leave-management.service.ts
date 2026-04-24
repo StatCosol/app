@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface LeavePolicy {
@@ -43,5 +43,9 @@ export class LeaveManagementService {
 
   initializeBalances(year?: number): Observable<any> {
     return this.http.post(`${this.base}/initialize-balances`, { year });
+  }
+
+  accrueEL(year?: number, month?: number): Observable<any> {
+    return this.http.post(`${this.base}/accrue-el`, { year, month });
   }
 }

@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   UseGuards,
-  Req,
   Res,
   ParseUUIDPipe,
   Query,
@@ -17,11 +16,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuditorObservationsService } from './auditor-observations.service';
+import { UpdateObservationDto } from './dto/update-observation.dto';
 import {
   AuditorAssignmentGuard,
-  AuditorClientScoped,
 } from '../assignments/auditor-assignment.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CacheControl } from '../common/decorators/cache-control.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Audits')
 @ApiBearerAuth('JWT')
@@ -33,26 +35,27 @@ export class AuditorObservationsController {
 
   @ApiOperation({ summary: 'List Categories' })
   @Get('categories')
+  @CacheControl(600)
   listCategories() {
     return this.service.listCategories();
   }
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  list(@Req() req: any, @Query('auditId') auditId?: string) {
-    return this.service.listForAuditor(req.user, auditId);
+  list(@CurrentUser() user: ReqUser, @Query('auditId') auditId?: string) {
+    return this.service.listForAuditor(user, auditId);
   }
 
   @ApiOperation({ summary: 'Get One' })
   @Get(':id')
-  getOne(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
-    return this.service.getOne(req.user, id);
+  getOne(@CurrentUser() user: ReqUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getOne(user, id);
   }
 
   @ApiOperation({ summary: 'Create' })
   @Post()
   create(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body()
     dto: {
       auditId: string;
@@ -64,53 +67,53 @@ export class AuditorObservationsController {
       evidenceFilePaths?: string[];
     },
   ) {
-    return this.service.create(req.user, dto);
+    return this.service.create(user, dto);
   }
 
   @ApiOperation({ summary: 'Update' })
   @Put(':id')
   update(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: any,
+    @Body() dto: UpdateObservationDto,
   ) {
-    return this.service.update(req.user, id, dto);
+    return this.service.update(user, id, dto);
   }
 
   @ApiOperation({ summary: 'Delete' })
   @Delete(':id')
-  delete(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
-    return this.service.delete(req.user, id);
+  delete(@CurrentUser() user: ReqUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.delete(user, id);
   }
 
   @ApiOperation({ summary: 'Verify Closure' })
   @Post(':id/verify')
   verify(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { remarks?: string },
   ) {
-    return this.service.verifyClosure(req.user, id, dto?.remarks);
+    return this.service.verifyClosure(user, id, dto?.remarks);
   }
 
   @ApiOperation({ summary: 'Reopen' })
   @Post(':id/reopen')
   reopen(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { remarks?: string },
   ) {
-    return this.service.reopen(req.user, id, dto?.remarks);
+    return this.service.reopen(user, id, dto?.remarks);
   }
 
   @ApiOperation({ summary: 'Export To Pdf' })
   @Get('audit/:auditId/export')
   async exportToPdf(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
     @Param('auditId', ParseUUIDPipe) auditId: string,
   ) {
-    const pdfBuffer = await this.service.exportPdf(req.user, auditId);
+    const pdfBuffer = await this.service.exportPdf(user, auditId);
 
     res.set({
       'Content-Type': 'application/pdf',

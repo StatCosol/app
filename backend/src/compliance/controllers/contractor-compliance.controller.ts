@@ -5,12 +5,10 @@ import {
   Param,
   Post,
   Query,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -21,6 +19,8 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -29,12 +29,12 @@ function ensureDir(dir: string) {
 const MAX_MB = 10;
 
 const storage = diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const base = path.join(process.cwd(), 'uploads', 'compliance');
     ensureDir(base);
     cb(null, base);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     cb(null, `${Date.now()}_${safe}`);
   },
@@ -42,7 +42,7 @@ const storage = diskStorage({
 
 const fileUploadOptions = {
   storage,
-  fileFilter: (req: any, file: any, cb: any) => {
+  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
     const allowed = [
       'application/pdf',
       'image/png',
@@ -67,78 +67,91 @@ export class ContractorComplianceController {
 
   @ApiOperation({ summary: 'List' })
   @Get('tasks')
-  list(@Req() req: any, @Query() q: any) {
-    return this.svc.contractorListTasks(req.user, q);
+  list(@CurrentUser() user: ReqUser, @Query() q: Record<string, string>) {
+    return this.svc.contractorListTasks(user, q);
   }
 
   @ApiOperation({ summary: 'Detail' })
   @Get('tasks/:id')
-  detail(@Req() req: any, @Param('id') id: string) {
-    return this.svc.contractorGetTaskDetail(req.user, id);
+  detail(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.contractorGetTaskDetail(user, id);
   }
 
   @ApiOperation({ summary: 'Start' })
   @Post('tasks/:id/start')
-  start(@Req() req: any, @Param('id') id: string) {
-    return this.svc.contractorSetInProgress(req.user, id);
+  start(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.contractorSetInProgress(user, id);
   }
 
   @ApiOperation({ summary: 'Submit' })
   @Post('tasks/:id/submit')
-  submit(@Req() req: any, @Param('id') id: string) {
-    return this.svc.contractorSubmit(req.user, id);
+  submit(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.contractorSubmit(user, id);
+  }
+
+  @ApiOperation({ summary: 'Mark Not Applicable' })
+  @Post('tasks/:id/mark-not-applicable')
+  markNotApplicable(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() dto: { remarks: string },
+  ) {
+    return this.svc.contractorMarkNotApplicable(user, id, dto.remarks);
   }
 
   @ApiOperation({ summary: 'Comment' })
   @Post('tasks/:id/comment')
   comment(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() dto: { message: string },
   ) {
-    return this.svc.contractorAddComment(req.user, id, dto.message);
+    return this.svc.contractorAddComment(user, id, dto.message);
   }
 
   @ApiOperation({ summary: 'Upload Evidence' })
   @Post('tasks/:id/evidence')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   uploadEvidence(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: { notes?: string },
   ) {
-    return this.svc.contractorUploadEvidence(req.user, id, file, dto?.notes);
+    return this.svc.contractorUploadEvidence(user, id, file, dto?.notes);
   }
 
   // Reupload workflow endpoints
 
   @ApiOperation({ summary: 'List Reupload Requests' })
   @Get('reupload-requests')
-  listReuploadRequests(@Req() req: any, @Query() filters: any) {
-    return this.svc.contractorListReuploadRequests(req.user, filters);
+  listReuploadRequests(
+    @CurrentUser() user: ReqUser,
+    @Query() filters: Record<string, string>,
+  ) {
+    return this.svc.contractorListReuploadRequests(user, filters);
   }
 
   @ApiOperation({ summary: 'Get Doc Remarks' })
   @Get('docs/:docId/remarks')
-  getDocRemarks(@Req() req: any, @Param('docId') docId: string) {
-    return this.svc.contractorGetDocRemarks(req.user, docId);
+  getDocRemarks(@CurrentUser() user: ReqUser, @Param('docId') docId: string) {
+    return this.svc.contractorGetDocRemarks(user, docId);
   }
 
   @ApiOperation({ summary: 'Reupload File' })
   @Post('reupload-requests/:id/upload')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   reuploadFile(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') requestId: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.svc.contractorReuploadFile(req.user, requestId, file);
+    return this.svc.contractorReuploadFile(user, requestId, file);
   }
 
   @ApiOperation({ summary: 'Submit Reupload' })
   @Post('reupload-requests/:id/submit')
-  submitReupload(@Req() req: any, @Param('id') requestId: string) {
-    return this.svc.contractorSubmitReupload(req.user, requestId);
+  submitReupload(@CurrentUser() user: ReqUser, @Param('id') requestId: string) {
+    return this.svc.contractorSubmitReupload(user, requestId);
   }
 }

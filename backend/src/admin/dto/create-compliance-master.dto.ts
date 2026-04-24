@@ -11,6 +11,10 @@ import { Frequency } from '../../common/enums';
 
 export class CreateComplianceMasterDto {
   @IsString()
+  @IsOptional()
+  code?: string;
+
+  @IsString()
   @IsNotEmpty()
   complianceName: string;
 

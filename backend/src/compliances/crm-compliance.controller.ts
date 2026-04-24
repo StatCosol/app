@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Query,
-  Request,
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
@@ -13,6 +12,8 @@ import { CompliancesService } from './compliances.service';
 import { ChecklistStatus } from '../common/enums';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -27,15 +28,15 @@ export class CrmComplianceController {
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Request() req, @Query() q: any) {
-    const crmUserId = req.user.userId;
+  async list(@CurrentUser() user: ReqUser, @Query() q: Record<string, string>) {
+    const crmUserId = user.userId;
     const clientId = typeof q.clientId === 'string' ? q.clientId : undefined;
     const branchId = typeof q.branchId === 'string' ? q.branchId : undefined;
     const status: ChecklistStatus | 'all' =
       q.status === 'PENDING' ||
       q.status === 'COMPLETED' ||
       q.status === 'OVERDUE'
-        ? q.status
+        ? (q.status as ChecklistStatus)
         : 'all';
     const dueMonth = typeof q.dueMonth === 'string' ? q.dueMonth : undefined;
 

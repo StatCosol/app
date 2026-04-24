@@ -4,7 +4,6 @@ import {
   Get,
   Body,
   UseGuards,
-  Req,
   BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -16,6 +15,8 @@ import {
   CrmAssignmentGuard,
 } from '../assignments/crm-assignment.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Contractor')
 @ApiBearerAuth('JWT')
@@ -30,7 +31,7 @@ export class CrmContractorRegistrationController {
   @ClientScoped('clientId')
   @UseGuards(CrmAssignmentGuard)
   async registerContractor(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body()
     dto: {
       name: string;
@@ -47,12 +48,12 @@ export class CrmContractorRegistrationController {
       );
     }
 
-    return this.service.registerContractor(req.user, dto);
+    return this.service.registerContractor(user, dto);
   }
 
   @ApiOperation({ summary: 'List My Contractors' })
   @Get('my-contractors')
-  async listMyContractors(@Req() req: any) {
-    return this.service.listContractorsForCrm(req.user);
+  async listMyContractors(@CurrentUser() user: ReqUser) {
+    return this.service.listContractorsForCrm(user);
   }
 }

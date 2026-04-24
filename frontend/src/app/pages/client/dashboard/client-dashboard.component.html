@@ -4,36 +4,36 @@
     <div class="flex flex-wrap gap-3 items-center">
       <label class="filter-group">
         <span class="filter-label">Month</span>
-        <select class="filter-select" [(ngModel)]="filters.month" (change)="load()">
+        <select id="cd-month" name="month" class="filter-select" [(ngModel)]="filters.month" (change)="load()">
           <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Year</span>
-        <select class="filter-select" [(ngModel)]="filters.year" (change)="load()">
+        <select id="cd-year" name="year" class="filter-select" [(ngModel)]="filters.year" (change)="load()">
           <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Branch</span>
-        <select class="filter-select" [(ngModel)]="filters.branchId" (change)="onBranchChange()">
+        <select id="cd-branch-id" name="branchId" class="filter-select" [(ngModel)]="filters.branchId" (change)="onBranchChange()">
           <option value="ALL">All branches</option>
-          <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
         </select>
       </label>
       <label class="filter-group">
         <span class="filter-label">Contractor</span>
-        <select class="filter-select" [(ngModel)]="filters.contractorId" [disabled]="filters.branchId === 'ALL'" (change)="onContractorChange()">
+        <select id="cd-contractor-id" name="contractorId" class="filter-select" [(ngModel)]="filters.contractorId" (change)="onContractorChange()">
           <option value="ALL">All contractors</option>
           <option *ngFor="let c of filteredContractors()" [value]="c.id">{{ c.name }}</option>
         </select>
       </label>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
-      <button class="toggle-chip" [class.toggle-chip--active]="filters.toggle === 'ALL'" (click)="onToggleChange('ALL')">All</button>
-      <button class="toggle-chip toggle-chip--critical" [class.toggle-chip--active]="filters.toggle === 'CRITICAL'" (click)="onToggleChange('CRITICAL')">Critical</button>
-      <button class="toggle-chip toggle-chip--pending" [class.toggle-chip--active]="filters.toggle === 'PENDING'" (click)="onToggleChange('PENDING')">Pending</button>
-      <button class="ghost-btn" (click)="load()">Refresh</button>
+      <button type="button" class="toggle-chip" [class.toggle-chip--active]="filters.toggle === 'ALL'" (click)="onToggleChange('ALL')">All</button>
+      <button type="button" class="toggle-chip toggle-chip--critical" [class.toggle-chip--active]="filters.toggle === 'CRITICAL'" (click)="onToggleChange('CRITICAL')">Critical</button>
+      <button type="button" class="toggle-chip toggle-chip--pending" [class.toggle-chip--active]="filters.toggle === 'PENDING'" (click)="onToggleChange('PENDING')">Pending</button>
+      <button type="button" class="ghost-btn" (click)="load()">Refresh</button>
     </div>
   </div>
 
@@ -215,7 +215,7 @@
               <h3 class="panel-title">Company Compliance Intelligence — {{ companySummary.month }}</h3>
             </div>
           </div>
-          <button class="ghost-btn" (click)="downloadExportPack()" [disabled]="exportingPack">
+          <button type="button" class="ghost-btn" (click)="downloadExportPack()" [disabled]="exportingPack">
             {{ exportingPack ? 'Generating…' : '📥 Export Report Pack' }}
           </button>
         </div>
@@ -434,7 +434,7 @@
               <p class="panel-eyebrow">PF</p>
               <h3 class="panel-title">Registration status</h3>
             </div>
-            <button class="ghost-btn ghost-btn--sm" *ngIf="pfSummary.pendingEmployees.length" (click)="togglePfModal()">View Pending</button>
+            <button type="button" class="ghost-btn ghost-btn--sm" *ngIf="pfSummary.pendingEmployees.length" (click)="togglePfModal()">View Pending</button>
           </div>
           <div class="panel-body">
             <div class="kpi-grid">
@@ -458,7 +458,7 @@
               <p class="panel-eyebrow">ESI</p>
               <h3 class="panel-title">Registration status</h3>
             </div>
-            <button class="ghost-btn ghost-btn--sm" *ngIf="esiSummary.pendingEmployees.length" (click)="toggleEsiModal()">View Pending</button>
+            <button type="button" class="ghost-btn ghost-btn--sm" *ngIf="esiSummary.pendingEmployees.length" (click)="toggleEsiModal()">View Pending</button>
           </div>
           <div class="panel-body">
             <div class="kpi-grid">
@@ -499,7 +499,7 @@
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3 class="modal-title">PF &mdash; Pending Registration</h3>
-            <button class="modal-close" (click)="togglePfModal()">&times;</button>
+            <button type="button" class="modal-close" (click)="togglePfModal()">&times;</button>
           </div>
           <div class="modal-body overflow-x-auto">
             <table class="mini-table">
@@ -517,7 +517,7 @@
                 <tr *ngFor="let emp of pfSummary.pendingEmployees">
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
-                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
                   <td><span class="badge-yes">Y</span></td>
                   <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
@@ -533,7 +533,7 @@
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3 class="modal-title">ESI &mdash; Pending Registration</h3>
-            <button class="modal-close" (click)="toggleEsiModal()">&times;</button>
+            <button type="button" class="modal-close" (click)="toggleEsiModal()">&times;</button>
           </div>
           <div class="modal-body overflow-x-auto">
             <table class="mini-table">
@@ -551,7 +551,7 @@
                 <tr *ngFor="let emp of esiSummary.pendingEmployees">
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
-                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
                   <td><span class="badge-yes">Y</span></td>
                   <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold text-red-600">{{ emp.pendingDays }}</td>
@@ -586,7 +586,7 @@
                 <tr *ngFor="let emp of pfSummary.pendingEmployees">
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
-                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
                   <td><span [class]="emp.uanAvailable ? 'badge-yes' : 'badge-no'">{{ emp.uanAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
                 </tr>
@@ -620,7 +620,7 @@
                 <tr *ngFor="let emp of esiSummary.pendingEmployees">
                   <td>{{ emp.empCode }}</td>
                   <td>{{ emp.name }}</td>
-                  <td>{{ emp.dateOfJoining || '-' }}</td>
+                  <td>{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</td>
                   <td><span [class]="emp.ipNumberAvailable ? 'badge-yes' : 'badge-no'">{{ emp.ipNumberAvailable ? 'Y' : 'N' }}</span></td>
                   <td class="text-right font-semibold">{{ emp.pendingDays }}</td>
                 </tr>
@@ -896,6 +896,12 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- ═══════ Compliance Calendar + Notification Center ═══════ -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <ui-compliance-calendar-widget [items]="calendarItems"></ui-compliance-calendar-widget>
+        <ui-compliance-notification-center></ui-compliance-notification-center>
       </div>
     </ng-container>
 

@@ -1,14 +1,14 @@
 import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
 })
@@ -24,9 +24,6 @@ export class LoginComponent implements OnInit, OnDestroy {
   currentYear = new Date().getFullYear();
   private destroy$ = new Subject<void>();
 
-  /** Listener reference so we can clean up on destroy */
-  private popstateHandler = this.onPopState.bind(this);
-
   constructor(private auth: AuthService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
@@ -36,10 +33,10 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Push a fresh history entry so pressing "Back" stays on login.
-    // If the user clicks Back, the popstate handler pushes them forward again.
-    window.history.pushState(null, '', window.location.href);
-    window.addEventListener('popstate', this.popstateHandler);
+    // Replace current history entry so Back doesn't return to a pre-login page.
+    // Using replaceState (not pushState) avoids adding a session history item
+    // without user interaction, which browsers now flag and skip.
+    window.history.replaceState(null, '', window.location.href);
   }
 
   submit(): void {
@@ -71,10 +68,13 @@ export class LoginComponent implements OnInit, OnDestroy {
       },
       error: (e) => {
         this.isLoading = false;
-        if (e?.status === 401 || e?.status === 403) {
+        const msg = e?.error?.message || '';
+        if (msg.toLowerCase().includes('ess portal')) {
+          this.error = msg;
+        } else if (e?.status === 401 || e?.status === 403) {
           this.error = 'Invalid email or password';
         } else {
-          this.error = e?.error?.message || 'Login failed. Please try again.';
+          this.error = msg || 'Login failed. Please try again.';
         }
         this.cdr.detectChanges();
       },
@@ -101,15 +101,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    window.removeEventListener('popstate', this.popstateHandler);
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  /** If the user presses the browser Back button while on /login, push them forward again. */
-  private onPopState(): void {
-    if (!this.auth.isLoggedIn()) {
-      window.history.pushState(null, '', window.location.href);
-    }
   }
 }

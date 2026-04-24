@@ -82,15 +82,15 @@ import { environment } from '../../../../environments/environment';
           </nav>
         </div>
         <div class="p-4 flex flex-wrap gap-3">
-          <select [(ngModel)]="filterCategory" (ngModelChange)="loadDocuments()"
+          <select id="cs-filter-category" name="filterCategory" [(ngModel)]="filterCategory" (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Categories</option>
             <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
           </select>
-          <select [(ngModel)]="filterBranch" (ngModelChange)="loadDocuments()"
+          <select id="cs-filter-branch" name="filterBranch" [(ngModel)]="filterBranch" (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Branches</option>
-            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchname }}</option>
+            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.branchname || 'Branch' }}</option>
           </select>
         </div>
       </div>
@@ -168,7 +168,7 @@ export class ClientSafetyComponent implements OnInit, OnDestroy {
   loading = false;
   documents: SafetyDocument[] = [];
   expiringDocs: ExpiringDocument[] = [];
-  branches: { id: string; branchname: string }[] = [];
+  branches: { id: string; branchName?: string; branchname?: string }[] = [];
   safetyScore: SafetyScore | null = null;
 
   categories = SAFETY_CATEGORIES;

@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, FindOptionsWhere } from 'typeorm';
 import { SlaTaskEntity } from './entities/sla-task.entity';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class SlaService {
@@ -16,10 +17,13 @@ export class SlaService {
 
   async list(
     clientId: string,
-    user: any,
+    user: ReqUser,
     q: { status?: string; module?: string; branchId?: string },
   ): Promise<{ items: SlaTaskEntity[] }> {
-    const where: any = { clientId, deletedAt: IsNull() };
+    const where: FindOptionsWhere<SlaTaskEntity> = {
+      clientId,
+      deletedAt: IsNull(),
+    };
 
     if (q.status) where.status = q.status;
     if (q.module) where.module = q.module;
@@ -55,10 +59,10 @@ export class SlaService {
 
   /** List ALL SLA tasks across all clients (admin view) */
   async listAll(
-    user: any,
+    _user: ReqUser,
     q: { status?: string; module?: string; branchId?: string },
   ): Promise<{ items: SlaTaskEntity[] }> {
-    const where: any = { deletedAt: IsNull() };
+    const where: FindOptionsWhere<SlaTaskEntity> = { deletedAt: IsNull() };
     if (q.status) where.status = q.status;
     if (q.module) where.module = q.module;
     if (q.branchId) where.branchId = q.branchId;
@@ -82,7 +86,7 @@ export class SlaService {
 
   async update(
     clientId: string,
-    user: any,
+    user: ReqUser,
     id: string,
     body: { status?: string; assignedToUserId?: string; dueDate?: string },
   ): Promise<SlaTaskEntity> {

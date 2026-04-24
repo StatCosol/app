@@ -23,6 +23,11 @@ export class BranchReuploadInboxComponent implements OnInit {
   statusTab: 'OPEN' | 'SUBMITTED' | 'REJECTED' | 'REVERIFIED' | 'ALL' = 'OPEN';
   q = '';
 
+  showNaModal = false;
+  naRow: any = null;
+  naRemarks = '';
+  markingNa = false;
+
   constructor(
     private api: ComplianceApiService,
     private toast: ToastService,
@@ -227,6 +232,37 @@ export class BranchReuploadInboxComponent implements OnInit {
       error: () => {
         this.submittingId = null;
         this.toast.error('Submit failed.');
+      },
+    });
+  }
+
+  openNaModal(row: any): void {
+    this.naRow = row;
+    this.naRemarks = '';
+    this.showNaModal = true;
+  }
+
+  closeNaModal(): void {
+    this.showNaModal = false;
+    this.naRow = null;
+    this.naRemarks = '';
+  }
+
+  submitMarkNa(): void {
+    const reqId = this.id(this.naRow);
+    if (!reqId || !this.naRemarks.trim()) return;
+
+    this.markingNa = true;
+    this.api.branchReuploadMarkNotApplicable(reqId, this.naRemarks.trim()).subscribe({
+      next: () => {
+        this.markingNa = false;
+        this.toast.success('Marked as Not Applicable');
+        this.closeNaModal();
+        this.load();
+      },
+      error: (err: any) => {
+        this.markingNa = false;
+        this.toast.error(err?.error?.message || 'Failed. Please try again.');
       },
     });
   }

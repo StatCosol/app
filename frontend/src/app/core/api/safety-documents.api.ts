@@ -228,4 +228,8 @@ export class SafetyDocumentsApi {
   verifyCrm(docId: string): Observable<any> {
     return this.http.patch(`${this.base}/crm/safety-documents/${docId}/verify`, {});
   }
+
+  uploadForCrm(formData: FormData): Observable<any> {
+    return this.http.post<any>(`${this.base}/crm/safety-documents/upload-on-behalf`, formData);
+  }
 }

@@ -8,15 +8,17 @@ import {
   Delete,
   Query,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ContractorService } from './contractor.service';
 import { ContractorDashboardService } from './contractor-dashboard.service';
+import { ContractorRequiredDocumentsService } from './contractor-required-documents.service';
 import { ComplianceService } from '../compliance/compliance.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Contractor')
 @ApiBearerAuth('JWT')
@@ -28,19 +30,20 @@ export class ContractorController {
     private readonly service: ContractorService,
     private readonly dashboardService: ContractorDashboardService,
     private readonly complianceService: ComplianceService,
+    private readonly requiredDocsSvc: ContractorRequiredDocumentsService,
   ) {}
 
   @ApiOperation({ summary: 'Get Dashboard' })
   @Get('dashboard')
-  getDashboard(@Req() req: any) {
-    const userId = req.user?.userId;
+  getDashboard(@CurrentUser() user: ReqUser) {
+    const userId = user?.userId;
     return this.service.getDashboard(userId);
   }
 
   @ApiOperation({ summary: 'Legacy Contractor Profile (compat)' })
   @Get('profile')
-  async getLegacyProfile(@Req() req: any) {
-    const userId = req.user?.userId;
+  async getLegacyProfile(@CurrentUser() user: ReqUser) {
+    const userId = user?.userId;
     const profile = await this.service.getContractorProfile(userId);
     return {
       id: profile.contractorUserId,
@@ -52,15 +55,17 @@ export class ContractorController {
       mobile: profile.phone,
       phone: profile.phone,
       branches: profile.branches,
-      branchCount: Array.isArray(profile.branches) ? profile.branches.length : 0,
+      branchCount: Array.isArray(profile.branches)
+        ? profile.branches.length
+        : 0,
       data: profile,
     };
   }
 
   @ApiOperation({ summary: 'Legacy Contractor Branches (compat)' })
   @Get('branches')
-  async getLegacyBranches(@Req() req: any) {
-    const userId = req.user?.userId;
+  async getLegacyBranches(@CurrentUser() user: ReqUser) {
+    const userId = user?.userId;
     const dashboard = await this.service.getDashboard(userId);
     const branches = Array.isArray(dashboard?.branches)
       ? dashboard.branches
@@ -76,19 +81,22 @@ export class ContractorController {
 
   @ApiOperation({ summary: 'Legacy Contractor Task List (compat)' })
   @Get('tasks')
-  async getLegacyTasks(@Req() req: any, @Query() q: any) {
+  async getLegacyTasks(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
     const wantsOpen = String(q?.status || '').toUpperCase() === 'OPEN';
     const normalizedQuery = { ...(q || {}) };
     if (wantsOpen) delete normalizedQuery.status;
 
     const result = await this.complianceService.contractorListTasks(
-      req.user,
+      user,
       normalizedQuery,
     );
 
     const rows = Array.isArray(result?.data) ? result.data : [];
     const filteredRows = wantsOpen
-      ? rows.filter((row: any) => this.isOpenTaskStatus(row?.status))
+      ? rows.filter((row: { status?: string }) => this.isOpenTaskStatus(String(row?.status || '')))
       : rows;
 
     return {
@@ -99,8 +107,11 @@ export class ContractorController {
 
   @ApiOperation({ summary: 'Legacy Contractor Task Summary (compat)' })
   @Get('tasks/summary')
-  async getLegacyTaskSummary(@Req() req: any, @Query() q: any) {
-    const result = await this.complianceService.contractorListTasks(req.user, q);
+  async getLegacyTaskSummary(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const result = await this.complianceService.contractorListTasks(user, q);
     const rows = Array.isArray(result?.data) ? result.data : [];
 
     const summary = {
@@ -130,11 +141,14 @@ export class ContractorController {
 
   @ApiOperation({ summary: 'Legacy Contractor Overdue Tasks (compat)' })
   @Get('tasks/overdue')
-  async getLegacyOverdueTasks(@Req() req: any, @Query() q: any) {
-    const result = await this.complianceService.contractorListTasks(req.user, q);
+  async getLegacyOverdueTasks(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const result = await this.complianceService.contractorListTasks(user, q);
     const rows = Array.isArray(result?.data) ? result.data : [];
     const overdue = rows.filter(
-      (row: any) => String(row?.status || '').toUpperCase() === 'OVERDUE',
+      (row: { status?: string }) => String(row?.status || '').toUpperCase() === 'OVERDUE',
     );
 
     return {
@@ -145,11 +159,14 @@ export class ContractorController {
 
   @ApiOperation({ summary: 'Legacy Contractor Rejected Tasks (compat)' })
   @Get('tasks/rejected')
-  async getLegacyRejectedTasks(@Req() req: any, @Query() q: any) {
-    const result = await this.complianceService.contractorListTasks(req.user, q);
+  async getLegacyRejectedTasks(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const result = await this.complianceService.contractorListTasks(user, q);
     const rows = Array.isArray(result?.data) ? result.data : [];
     const rejected = rows.filter(
-      (row: any) => String(row?.status || '').toUpperCase() === 'REJECTED',
+      (row: { status?: string }) => String(row?.status || '').toUpperCase() === 'REJECTED',
     );
 
     return {
@@ -160,8 +177,28 @@ export class ContractorController {
 
   @ApiOperation({ summary: 'Legacy Contractor Task Detail (compat)' })
   @Get('tasks/:id')
-  getLegacyTaskDetail(@Req() req: any, @Param('id') id: string) {
-    return this.complianceService.contractorGetTaskDetail(req.user, id);
+  getLegacyTaskDetail(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.complianceService.contractorGetTaskDetail(user, id);
+  }
+
+  /**
+   * GET /api/v1/contractor/monthly-checklist?month=YYYY-MM
+   * Returns the monthly required-document checklist for the logged-in contractor,
+   * with upload status for each required doc type.
+   */
+  @ApiOperation({ summary: 'Get Monthly Document Checklist' })
+  @Get('monthly-checklist')
+  async getMonthlyChecklist(
+    @CurrentUser() user: ReqUser,
+    @Query('month') month?: string,
+  ) {
+    const userId = user?.userId;
+    const profile = await this.service.getContractorProfile(userId);
+    return this.requiredDocsSvc.getContractorChecklist(
+      userId,
+      profile.clientId,
+      month,
+    );
   }
 
   /**
@@ -171,14 +208,14 @@ export class ContractorController {
   @ApiOperation({ summary: 'Get Score Trend' })
   @Get('score-trend')
   async getScoreTrend(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    const userId = req.user?.userId;
-    const user = await this.service.getContractorProfile(userId);
+    const userId = user?.userId;
+    const profile = await this.service.getContractorProfile(userId);
     return this.dashboardService.contractorTrend(
-      user.clientId,
+      profile.clientId,
       userId,
       from,
       to,
@@ -218,21 +255,21 @@ export class CrmContractorsController {
   @ApiOperation({ summary: 'Get Contractor Branches' })
   @Get(':contractorId/branches')
   getContractorBranches(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('contractorId') contractorId: string,
   ) {
-    const userId = req.user?.userId;
+    const userId = user?.userId;
     return this.service.getContractorBranchesForCrm(userId, contractorId);
   }
 
   @ApiOperation({ summary: 'Set Contractor Branches' })
   @Put(':contractorId/branches')
   setContractorBranches(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('contractorId') contractorId: string,
     @Body() dto: { branchIds: string[] },
   ) {
-    const userId = req.user?.userId;
+    const userId = user?.userId;
     return this.service.setContractorBranchesForCrm(
       userId,
       contractorId,
@@ -243,11 +280,11 @@ export class CrmContractorsController {
   @ApiOperation({ summary: 'Add Contractor Branches' })
   @Post(':contractorId/branches')
   addContractorBranches(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('contractorId') contractorId: string,
     @Body() dto: { branchIds: string[] },
   ) {
-    const userId = req.user?.userId;
+    const userId = user?.userId;
     return this.service.addContractorBranchesForCrm(
       userId,
       contractorId,
@@ -258,11 +295,11 @@ export class CrmContractorsController {
   @ApiOperation({ summary: 'Remove Contractor Branch' })
   @Delete(':contractorId/branches/:branchId')
   removeContractorBranch(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('contractorId') contractorId: string,
     @Param('branchId') branchId: string,
   ) {
-    const userId = req.user?.userId;
+    const userId = user?.userId;
     return this.service.removeContractorBranchForCrm(
       userId,
       contractorId,

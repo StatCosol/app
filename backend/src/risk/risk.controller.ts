@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Query,
-  Req,
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
@@ -12,6 +11,8 @@ import { Roles } from '../auth/roles.decorator';
 import { RiskService } from './risk.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Risk')
 @ApiBearerAuth('JWT')
@@ -32,9 +33,8 @@ export class RiskController {
   async heatmap(
     @Query('month') month: string,
     @Query('clientId') queryClientId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
     const roleCode: string = user.roleCode;
 
     if (roleCode === 'AUDITOR') {
@@ -50,7 +50,7 @@ export class RiskController {
     let branchIds: string[] = [];
 
     if (roleCode === 'CLIENT') {
-      clientId = user.clientId;
+      clientId = user.clientId!;
       if (!clientId) throw new ForbiddenException('Client not mapped');
       branchIds = user.branchIds ?? [];
     } else if (roleCode === 'CRM') {
@@ -58,7 +58,7 @@ export class RiskController {
       if (!clientId) throw new ForbiddenException('clientId required for CRM');
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        user.sub ?? user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned to you');
     } else {
@@ -78,9 +78,8 @@ export class RiskController {
     @Query('branchId') branchId: string,
     @Query('from') from: string,
     @Query('to') to: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
     const roleCode: string = user.roleCode;
 
     if (roleCode === 'AUDITOR') {

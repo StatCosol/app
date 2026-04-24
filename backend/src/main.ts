@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -9,13 +10,23 @@ import compression from 'compression';
 import * as bodyParser from 'body-parser';
 import { UsersService } from './users/users.service';
 import { DataSource } from 'typeorm';
+import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { CacheHeaderInterceptor } from './common/interceptors/cache-header.interceptor';
+import { Logger as PinoLogger } from 'nestjs-pino';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: ['log', 'error', 'warn'],
+    bufferLogs: true,
   });
+
+  // Wire pino as the application logger
+  app.useLogger(app.get(PinoLogger));
+
+  const config = app.get(ConfigService);
 
   // Global validation
   app.useGlobalPipes(
@@ -27,7 +38,12 @@ async function bootstrap() {
     }),
   );
 
-  // Global filter/interceptor hooks can be wired here when shared modules are present.
+  // Global exception filter — standardises all error responses
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // Global cache-control interceptor — defaults no-cache; use @CacheControl() to opt-in
+  const reflector = app.get('Reflector');
+  app.useGlobalInterceptors(new CacheHeaderInterceptor(reflector));
 
   // Secure headers
   app.use(helmet());
@@ -36,7 +52,7 @@ async function bootstrap() {
   app.use(compression());
 
   // Swagger / OpenAPI documentation (disabled in production)
-  if (process.env.NODE_ENV !== 'production') {
+  if (config.get<string>('NODE_ENV') !== 'production') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('StatComPy API')
       .setDescription('Compliance Management Platform — REST API documentation')
@@ -45,7 +61,10 @@ async function bootstrap() {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'JWT',
       )
-      .addServer(`http://localhost:${process.env.PORT || 3000}`, 'Local dev')
+      .addServer(
+        `http://localhost:${config.get<number>('PORT', 3000)}`,
+        'Local dev',
+      )
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup('api-docs', app, document, {
@@ -59,10 +78,9 @@ async function bootstrap() {
   // - In development you may access the backend from multiple devices on the same Wi-Fi.
   // - IPs change frequently, so we allow all origins in non-production.
   // - In production, restrict origins via CORS_ORIGINS (comma-separated).
-  const isProd = process.env.NODE_ENV === 'production';
-  const prodAllowedOrigins = (
-    process.env.CORS_ORIGINS || 'https://statcosol.com'
-  )
+  const isProd = config.get<string>('NODE_ENV') === 'production';
+  const prodAllowedOrigins = config
+    .get<string>('CORS_ORIGINS', 'https://statcosol.com')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -87,6 +105,7 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-Requested-With',
+      'X-Encrypted',
       'Accept',
       'Origin',
     ],
@@ -101,15 +120,8 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  app.use((req, res, next) => {
+  app.use((req, _res, next) => {
     logger.debug(`${req.method} ${req.url}`);
-    res.setHeader(
-      'Cache-Control',
-      'no-store, no-cache, must-revalidate, proxy-revalidate',
-    );
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Surrogate-Control', 'no-store');
     next();
   });
 
@@ -119,19 +131,17 @@ async function bootstrap() {
   // Serve uploaded files behind JWT authentication.
   // Previously: app.useStaticAssets('uploads/') — unauthenticated (SECURITY FIX)
   const jwtService = app.get(JwtService);
-  app.use('/uploads', (req: any, res: any, next: any) => {
-    // Logos are non-sensitive branding assets — serve publicly
-    if (req.path.startsWith('/logos/')) {
+  app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+    // Logos and news images are non-sensitive assets — serve publicly
+    if (req.path.startsWith('/logos/') || req.path.startsWith('/news/')) {
       return next();
     }
 
-    // Extract token from: Authorization header, or ?token= query param (for <img> / <a> tags)
+    // Extract token from Authorization header only.
     let token = '';
     const authHeader = req.headers?.authorization || '';
     if (authHeader.startsWith('Bearer ')) {
       token = authHeader.slice(7);
-    } else if (req.query?.token) {
-      token = req.query.token;
     }
 
     if (!token) {
@@ -180,34 +190,116 @@ async function bootstrap() {
 
   // Seed roles/admin before starting the server unless explicitly disabled (CI/bootstrap flows).
   const usersService = app.get(UsersService);
-  if (process.env.SKIP_BOOTSTRAP_SEED === 'true') {
+  if (config.get<string>('SKIP_BOOTSTRAP_SEED') === 'true') {
     logger.warn('Skipping bootstrap seed due to SKIP_BOOTSTRAP_SEED=true');
   } else {
     await usersService.seedRolesIfEmpty();
     await usersService.seedAdminIfMissing();
   }
 
-  // Quick DB sanity: show current database and schema (dev only)
-  if (process.env.NODE_ENV !== 'production') {
+  // ── Critical schema validation ──────────────────────────────────
+  // Verify that essential tables exist before the server accepts traffic.
+  // Exits with a clear error message so missing migrations are caught early.
+  {
+    const ds = app.get(DataSource);
+
+    // ── Idempotent incremental migrations (run on every boot, safe to re-run) ──
+    // These use ADD COLUMN IF NOT EXISTS / CREATE TABLE IF NOT EXISTS so they are
+    // no-ops if the schema is already up to date.
     try {
-      const ds = app.get(DataSource);
-      const r = await ds.query(`
-        select current_database() as db,
-               current_schema() as schema,
-               current_user as db_user,
-               current_setting('search_path') as search_path
+      await ds.query(`
+        ALTER TABLE payroll_run_employees
+          ADD COLUMN IF NOT EXISTS pf_employee  numeric(14,2) DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS esi_employee numeric(14,2) DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS pt           numeric(14,2) DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS pf_employer  numeric(14,2) DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS esi_employer numeric(14,2) DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS bonus        numeric(14,2) DEFAULT NULL
       `);
-      logger.log('[DB CHECK]', r);
-      logger.log(
-        '[TABLE CHECK]',
-        await ds.query("select to_regclass('public.compliance_master') as reg"),
+      logger.log('Schema patch: payroll_run_employees component columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch payroll_run_employees skipped: ${e?.message}`);
+    }
+
+    const CRITICAL_TABLES = [
+      'users',
+      'roles',
+      'clients',
+      'client_branches',
+      'compliance_master',
+      'compliance_tasks',
+      'compliance_doc_library',
+      'compliance_returns',
+      'compliance_documents',
+      'audits',
+      'audit_observations',
+      'branch_documents',
+      'safety_documents',
+      'notifications',
+    ];
+
+    const result = await ds.query(
+      `SELECT unnest($1::text[]) AS tbl,
+              to_regclass('public.' || unnest($1::text[])) AS reg`,
+      [CRITICAL_TABLES],
+    );
+
+    const missing = result
+      .filter((r: { tbl: string; reg: string | null }) => !r.reg)
+      .map((r: { tbl: string }) => r.tbl);
+
+    if (missing.length > 0) {
+      logger.error(
+        `FATAL: ${missing.length} critical table(s) missing: ${missing.join(', ')}. ` +
+          'Run "npm run db:migrate:sql" to apply pending migrations.',
       );
-    } catch (err) {
-      logger.warn('[DB CHECK] failed', err);
+      if (config.get<string>('ALLOW_MISSING_TABLES') !== 'true') {
+        process.exit(1);
+      }
+      logger.warn(
+        'Continuing despite missing tables (ALLOW_MISSING_TABLES=true)',
+      );
+    } else {
+      logger.log(
+        `Schema OK — all ${CRITICAL_TABLES.length} critical tables verified.`,
+      );
+    }
+
+    // Extended diagnostics (dev only)
+    if (config.get<string>('NODE_ENV') !== 'production') {
+      try {
+        const r = await ds.query(`
+          select current_database() as db,
+                 current_schema() as schema,
+                 current_user as db_user,
+                 current_setting('search_path') as search_path
+        `);
+        logger.log('[DB CHECK]', r);
+      } catch (err) {
+        logger.warn('[DB CHECK] failed', err);
+      }
     }
   }
 
-  const port = Number(process.env.PORT || 3000);
+  // ── Production env-var validation warnings ─────────────────────
+  if (isProd) {
+    if (!config.get<string>('JWT_SECRET'))
+      logger.warn('⚠ JWT_SECRET not set — using insecure default');
+    if (!config.get<string>('AI_ENCRYPTION_KEY'))
+      logger.warn(
+        '⚠ AI_ENCRYPTION_KEY not set — AI features will use dev fallback key',
+      );
+    if (
+      config.get<string>('EMAIL_ENABLED', '').toLowerCase() === 'true' &&
+      !config.get<string>('SMTP_PASS')
+    ) {
+      logger.warn(
+        '⚠ EMAIL_ENABLED=true but SMTP_PASS not set — emails will fail',
+      );
+    }
+  }
+
+  const port = config.get<number>('PORT', 3000);
   await app.listen(port, '0.0.0.0');
   logger.log(`Server running on http://0.0.0.0:${port}`);
 }

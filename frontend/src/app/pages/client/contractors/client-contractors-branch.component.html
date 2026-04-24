@@ -2,14 +2,14 @@
   <div class="flex items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-semibold text-gray-900">Branch Contractors</h1>
-      <p class="text-sm text-gray-500">Branch: {{ branchName || branchId }}</p>
+      <p class="text-sm text-gray-500">Branch: {{ branchName || '—' }}</p>
     </div>
     <div class="flex items-center gap-3">
       <label class="text-sm text-gray-600 flex items-center gap-2">
         <span class="font-medium text-gray-700">Month</span>
-        <input type="month" [(ngModel)]="month" (change)="onMonthChange()" class="form-input" />
+        <input autocomplete="off" id="ccb-month" name="month" type="month" [(ngModel)]="month" (change)="onMonthChange()" class="form-input" />
       </label>
-      <button (click)="router.navigate(['/client/contractors'])" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
+      <button type="button" (click)="router.navigate(['/client/contractors'])" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
     </div>
   </div>
 
@@ -116,18 +116,18 @@
       <div class="flex flex-wrap items-center gap-3">
         <label class="text-sm text-gray-600 flex items-center gap-2">
           <span class="font-medium text-gray-700">Contractor</span>
-          <select class="form-select" [(ngModel)]="contractorId" (change)="loadTrend()" [disabled]="loadingContractors">
+          <select id="ccb-contractor-id" name="contractorId" class="form-select" [(ngModel)]="contractorId" (change)="loadTrend()" [disabled]="loadingContractors">
             <option value="" disabled [selected]="true">Select</option>
             <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}</option>
           </select>
         </label>
         <label class="text-sm text-gray-600 flex items-center gap-2">
           <span class="font-medium text-gray-700">From</span>
-          <input type="month" class="form-input" [(ngModel)]="fromMonth" (change)="loadTrend()" />
+          <input autocomplete="off" id="ccb-from-month" name="fromMonth" type="month" class="form-input" [(ngModel)]="fromMonth" (change)="loadTrend()" />
         </label>
         <label class="text-sm text-gray-600 flex items-center gap-2">
           <span class="font-medium text-gray-700">To</span>
-          <input type="month" class="form-input" [(ngModel)]="toMonth" (change)="loadTrend()" />
+          <input autocomplete="off" id="ccb-to-month" name="toMonth" type="month" class="form-input" [(ngModel)]="toMonth" (change)="loadTrend()" />
         </label>
       </div>
     </div>

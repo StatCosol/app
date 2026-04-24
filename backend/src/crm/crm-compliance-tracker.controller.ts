@@ -6,14 +6,22 @@ import {
   Body,
   Query,
   UseGuards,
-  Req,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DbService } from '../common/db/db.service';
 import { ComplianceService } from '../compliance/compliance.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * CRM Compliance Tracker Controller
@@ -26,6 +34,9 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CRM')
 export class CrmComplianceTrackerController {
+  private readonly logger = new Logger(CrmComplianceTrackerController.name);
+  /** Tracks which user+client+year+month combos already had auto-gen run this process lifetime */
+  private readonly autoGenDone = new Set<string>();
   constructor(
     private readonly db: DbService,
     private readonly complianceService: ComplianceService,
@@ -33,8 +44,11 @@ export class CrmComplianceTrackerController {
 
   @ApiOperation({ summary: 'Overview (Compatibility)' })
   @Get()
-  overview(@Req() req: any, @Query() query: any) {
-    return this.mcd(req, query);
+  overview(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    return this.mcd(user, query);
   }
 
   /* ═══════ Tab 2: MCD Tracker ═══════ */
@@ -46,11 +60,41 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Mcd' })
   @Get('mcd')
-  async mcd(@Req() req: any, @Query() query: any) {
-    const crmUserId = req.user.id;
+  async mcd(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    const crmUserId = user.id;
     const year = parseInt(query.year, 10) || new Date().getFullYear();
     const month = parseInt(query.month, 10) || new Date().getMonth() + 1;
     const clientId = query.clientId || null;
+
+    // Auto-generate monthly compliance tasks (idempotent, skip if already done for this month)
+    const genKey = `${crmUserId}:${clientId || 'all'}:${year}:${month}`;
+    if (!this.autoGenDone.has(genKey)) {
+      const branches: any[] = await this.db.many(
+        `SELECT b.id AS branch_id, b.clientid AS client_id
+         FROM client_branches b
+         JOIN client_assignments_current ca
+           ON ca.client_id = b.clientid
+           AND ca.assignment_type = 'CRM'
+           AND ca.assigned_to_user_id = $1::uuid
+         WHERE b.isactive = TRUE
+           AND ($2::uuid IS NULL OR b.clientid = $2)`,
+        [crmUserId, clientId],
+      );
+      this.logger.log(`MCD auto-gen: found ${branches.length} branches for CRM user=${crmUserId} clientId=${clientId}`);
+      for (const br of branches) {
+        try {
+          await this.complianceService.autoGenerateMonthlyTasks(
+            br.client_id, br.branch_id, year, month,
+          );
+        } catch (e) {
+          this.logger.error(`MCD auto-gen failed for branch=${br.branch_id}: ${(e as Error).message}`, (e as Error).stack);
+        }
+      }
+      this.autoGenDone.add(genKey);
+    }
 
     const rows = await this.db.many(
       `WITH crm_clients AS (
@@ -98,6 +142,274 @@ export class CrmComplianceTrackerController {
   }
 
   /**
+   * GET /api/v1/crm/compliance-tracker/mcd/:branchId/items
+   * List individual MCD checklist items for a branch/month
+   * Query: year, month
+   */
+  @ApiOperation({ summary: 'Mcd Items' })
+  @Get('mcd/:branchId/items')
+  async mcdItems(
+    @CurrentUser() user: ReqUser,
+    @Param('branchId') branchId: string,
+    @Query() query: Record<string, string>,
+  ) {
+    const crmUserId = user.id;
+    const year = parseInt(query.year, 10) || new Date().getFullYear();
+    const month = parseInt(query.month, 10) || new Date().getMonth() + 1;
+
+    // Verify branch is in CRM scope
+    const scope = await this.db.many(
+      `SELECT b.id
+       FROM client_branches b
+       JOIN client_assignments_current cac
+         ON cac.client_id = b.clientid
+         AND cac.assigned_to_user_id = $1
+         AND cac.assignment_type = 'CRM'
+       WHERE b.id = $2::uuid`,
+      [crmUserId, branchId],
+    );
+    if (!scope.length)
+      return { data: [] };
+
+    const items = await this.db.many(
+      `SELECT
+         mci.id,
+         mci.item_key     AS "itemKey",
+         mci.item_label   AS "itemLabel",
+         mci.unit_type    AS "unitType",
+         mci.status,
+         mci.remarks,
+         mci.uploaded_by_role AS "uploadedByRole",
+         mci.verified_at  AS "verifiedAt",
+         ct.id            AS "taskId",
+         cm.code          AS "complianceCode",
+         cm.compliance_name AS "complianceName"
+       FROM compliance_mcd_items mci
+       JOIN compliance_tasks ct ON ct.id = mci.task_id
+       JOIN compliance_master cm ON cm.id = ct.compliance_id
+       WHERE ct.branch_id = $1::uuid
+         AND ct.period_year = $2::int
+         AND ct.period_month = $3::int
+       ORDER BY cm.code ASC, mci.item_key ASC`,
+      [branchId, year, month],
+    );
+
+    // Attach evidence files to each item
+    const itemIds = (items as any[]).map((i: any) => i.id);
+    const evidenceMap = new Map<number, any[]>();
+    if (itemIds.length) {
+      const evidenceRows = await this.db.many(
+        `SELECT id, mcd_item_id AS "mcdItemId", file_name AS "fileName",
+                file_path AS "filePath", file_type AS "fileType",
+                file_size AS "fileSize", notes, created_at AS "createdAt"
+         FROM compliance_evidence
+         WHERE mcd_item_id = ANY($1::int[])
+         ORDER BY created_at DESC`,
+        [itemIds],
+      );
+      for (const ev of evidenceRows as any[]) {
+        const key = Number(ev.mcdItemId);
+        if (!evidenceMap.has(key)) evidenceMap.set(key, []);
+        evidenceMap.get(key)!.push(ev);
+      }
+    }
+
+    const data = (items as any[]).map((i: any) => ({
+      ...i,
+      evidenceCount: evidenceMap.get(i.id)?.length || 0,
+      evidenceFiles: evidenceMap.get(i.id) || [],
+    }));
+
+    return { data };
+  }
+
+  /**
+   * POST /api/v1/crm/compliance-tracker/mcd/item/:itemId/upload
+   * Upload evidence for a single MCD checklist item
+   * Sets item status to SUBMITTED
+   */
+  @ApiOperation({ summary: 'Upload MCD Item Evidence' })
+  @Post('mcd/item/:itemId/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async uploadMcdItem(
+    @CurrentUser() user: ReqUser,
+    @Param('itemId') itemId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('File is required');
+
+    const allowedMimes = new Set([
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ]);
+    if (!allowedMimes.has(file.mimetype)) {
+      throw new BadRequestException('File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX');
+    }
+
+    const crmUserId = user.id;
+
+    // Verify the MCD item exists and belongs to a branch in CRM scope
+    const itemRows = await this.db.many(
+      `SELECT mci.id, mci.task_id, mci.status,
+              ct.branch_id, ct.period_year, ct.period_month,
+              b.clientid AS client_id
+       FROM compliance_mcd_items mci
+       JOIN compliance_tasks ct ON ct.id = mci.task_id
+       JOIN client_branches b ON b.id = ct.branch_id
+       JOIN client_assignments_current cac
+         ON cac.client_id = b.clientid
+         AND cac.assigned_to_user_id = $1
+         AND cac.assignment_type = 'CRM'
+       WHERE mci.id = $2::int`,
+      [crmUserId, parseInt(itemId, 10)],
+    );
+    if (!itemRows.length) {
+      throw new BadRequestException('MCD item not found or not in your scope');
+    }
+
+    const item = itemRows[0] as any;
+    if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
+      throw new BadRequestException('Cannot upload for an already approved/verified item');
+    }
+
+    // Save file to disk
+    const dir = path.join(
+      process.cwd(), 'uploads', 'mcd-evidence',
+      item.client_id, item.branch_id,
+    );
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const ext = path.extname(file.originalname) || '.pdf';
+    const safeName = `mcd_${itemId}_${Date.now()}${ext}`;
+    const diskPath = path.join(dir, safeName);
+    fs.writeFileSync(diskPath, file.buffer);
+    const fileUrl = `mcd-evidence/${item.client_id}/${item.branch_id}/${safeName}`;
+
+    // Create evidence record
+    await this.db.many(
+      `INSERT INTO compliance_evidence (task_id, mcd_item_id, uploaded_by_user_id, file_name, file_path, file_type, file_size, notes, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       RETURNING id`,
+      [item.task_id, parseInt(itemId, 10), crmUserId, file.originalname, fileUrl, file.mimetype, file.size, 'Uploaded by CRM'],
+    );
+
+    // Update MCD item status to SUBMITTED, mark as CRM-uploaded
+    await this.db.many(
+      `UPDATE compliance_mcd_items SET status = 'SUBMITTED', remarks = NULL, uploaded_by_role = 'CRM', updated_at = NOW() WHERE id = $1`,
+      [parseInt(itemId, 10)],
+    );
+
+    return { ok: true, message: 'Evidence uploaded successfully' };
+  }
+
+  /**
+   * POST /api/v1/crm/compliance-tracker/mcd/item/:itemId/approve
+   * Approve a single MCD checklist item
+   */
+  @ApiOperation({ summary: 'Approve MCD Item' })
+  @Post('mcd/item/:itemId/approve')
+  async approveMcdItem(
+    @CurrentUser() user: ReqUser,
+    @Param('itemId') itemId: string,
+  ) {
+    const crmUserId = user.id;
+    const itemIdNum = parseInt(itemId, 10);
+
+    // Verify the MCD item exists and belongs to a branch in CRM scope
+    const itemRows = await this.db.many(
+      `SELECT mci.id, mci.status
+       FROM compliance_mcd_items mci
+       JOIN compliance_tasks ct ON ct.id = mci.task_id
+       JOIN client_branches b ON b.id = ct.branch_id
+       JOIN client_assignments_current cac
+         ON cac.client_id = b.clientid
+         AND cac.assigned_to_user_id = $1
+         AND cac.assignment_type = 'CRM'
+       WHERE mci.id = $2::int`,
+      [crmUserId, itemIdNum],
+    );
+    if (!itemRows.length) {
+      throw new BadRequestException('MCD item not found or not in your scope');
+    }
+
+    const item = itemRows[0] as any;
+    if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
+      throw new BadRequestException('Item is already approved/verified');
+    }
+    if (item.status === 'PENDING') {
+      throw new BadRequestException('Cannot approve an item that has not been submitted');
+    }
+
+    await this.db.many(
+      `UPDATE compliance_mcd_items
+       SET status = 'APPROVED',
+           verified_by_user_id = $1::uuid,
+           verified_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $2::int`,
+      [crmUserId, itemIdNum],
+    );
+
+    return { ok: true, message: 'Item approved' };
+  }
+
+  /**
+   * POST /api/v1/crm/compliance-tracker/mcd/item/:itemId/reject
+   * Reject a single MCD checklist item — remarks required
+   */
+  @ApiOperation({ summary: 'Reject MCD Item' })
+  @Post('mcd/item/:itemId/reject')
+  async rejectMcdItem(
+    @CurrentUser() user: ReqUser,
+    @Param('itemId') itemId: string,
+    @Body() body: { remarks: string },
+  ) {
+    const crmUserId = user.id;
+    const itemIdNum = parseInt(itemId, 10);
+    const remarks = (body.remarks || '').trim();
+    if (!remarks) {
+      throw new BadRequestException('Remarks are required when rejecting');
+    }
+
+    // Verify the MCD item exists and belongs to a branch in CRM scope
+    const itemRows = await this.db.many(
+      `SELECT mci.id, mci.status
+       FROM compliance_mcd_items mci
+       JOIN compliance_tasks ct ON ct.id = mci.task_id
+       JOIN client_branches b ON b.id = ct.branch_id
+       JOIN client_assignments_current cac
+         ON cac.client_id = b.clientid
+         AND cac.assigned_to_user_id = $1
+         AND cac.assignment_type = 'CRM'
+       WHERE mci.id = $2::int`,
+      [crmUserId, itemIdNum],
+    );
+    if (!itemRows.length) {
+      throw new BadRequestException('MCD item not found or not in your scope');
+    }
+
+    const item = itemRows[0] as any;
+    if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
+      throw new BadRequestException('Cannot reject an already approved/verified item');
+    }
+
+    await this.db.many(
+      `UPDATE compliance_mcd_items
+       SET status = 'REJECTED',
+           remarks = $1,
+           verified_by_user_id = $2::uuid,
+           verified_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $3::int`,
+      [remarks, crmUserId, itemIdNum],
+    );
+
+    return { ok: true, message: 'Item rejected' };
+  }
+
+  /**
    * POST /api/v1/crm/compliance-tracker/mcd/:branchId/finalize
    * Mark all MCD items for a branch/month as finalized
    * Body: { year, month }
@@ -105,11 +417,11 @@ export class CrmComplianceTrackerController {
   @ApiOperation({ summary: 'Finalize Mcd' })
   @Post('mcd/:branchId/finalize')
   async finalizeMcd(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Body() body: { year: number; month: number },
   ) {
-    const crmUserId = req.user.id;
+    const crmUserId = user.id;
     const year = body.year || new Date().getFullYear();
     const month = body.month || new Date().getMonth() + 1;
 
@@ -154,12 +466,12 @@ export class CrmComplianceTrackerController {
   @ApiOperation({ summary: 'Return Mcd' })
   @Post('mcd/:branchId/return')
   async returnMcd(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Body()
     body: { year: number; month: number; remarks: string; itemIds?: string[] },
   ) {
-    const crmUserId = req.user.id;
+    const crmUserId = user.id;
     const year = body.year || new Date().getFullYear();
     const month = body.month || new Date().getMonth() + 1;
     const remarks = (body.remarks || '').trim();
@@ -182,22 +494,22 @@ export class CrmComplianceTrackerController {
 
     // If specific itemIds provided, return only those; otherwise return all non-APPROVED items
     let whereClause = `AND mci.status NOT IN ('RETURNED')`;
-    const params: any[] = [crmUserId, branchId, year, month, remarks];
+    const params: unknown[] = [branchId, year, month, remarks];
     if (body.itemIds?.length) {
-      whereClause = `AND mci.id = ANY($6::int[])`;
+      whereClause = `AND mci.id = ANY($5::int[])`;
       params.push(body.itemIds.map(Number));
     }
 
     const returned = await this.db.many(
       `UPDATE compliance_mcd_items mci
        SET status = 'RETURNED',
-           remarks = $5,
+           remarks = $4,
            updated_at = NOW()
        FROM compliance_tasks ct
        WHERE mci.task_id = ct.id
-         AND ct.branch_id = $2::uuid
-         AND ct.period_year = $3::int
-         AND ct.period_month = $4::int
+         AND ct.branch_id = $1::uuid
+         AND ct.period_year = $2::int
+         AND ct.period_month = $3::int
          ${whereClause}
        RETURNING mci.id`,
       params,
@@ -214,11 +526,11 @@ export class CrmComplianceTrackerController {
   @ApiOperation({ summary: 'Lock Mcd' })
   @Post('mcd/:branchId/lock')
   async lockMcd(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Body() body: { year: number; month: number },
   ) {
-    const crmUserId = req.user.id;
+    const crmUserId = user.id;
     const year = body.year || new Date().getFullYear();
     const month = body.month || new Date().getMonth() + 1;
 
@@ -283,8 +595,8 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Reupload Backlog' })
   @Get('reupload-backlog')
-  async reuploadBacklog(@Req() req: any) {
-    const crmUserId = req.user.id;
+  async reuploadBacklog(@CurrentUser() user: ReqUser) {
+    const crmUserId = user.id;
 
     // Counts by status + targetRole
     const statusRows = await this.db.many(
@@ -306,9 +618,14 @@ export class CrmComplianceTrackerController {
     );
 
     const sum = (st: string, role?: string) =>
-      statusRows
-        .filter((r: any) => r.status === st && (!role || r.targetRole === role))
-        .reduce((acc: number, r: any) => acc + Number(r.count || 0), 0);
+      (statusRows as { status: string; targetRole?: string; count?: number | string }[])
+        .filter(
+          (r) => r.status === st && (!role || r.targetRole === role),
+        )
+        .reduce(
+          (acc, r) => acc + Number(r.count || 0),
+          0,
+        );
 
     const byTargetRole = ['CONTRACTOR', 'CLIENT', 'BRANCH'].map((role) => ({
       targetRole: role,
@@ -357,8 +674,11 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Reupload Requests' })
   @Get('reupload-requests')
-  async reuploadRequests(@Req() req: any, @Query() query: any) {
-    return this.complianceService.crmListReuploadRequests(req.user, query);
+  async reuploadRequests(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    return this.complianceService.crmListReuploadRequests(user, query);
   }
 
   /**
@@ -368,8 +688,11 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Top Overdue Units' })
   @Get('reupload-top-units')
-  async topOverdueUnits(@Req() req: any, @Query() query: any) {
-    return this.complianceService.crmTopOverdueReuploadUnits(req.user, query);
+  async topOverdueUnits(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    return this.complianceService.crmTopOverdueReuploadUnits(user, query);
   }
 
   /* ═══════ Tab 4: Audit Closures ═══════ */
@@ -381,8 +704,11 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Audit Closures' })
   @Get('audit-closures')
-  async auditClosures(@Req() req: any, @Query() query: any) {
-    const crmUserId = req.user.id;
+  async auditClosures(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    const crmUserId = user.id;
     const clientId = query.clientId || null;
 
     const rows = await this.db.many(
@@ -438,11 +764,11 @@ export class CrmComplianceTrackerController {
   @ApiOperation({ summary: 'Close Observation' })
   @Post('audit-closures/:observationId/close')
   async closeObservation(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('observationId') observationId: string,
-    @Body() body: { notes?: string },
+    @Body() _body: { notes?: string },
   ) {
-    const crmUserId = req.user.id;
+    const crmUserId = user.id;
 
     // Verify observation belongs to CRM's client scope
     const scope = await this.db.many(
@@ -462,7 +788,6 @@ export class CrmComplianceTrackerController {
     await this.db.many(
       `UPDATE audit_observations
        SET status = 'CLOSED',
-           closed_at = NOW(),
            updated_at = NOW()
        WHERE id = $1::uuid
        RETURNING id`,
@@ -472,4 +797,3 @@ export class CrmComplianceTrackerController {
     return { ok: true };
   }
 }
-

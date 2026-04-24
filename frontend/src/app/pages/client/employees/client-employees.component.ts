@@ -45,6 +45,8 @@ import {
         description="Register and manage employees"
         icon="users">
         <div class="flex gap-2">
+          <ui-button variant="secondary" (clicked)="downloadEmployees()">Download List</ui-button>
+          <ui-button variant="secondary" (clicked)="downloadAppointmentLetters()" [disabled]="downloadingLetters">{{ downloadingLetters ? 'Generating...' : 'Appointment Letters' }}</ui-button>
           <ui-button variant="secondary" (clicked)="showImportDialog = true">Import Employees</ui-button>
           <ui-button variant="primary" (clicked)="addEmployee()">+ Register Employee</ui-button>
         </div>
@@ -57,8 +59,8 @@ import {
         <div class="flex items-end gap-3 flex-wrap">
           <ui-button variant="secondary" (clicked)="downloadTemplate()">Download Template</ui-button>
           <div class="form-field">
-            <label class="form-label">File</label>
-            <input type="file" (change)="onImportFileSelected($event)" accept=".xlsx,.xls,.csv"
+            <label class="form-label" for="ce-file">File</label>
+            <input id="ce-file" type="file" (change)="onImportFileSelected($event)" accept=".xlsx,.xls,.csv"
               class="text-sm border border-gray-300 rounded-lg p-2 bg-white" />
           </div>
           <ui-button variant="primary" [disabled]="!importFile || importing" (clicked)="bulkImport()">
@@ -129,7 +131,7 @@ import {
 
         <ng-template uiTableCell="name" let-row>
           <button class="name-link" (click)="viewEmployee(row)">
-            <div class="font-semibold text-gray-900">{{ row.firstName }} {{ row.lastName || '' }}</div>
+            <div class="font-semibold text-gray-900">{{ row.name }}</div>
             <div class="text-xs text-gray-500 mt-0.5 font-mono">{{ row.employeeCode }}</div>
           </button>
         </ng-template>
@@ -163,24 +165,24 @@ import {
 
         <ng-template uiTableCell="actions" let-row>
           <div class="flex gap-2">
-            <button class="text-xs text-blue-600 hover:underline" (click)="viewEmployee(row)">View</button>
-            <button class="text-xs text-blue-600 hover:underline" (click)="editEmployee(row)">Edit</button>
+            <button class="text-xs text-blue-600 hover:underline" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
+            <button class="text-xs text-blue-600 hover:underline" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
             <button
               *ngIf="row.approvalStatus === 'PENDING'"
               class="text-xs text-green-600 hover:underline font-semibold"
-              (click)="approveEmployee(row)">
+              (click)="$event.stopPropagation(); approveEmployee(row)">
               Approve
             </button>
             <button
               *ngIf="row.approvalStatus === 'PENDING'"
               class="text-xs text-red-600 hover:underline"
-              (click)="rejectEmployee(row)">
+              (click)="$event.stopPropagation(); rejectEmployee(row)">
               Reject
             </button>
             <button
               *ngIf="row.isActive && row.approvalStatus !== 'PENDING'"
               class="text-xs text-red-600 hover:underline"
-              (click)="confirmDeactivate(row)">
+              (click)="$event.stopPropagation(); confirmDeactivate(row)">
               Deactivate
             </button>
           </div>
@@ -191,9 +193,12 @@ import {
   styles: [
     `
       .page { max-width: 1280px; margin: 0 auto; padding: 1rem; }
+      :host ::ng-deep table { table-layout: auto !important; }
       .filter-bar { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
       .total-badge { font-size: 0.8rem; color: #6b7280; margin-bottom: 0.5rem; }
       .name-link {
+        display: block;
+        width: 100%;
         text-align: left;
         background: none;
         border: none;
@@ -236,13 +241,13 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   activeFilter = '';
 
   columns: TableColumn[] = [
-    { key: 'name', header: 'Employee', sortable: true },
-    { key: 'designation', header: 'Designation', sortable: true },
-    { key: 'state', header: 'State', width: '80px', align: 'center' },
-    { key: 'ids', header: 'IDs', width: '180px' },
-    { key: 'status', header: 'Status', width: '100px', align: 'center' },
+    { key: 'name', header: 'Employee', sortable: true, width: '220px' },
+    { key: 'designation', header: 'Designation', sortable: true, width: '180px' },
+    { key: 'state', header: 'State', width: '70px', align: 'center' },
+    { key: 'ids', header: 'IDs', width: '160px' },
+    { key: 'status', header: 'Status', width: '90px', align: 'center' },
     { key: 'approval', header: 'Approval', width: '110px', align: 'center' },
-    { key: 'actions', header: '', width: '200px', align: 'center' },
+    { key: 'actions', header: '', width: '230px', align: 'center' },
   ];
 
   statusOptions = [
@@ -268,6 +273,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   importing = false;
   importMsg = '';
   importError = false;
+  downloadingLetters = false;
 
   constructor(
     private svc: ClientEmployeesService,
@@ -331,23 +337,30 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   }
 
   async confirmDeactivate(emp: Employee): Promise<void> {
-    if (!(await this.dialog.confirm('Deactivate Employee', `Deactivate ${emp.firstName} ${emp.lastName || ''}?`, { variant: 'danger', confirmText: 'Deactivate' }))) return;
-    this.svc.deactivate(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => this.load(),
+    const result = await this.dialog.prompt('Exit Employee', `Exit ${emp.name}? Please provide a reason:`, {
+      placeholder: 'e.g. Resignation, Termination, Contract End...',
+      confirmText: 'Confirm Exit',
+    });
+    if (!result.confirmed || !result.value?.trim()) {
+      if (result.confirmed) this.toast.error('Exit reason is required');
+      return;
+    }
+    this.svc.deactivate(emp.id, { exitReason: result.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Employee exited'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
     });
   }
 
-  async approveEmployee(emp: Employee): Promise<void> {
-    if (!(await this.dialog.confirm('Approve Employee', `Approve registration of ${emp.firstName} ${emp.lastName || ''}?`, { confirmText: 'Approve' }))) return;
+  approveEmployee(emp: Employee): void {
+    if (!confirm(`Approve registration of ${emp.name}?`)) return;
     this.svc.approve(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee approved'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to approve'),
     });
   }
 
-  async rejectEmployee(emp: Employee): Promise<void> {
-    if (!(await this.dialog.confirm('Reject Employee', `Reject registration of ${emp.firstName} ${emp.lastName || ''}? The employee will be deactivated.`, { variant: 'danger', confirmText: 'Reject' }))) return;
+  rejectEmployee(emp: Employee): void {
+    if (!confirm(`Reject registration of ${emp.name}? The employee will be deactivated.`)) return;
     this.svc.reject(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee rejected'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to reject'),
@@ -387,16 +400,63 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
       finalize(() => { this.importing = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (res) => {
-        this.importMsg = `Imported ${res?.imported ?? 0} employees` + (res?.errors?.length ? ` (${res.errors.length} errors)` : '');
+        const parts: string[] = [];
+        if (res?.imported) parts.push(`${res.imported} new`);
+        if (res?.updated) parts.push(`${res.updated} updated`);
+        if (res?.skipped) parts.push(`${res.skipped} skipped`);
+        if (res?.errors?.length) parts.push(`${res.errors.length} errors`);
+        this.importMsg = parts.length ? parts.join(', ') : 'No records processed';
         this.importError = false;
         this.importFile = null;
         this.toast.success(this.importMsg);
+        if (res?.warnings?.length) {
+          this.toast.warning(res.warnings.join(' | '));
+        }
         this.load();
       },
       error: (e) => {
         this.importMsg = e?.error?.message || 'Import failed';
         this.importError = true;
       },
+    });
+  }
+
+  downloadEmployees(): void {
+    const params = new URLSearchParams();
+    if (this.searchTerm) params.set('search', this.searchTerm);
+    if (this.activeFilter) params.set('isActive', this.activeFilter);
+    if (this.approvalFilter) params.set('approvalStatus', this.approvalFilter);
+    const qs = params.toString();
+    this.http.get(`${environment.apiBaseUrl}/api/v1/client/employees/export${qs ? '?' + qs : ''}`, {
+      responseType: 'blob',
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'employees.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => this.toast.error('Failed to download employee list'),
+    });
+  }
+
+  downloadAppointmentLetters(): void {
+    this.downloadingLetters = true;
+    this.svc.downloadAppointmentLettersBulk('docx').pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.downloadingLetters = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Appointment_Letters.zip';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => this.toast.error('Failed to download appointment letters'),
     });
   }
 }

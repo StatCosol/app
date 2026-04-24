@@ -6,13 +6,13 @@ import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { CrmContractorsService } from '../../../core/crm-contractors.service';
 import { CrmService } from '../../../core/crm.service';
 import { ActivatedRoute } from '@angular/router';
-import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, TableColumn, ClientContextStripComponent } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   standalone: true,
   selector: 'app-crm-contractors',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, ClientContextStripComponent],
   templateUrl: './crm-contractors.component.html',
   styleUrls: ['./crm-contractors.component.scss'],
 })
@@ -113,6 +113,22 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     };
   }
 
+  get emailError(): string {
+    const v = (this.form.email || '').trim();
+    if (!v) return '';
+    if (!v.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Please enter a valid email address';
+    return '';
+  }
+
+  get mobileError(): string {
+    const v = (this.form.mobile || '').trim();
+    if (!v) return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Mobile must include country code + 10 digits (e.g. +919876543210)';
+    return '';
+  }
+
   generatePassword(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let password = '';
@@ -125,6 +141,14 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   registerContractor() {
     if (!this.form.name || !this.form.email || !this.form.password || !this.form.clientId) {
       this.toast.warning('Name, Email, Password, and Client are required');
+      return;
+    }
+    if (this.emailError) {
+      this.toast.warning(this.emailError);
+      return;
+    }
+    if (this.mobileError) {
+      this.toast.warning(this.mobileError);
       return;
     }
 

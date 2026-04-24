@@ -14,7 +14,7 @@
       </svg>
       <span>{{ error }}</span>
     </div>
-    <button (click)="loadAll()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
+    <button type="button" (click)="loadAll()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
   </div>
 
   <!-- Filters -->
@@ -118,7 +118,7 @@
 
   <!-- Tab Navigation -->
   <div *ngIf="!loading" class="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-6 overflow-x-auto">
-    <button
+    <button type="button"
       *ngFor="let tab of [
         { key: 'branches', label: 'Branches', count: branchRows.length },
         { key: 'tasks', label: 'MCD Tasks', count: tasks.length },

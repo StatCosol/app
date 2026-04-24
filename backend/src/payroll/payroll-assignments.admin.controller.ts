@@ -6,14 +6,21 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
+import { IsUUID } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollService } from './payroll.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+
+class AssignPayrollDto {
+  @IsUUID() clientId: string;
+  @IsUUID() payrollUserId: string;
+}
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
@@ -32,13 +39,13 @@ export class PayrollAssignmentsAdminController {
   @ApiOperation({ summary: 'Assign' })
   @Post()
   assign(
-    @Body() body: { clientId: string; payrollUserId: string },
-    @Request() req: any,
+    @Body() body: AssignPayrollDto,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.payroll.assignPayrollToClient({
       clientId: body.clientId,
       payrollUserId: body.payrollUserId,
-      actorUserId: req.user?.userId ?? req.user?.id ?? null,
+      actorUserId: user?.userId ?? user?.id ?? null,
     });
   }
 
@@ -46,11 +53,11 @@ export class PayrollAssignmentsAdminController {
   @Delete(':clientId')
   unassign(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Request() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.payroll.unassignPayrollFromClient({
       clientId,
-      actorUserId: req.user?.userId ?? req.user?.id ?? null,
+      actorUserId: user?.userId ?? user?.id ?? null,
     });
   }
 }

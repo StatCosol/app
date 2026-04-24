@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, DataSource } from 'typeorm';
+import { Repository, In, DataSource, IsNull } from 'typeorm';
 import { ComplianceMasterEntity } from './entities/compliance-master.entity';
 import {
   ComplianceApplicabilityEntity,
@@ -207,7 +207,7 @@ export class CompliancesService {
     }
 
     const branch = await this.branchRepo.findOne({
-      where: { id: branchId, isDeleted: false as any },
+      where: { id: branchId, isDeleted: false },
     });
     if (!branch) throw new NotFoundException('Branch not found');
     if (clientId && branch.clientId !== clientId) {
@@ -276,14 +276,14 @@ export class CompliancesService {
         {
           isActive: true,
           branchCategory: profile.branchCategory,
-          stateCode: profile.stateCode,
+          stateCode: profile.stateCode ?? undefined,
         },
         {
           isActive: true,
           branchCategory: profile.branchCategory,
-          stateCode: null,
+          stateCode: IsNull(),
         },
-      ] as any,
+      ],
       order: { priority: 'ASC' },
     });
 
@@ -301,8 +301,8 @@ export class CompliancesService {
     await this.dataSource.transaction(async (manager) => {
       await manager.delete(BranchComplianceEntity, {
         branchId,
-        source: 'AUTO' as any,
-      } as any);
+        source: 'AUTO',
+      });
 
       if (finalIds.length) {
         const rows = finalIds.map((complianceId) =>
@@ -342,7 +342,7 @@ export class CompliancesService {
   ) {
     const assignedClients =
       await this.assignmentsService.getAssignedClientsForCrm(crmUserId);
-    const assignedIds = assignedClients.map((c: any) => c.id);
+    const assignedIds = assignedClients.map((c: { id: string }) => c.id);
     if (!assignedIds.length) {
       return { data: [], total: 0 };
     }
@@ -378,7 +378,7 @@ export class CompliancesService {
 
     const rows = await qb.getRawMany();
     return {
-      data: rows.map((r: any) => ({
+      data: rows.map((r: Record<string, unknown>) => ({
         id: String(r.id),
         clientId: r.clientId as string,
         branchId: r.branchId as string,

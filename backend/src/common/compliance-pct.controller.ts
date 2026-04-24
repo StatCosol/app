@@ -7,6 +7,8 @@ import {
   Version,
 } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import {
   CompliancePctService,
   BranchPctRow,
@@ -22,6 +24,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
  */
 @ApiTags('Common')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('compliance-pct')
 export class CompliancePctController {
   constructor(private readonly pctSvc: CompliancePctService) {}

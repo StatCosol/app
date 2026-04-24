@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -6,7 +6,8 @@ import { AdminActionsService } from './admin-actions.service';
 import { AdminNotifyDto } from './dto/admin-notify.dto';
 import { AdminReassignDto } from './dto/admin-reassign.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 /**
  * Admin Actions Controller
  *
@@ -47,8 +48,11 @@ export class AdminActionsController {
    */
   @ApiOperation({ summary: 'Notify' })
   @Post('notify')
-  notify(@Req() req: any, @Body() dto: AdminNotifyDto) {
-    return this.svc.notify(req.user, dto);
+  notify(@CurrentUser() user: ReqUser, @Body() dto: AdminNotifyDto) {
+    return this.svc.notify(
+      { id: user.id, role: user.roleCode, roleCode: user.roleCode },
+      dto,
+    );
   }
 
   /**
@@ -75,7 +79,7 @@ export class AdminActionsController {
    */
   @ApiOperation({ summary: 'Reassign' })
   @Post('reassign')
-  reassign(@Req() req: any, @Body() dto: AdminReassignDto) {
-    return this.svc.reassign(req.user, dto);
+  reassign(@CurrentUser() user: ReqUser, @Body() dto: AdminReassignDto) {
+    return this.svc.reassign({ id: user.id, role: user.roleCode }, dto);
   }
 }

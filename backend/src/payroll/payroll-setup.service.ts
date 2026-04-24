@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { PayrollClientSetupEntity } from './entities/payroll-client-setup.entity';
 import { PayrollComponentEntity } from './entities/payroll-component.entity';
 import { PayrollComponentRuleEntity } from './entities/payroll-component-rule.entity';
@@ -45,8 +45,10 @@ export class PayrollSetupService {
   // ── Components ─────────────────────────────────────────────
 
   async listComponents(clientId: string, type?: string) {
-    const where: any = { clientId };
-    if (type) where.componentType = type;
+    const where: FindOptionsWhere<PayrollComponentEntity> = { clientId };
+    if (type)
+      where.componentType =
+        type as FindOptionsWhere<PayrollComponentEntity>['componentType'];
     return this.compRepo.find({
       where,
       order: { displayOrder: 'ASC', createdAt: 'ASC' },
@@ -102,7 +104,7 @@ export class PayrollSetupService {
       where: { componentId },
       order: { priority: 'ASC', createdAt: 'ASC' },
     });
-    const result: any[] = [];
+    const result: Array<PayrollComponentRuleEntity & { slabs: PayrollComponentSlabEntity[] }> = [];
     for (const rule of rules) {
       const slabs = await this.slabRepo.find({
         where: { ruleId: rule.id },
@@ -177,6 +179,7 @@ export class PayrollSetupService {
     copy('esiEmployerRate');
     copy('esiEmployeeRate');
     copy('pfWageCeiling');
+    copy('pfGrossThreshold');
     copy('esiWageCeiling');
     copy('payCycle');
     copy('effectiveFrom');

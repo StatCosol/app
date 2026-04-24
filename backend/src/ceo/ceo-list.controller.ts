@@ -1,10 +1,15 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { ScopedListQueryDto } from '../common/dto/scoped-list-query.dto';
 import { AuditListService } from '../list-queries/audit-list.service';
-import { EscalationListService } from '../list-queries/escalation-list.service';
 import { CeoDashboardService } from './ceo-dashboard.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
@@ -19,7 +24,6 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 export class CeoListController {
   constructor(
     private readonly audits: AuditListService,
-    private readonly escalations: EscalationListService,
     private readonly ceoDashboard: CeoDashboardService,
   ) {}
 
@@ -28,7 +32,11 @@ export class CeoListController {
   @Get('branches')
   listBranches(
     @Query()
-    q: ScopedListQueryDto & { state?: string; riskBand?: string; client?: string },
+    q: ScopedListQueryDto & {
+      state?: string;
+      riskBand?: string;
+      client?: string;
+    },
   ) {
     return this.ceoDashboard.getBranchWorkspaceList(q);
   }
@@ -54,15 +62,5 @@ export class CeoListController {
   @Get('audits')
   listAudits(@CurrentUser() user: ReqUser, @Query() q: ScopedListQueryDto) {
     return this.audits.list(user, q);
-  }
-
-  /** CEO escalations overview */
-  @ApiOperation({ summary: 'List Escalations' })
-  @Get('escalations')
-  listEscalations(
-    @CurrentUser() user: ReqUser,
-    @Query() q: ScopedListQueryDto,
-  ) {
-    return this.escalations.list(user, q);
   }
 }

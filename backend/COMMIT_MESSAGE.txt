@@ -1,9 +1,0 @@
-tests: mock Client repository in clients.service.spec; fix lint issues
-
-- tests: add mocked repository and UsersService provider in `clients.service.spec.ts` to resolve missing provider error
-- lint: remove unnecessary async in `jwt.strategy.ts`
-- lint: add safer typing in `roles.guard.ts`
-- lint: mark bootstrap promise as ignored in `main.ts`
-- lint: add explicit types in `users.service.ts` (UserListItem, return types, sortDir)
-
-All backend tests pass and linter reports clean after these changes.

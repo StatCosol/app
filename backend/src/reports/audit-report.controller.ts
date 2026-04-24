@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
@@ -16,7 +17,7 @@ export class AuditReportController {
   @Roles('ADMIN', 'CEO', 'CCO', 'AUDITOR')
   @ApiOperation({ summary: 'Overdue' })
   @Get('overdue')
-  async overdue(@CurrentUser() user: any) {
+  async overdue(@CurrentUser() user: ReqUser) {
     const base = `
       SELECT
         c."clientName" AS client_name,
@@ -33,7 +34,7 @@ export class AuditReportController {
         AND a.due_date < now()
     `;
 
-    const params: any[] = [];
+    const params: unknown[] = [];
     let sql = base;
 
     if (user?.roleCode === 'AUDITOR') {

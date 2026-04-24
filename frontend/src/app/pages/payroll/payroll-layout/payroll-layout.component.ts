@@ -1,19 +1,21 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { PayrollSidebarComponent } from './payroll-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
 
 @Component({
   selector: 'app-payroll-layout',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterOutlet, PayrollSidebarComponent],
   template: `
     <div class="payroll-shell">
       <!-- Mobile menu toggle -->
       <button
-        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80"
-        style="background: linear-gradient(135deg, #1E293B, #0F172A);"
+        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80 role-fab-payroll"
         (click)="mobileOpen = true"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,10 +45,10 @@ import { AuthService } from '../../../core/auth.service';
                   </svg>
                 </div>
                 <div class="leading-tight">
-                  <h1 class="text-2xl sm:text-3xl font-bold tracking-tight" style="color: #0a2656; font-family: 'Times New Roman', Georgia, serif;">
+                  <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-statco-blue font-brand">
                     StatCo Solutions
                   </h1>
-                  <p class="text-xs sm:text-sm font-medium text-slate-500">Ensuring Compliance, Empowering Success</p>
+                  <p class="text-xs font-medium text-slate-500">Ensuring Compliance, Empowering Success</p>
                 </div>
                 <!-- Contact (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-1 ml-6 text-xs text-gray-400">
@@ -73,8 +75,7 @@ import { AuthService } from '../../../core/auth.service';
                 <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
                   (click)="logout()"
-                  class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
-                  style="background: linear-gradient(135deg, #1E293B, #334155);"
+                  class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 role-btn-payroll"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -109,7 +110,8 @@ import { AuthService } from '../../../core/auth.service';
     @media (min-width: 1024px) { .payroll-content { padding: 2rem 1.5rem; } }
   `]
 })
-export class PayrollLayoutComponent implements OnInit {
+export class PayrollLayoutComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   sidebarCollapsed = false;
   mobileOpen = false;
   userName = 'Payroll User';
@@ -119,15 +121,20 @@ export class PayrollLayoutComponent implements OnInit {
     const u = this.auth.getUser();
     if (u?.name) this.userName = u.name;
     const derivedLogo = u?.clientLogoUrl || u?.client?.logoUrl;
-    if (derivedLogo) this.clientLogoUrl = derivedLogo;
+    if (derivedLogo) this.clientLogoUrl = this.auth.authenticateUrl(derivedLogo);
   }
 
   ngOnInit(): void {
-    this.auth.fetchMe().subscribe(() => {
+    this.auth.fetchMe().pipe(takeUntil(this.destroy$)).subscribe(() => {
       const u = this.auth.getUser();
       const logo = u?.clientLogoUrl || u?.client?.logoUrl;
-      if (logo) this.clientLogoUrl = logo;
+      if (logo) this.clientLogoUrl = this.auth.authenticateUrl(logo);
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   onLogoError(): void {

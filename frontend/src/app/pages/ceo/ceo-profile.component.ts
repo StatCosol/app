@@ -5,11 +5,12 @@ import { Subject } from 'rxjs';
 import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../shared/ui';
 import { ProfileApiService, UserProfile } from '../../core/api/profile.api';
+import { ChangePasswordComponent } from '../../shared/components/change-password/change-password.component';
 
 @Component({
   selector: 'app-ceo-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ChangePasswordComponent],
   template: `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header title="CEO Profile" description="Profile and security settings" icon="user-circle"></ui-page-header>
@@ -25,20 +26,20 @@ import { ProfileApiService, UserProfile } from '../../core/api/profile.api';
           <h3 class="card-title mb-4">Personal Information</h3>
           <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input type="text" class="input w-full" [(ngModel)]="profile.name" />
+              <label for="ceo-profile-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input type="text" id="ceo-profile-name" name="name" autocomplete="name" class="input w-full" [(ngModel)]="profile.name" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" class="input w-full" [value]="profile.email" disabled />
+              <label for="ceo-profile-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" id="ceo-profile-email" name="email" class="input w-full" [value]="profile.email" disabled />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input type="tel" class="input w-full" [(ngModel)]="profile.phone" />
+              <label for="ceo-profile-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input type="tel" id="ceo-profile-phone" name="phone" autocomplete="tel" class="input w-full" [(ngModel)]="profile.phone" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <input type="text" class="input w-full" [value]="profile.role" disabled />
+              <label for="ceo-profile-role" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <input type="text" id="ceo-profile-role" name="role" class="input w-full" [value]="profile.role" disabled />
             </div>
             <button class="btn-primary" [disabled]="saving" (click)="saveProfile()">
               {{ saving ? 'Saving...' : 'Save Changes' }}
@@ -47,26 +48,7 @@ import { ProfileApiService, UserProfile } from '../../core/api/profile.api';
         </div>
 
         <!-- Change Password -->
-        <div class="card">
-          <h3 class="card-title mb-4">Change Password</h3>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-              <input type="password" class="input w-full" [(ngModel)]="currentPassword" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-              <input type="password" class="input w-full" [(ngModel)]="newPassword" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-              <input type="password" class="input w-full" [(ngModel)]="confirmPassword" />
-            </div>
-            <button class="btn-primary" [disabled]="changingPassword" (click)="changePassword()">
-              {{ changingPassword ? 'Changing...' : 'Change Password' }}
-            </button>
-          </div>
-        </div>
+        <ui-change-password></ui-change-password>
       </div>
     </div>
   `,
@@ -76,12 +58,8 @@ export class CeoProfileComponent implements OnInit, OnDestroy {
   loading = true;
   saving = false;
   private destroy$ = new Subject<void>();
-  changingPassword = false;
   error: string | null = null;
   success: string | null = null;
-  currentPassword = '';
-  newPassword = '';
-  confirmPassword = '';
 
   constructor(private profileApi: ProfileApiService, private cdr: ChangeDetectorRef) {}
 
@@ -113,23 +91,4 @@ export class CeoProfileComponent implements OnInit, OnDestroy {
     });
   }
 
-  changePassword(): void {
-    if (this.changingPassword) return;
-    if (this.newPassword !== this.confirmPassword) { this.error = 'Passwords do not match'; return; }
-    if (!this.currentPassword || !this.newPassword) { this.error = 'All password fields are required'; return; }
-    this.changingPassword = true;
-    this.error = null;
-    this.success = null;
-    this.profileApi.changePassword(this.currentPassword, this.newPassword).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.changingPassword = false;
-        this.success = 'Password changed successfully';
-        this.currentPassword = '';
-        this.newPassword = '';
-        this.confirmPassword = '';
-        this.cdr.detectChanges();
-      },
-      error: () => { this.error = 'Failed to change password'; this.changingPassword = false; this.cdr.detectChanges(); },
-    });
-  }
 }

@@ -5,14 +5,14 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { AuthService } from '../../../core/auth.service';
-import { DataTableComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
 
 @Component({
   selector: 'app-client-registrations',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, TableCellDirective],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './client-registrations.component.html'
+  templateUrl: './client-registrations.component.html',
+  styleUrls: ['./client-registrations.component.scss'],
 })
 export class ClientRegistrationsComponent implements OnInit, OnDestroy {
 
@@ -20,16 +20,6 @@ export class ClientRegistrationsComponent implements OnInit, OnDestroy {
   selectedBranchId = '';
   registrations: any[] = [];
   filtered: any[] = [];
-
-  readonly regColumns: TableColumn[] = [
-    { key: 'type', header: 'Registration' },
-    { key: 'registrationNumber', header: 'Number' },
-    { key: 'authority', header: 'Authority' },
-    { key: 'issuedDate', header: 'Issued' },
-    { key: 'expiryDate', header: 'Expiry' },
-    { key: 'daysRemaining', header: 'Days', align: 'center' },
-    { key: 'computedStatus', header: 'Status', align: 'center' },
-  ];
 
   active = 0;
   expiring = 0;
@@ -65,7 +55,7 @@ export class ClientRegistrationsComponent implements OnInit, OnDestroy {
 
     this.branchSvc.list().pipe(takeUntil(this.destroy$)).subscribe({
       next: (rows) => {
-        this.branches = rows || [];
+        this.branches = (rows || []).map((b: any) => ({ ...b, name: b.name || b.branchName || 'Branch' }));
         this.selectedBranchId = this.branches[0]?.id || '';
         if (this.selectedBranchId) this.load();
         else { this.loading = false; this.cdr.markForCheck(); }
@@ -114,6 +104,10 @@ export class ClientRegistrationsComponent implements OnInit, OnDestroy {
     this.active = this.registrations.filter(r => r.computedStatus === 'ACTIVE').length;
     this.expiring = this.registrations.filter(r => r.computedStatus === 'EXPIRING_SOON').length;
     this.expired = this.registrations.filter(r => r.computedStatus === 'EXPIRED').length;
+  }
+
+  trackById(_index: number, row: any): string {
+    return row?.id || _index;
   }
 
   ngOnDestroy(): void {

@@ -20,7 +20,7 @@ export function createDoc(
 ): typeof PDFDocument.prototype {
   return new PDFDocument({
     size: 'A4',
-    margin: 40,
+    margins: { top: 40, bottom: 40, left: 40, right: 40 },
     bufferPages: true,
     info: { Producer: 'StatComPy', Creator: 'StatComPy Reports' },
     ...opts,
@@ -28,7 +28,7 @@ export function createDoc(
 }
 
 /** Convert a PDFDocument stream to a Buffer */
-export function toBuffer(doc: any): Promise<Buffer> {
+export function toBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Uint8Array[] = [];
     doc.on('data', (c: Uint8Array) => chunks.push(c));
@@ -40,7 +40,7 @@ export function toBuffer(doc: any): Promise<Buffer> {
 
 /* ──────── Header ──────── */
 
-export function header(doc: any, title: string, subtitle?: string): void {
+export function header(doc: PDFKit.PDFDocument, title: string, subtitle?: string): void {
   doc.fontSize(18).fillColor(BRAND).text(title, { align: 'left' });
   if (subtitle) {
     doc.fontSize(9).fillColor(MUTED).text(subtitle, { align: 'left' });
@@ -52,10 +52,12 @@ export function header(doc: any, title: string, subtitle?: string): void {
 
 /* ──────── Footer (called once after all pages) ──────── */
 
-export function addPageNumbers(doc: any): void {
+export function addPageNumbers(doc: PDFKit.PDFDocument): void {
   const pages = doc.bufferedPageRange();
   for (let i = pages.start; i < pages.start + pages.count; i++) {
     doc.switchToPage(i);
+    const savedBottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
     const bottom = doc.page.height - 30;
     doc
       .fontSize(7)
@@ -64,14 +66,15 @@ export function addPageNumbers(doc: any): void {
         `Page ${i + 1} of ${pages.count}  •  Generated ${new Date().toISOString().slice(0, 10)}`,
         40,
         bottom,
-        { align: 'center', width: doc.page.width - 80 },
+        { align: 'center', width: doc.page.width - 80, lineBreak: false },
       );
+    doc.page.margins.bottom = savedBottom;
   }
 }
 
 /* ──────── Divider ──────── */
 
-export function divider(doc: any): void {
+export function divider(doc: PDFKit.PDFDocument): void {
   const y = doc.y;
   doc
     .moveTo(40, y)
@@ -83,14 +86,14 @@ export function divider(doc: any): void {
 
 /* ──────── Section heading ──────── */
 
-export function sectionTitle(doc: any, title: string): void {
+export function sectionTitle(doc: PDFKit.PDFDocument, title: string): void {
   doc.fontSize(12).fillColor(BRAND).text(title).moveDown(0.3);
 }
 
 /* ──────── KPI row ──────── */
 
 export function kpiRow(
-  doc: any,
+  doc: PDFKit.PDFDocument,
   items: { label: string; value: string | number }[],
 ): void {
   const startX = 40;
@@ -127,9 +130,9 @@ export interface TableCol {
 }
 
 export function table(
-  doc: any,
+  doc: PDFKit.PDFDocument,
   columns: TableCol[],
-  rows: Record<string, any>[],
+  rows: Record<string, unknown>[],
 ): void {
   const startX = 40;
   const availableWidth = doc.page.width - 80;

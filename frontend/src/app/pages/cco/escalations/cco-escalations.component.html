@@ -15,7 +15,7 @@
 
   <!-- Tabs by Escalation Type -->
   <div class="flex items-center gap-1 mb-4 bg-gray-100 rounded-xl p-1 w-fit overflow-x-auto">
-    <button *ngFor="let opt of tabOptions"
+    <button type="button" *ngFor="let opt of tabOptions"
       (click)="setTab(opt.value)"
       [class]="tab === opt.value
         ? 'bg-white shadow-sm text-gray-900 font-semibold'
@@ -27,7 +27,7 @@
 
   <!-- Filters -->
   <div class="flex gap-3 mb-4">
-    <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+    <select id="ce-status-filter" name="statusFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
       [(ngModel)]="statusFilter" (change)="load()">
       <option value="">All Statuses</option>
       <option value="OPEN">Open</option>
@@ -86,15 +86,18 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Assign Escalation</h3>
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Assignee Role</label>
-          <select class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assignRole">
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="assign-role">Assignee Role</label>
+          <select id="assign-role" name="assignRole" class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assignRole">
             <option value="CRM">CRM</option>
             <option value="AUDITOR">Auditor</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Assignee ID</label>
-          <input class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assigneeId" placeholder="User ID" />
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="assignee-id">Assignee</label>
+          <select id="assignee-id" name="assigneeId" class="w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="assigneeId">
+            <option value="">Select a user…</option>
+            <option *ngFor="let u of filteredUsers" [value]="u.id">{{ u.name }} ({{ u.email }})</option>
+          </select>
         </div>
       </div>
       <div class="flex justify-end gap-3 mt-6">
@@ -108,7 +111,7 @@
   <div *ngIf="showNotifyModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Send Notification</h3>
-      <textarea class="w-full rounded-lg border-gray-300 text-sm mb-4" rows="3"
+      <textarea autocomplete="off" id="ce-notify-message" name="notifyMessage" class="w-full rounded-lg border-gray-300 text-sm mb-4" rows="3"
         [(ngModel)]="notifyMessage" placeholder="Enter notification message..."></textarea>
       <div class="flex justify-end gap-3">
         <ui-button variant="secondary" (clicked)="showNotifyModal = false">Cancel</ui-button>

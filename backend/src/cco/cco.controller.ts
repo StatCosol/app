@@ -1,10 +1,18 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CcoService } from './cco.service';
+import { RejectRequestDto } from '../admin/dto/admin-applicability-config.dto';
 import { Body, Param, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('CCO')
 @ApiBearerAuth('JWT')
@@ -16,56 +24,67 @@ export class CcoController {
   @ApiOperation({ summary: 'Get Dashboard' })
   @Get('dashboard')
   @Roles('CCO')
-  getDashboard(@Req() req: any) {
-    return this.svc.getDashboard(req.user);
+  getDashboard(@CurrentUser() user: ReqUser) {
+    return this.svc.getDashboard(user);
   }
 
   @ApiOperation({ summary: 'Get Approvals' })
   @Get('approvals')
   @Roles('CCO')
-  getApprovals(@Req() req: any) {
-    return this.svc.getApprovals(req.user);
+  getApprovals(@CurrentUser() user: ReqUser) {
+    return this.svc.getApprovals(user);
   }
 
   @ApiOperation({ summary: 'Approve Request' })
   @Post('approvals/:id/approve')
   @Roles('CCO')
-  approveRequest(@Req() req: any, @Param('id') id: string) {
-    return this.svc.approveRequest(req.user, Number(id));
+  approveRequest(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    const numId = Number(id);
+    if (isNaN(numId)) throw new BadRequestException('Invalid approval ID');
+    return this.svc.approveRequest(user, numId);
   }
 
   @ApiOperation({ summary: 'Reject Request' })
   @Post('approvals/:id/reject')
   @Roles('CCO')
-  rejectRequest(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.svc.rejectRequest(req.user, Number(id), body.remarks);
+  rejectRequest(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: RejectRequestDto,
+  ) {
+    const numId = Number(id);
+    if (isNaN(numId)) throw new BadRequestException('Invalid approval ID');
+    return this.svc.rejectRequest(user, numId, body.remarks || '');
   }
 
   @ApiOperation({ summary: 'Get Crms Under Me' })
   @Get('crms-under-me')
   @Roles('CCO')
-  getCrmsUnderMe(@Req() req: any) {
-    return this.svc.getCrmsUnderMe(req.user);
+  getCrmsUnderMe(@CurrentUser() user: ReqUser) {
+    return this.svc.getCrmsUnderMe(user);
   }
 
   @ApiOperation({ summary: 'Get Oversight' })
   @Get('oversight')
   @Roles('CCO')
-  getOversight(@Req() req: any, @Query('status') status?: string) {
-    return this.svc.getOversight(req.user, { status });
+  getOversight(@CurrentUser() user: ReqUser, @Query('status') status?: string) {
+    return this.svc.getOversight(user, { status });
   }
 
   @ApiOperation({ summary: 'Get Oversight Delays' })
   @Get('oversight/delays')
   @Roles('CCO')
-  getOversightDelays(@Req() req: any) {
-    return this.svc.getOversightDelays(req.user);
+  getOversightDelays(@CurrentUser() user: ReqUser) {
+    return this.svc.getOversightDelays(user);
   }
 
   @ApiOperation({ summary: 'Get Oversight Trends' })
   @Get('oversight/trends')
   @Roles('CCO')
-  getOversightTrends(@Req() req: any, @Query('months') months?: string) {
-    return this.svc.getOversightTrends(req.user, Number(months || 6));
+  getOversightTrends(
+    @CurrentUser() user: ReqUser,
+    @Query('months') months?: string,
+  ) {
+    return this.svc.getOversightTrends(user, Number(months || 6));
   }
 }

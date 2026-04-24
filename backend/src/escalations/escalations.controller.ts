@@ -5,7 +5,6 @@ import {
   Param,
   Body,
   Query,
-  Req,
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +13,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { EscalationsService } from './escalations.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Escalations')
 @ApiBearerAuth('JWT')
@@ -30,10 +31,8 @@ export class EscalationsController {
   @Get()
   async list(
     @Query() q: { status?: string; branchId?: string; clientId?: string },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
-
     if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor access denied');
     }
@@ -56,10 +55,8 @@ export class EscalationsController {
   async update(
     @Param('id') id: string,
     @Body() body: { status?: string; clientId?: string },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
-
     if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor access denied');
     }

@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Get,
   Query,
-  Req,
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
@@ -14,6 +13,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { ComplianceStatusQueryDto } from './dto/compliance-status-query.dto';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'ADMIN')
@@ -30,34 +31,34 @@ export class LegitxComplianceStatusController {
   @ApiOperation({ summary: 'Summary' })
   @Get('summary')
   async summary(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceStatusQueryDto,
   ) {
-    return this.svc.getSummary(await this.buildParams(req, q));
+    return this.svc.getSummary(await this.buildParams(user, q));
   }
 
   /** Branch-wise compliance breakdown table */
   @ApiOperation({ summary: 'Branches' })
   @Get('branches')
   async branches(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceStatusQueryDto,
   ) {
-    return this.svc.getBranches(await this.buildParams(req, q));
+    return this.svc.getBranches(await this.buildParams(user, q));
   }
 
   /** Tasks drill-down (filterable by category / law family) */
   @ApiOperation({ summary: 'Tasks' })
   @Get('tasks')
   async tasks(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceStatusQueryDto,
   ) {
     return this.svc.getTasks({
-      ...(await this.buildParams(req, q)),
+      ...(await this.buildParams(user, q)),
       category: q.category ?? null,
     });
   }
@@ -66,38 +67,37 @@ export class LegitxComplianceStatusController {
   @ApiOperation({ summary: 'Contractors' })
   @Get('contractors')
   async contractors(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceStatusQueryDto,
   ) {
-    return this.svc.getContractorImpact(await this.buildParams(req, q));
+    return this.svc.getContractorImpact(await this.buildParams(user, q));
   }
 
   /** Audit findings and their impact on compliance */
   @ApiOperation({ summary: 'Audit' })
   @Get('audit')
   async audit(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceStatusQueryDto,
   ) {
-    return this.svc.getAuditImpact(await this.buildParams(req, q));
+    return this.svc.getAuditImpact(await this.buildParams(user, q));
   }
 
   /** Returns / filings status for the period */
   @ApiOperation({ summary: 'Returns' })
   @Get('returns')
   async returns(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceStatusQueryDto,
   ) {
-    return this.svc.getReturnsStatus(await this.buildParams(req, q));
+    return this.svc.getReturnsStatus(await this.buildParams(user, q));
   }
 
-  private async buildParams(req: any, q: ComplianceStatusQueryDto) {
+  private async buildParams(user: ReqUser, q: ComplianceStatusQueryDto) {
     const now = new Date();
-    const user = req.user || {};
 
     const normalizedMonth = q.month ?? now.getMonth() + 1;
     const normalizedYear = q.year ?? now.getFullYear();
@@ -111,8 +111,8 @@ export class LegitxComplianceStatusController {
 
     // Branch users can only see their own branch (if branchId is known on token)
     const branchId =
-      user.userType === 'BRANCH' && user.branchId
-        ? user.branchId
+      user.userType === 'BRANCH' && user.branchIds?.[0]
+        ? user.branchIds[0]
         : (q.branchId ?? null);
 
     // Enforce branch scoping for CLIENT users

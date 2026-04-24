@@ -29,23 +29,23 @@ export type Comparator =
 export type ConditionNode =
   | { all: ConditionNode[] }
   | { any: ConditionNode[] }
-  | { left: string; op: Comparator; right?: any };
+  | { left: string; op: Comparator; right?: unknown };
 
 export interface EngineContext {
-  unit: Record<string, any>;
-  facts: Record<string, any>;
+  unit: Record<string, unknown>;
+  facts: Record<string, unknown>;
   acts: Record<string, { enabled: boolean }>;
-  actProfiles: Record<string, Record<string, any>>;
+  actProfiles: Record<string, Record<string, unknown>>;
 }
 
-function dig(obj: any, path: string): any {
+function dig(obj: Record<string, unknown> | undefined, path: string): unknown {
   if (!path) return obj;
   return path
     .split('.')
-    .reduce((acc, k) => (acc == null ? undefined : acc[k]), obj);
+    .reduce<unknown>((acc, k) => (acc == null ? undefined : (acc as Record<string, unknown>)[k]), obj);
 }
 
-function resolveByPath(ctx: EngineContext, path: string): any {
+function resolveByPath(ctx: EngineContext, path: string): unknown {
   const parts = path.split('.');
   const prefix = parts[0];
   const rest = parts.slice(1);
@@ -85,7 +85,7 @@ export class RuleEvaluator {
       );
     }
 
-    const leaf = condition as { left: string; op: Comparator; right?: any };
+    const leaf = condition as { left: string; op: Comparator; right?: unknown };
     const leftVal = resolveByPath(ctx, leaf.left);
 
     switch (leaf.op) {

@@ -13,14 +13,15 @@ import { PayrollClientPayslipLayoutEntity } from '../entities/payroll-client-pay
 import { PayrollPayslipArchiveEntity } from '../entities/payroll-payslip-archive.entity';
 import { ClientEntity } from '../../clients/entities/client.entity';
 import { EmployeeEntity } from '../../employees/entities/employee.entity';
+import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
+import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
+import { AttendanceService } from '../../attendance/attendance.service';
 import {
   createDoc,
   toBuffer,
-  header,
   addPageNumbers,
-  divider,
-  sectionTitle,
 } from '../../common/utils/pdf-helpers';
+import { loadLogoBuffer } from '../utils/payslip-pdf';
 
 @Injectable()
 export class PayslipGeneratorService {
@@ -34,7 +35,7 @@ export class PayslipGeneratorService {
     @InjectRepository(PayrollComponentEntity)
     private readonly compRepo: Repository<PayrollComponentEntity>,
     @InjectRepository(PayrollClientSetupEntity)
-    private readonly setupRepo: Repository<PayrollClientSetupEntity>,
+    private readonly _setupRepo: Repository<PayrollClientSetupEntity>,
     @InjectRepository(PayrollClientPayslipLayoutEntity)
     private readonly layoutRepo: Repository<PayrollClientPayslipLayoutEntity>,
     @InjectRepository(PayrollPayslipArchiveEntity)
@@ -43,6 +44,11 @@ export class PayslipGeneratorService {
     private readonly clientRepo: Repository<ClientEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
+    @InjectRepository(LeaveLedgerEntity)
+    private readonly leaveLedgerRepo: Repository<LeaveLedgerEntity>,
+    @InjectRepository(LeaveBalanceEntity)
+    private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
+    private readonly attendanceService: AttendanceService,
   ) {}
 
   private readonly UPLOADS_DIR = path.join(
@@ -84,6 +90,9 @@ export class PayslipGeneratorService {
     const valueMap = new Map(
       values.map((v) => [v.componentCode, Number(v.amount)]),
     );
+
+    // Enrich with leave/attendance data if missing
+    await this.enrichValueMap(valueMap, runEmp.employeeId ?? null, run.clientId, run.periodYear, run.periodMonth);
 
     const layout = await this.layoutRepo.findOne({
       where: { clientId: run.clientId },
@@ -150,7 +159,7 @@ export class PayslipGeneratorService {
     valueMap: Map<string, number>;
     layout: PayrollClientPayslipLayoutEntity | null;
   }): Promise<Buffer> {
-    const { run, runEmp, client, employee, components, valueMap } = params;
+    const { run, runEmp, client, employee, components: _components, valueMap } = params;
     const doc = createDoc();
 
     const monthNames = [
@@ -168,226 +177,314 @@ export class PayslipGeneratorService {
       'December',
     ];
     const periodLabel = `${monthNames[run.periodMonth - 1]} ${run.periodYear}`;
-
-    // Header
-    header(doc, client?.clientName ?? 'Company', `Payslip for ${periodLabel}`);
-
-    // Employee Info
-    sectionTitle(doc, 'Employee Details');
-
-    const empInfo = [
-      ['Name', runEmp.employeeName || 'N/A'],
-      ['Code', runEmp.employeeCode || 'N/A'],
-      ['Designation', runEmp.designation || employee?.designation || 'N/A'],
-      ['Department', employee?.department || 'N/A'],
-      ['UAN', runEmp.uan || 'N/A'],
-      ['ESIC', runEmp.esic || 'N/A'],
-      ['Bank A/c', employee?.bankAccount || 'N/A'],
-      ['PAN', employee?.pan || 'N/A'],
-    ];
-
-    const infoColWidth = 250;
     const startX = 40;
-    let infoY = doc.y;
-    for (let i = 0; i < empInfo.length; i += 2) {
-      const left = empInfo[i];
-      const right = empInfo[i + 1];
-      doc
-        .fontSize(8)
-        .fillColor('#64748b')
-        .text(left[0] + ':', startX, infoY, { continued: false });
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(left[1], startX + 80, infoY);
-      if (right) {
-        doc
-          .fontSize(8)
-          .fillColor('#64748b')
-          .text(right[0] + ':', startX + infoColWidth, infoY);
-        doc
-          .fontSize(8)
-          .fillColor('#1e293b')
-          .text(right[1], startX + infoColWidth + 80, infoY);
+    const pageWidth = doc.page.width - 80; // usable width
+
+    // ── Logo above Company Name ──
+    const logoBuffer = loadLogoBuffer(client?.logoUrl);
+    if (logoBuffer) {
+      try {
+        const logoFitW = 80;
+        const logoFitH = 40;
+        const logoX = (doc.page.width - logoFitW) / 2;
+        const logoY = doc.y;
+        doc.image(logoBuffer, logoX, logoY, {
+          fit: [logoFitW, logoFitH],
+          align: 'center',
+          valign: 'center',
+        });
+        doc.y = logoY + logoFitH + 6;
+      } catch {
+        // skip logo if unsupported format
       }
-      infoY += 14;
     }
-    doc.y = infoY + 8;
 
-    divider(doc);
-    doc.moveDown(0.5);
-
-    // Earnings & Deductions side by side
-    const earnings = components.filter(
-      (c) => c.componentType === 'EARNING' && valueMap.has(c.code),
+    // ── Company Header (centered) ──
+    doc.fontSize(16).fillColor('#000000').text(
+      (client?.clientName ?? 'Company').toUpperCase(),
+      startX,
+      doc.y,
+      { align: 'center', width: pageWidth },
     );
-    const deductions = components.filter(
-      (c) => c.componentType === 'DEDUCTION' && valueMap.has(c.code),
-    );
+    doc.moveDown(0.2);
 
-    // Add statutory deductions
-    const statDeductions: [string, number][] = [];
-    if (valueMap.has('PF_EMP') && (valueMap.get('PF_EMP') ?? 0) > 0)
-      statDeductions.push(['PF (Employee)', valueMap.get('PF_EMP')!]);
-    if (valueMap.has('ESI_EMP') && (valueMap.get('ESI_EMP') ?? 0) > 0)
-      statDeductions.push(['ESI (Employee)', valueMap.get('ESI_EMP')!]);
-    if (valueMap.has('PT') && (valueMap.get('PT') ?? 0) > 0)
-      statDeductions.push(['Professional Tax', valueMap.get('PT')!]);
-    if (valueMap.has('LWF_EMP') && (valueMap.get('LWF_EMP') ?? 0) > 0)
-      statDeductions.push(['LWF (Employee)', valueMap.get('LWF_EMP')!]);
+    if (client?.registeredAddress) {
+      doc.fontSize(8).fillColor('#333333').text(
+        client.registeredAddress,
+        startX,
+        doc.y,
+        { align: 'center', width: pageWidth },
+      );
+      doc.moveDown(0.4);
+    }
 
-    const colLeft = startX;
-    const colRight = startX + 260;
-    const colWidth = 240;
-
-    // Earnings header
-    doc.fontSize(10).fillColor('#0a2656').text('Earnings', colLeft, doc.y);
-    doc
-      .fontSize(10)
-      .fillColor('#0a2656')
-      .text('Deductions', colRight, doc.y - 12);
+    // ── Title: PAYSLIP ──
     doc.moveDown(0.3);
+    doc.fontSize(14).fillColor('#000000').text('PAYSLIP', startX, doc.y, {
+      align: 'center',
+      width: pageWidth,
+      underline: true,
+    });
+    doc.moveDown(1);
 
-    let tableY = doc.y;
+    // ── Employee Info ──
+    const infoLabelWidth = 120;
+    const leftCol = startX;
+    const rightCol = startX + pageWidth / 2 + 20;
 
-    // Earnings column
-    let earningsTotal = 0;
-    for (const comp of earnings) {
-      const amt = valueMap.get(comp.code) ?? 0;
-      earningsTotal += amt;
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(comp.name, colLeft, tableY, { width: 150 });
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(this.formatCurrency(amt), colLeft + 160, tableY, {
-          width: 80,
-          align: 'right',
-        });
-      tableY += 14;
+    let infoY = doc.y;
+    const infoFontSize = 10;
+
+    // Row 1: Employee Name
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Employee Name:', leftCol, infoY, { continued: false });
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(runEmp.employeeName || '_______________', leftCol + infoLabelWidth, infoY);
+    infoY += 18;
+
+    // Row 2: Employee ID + Designation
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Employee ID:', leftCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(runEmp.employeeCode || '_______________', leftCol + infoLabelWidth, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Designation:', rightCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(
+        runEmp.designation || employee?.designation || '_______________',
+        rightCol + 100,
+        infoY,
+      );
+    infoY += 18;
+
+    // Row 3: Month + Date of Joining
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Month:', leftCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(periodLabel, leftCol + infoLabelWidth, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Date of Joining:', rightCol, infoY);
+    const doj = employee?.dateOfJoining
+      ? new Date(employee.dateOfJoining).toLocaleDateString('en-IN')
+      : '_______________';
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(doj, rightCol + 100, infoY);
+    infoY += 18;
+
+    // Row 4: UAN + ESIC
+    if (runEmp.uan || runEmp.esic) {
+      doc.fontSize(infoFontSize).fillColor('#000000')
+        .text('UAN:', leftCol, infoY);
+      doc.fontSize(infoFontSize).fillColor('#000000')
+        .text(runEmp.uan || '_______________', leftCol + infoLabelWidth, infoY);
+      doc.fontSize(infoFontSize).fillColor('#000000')
+        .text('ESIC:', rightCol, infoY);
+      doc.fontSize(infoFontSize).fillColor('#000000')
+        .text(runEmp.esic || '_______________', rightCol + 100, infoY);
+      infoY += 18;
     }
-    const earningsEndY = tableY;
 
-    // Deductions column
-    tableY = doc.y;
-    let deductionsTotal = 0;
-    for (const comp of deductions) {
-      const amt = valueMap.get(comp.code) ?? 0;
-      deductionsTotal += amt;
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(comp.name, colRight, tableY, { width: 150 });
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(this.formatCurrency(amt), colRight + 160, tableY, {
-          width: 80,
-          align: 'right',
-        });
-      tableY += 14;
-    }
-    for (const [label, amt] of statDeductions) {
-      deductionsTotal += amt;
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(label, colRight, tableY, { width: 150 });
-      doc
-        .fontSize(8)
-        .fillColor('#1e293b')
-        .text(this.formatCurrency(amt), colRight + 160, tableY, {
-          width: 80,
-          align: 'right',
-        });
-      tableY += 14;
-    }
-    const deductionsEndY = tableY;
+    // ── Attendance / Leave Summary ──
+    const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
+    const payableDays = valueMap.get('PAYABLE_DAYS') ?? 0;
+    const lopDays = valueMap.get('LOP_DAYS') ?? 0;
+    const holidays = valueMap.get('HOLIDAYS') ?? 0;
+    const elPaidLeaveDays = valueMap.get('EL_PAID_LEAVE_DAYS') ?? 0;
+    const leaveEarned = valueMap.get('EL_ACCRUED') ?? 0;
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Days Worked:', leftCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(workedDays), leftCol + infoLabelWidth, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Payable Days:', rightCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(payableDays), rightCol + 100, infoY);
+    infoY += 18;
 
-    doc.y = Math.max(earningsEndY, deductionsEndY) + 4;
-    divider(doc);
-    doc.moveDown(0.3);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Holidays:', leftCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(holidays), leftCol + infoLabelWidth, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('LOP Days:', rightCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(lopDays), rightCol + 100, infoY);
+    infoY += 18;
 
-    // Totals row
-    doc
-      .fontSize(9)
-      .fillColor('#0a2656')
-      .text('Total Earnings', colLeft, doc.y, { width: 150 });
-    doc
-      .fontSize(9)
-      .fillColor('#0a2656')
-      .text(this.formatCurrency(earningsTotal), colLeft + 160, doc.y - 11, {
-        width: 80,
-        align: 'right',
-      });
-    doc
-      .fontSize(9)
-      .fillColor('#0a2656')
-      .text('Total Deductions', colRight, doc.y - 11);
-    doc
-      .fontSize(9)
-      .fillColor('#0a2656')
-      .text(this.formatCurrency(deductionsTotal), colRight + 160, doc.y - 11, {
-        width: 80,
-        align: 'right',
-      });
-    doc.moveDown(0.6);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Leave Earned:', leftCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(leaveEarned), leftCol + infoLabelWidth, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Leave Paid:', rightCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(elPaidLeaveDays), rightCol + 100, infoY);
+    infoY += 18;
 
-    divider(doc);
-    doc.moveDown(0.5);
+    const elBalance = Math.max(valueMap.get('EL_BALANCE') ?? 0, 0);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text('Leave Balance:', leftCol, infoY);
+    doc.fontSize(infoFontSize).fillColor('#000000')
+      .text(String(elBalance), leftCol + infoLabelWidth, infoY);
+    infoY += 24;
 
-    // Net Pay
-    const gross = valueMap.get('GROSS') ?? earningsTotal;
+    doc.y = infoY;
+
+    // ── Compute earnings breakdown ──
+    const basic = valueMap.get('BASIC') ?? 0;
+    const hra = valueMap.get('HRA') ?? 0;
+    const others = valueMap.get('OTHERS') ?? 0;
+    const attBonus = valueMap.get('ATT_BONUS') ?? 0;
+    const gross = valueMap.get('GROSS') ?? 0;
+    // Other Earnings = everything in gross not covered by the four named components
+    const otherEarningsRow = Math.max(0, gross - basic - hra - others - attBonus);
+
+    // ── Compute deductions summary ──
+    const pfAmt = valueMap.get('PF_EMP') ?? 0;
+    const esiAmt = valueMap.get('ESI_EMP') ?? 0;
+    const ptAmt = valueMap.get('PT') ?? 0;
+    const pfErFromEmpAmt = valueMap.get('PF_ER_FROM_EMP') ?? 0;
+    const totalDeduction = pfAmt + esiAmt + ptAmt + pfErFromEmpAmt;
+
     const netPay = Number(valueMap.get('NET_PAY') ?? runEmp.netPay ?? 0);
 
-    doc.fontSize(12).fillColor('#0a2656').text('Net Pay', colLeft, doc.y);
-    doc
-      .fontSize(14)
-      .fillColor('#16a34a')
-      .text(this.formatCurrency(netPay), colLeft + 100, doc.y - 16, {
-        width: 200,
+    // ── Draw Table ──
+    const tableX = startX;
+    const tableWidth = pageWidth;
+    const halfWidth = tableWidth / 2;
+    const col1X = tableX;               // "Earnings" label
+    const col3X = tableX + halfWidth;    // "Deductions" label
+    const rowHeight = 24;
+    const cellPadX = 6;
+    const cellPadY = 7;
+    let tY = doc.y;
+
+    const drawCellBorders = (x: number, y: number, w: number, h: number) => {
+      doc.strokeColor('#000000').lineWidth(0.5)
+        .rect(x, y, w, h).stroke();
+    };
+
+    // Helper to draw a row with 4 cells
+    const drawRow = (
+      label1: string,
+      val1: string,
+      label2: string,
+      val2: string,
+      y: number,
+      bold = false,
+    ) => {
+      const labelW = halfWidth - 80;
+      const amtW = 80;
+      drawCellBorders(col1X, y, labelW, rowHeight);
+      drawCellBorders(col1X + labelW, y, amtW, rowHeight);
+      drawCellBorders(col3X, y, labelW, rowHeight);
+      drawCellBorders(col3X + labelW, y, amtW, rowHeight);
+
+      const fs = bold ? 10 : 9;
+      doc.fontSize(fs).fillColor('#000000');
+      if (bold) doc.font('Helvetica-Bold'); else doc.font('Helvetica');
+      doc.text(label1, col1X + cellPadX, y + cellPadY, { width: labelW - cellPadX * 2 });
+      doc.fontSize(fs).fillColor('#000000')
+        .text(val1, col1X + labelW + cellPadX, y + cellPadY, {
+          width: amtW - cellPadX * 2,
+          align: 'right',
+        });
+      doc.fontSize(fs).fillColor('#000000')
+        .text(label2, col3X + cellPadX, y + cellPadY, { width: labelW - cellPadX * 2 });
+      doc.fontSize(fs).fillColor('#000000')
+        .text(val2, col3X + labelW + cellPadX, y + cellPadY, {
+          width: amtW - cellPadX * 2,
+          align: 'right',
+        });
+      doc.font('Helvetica');
+    };
+
+    // Header row
+    drawRow('Earnings', 'Amount', 'Deductions', 'Amount', tY, true);
+    tY += rowHeight;
+
+    // Row 1: Basic / PF
+    drawRow('Basic', this.formatCurrency(basic), 'PF', this.formatCurrency(pfAmt), tY);
+    tY += rowHeight;
+
+    // Row 2: HRA / ESI
+    drawRow('HRA', this.formatCurrency(hra), 'ESI', this.formatCurrency(esiAmt), tY);
+    tY += rowHeight;
+
+    // Row 3: Others / PT
+    drawRow('Others', this.formatCurrency(others), 'PT', this.formatCurrency(ptAmt), tY);
+    tY += rowHeight;
+
+    // Att. Bonus row — paired with PF Employer if applicable
+    if (attBonus > 0 || pfErFromEmpAmt > 0) {
+      drawRow(
+        attBonus > 0 ? 'Att. Bonus' : '', attBonus > 0 ? this.formatCurrency(attBonus) : '',
+        pfErFromEmpAmt > 0 ? 'PF Employer' : '', pfErFromEmpAmt > 0 ? this.formatCurrency(pfErFromEmpAmt) : '',
+        tY,
+      );
+      tY += rowHeight;
+    }
+
+    // Other Earnings (catch-all: includes Arrear Att. Bonus, Other Earnings, etc.)
+    if (otherEarningsRow > 0) {
+      drawRow('Other Earnings', this.formatCurrency(otherEarningsRow), '', '', tY);
+      tY += rowHeight;
+    }
+
+    // Row 4: Gross / Total Deduction
+    drawRow('Gross', this.formatCurrency(gross), 'Total Deduction', this.formatCurrency(totalDeduction), tY, true);
+    tY += rowHeight;
+
+    // Row 5: Net Pay (spans full width)
+    const netLabelW = halfWidth - 80;
+    const netAmtW = 80;
+    // Draw 3 cells: label, first amount area, rest blank
+    drawCellBorders(col1X, tY, netLabelW, rowHeight);
+    drawCellBorders(col1X + netLabelW, tY, netAmtW, rowHeight);
+    drawCellBorders(col3X, tY, halfWidth, rowHeight);
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+      .text('Net Pay', col1X + cellPadX, tY + cellPadY, { width: netLabelW - cellPadX * 2 });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+      .text(this.formatCurrency(netPay), col1X + netLabelW + cellPadX, tY + cellPadY, {
+        width: netAmtW - cellPadX * 2,
+        align: 'right',
       });
-    doc.moveDown(0.5);
+    doc.font('Helvetica');
+    tY += rowHeight;
 
-    // Employer contributions
-    const employerItems: [string, number][] = [];
-    if (valueMap.has('PF_ER') && (valueMap.get('PF_ER') ?? 0) > 0)
-      employerItems.push(['PF (Employer)', valueMap.get('PF_ER')!]);
-    if (valueMap.has('ESI_ER') && (valueMap.get('ESI_ER') ?? 0) > 0)
-      employerItems.push(['ESI (Employer)', valueMap.get('ESI_ER')!]);
-    if (valueMap.has('LWF_ER') && (valueMap.get('LWF_ER') ?? 0) > 0)
-      employerItems.push(['LWF (Employer)', valueMap.get('LWF_ER')!]);
+    doc.y = tY + 20;
 
-    if (employerItems.length > 0) {
-      divider(doc);
-      doc.moveDown(0.3);
-      sectionTitle(doc, 'Employer Contributions');
-      for (const [label, amt] of employerItems) {
-        doc
-          .fontSize(8)
-          .fillColor('#1e293b')
-          .text(label, colLeft, doc.y, { width: 200 });
-        doc
-          .fontSize(8)
-          .fillColor('#1e293b')
-          .text(this.formatCurrency(amt), colLeft + 200, doc.y - 10, {
-            width: 80,
-            align: 'right',
-          });
-        doc.moveDown(0.1);
+    // ── Employer Contributions ──
+    // When PF_ER_FROM_EMP > 0 the employer PF is already deducted from the
+    // employee's salary, so we do NOT show it again as an employer contribution.
+    const pfEr = valueMap.get('PF_ER') ?? 0;
+    const esiEr = valueMap.get('ESI_ER') ?? 0;
+    const showPfEr = pfEr > 0 && pfErFromEmpAmt === 0;
+
+    if (showPfEr || esiEr > 0) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+        .text('Employer Contributions:', startX, doc.y);
+      doc.font('Helvetica');
+      doc.moveDown(0.4);
+
+      if (showPfEr) {
+        doc.fontSize(10).fillColor('#000000')
+          .text(`PF Employer: ${this.formatCurrency(pfEr)}`, startX, doc.y);
+        doc.moveDown(0.3);
+      }
+      if (esiEr > 0) {
+        doc.fontSize(10).fillColor('#000000')
+          .text(`ESI Employer: ${this.formatCurrency(esiEr)}`, startX, doc.y);
+        doc.moveDown(0.3);
       }
     }
 
-    doc.moveDown(1);
-    doc
-      .fontSize(7)
-      .fillColor('#94a3b8')
-      .text('This is a system-generated payslip.', startX, doc.y, {
-        align: 'center',
-        width: doc.page.width - 80,
-      });
+    // ── Authorized Signatory ──
+    doc.moveDown(3);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+      .text('Authorized Signatory', startX, doc.y);
+    doc.font('Helvetica');
 
     addPageNumbers(doc);
 
@@ -444,6 +541,95 @@ export class PayslipGeneratorService {
   }
 
   private formatCurrency(n: number): string {
-    return '₹' + Math.round(n).toLocaleString('en-IN');
+    return 'Rs.' + Math.round(n).toLocaleString('en-IN');
+  }
+
+  /**
+   * Enrich a valueMap with leave/attendance data computed from source tables
+   * when the values are missing (runs processed before these were added to engine).
+   */
+  private async enrichValueMap(
+    valueMap: Map<string, number>,
+    employeeId: string | null,
+    clientId: string,
+    year: number,
+    month: number,
+  ): Promise<void> {
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+
+    // ── EL_ACCRUED: read from ledger if available, else compute from WORKED_DAYS / 20 ──
+    if (employeeId) {
+      try {
+        const allElEntries = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        let accrued = 0;
+        for (const entry of allElEntries) {
+          if (entry.refType === 'EL_ACCRUAL' && entry.remarks?.includes(monthStr)) {
+            accrued += Math.abs(Number(entry.qty) || 0);
+          }
+        }
+        valueMap.set('EL_ACCRUED', Math.round(accrued * 100) / 100);
+      } catch {
+        if (valueMap.has('WORKED_DAYS')) {
+          const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
+          valueMap.set('EL_ACCRUED', Math.round((workedDays / 20) * 100) / 100);
+        } else if (!valueMap.has('EL_ACCRUED')) {
+          valueMap.set('EL_ACCRUED', 0);
+        }
+      }
+    } else {
+      if (valueMap.has('WORKED_DAYS')) {
+        const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
+        valueMap.set('EL_ACCRUED', Math.round((workedDays / 20) * 100) / 100);
+      } else if (!valueMap.has('EL_ACCRUED')) {
+        valueMap.set('EL_ACCRUED', 0);
+      }
+    }
+
+    // ── EL_PAID_LEAVE_DAYS: from leave ledger ──
+    if (employeeId) {
+      try {
+        const elEntries = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        let paidLeaveDays = 0;
+        for (const entry of elEntries) {
+          if (entry.refType === 'EL_PAID_LEAVE' && entry.remarks?.includes(monthStr)) {
+            paidLeaveDays += Math.abs(Number(entry.qty) || 0);
+          }
+        }
+        valueMap.set('EL_PAID_LEAVE_DAYS', paidLeaveDays);
+      } catch {
+        if (!valueMap.has('EL_PAID_LEAVE_DAYS')) valueMap.set('EL_PAID_LEAVE_DAYS', 0);
+      }
+
+      // ── EL_BALANCE: read from leave_balances ──
+      try {
+        const elBal = await this.leaveBalanceRepo.findOne({
+          where: { employeeId, year, leaveType: 'EL' },
+        });
+        valueMap.set('EL_BALANCE', elBal ? parseFloat(elBal.available) || 0 : 0);
+      } catch {
+        if (!valueMap.has('EL_BALANCE')) valueMap.set('EL_BALANCE', 0);
+      }
+    } else {
+      if (!valueMap.has('EL_PAID_LEAVE_DAYS')) valueMap.set('EL_PAID_LEAVE_DAYS', 0);
+      if (!valueMap.has('EL_BALANCE')) valueMap.set('EL_BALANCE', 0);
+    }
+
+    // ── HOLIDAYS: always recompute from attendance ──
+    try {
+      const summaries = await this.attendanceService.getMonthlySummary({
+        clientId, year, month,
+      });
+      if (employeeId) {
+        const empSummary = summaries.find((s) => s.employeeId === employeeId);
+        valueMap.set('HOLIDAYS', empSummary?.holidays ?? 0);
+        valueMap.set('WEEK_OFFS', empSummary?.weekOffs ?? 0);
+      }
+    } catch {
+      if (!valueMap.has('HOLIDAYS')) valueMap.set('HOLIDAYS', 0);
+    }
   }
 }

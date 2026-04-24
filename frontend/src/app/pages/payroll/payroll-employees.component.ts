@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import {
@@ -15,6 +15,7 @@ import {
   FormInputComponent,
 } from '../../shared/ui';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { environment } from '../../../environments/environment';
 
 interface PayrollEmployee {
@@ -31,6 +32,7 @@ interface PayrollEmployee {
 @Component({
   selector: 'app-payroll-employees',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     FormsModule,
@@ -40,12 +42,14 @@ interface PayrollEmployee {
     LoadingSpinnerComponent,
     EmptyStateComponent,
     FormInputComponent,
+    ClientContextStripComponent,
   ],
   template: `
     <div class="page">
       <ui-page-header
         title="Payroll Employees"
         description="Browse and manage employees for payroll processing.">
+        <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
       </ui-page-header>
 
       <!-- Search -->
@@ -138,13 +142,22 @@ export class PayrollEmployeesComponent implements OnInit, OnDestroy {
     { key: 'status', header: 'Status', align: 'center', width: '120px' },
   ];
 
+  private clientId = '';
+
   constructor(
     private http: HttpClient,
     private router: Router,
+    private route: ActivatedRoute,
     private toast: ToastService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
+    // clientId lives on the parent route segment (:clientId), traverse up to find it
+    this.clientId =
+      this.route.snapshot.paramMap.get('clientId') ||
+      this.route.snapshot.parent?.paramMap.get('clientId') ||
+      '';
     this.loadEmployees();
   }
 
@@ -152,19 +165,28 @@ export class PayrollEmployeesComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = '';
 
-    this.http.get<PayrollEmployee[]>(`${environment.apiBaseUrl}/api/v1/payroll/employees`).pipe(
+    let url = `${environment.apiBaseUrl}/api/v1/payroll/employees`;
+    if (this.clientId) {
+      url += `?clientId=${encodeURIComponent(this.clientId)}`;
+    }
+
+    this.http.get<any>(url).pipe(
       takeUntil(this.destroy$),
-      finalize(() => { this.loading = false; }),
+      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
     ).subscribe({
       next: (data) => {
-        this.employees = Array.isArray(data) ? data : [];
+        // Backend returns paginated { data, total, page, limit } or plain array
+        const arr = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        this.employees = arr;
         this.applyFilter();
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.error = err?.error?.message || 'Failed to load employees.';
         this.employees = [];
         this.filteredEmployees = [];
         this.toast.error('Load Failed', this.error);
+        this.cdr.detectChanges();
       },
     });
   }
@@ -191,7 +213,11 @@ export class PayrollEmployeesComponent implements OnInit, OnDestroy {
 
   onRowClick(event: { row: PayrollEmployee; index: number }): void {
     if (event.row?.id) {
-      this.router.navigate(['/payroll/employees', event.row.id]);
+      if (this.clientId) {
+        this.router.navigate(['/payroll/clients', this.clientId, 'employees', event.row.id]);
+      } else {
+        this.router.navigate(['/payroll/clients']);
+      }
     }
   }
 

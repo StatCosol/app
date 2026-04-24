@@ -4,8 +4,12 @@ type Json = any;
 type HttpResult = { status: number; json?: Json; text?: string };
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
-const EMAIL = process.env.SMOKE_EMAIL ?? 'admin@statcosol.com';
-const PASS = process.env.SMOKE_PASSWORD ?? 'Admin@123';
+const EMAIL = process.env.SMOKE_EMAIL ?? 'it_admin@statcosol.com';
+const PASS = process.env.SMOKE_PASSWORD;
+
+if (!PASS) {
+  throw new Error('SMOKE_PASSWORD must be set before running smoke tests.');
+}
 
 async function http(method: string, url: string, token?: string, body?: any): Promise<HttpResult> {
   const res = await (globalThis.fetch as any)(url, {

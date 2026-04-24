@@ -23,14 +23,6 @@ const AdminPayrollAssignmentsComponent = () =>
   import('./payroll-assignments/admin-payroll-assignments.component').then(
     (m) => m.AdminPayrollAssignmentsComponent,
   );
-const AdminPayrollTemplatesPageComponent = () =>
-  import('./payroll-templates/admin-payroll-templates-page.component').then(
-    (m) => m.AdminPayrollTemplatesPageComponent,
-  );
-const AdminPayrollClientSettingsPageComponent = () =>
-  import('./payroll-client-settings/admin-payroll-client-settings-page.component').then(
-    (m) => m.AdminPayrollClientSettingsPageComponent,
-  );
 const AdminMastersComponent = () =>
   import('./masters/admin-masters.component').then((m) => m.AdminMastersComponent);
 const AdminApprovalsComponent = () =>
@@ -39,8 +31,6 @@ const AiDashboardComponent = () =>
   import('./ai/ai-dashboard.component').then((m) => m.AiDashboardComponent);
 const AiRiskComponent = () =>
   import('./ai/ai-risk.component').then((m) => m.AiRiskComponent);
-const AiAuditComponent = () =>
-  import('./ai/ai-audit.component').then((m) => m.AiAuditComponent);
 const AiPayrollComponent = () =>
   import('./ai/ai-payroll.component').then((m) => m.AiPayrollComponent);
 const AiConfigComponent = () =>
@@ -67,6 +57,14 @@ const ApplicabilityListComponent = () =>
   import('./applicability/applicability-list.component').then((m) => m.ApplicabilityListComponent);
 const BranchApplicabilityComponent = () =>
   import('./applicability/branch-applicability.component').then((m) => m.BranchApplicabilityComponent);
+const EngineConfigComponent = () =>
+  import('./applicability/engine-config.component').then((m) => m.EngineConfigComponent);
+const AdminNewsComponent = () =>
+  import('./news/admin-news.component').then((m) => m.AdminNewsComponent);
+const AdminHelpdeskComponent = () =>
+  import('./helpdesk/admin-helpdesk.component').then((m) => m.AdminHelpdeskComponent);
+const AdminHelpdeskDetailComponent = () =>
+  import('./helpdesk/admin-helpdesk-detail.component').then((m) => m.AdminHelpdeskDetailComponent);
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -82,15 +80,12 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'clients/:id/:tab', loadComponent: AdminClientsComponent },
       { path: 'assignments', loadComponent: AdminAssignmentsComponent },
       { path: 'payroll-assignments', loadComponent: AdminPayrollAssignmentsComponent },
-      { path: 'payroll/templates', loadComponent: AdminPayrollTemplatesPageComponent },
-      { path: 'payroll/client-settings', loadComponent: AdminPayrollClientSettingsPageComponent },
       { path: 'masters', loadComponent: AdminMastersComponent },
       { path: 'approvals', loadComponent: AdminApprovalsComponent },
       { path: 'notifications', loadComponent: AdminHelpdeskCenterPageComponent },
       { path: 'digest', loadComponent: AdminDigestComponent },
       { path: 'ai-hub', loadComponent: AiDashboardComponent },
       { path: 'ai-risk', loadComponent: AiRiskComponent },
-      { path: 'ai-audit', loadComponent: AiAuditComponent },
       { path: 'ai-payroll', loadComponent: AiPayrollComponent },
       { path: 'ai-config', loadComponent: AiConfigComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },
@@ -102,7 +97,11 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'governance/unassigned', loadComponent: UnassignedClientsComponent },
       { path: 'archive', loadComponent: AdminArchiveComponent },
       { path: 'applicability', loadComponent: ApplicabilityListComponent },
+      { path: 'applicability/config', loadComponent: EngineConfigComponent },
       { path: 'branches/:branchId/applicability', loadComponent: BranchApplicabilityComponent },
+      { path: 'news', loadComponent: AdminNewsComponent },
+      { path: 'helpdesk', loadComponent: AdminHelpdeskComponent },
+      { path: 'helpdesk/:id', loadComponent: AdminHelpdeskDetailComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

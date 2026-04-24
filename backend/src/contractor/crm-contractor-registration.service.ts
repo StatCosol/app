@@ -9,6 +9,7 @@ import { UserEntity } from '../users/entities/user.entity';
 import { RoleEntity } from '../users/entities/role.entity';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ReqUser } from '../access/access-scope.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -24,7 +25,7 @@ export class CrmContractorRegistrationService {
   ) {}
 
   async registerContractor(
-    crmUser: any,
+    crmUser: ReqUser,
     dto: {
       name: string;
       email: string;
@@ -112,7 +113,7 @@ export class CrmContractorRegistrationService {
     };
   }
 
-  async listContractorsForCrm(crmUser: any) {
+  async listContractorsForCrm(crmUser: ReqUser) {
     // Get all clients assigned to this CRM
     const assignments =
       await this.assignmentsService.getActiveAssignmentsForCrm(crmUser.userId);

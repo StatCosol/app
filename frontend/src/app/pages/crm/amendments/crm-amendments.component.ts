@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin, of } from 'rxjs';
@@ -117,11 +118,16 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
     private readonly svc: CrmDueItemsService,
     private readonly toast: ToastService,
     private readonly dialog: ConfirmDialogService,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.load();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/crm/dashboard']);
   }
 
   ngOnDestroy(): void {
@@ -424,12 +430,12 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
   }
 
   get evidenceCount(): number {
-    return this.viewItems.filter((x) => !!x.evidenceUrl).length;
+    return this.viewItems.filter((x) => x.evidenceUrl !== null && x.evidenceUrl !== '').length;
   }
 
   get reminderSentCount(): number {
     return this.viewItems.filter((x) => {
-      if (!!x.lastReminderAt) return true;
+      if (x.lastReminderAt) return true;
       const local = this.localHistory[x.id] || [];
       return local.some((e) => e.title.toLowerCase().includes('reminder'));
     }).length;
@@ -505,7 +511,7 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
       },
       {
         label: 'Branch follow-up',
-        done: !!this.lastReminderFor(item),
+        done: this.lastReminderFor(item) !== '',
         note: this.lastReminderFor(item)
           ? `Last: ${new Date(this.lastReminderFor(item)).toLocaleString('en-IN')}`
           : 'No follow-up reminder',
@@ -529,7 +535,7 @@ export class CrmAmendmentsComponent implements OnInit, OnDestroy {
   }
 
   branchLabel(row: BranchPendingRow): string {
-    return row.branchName || row.branchId || 'Unmapped';
+    return row.branchName || 'Unmapped';
   }
 
   private loadDetail(itemId: string): void {

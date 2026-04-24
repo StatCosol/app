@@ -68,6 +68,15 @@ reupload_agg AS (
     COUNT(*) FILTER (WHERE dr.status = 'SUBMITTED' AND dr.target_role = 'BRANCH') AS reupload_submitted_branch
   FROM document_reupload_requests dr
   JOIN crm_clients cc ON cc.client_id = dr.client_id
+),
+-- On-behalf uploads by CRM
+on_behalf_agg AS (
+  SELECT
+    COUNT(*) FILTER (WHERE d.acting_on_behalf = TRUE)                                          AS on_behalf_total,
+    COUNT(*) FILTER (WHERE d.acting_on_behalf = TRUE AND d.status = 'APPROVED')                AS on_behalf_approved,
+    COUNT(*) FILTER (WHERE d.acting_on_behalf = TRUE AND d.status IN ('SUBMITTED','RESUBMITTED')) AS on_behalf_pending
+  FROM compliance_documents d
+  JOIN crm_branches cb ON cb.branch_id = d.branch_id
 )
 SELECT
   (SELECT COUNT(*) FROM crm_clients)                      AS assigned_clients_count,
@@ -86,7 +95,10 @@ SELECT
   COALESCE((SELECT reupload_open_client FROM reupload_agg), 0) AS reupload_open_client,
   COALESCE((SELECT reupload_open_branch FROM reupload_agg), 0) AS reupload_open_branch,
   COALESCE((SELECT reupload_submitted_client FROM reupload_agg), 0) AS reupload_submitted_client,
-  COALESCE((SELECT reupload_submitted_branch FROM reupload_agg), 0) AS reupload_submitted_branch;
+  COALESCE((SELECT reupload_submitted_branch FROM reupload_agg), 0) AS reupload_submitted_branch,
+  COALESCE((SELECT on_behalf_total FROM on_behalf_agg), 0)    AS on_behalf_total,
+  COALESCE((SELECT on_behalf_approved FROM on_behalf_agg), 0) AS on_behalf_approved,
+  COALESCE((SELECT on_behalf_pending FROM on_behalf_agg), 0)  AS on_behalf_pending;
 `;
 
 /**

@@ -23,7 +23,6 @@ import { BranchEntity } from '../branches/entities/branch.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Cron } from '@nestjs/schedule';
 import { EmailService } from '../email/email.service';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 import { ReqUser } from '../access/access-scope.service';
@@ -508,11 +507,17 @@ export class ComplianceService {
       });
 
     if (scope.branchIds.length > 0) {
-      baseQb.andWhere('(t.branchId IS NULL OR t.branchId IN (:...bids))', {
-        bids: scope.branchIds,
-      });
+      baseQb.andWhere(
+        '(t.branchId IS NULL OR t.branchId IN (:...bids) OR t.assignedToUserId = :uid)',
+        {
+          bids: scope.branchIds,
+          uid: user.userId,
+        },
+      );
     } else {
-      baseQb.andWhere('t.branchId IS NULL');
+      baseQb.andWhere('(t.branchId IS NULL OR t.assignedToUserId = :uid)', {
+        uid: user.userId,
+      });
     }
 
     const rows = await baseQb
@@ -1468,11 +1473,17 @@ export class ComplianceService {
       });
 
     if (scope.branchIds.length > 0) {
-      qb.andWhere('(t.branchId IS NULL OR t.branchId IN (:...bids))', {
-        bids: scope.branchIds,
-      });
+      qb.andWhere(
+        '(t.branchId IS NULL OR t.branchId IN (:...bids) OR t.assignedToUserId = :uid)',
+        {
+          bids: scope.branchIds,
+          uid: user.userId,
+        },
+      );
     } else {
-      qb.andWhere('t.branchId IS NULL');
+      qb.andWhere('(t.branchId IS NULL OR t.assignedToUserId = :uid)', {
+        uid: user.userId,
+      });
     }
 
     if (q.status) qb.andWhere('t.status = :st', { st: q.status });
@@ -1498,7 +1509,11 @@ export class ComplianceService {
     if (String(t.clientId) !== String(scope.clientId)) {
       throw new ForbiddenException('Not your client');
     }
-    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+    if (
+      t.branchId &&
+      !scope.branchIds.includes(String(t.branchId)) &&
+      String(t.assignedToUserId || '') !== String(user.userId)
+    ) {
       throw new ForbiddenException('Not your branch');
     }
 
@@ -1533,7 +1548,11 @@ export class ComplianceService {
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
       throw new ForbiddenException('Not your client');
-    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+    if (
+      t.branchId &&
+      !scope.branchIds.includes(String(t.branchId)) &&
+      String(t.assignedToUserId || '') !== String(user.userId)
+    ) {
       throw new ForbiddenException('Not your branch');
     }
 
@@ -1554,7 +1573,11 @@ export class ComplianceService {
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
       throw new ForbiddenException('Not your client');
-    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+    if (
+      t.branchId &&
+      !scope.branchIds.includes(String(t.branchId)) &&
+      String(t.assignedToUserId || '') !== String(user.userId)
+    ) {
       throw new ForbiddenException('Not your branch');
     }
 
@@ -1587,7 +1610,11 @@ export class ComplianceService {
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
       throw new ForbiddenException('Not your client');
-    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+    if (
+      t.branchId &&
+      !scope.branchIds.includes(String(t.branchId)) &&
+      String(t.assignedToUserId || '') !== String(user.userId)
+    ) {
       throw new ForbiddenException('Not your branch');
     }
 
@@ -1671,7 +1698,11 @@ export class ComplianceService {
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
       throw new ForbiddenException('Not your client');
-    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+    if (
+      t.branchId &&
+      !scope.branchIds.includes(String(t.branchId)) &&
+      String(t.assignedToUserId || '') !== String(user.userId)
+    ) {
       throw new ForbiddenException('Not your branch');
     }
 
@@ -1714,7 +1745,11 @@ export class ComplianceService {
     const scope = await this.getContractorScope(user.userId);
     if (String(t.clientId) !== String(scope.clientId))
       throw new ForbiddenException('Not your client');
-    if (t.branchId && !scope.branchIds.includes(String(t.branchId))) {
+    if (
+      t.branchId &&
+      !scope.branchIds.includes(String(t.branchId)) &&
+      String(t.assignedToUserId || '') !== String(user.userId)
+    ) {
       throw new ForbiddenException('Not your branch');
     }
 
@@ -2483,8 +2518,8 @@ export class ComplianceService {
    */
   async auditorAddRemark(
     user: ReqUser,
-    docId: string,
-    dto: { text: string; visibility: string },
+    _docId: string,
+    _dto: { text: string; visibility: string },
   ) {
     this.assertRole(user, ['AUDITOR']);
     throw new ForbiddenException('Auditors cannot review compliance documents');

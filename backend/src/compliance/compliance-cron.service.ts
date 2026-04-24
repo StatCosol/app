@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, In, Repository, DataSource } from 'typeorm';
+import { LessThan, Repository, DataSource } from 'typeorm';
 import { ComplianceTask, TaskStatus } from './entities/compliance-task.entity';
 import { ComplianceMcdItem } from './entities/compliance-mcd-item.entity';
 import { DocumentReuploadRequest } from './entities/document-reupload-request.entity';
@@ -18,7 +18,7 @@ export class ComplianceCronService {
     @InjectRepository(ComplianceTask)
     private readonly tasks: Repository<ComplianceTask>,
     @InjectRepository(ComplianceMcdItem)
-    private readonly mcdItems: Repository<ComplianceMcdItem>,
+    private readonly _mcdItems: Repository<ComplianceMcdItem>,
     @InjectRepository(DocumentReuploadRequest)
     private readonly reuploadReqRepo: Repository<DocumentReuploadRequest>,
     @InjectRepository(UserEntity)
@@ -39,7 +39,7 @@ export class ComplianceCronService {
   private async findAdminUserId(): Promise<string | null> {
     const admin = await this.users
       .createQueryBuilder('u')
-      .innerJoin('u.role', 'r')
+      .innerJoin('roles', 'r', 'r.id = u.role_id')
       .where('r.code = :code', { code: 'ADMIN' })
       .andWhere('u.isActive = true')
       .andWhere('u.deletedAt IS NULL')
@@ -93,7 +93,7 @@ export class ComplianceCronService {
               clientId: clientId ? String(clientId) : undefined,
               branchId: branchId ? String(branchId) : undefined,
             });
-          } catch (e) {
+          } catch (e: any) {
             this.logger.warn(
               `Failed to create overdue notification for CRM on task #${taskId}: ${e.message}`,
             );
@@ -114,7 +114,7 @@ export class ComplianceCronService {
                 branchId: branchId ? String(branchId) : undefined,
               },
             );
-          } catch (e) {
+          } catch (e: any) {
             this.logger.warn(
               `Failed to create overdue notification for contractor on task #${taskId}: ${e.message}`,
             );
@@ -152,7 +152,7 @@ export class ComplianceCronService {
 
       this.logger.log(`Marked overdue + notified for ${due.length} tasks`);
       await this.cronLogger.succeed(logId, due.length);
-    } catch (err) {
+    } catch (err: any) {
       await this.cronLogger.fail(logId, err);
       this.logger.error(
         `markOverdueAndNotify failed: ${(err as Error).message}`,
@@ -198,7 +198,7 @@ export class ComplianceCronService {
             branchId: t.branchId ? String(t.branchId) : undefined,
           },
         );
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Failed to create due-soon notification for task #${t.id}: ${e.message}`,
         );
@@ -234,7 +234,7 @@ export class ComplianceCronService {
               branchId: branchId ? String(branchId) : undefined,
             },
           );
-        } catch (e) {
+        } catch (e: any) {
           this.logger.warn(
             `Failed to create due-today notification for contractor on task #${t.id}: ${e.message}`,
           );
@@ -251,7 +251,7 @@ export class ComplianceCronService {
             clientId: clientId ? String(clientId) : undefined,
             branchId: branchId ? String(branchId) : undefined,
           });
-        } catch (e) {
+        } catch (e: any) {
           this.logger.warn(
             `Failed to create due-today notification for CRM on task #${t.id}: ${e.message}`,
           );
@@ -279,7 +279,7 @@ export class ComplianceCronService {
             branchId: t.branchId ? String(t.branchId) : undefined,
           });
         }
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Failed to create escalation notification for task #${t.id}: ${e.message}`,
         );
@@ -301,7 +301,7 @@ export class ComplianceCronService {
     // OPEN requests older than 2 days → remind target + CRM
     const openCutoff = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
     const openOld = await this.reuploadReqRepo.find({
-      where: { status: 'OPEN' as any, updatedAt: LessThan(openCutoff) } as any,
+      where: { status: 'OPEN', updatedAt: LessThan(openCutoff) },
       take: 200,
       order: { updatedAt: 'ASC' },
     });
@@ -319,7 +319,7 @@ export class ComplianceCronService {
             clientId: r.clientId ? String(r.clientId) : undefined,
           },
         );
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Reupload reminder (CRM) failed for ${r.id}: ${e.message}`,
         );
@@ -338,7 +338,7 @@ export class ComplianceCronService {
               clientId: r.clientId ? String(r.clientId) : undefined,
             },
           );
-        } catch (e) {
+        } catch (e: any) {
           this.logger.warn(
             `Reupload reminder (CONTRACTOR) failed for ${r.id}: ${(e as Error)?.message}`,
           );
@@ -350,9 +350,9 @@ export class ComplianceCronService {
     const submittedCutoff = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
     const submittedOld = await this.reuploadReqRepo.find({
       where: {
-        status: 'SUBMITTED' as any,
+        status: 'SUBMITTED',
         updatedAt: LessThan(submittedCutoff),
-      } as any,
+      },
       take: 200,
       order: { updatedAt: 'ASC' },
     });
@@ -370,7 +370,7 @@ export class ComplianceCronService {
             clientId: r.clientId ? String(r.clientId) : undefined,
           },
         );
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Reupload verification reminder (CRM) failed for ${r.id}: ${e.message}`,
         );
@@ -416,7 +416,13 @@ export class ComplianceCronService {
 
     try {
       // Find branches with PENDING MCD items for this month
-      const pendingBranches: any[] = await this.dataSource.query(
+      const pendingBranches: Array<{
+        branchId: string;
+        branchName: string;
+        clientId: string;
+        pendingCount: number;
+        crmUserId: string | null;
+      }> = await this.dataSource.query(
         `SELECT
            ct.branch_id   AS "branchId",
            b.branchname   AS "branchName",
@@ -447,7 +453,7 @@ export class ComplianceCronService {
             clientId: String(row.clientId),
             branchId: String(row.branchId),
           });
-        } catch (e) {
+        } catch (e: any) {
           this.logger.warn(
             `MCD reminder failed for branch ${row.branchId}: ${e.message}`,
           );
@@ -457,7 +463,7 @@ export class ComplianceCronService {
       this.logger.log(
         `MCD reminders sent for ${pendingBranches.length} branches`,
       );
-    } catch (e) {
+    } catch (e: any) {
       this.logger.error(`MCD reminders cron error: ${e.message}`);
     }
   }
@@ -479,7 +485,13 @@ export class ComplianceCronService {
       const adminId = await this.findAdminUserId();
       if (!adminId) return;
 
-      const incompleteBranches: any[] = await this.dataSource.query(
+      const incompleteBranches: Array<{
+        branchId: string;
+        branchName: string;
+        clientId: string;
+        pendingCount: number;
+        crmUserId: string | null;
+      }> = await this.dataSource.query(
         `SELECT
            ct.branch_id   AS "branchId",
            b.branchname   AS "branchName",
@@ -509,7 +521,7 @@ export class ComplianceCronService {
             clientId: String(row.clientId),
             branchId: String(row.branchId),
           });
-        } catch (e) {
+        } catch (e: any) {
           this.logger.warn(
             `MCD escalation failed for branch ${row.branchId}: ${e.message}`,
           );
@@ -534,8 +546,100 @@ export class ComplianceCronService {
       this.logger.log(
         `MCD escalation: ${incompleteBranches.length} branches escalated`,
       );
-    } catch (e) {
+    } catch (e: any) {
       this.logger.error(`MCD escalation cron error: ${e.message}`);
+    }
+  }
+
+  /**
+   * Daily at 2:00 AM: Notify contractors about non-compliant audit documents.
+   * Sends notification + email for each contractor that has REJECTED documents
+   * on any active (non-completed, non-cancelled) audit.
+   */
+  @Cron('0 0 2 * * *')
+  async notifyNonCompliantAuditDocuments() {
+    const logId = await this.cronLogger.start(
+      'audit:notifyNonCompliantDocuments',
+    );
+    try {
+      // Find all contractors with non-complied (REJECTED) documents tied to active audits
+      const rows: Array<{
+        contractorUserId: string;
+        contractorName: string;
+        contractorEmail: string;
+        auditCode: string;
+        auditId: string;
+        nonCompliedCount: number;
+        clientName: string;
+      }> = await this.dataSource.query(
+        `SELECT
+           cd.contractor_user_id AS "contractorUserId",
+           u.name AS "contractorName",
+           u.email AS "contractorEmail",
+           a.audit_code AS "auditCode",
+           a.id AS "auditId",
+           COUNT(*)::int AS "nonCompliedCount",
+           c.client_name AS "clientName"
+         FROM contractor_documents cd
+         JOIN audits a ON a.id = cd.audit_id
+         JOIN users u ON u.id = cd.contractor_user_id
+         LEFT JOIN clients c ON c.id = a.client_id
+         WHERE cd.status = 'REJECTED'
+           AND a.status IN ('PLANNED', 'IN_PROGRESS')
+         GROUP BY cd.contractor_user_id, u.name, u.email, a.audit_code, a.id, c.client_name`,
+      );
+
+      if (!rows.length) {
+        await this.cronLogger.succeed(logId, 0);
+        return;
+      }
+
+      let notified = 0;
+      for (const row of rows) {
+        // Create in-app notification
+        try {
+          await this.notifications.createTicket(
+            row.contractorUserId,
+            'CONTRACTOR',
+            {
+              queryType: 'COMPLIANCE',
+              subject: `Non-Compliant Documents: Audit ${row.auditCode}`,
+              message: `You have ${row.nonCompliedCount} non-compliant document(s) for audit ${row.auditCode} (${row.clientName}). Please upload corrected documents to resolve the findings.`,
+            },
+          );
+        } catch (e: any) {
+          this.logger.warn(
+            `Failed to notify contractor ${row.contractorUserId} for audit ${row.auditId}: ${e.message}`,
+          );
+        }
+
+        // Send email
+        if (row.contractorEmail) {
+          try {
+            await this.email.send(
+              row.contractorEmail,
+              `Action Required: ${row.nonCompliedCount} Non-Compliant Documents`,
+              'Audit Non-Compliance Notice',
+              `Dear ${row.contractorName || 'Contractor'},\n\nYou have ${row.nonCompliedCount} non-compliant document(s) for audit ${row.auditCode} (${row.clientName}). Please log in to the portal and upload corrected documents as soon as possible.\n\nThis is a daily reminder until all non-compliant items are resolved.`,
+            );
+          } catch (e: any) {
+            this.logger.warn(
+              `Failed to email ${row.contractorEmail} for audit ${row.auditId}: ${e.message}`,
+            );
+          }
+        }
+        notified++;
+      }
+
+      this.logger.log(
+        `Non-compliant audit doc notifications: ${notified} contractor-audit pairs notified`,
+      );
+      await this.cronLogger.succeed(logId, notified);
+    } catch (err: any) {
+      await this.cronLogger.fail(logId, err);
+      this.logger.error(
+        `notifyNonCompliantAuditDocuments failed: ${(err as Error).message}`,
+      );
     }
   }
 }

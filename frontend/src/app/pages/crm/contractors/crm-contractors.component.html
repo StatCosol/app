@@ -1,10 +1,12 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <div class="flex items-center justify-between mb-6">
-    <ui-page-header 
-      title="Contractor Management" 
-      description="" 
-      icon="user-group">
-    </ui-page-header>
+  <ui-page-header 
+    title="Contractor Management" 
+    description="" 
+    icon="user-group">
+    <ui-client-context-strip [inline]="true"></ui-client-context-strip>
+  </ui-page-header>
+
+  <div class="flex items-center justify-end mb-6">
     <ui-button variant="primary" (clicked)="openRegistrationForm()" *ngIf="!showForm">
       <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -18,20 +20,22 @@
     <h3 class="text-lg font-semibold text-gray-900 mb-6">Register New Contractor</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Contractor Name *</label>
-        <input type="text" [(ngModel)]="form.name" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="Full Name" />
+        <label for="crm-contractor-name" class="block text-sm font-medium text-gray-700 mb-2">Contractor Name *</label>
+        <input type="text" id="crm-contractor-name" name="name" autocomplete="name" [(ngModel)]="form.name" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="Full Name" />
       </div>
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-        <input type="email" [(ngModel)]="form.email" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="email@example.com" />
+        <label for="crm-contractor-email" class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+        <input type="email" id="crm-contractor-email" name="email" autocomplete="email" [(ngModel)]="form.email" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [class.border-red-500]="emailError" placeholder="email@example.com" />
+        <p *ngIf="emailError" class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ emailError }}</p>
       </div>
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
-        <input type="tel" [(ngModel)]="form.mobile" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="10-digit mobile" />
+        <label for="crm-contractor-mobile" class="block text-sm font-medium text-gray-700 mb-2">Mobile</label>
+        <input type="tel" id="crm-contractor-mobile" name="mobile" autocomplete="tel" [(ngModel)]="form.mobile" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [class.border-red-500]="mobileError" placeholder="e.g. +919876543210" />
+        <p *ngIf="mobileError" class="mt-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded">{{ mobileError }}</p>
       </div>
-      <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Client *</label>
-        <select [(ngModel)]="form.clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+      <div class="form-group" *ngIf="!clientId">
+        <label for="crm-contractor-client" class="block text-sm font-medium text-gray-700 mb-2">Client *</label>
+        <select id="crm-contractor-client" name="clientId" [(ngModel)]="form.clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
           <option value="">Select Client</option>
           <option *ngFor="let client of myClients" [value]="client.id">
             {{ client.clientName }}
@@ -39,9 +43,9 @@
         </select>
       </div>
       <div class="form-group md:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+        <label for="crm-contractor-password" class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
         <div class="flex gap-2">
-          <input type="text" [(ngModel)]="form.password" class="flex-grow rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+          <input type="password" id="crm-contractor-password" name="password" autocomplete="new-password" [(ngModel)]="form.password" class="flex-grow rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
           <ui-button variant="secondary" (clicked)="form.password = generatePassword()">
             <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>

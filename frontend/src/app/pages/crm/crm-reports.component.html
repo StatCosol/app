@@ -10,30 +10,30 @@
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Client</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.clientId" (change)="onClientChange()">
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-client-id">Client</label>
+        <select id="cr-client-id" name="clientId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.clientId" (change)="onClientChange()">
           <option value="">All Clients</option>
           <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.branchId">
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-branch-id">Branch</label>
+        <select id="cr-branch-id" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.branchId">
           <option value="">All Branches</option>
           <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">From</label>
-        <input type="date" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.from" />
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-from">From</label>
+        <input autocomplete="off" id="cr-from" name="from" type="date" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.from" />
       </div>
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">To</label>
-        <input type="date" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.to" />
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-to">To</label>
+        <input autocomplete="off" id="cr-to" name="to" type="date" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.to" />
       </div>
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status">
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cr-status">Status</label>
+        <select id="cr-status" name="status" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="filters.status">
           <option value="">All</option>
           <option *ngFor="let s of statusOptions" [value]="s">{{ s }}</option>
         </select>

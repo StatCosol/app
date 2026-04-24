@@ -45,12 +45,12 @@
         <div class="p-4 border-b border-gray-200 space-y-3">
           <h3 class="text-sm font-semibold text-gray-900">Controls Table</h3>
           <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <input
+            <input autocomplete="off" id="cc-search" name="search"
               class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Search name/scope/type..."
               [(ngModel)]="search"
               (ngModelChange)="applyFilters()" />
-            <select
+            <select id="cc-type-filter" name="typeFilter"
               class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               [(ngModel)]="typeFilter"
               (ngModelChange)="applyFilters()">
@@ -59,7 +59,7 @@
               <option value="THRESHOLD">Threshold</option>
               <option value="REMINDER">Reminder</option>
             </select>
-            <select
+            <select id="cc-status-filter" name="statusFilter"
               class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               [(ngModel)]="statusFilter"
               (ngModelChange)="applyFilters()">
@@ -67,7 +67,7 @@
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
-            <select
+            <select id="cc-severity-filter" name="severityFilter"
               class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               [(ngModel)]="severityFilter"
               (ngModelChange)="applyFilters()">
@@ -110,7 +110,7 @@
                 <td class="px-4 py-3">
                   <ui-status-badge [status]="row.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
                 </td>
-                <td class="px-4 py-3 text-xs text-gray-500">{{ row.updatedAt | date: 'medium' }}</td>
+                <td class="px-4 py-3 text-xs text-gray-500">{{ row.updatedAt ? (row.updatedAt | date: 'medium') : '-' }}</td>
               </tr>
             </tbody>
           </table>
@@ -162,11 +162,11 @@
             <div *ngIf="row.type === 'SLA'" class="grid grid-cols-2 gap-2">
               <label class="col-span-2 text-xs font-medium text-gray-600">
                 Scope
-                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.scope" placeholder="Global or function scope" />
+                <input autocomplete="off" id="cc-scope" name="slaScope" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.scope" placeholder="Global or function scope" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Priority
-                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.priority">
+                <select id="cc-priority" name="slaPriority" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.priority">
                   <option value="LOW">Low</option>
                   <option value="NORMAL">Normal</option>
                   <option value="HIGH">High</option>
@@ -174,22 +174,22 @@
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Target Hours
-                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.targetHours" />
+                <input autocomplete="off" id="cc-target-hours" type="number" name="slaTargetHours" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.targetHours" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Esc L1 Hours
-                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.escalationLevel1Hours" />
+                <input autocomplete="off" id="cc-escalation-level1-hours" type="number" name="slaEscL1Hours" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.escalationLevel1Hours" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Esc L2 Hours
-                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.escalationLevel2Hours" />
+                <input autocomplete="off" id="cc-escalation-level2-hours" type="number" name="slaEscL2Hours" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="slaForm.escalationLevel2Hours" />
               </label>
             </div>
 
             <div *ngIf="row.type === 'THRESHOLD'" class="grid grid-cols-2 gap-2">
               <label class="text-xs font-medium text-gray-600">
                 Type
-                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.type">
+                <select id="cc-type" name="thresholdType" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.type">
                   <option value="OVERDUE_COUNT">Overdue Count</option>
                   <option value="COMPLIANCE_PERCENT">Compliance Percent</option>
                   <option value="AUDIT_SCORE">Audit Score</option>
@@ -197,15 +197,15 @@
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Value
-                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.value" />
+                <input autocomplete="off" id="cc-value" type="number" name="thresholdValue" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.value" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Window Days
-                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.windowDays" />
+                <input autocomplete="off" id="cc-window-days" type="number" name="thresholdWindowDays" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.windowDays" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Severity
-                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.severity">
+                <select id="cc-severity" name="thresholdSeverity" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="thresholdForm.severity">
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
                   <option value="HIGH">High</option>
@@ -217,15 +217,16 @@
             <div *ngIf="row.type === 'REMINDER'" class="grid grid-cols-2 gap-2">
               <label class="col-span-2 text-xs font-medium text-gray-600">
                 Scope
-                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reminderForm.scope" placeholder="Global or function scope" />
+                <input autocomplete="off" id="cc-scope-2" name="reminderScope" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reminderForm.scope" placeholder="Global or function scope" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Days Before Due
-                <input type="number" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reminderForm.daysBeforeDue" />
+                <input autocomplete="off" id="cc-days-before-due" type="number" name="reminderDaysBeforeDue" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reminderForm.daysBeforeDue" />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Notify Roles (comma separated)
                 <input
+                  name="reminderNotifyRoles"
                   class="mt-1 w-full rounded-lg border-gray-300 text-sm"
                   [ngModel]="reminderForm.notifyRoles.join(', ')"
                   (ngModelChange)="onReminderRolesChange($event)" />
@@ -249,19 +250,19 @@
             <div class="grid grid-cols-2 gap-2">
               <label class="col-span-2 text-xs font-medium text-gray-600">
                 Control Owner
-                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.owner" placeholder="Owner name / function" />
+                <input autocomplete="off" id="cc-owner" name="metaOwner" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.owner" placeholder="Owner name / function" />
               </label>
               <label class="col-span-2 text-xs font-medium text-gray-600">
                 Evidence
-                <textarea class="mt-1 w-full rounded-lg border-gray-300 text-sm" rows="2" [(ngModel)]="meta.evidence" placeholder="Evidence description / references"></textarea>
+                <textarea autocomplete="off" id="cc-evidence" name="metaEvidence" class="mt-1 w-full rounded-lg border-gray-300 text-sm" rows="2" [(ngModel)]="meta.evidence" placeholder="Evidence description / references"></textarea>
               </label>
               <label class="col-span-2 text-xs font-medium text-gray-600">
                 Evidence Link
-                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.evidenceLink" placeholder="https://..." />
+                <input autocomplete="off" id="cc-evidence-link" name="metaEvidenceLink" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.evidenceLink" placeholder="https://..." />
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Design Effectiveness
-                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.designEffectiveness">
+                <select id="cc-design-effectiveness" name="metaDesignEffectiveness" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.designEffectiveness">
                   <option value="NOT_REVIEWED">Not Reviewed</option>
                   <option value="EFFECTIVE">Effective</option>
                   <option value="NEEDS_IMPROVEMENT">Needs Improvement</option>
@@ -270,7 +271,7 @@
               </label>
               <label class="text-xs font-medium text-gray-600">
                 Operating Effectiveness
-                <select class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.operatingEffectiveness">
+                <select id="cc-operating-effectiveness" name="metaOperatingEffectiveness" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="meta.operatingEffectiveness">
                   <option value="NOT_REVIEWED">Not Reviewed</option>
                   <option value="EFFECTIVE">Effective</option>
                   <option value="NEEDS_IMPROVEMENT">Needs Improvement</option>
@@ -279,7 +280,7 @@
               </label>
               <label class="col-span-2 text-xs font-medium text-gray-600">
                 Review Note
-                <input class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reviewNote" placeholder="What changed in this review?" />
+                <input autocomplete="off" id="cc-review-note" name="reviewNote" class="mt-1 w-full rounded-lg border-gray-300 text-sm" [(ngModel)]="reviewNote" placeholder="What changed in this review?" />
               </label>
             </div>
             <div class="flex flex-wrap items-center gap-2 text-xs">

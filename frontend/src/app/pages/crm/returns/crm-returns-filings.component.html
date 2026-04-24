@@ -2,52 +2,169 @@
   <ui-page-header
     title="Returns Filing Workspace"
     subtitle="Prepared, reviewed, filed, acknowledged, and rejected workflow with filing evidence">
+    <ui-button variant="secondary" size="sm" (clicked)="goBack()">← Back</ui-button>
   </ui-page-header>
 
   <section class="filters">
-    <input
-      type="text"
-      class="field field--search"
-      placeholder="Search return type, law type, status, ACK number"
-      [(ngModel)]="searchTerm"
-      (input)="applyFilters()">
+    <div class="filter-row">
+      <input autocomplete="off"
+        type="text"
+        id="rf-search"
+        name="searchTerm"
+        class="field field--search"
+        placeholder="Search return type, law type, status, ACK number"
+        [(ngModel)]="searchTerm"
+        (input)="applyFilters()">
 
-    <select class="field" [(ngModel)]="lawTypeFilter" (change)="applyFilters()">
-      <option value="">All Acts</option>
-      <option *ngFor="let law of lawTypes" [value]="law">{{ law }}</option>
-    </select>
+      <select id="rf-law" name="lawTypeFilter" class="field" [(ngModel)]="lawTypeFilter" (change)="applyFilters()">
+        <option value="">All Acts</option>
+        <option *ngFor="let law of lawTypes" [value]="law">{{ law }}</option>
+      </select>
 
-    <select class="field" [(ngModel)]="branchFilter" (change)="loadFilings()">
-      <option value="">All Branches</option>
-      <option *ngFor="let branchId of branches" [value]="branchId">{{ branchId }}</option>
-    </select>
+      <select id="rf-client" name="clientFilter" class="field field--client" [(ngModel)]="clientFilter" (change)="onFilterClientChange()">
+        <option value="">All Clients</option>
+        <option *ngFor="let c of filterClientOptions" [value]="c.id">{{ c.name }}</option>
+      </select>
 
-    <select class="field" [(ngModel)]="statusFilter" (change)="loadFilings()">
-      <option value="">All Statuses</option>
-      <option value="PENDING">PREPARED</option>
-      <option value="IN_PROGRESS">REVIEWED</option>
-      <option value="SUBMITTED">FILED</option>
-      <option value="APPROVED">ACKNOWLEDGED</option>
-      <option value="REJECTED">REJECTED</option>
-    </select>
+      <select id="rf-branch" name="branchFilter" class="field" [(ngModel)]="branchFilter" (change)="loadFilings()">
+        <option value="">All Branches</option>
+        <option *ngFor="let b of filterBranchOptions" [value]="b.id">{{ b.name }}</option>
+      </select>
 
-    <select class="field" [(ngModel)]="periodYearFilter" (change)="loadFilings()">
-      <option value="">All Years</option>
-      <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
-    </select>
+      <select id="rf-status" name="statusFilter" class="field" [(ngModel)]="statusFilter" (change)="loadFilings()">
+        <option value="">All Statuses</option>
+        <option value="PENDING">PREPARED</option>
+        <option value="IN_PROGRESS">REVIEWED</option>
+        <option value="SUBMITTED">FILED</option>
+        <option value="APPROVED">ACKNOWLEDGED</option>
+        <option value="REJECTED">REJECTED</option>
+        <option value="NOT_APPLICABLE">NOT APPLICABLE</option>
+      </select>
 
-    <select class="field" [(ngModel)]="periodMonthFilter" (change)="loadFilings()">
-      <option value="">All Months</option>
-      <option *ngFor="let month of monthOptions" [value]="month.value">{{ month.label }}</option>
-    </select>
+      <select id="rf-year" name="periodYearFilter" class="field field--sm" [(ngModel)]="periodYearFilter" (change)="loadFilings()">
+        <option value="">All Years</option>
+        <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+      </select>
 
-    <label class="pending-only">
-      <input type="checkbox" [(ngModel)]="pendingOnly" (change)="applyFilters()">
-      Pending only
-    </label>
+      <select id="rf-month" name="periodMonthFilter" class="field field--sm" [(ngModel)]="periodMonthFilter" (change)="loadFilings()">
+        <option value="">All Months</option>
+        <option *ngFor="let month of monthOptions" [value]="month.value">{{ month.label }}</option>
+      </select>
+    </div>
 
-    <ui-button variant="secondary" (clicked)="loadFilings()">Refresh</ui-button>
-    <ui-button variant="ghost" (clicked)="exportCsv()">Export</ui-button>
+    <div class="action-row">
+      <label class="pending-only">
+        <input autocomplete="off" type="checkbox" id="rf-pending" name="pendingOnly" [(ngModel)]="pendingOnly" (change)="applyFilters()">
+        Pending only
+      </label>
+
+      <ui-button variant="secondary" size="sm" (clicked)="loadFilings()">Refresh</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="exportCsv()">Export</ui-button>
+      <ui-button variant="ghost" size="sm" [disabled]="exportingCsv" (clicked)="exportServerCsv()">{{ exportingCsv ? 'Exporting...' : 'Server Export' }}</ui-button>
+      <ui-button variant="ghost" size="sm" [disabled]="exportingXlsx" (clicked)="exportServerXlsx()">{{ exportingXlsx ? 'Exporting...' : 'Export Excel' }}</ui-button>
+      <ui-button variant="primary" size="sm" (clicked)="toggleCreateForm()">{{ showCreateForm ? 'Cancel' : '+ Add Return' }}</ui-button>
+      <ui-button variant="ghost" size="sm" (clicked)="toggleAutomationPanel()">{{ showAutomationPanel ? 'Hide Auto' : 'Automation' }}</ui-button>
+    </div>
+  </section>
+
+  <!-- Automation Panel -->
+  <section class="auto-panel" *ngIf="showAutomationPanel">
+    <div class="panel-head">
+      <h3>Filing Automation</h3>
+      <span>Auto-generate filings, renewal tasks, and overdue alerts</span>
+    </div>
+    <div class="auto-grid">
+      <div class="auto-card">
+        <h4>Generate Monthly Filings</h4>
+        <p>Creates filing rows + tasks from return master rules for the current month.</p>
+        <ui-button variant="primary" size="sm" [disabled]="autoGenerating" (clicked)="runAutoGenerate()">
+          {{ autoGenerating ? 'Generating...' : 'Generate Filings' }}
+        </ui-button>
+        <div class="auto-result" *ngIf="lastAutoResult">
+          <span class="ok">{{ lastAutoResult.filingsCreated }} created</span>
+          <span>{{ lastAutoResult.tasksCreated }} tasks</span>
+          <span class="muted">{{ lastAutoResult.skipped }} skipped</span>
+        </div>
+      </div>
+      <div class="auto-card">
+        <h4>Generate Renewal Filings</h4>
+        <p>Scans expiring registrations and creates renewal filing rows + tasks.</p>
+        <ui-button variant="secondary" size="sm" [disabled]="autoRenewing" (clicked)="runAutoRenewals()">
+          {{ autoRenewing ? 'Scanning...' : 'Generate Renewals' }}
+        </ui-button>
+        <div class="auto-result" *ngIf="lastRenewalResult">
+          <span class="ok">{{ lastRenewalResult.filingsCreated }} created</span>
+          <span>{{ lastRenewalResult.tasksCreated }} tasks</span>
+          <span class="muted">{{ lastRenewalResult.skipped }} skipped</span>
+        </div>
+      </div>
+      <div class="auto-card">
+        <h4>Send Overdue Alerts</h4>
+        <p>Escalates priority of overdue filings and sends CRM notifications.</p>
+        <ui-button variant="danger" size="sm" [disabled]="autoAlerting" (clicked)="runOverdueAlerts()">
+          {{ autoAlerting ? 'Sending...' : 'Send Alerts' }}
+        </ui-button>
+        <div class="auto-result" *ngIf="lastAlertResult">
+          <span class="ok">{{ lastAlertResult.alertsSent }} alerts sent</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Create Return Form -->
+  <section class="create-form" *ngIf="showCreateForm">
+    <div class="panel-head">
+      <h3>Add New Return Filing</h3>
+    </div>
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="nf-client">Client *</label>
+        <select id="nf-client" class="field" [(ngModel)]="newFiling.clientId" name="nfClient" (ngModelChange)="onClientChange()">
+          <option value="">-- Select Client --</option>
+          <option *ngFor="let c of clientOptions" [value]="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="nf-branch">Branch</label>
+        <select id="nf-branch" class="field" [(ngModel)]="newFiling.branchId" name="nfBranch">
+          <option value="">-- Select Branch --</option>
+          <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.name }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="nf-type">Return Type *</label>
+        <select id="nf-type" class="field" [(ngModel)]="newFiling.returnType" name="nfReturnType" (change)="onReturnTypeChange()">
+          <option value="">-- Select Return --</option>
+          <option *ngFor="let t of returnTypes" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="nf-year">Period Year *</label>
+        <select id="nf-year" class="field" [(ngModel)]="newFiling.periodYear" name="nfYear">
+          <option *ngFor="let year of yearOptions" [value]="year">{{ year }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="nf-month">Period Month</label>
+        <select id="nf-month" class="field" [(ngModel)]="newFiling.periodMonth" name="nfMonth">
+          <option [ngValue]="0">-- No Month (Half-yearly/Yearly) --</option>
+          <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="nf-label">Period Label</label>
+        <input autocomplete="off" type="text" id="nf-label" class="field" [(ngModel)]="newFiling.periodLabel" name="nfLabel" placeholder="e.g. Q1-2026, H1-2026, FY 2025-26">
+      </div>
+      <div class="form-field">
+        <label for="nf-due">Due Date</label>
+        <input type="date" id="nf-due" class="field" [(ngModel)]="newFiling.dueDate" name="nfDueDate">
+      </div>
+      <div class="form-field form-field--actions">
+        <ui-button variant="primary" [disabled]="creating" (clicked)="createFiling()">
+          {{ creating ? 'Creating...' : 'Create Filing' }}
+        </ui-button>
+      </div>
+    </div>
   </section>
 
   <section class="summary-grid">
@@ -71,6 +188,10 @@
       <div class="summary-value">{{ rejectedCount }}</div>
       <div class="summary-label">Rejected</div>
     </article>
+    <article class="summary-card summary-card--na">
+      <div class="summary-value">{{ naCount }}</div>
+      <div class="summary-label">N/A</div>
+    </article>
   </section>
 
   <section class="branch-board" *ngIf="branchPendingRows.length">
@@ -78,10 +199,11 @@
       <h3>Branch-wise Pending View</h3>
       <span>Click a branch row to drill into its queue</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap max-h-[600px] overflow-y-auto">
       <table class="table table--compact">
         <thead>
           <tr>
+            <th>Client</th>
             <th>Branch</th>
             <th>Total</th>
             <th>Pending</th>
@@ -92,7 +214,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of branchPendingRows; trackBy: trackById" (click)="focusBranchPending(row.branchId)">
+          <tr *ngFor="let row of branchPendingRows; trackBy: trackById"
+              [class.unmapped]="row.branchId === 'UNMAPPED'"
+              (click)="focusBranchPending(row.branchId)"
+              [style.cursor]="row.branchId === 'UNMAPPED' ? 'default' : 'pointer'">
+            <td>{{ row.clientName }}</td>
             <td>{{ branchLabel(row.branchId) }}</td>
             <td>{{ row.total }}</td>
             <td>{{ row.pending }}</td>
@@ -120,14 +246,33 @@
         <span>{{ filteredFilings.length }} item(s)</span>
       </header>
 
-      <div class="table-wrap">
+      <div class="bulk-bar" *ngIf="selectedTaskIds.length > 0">
+        <div>{{ selectedTaskIds.length }} selected</div>
+        <div class="bulk-actions">
+          <button type="button" class="mini" (click)="bulkReadyForFiling()">Bulk Ready For Filing</button>
+          <button type="button" class="mini" (click)="bulkMarkFiled()">Bulk Mark Filed</button>
+          <button type="button" class="mini" (click)="bulkVerify()">Bulk Verify</button>
+          <button type="button" class="mini" (click)="bulkReturnToBranch()">Bulk Return To Branch</button>
+          <button type="button" class="mini" (click)="bulkSendReminder()">Send Reminder</button>
+        </div>
+      </div>
+
+      <div class="table-wrap max-h-[600px] overflow-y-auto">
         <table class="table">
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  [checked]="filteredFilings.length > 0 && selectedTaskIds.length === filteredFilings.length"
+                  (change)="toggleAllCurrent($any($event.target).checked)"
+                />
+              </th>
               <th>Return</th>
               <th>Period</th>
               <th>Due</th>
               <th>Reference</th>
+              <th>Source</th>
               <th>Workflow</th>
               <th>Status</th>
             </tr>
@@ -137,6 +282,13 @@
               *ngFor="let row of filteredFilings; trackBy: trackById"
               [class.active]="selected?.id === row.id"
               (click)="selectFiling(row)">
+              <td (click)="$event.stopPropagation()">
+                <input
+                  type="checkbox"
+                  [checked]="isSelected(row.id)"
+                  (change)="toggleTask(row.id, $any($event.target).checked)"
+                />
+              </td>
               <td>
                 <div class="primary">{{ row.returnType || '-' }}</div>
                 <div class="secondary">{{ row.lawType || '-' }}</div>
@@ -147,6 +299,7 @@
                 <div class="due-note" [class.due-note--bad]="isOverdue(row)" *ngIf="row.dueDate">{{ dueHint(row) }}</div>
               </td>
               <td><span class="reference-chip">{{ referenceCode(row) }}</span></td>
+              <td><span [class]="sourceBadgeClass(row.createdByRole)">{{ sourceLabel(row.createdByRole) }}</span></td>
               <td><span [class]="workflowClass(row.status)">{{ mapWorkflow(row.status) }}</span></td>
               <td><ui-status-badge [status]="row.status" size="sm"></ui-status-badge></td>
             </tr>
@@ -158,7 +311,7 @@
     <aside class="detail-panel" *ngIf="selected as row">
       <header class="panel-head">
         <h3>Filing Detail</h3>
-        <span>{{ row.id }}</span>
+        <span>{{ row.returnType || '-' }}</span>
       </header>
 
       <div class="detail-body">
@@ -174,7 +327,7 @@
             </div>
           <div class="meta-cell">
             <span class="k">Due Date</span>
-            <span class="v">{{ row.dueDate || '-' }}</span>
+            <span class="v">{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</span>
           </div>
           <div class="meta-cell">
             <span class="k">ACK Number</span>
@@ -182,7 +335,11 @@
           </div>
           <div class="meta-cell">
             <span class="k">Filed Date</span>
-            <span class="v">{{ row.filedDate || '-' }}</span>
+            <span class="v">{{ row.filedDate ? (row.filedDate | date:'dd MMM yyyy') : '-' }}</span>
+          </div>
+          <div class="meta-cell">
+            <span class="k">Created By</span>
+            <span class="v"><span [class]="sourceBadgeClass(row.createdByRole)">{{ sourceLabel(row.createdByRole) }}</span></span>
           </div>
           <div class="meta-cell">
             <span class="k">Current Workflow</span>
@@ -193,12 +350,12 @@
             <span class="v">{{ referenceCode(row) }}</span>
           </div>
           <div class="meta-cell">
-            <span class="k">Client ID</span>
-            <span class="v">{{ row.clientId || '-' }}</span>
+            <span class="k">Client</span>
+            <span class="v">{{ row.clientName || '-' }}</span>
           </div>
           <div class="meta-cell">
-            <span class="k">Branch ID</span>
-            <span class="v">{{ row.branchId || '-' }}</span>
+            <span class="k">Branch</span>
+            <span class="v">{{ row.branchName || branchLabel(row.branchId) }}</span>
           </div>
           <div class="meta-cell">
             <span class="k">Record Created</span>
@@ -222,6 +379,12 @@
             (clicked)="moveStatus(action.value)">
             {{ action.label }}
           </ui-button>
+          <ui-button
+            variant="danger"
+            [disabled]="statusBusy || row.status === 'APPROVED'"
+            (clicked)="deleteFiling(row)">
+            Delete
+          </ui-button>
         </div>
 
         <div class="guardrails">
@@ -239,20 +402,29 @@
           <div class="proof-row">
             <span>ACK / ARN Proof</span>
             <div class="proof-actions">
-              <button class="mini" (click)="openAckUpload(row.id)" [disabled]="uploadingAck">
+              <button type="button" class="mini" (click)="openAckUpload(row.id)" [disabled]="uploadingAck">
                 {{ uploadingAck && selectedFilingIdForAck === row.id ? 'Uploading...' : 'Upload ACK' }}
               </button>
-              <button class="mini mini--view" [disabled]="!row.ackFilePath" (click)="openFile(row.ackFilePath)">View</button>
+              <button type="button" class="mini mini--view" [disabled]="!row.ackFilePath" (click)="openFile(row.ackFilePath)">View</button>
             </div>
           </div>
 
           <div class="proof-row">
             <span>Challan Proof</span>
             <div class="proof-actions">
-              <button class="mini" (click)="openChallanUpload(row.id)" [disabled]="uploadingChallan">
+              <button type="button" class="mini" (click)="openChallanUpload(row.id)" [disabled]="uploadingChallan">
                 {{ uploadingChallan && selectedFilingIdForChallan === row.id ? 'Uploading...' : 'Upload Challan' }}
               </button>
-              <button class="mini mini--view" [disabled]="!row.challanFilePath" (click)="openFile(row.challanFilePath)">View</button>
+              <button type="button" class="mini mini--view" [disabled]="!row.challanFilePath" (click)="openFile(row.challanFilePath)">View</button>
+            </div>
+          </div>
+
+          <div class="proof-row">
+            <span>General Proof</span>
+            <div class="proof-actions">
+              <button type="button" class="mini" (click)="openProofUpload()" [disabled]="uploadingProof">
+                {{ uploadingProof ? 'Uploading...' : 'Upload Proof' }}
+              </button>
             </div>
           </div>
         </div>
@@ -287,4 +459,5 @@
 
   <input #ackInput type="file" hidden (change)="onAckFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">
   <input #challanInput type="file" hidden (change)="onChallanFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">
+  <input #proofInput type="file" hidden (change)="onProofFileSelected($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls">
 </div>

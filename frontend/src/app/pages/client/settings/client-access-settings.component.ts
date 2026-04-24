@@ -46,7 +46,7 @@ import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../..
 
         <div class="space-y-4">
           <label class="flex items-start gap-3">
-            <input type="checkbox" [(ngModel)]="model.allowBranchPayrollAccess" [disabled]="!isMaster || saving" />
+            <input autocomplete="off" type="checkbox" id="allow-payroll" name="allowBranchPayrollAccess" [(ngModel)]="model.allowBranchPayrollAccess" [disabled]="!isMaster || saving" />
             <span>
               <div class="font-semibold text-gray-900">Allow Payroll Access for BranchDesk</div>
               <div class="text-xs text-gray-500">If OFF, the entire Payroll section will be hidden for branch users. They won't see payroll inputs, registers, or any payroll data.</div>
@@ -55,7 +55,7 @@ import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../..
 
           <div [class.opacity-50]="!model.allowBranchPayrollAccess" [class.pointer-events-none]="!model.allowBranchPayrollAccess" class="ml-6 space-y-4 border-l-2 border-gray-200 pl-4">
             <label class="flex items-start gap-3">
-              <input type="checkbox" [(ngModel)]="model.allowBranchWageRegisters" [disabled]="!isMaster || saving || !model.allowBranchPayrollAccess" />
+              <input autocomplete="off" type="checkbox" id="allow-wage" name="allowBranchWageRegisters" [(ngModel)]="model.allowBranchWageRegisters" [disabled]="!isMaster || saving || !model.allowBranchPayrollAccess" />
               <span>
                 <div class="font-semibold text-gray-900">Allow Wage Registers</div>
                 <div class="text-xs text-gray-500">If OFF, wage-related registers will be hidden and download will be blocked for branch users.</div>
@@ -63,7 +63,7 @@ import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../..
             </label>
 
             <label class="flex items-start gap-3">
-              <input type="checkbox" [(ngModel)]="model.allowBranchSalaryRegisters" [disabled]="!isMaster || saving || !model.allowBranchPayrollAccess" />
+              <input autocomplete="off" type="checkbox" id="allow-salary" name="allowBranchSalaryRegisters" [(ngModel)]="model.allowBranchSalaryRegisters" [disabled]="!isMaster || saving || !model.allowBranchPayrollAccess" />
               <span>
                 <div class="font-semibold text-gray-900">Allow Salary Registers</div>
                 <div class="text-xs text-gray-500">If OFF, salary-related registers will be hidden and download will be blocked for branch users.</div>

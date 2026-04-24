@@ -23,7 +23,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Applicability')
 @ApiBearerAuth('JWT')
-@Controller({ path: 'units', version: '1' })
+@Controller({ path: 'ae/units', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CRM')
 export class UnitActsController {

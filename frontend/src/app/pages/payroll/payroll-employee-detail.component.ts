@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -19,6 +19,7 @@ type Tab = 'profile' | 'compliance' | 'history';
 @Component({
   selector: 'app-payroll-employee-detail',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -39,7 +40,7 @@ type Tab = 'profile' | 'compliance' | 'history';
           </svg>
         </button>
         <ui-page-header
-          [title]="emp ? (emp.firstName + ' ' + (emp.lastName || '')) : 'Employee Detail'"
+          [title]="emp ? emp.name : 'Employee Detail'"
           [subtitle]="emp ? (emp.employeeCode + ' · ' + emp.clientName) : 'Loading...'">
         </ui-page-header>
       </div>
@@ -241,9 +242,8 @@ export class PayrollEmployeeDetailComponent implements OnInit, OnDestroy {
   get personalFields() {
     if (!this.emp) return [];
     return [
-      { label: 'First Name', value: this.emp.firstName },
-      { label: 'Last Name', value: this.emp.lastName },
-      { label: 'Date of Birth', value: this.emp.dateOfBirth },
+      { label: 'Name as per Aadhaar', value: this.emp.name },
+      { label: 'DOB as per Aadhaar', value: this.emp.dateOfBirth },
       { label: 'Father Name', value: this.emp.fatherName },
       { label: 'Phone', value: this.emp.phone },
       { label: 'Email', value: this.emp.email },
@@ -292,7 +292,12 @@ export class PayrollEmployeeDetailComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    this.router.navigate(['/payroll/employees']);
+    const clientId = this.route.snapshot.paramMap.get('clientId');
+    if (clientId) {
+      this.router.navigate(['/payroll/clients', clientId, 'employees']);
+    } else {
+      this.router.navigate(['/payroll/clients']);
+    }
   }
 
   ngOnDestroy(): void {

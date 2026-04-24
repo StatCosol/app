@@ -100,7 +100,7 @@ interface UnifiedApprovalItem {
         <div class="filter-row">
           <label>
             <span>Search</span>
-            <input
+            <input autocomplete="off" id="cua-search-text" name="searchText"
               type="text"
               [(ngModel)]="searchText"
               (ngModelChange)="applyFilters()"
@@ -108,7 +108,7 @@ interface UnifiedApprovalItem {
           </label>
           <label>
             <span>Ageing</span>
-            <select [(ngModel)]="ageingFilter" (ngModelChange)="applyFilters()">
+            <select id="cua-ageing-filter" name="ageingFilter" [(ngModel)]="ageingFilter" (ngModelChange)="applyFilters()">
               <option value="ALL">All</option>
               <option value="0_3">0-3 days</option>
               <option value="4_7">4-7 days</option>
@@ -117,7 +117,7 @@ interface UnifiedApprovalItem {
           </label>
           <label>
             <span>Branch ID</span>
-            <input
+            <input autocomplete="off" id="cua-branch-filter" name="branchFilter"
               type="text"
               [(ngModel)]="branchFilter"
               placeholder="Optional branch id"
@@ -125,7 +125,7 @@ interface UnifiedApprovalItem {
           </label>
           <label>
             <span>Sort</span>
-            <select [(ngModel)]="sortOrder" (ngModelChange)="applyFilters()">
+            <select id="cua-sort-order" name="sortOrder" [(ngModel)]="sortOrder" (ngModelChange)="applyFilters()">
               <option value="AGE_DESC">Ageing high to low</option>
               <option value="AGE_ASC">Ageing low to high</option>
               <option value="NEWEST">Newest submitted</option>
@@ -235,7 +235,7 @@ interface UnifiedApprovalItem {
 
           <label class="field">
             <span>Decision Notes</span>
-            <textarea
+            <textarea autocomplete="off" id="cua-decision-notes" name="decisionNotes"
               rows="2"
               [(ngModel)]="decisionNotes"
               (ngModelChange)="refreshTimeline()"
@@ -245,7 +245,7 @@ interface UnifiedApprovalItem {
 
           <label class="field" *ngIf="decisionType === 'REJECT'">
             <span>Rejection Reason <em>*</em></span>
-            <textarea
+            <textarea autocomplete="off" id="cua-rejection-reason" name="rejectionReason"
               rows="2"
               [(ngModel)]="rejectionReason"
               (ngModelChange)="refreshTimeline()"

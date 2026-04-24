@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { ContractorRequiredDocumentEntity } from '../contractor/entities/contractor-required-document.entity';
@@ -12,12 +12,13 @@ import { BranchContractorEntity } from '../branches/entities/branch-contractor.e
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
+import { ReqUser } from '../access/access-scope.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5-minute cache
 
 interface CacheEntry {
-  data: any;
+  data: unknown;
   expiresAt: number;
 }
 
@@ -35,7 +36,7 @@ export class ClientDashboardService {
     return entry.data as T;
   }
 
-  private setCache(key: string, data: any): void {
+  private setCache(key: string, data: unknown): void {
     this.cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
   }
 
@@ -49,7 +50,7 @@ export class ClientDashboardService {
     @InjectRepository(BranchContractorEntity)
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
     @InjectRepository(UserEntity)
-    private readonly usersRepo: Repository<UserEntity>,
+    private readonly _usersRepo: Repository<UserEntity>,
     private readonly usersService: UsersService,
   ) {}
 
@@ -62,7 +63,7 @@ export class ClientDashboardService {
     return { start, end };
   }
 
-  private async resolveScope(user: any, branchId?: string) {
+  private async resolveScope(user: ReqUser, branchId?: string) {
     if (user.roleCode !== 'CLIENT')
       throw new ForbiddenException('Client role required');
 
@@ -94,7 +95,7 @@ export class ClientDashboardService {
     return diff > 0 ? diff : 0;
   }
 
-  async getPfEsiSummary(user: any, dto: ClientDashboardQueryDto) {
+  async getPfEsiSummary(user: ReqUser, dto: ClientDashboardQueryDto) {
     const scope = await this.resolveScope(user, dto.branchId);
     const cacheKey = `pfesi:${scope.clientId}:${scope.branchIds.join(',')}`;
     const cached = this.getCached(cacheKey);
@@ -121,8 +122,7 @@ export class ClientDashboardService {
       .select([
         'e.id as id',
         'e.employee_code as employeeCode',
-        'e.first_name as firstName',
-        'e.last_name as lastName',
+        'e.name as name',
         'e.date_of_joining as dateOfJoining',
         'e.pf_applicable_from as pfApplicableFrom',
         'e.uan as uan',
@@ -132,10 +132,10 @@ export class ClientDashboardService {
       )
       .getRawMany();
 
-    const pfPending = pfPendingRows.map((r: any) => ({
+    const pfPending = pfPendingRows.map((r: { id: string; employeeCode: string; name: string; dateOfJoining: string | null; pfApplicableFrom: string | null; uan: string | null }) => ({
       employeeId: r.id,
       empCode: r.employeeCode,
-      name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim(),
+      name: r.name || '',
       dateOfJoining: r.dateOfJoining || null,
       pfApplicable: true,
       pfRegistered: false,
@@ -156,8 +156,7 @@ export class ClientDashboardService {
       .select([
         'e.id as id',
         'e.employee_code as employeeCode',
-        'e.first_name as firstName',
-        'e.last_name as lastName',
+        'e.name as name',
         'e.date_of_joining as dateOfJoining',
         'e.esi_applicable_from as esiApplicableFrom',
         'e.esic as ipNumber',
@@ -167,10 +166,10 @@ export class ClientDashboardService {
       )
       .getRawMany();
 
-    const esiPending = esiPendingRows.map((r: any) => ({
+    const esiPending = esiPendingRows.map((r: { id: string; employeeCode: string; name: string; dateOfJoining: string | null; esiApplicableFrom: string | null; ipNumber: string | null }) => ({
       employeeId: r.id,
       empCode: r.employeeCode,
-      name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim(),
+      name: r.name || '',
       dateOfJoining: r.dateOfJoining || null,
       esiApplicable: true,
       esiRegistered: false,
@@ -197,7 +196,10 @@ export class ClientDashboardService {
     return result;
   }
 
-  async getContractorUploadSummary(user: any, dto: ClientDashboardQueryDto) {
+  async getContractorUploadSummary(
+    user: ReqUser,
+    dto: ClientDashboardQueryDto,
+  ) {
     const scope = await this.resolveScope(user, dto.branchId);
     const cacheKey = `contractor:${scope.clientId}:${scope.branchIds.join(',')}:${dto.month}`;
     const cached = this.getCached(cacheKey);
@@ -228,7 +230,7 @@ export class ClientDashboardService {
 
     // Authoritative contractor IDs → names map (only real CONTRACTOR users)
     const nameMap = new Map<string, string>();
-    bcRows.forEach((r: any) =>
+    bcRows.forEach((r: { contractorId: string; name: string }) =>
       nameMap.set(String(r.contractorId), String(r.name)),
     );
 
@@ -261,7 +263,7 @@ export class ClientDashboardService {
       .groupBy('r.contractor_user_id')
       .getRawMany();
     const requiredMap = new Map<string, number>();
-    requiredRows.forEach((r: any) =>
+    requiredRows.forEach((r: { contractorId: string; expected: string | number }) =>
       requiredMap.set(String(r.contractorId), Number(r.expected || 0)),
     );
 
@@ -293,7 +295,7 @@ export class ClientDashboardService {
       .groupBy('d.contractor_user_id')
       .getRawMany();
     const uploadedMap = new Map<string, number>();
-    uploadedRows.forEach((r: any) =>
+    uploadedRows.forEach((r: { contractorId: string; uploaded: string | number }) =>
       uploadedMap.set(String(r.contractorId), Number(r.uploaded || 0)),
     );
 

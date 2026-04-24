@@ -8,7 +8,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  Request,
   Res,
   ParseUUIDPipe,
   BadRequestException,
@@ -23,6 +22,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { EmployeeDocumentService } from './employee-document.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Employees')
 @ApiBearerAuth('JWT')
@@ -55,17 +56,17 @@ export class EmployeeDocumentController {
   )
   async upload(
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body('docType') docType: string,
     @Body('docName') docName: string,
     @Body('expiryDate') expiryDate: string | undefined,
-    @Request() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     if (!docType) throw new BadRequestException('docType is required');
 
     return this.docService.upload({
-      clientId: req.user.clientId,
+      clientId: user.clientId!,
       employeeId,
       docType,
       docName: docName || file.originalname,
@@ -73,7 +74,7 @@ export class EmployeeDocumentController {
       filePath: file.path,
       fileSize: file.size,
       mimeType: file.mimetype,
-      uploadedByUserId: req.user.userId,
+      uploadedByUserId: user.userId,
       expiryDate,
     });
   }
@@ -83,9 +84,9 @@ export class EmployeeDocumentController {
   @Roles('CLIENT', 'ADMIN', 'CRM')
   list(
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
-    @Request() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.docService.listForEmployee(req.user.clientId, employeeId);
+    return this.docService.listForEmployee(user.clientId!, employeeId);
   }
 
   @ApiOperation({ summary: 'Download' })
@@ -102,8 +103,8 @@ export class EmployeeDocumentController {
   @ApiOperation({ summary: 'Verify' })
   @Post(':id/verify')
   @Roles('CLIENT', 'ADMIN')
-  verify(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-    return this.docService.verify(id, req.user.userId);
+  verify(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: ReqUser) {
+    return this.docService.verify(id, user.userId);
   }
 
   @ApiOperation({ summary: 'Remove' })

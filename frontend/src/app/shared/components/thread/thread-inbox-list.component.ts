@@ -5,7 +5,7 @@ import { PriorityChipComponent } from '../status/priority-chip.component';
 import { StatusChipComponent } from '../status/status-chip.component';
 
 @Component({
-  selector: 'thread-inbox-list',
+  selector: 'ui-thread-inbox-list',
   standalone: true,
   imports: [CommonModule, PriorityChipComponent, StatusChipComponent],
   template: `
@@ -23,8 +23,8 @@ import { StatusChipComponent } from '../status/status-chip.component';
             <div class="text-[11px] text-gray-400 mt-1" *ngIf="t.updatedAt">{{ t.updatedAt | date:'d MMM y, h:mm a' }}</div>
           </div>
           <div class="flex flex-col items-end gap-1">
-            <priority-chip [priority]="t.priority || 'MEDIUM'"></priority-chip>
-            <status-chip [status]="t.status || 'OPEN'"></status-chip>
+            <ui-priority-chip [priority]="t.priority || 'MEDIUM'"></ui-priority-chip>
+            <ui-status-chip [status]="t.status || 'OPEN'"></ui-status-chip>
             <span *ngIf="t.unreadCount" class="text-[11px] font-semibold text-blue-700">{{ t.unreadCount }} unread</span>
           </div>
         </div>

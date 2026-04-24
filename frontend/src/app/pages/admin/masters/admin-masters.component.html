@@ -8,7 +8,7 @@
   <!-- Tabs -->
   <div class="border-b border-gray-200 mb-6">
     <nav class="-mb-px flex space-x-8">
-      <button 
+      <button type="button" 
         [class]="activeTab === 'compliance' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
         class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
         (click)="activeTab = 'compliance'; loadData()">
@@ -17,7 +17,7 @@
         </svg>
         Compliance Masters
       </button>
-      <button 
+      <button type="button" 
         [class]="activeTab === 'audit' ? 'border-statco-blue-light text-statco-blue-light' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
         class="whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors"
         (click)="activeTab = 'audit'; loadData()">
@@ -77,8 +77,8 @@
         </ui-form-select>
       </div>
       <div class="form-group mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-        <textarea [(ngModel)]="complianceForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="am-description">Description</label>
+        <textarea autocomplete="off" id="am-description" name="complianceDescription" [(ngModel)]="complianceForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
       </div>
       <div class="flex gap-3">
         <ui-button variant="primary" (clicked)="saveCompliance()" [disabled]="saving">
@@ -88,62 +88,114 @@
       </div>
     </div>
 
+    <!-- Bulk Upload Section -->
+    <div class="card mb-6">
+      <h3 class="text-xl font-semibold text-gray-900 mb-4">Bulk Upload from Excel</h3>
+      <p class="text-sm text-gray-500 mb-4">Upload an Excel file (.xlsx) to add multiple compliance masters at once. Duplicates (same name + law) will be skipped.</p>
+      <div class="space-y-4">
+        <button type="button" (click)="downloadTemplate()"
+          class="inline-flex items-center gap-2 text-sm font-medium text-statco-blue-light hover:text-blue-700 border border-statco-blue-light rounded-lg px-4 py-2.5 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Download Template
+        </button>
+        <div class="flex items-end gap-4">
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="bulkFileInput">Select Excel File</label>
+            <input id="bulkFileInput" type="file" accept=".xlsx,.xls" (change)="onBulkFileSelected($event)"
+              class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-statco-blue-light hover:file:bg-blue-100 cursor-pointer" />
+          </div>
+          <ui-button variant="primary" (clicked)="uploadBulkFile()" [disabled]="!bulkFile || bulkUploading">
+            {{ bulkUploading ? 'Uploading...' : 'Upload' }}
+          </ui-button>
+        </div>
+      </div>
+
+      <!-- Upload Results -->
+      <div *ngIf="bulkResult" class="mt-4">
+        <div class="flex flex-wrap gap-4 mb-3">
+          <span class="inline-flex items-center gap-1 text-sm font-medium">
+            <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>
+            Inserted: {{ bulkResult.inserted }}
+          </span>
+          <span class="inline-flex items-center gap-1 text-sm font-medium">
+            <span class="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block"></span>
+            Skipped (duplicates): {{ bulkResult.skipped }}
+          </span>
+          <span *ngIf="bulkResult.errors.length > 0" class="inline-flex items-center gap-1 text-sm font-medium text-red-600">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+            Errors: {{ bulkResult.errors.length }}
+          </span>
+        </div>
+        <div *ngIf="bulkResult.errors.length > 0" class="bg-red-50 border border-red-200 rounded-lg p-3 max-h-40 overflow-y-auto">
+          <p class="text-sm font-medium text-red-800 mb-2">Row-level errors:</p>
+          <ul class="text-sm text-red-700 list-disc list-inside space-y-1">
+            <li *ngFor="let err of bulkResult.errors">
+              <span *ngIf="err.row > 0">Row {{ err.row }}: </span>{{ err.reason }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h3 class="text-xl font-semibold text-gray-900">Existing Compliance Masters <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">{{ filteredComplianceMasters.length }}</span></h3>
         <div class="flex items-center gap-3">
-          <input type="text" placeholder="Search by name, law, state..." [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
+          <input autocomplete="off" id="am-search-term" name="searchTerm" type="text" placeholder="Search by name, law, state..." [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
             class="rounded-lg border-gray-300 text-sm px-3 py-1.5 w-56 focus:ring-statco-blue-light focus:border-statco-blue-light" />
+          <ui-form-select label="" [options]="lawFilterOptions" [(ngModel)]="lawFilter" (ngModelChange)="applyFilters()"></ui-form-select>
           <ui-form-select label="" [options]="stateFilterOptions" [(ngModel)]="stateFilter" (ngModelChange)="applyFilters()"></ui-form-select>
-          <button (click)="exportCsv()" class="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900 border rounded-lg px-3 py-1.5">
+          <button type="button" (click)="exportCsv()" class="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900 border rounded-lg px-3 py-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             Export
           </button>
         </div>
       </div>
       
-      <ui-data-table
-        [columns]="complianceColumns"
-        [data]="filteredComplianceMasters"
-        [loading]="loading">
-        
-        <ng-template uiTableCell="complianceName" let-row>
-          <span class="font-medium text-gray-900">{{ row.complianceName }}</span>
-        </ng-template>
-        
-        <ng-template uiTableCell="lawName" let-row>
-          {{ row.lawName }}
-        </ng-template>
-        
-        <ng-template uiTableCell="lawFamily" let-row>
-          {{ row.lawFamily || '—' }}
-        </ng-template>
-        
-        <ng-template uiTableCell="frequency" let-row>
-          {{ row.frequency }}
-        </ng-template>
-        
-        <ng-template uiTableCell="stateScope" let-row>
-          {{ row.stateScope || 'ALL' }}
-        </ng-template>
-        
-        <ng-template uiTableCell="headcount" let-row>
-          {{ row.minHeadcount || 0 }} - {{ row.maxHeadcount || '∞' }}
-        </ng-template>
-        
-        <ng-template uiTableCell="isActive" let-row>
-          <ui-status-badge [variant]="row.isActive ? 'success' : 'gray'">
-            {{ row.isActive ? 'Active' : 'Inactive' }}
-          </ui-status-badge>
-        </ng-template>
-        
-        <ng-template uiTableCell="actions" let-row>
-          <div class="flex gap-2">
-            <ui-button variant="secondary" size="sm" (clicked)="editCompliance(row)">Edit</ui-button>
-            <ui-button variant="danger" size="sm" (clicked)="deleteCompliance(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
-          </div>
-        </ng-template>
-      </ui-data-table>
+      <div class="border border-gray-200 rounded-xl max-h-[600px] overflow-auto">
+        <ui-data-table
+          [columns]="complianceColumns"
+          [data]="filteredComplianceMasters"
+          [loading]="loading">
+          
+          <ng-template uiTableCell="complianceName" let-row>
+            <span class="font-medium text-gray-900">{{ row.complianceName }}</span>
+          </ng-template>
+          
+          <ng-template uiTableCell="lawName" let-row>
+            {{ row.lawName }}
+          </ng-template>
+          
+          <ng-template uiTableCell="lawFamily" let-row>
+            {{ row.lawFamily || '—' }}
+          </ng-template>
+          
+          <ng-template uiTableCell="frequency" let-row>
+            {{ row.frequency }}
+          </ng-template>
+          
+          <ng-template uiTableCell="stateScope" let-row>
+            {{ row.stateScope || 'ALL' }}
+          </ng-template>
+          
+          <ng-template uiTableCell="headcount" let-row>
+            {{ row.minHeadcount || 0 }} - {{ row.maxHeadcount || '∞' }}
+          </ng-template>
+          
+          <ng-template uiTableCell="isActive" let-row>
+            <ui-status-badge [variant]="row.isActive ? 'success' : 'gray'">
+              {{ row.isActive ? 'Active' : 'Inactive' }}
+            </ui-status-badge>
+          </ng-template>
+          
+          <ng-template uiTableCell="actions" let-row>
+            <div class="flex gap-2">
+              <ui-button variant="secondary" size="sm" (clicked)="editCompliance(row)">Edit</ui-button>
+              <ui-button variant="danger" size="sm" (clicked)="deleteCompliance(row.id)" [disabled]="deletingId === row.id">{{ deletingId === row.id ? 'Deleting...' : 'Delete' }}</ui-button>
+            </div>
+          </ng-template>
+        </ui-data-table>
+      </div>
       
       <ui-empty-state
         *ngIf="complianceMasters.length === 0"
@@ -164,8 +216,8 @@
           [(ngModel)]="auditCategoryForm.name">
         </ui-form-input>
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea [(ngModel)]="auditCategoryForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
+          <label class="block text-sm font-medium text-gray-700 mb-2" for="am-description-2">Description</label>
+          <textarea autocomplete="off" id="am-description-2" name="auditCategoryDescription" [(ngModel)]="auditCategoryForm.description" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" rows="3"></textarea>
         </div>
       </div>
       <div class="flex gap-2">
@@ -197,7 +249,7 @@
         </ng-template>
         
         <ng-template uiTableCell="createdAt" let-row>
-          {{ row.createdAt | date: 'short' }}
+          {{ row.createdAt ? (row.createdAt | date: 'short') : '-' }}
         </ng-template>
         
         <ng-template uiTableCell="actions" let-row>

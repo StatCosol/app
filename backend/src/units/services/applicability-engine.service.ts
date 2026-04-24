@@ -108,6 +108,15 @@ export class ApplicabilityEngineService {
     }
 
     const complianceIds = pkgLinks.map((pl) => pl.complianceId);
+    const defaultIncludeMap = new Map(
+      pkgLinks.map((pl) => [pl.complianceId, pl.includedByDefault ?? true]),
+    );
+    const appliesToMap = new Map(
+      pkgLinks.map((pl) => [
+        pl.complianceId,
+        pl.compliance?.appliesTo || 'BOTH',
+      ]),
+    );
 
     // ─── 3. Load Applicable Rules ───
     const pkgRuleLinks = await this.pkgRuleRepo.find({
@@ -133,8 +142,32 @@ export class ApplicabilityEngineService {
     for (const cId of complianceIds) {
       const relevantRules = rules.filter((r) => r.targetComplianceId === cId);
 
-      let applicable = false;
+      // Default: use included_by_default from the package link
+      let applicable = defaultIncludeMap.get(cId) ?? false;
       let matchedRule: string | null = null;
+
+      // Filter by appliesTo vs branch establishmentType
+      const itemAppliesTo = appliesToMap.get(cId) || 'BOTH';
+      const branchType = facts.establishmentType || 'BOTH';
+      if (
+        itemAppliesTo !== 'BOTH' &&
+        branchType !== 'BOTH' &&
+        itemAppliesTo !== branchType
+      ) {
+        applicable = false; // e.g. FACTORY item doesn't apply to ESTABLISHMENT branch
+      }
+
+      // Filter by stateCode — if item is state-specific, branch must match
+      const pkgLink = pkgLinks.find((pl) => pl.complianceId === cId);
+      const itemState = pkgLink?.compliance?.stateCode || null;
+      if (applicable && itemState && itemState !== 'ALL') {
+        const allowedStates = itemState
+          .split(',')
+          .map((s: string) => s.trim().toUpperCase());
+        if (!allowedStates.includes((facts.stateCode || '').toUpperCase())) {
+          applicable = false;
+        }
+      }
 
       for (const rule of relevantRules) {
         const matched = await this.evaluator.matches(

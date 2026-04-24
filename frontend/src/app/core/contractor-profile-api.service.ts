@@ -65,5 +65,28 @@ export class ContractorProfileApiService {
     form.append('title', params.title);
     return this.http.post('/api/v1/contractor/documents/upload', form);
   }
+
+  getMonthlyDocChecklist(month?: string): Observable<{ month: string; items: any[] }> {
+    const params: Record<string, string> = {};
+    if (month) params['month'] = month;
+    return this.http.get<{ month: string; items: any[] }>(
+      '/api/v1/contractor/monthly-checklist',
+      { params },
+    );
+  }
+
+  uploadMonthlyDoc(params: {
+    docType: string;
+    branchId: string;
+    title: string;
+    file: File;
+  }): Observable<any> {
+    const form = new FormData();
+    form.append('file', params.file);
+    form.append('docType', params.docType);
+    form.append('branchId', params.branchId);
+    form.append('title', params.title);
+    return this.http.post('/api/v1/contractor/documents/upload', form);
+  }
 }
 

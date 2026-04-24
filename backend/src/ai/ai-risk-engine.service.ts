@@ -36,8 +36,43 @@ interface ComplianceData {
   pendingReturns: number;
 }
 
+interface RiskFactorEntry {
+  factor: string;
+  weight: number;
+  value: string;
+  detail: string;
+}
+
+interface Recommendation {
+  priority: number;
+  action: string;
+  impact: string;
+}
+
+interface PredictionData {
+  inspectionTimeframe: string;
+  trendDirection: string;
+  complianceForecast: string;
+  exposureCategory: string;
+}
+
+interface BranchRiskFactorEntry {
+  factor: string;
+  weight: number;
+  scored: number;
+  detail: string;
+}
+
+interface BranchAction {
+  priority: number;
+  action: string;
+  impact: string;
+  urgency: string;
+}
+
 /** Branch-level compliance data for risk scoring */
 export interface BranchRiskData {
+
   branchId: string;
   branchName: string;
   clientId: string;
@@ -84,7 +119,7 @@ export class AiRiskEngineService {
     // Client info
     const client = await this.dataSource.query(
       `SELECT c.id, c.client_name, COUNT(DISTINCT b.id) as branch_count
-       FROM clients c LEFT JOIN client_branches b ON b.clientid = c.id AND b.isactive = TRUE
+       FROM clients c LEFT JOIN client_branches b ON b.clientid = c.id AND b.isactive = TRUE AND b.isdeleted = FALSE
        WHERE c.id = $1 GROUP BY c.id`,
       [clientId],
     );
@@ -103,7 +138,7 @@ export class AiRiskEngineService {
     // State (most common branch state)
     const stateResult = await this.dataSource
       .query(
-        `SELECT statecode, COUNT(*) as cnt FROM client_branches WHERE clientid = $1 AND isactive = TRUE
+        `SELECT statecode, COUNT(*) as cnt FROM client_branches WHERE clientid = $1 AND isactive = TRUE AND isdeleted = FALSE
        GROUP BY statecode ORDER BY cnt DESC LIMIT 1`,
         [clientId],
       )
@@ -173,7 +208,7 @@ export class AiRiskEngineService {
       .query(
         `SELECT COUNT(DISTINCT cu.id) as total_contractors
        FROM users cu
-       JOIN client_branches b ON b.clientid = $1
+       JOIN client_branches b ON b.clientid = $1 AND b.isactive = TRUE AND b.isdeleted = FALSE
        WHERE cu.role = 'CONTRACTOR'`,
         [clientId],
       )
@@ -184,7 +219,7 @@ export class AiRiskEngineService {
       .query(
         `SELECT COUNT(DISTINCT cd.contractor_user_id)::int as expired_count
        FROM contractor_documents cd
-       INNER JOIN client_branches b ON b.id = cd.branch_id AND b.clientid = $1
+       INNER JOIN client_branches b ON b.id = cd.branch_id AND b.clientid = $1 AND b.isactive = TRUE AND b.isdeleted = FALSE
        WHERE cd.expiry_date IS NOT NULL AND cd.expiry_date < NOW()
          AND cd.status NOT IN ('REPLACED', 'ARCHIVED')`,
         [clientId],
@@ -200,7 +235,7 @@ export class AiRiskEngineService {
        FROM contractor_required_documents crd
        LEFT JOIN contractor_documents cd ON cd.doc_type = crd.doc_type
          AND cd.branch_id = crd.branch_id
-       INNER JOIN client_branches b ON b.id = crd.branch_id AND b.clientid = $1
+       INNER JOIN client_branches b ON b.id = crd.branch_id AND b.clientid = $1 AND b.isactive = TRUE AND b.isdeleted = FALSE
        WHERE crd.is_required = TRUE`,
         [clientId],
       )
@@ -267,9 +302,9 @@ export class AiRiskEngineService {
   /** Calculate a deterministic base risk score from data (no AI needed) */
   calculateBaseRiskScore(data: ComplianceData): {
     score: number;
-    factors: any[];
+    factors: RiskFactorEntry[];
   } {
-    const factors: any[] = [];
+    const factors: RiskFactorEntry[] = [];
     let score = 0;
 
     // MCD compliance (max 25 points)
@@ -359,8 +394,8 @@ export class AiRiskEngineService {
     const now = new Date();
     let finalScore = baseScore;
     let summary = '';
-    let recommendations: any[] = [];
-    let predictions: Record<string, any> = {};
+    let recommendations: Recommendation[] = [];
+    let predictions: PredictionData = {} as PredictionData;
     let aiModel: string | null = null;
     let promptTokens = 0;
     let completionTokens = 0;
@@ -566,9 +601,9 @@ export class AiRiskEngineService {
 
   private generateFallbackRecommendations(
     data: ComplianceData,
-    factors: any[],
-  ): any[] {
-    const recs: any[] = [];
+    _factors: RiskFactorEntry[],
+  ): Recommendation[] {
+    const recs: Recommendation[] = [];
     if (data.pfDelayMonths > 0) {
       recs.push({
         priority: 1,
@@ -611,7 +646,7 @@ export class AiRiskEngineService {
   private generateFallbackPredictions(
     data: ComplianceData,
     score: number,
-  ): Record<string, any> {
+  ): PredictionData {
     return {
       inspectionTimeframe:
         score >= 60 ? '3–6 months' : score >= 30 ? '6–12 months' : '12+ months',
@@ -649,7 +684,7 @@ export class AiRiskEngineService {
   }
 
   /** Get high-risk clients across the platform */
-  async getHighRiskClients(limit = 20): Promise<any[]> {
+  async getHighRiskClients(limit = 20): Promise<Array<{ id: string; client_id: string; risk_score: number; risk_level: string; summary: string; inspection_probability: number; penalty_exposure_min: number; penalty_exposure_max: number; created_at: Date; client_name: string; client_code: string }>> {
     // Get the latest assessment per client ordered by risk score
     const results = await this.dataSource.query(
       `
@@ -666,7 +701,7 @@ export class AiRiskEngineService {
       [limit],
     );
 
-    return results.sort((a: any, b: any) => b.risk_score - a.risk_score);
+    return results.sort((a, b) => b.risk_score - a.risk_score);
   }
 
   /** Get active insights */
@@ -692,7 +727,7 @@ export class AiRiskEngineService {
   }
 
   /** Get risk summary across all clients */
-  async getPlatformRiskSummary(): Promise<any> {
+  async getPlatformRiskSummary(): Promise<Record<string, unknown>> {
     const summary = await this.dataSource.query(`
       WITH latest AS (
         SELECT DISTINCT ON (client_id) *
@@ -720,8 +755,8 @@ export class AiRiskEngineService {
 
     return {
       ...(summary[0] || {}),
-      activeInsights: insightCounts.reduce(
-        (acc: any, r: any) => ({ ...acc, [r.severity]: Number(r.cnt) }),
+      activeInsights: (insightCounts as Array<{ severity: string; cnt: string }>).reduce<Record<string, number>>(
+        (acc, r) => ({ ...acc, [r.severity]: Number(r.cnt) }),
         {},
       ),
     };
@@ -921,9 +956,9 @@ export class AiRiskEngineService {
   computeBranchRiskScore(data: BranchRiskData): {
     score: number;
     level: string;
-    factors: any[];
+    factors: BranchRiskFactorEntry[];
   } {
-    const factors: any[] = [];
+    const factors: BranchRiskFactorEntry[] = [];
     let score = 0;
 
     // MCD compliance gap (max 25 points)
@@ -1072,7 +1107,7 @@ export class AiRiskEngineService {
     year: number;
     month: number;
     assessedBy: string;
-  }): Promise<any> {
+  }): Promise<Record<string, unknown>> {
     // 1. Log request
     const request = await this.requestLog.createRequest({
       module: 'RISK',
@@ -1169,8 +1204,8 @@ export class AiRiskEngineService {
       });
 
       return result;
-    } catch (err: any) {
-      await this.requestLog.failRequest(request.id, err.message);
+    } catch (err: unknown) {
+      await this.requestLog.failRequest(request.id, (err as Error).message);
       throw err;
     }
   }
@@ -1219,8 +1254,8 @@ export class AiRiskEngineService {
   }
 
   /** Generate recommended actions from branch data */
-  private generateBranchActions(data: BranchRiskData, factors: any[]): any[] {
-    const actions: any[] = [];
+  private generateBranchActions(data: BranchRiskData, _factors: BranchRiskFactorEntry[]): BranchAction[] {
+    const actions: BranchAction[] = [];
     let priority = 1;
 
     if (data.pfPercent < 100) {

@@ -133,7 +133,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   addEmpSearch = '';
   addEmpAvailable: { employeeCode: string; name: string }[] = [];
   addEmpFiltered: { employeeCode: string; name: string }[] = [];
-  addEmpSelected: Set<string> = new Set();
+  addEmpSelected = new Set<string>();
   addEmpBusy = false;
   addEmpLoading = false;
   addEmpFile: File | null = null;
@@ -906,7 +906,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const exceptions = this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
 
     if (action === 'IMPORT') {
-      if (status === 'APPROVED') return 'Published run is locked for import.';
       return null;
     }
 

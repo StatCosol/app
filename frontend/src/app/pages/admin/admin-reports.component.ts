@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { AdminUsersApi } from '../../core/api/admin-users.api';
+import { AdminAssignmentsService } from './assignments/admin-assignments.service';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, Observable, of, Subject } from 'rxjs';
@@ -60,11 +61,11 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   ];
 
   assignmentColumns: TableColumn[] = [
-    { key: 'clientName', header: 'Client' },
-    { key: 'branchName', header: 'Branch' },
-    { key: 'assignedTo', header: 'Assigned To' },
-    { key: 'createdAt', header: 'Created Date' },
-    { key: 'status', header: 'Status' },
+    { key: 'clientName', header: 'Client', sortable: true },
+    { key: 'assignmentType', header: 'Role', sortable: true, width: '120px' },
+    { key: 'assignedTo', header: 'Assigned To', sortable: true },
+    { key: 'createdAt', header: 'Assigned Date', sortable: true },
+    { key: 'status', header: 'Status', sortable: true, width: '120px', align: 'center' },
   ];
   overdue: any[] = [];
   deletions: any[] = [];
@@ -73,6 +74,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   
   constructor(
     private api: AdminUsersApi,
+    private assignmentService: AdminAssignmentsService,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private route: ActivatedRoute,
@@ -109,12 +111,12 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
   }
 
   get summaryEntries(): { key: string; total: number; active: number; inactive: number }[] {
-    const src = (this.summary && this.summary.byRole) || {};
+    const src: Record<string, { total: number; active: number; inactive: number }> = (this.summary && this.summary.byRole) || {};
     return Object.keys(src).map((k) => ({
       key: k,
-      total: (src as any)[k].total || 0,
-      active: (src as any)[k].active || 0,
-      inactive: (src as any)[k].inactive || 0,
+      total: src[k].total || 0,
+      active: src[k].active || 0,
+      inactive: src[k].inactive || 0,
     }));
   }
 
@@ -185,7 +187,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
         link.click();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       },
-      error: (err) => {
+      error: () => {
         this.error = 'Export failed. Please try again.';
       },
     });
@@ -208,6 +210,7 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
       users: guard(this.api.listUsersSimple(), []),
       deletions: guard(this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/reports/user-deletions`, { params }), []),
       assignments: guard(this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/admin/reports/assignments`, { params }), []),
+      currentAssignments: guard(this.assignmentService.getAssignments(), []),
     }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
@@ -278,18 +281,58 @@ export class AdminReportsComponent implements OnInit, OnDestroy {
           deletedBy: d.deletedBy || 'Admin',
         }));
 
-        // Set assignments from backend
-        this.assignments = result.assignments.map((a: any) => ({
-          id: a.id,
-          clientName: a.clientName,
-          branchName: a.branchName,
-          contractorName: a.contractorName,
-          assignedTo: a.contractorName,
-          createdAt: new Date(a.createdAt).toLocaleDateString(),
-          status: a.status,
-        }));
+        // Set assignments — prefer reports endpoint, fall back to current assignments
+        const rawAssignments = result.assignments.length ? result.assignments : [];
+        if (rawAssignments.length) {
+          this.assignments = rawAssignments.map((a: any) => ({
+            id: a.id,
+            clientName: a.clientName || '—',
+            assignmentType: a.assignmentType || a.type || '—',
+            assignedTo: a.assignedTo || a.assignedToName || a.crmName || a.auditorName || a.contractorName || '—',
+            createdAt: a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—',
+            status: a.status || 'ACTIVE',
+          }));
+        } else {
+          // Build from current CRM/Auditor assignments
+          const userNameById: Record<string, string> = {};
+          const clientNameById: Record<string, string> = {};
+          users.forEach((u: any) => {
+            if (u.id) userNameById[u.id] = u.name;
+            if (u.client?.id) clientNameById[u.client.id] = u.client.name;
+          });
+          const currentArr = Array.isArray(result.currentAssignments) ? result.currentAssignments : [];
+          const mapped: any[] = [];
+          currentArr.forEach((a: any) => {
+            const clientId = a.clientId ?? a.client_id ?? '';
+            const clientName = a.clientName ?? clientNameById[clientId] ?? '—';
+            const crmId = a.crmId ?? a.crm ?? null;
+            const auditorId = a.auditorId ?? a.auditor ?? null;
+            const date = a.startDate ?? a.createdAt ?? a.updatedAt;
+            if (crmId) {
+              mapped.push({
+                id: `${clientId}-crm`,
+                clientName,
+                assignmentType: 'CRM',
+                assignedTo: a.crmName ?? userNameById[crmId] ?? '—',
+                createdAt: date ? new Date(date).toLocaleDateString() : '—',
+                status: a.status || 'ACTIVE',
+              });
+            }
+            if (auditorId) {
+              mapped.push({
+                id: `${clientId}-auditor`,
+                clientName,
+                assignmentType: 'Auditor',
+                assignedTo: a.auditorName ?? userNameById[auditorId] ?? '—',
+                createdAt: date ? new Date(date).toLocaleDateString() : '—',
+                status: a.status || 'ACTIVE',
+              });
+            }
+          });
+          this.assignments = mapped;
+        }
       },
-      error: (err) => {
+      error: () => {
         this.error = 'Unable to load reports. Please try again.';
         this.summary = null;
         this.overdue = [];

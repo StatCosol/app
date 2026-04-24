@@ -29,7 +29,7 @@ export class EscalationCronService {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    const branches: any[] = await this.ds.query(
+    const branches: { id: string; clientid: string; branchname: string }[] = await this.ds.query(
       `SELECT id, clientid, branchname FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
     );
 
@@ -41,7 +41,7 @@ export class EscalationCronService {
         if (risk < 75) continue;
 
         // Count overdue SLA tasks
-        const overdueRows: any[] = await this.ds.query(
+        const overdueRows: { cnt: number }[] = await this.ds.query(
           `SELECT COUNT(*)::int AS cnt FROM sla_tasks
            WHERE branch_id = $1 AND deleted_at IS NULL AND status <> 'CLOSED'
            AND due_date < NOW()`,
@@ -50,7 +50,7 @@ export class EscalationCronService {
         const overdue = overdueRows[0]?.cnt || 0;
 
         // Count expired registrations
-        const expiredRows: any[] = await this.ds.query(
+        const expiredRows: { cnt: number }[] = await this.ds.query(
           `SELECT COUNT(*)::int AS cnt FROM branch_registrations
            WHERE branch_id = $1 AND status <> 'DELETED'
            AND expiry_date IS NOT NULL AND expiry_date < NOW()`,
@@ -82,9 +82,9 @@ export class EscalationCronService {
         this.logger.log(
           `Escalation created for branch ${b.branchname || b.id}: ${reason}`,
         );
-      } catch (err: any) {
+      } catch (err: unknown) {
         this.logger.warn(
-          `Escalation check failed for branch ${b.id}: ${err.message}`,
+          `Escalation check failed for branch ${b.id}: ${(err as Error).message}`,
         );
       }
     }

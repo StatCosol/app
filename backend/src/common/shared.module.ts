@@ -4,6 +4,7 @@ import { CompliancePctService } from './services/compliance-pct.service';
 import { CompliancePctController } from './compliance-pct.controller';
 import { DbService } from './db/db.service';
 import { CronLoggerService } from './services/cron-logger.service';
+import { ExcelExportService } from './services/excel-export.service';
 import { CronExecutionLogEntity } from './entities/cron-execution-log.entity';
 
 /**
@@ -16,7 +17,17 @@ import { CronExecutionLogEntity } from './entities/cron-execution-log.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([CronExecutionLogEntity])],
   controllers: [CompliancePctController],
-  providers: [CompliancePctService, DbService, CronLoggerService],
-  exports: [CompliancePctService, DbService, CronLoggerService],
+  providers: [
+    CompliancePctService,
+    DbService,
+    CronLoggerService,
+    ExcelExportService,
+  ],
+  exports: [
+    CompliancePctService,
+    DbService,
+    CronLoggerService,
+    ExcelExportService,
+  ],
 })
 export class SharedModule {}

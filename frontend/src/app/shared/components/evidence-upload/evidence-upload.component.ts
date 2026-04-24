@@ -11,9 +11,11 @@ import { FormsModule } from '@angular/forms';
       <div class="text-sm font-semibold text-gray-800 mb-3">{{ title }}</div>
 
       <!-- File input -->
-      <label class="block">
+      <label class="block" for="evidence-file">
         <span class="sr-only">Choose evidence file</span>
         <input
+          id="evidence-file"
+          name="evidenceFile"
           type="file"
           [accept]="accept"
           (change)="onFileSelected($event)"
@@ -33,7 +35,9 @@ import { FormsModule } from '@angular/forms';
       </div>
 
       <!-- Note textarea -->
-      <textarea
+      <textarea autocomplete="off"
+        id="evidence-note"
+        name="evidenceNote"
         class="mt-3 w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
         rows="2"
         [placeholder]="notePlaceholder"

@@ -18,10 +18,12 @@ export interface ReqUser {
   id: string;
   userId: string;
   roleCode: string;
+  email: string;
   clientId: string | null;
   userType: string | null;
   employeeId: string | null;
   branchIds: string[];
+  assignedClientIds: string[];
 }
 
 export interface ScopeResult {
@@ -44,6 +46,8 @@ export interface ClientOption {
 export interface BranchOption {
   id: string;
   branchName: string;
+  branchType?: string;
+  stateCode?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -51,7 +55,7 @@ export interface BranchOption {
 /* ------------------------------------------------------------------ */
 
 /** Roles that see the whole dataset */
-const GLOBAL_ROLES = ['ADMIN', 'CEO', 'CCO'];
+const GLOBAL_ROLES = ['ADMIN', 'CEO', 'CCO', 'PAYROLL'];
 
 @Injectable()
 export class AccessScopeService {
@@ -59,7 +63,7 @@ export class AccessScopeService {
     @InjectRepository(ClientAssignment)
     private readonly caRepo: Repository<ClientAssignment>,
     @InjectRepository(BranchAuditorAssignmentEntity)
-    private readonly baaRepo: Repository<BranchAuditorAssignmentEntity>,
+    private readonly _baaRepo: Repository<BranchAuditorAssignmentEntity>,
     @InjectRepository(ClientEntity)
     private readonly clientRepo: Repository<ClientEntity>,
     @InjectRepository(BranchEntity)
@@ -119,6 +123,16 @@ export class AccessScopeService {
       };
     }
 
+    if (roleCode === 'CONTRACTOR') {
+      if (!clientId) throw new ForbiddenException('No client linked to user');
+      return { level: 'client', clientId };
+    }
+
+    if (roleCode === 'EMPLOYEE') {
+      if (!clientId) throw new ForbiddenException('No client linked to user');
+      return { level: 'client', clientId };
+    }
+
     throw new ForbiddenException(
       `Role "${roleCode}" is not supported for access scoping`,
     );
@@ -163,7 +177,7 @@ export class AccessScopeService {
 
     const qb = this.branchRepo
       .createQueryBuilder('b')
-      .select(['b.id', 'b.branchName', 'b.clientId'])
+      .select(['b.id', 'b.branchName', 'b.branchType', 'b.stateCode', 'b.clientId'])
       .where('b.isActive = :active', { active: true })
       .andWhere('b.isDeleted = :del', { del: false });
 
@@ -183,6 +197,8 @@ export class AccessScopeService {
     return rows.map((b) => ({
       id: b.id,
       branchName: b.branchName ?? '',
+      branchType: b.branchType ?? '',
+      stateCode: (b as any).stateCode ?? '',
     }));
   }
 
@@ -242,7 +258,7 @@ export class AccessScopeService {
 
     // For 'clients' and 'client' levels — check the branch's parent client
     const branch = await this.branchRepo.findOne({
-      where: { id: branchId },
+      where: { id: branchId, isActive: true, isDeleted: false },
       select: ['id', 'clientId'],
     });
     if (!branch) throw new ForbiddenException('Branch not found');

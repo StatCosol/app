@@ -22,6 +22,10 @@ import {
   SharedFilePreviewData,
 } from '../../../shared/components/file-preview/file-preview.model';
 import { SharedFilePreviewModalComponent } from '../../../shared/components/file-preview';
+import {
+  ProtectedFileHandle,
+  ProtectedFileService,
+} from '../../../shared/files/services/protected-file.service';
 
 type StatusFilter =
   | 'ALL'
@@ -86,6 +90,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   uploadRemarks = '';
   showPreviewModal = false;
   previewData: SharedFilePreviewData | null = null;
+  private previewHandle: ProtectedFileHandle | null = null;
 
   years: number[] = [];
 
@@ -113,6 +118,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
     private toast: ToastService,
+    private protectedFiles: ProtectedFileService,
   ) {
     const currentYear = new Date().getFullYear();
     this.years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -126,11 +132,16 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     this.branchId = ids.length ? String(ids[0]) : '';
 
     // Support both /uploads/:periodicity and legacy data-driven route config
-    combineLatest([this.route.paramMap, this.route.data])
+    combineLatest([this.route.paramMap, this.route.queryParamMap, this.route.data])
       .pipe(takeUntil(this.destroy$))
-      .subscribe(([paramMap, data]) => {
+      .subscribe(([paramMap, queryParamMap, data]) => {
         const periodicity = (paramMap.get('periodicity') || '').toLowerCase();
         const mappedFromParam = this.mapPeriodicityToFrequency(periodicity);
+        const focusCode = queryParamMap.get('code') || undefined;
+        const yearParam = Number(queryParamMap.get('year') || '');
+        const quarterParam = Number(queryParamMap.get('quarter') || '');
+        const halfParam = Number(queryParamMap.get('half') || '');
+        const branchIdFromQuery = queryParamMap.get('branchId') || '';
         if (mappedFromParam) {
           this.selectedFrequency = mappedFromParam;
           this.showFrequencyTabs = false;
@@ -143,11 +154,16 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
             this.showFrequencyTabs = true;
           }
         }
-        this.load();
+        if (branchIdFromQuery) this.branchId = branchIdFromQuery;
+        if (yearParam >= 2000) this.selectedYear = yearParam;
+        if (quarterParam >= 1 && quarterParam <= 4) this.selectedQuarter = quarterParam;
+        if (halfParam === 1 || halfParam === 2) this.selectedHalf = halfParam;
+        this.load(focusCode);
       });
   }
 
   ngOnDestroy(): void {
+    this.releasePreviewHandle();
     this.destroy$.next();
     this.destroy$.complete();
     this.load$.complete();
@@ -162,7 +178,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     return item.returnCode;
   }
 
-  load(): void {
+  load(focusCode?: string): void {
     this.load$.next(); // cancel previous in-flight requests
     this.loading = true;
 
@@ -180,7 +196,7 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
         this.lawAreas = this.unique(this.checklist.map((x) => x.lawArea));
         this.categories = this.unique(this.checklist.map((x) => x.category || 'Other'));
         this.applyFilters();
-        this.hydrateSelection(this.selectedItem?.returnCode);
+        this.hydrateSelection(focusCode || this.selectedItem?.returnCode);
         this.cdr.detectChanges();
       },
       error: () => {
@@ -310,45 +326,76 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
   }
 
   downloadFile(item: ChecklistItem): void {
-    const url = (item as any).document?.uploadedFileUrl;
-    if (url) window.open(this.auth.authenticateUrl(url), '_blank');
+    const url = item.document?.uploadedFileUrl;
+    if (!url) return;
+    this.protectedFiles
+      .download(url, item.document?.uploadedFileName || item.returnName)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to download file.');
+        },
+      });
   }
 
   previewFile(item: ChecklistItem): void {
-    const url = (item as any).document?.uploadedFileUrl;
+    const url = item.document?.uploadedFileUrl;
     if (!url) return;
-    const document = (item as any).document || {};
-    const versions: FileVersionItem[] = [];
-    if (document.version) {
-      versions.push({
-        id: `${item.returnCode}-v${document.version}`,
-        label: `Version ${document.version}`,
-        createdAt: document.uploadedAt || null,
-        url: this.auth.authenticateUrl(url),
+    this.releasePreviewHandle();
+    this.protectedFiles
+      .fetch(url, item.document?.uploadedFileName || item.returnName)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (file) => {
+          this.previewHandle = file;
+          const document = item.document!;
+          const versions: FileVersionItem[] = [];
+          if (document.version) {
+            versions.push({
+              id: `${item.returnCode}-v${document.version}`,
+              label: `Version ${document.version}`,
+              createdAt: document.uploadedAt || null,
+              url: file.objectUrl,
+            });
+          }
+          this.previewData = {
+            id: String(document.id || item.returnCode),
+            name: document.uploadedFileName || item.returnName,
+            fileName: document.uploadedFileName || '',
+            mimeType: file.mimeType || null,
+            url: file.objectUrl,
+            uploadedAt: document.uploadedAt || null,
+            status: document.status || null,
+            rejectionReason:
+              document.status === 'REUPLOAD_REQUIRED' ? document.remarks || null : null,
+            versions,
+          };
+          this.showPreviewModal = true;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to load preview.');
+        },
       });
-    }
-    this.previewData = {
-      id: String(document.id || item.returnCode),
-      name: document.uploadedFileName || item.returnName,
-      fileName: document.uploadedFileName || '',
-      url: this.auth.authenticateUrl(url),
-      uploadedAt: document.uploadedAt || null,
-      status: document.status || null,
-      rejectionReason:
-        document.status === 'REUPLOAD_REQUIRED' ? document.remarks || null : null,
-      versions,
-    };
-    this.showPreviewModal = true;
   }
 
   closePreviewModal(): void {
     this.showPreviewModal = false;
     this.previewData = null;
+    this.releasePreviewHandle();
   }
 
   downloadPreviewFile(): void {
-    if (!this.previewData?.url) return;
-    window.open(this.previewData.url, '_blank');
+    const url = this.selectedItem?.document?.uploadedFileUrl;
+    if (!url || !this.previewData) return;
+    this.protectedFiles
+      .download(url, this.previewData.fileName || this.previewData.name)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to download file.');
+        },
+      });
   }
 
   periodLabel(): string {
@@ -361,6 +408,43 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     if (item.document?.dueDate) return new Date(item.document.dueDate).toLocaleDateString('en-GB');
     if (item.dueDay) return `Day ${item.dueDay}`;
     return '-';
+  }
+
+  dueInLabel(item: ChecklistItem): string {
+    const due = item.document?.dueDate;
+    if (!due) return item.dueDay ? `Due day ${item.dueDay}` : 'No due date';
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const d = new Date(due); d.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
+    if (diff < 0) return `${Math.abs(diff)} day(s) overdue`;
+    if (diff === 0) return 'Due today';
+    return `Due in ${diff} day(s)`;
+  }
+
+  signalLabel(item: ChecklistItem): string {
+    const status = this.statusOf(item);
+    if (status === 'APPROVED') return 'DONE';
+    if (status === 'OVERDUE') return 'OVERDUE';
+    const due = item.document?.dueDate;
+    if (!due) return '';
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const d = new Date(due); d.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
+    if (diff < 0) return 'OVERDUE';
+    if (diff <= 3) return 'DUE NOW';
+    if (diff <= 7) return 'DUE SOON';
+    return '';
+  }
+
+  signalClass(item: ChecklistItem): string {
+    const label = this.signalLabel(item);
+    switch (label) {
+      case 'OVERDUE': return 'signal--overdue';
+      case 'DUE NOW': return 'signal--due-now';
+      case 'DUE SOON': return 'signal--due-soon';
+      case 'DONE': return 'signal--approved';
+      default: return '';
+    }
   }
 
   extractAckRef(item: ChecklistItem): string {
@@ -554,5 +638,10 @@ export class BranchPeriodicUploadsPageComponent implements OnInit, OnDestroy {
     if (periodicity === 'half-yearly' || periodicity === 'half_yearly') return 'HALF_YEARLY';
     if (periodicity === 'yearly' || periodicity === 'annual') return 'YEARLY';
     return null;
+  }
+
+  private releasePreviewHandle(): void {
+    this.previewHandle?.revoke();
+    this.previewHandle = null;
   }
 }

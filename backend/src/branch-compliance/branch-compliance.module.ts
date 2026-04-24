@@ -12,6 +12,7 @@ import { AuditorComplianceDocsController } from './controllers/auditor-complianc
 import { AdminComplianceDocsController } from './controllers/admin-compliance-docs.controller';
 import { AuthModule } from '../auth/auth.module';
 import { EmailModule } from '../email/email.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { EmailModule } from '../email/email.module';
     ]),
     AuthModule,
     EmailModule,
+    AuditLogsModule,
   ],
   controllers: [
     BranchComplianceDocsController,

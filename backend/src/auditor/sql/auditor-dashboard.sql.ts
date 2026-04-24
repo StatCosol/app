@@ -90,44 +90,34 @@ LIMIT $7 OFFSET $8;
  */
 export const AUDITOR_OBSERVATIONS_SQL = `
 WITH my_audits AS (
-  SELECT a.id
+  SELECT a.id, a.contractor_user_id
   FROM audits a
   WHERE a.assigned_auditor_id = $1::uuid
     AND ($2::uuid IS NULL OR a.client_id = $2)
-),
-base AS (
-  SELECT
-    o.id AS observation_id,
-    o.audit_id,
-    a.client_id,
-    a.branch_id,
-    o.observation AS title,
-    o.risk,
-    o.status,
-    (CURRENT_DATE - o.created_at::date) AS ageing_days,
-    o.created_at
-  FROM audit_observations o
-  JOIN audits a ON a.id = o.audit_id
-  JOIN my_audits ma ON ma.id = o.audit_id
 )
 SELECT
-  b.observation_id,
-  b.audit_id,
-  b.client_id,
-  c.client_name AS client_name,
-  b.branch_id,
-  br.branchname AS branch_name,
-  b.title,
-  b.risk,
-  b.status,
-  b.ageing_days,
-  b.created_at
-FROM base b
-LEFT JOIN clients c ON c.id = b.client_id
-LEFT JOIN client_branches br ON br.id = b.branch_id
-WHERE ($3::text IS NULL OR b.status = $3)
-  AND ($4::text IS NULL OR b.risk = $4)
-ORDER BY b.risk DESC, b.ageing_days DESC
+  o.id            AS "observationId",
+  o.audit_id      AS "auditId",
+  a.client_id     AS "clientId",
+  c.client_name   AS "clientName",
+  a.branch_id     AS "branchId",
+  br.branchname   AS "branchName",
+  o.observation   AS "title",
+  o.risk,
+  o.status,
+  (CURRENT_DATE - o.created_at::date) AS "ageingDays",
+  COALESCE(ou.name, br.branchname, 'Unassigned') AS "ownerName",
+  CASE WHEN a.contractor_user_id IS NOT NULL THEN 'CONTRACTOR' ELSE 'BRANCH' END AS "ownerRole",
+  o.created_at    AS "createdAt"
+FROM audit_observations o
+JOIN audits a ON a.id = o.audit_id
+JOIN my_audits ma ON ma.id = o.audit_id
+LEFT JOIN clients c ON c.id = a.client_id
+LEFT JOIN client_branches br ON br.id = a.branch_id
+LEFT JOIN users ou ON ou.id = a.contractor_user_id
+WHERE ($3::text IS NULL OR o.status = $3)
+  AND ($4::text IS NULL OR o.risk = $4)
+ORDER BY o.risk DESC, (CURRENT_DATE - o.created_at::date) DESC
 LIMIT $5 OFFSET $6;
 `;
 

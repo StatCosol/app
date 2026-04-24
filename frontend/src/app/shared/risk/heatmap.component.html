@@ -14,14 +14,15 @@
 
   <!-- Controls -->
   <div class="controls">
-    <select *ngIf="isCrm && clients.length" [(ngModel)]="selectedClientId" (change)="load()" class="ctrl-select">
+    <select id="h-selected-client-id" *ngIf="isCrm && clients.length" name="heatmapClientId" [(ngModel)]="selectedClientId" (change)="load()" class="ctrl-select">
       <option *ngFor="let c of clients" [value]="c.clientId || c.id">{{ c.companyName || c.name || 'Client' }}</option>
     </select>
 
-    <input type="month" [(ngModel)]="month" (change)="load()" class="ctrl-input" />
+    <input autocomplete="off" id="h-month" type="month" name="heatmapMonth" [(ngModel)]="month" (change)="load()" class="ctrl-input" />
 
-    <input
+    <input autocomplete="off" id="h-search-term"
       type="text"
+      name="heatmapSearch"
       [(ngModel)]="searchTerm"
       (input)="onSearch()"
       placeholder="Search branch…"

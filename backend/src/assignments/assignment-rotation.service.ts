@@ -179,7 +179,7 @@ export class AssignmentRotationService {
       }
 
       return rotated;
-    } catch (e) {
+    } catch (e: any) {
       await qr.rollbackTransaction();
       this.logger.error(`Rotation failed for ${type}`, e?.stack || String(e));
       throw e;
@@ -222,13 +222,13 @@ export class AssignmentRotationService {
     const message = `You have been assigned as ${roleName} for ${clientName} via automatic rotation.`;
 
     try {
-      await this.notifications.createTicket(newUserId, roleCode as any, {
+      await this.notifications.createTicket(newUserId, roleCode, {
         queryType: 'GENERAL',
         subject,
         message,
         clientId,
       });
-    } catch (e) {
+    } catch (e: any) {
       this.logger.warn(
         `Failed to create ticket for ${newUserId}: ${e?.message}`,
       );
@@ -237,13 +237,13 @@ export class AssignmentRotationService {
     // Notify previous assignee (if exists)
     if (previousUserId && previousUserId !== newUserId) {
       try {
-        await this.notifications.createTicket(previousUserId, roleCode as any, {
+        await this.notifications.createTicket(previousUserId, roleCode, {
           queryType: 'GENERAL',
           subject: `${roleName} Rotation: ${clientName}`,
           message: `Your ${roleName} assignment for ${clientName} has been rotated to another team member.`,
           clientId,
         });
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Failed to create ticket for ${previousUserId}: ${e?.message}`,
         );
@@ -268,7 +268,7 @@ export class AssignmentRotationService {
 
       try {
         await this.emailService.send(u.email, emailSubject, emailSubject, body);
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Failed to send rotation email to ${u.email}: ${e?.message}`,
         );

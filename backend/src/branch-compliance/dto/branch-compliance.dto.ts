@@ -2,7 +2,6 @@ import {
   IsString,
   IsOptional,
   IsInt,
-  IsEnum,
   IsNotEmpty,
   Min,
   Max,
@@ -47,6 +46,47 @@ export class UploadComplianceDocDto {
   @IsOptional()
   @IsString()
   remarks?: string;
+}
+
+export class MarkNotApplicableDto {
+  @IsString()
+  @IsNotEmpty()
+  branchId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  returnCode: string;
+
+  @IsInt()
+  @Min(2020)
+  @Max(2050)
+  periodYear: number;
+
+  @IsString()
+  @IsNotEmpty()
+  frequency: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  periodMonth?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(4)
+  periodQuarter?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  periodHalf?: number;
+
+  @IsString()
+  @IsNotEmpty()
+  remarks: string;
 }
 
 export class ReviewComplianceDocDto {
@@ -101,6 +141,14 @@ export class ChecklistQueryDto {
   category?: string;
 
   @IsOptional()
+  @IsString()
+  appliesTo?: string;
+
+  @IsOptional()
+  @IsString()
+  stateCode?: string;
+
+  @IsOptional()
   @IsInt()
   page?: number;
 
@@ -125,6 +173,22 @@ export class ReturnMasterQueryDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  stateCode?: string;
+
+  @IsOptional()
+  @IsString()
+  appliesTo?: string;
+
+  @IsOptional()
+  @IsString()
+  responsibleRole?: string;
+
+  @IsOptional()
+  @IsString()
+  riskLevel?: string;
 
   @IsOptional()
   isActive?: boolean;
@@ -162,6 +226,33 @@ export class CreateReturnMasterDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  stateCode?: string;
+
+  @IsOptional()
+  @IsString()
+  appliesTo?: string;
+
+  @IsOptional()
+  uploadRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
+  dueDateRule?: string;
+
+  @IsOptional()
+  @IsString()
+  riskLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  responsibleRole?: string;
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 }
 
 export class UpdateReturnMasterDto {
@@ -192,6 +283,33 @@ export class UpdateReturnMasterDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  stateCode?: string;
+
+  @IsOptional()
+  @IsString()
+  appliesTo?: string;
+
+  @IsOptional()
+  uploadRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
+  dueDateRule?: string;
+
+  @IsOptional()
+  @IsString()
+  riskLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  responsibleRole?: string;
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 
   @IsOptional()
   isActive?: boolean;

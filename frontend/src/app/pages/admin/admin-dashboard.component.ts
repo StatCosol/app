@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { forkJoin, Subject, of } from 'rxjs';
-import { finalize, timeout, takeUntil, catchError } from 'rxjs/operators';
+import { timeout, takeUntil, catchError } from 'rxjs/operators';
 
 import { AdminDashboardService } from './dashboard/admin-dashboard.service';
 import {
@@ -37,6 +37,7 @@ type Range = '7d' | '30d' | '90d';
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -205,6 +206,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.assignmentSummary = res.assignmentSummary ?? null;
         this.riskAlerts = res.riskAlerts ?? null;
         this.auditSummary = res.auditSummary ?? [];
+        if (!res.summary || !res.stats || !res.taskStatus) {
+          this.errorMsg = 'Some dashboard widgets could not be loaded. Partial data shown.';
+        }
         this.loading = false;
         this.cdr.markForCheck();
       },

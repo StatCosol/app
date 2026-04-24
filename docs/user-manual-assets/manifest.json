@@ -1,0 +1,92 @@
+[
+  {
+    "id": "admin-clients",
+    "role": "ADMIN",
+    "label": "Admin Clients",
+    "path": "/admin/clients",
+    "file": "admin-clients.png",
+    "finalUrl": "http://localhost:4200/admin/clients",
+    "status": "ok"
+  },
+  {
+    "id": "ceo-reports",
+    "role": "CEO",
+    "label": "CEO Reports",
+    "path": "/ceo/reports",
+    "file": "ceo-reports.png",
+    "finalUrl": "http://localhost:4200/ceo/reports",
+    "status": "ok"
+  },
+  {
+    "id": "cco-registers",
+    "role": "CCO",
+    "label": "CCO Registers",
+    "path": "/cco/registers",
+    "file": "cco-registers.png",
+    "finalUrl": "http://localhost:4200/cco/registers",
+    "status": "ok"
+  },
+  {
+    "id": "crm-clients",
+    "role": "CRM",
+    "label": "CRM Clients",
+    "path": "/crm/clients",
+    "file": "crm-clients.png",
+    "finalUrl": "http://localhost:4200/crm/clients",
+    "status": "ok"
+  },
+  {
+    "id": "client-employees",
+    "role": "CLIENT_MASTER",
+    "label": "Client Employees",
+    "path": "/client/employees",
+    "file": "client-employees.png",
+    "finalUrl": "http://localhost:4200/client/employees",
+    "status": "ok"
+  },
+  {
+    "id": "ess-documents",
+    "role": "EMPLOYEE",
+    "label": "ESS Documents",
+    "path": "/ess/documents",
+    "file": "ess-documents.png",
+    "finalUrl": "http://localhost:4200/ess/documents",
+    "status": "ok"
+  },
+  {
+    "id": "auditor-audits",
+    "role": "AUDITOR",
+    "label": "Auditor Audits",
+    "path": "/auditor/audits",
+    "file": "auditor-audits.png",
+    "finalUrl": "http://localhost:4200/auditor/audits",
+    "status": "ok"
+  },
+  {
+    "id": "branch-uploads",
+    "role": "CLIENT",
+    "label": "Branch Uploads",
+    "path": "/branch/uploads",
+    "file": "branch-uploads.png",
+    "finalUrl": "http://localhost:4200/branch/uploads",
+    "status": "ok"
+  },
+  {
+    "id": "contractor-support",
+    "role": "CONTRACTOR",
+    "label": "Contractor Support",
+    "path": "/contractor/support",
+    "file": "contractor-support.png",
+    "finalUrl": "http://localhost:4200/contractor/support",
+    "status": "ok"
+  },
+  {
+    "id": "payroll-reports",
+    "role": "PAYROLL",
+    "label": "Payroll Reports",
+    "path": "/payroll/reports",
+    "file": "payroll-reports.png",
+    "finalUrl": "http://localhost:4200/payroll/reports",
+    "status": "ok"
+  }
+]

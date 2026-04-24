@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent } from '../../../shared/ui';
-import { CeoApiService, CeoOversightSummary } from '../../../core/api/ceo.api';
+import { CeoApiService } from '../../../core/api/ceo.api';
 
 @Component({
   selector: 'app-ceo-cco-oversight',
@@ -13,7 +13,7 @@ import { CeoApiService, CeoOversightSummary } from '../../../core/api/ceo.api';
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         title="CCO Oversight"
-        description="CCO workload and performance summary"
+        description="Deep analysis — CCO workload, team metrics, and performance drill-down"
         icon="chart-bar">
       </ui-page-header>
 

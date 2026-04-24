@@ -12,7 +12,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
     <div class="rr-card">
       <div class="rr-head">
         <h3 class="rr-title">Highest Risk Branches</h3>
-        <input type="month" [(ngModel)]="month" (change)="load()" class="rr-month" />
+        <input autocomplete="off" id="rr-month" name="month" type="month" [(ngModel)]="month" (change)="load()" class="rr-month" />
       </div>
 
       <div *ngIf="loading" class="rr-muted" style="padding:12px 0;">Loading…</div>

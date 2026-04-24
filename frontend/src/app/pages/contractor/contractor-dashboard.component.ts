@@ -1,10 +1,11 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { timeout, finalize, takeUntil, catchError } from 'rxjs/operators';
 import { Subject, forkJoin, of } from 'rxjs';
 import { DashboardService } from '../../core/dashboard.service';
 import { ComplianceService } from '../../core/compliance.service';
+import { TaskCenterService, TaskSummary, SystemTask } from '../../core/task-center.service';
 import {
   PageHeaderComponent,
   DataTableComponent,
@@ -61,6 +62,7 @@ interface BranchStatusRow {
 @Component({
   selector: 'app-contractor-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     PageHeaderComponent,
@@ -99,6 +101,10 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   // Compliance progress ring
   readonly circumference = 2 * Math.PI * 52; // r=52
   compliancePct = 0;
+
+  // Task Center
+  taskSummary: TaskSummary = { open: 0, overdue: 0, dueSoon: 0, total: 0 };
+  systemTasks: SystemTask[] = [];
 
   get strokeOffset(): number {
     return this.circumference - (this.compliancePct / 100) * this.circumference;
@@ -175,6 +181,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   constructor(
     private dash: DashboardService,
     private compliance: ComplianceService,
+    private taskCenterService: TaskCenterService,
     private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
@@ -188,6 +195,15 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     const fromMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     const from = `${fromMonth.getFullYear()}-${String(fromMonth.getMonth() + 1).padStart(2, '0')}`;
     const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // Load task center data
+    this.taskCenterService.getMySummary({ role: 'CONTRACTOR' })
+      .pipe(takeUntil(this.destroy$), catchError(() => of({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
+      .subscribe(s => { this.taskSummary = s; this.cdr.detectChanges(); });
+
+    this.taskCenterService.getMyItems({ role: 'CONTRACTOR', status: 'OPEN' })
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(items => { this.systemTasks = items.slice(0, 10); this.cdr.detectChanges(); });
 
     forkJoin({
       dashboard: this.dash.contractor().pipe(timeout(10000)),
@@ -238,6 +254,7 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   retry(): void {
     this.ngOnInit();
   }
+
 
   get overdueTableData(): any[] {
     return this.tasks
@@ -334,10 +351,14 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
   }
 
   private computeOperationalWidgets(): void {
-    this.mappedClient = this.data?.clientId || this.tasks.find((t) => t.clientName !== '-')?.clientName || '-';
-    this.mappedBranches = Array.from(
-      new Set(this.tasks.map((t) => t.branchName).filter((b) => !!b && b !== '-')),
-    );
+    this.mappedClient = this.data?.clientName || this.tasks.find((t) => t.clientName && t.clientName !== '-')?.clientName || '-';
+    // Use dashboard branches array (authoritative source) and fall back to task branch names
+    const dashBranches: string[] = Array.isArray(this.data?.branches)
+      ? (this.data.branches as any[]).map((b) => b.name || b.branchName).filter((n: string) => !!n)
+      : [];
+    this.mappedBranches = dashBranches.length
+      ? dashBranches
+      : Array.from(new Set(this.tasks.map((t) => t.branchName).filter((b) => !!b && b !== '-')));
     this.totalRequiredDocs = this.tasks.length;
 
     const pendingUploads = this.tasks.filter((t) =>

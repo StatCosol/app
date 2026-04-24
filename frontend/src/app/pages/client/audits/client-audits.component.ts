@@ -47,8 +47,12 @@ export class ClientAuditsComponent implements OnDestroy {
     { value: '', label: 'All Statuses' },
     { value: 'PLANNED', label: 'Planned' },
     { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'SUBMITTED', label: 'Submitted' },
+    { value: 'CORRECTION_PENDING', label: 'Correction Pending' },
+    { value: 'REVERIFICATION_PENDING', label: 'Reverification Pending' },
     { value: 'COMPLETED', label: 'Completed' },
     { value: 'CANCELLED', label: 'Cancelled' },
+    { value: 'CLOSED', label: 'Closed' },
   ];
   readonly frequencyOptions = [
     { value: '', label: 'All Frequencies' },

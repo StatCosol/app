@@ -56,6 +56,18 @@ export class SafetyDocumentsService {
     private readonly repo: Repository<SafetyDocumentEntity>,
   ) {}
 
+  /** Verify CRM user is assigned to this client */
+  async assertCrmAssigned(clientId: string, crmUserId: string): Promise<void> {
+    const result = await this.repo.manager.query(
+      `SELECT 1 FROM client_assignments_current
+       WHERE client_id = $1 AND assignment_type = 'CRM' AND assigned_to_user_id = $2`,
+      [clientId, crmUserId],
+    );
+    if (!result?.length) {
+      throw new ForbiddenException('Client not assigned to you');
+    }
+  }
+
   /* ═══════════════════════════════════════════════════
      Master List
      ═══════════════════════════════════════════════════ */
@@ -66,7 +78,7 @@ export class SafetyDocumentsService {
     applicableTo?: string;
   }): Promise<any[]> {
     let sql = `SELECT * FROM safety_document_master WHERE is_active = true`;
-    const params: any[] = [];
+    const params: unknown[] = [];
     let idx = 1;
 
     if (filters?.frequency) {
@@ -90,7 +102,7 @@ export class SafetyDocumentsService {
     const rows = await this.repo.manager.query(
       `SELECT DISTINCT category FROM safety_document_master WHERE is_active = true ORDER BY category`,
     );
-    return rows.map((r: any) => r.category);
+    return rows.map((r: { category: string }) => r.category);
   }
 
   /* ═══════════════════════════════════════════════════
@@ -122,7 +134,7 @@ export class SafetyDocumentsService {
     }
 
     // If masterDocumentId provided, look up defaults
-    let masterDefaults: any = {};
+    let masterDefaults: { category?: string; frequency?: string; applicableTo?: string; isMandatory?: boolean } = {};
     if (dto.masterDocumentId) {
       const [master] = await this.repo.manager.query(
         `SELECT document_name, category, frequency, applicable_to, is_mandatory FROM safety_document_master WHERE id = $1`,
@@ -218,7 +230,7 @@ export class SafetyDocumentsService {
      Branch user: Delete own document
      ═══════════════════════════════════════════════════ */
 
-  async deleteBranch(docId: string, userId: string, branchIds: string[]) {
+  async deleteBranch(docId: string, _userId: string, branchIds: string[]) {
     const doc = await this.repo.findOne({
       where: { id: docId, isDeleted: false },
     });
@@ -393,9 +405,9 @@ export class SafetyDocumentsService {
     }[];
   }> {
     // Get applicable master documents
-    const masterRows: any[] = await this.repo.manager.query(
+    const masterRows = await this.repo.manager.query(
       `SELECT category, COUNT(*) as total FROM safety_document_master WHERE is_active = true AND is_mandatory = true GROUP BY category`,
-    );
+    ) as { category: string; total: string }[];
 
     // Count uploaded documents per category (current year)
     const currentYear = new Date().getFullYear();
@@ -405,7 +417,7 @@ export class SafetyDocumentsService {
       WHERE is_deleted = false AND category IS NOT NULL
         AND (period_year = $1 OR EXTRACT(YEAR FROM created_at) = $1)
     `;
-    const params: any[] = [currentYear];
+    const params: unknown[] = [currentYear];
     let pIdx = 2;
 
     if (scope.branchIds?.length) {
@@ -418,17 +430,17 @@ export class SafetyDocumentsService {
     }
     uploadedSql += ` GROUP BY category`;
 
-    const uploadedRows: any[] = await this.repo.manager.query(
+    const uploadedRows = await this.repo.manager.query(
       uploadedSql,
       params,
-    );
+    ) as { category: string; uploaded: string }[];
     const uploadedMap: Record<string, number> = {};
     for (const r of uploadedRows) {
       uploadedMap[r.category] = parseInt(r.uploaded, 10);
     }
 
     let overallScore = 0;
-    const categoryScores: any[] = [];
+    const categoryScores: { category: string; weight: number; uploaded: number; required: number; score: number }[] = [];
 
     for (const [category, weight] of Object.entries(CATEGORY_WEIGHTS)) {
       const masterRow = masterRows.find((r) => r.category === category);
@@ -529,7 +541,7 @@ export class SafetyDocumentsService {
            ON CONFLICT DO NOTHING`,
           ['Safety Document Expiry', message, doc.clientId],
         );
-      } catch (err) {
+      } catch (err: any) {
         this.logger.warn(
           `Failed to insert expiry notification for doc ${doc.id}: ${err.message}`,
         );

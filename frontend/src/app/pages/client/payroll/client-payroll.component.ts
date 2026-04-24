@@ -11,8 +11,9 @@ import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { ClientPayrollService } from '../../../core/client-payroll.service';
-import { AuthService } from '../../../core/auth.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -24,6 +25,9 @@ import {
 type InputStatus =
   | 'DRAFT'
   | 'SUBMITTED'
+  | 'IN_PROGRESS'
+  | 'PROCESSING'
+  | 'APPROVED'
   | 'NEEDS_CLARIFICATION'
   | 'REJECTED'
   | 'COMPLETED'
@@ -33,11 +37,13 @@ interface PayrollInputItem {
   id: string;
   title: string;
   branchId: string | null;
+  branchName?: string | null;
   periodYear: number;
   periodMonth: number;
   status: InputStatus;
   filesCount: number;
   createdAt: string | null;
+  type?: 'input' | 'run';
 }
 
 interface StatusHistoryItem {
@@ -58,6 +64,7 @@ interface InputFileItem {
 
 interface BranchStatusRow {
   branchId: string;
+  branchName: string;
   totalInputs: number;
   pendingInputs: number;
   approvalQueue: number;
@@ -109,6 +116,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
   exceptionList: PayrollInputItem[] = [];
   branchStatusRows: BranchStatusRow[] = [];
   cycleHistoryRows: CycleHistoryRow[] = [];
+  branchOptions: { label: string; value: string }[] = [];
 
   selectedInput: PayrollInputItem | null = null;
   statusHistory: StatusHistoryItem[] = [];
@@ -126,6 +134,9 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
     { label: 'All Status', value: '' },
     { label: 'Draft', value: 'DRAFT' },
     { label: 'Submitted', value: 'SUBMITTED' },
+    { label: 'In Progress', value: 'IN_PROGRESS' },
+    { label: 'Processing', value: 'PROCESSING' },
+    { label: 'Approved', value: 'APPROVED' },
     { label: 'Needs Clarification', value: 'NEEDS_CLARIFICATION' },
     { label: 'Rejected', value: 'REJECTED' },
     { label: 'Completed', value: 'COMPLETED' },
@@ -176,11 +187,13 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
   constructor(
     private readonly cdr: ChangeDetectorRef,
     private readonly payrollSvc: ClientPayrollService,
-    private readonly auth: AuthService,
+    private readonly branchesSvc: ClientBranchesService,
     private readonly toast: ToastService,
+    private readonly protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
+    this.loadBranches();
     this.loadInputs();
   }
 
@@ -191,8 +204,10 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
 
   loadInputs(): void {
     this.loading = true;
-    this.payrollSvc
-      .listInputs()
+    forkJoin({
+      inputs: this.payrollSvc.listInputs().pipe(catchError(() => of([]))),
+      runs: this.payrollSvc.listRuns().pipe(catchError(() => of([]))),
+    })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -201,8 +216,10 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: (res) => {
-          this.inputs = this.normalizeInputs(res);
+        next: ({ inputs, runs }) => {
+          const normalizedInputs = this.normalizeInputs(inputs);
+          const normalizedRuns = this.normalizeRuns(runs);
+          this.inputs = [...normalizedInputs, ...normalizedRuns];
           this.recomputeWorkspace();
           this.restoreSelectedInput();
         },
@@ -212,8 +229,23 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
           this.selectedInput = null;
           this.statusHistory = [];
           this.inputFiles = [];
-          this.toast.error(err?.error?.message || 'Could not load payroll inputs.');
+          this.toast.error(err?.error?.message || 'Could not load payroll data.');
         },
+      });
+  }
+
+  private loadBranches(): void {
+    this.branchesSvc.list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (branches: any[]) => {
+          this.branchOptions = (branches || []).map((b: any) => ({
+            label: b.branchName || b.name || b.branch_name || 'Branch',
+            value: String(b.id || ''),
+          }));
+          this.cdr.markForCheck();
+        },
+        error: () => { this.branchOptions = []; },
       });
   }
 
@@ -280,7 +312,14 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
     this.selectedInput = row;
     this.detailRemarks = '';
     this.detailUploadFile = null;
-    this.loadInputDetail(row.id);
+    // Only load status history & files for actual payroll inputs (not runs)
+    if (row.type !== 'run') {
+      this.loadInputDetail(row.id);
+    } else {
+      this.statusHistory = [];
+      this.inputFiles = [];
+      this.cdr.markForCheck();
+    }
   }
 
   refreshSelectedInput(): void {
@@ -307,8 +346,14 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
 
   downloadInputFile(file: InputFileItem): void {
     const rawUrl = file.downloadUrl || this.payrollSvc.downloadInputFileUrl(file.id);
-    const finalUrl = this.auth.authenticateUrl(rawUrl);
-    window.open(finalUrl, '_blank');
+    this.protectedFiles
+      .download(rawUrl, file.fileName || 'payroll-input')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Could not download input file.');
+        },
+      });
   }
 
   onCreateFileSelected(event: Event): void {
@@ -331,7 +376,11 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
 
   toBranchLabel(branchId: string | null | undefined): string {
     const val = String(branchId || '').trim();
-    return val ? val : 'Unmapped';
+    if (!val) return 'Unmapped';
+    const item = this.visibleInputs.find((i) => i.branchId === val && i.branchName);
+    if (item?.branchName) return item.branchName;
+    const opt = this.branchOptions.find((b) => b.value === val);
+    return opt?.label || 'Branch';
   }
 
   monthLabel(periodMonth: number): string {
@@ -472,7 +521,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       pending: this.pendingInputs.length,
       approvals: this.approvalQueue.length,
       exceptions: this.exceptionList.length,
-      completed: this.visibleInputs.filter((row) => this.statusKey(row.status) === 'COMPLETED').length,
+      completed: this.visibleInputs.filter((row) => ['COMPLETED', 'APPROVED'].includes(this.statusKey(row.status))).length,
       branches: uniqueBranches.size,
     };
   }
@@ -510,13 +559,14 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       const key = this.toBranchLabel(row.branchId);
       const existing = map.get(key) || {
         branchId: key,
+        branchName: this.toBranchLabel(row.branchId),
         totalInputs: 0,
         pendingInputs: 0,
         approvalQueue: 0,
         exceptions: 0,
         completed: 0,
         lastPeriod: this.periodLabel(row),
-        latestInputId: row.id,
+        latestInputId: row.type !== 'run' ? row.id : null,
       };
       existing.totalInputs += 1;
 
@@ -530,7 +580,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       if (['NEEDS_CLARIFICATION', 'REJECTED'].includes(status)) {
         existing.exceptions += 1;
       }
-      if (status === 'COMPLETED') {
+      if (['COMPLETED', 'APPROVED'].includes(status)) {
         existing.completed += 1;
       }
 
@@ -541,7 +591,9 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       }
 
       if (!existing.latestInputId || this.compareCreatedAt(row, rows.find((x) => x.id === existing.latestInputId) || null) >= 0) {
-        existing.latestInputId = row.id;
+        if (row.type !== 'run') {
+          existing.latestInputId = row.id;
+        }
       }
 
       map.set(key, existing);
@@ -572,7 +624,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       if (['DRAFT', 'NEEDS_CLARIFICATION', 'REJECTED'].includes(status)) existing.pending += 1;
       if (status === 'SUBMITTED') existing.approvals += 1;
       if (['NEEDS_CLARIFICATION', 'REJECTED'].includes(status)) existing.exceptions += 1;
-      if (status === 'COMPLETED') existing.completed += 1;
+      if (['COMPLETED', 'APPROVED'].includes(status)) existing.completed += 1;
       map.set(ym, existing);
     }
 
@@ -610,6 +662,7 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
         status: this.normalizeStatus(row?.status),
         filesCount: Number(row?.filesCount || row?.files_count || 0),
         createdAt: row?.createdAt || row?.created_at || null,
+        type: 'input' as const,
       }))
       .filter((row: PayrollInputItem) => !!row.id)
       .sort((a: PayrollInputItem, b: PayrollInputItem) => this.compareCreatedAt(b, a));
@@ -645,11 +698,33 @@ export class ClientPayrollComponent implements OnInit, OnDestroy {
       .filter((row: InputFileItem) => !!row.id);
   }
 
+  private normalizeRuns(res: any): PayrollInputItem[] {
+    const arr = Array.isArray(res) ? res : (res?.data || []);
+    return (arr || [])
+      .map((row: any) => ({
+        id: String(row?.id || ''),
+        title: String(row?.title || `Payroll Run`),
+        branchId: row?.branchId || row?.branch_id || null,
+        branchName: row?.branchName || row?.branch_name || null,
+        periodYear: Number(row?.periodYear || row?.period_year || 0),
+        periodMonth: Number(row?.periodMonth || row?.period_month || 0),
+        status: this.normalizeStatus(row?.status),
+        filesCount: Number(row?.employeeCount || row?.employee_count || 0),
+        createdAt: row?.createdAt || row?.created_at || null,
+        type: 'run' as const,
+      }))
+      .filter((row: PayrollInputItem) => !!row.id)
+      .sort((a: PayrollInputItem, b: PayrollInputItem) => this.compareCreatedAt(b, a));
+  }
+
   private normalizeStatus(status: unknown): InputStatus {
     const key = this.statusKey(status) as InputStatus;
     const supported: InputStatus[] = [
       'DRAFT',
       'SUBMITTED',
+      'IN_PROGRESS',
+      'PROCESSING',
+      'APPROVED',
       'NEEDS_CLARIFICATION',
       'REJECTED',
       'COMPLETED',

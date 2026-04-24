@@ -362,7 +362,7 @@ export class CeoDashboardService {
   /**
    * Get high-level executive summary KPIs
    */
-  async getSummary(query: unknown) {
+  async getSummary(_query: unknown) {
     const sql = `
       SELECT
         (SELECT COUNT(*) FROM clients WHERE is_active = true AND is_deleted = false) AS total_clients,
@@ -422,7 +422,7 @@ export class CeoDashboardService {
   /**
    * Get CCO and CRM team performance metrics
    */
-  async getCcoCrmPerformance(query: unknown) {
+  async getCcoCrmPerformance(_query: unknown) {
     const sql = `
       WITH team_metrics AS (
         SELECT
@@ -458,7 +458,7 @@ export class CeoDashboardService {
   /**
    * Get governance and compliance statistics
    */
-  async getGovernanceCompliance(query: unknown) {
+  async getGovernanceCompliance(_query: unknown) {
     const sql = `
       SELECT
         (SELECT COUNT(*) FROM audits WHERE status = 'COMPLETED') as completed_audits,

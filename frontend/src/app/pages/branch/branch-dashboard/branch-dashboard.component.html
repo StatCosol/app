@@ -14,13 +14,13 @@
         <p class="text-sm text-slate-500 mt-0.5">Compliance execution overview &amp; action tracker</p>
       </div>
       <div class="flex items-center gap-3">
-        <input
+        <input autocomplete="off" id="bd-current-month" name="currentMonth"
           type="month"
           [(ngModel)]="currentMonth"
           (change)="onMonthChange()"
           class="month-picker"
         />
-        <button (click)="loadDashboard()" class="refresh-btn" title="Refresh">
+        <button type="button" (click)="loadDashboard()" class="refresh-btn" title="Refresh">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -177,7 +177,7 @@
             </svg>
             Top Performers
           </h3>
-          <div class="table-wrapper">
+          <div class="table-wrapper max-h-[600px] overflow-y-auto">
             <table class="mini-table">
               <thead>
                 <tr>
@@ -219,7 +219,7 @@
             </svg>
             At-Risk Vendors
           </h3>
-          <div class="table-wrapper">
+          <div class="table-wrapper max-h-[600px] overflow-y-auto">
             <table class="mini-table">
               <thead>
                 <tr>
@@ -298,7 +298,7 @@
         </h2>
         <span class="text-xs text-slate-500">Registrations &amp; License expiry status</span>
       </div>
-      <div class="table-wrapper">
+      <div class="table-wrapper max-h-[600px] overflow-y-auto">
         <table class="expiry-table">
           <thead>
             <tr>
@@ -340,7 +340,7 @@
           </h2>
           <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{{ pfPendingEmployees.length }}</span>
         </div>
-        <div class="table-wrapper">
+        <div class="table-wrapper max-h-[600px] overflow-y-auto">
           <table class="mini-table">
             <thead>
               <tr>
@@ -374,7 +374,7 @@
           </h2>
           <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">{{ esiPendingEmployees.length }}</span>
         </div>
-        <div class="table-wrapper">
+        <div class="table-wrapper max-h-[600px] overflow-y-auto">
           <table class="mini-table">
             <thead>
               <tr>
@@ -395,6 +395,60 @@
             + {{ esiPendingEmployees.length - 10 }} more — <a routerLink="/branch/employees" class="text-blue-600 hover:underline">View all</a>
           </p>
         </div>
+      </div>
+    </div>
+
+    <!-- Task Center Section -->
+    <div class="mt-6">
+      <h2 class="text-lg font-semibold text-slate-800 mb-3">Task Center</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="rounded-lg bg-blue-50 p-3 text-center">
+          <p class="text-2xl font-bold text-blue-700">{{ taskSummary.open }}</p>
+          <p class="text-xs text-slate-500">Open Tasks</p>
+        </div>
+        <div class="rounded-lg bg-red-50 p-3 text-center">
+          <p class="text-2xl font-bold text-red-600">{{ taskSummary.overdue }}</p>
+          <p class="text-xs text-slate-500">Overdue</p>
+        </div>
+        <div class="rounded-lg bg-amber-50 p-3 text-center">
+          <p class="text-2xl font-bold text-amber-600">{{ taskSummary.dueSoon }}</p>
+          <p class="text-xs text-slate-500">Due Soon</p>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3 text-center">
+          <p class="text-2xl font-bold text-slate-600">{{ taskSummary.total }}</p>
+          <p class="text-xs text-slate-500">Total</p>
+        </div>
+      </div>
+
+      <div *ngIf="pendingTasks.length > 0" class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Task</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Module</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Priority</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of pendingTasks" class="border-t border-slate-100 hover:bg-slate-50">
+              <td class="px-3 py-2 text-slate-800">{{ t.title }}</td>
+              <td class="px-3 py-2 text-slate-500">{{ t.module }}</td>
+              <td class="px-3 py-2">
+                <span class="text-xs font-medium px-1.5 py-0.5 rounded"
+                  [ngClass]="{
+                    'bg-red-100 text-red-700': t.priority === 'CRITICAL' || t.priority === 'HIGH',
+                    'bg-amber-100 text-amber-700': t.priority === 'MEDIUM',
+                    'bg-slate-100 text-slate-600': t.priority === 'LOW'
+                  }">{{ t.priority }}</span>
+              </td>
+              <td class="px-3 py-2 text-slate-500">{{ t.due_date ? (t.due_date | date:'mediumDate') : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="pendingTasks.length === 0" class="text-center text-sm text-slate-400 py-4">
+        No pending tasks
       </div>
     </div>
   </ng-container>

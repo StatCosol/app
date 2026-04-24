@@ -18,11 +18,12 @@ import {
 } from '../../../core/audits.service';
 import { AuditorObservationsService } from '../../../core/auditor-observations.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../../shared/ui';
 
 @Component({
   standalone: true,
   selector: 'app-auditor-report-builder',
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, ClientContextStripComponent],
   templateUrl: './auditor-report-builder.component.html',
   styleUrls: ['./auditor-report-builder.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,

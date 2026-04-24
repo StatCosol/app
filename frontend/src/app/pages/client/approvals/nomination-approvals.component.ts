@@ -58,8 +58,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
         <!-- Reject reason input -->
         <div *ngIf="rejectId === nom.id" class="reject-reason">
-          <label class="text-xs font-medium text-gray-600">Reason for rejection:</label>
-          <textarea [(ngModel)]="rejectReason" rows="2" class="field-input mt-1"></textarea>
+          <label class="text-xs font-medium text-gray-600" for="na-reject-reason">Reason for rejection:</label>
+          <textarea autocomplete="off" id="na-reject-reason" name="rejectReason" [(ngModel)]="rejectReason" rows="2" class="field-input mt-1"></textarea>
           <div class="flex gap-2 mt-2">
             <button (click)="confirmReject(nom)" class="btn-reject" [disabled]="!rejectReason.trim()">
               Confirm Reject

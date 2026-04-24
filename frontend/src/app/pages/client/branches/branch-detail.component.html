@@ -22,25 +22,25 @@
       <div class="branch-title-wrap">
         <h2>{{ branch.branchName || 'Branch' }}</h2>
         <div class="branch-meta">
-          <span>{{ branch.branchCode || branchId }}</span>
+          <span>{{ branch.branchCode || '—' }}</span>
           <span>{{ branch.city || '-' }}, {{ branch.stateCode || branch.state || '-' }}</span>
           <span>{{ branch.establishmentType || branch.branchType || '-' }}</span>
           <ui-status-badge [status]="branch.status || 'ACTIVE'" size="sm"></ui-status-badge>
         </div>
       </div>
       <div class="month-control">
-        <label>Workspace Month</label>
-        <input type="month" [(ngModel)]="workspaceMonth" (change)="onMonthChange()" />
+        <label for="bd-workspace-month">Workspace Month</label>
+        <input autocomplete="off" id="bd-workspace-month" name="workspaceMonth" type="month" [(ngModel)]="workspaceMonth" (change)="onMonthChange()" />
       </div>
     </section>
 
     <section class="summary-grid">
       <article class="summary-card">
-        <div class="summary-label">Employees</div>
+        <div class="summary-label">On-Role Employees</div>
         <div class="summary-value">{{ branch.employeeCount ?? totalEmployees ?? 0 }}</div>
       </article>
       <article class="summary-card">
-        <div class="summary-label">Contractors</div>
+        <div class="summary-label">Contract Employees</div>
         <div class="summary-value">{{ branch.contractorCount ?? contractors.length ?? 0 }}</div>
       </article>
       <article class="summary-card">
@@ -72,7 +72,7 @@
     <section class="workspace-grid">
       <div class="main-panel">
         <nav class="tab-strip">
-          <button
+          <button type="button"
             *ngFor="let tab of tabs"
             class="tab-btn"
             [class.active]="activeTab === tab.key"
@@ -110,7 +110,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openComplianceModule()">Open Full Compliance Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="complianceTasks.length; else noComplianceTasks">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="complianceTasks.length; else noComplianceTasks">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -142,30 +142,30 @@
             </div>
 
             <div *ngIf="activeTab === 'uploads'" class="tab-body">
-              <div class="upload-panel" *ngIf="!isMasterUser">
+              <div class="upload-panel">
                 <div class="upload-grid">
                   <div>
-                    <label>Category</label>
-                    <select [(ngModel)]="uploadCategory">
+                    <label for="bd-upload-category">Category</label>
+                    <select id="bd-upload-category" name="uploadCategory" [(ngModel)]="uploadCategory">
                       <option value="REGISTRATION">Registration</option>
                       <option value="COMPLIANCE_MONTHLY">Compliance Monthly</option>
                       <option value="AUDIT_EVIDENCE">Audit Evidence</option>
                     </select>
                   </div>
                   <div>
-                    <label>Document Type</label>
-                    <input type="text" [(ngModel)]="uploadDocType" placeholder="Document type" />
+                    <label for="bd-upload-doc-type">Document Type</label>
+                    <input autocomplete="off" id="bd-upload-doc-type" name="uploadDocType" type="text" [(ngModel)]="uploadDocType" placeholder="Document type" />
                   </div>
                   <div *ngIf="uploadCategory === 'COMPLIANCE_MONTHLY'">
-                    <label>Period</label>
+                    <label for="bd-upload-year">Period</label>
                     <div class="period-inputs">
-                      <input type="number" [(ngModel)]="uploadYear" min="2000" />
-                      <input type="number" [(ngModel)]="uploadMonth" min="1" max="12" />
+                      <input autocomplete="off" id="bd-upload-year" name="uploadYear" type="number" [(ngModel)]="uploadYear" min="2000" />
+                      <input autocomplete="off" id="bd-upload-month" name="uploadMonth" type="number" [(ngModel)]="uploadMonth" min="1" max="12" />
                     </div>
                   </div>
                   <div>
-                    <label>File</label>
-                    <input type="file" (change)="onUploadFileSelect($event)" />
+                    <label for="bd-file">File</label>
+                    <input id="bd-file" type="file" (change)="onUploadFileSelect($event)" />
                   </div>
                 </div>
                 <div class="toolbar">
@@ -176,11 +176,9 @@
                 <div *ngIf="uploadError" class="error-line">{{ uploadError }}</div>
               </div>
 
-              <div class="readonly-note" *ngIf="isMasterUser">
-                Branch document uploads are read-only for master users.
-              </div>
 
-              <div class="table-wrap" *ngIf="uploads.length; else noUploads">
+
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="uploads.length; else noUploads">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -204,7 +202,7 @@
                         <div class="row-actions">
                           <ui-button variant="ghost" size="sm" (clicked)="openPath(documentPath(row))">Preview</ui-button>
                           <ui-button
-                            *ngIf="!isMasterUser && (row.status || '').toUpperCase() === 'REJECTED'"
+                            *ngIf="(row.status || '').toUpperCase() === 'REJECTED'"
                             variant="secondary"
                             size="sm"
                             (clicked)="chooseReupload(row)">
@@ -243,7 +241,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openReturnsModule()">Open Full Returns Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="returns.length; else noReturns">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="returns.length; else noReturns">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -276,7 +274,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openRegistrationsModule()">Open Full Registrations Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="registrations.length; else noRegistrations">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="registrations.length; else noRegistrations">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -310,7 +308,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openSafetyModule()">Open Full Safety Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="safetyDocs.length; else noSafety">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="safetyDocs.length; else noSafety">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -345,7 +343,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openAuditsModule()">Open Full Audits Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="audits.length; else noAudits">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="audits.length; else noAudits">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -379,7 +377,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openEmployeesModule()">Open Full Employees Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="employees.length; else noEmployees">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="employees.length; else noEmployees">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -392,7 +390,7 @@
                   </thead>
                   <tbody>
                     <tr *ngFor="let row of employees; trackBy: trackById">
-                      <td>{{ row.firstName }} {{ row.lastName || '' }}</td>
+                      <td>{{ row.name }}</td>
                       <td>{{ row.employeeCode }}</td>
                       <td>{{ row.designation || '-' }}</td>
                       <td>{{ row.department || '-' }}</td>
@@ -414,7 +412,7 @@
               <div class="toolbar">
                 <ui-button variant="secondary" size="sm" (clicked)="openContractorsModule()">Open Full Contractors Module</ui-button>
               </div>
-              <div class="table-wrap" *ngIf="contractors.length; else noContractors">
+              <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="contractors.length; else noContractors">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -464,7 +462,7 @@
         <section class="card side-card">
           <div class="side-title">Pending Items Panel</div>
           <div class="pending-list" *ngIf="pendingPanel.length; else noPendingPanel">
-            <button class="pending-row" *ngFor="let item of pendingPanel" (click)="jumpToPending(item)">
+            <button type="button" class="pending-row" *ngFor="let item of pendingPanel" (click)="jumpToPending(item)">
               <span>{{ item.label }}</span>
               <strong>{{ item.count }}</strong>
             </button>

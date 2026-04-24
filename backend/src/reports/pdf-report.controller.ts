@@ -4,11 +4,9 @@ import {
   Param,
   Query,
   Res,
-  Req,
   Version,
-  StreamableFile,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
+import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { PdfReportService } from './pdf-report.service';
 import { InjectDataSource } from '@nestjs/typeorm';

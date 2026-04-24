@@ -4,13 +4,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class CcoService {
   constructor(private readonly dataSource: DataSource) {}
 
   // --- Real DB query for CRMs under this CCO ---
-  async getCrmsUnderMe(user: any) {
+  async getCrmsUnderMe(user: ReqUser) {
     const ccoId = user.userId ?? user.id;
 
     const rows = await this.dataSource.query(
@@ -42,7 +43,7 @@ export class CcoService {
       [ccoId],
     );
 
-    return rows.map((r: any) => ({
+    return rows.map((r: Record<string, unknown>) => ({
       name: r.name,
       email: r.email,
       status: r.isActive ? 'ACTIVE' : 'INACTIVE',
@@ -53,7 +54,7 @@ export class CcoService {
   }
 
   // --- Real DB query for pending deletion requests assigned to this CCO ---
-  async getApprovals(user: any) {
+  async getApprovals(user: ReqUser) {
     const ccoId = user.userId ?? user.id;
 
     const rows = await this.dataSource.query(
@@ -84,7 +85,7 @@ export class CcoService {
       [ccoId],
     );
 
-    return rows.map((r: any) => ({
+    return rows.map((r: Record<string, unknown>) => ({
       id: r.id,
       crmName: r.crmName ?? r.entityType,
       email: r.email ?? '',
@@ -96,7 +97,7 @@ export class CcoService {
   }
 
   // --- Real approve: update deletion_request status ---
-  async approveRequest(user: any, id: number) {
+  async approveRequest(user: ReqUser, id: number) {
     const ccoId = user.userId ?? user.id;
 
     const [request] = await this.dataSource.query(
@@ -137,7 +138,7 @@ export class CcoService {
   }
 
   // --- Real reject: update deletion_request status with remarks ---
-  async rejectRequest(user: any, id: number, remarks: string) {
+  async rejectRequest(user: ReqUser, id: number, remarks: string) {
     const ccoId = user.userId ?? user.id;
 
     const [request] = await this.dataSource.query(
@@ -167,9 +168,11 @@ export class CcoService {
    * Return escalated compliance tasks visible to this CCO.
    * Joins client + branch names so the frontend can display human-readable info.
    */
-  async getOversight(user: any, filters?: { status?: string }) {
+  async getOversight(user: ReqUser, filters?: { status?: string }) {
     const ccoId = user.userId ?? user.id;
-    const status = filters?.status ? String(filters.status).toUpperCase() : null;
+    const status = filters?.status
+      ? String(filters.status).toUpperCase()
+      : null;
 
     const rows = await this.dataSource.query(
       `
@@ -207,7 +210,7 @@ export class CcoService {
   /**
    * Return repeated client/branch delay patterns for this CCO's CRM portfolio.
    */
-  async getOversightDelays(user: any) {
+  async getOversightDelays(user: ReqUser) {
     const ccoId = user.userId ?? user.id;
     return this.dataSource.query(
       `
@@ -240,7 +243,7 @@ export class CcoService {
   /**
    * Monthly trend for oversight visibility.
    */
-  async getOversightTrends(user: any, months = 6) {
+  async getOversightTrends(user: ReqUser, months = 6) {
     const ccoId = user.userId ?? user.id;
     const safeMonths = Math.max(3, Math.min(Number(months) || 6, 24));
     return this.dataSource.query(
@@ -279,7 +282,7 @@ export class CcoService {
   }
 
   // --- Real DB-backed dashboard ---
-  async getDashboard(user: any) {
+  async getDashboard(user: ReqUser) {
     const ccoId = user.userId ?? user.id;
 
     // 1. Count CRMs under this CCO

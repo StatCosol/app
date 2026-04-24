@@ -177,8 +177,8 @@ Assess this document and provide additional issues and suggested fixes.`;
       });
 
       return output;
-    } catch (err: any) {
-      await this.requestLog.failRequest(request.id, err.message);
+    } catch (err: unknown) {
+      await this.requestLog.failRequest(request.id, (err as Error).message);
       throw err;
     }
   }

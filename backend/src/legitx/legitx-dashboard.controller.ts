@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Query,
-  Req,
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
@@ -12,9 +11,11 @@ import { RolesGuard } from '../auth/roles.guard';
 import { LegitxDashboardService } from './legitx-dashboard.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CLIENT', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'PAYROLL', 'ADMIN')
+@Roles('CLIENT', 'BRANCH', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'PAYROLL', 'ADMIN')
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'legitx/dashboard', version: '1' })
@@ -24,28 +25,28 @@ export class LegitxDashboardController {
   @ApiOperation({ summary: 'Base' })
   @Get()
   async base(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: DashboardQueryDto,
   ) {
     return this.dashboardService.getSummary(
-      req.user?.id,
+      user?.id,
       query,
-      req.user?.clientId ?? null,
+      user?.clientId ?? null,
     );
   }
 
   @ApiOperation({ summary: 'Summary' })
   @Get('summary')
   async summary(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: DashboardQueryDto,
   ) {
     return this.dashboardService.getSummary(
-      req.user?.id,
+      user?.id,
       query,
-      req.user?.clientId ?? null,
+      user?.clientId ?? null,
     );
   }
 }

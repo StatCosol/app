@@ -68,11 +68,11 @@ interface AttendanceIssue {
         <div class="toolbar">
           <label>
             <span>Attendance Month</span>
-            <input type="month" [(ngModel)]="selectedMonth" />
+            <input autocomplete="off" id="ca-selected-month" name="selectedMonth" type="month" [(ngModel)]="selectedMonth" />
           </label>
           <label>
             <span>Branch ID (optional)</span>
-            <input type="text" [(ngModel)]="branchId" placeholder="Filter by branch id" />
+            <input autocomplete="off" id="ca-branch-id" name="branchId" type="text" [(ngModel)]="branchId" placeholder="Filter by branch id" />
           </label>
           <div class="actions">
             <ui-button variant="primary" [disabled]="loading" (clicked)="loadWorkspace()">Load</ui-button>
@@ -118,7 +118,7 @@ interface AttendanceIssue {
               <div class="head-actions">
                 <span>{{ visibleMismatches.length }} shown / {{ mismatches.length }} total</span>
                 <label class="toggle">
-                  <input type="checkbox" [(ngModel)]="showUnresolvedOnly" />
+                  <input autocomplete="off" id="ca-show-unresolved-only" name="showUnresolvedOnly" type="checkbox" [(ngModel)]="showUnresolvedOnly" />
                   <span>Unresolved only</span>
                 </label>
                 <ui-button

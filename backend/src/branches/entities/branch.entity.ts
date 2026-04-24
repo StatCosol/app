@@ -7,13 +7,15 @@ import {
   ManyToMany,
   UpdateDateColumn,
 } from 'typeorm';
-import { BranchType } from '../../common/enums';
 import { UserEntity } from '../../users/entities/user.entity';
 
 @Entity('client_branches')
 export class BranchEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'branch_code', type: 'varchar', length: 50, unique: true })
+  branchCode: string;
 
   @Index('IDX_BRANCHES_CLIENTID')
   @Column({ name: 'clientid', type: 'uuid' })

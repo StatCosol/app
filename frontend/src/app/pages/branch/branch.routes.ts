@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { branchPortalGuard } from '../../core/branch-portal.guard';
+import { branchPayrollAccessGuard } from '../../core/branch-payroll-access.guard';
 
 const BranchLayoutComponent = () =>
   import('./branch-layout/branch-layout.component').then((m) => m.BranchLayoutComponent);
@@ -33,8 +34,6 @@ const BranchNotificationsComponent = () =>
   import('./branch-notifications/branch-notifications.component').then((m) => m.BranchNotificationsComponent);
 const BranchHelpdeskComponent = () =>
   import('./branch-helpdesk/branch-helpdesk.component').then((m) => m.BranchHelpdeskComponent);
-const BranchMcdUploadComponent = () =>
-  import('./branch-mcd-upload/branch-mcd-upload.component').then((m) => m.BranchMcdUploadComponent);
 const BranchPeriodicUploadsPageComponent = () =>
   import('./branch-periodic-uploads/branch-periodic-uploads-page.component').then(
     (m) => m.BranchPeriodicUploadsPageComponent,
@@ -49,8 +48,6 @@ const RiskTrendComponent = () =>
   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
 const EscalationsComponent = () =>
   import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
-const BranchReuploadInboxComponent = () =>
-  import('./compliance/branch-reupload-inbox.component').then((m) => m.BranchReuploadInboxComponent);
 const BranchUnitDocumentsComponent = () =>
   import('./branch-unit-documents/branch-unit-documents.component').then((m) => m.BranchUnitDocumentsComponent);
 const BranchSafetyComponent = () =>
@@ -63,6 +60,32 @@ const BranchComplianceComponent = () =>
   import('../../shared/compliance/branch-compliance.component').then((m) => m.BranchComplianceComponent);
 const BranchComplianceDocsComponent = () =>
   import('./branch-compliance-docs/branch-compliance-docs.component').then((m) => m.BranchComplianceDocsComponent);
+const NewsDetailComponent = () =>
+  import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
+const BranchPayrollComponent = () =>
+  import('../client/payroll/client-payroll-monitoring-page.component').then(
+    (m) => m.ClientPayrollMonitoringPageComponent,
+  );
+const BranchAttendanceReviewComponent = () =>
+  import('../client/attendance/client-attendance-review-page.component').then(
+    (m) => m.ClientAttendanceReviewPageComponent,
+  );
+const BranchDailyAttendanceComponent = () =>
+  import('../client/attendance/client-daily-attendance-page.component').then(
+    (m) => m.ClientDailyAttendancePage,
+  );
+const BranchNoticesComponent = () =>
+  import('./notices/branch-notices.component').then((m) => m.BranchNoticesComponent);
+const BranchCtcComponent = () =>
+  import('./branch-ctc/branch-ctc.component').then((m) => m.BranchCtcComponent);
+const BranchAppraisalDashboardComponent = () =>
+  import('./performance-appraisal/branch-appraisal-dashboard.component').then((m) => m.BranchAppraisalDashboardComponent);
+const BranchAppraisalsListComponent = () =>
+  import('./performance-appraisal/branch-appraisals-list.component').then((m) => m.BranchAppraisalsListComponent);
+const BranchAppraisalFormComponent = () =>
+  import('./performance-appraisal/branch-appraisal-form.component').then((m) => m.BranchAppraisalFormComponent);
+const BranchAppraisalCyclesComponent = () =>
+  import('./performance-appraisal/branch-appraisal-cycles.component').then((m) => m.BranchAppraisalCyclesComponent);
 
 export const BRANCH_ROUTES: Routes = [
   {
@@ -81,25 +104,30 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'monthly-compliance', redirectTo: 'compliance/monthly', pathMatch: 'full' },
       { path: 'compliance/monthly', loadComponent: BranchMcdComponent, runGuardsAndResolvers: 'always' },
 
+      // Factory / Office compliance consolidated into monthly
+      { path: 'compliance/factory', redirectTo: 'compliance/monthly', pathMatch: 'full' },
+      { path: 'compliance/office', redirectTo: 'compliance/monthly', pathMatch: 'full' },
+
       // Periodic uploads workspace
       { path: 'uploads', loadComponent: BranchPeriodicUploadsPageComponent, runGuardsAndResolvers: 'always' },
-      { path: 'uploads/monthly', loadComponent: BranchMcdUploadComponent, runGuardsAndResolvers: 'always' },
+      { path: 'uploads/monthly', redirectTo: 'compliance/monthly', pathMatch: 'full' },
       { path: 'uploads/:periodicity', loadComponent: BranchPeriodicUploadsPageComponent, runGuardsAndResolvers: 'always' },
 
-      // Legacy aliases
-      { path: 'mcd-upload', redirectTo: 'uploads/monthly', pathMatch: 'full' },
+      // Legacy periodic aliases
       { path: 'returns-filings', redirectTo: 'uploads/yearly', pathMatch: 'full' },
       { path: 'compliance/quarterly', redirectTo: 'uploads/quarterly', pathMatch: 'full' },
       { path: 'compliance/half-yearly', redirectTo: 'uploads/half-yearly', pathMatch: 'full' },
       { path: 'compliance/yearly', redirectTo: 'uploads/yearly', pathMatch: 'full' },
-      { path: 'compliance/annual', redirectTo: 'uploads/yearly', pathMatch: 'full' },
-      { path: 'monthly-uploads', redirectTo: 'uploads/monthly', pathMatch: 'full' },
 
       { path: 'registrations', loadComponent: BranchRegistrationsComponent },
       { path: 'audits/observations', loadComponent: BranchAuditObservationsComponent },
       { path: 'audit-observations', redirectTo: 'audits/observations', pathMatch: 'full' },
       { path: 'documents', loadComponent: BranchDocumentsComponent },
       { path: 'reports', loadComponent: BranchReportsComponent },
+      { path: 'payroll', loadComponent: BranchPayrollComponent, canActivate: [branchPayrollAccessGuard] },
+      { path: 'branch-ctc', loadComponent: BranchCtcComponent },
+      { path: 'attendance', loadComponent: BranchAttendanceReviewComponent },
+      { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
       { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent },
@@ -112,7 +140,13 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'escalations', loadComponent: EscalationsComponent },
       { path: 'unit-documents', loadComponent: BranchUnitDocumentsComponent },
       { path: 'safety', loadComponent: BranchSafetyComponent },
-      { path: 'compliance/reupload-inbox', loadComponent: BranchReuploadInboxComponent },
+      { path: 'news', loadComponent: NewsDetailComponent },
+      { path: 'news/:newsId', loadComponent: NewsDetailComponent },
+      { path: 'notices', loadComponent: BranchNoticesComponent },
+      { path: 'appraisal-dashboard', loadComponent: BranchAppraisalDashboardComponent },
+      { path: 'appraisals', loadComponent: BranchAppraisalsListComponent },
+      { path: 'appraisals/:id', loadComponent: BranchAppraisalFormComponent },
+      { path: 'appraisal-cycles', loadComponent: BranchAppraisalCyclesComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

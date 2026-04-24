@@ -18,8 +18,11 @@ export class CrmUnitDocumentEntity {
   @Column({ name: 'client_id', type: 'uuid' })
   clientId!: string;
 
-  @Column({ name: 'branch_id', type: 'uuid' })
-  branchId!: string;
+  @Column({ name: 'scope', type: 'varchar', length: 20, default: 'BRANCH' })
+  scope!: 'COMPANY' | 'BRANCH';
+
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId!: string | null;
 
   @Column({ name: 'month', type: 'varchar', length: 7, nullable: true })
   month!: string | null; // YYYY-MM
@@ -67,6 +70,15 @@ export class CrmUnitDocumentEntity {
 
   @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
   deletedBy!: string | null;
+
+  @Column({ name: 'uploaded_by_role', type: 'varchar', length: 20, nullable: true })
+  uploadedByRole!: string | null;
+
+  @Column({ name: 'acting_on_behalf', type: 'boolean', default: false })
+  actingOnBehalf!: boolean;
+
+  @Column({ name: 'original_owner_role', type: 'varchar', length: 20, nullable: true })
+  originalOwnerRole!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

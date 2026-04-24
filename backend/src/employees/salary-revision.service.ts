@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalaryRevisionEntity } from './entities/salary-revision.entity';
@@ -12,17 +16,25 @@ export class SalaryRevisionService {
 
   async create(
     dto: {
-      clientId: string;
+      clientId?: string;
       employeeId: string;
       effectiveDate: string;
       previousCtc: number;
       newCtc: number;
       reason?: string;
       approvedByUserId?: string;
-      componentSnapshot?: Record<string, any>;
+      componentSnapshot?: Record<string, unknown>;
     },
     createdByUserId: string,
   ) {
+    if (!dto.employeeId || !dto.effectiveDate) {
+      throw new BadRequestException(
+        'employeeId and effectiveDate are required',
+      );
+    }
+    if (dto.previousCtc == null || dto.newCtc == null) {
+      throw new BadRequestException('previousCtc and newCtc are required');
+    }
     const incrementPct =
       dto.previousCtc > 0
         ? (((dto.newCtc - dto.previousCtc) / dto.previousCtc) * 100).toFixed(2)

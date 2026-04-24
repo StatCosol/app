@@ -1,4 +1,4 @@
-﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
     title="Contractor Dashboard"
     description="Your task overview and compliance status"
@@ -25,7 +25,7 @@
       </svg>
       <span>{{ errorMsg }}</span>
     </div>
-    <button (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4 flex items-center gap-1">
+    <button type="button" (click)="retry()" class="text-red-800 font-semibold hover:underline ml-4 flex items-center gap-1">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
       </svg>
@@ -127,7 +127,7 @@
           <button type="button" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 transition-colors"
                   *ngFor="let item of expiringLicensesPreview" (click)="openTask(item)">
             <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
-            <div class="text-[11px] text-gray-600">{{ item.branchName }} | {{ item.dueDate | date: 'mediumDate' }}</div>
+            <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.dueDate | date: 'mediumDate' }}</div>
           </button>
         </div>
         <ng-template #noExpiring>
@@ -141,7 +141,7 @@
           <button type="button" class="w-full text-left p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors"
                   *ngFor="let item of pendingUploadsPreview" (click)="openTask(item)">
             <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
-            <div class="text-[11px] text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
+            <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
           </button>
         </div>
         <ng-template #noPendingUploads>
@@ -155,7 +155,7 @@
           <button type="button" class="w-full text-left p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
                   *ngFor="let item of rejectedItemsPreview" (click)="openTask(item)">
             <div class="text-xs font-semibold text-gray-900 truncate">{{ item.title }}</div>
-            <div class="text-[11px] text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
+            <div class="text-xs text-gray-600">{{ item.branchName }} | {{ item.status }}</div>
           </button>
         </div>
         <ng-template #noRejectedDocs>
@@ -175,14 +175,14 @@
             <strong class="text-gray-900">{{ mappedBranches.length }}</strong>
           </div>
           <div class="pt-2 border-t border-gray-100">
-            <div class="text-[11px] text-gray-500 mb-1">Branch list</div>
+            <div class="text-xs text-gray-500 mb-1">Branch list</div>
             <div class="flex flex-wrap gap-1">
               <span
                 *ngFor="let branch of mappedBranches"
-                class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px]">
+                class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
                 {{ branch }}
               </span>
-              <span *ngIf="!mappedBranches.length" class="text-[11px] text-gray-500">No mapped branches</span>
+              <span *ngIf="!mappedBranches.length" class="text-xs text-gray-500">No mapped branches</span>
             </div>
           </div>
         </div>
@@ -261,7 +261,7 @@
             <h3 class="text-base font-semibold text-gray-900">Upcoming Tasks</h3>
             <p class="text-xs text-gray-500 mt-0.5">Next tasks requiring your attention</p>
           </div>
-          <button (click)="goToTasks('')"
+          <button type="button" (click)="goToTasks('')"
                   class="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
             View all &rarr;
           </button>
@@ -369,6 +369,57 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- Task Center Section -->
+    <div class="mt-6 bg-white rounded-lg border border-gray-200 p-4">
+      <h3 class="text-base font-semibold text-gray-800 mb-3">System Tasks</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="rounded bg-blue-50 p-2 text-center">
+          <p class="text-xl font-bold text-blue-700">{{ taskSummary.open }}</p>
+          <p class="text-xs text-gray-500">Open</p>
+        </div>
+        <div class="rounded bg-red-50 p-2 text-center">
+          <p class="text-xl font-bold text-red-600">{{ taskSummary.overdue }}</p>
+          <p class="text-xs text-gray-500">Overdue</p>
+        </div>
+        <div class="rounded bg-amber-50 p-2 text-center">
+          <p class="text-xl font-bold text-amber-600">{{ taskSummary.dueSoon }}</p>
+          <p class="text-xs text-gray-500">Due Soon</p>
+        </div>
+        <div class="rounded bg-gray-50 p-2 text-center">
+          <p class="text-xl font-bold text-gray-600">{{ taskSummary.total }}</p>
+          <p class="text-xs text-gray-500">Total</p>
+        </div>
+      </div>
+      <div *ngIf="systemTasks.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Task</th>
+              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Module</th>
+              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Priority</th>
+              <th class="py-2 px-2 text-left text-xs font-medium text-gray-500">Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of systemTasks" class="border-t border-gray-100 hover:bg-gray-50">
+              <td class="py-2 px-2 text-gray-800">{{ t.title }}</td>
+              <td class="py-2 px-2 text-gray-500">{{ t.module }}</td>
+              <td class="py-2 px-2">
+                <span class="text-xs font-medium px-1.5 py-0.5 rounded"
+                  [ngClass]="{
+                    'bg-red-100 text-red-700': t.priority === 'CRITICAL' || t.priority === 'HIGH',
+                    'bg-amber-100 text-amber-700': t.priority === 'MEDIUM',
+                    'bg-gray-100 text-gray-600': t.priority === 'LOW'
+                  }">{{ t.priority }}</span>
+              </td>
+              <td class="py-2 px-2 text-gray-500">{{ t.due_date ? (t.due_date | date:'mediumDate') : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p *ngIf="systemTasks.length === 0" class="text-sm text-gray-400 text-center py-3">No pending system tasks</p>
     </div>
   </ng-container>
 </div>

@@ -20,7 +20,7 @@ import { SlaComplianceScheduleService } from './sla-compliance-schedule.service'
 import { BranchComplianceController } from './branch-compliance.controller';
 import { ComplianceMetricsService } from './compliance-metrics.service';
 import { ComplianceMetricsController } from './compliance-metrics.controller';
-import { MonthlyComplianceUploadEntity } from '../monthly-documents/entities/monthly-compliance-upload.entity';
+import { ComplianceDocumentEntity } from '../branch-compliance/entities/compliance-document.entity';
 import { SlaTaskEntity } from '../sla/entities/sla-task.entity';
 import { BranchRegistrationEntity } from '../branches/entities/branch-registration.entity';
 import { RiskMonitorCronService } from './risk-monitor-cron.service';
@@ -37,7 +37,7 @@ import { EmailModule } from '../email/email.module';
       SlaComplianceRuleEntity,
       BranchComplianceEntity,
       BranchEntity,
-      MonthlyComplianceUploadEntity,
+      ComplianceDocumentEntity,
       SlaTaskEntity,
       BranchRegistrationEntity,
     ]),

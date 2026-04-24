@@ -7,6 +7,7 @@ import { CrmDashboardService } from './crm-dashboard.service';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { ListQueriesModule } from '../list-queries/list-queries.module';
 import { ReturnsModule } from '../returns/returns.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 /**
  * CRM Module
@@ -22,7 +23,12 @@ import { ReturnsModule } from '../returns/returns.module';
  * - DbService: provided globally via SharedModule
  */
 @Module({
-  imports: [ComplianceModule, ListQueriesModule, ReturnsModule],
+  imports: [
+    ComplianceModule,
+    ListQueriesModule,
+    ReturnsModule,
+    AuditLogsModule,
+  ],
   controllers: [
     CrmDashboardController,
     CrmContractorDocumentsController,

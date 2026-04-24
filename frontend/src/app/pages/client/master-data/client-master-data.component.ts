@@ -94,7 +94,7 @@ type MasterTab = 'departments' | 'grades' | 'designations';
           <ui-form-input label="Code *" [(ngModel)]="form.code" placeholder="e.g. HR, IT, FIN"></ui-form-input>
           <ui-form-input label="Name *" [(ngModel)]="form.name" placeholder="e.g. Human Resources"></ui-form-input>
           <label *ngIf="editingItem" class="flex items-center gap-2 text-sm">
-            <input type="checkbox" [(ngModel)]="form.isActive"> Active
+            <input autocomplete="off" id="cmd-is-active" name="isActive" type="checkbox" [(ngModel)]="form.isActive"> Active
           </label>
         </div>
         <div *ngIf="formError" class="text-sm text-red-600 mt-2">{{ formError }}</div>

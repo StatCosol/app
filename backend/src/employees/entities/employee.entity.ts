@@ -44,11 +44,8 @@ export class EmployeeEntity {
   @Column({ name: 'employee_code', type: 'varchar', length: 50 })
   employeeCode: string;
 
-  @Column({ name: 'first_name', type: 'varchar', length: 120 })
-  firstName: string;
-
-  @Column({ name: 'last_name', type: 'varchar', length: 120, nullable: true })
-  lastName: string | null;
+  @Column({ name: 'name', type: 'varchar', length: 250 })
+  name: string;
 
   @Column({ name: 'date_of_birth', type: 'date', nullable: true })
   dateOfBirth: string | null;
@@ -140,8 +137,17 @@ export class EmployeeEntity {
   @Column({ name: 'date_of_exit', type: 'date', nullable: true })
   dateOfExit: string | null;
 
+  @Column({ name: 'exit_reason', type: 'varchar', length: 500, nullable: true })
+  exitReason: string | null;
+
   @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
   stateCode: string | null;
+
+  @Column({ name: 'ctc', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  ctc: number | null;
+
+  @Column({ name: 'monthly_gross', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  monthlyGross: number | null;
 
   @Column({
     name: 'approval_status',

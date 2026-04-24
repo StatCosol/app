@@ -38,9 +38,12 @@ function section(doc: any, title: string, body: string): void {
   if (doc.y > 700) doc.addPage();
   doc.font('Helvetica-Bold').fontSize(11).text(title);
   doc.moveDown(0.15);
-  doc.font('Helvetica').fontSize(10).text(body?.trim() || '-', {
-    lineGap: 2,
-  });
+  doc
+    .font('Helvetica')
+    .fontSize(10)
+    .text(body?.trim() || '-', {
+      lineGap: 2,
+    });
   doc.moveDown(0.4);
 }
 
@@ -80,9 +83,10 @@ export async function generateAuditReportPdfBuffer(
       if (doc.y > 690) doc.addPage();
       doc.font('Helvetica-Bold').fontSize(12).text('Imported Observations');
       doc.moveDown(0.2);
-      doc.font('Helvetica').fontSize(9).text(
-        `Total: ${input.observations.length}`,
-      );
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .text(`Total: ${input.observations.length}`);
       doc.moveDown(0.3);
 
       if (!input.observations.length) {

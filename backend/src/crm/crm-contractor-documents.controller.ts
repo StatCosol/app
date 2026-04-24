@@ -1,18 +1,21 @@
 import {
+  BadRequestException,
   Controller,
   Get,
+  NotFoundException,
   Post,
   Param,
   Body,
   Query,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DbService } from '../common/db/db.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /**
  * CRM Contractor Documents Controller
@@ -33,8 +36,8 @@ export class CrmContractorDocumentsController {
    */
   @ApiOperation({ summary: 'Kpis' })
   @Get('kpis')
-  async kpis(@Req() req: any) {
-    const crmUserId = req.user.id;
+  async kpis(@CurrentUser() user: ReqUser) {
+    const crmUserId = user.id;
     const rows = await this.db.many(
       `WITH crm_clients AS (
          SELECT ca.client_id
@@ -79,8 +82,11 @@ export class CrmContractorDocumentsController {
    */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Req() req: any, @Query() query: any) {
-    const crmUserId = req.user.id;
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    const crmUserId = user.id;
     const clientId = query.clientId || null;
     const branchId = query.branchId || null;
     const contractorId = query.contractorId || null;
@@ -153,16 +159,16 @@ export class CrmContractorDocumentsController {
   @ApiOperation({ summary: 'Review' })
   @Post(':id/review')
   async review(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() body: { status: string; reviewNotes?: string },
   ) {
-    const crmUserId = req.user.id;
+    const crmUserId = user.id;
     const newStatus = body.status;
     const notes = body.reviewNotes || null;
 
     if (!['APPROVED', 'REJECTED'].includes(newStatus)) {
-      return { ok: false, message: 'Status must be APPROVED or REJECTED' };
+      throw new BadRequestException('Status must be APPROVED or REJECTED');
     }
 
     // Verify doc belongs to CRM's assigned client
@@ -179,7 +185,7 @@ export class CrmContractorDocumentsController {
     );
 
     if (!docs.length) {
-      return { ok: false, message: 'Document not found or not in your scope' };
+      throw new NotFoundException('Document not found or not in your scope');
     }
 
     await this.db.many(

@@ -28,6 +28,7 @@ import { PayrollQueryEntity } from './entities/payroll-query.entity';
 import { PayrollQueryMessageEntity } from './entities/payroll-query-message.entity';
 import { PayrollFnfEntity } from './entities/payroll-fnf.entity';
 import { PayrollFnfEventEntity } from './entities/payroll-fnf-event.entity';
+import { PayrollFnfDocumentEntity } from './entities/payroll-fnf-document.entity';
 // Engine entities
 import { PayRuleSetEntity } from './entities/pay-rule-set.entity';
 import { PayRuleParameterEntity } from './entities/pay-rule-parameter.entity';
@@ -39,6 +40,7 @@ import { ClientEntity } from '../clients/entities/client.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuditsModule } from '../audits/audits.module';
+import { AttendanceModule } from '../attendance/attendance.module';
 
 import { PayrollService } from './payroll.service';
 import { PayrollSetupService } from './payroll-setup.service';
@@ -95,6 +97,19 @@ import { PayrollConfigAuditService } from './payroll-config-audit.service';
 // Gratuity
 import { GratuityCalculatorService } from './services/gratuity-calculator.service';
 import { GratuityController } from './gratuity.controller';
+import { ClientPayrollToggleGuard } from '../auth/policies/client-payroll-toggle.guard';
+// Client-structures engine
+import { PayrollClientStructureEntity } from './entities/payroll-client-structure.entity';
+import { PayrollStructureComponentEntity } from './entities/payroll-structure-component.entity';
+import { PayrollComponentConditionEntity } from './entities/payroll-component-condition.entity';
+import { PayrollStatutoryConfigEntity } from './entities/payroll-statutory-config.entity';
+import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
+import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
+import { ClientStructuresService } from './client-structures.service';
+import { ClientPayrollCalculationService } from './client-payroll-calculation.service';
+import { ClientStructuresController } from './client-structures.controller';
+import { CtcSummaryService } from './ctc-summary.service';
+import { ClientCtcSummaryController, BranchCtcController } from './ctc-summary.controller';
 
 @Module({
   imports: [
@@ -128,6 +143,7 @@ import { GratuityController } from './gratuity.controller';
       PayrollQueryMessageEntity,
       PayrollFnfEntity,
       PayrollFnfEventEntity,
+      PayrollFnfDocumentEntity,
       EmployeeEntity,
       // Engine entities
       PayRuleSetEntity,
@@ -136,10 +152,18 @@ import { GratuityController } from './gratuity.controller';
       PaySalaryStructureItemEntity,
       PayCalcTraceEntity,
       PayrollConfigAuditEntity,
+      // Client-structures engine entities
+      PayrollClientStructureEntity,
+      PayrollStructureComponentEntity,
+      PayrollComponentConditionEntity,
+      PayrollStatutoryConfigEntity,
+      LeaveLedgerEntity,
+      LeaveBalanceEntity,
     ]),
     NotificationsModule,
     AuditsModule,
     ListQueriesModule,
+    AttendanceModule,
   ],
   controllers: [
     PayrollAssignmentsAdminController,
@@ -169,9 +193,15 @@ import { GratuityController } from './gratuity.controller';
     PayrollApprovalController,
     // Gratuity
     GratuityController,
+    // Client-structures engine
+    ClientStructuresController,
+    // CTC Summary
+    ClientCtcSummaryController,
+    BranchCtcController,
   ],
   providers: [
     PayrollService,
+    ClientPayrollToggleGuard,
     PayrollSetupService,
     PayrollProcessingService,
     StatutoryCalculatorService,
@@ -192,6 +222,10 @@ import { GratuityController } from './gratuity.controller';
     PayrollApprovalService,
     PayrollConfigAuditService,
     GratuityCalculatorService,
+    // Client-structures engine
+    ClientStructuresService,
+    ClientPayrollCalculationService,
+    CtcSummaryService,
   ],
   exports: [
     PayrollService,

@@ -1,83 +1,102 @@
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  IsIn,
+  IsUUID,
+  IsDateString,
+  IsObject,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
 export class PreviewEmployeeDto {
-  clientId: string;
-  employeeId: string | null = null;
-  branchId: string | null = null;
-  grossAmount: number;
-  asOfDate: string;
+  @IsUUID() clientId: string;
+  @IsOptional() @IsString() employeeId?: string;
+  @IsOptional() @IsString() branchId?: string;
+  @Type(() => Number)
+  @IsNumber() grossAmount: number;
+  @IsString() asOfDate: string;
 }
 
 export class CreateRuleSetDto {
-  clientId: string;
-  branchId?: string;
-  name: string;
-  effectiveFrom: string;
-  effectiveTo?: string;
+  @IsUUID() clientId: string;
+  @IsOptional() @IsString() branchId?: string;
+  @IsString() name: string;
+  @IsDateString() effectiveFrom: string;
+  @IsOptional() @IsDateString() effectiveTo?: string;
 }
 
 export class UpdateRuleSetDto {
-  name?: string;
-  branchId?: string;
-  effectiveFrom?: string;
-  effectiveTo?: string;
-  isActive?: boolean;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() branchId?: string;
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+  @IsOptional() @IsDateString() effectiveTo?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
 export class CreateParameterDto {
-  key: string;
-  valueNum?: number;
-  valueText?: string;
-  unit?: string;
-  notes?: string;
+  @IsString() key: string;
+  @IsOptional() @IsNumber() valueNum?: number;
+  @IsOptional() @IsString() valueText?: string;
+  @IsOptional() @IsString() unit?: string;
+  @IsOptional() @IsString() notes?: string;
 }
 
 export class UpdateParameterDto {
-  key?: string;
-  valueNum?: number;
-  valueText?: string;
-  unit?: string;
-  notes?: string;
+  @IsOptional() @IsString() key?: string;
+  @IsOptional() @IsNumber() valueNum?: number;
+  @IsOptional() @IsString() valueText?: string;
+  @IsOptional() @IsString() unit?: string;
+  @IsOptional() @IsString() notes?: string;
 }
 
 export class CreateStructureDto {
-  clientId: string;
-  name: string;
+  @IsUUID() clientId: string;
+  @IsString() name: string;
+  @IsIn(['TENANT', 'BRANCH', 'DEPARTMENT', 'GRADE', 'EMPLOYEE'])
   scopeType: 'TENANT' | 'BRANCH' | 'DEPARTMENT' | 'GRADE' | 'EMPLOYEE';
-  branchId?: string;
-  departmentId?: string;
-  gradeId?: string;
-  employeeId?: string;
-  ruleSetId?: string;
-  effectiveFrom: string;
-  effectiveTo?: string;
+  @IsOptional() @IsString() branchId?: string;
+  @IsOptional() @IsString() departmentId?: string;
+  @IsOptional() @IsString() gradeId?: string;
+  @IsOptional() @IsString() employeeId?: string;
+  @IsOptional() @IsUUID() ruleSetId?: string;
+  @IsDateString() effectiveFrom: string;
+  @IsOptional() @IsDateString() effectiveTo?: string;
 }
 
 export class UpdateStructureDto {
-  name?: string;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional()
+  @IsIn(['TENANT', 'BRANCH', 'DEPARTMENT', 'GRADE', 'EMPLOYEE'])
   scopeType?: 'TENANT' | 'BRANCH' | 'DEPARTMENT' | 'GRADE' | 'EMPLOYEE';
-  branchId?: string;
-  departmentId?: string;
-  gradeId?: string;
-  employeeId?: string;
-  ruleSetId?: string;
-  effectiveFrom?: string;
-  effectiveTo?: string;
-  isActive?: boolean;
+  @IsOptional() @IsString() branchId?: string;
+  @IsOptional() @IsString() departmentId?: string;
+  @IsOptional() @IsString() gradeId?: string;
+  @IsOptional() @IsString() employeeId?: string;
+  @IsOptional() @IsUUID() ruleSetId?: string;
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+  @IsOptional() @IsDateString() effectiveTo?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
 export class CreateStructureItemDto {
-  componentId: string;
+  @IsUUID() componentId: string;
+  @IsIn(['FIXED', 'PERCENT', 'FORMULA', 'SLAB', 'BALANCING'])
   calcMethod: 'FIXED' | 'PERCENT' | 'FORMULA' | 'SLAB' | 'BALANCING';
-  fixedAmount?: number | null;
-  percentage?: number | null;
+  @IsOptional() @IsNumber() fixedAmount?: number | null;
+  @IsOptional() @IsNumber() percentage?: number | null;
+  @IsOptional()
+  @IsIn(['BASIC', 'GROSS', 'CTC', 'PF_WAGE', 'ESI_WAGE'])
   percentageBase?: 'BASIC' | 'GROSS' | 'CTC' | 'PF_WAGE' | 'ESI_WAGE' | null;
-  formula?: string | null;
-  slabRef?: Record<string, unknown> | null;
-  balancingConfig?: Record<string, unknown> | null;
-  minAmount?: number | null;
-  maxAmount?: number | null;
-  roundingMode?: string;
-  priority?: number;
-  enabled?: boolean;
+  @IsOptional() @IsString() formula?: string | null;
+  @IsOptional() @IsObject() slabRef?: Record<string, unknown> | null;
+  @IsOptional() @IsObject() balancingConfig?: Record<string, unknown> | null;
+  @IsOptional() @IsNumber() minAmount?: number | null;
+  @IsOptional() @IsNumber() maxAmount?: number | null;
+  @IsOptional() @IsString() roundingMode?: string;
+  @IsOptional() @IsNumber() priority?: number;
+  @IsOptional() @IsBoolean() enabled?: boolean;
 }
 
 export class UpdateStructureItemDto extends CreateStructureItemDto {}

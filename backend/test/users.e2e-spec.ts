@@ -5,6 +5,7 @@ import { UsersController } from '../src/users/users.controller';
 import { UsersService } from '../src/users/users.service';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { RolesGuard } from '../src/auth/roles.guard';
+import { ConfigService } from '@nestjs/config';
 
 describe('UsersController (e2e) - /api/admin/users/list', () => {
   let app: INestApplication;
@@ -30,10 +31,17 @@ describe('UsersController (e2e) - /api/admin/users/list', () => {
     listUsersWithRoleCode: jest.fn().mockResolvedValue(mockUsers),
   };
 
+  const configServiceMock = {
+    get: jest.fn(),
+  };
+
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [{ provide: UsersService, useValue: usersServiceMock }],
+      providers: [
+        { provide: UsersService, useValue: usersServiceMock },
+        { provide: ConfigService, useValue: configServiceMock },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -46,12 +54,12 @@ describe('UsersController (e2e) - /api/admin/users/list', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('returns user list with roleCode', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/admin/users/list')
+      .get('/admin/users/list')
       .expect(200);
     expect(res.body).toEqual(mockUsers);
   });

@@ -20,6 +20,7 @@ export enum PlantType {
 
 export enum Periodicity {
   MONTHLY = 'MONTHLY',
+  BI_MONTHLY = 'BI_MONTHLY',
   QUARTERLY = 'QUARTERLY',
   HALF_YEARLY = 'HALF_YEARLY',
   ANNUAL = 'ANNUAL',

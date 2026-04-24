@@ -689,7 +689,7 @@ export class NotificationsService {
   async reply(
     fromUser: UserCtx,
     parentNotificationId: string,
-    message: string,
+    _message: string,
   ) {
     const repo = this.dataSource.getRepository(NotificationEntity);
 

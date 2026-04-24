@@ -5,7 +5,6 @@ import {
   Param,
   Body,
   UseGuards,
-  Request,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,19 +12,25 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollApprovalService } from './payroll-approval.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/runs', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('PAYROLL', 'ADMIN')
 export class PayrollApprovalController {
   constructor(private readonly approvalService: PayrollApprovalService) {}
 
   @ApiOperation({ summary: 'Submit' })
   @Post(':runId/submit')
   @Roles('PAYROLL', 'ADMIN', 'CLIENT')
-  submit(@Param('runId', ParseUUIDPipe) runId: string, @Request() req: any) {
-    return this.approvalService.submitForApproval(runId, req.user.userId);
+  submit(
+    @Param('runId', ParseUUIDPipe) runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.approvalService.submitForApproval(runId, user.userId);
   }
 
   @ApiOperation({ summary: 'Approve' })
@@ -34,9 +39,9 @@ export class PayrollApprovalController {
   approve(
     @Param('runId', ParseUUIDPipe) runId: string,
     @Body('comments') comments: string | undefined,
-    @Request() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.approveRun(runId, req.user.userId, comments);
+    return this.approvalService.approveRun(runId, user.userId, comments);
   }
 
   @ApiOperation({ summary: 'Reject' })
@@ -45,9 +50,9 @@ export class PayrollApprovalController {
   reject(
     @Param('runId', ParseUUIDPipe) runId: string,
     @Body('reason') reason: string,
-    @Request() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.rejectRun(runId, req.user.userId, reason);
+    return this.approvalService.rejectRun(runId, user.userId, reason);
   }
 
   @ApiOperation({ summary: 'Revert' })

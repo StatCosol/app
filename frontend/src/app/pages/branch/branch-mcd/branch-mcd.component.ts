@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, finalize, takeUntil } from 'rxjs/operators';
+import { catchError, finalize, takeUntil, timeout } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth.service';
 import { ReportsService } from '../../../core/reports.service';
 import {
@@ -13,8 +13,9 @@ import {
 } from '../../../core/branch-compliance-doc.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ModalComponent, PageHeaderComponent, StatusBadgeComponent } from '../../../shared/ui';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 
-type StatusFilter = 'ALL' | 'PENDING_UPLOAD' | 'QUERY_PENDING' | 'SUBMITTED' | 'APPROVED';
+type StatusFilter = 'ALL' | 'PENDING_UPLOAD' | 'QUERY_PENDING' | 'SUBMITTED' | 'APPROVED' | 'NOT_APPLICABLE';
 
 interface TimelineEvent {
   title: string;
@@ -35,6 +36,7 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
 
   loading = false;
   uploading = false;
+  errorMessage = '';
 
   branchId = '';
   selectedYear = new Date().getFullYear();
@@ -76,12 +78,18 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   selectedFile: File | null = null;
   uploadRemarks = '';
 
+  showNaModal = false;
+  naTarget: ChecklistItem | null = null;
+  naRemarks = '';
+  markingNa = false;
+
   constructor(
     private readonly complianceDocs: BranchComplianceDocService,
     private readonly auth: AuthService,
     private readonly route: ActivatedRoute,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly protectedFiles: ProtectedFileService,
   ) {
     const now = new Date();
     this.selectedYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
@@ -109,6 +117,7 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
     const branchIds = this.auth.getBranchIds();
     this.branchId = branchIds.length ? String(branchIds[0]) : branchIdFromQuery;
     if (!this.branchId) {
+      this.errorMessage = 'No branch mapping found for this user. Please contact admin.';
       this.toast.warning('Branch mapping not found', 'Please contact admin for branch access.');
       return;
     }
@@ -125,6 +134,8 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   load(focusReturnCode?: string): void {
     if (!this.branchId) return;
 
+    this.errorMessage = '';
+
     const filters = {
       branchId: this.branchId,
       year: this.selectedYear,
@@ -137,7 +148,12 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
 
     forkJoin({
       checklistRes: this.complianceDocs.getChecklist(filters).pipe(
-        catchError(() => of({ data: [] as ChecklistItem[], total: 0 })),
+        timeout(30000),
+        catchError((err) => {
+          console.error('[BranchMCD] checklist error:', err?.status, err?.error?.message || err?.message);
+          this.errorMessage = `Checklist API failed: ${err?.status || err?.name || 'unknown'} – ${err?.error?.message || err?.message || 'Unknown error'}`;
+          return of({ data: [] as ChecklistItem[], total: 0 });
+        }),
       ),
       docsRes: this.complianceDocs
         .listBranchDocs({
@@ -145,7 +161,16 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
           page: 1,
           pageSize: 500,
         })
-        .pipe(catchError(() => of({ data: [] as ComplianceDoc[], total: 0 }))),
+        .pipe(
+          timeout(30000),
+          catchError((err) => {
+            console.error('[BranchMCD] docs error:', err?.status, err?.error?.message || err?.message);
+            if (!this.errorMessage) {
+              this.errorMessage = `Docs API failed: ${err?.status || err?.name || 'unknown'} – ${err?.error?.message || err?.message || 'Unknown error'}`;
+            }
+            return of({ data: [] as ComplianceDoc[], total: 0 });
+          }),
+        ),
     })
       .pipe(
         takeUntil(this.load$),
@@ -241,7 +266,7 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   statusOf(item: ChecklistItem): string {
     const status = item.document?.status;
     if (status) return status;
-    return this.isOverdue(item) ? 'OVERDUE' : 'NOT_UPLOADED';
+    return this.isPastDue(item) ? 'OVERDUE' : 'NOT_UPLOADED';
   }
 
   canUpload(item: ChecklistItem): boolean {
@@ -263,17 +288,22 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   }
 
   isOverdue(item: ChecklistItem): boolean {
-    if (item.document?.status === 'OVERDUE') return true;
-    if (this.statusOf(item) === 'APPROVED') return false;
-    const due = this.resolveDueDate(item);
-    if (!due) return false;
-    return this.startOfDay(new Date(due)).getTime() < this.startOfDay(new Date()).getTime();
+    const status = item.document?.status;
+    if (status === 'OVERDUE') return true;
+    if (status === 'APPROVED') return false;
+    return this.isPastDue(item);
   }
 
   resolveDueDate(item: ChecklistItem): string | null {
     if (item.document?.dueDate) return item.document.dueDate;
     if (!item.dueDay) return null;
     return this.computeMonthlyDueDate(this.selectedYear, this.selectedMonth, item.dueDay);
+  }
+
+  private isPastDue(item: ChecklistItem): boolean {
+    const due = this.resolveDueDate(item);
+    if (!due) return false;
+    return this.startOfDay(new Date(due)).getTime() < this.startOfDay(new Date()).getTime();
   }
 
   dueLabel(item: ChecklistItem): string {
@@ -297,6 +327,57 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
     this.uploadTarget = null;
     this.selectedFile = null;
     this.uploadRemarks = '';
+  }
+
+  openNaModal(item: ChecklistItem): void {
+    this.naTarget = item;
+    this.naRemarks = '';
+    this.showNaModal = true;
+  }
+
+  closeNaModal(): void {
+    this.showNaModal = false;
+    this.naTarget = null;
+    this.naRemarks = '';
+  }
+
+  canMarkNa(item: ChecklistItem): boolean {
+    if (item.document?.isLocked) return false;
+    const status = this.statusOf(item);
+    return status === 'NOT_UPLOADED' || status === 'OVERDUE' || status === 'REUPLOAD_REQUIRED';
+  }
+
+  submitMarkNa(): void {
+    if (!this.naTarget || !this.branchId || !this.naRemarks.trim()) return;
+
+    this.markingNa = true;
+    const focusCode = this.naTarget.returnCode;
+    this.complianceDocs
+      .markNotApplicable({
+        branchId: this.branchId,
+        returnCode: this.naTarget.returnCode,
+        periodYear: this.selectedYear,
+        frequency: 'MONTHLY',
+        periodMonth: this.selectedMonth,
+        remarks: this.naRemarks.trim(),
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.markingNa = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Marked as Not Applicable');
+          this.closeNaModal();
+          this.load(focusCode);
+        },
+        error: (err) => {
+          this.toast.error('Failed', err?.error?.message || 'Please try again.');
+        },
+      });
   }
 
   onFileSelected(event: Event): void {
@@ -355,12 +436,20 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
   }
 
   openDocument(item: ChecklistItem): void {
-    const fileUrl = this.latestDocsByCode.get(item.returnCode)?.uploadedFileUrl;
+    const fileUrl = this.latestDocsByCode.get(item.returnCode)?.uploadedFileUrl
+      || item.document?.uploadedFileUrl;
     if (!fileUrl) {
       this.toast.info('No uploaded file is available for this item yet.');
       return;
     }
-    window.open(this.auth.authenticateUrl(fileUrl), '_blank');
+    this.protectedFiles
+      .open(fileUrl, item.document?.uploadedFileName || item.returnName)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to open document.');
+        },
+      });
   }
 
   get completenessPct(): number {
@@ -392,6 +481,10 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
 
   get approvedCount(): number {
     return this.checklist.filter((item) => this.statusOf(item) === 'APPROVED').length;
+  }
+
+  get naCount(): number {
+    return this.checklist.filter((item) => this.statusOf(item) === 'NOT_APPLICABLE').length;
   }
 
   get overdueCount(): number {
@@ -452,12 +545,41 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
       this.selectedTimeline = [];
       return;
     }
-    this.selectedLatestDoc = this.latestDocsByCode.get(this.selectedItem.returnCode) || null;
+    this.selectedLatestDoc = this.latestDocsByCode.get(this.selectedItem.returnCode)
+      || this.buildDocFromChecklist(this.selectedItem)
+      || null;
     this.selectedTimeline = this.buildTimeline(
       this.selectedItem,
       this.selectedLatestDoc,
       this.docsByCode.get(this.selectedItem.returnCode) || [],
     );
+  }
+
+  private buildDocFromChecklist(item: ChecklistItem): ComplianceDoc | null {
+    if (!item.document) return null;
+    return {
+      id: item.document.id,
+      companyId: '',
+      branchId: this.branchId,
+      returnCode: item.returnCode,
+      returnName: item.returnName,
+      lawArea: item.lawArea,
+      frequency: 'MONTHLY',
+      periodYear: this.selectedYear,
+      periodMonth: this.selectedMonth,
+      periodQuarter: null,
+      periodHalf: null,
+      dueDate: item.document.dueDate,
+      uploadedFileUrl: item.document.uploadedFileUrl,
+      uploadedFileName: item.document.uploadedFileName,
+      uploadedAt: item.document.uploadedAt,
+      status: item.document.status,
+      remarks: item.document.remarks,
+      uploaderRemarks: item.document.uploaderRemarks,
+      version: item.document.version,
+      isLocked: item.document.isLocked,
+      reviewedAt: item.document.reviewedAt,
+    } as ComplianceDoc;
   }
 
   private buildTimeline(
@@ -527,6 +649,8 @@ export class BranchMcdComponent implements OnInit, OnDestroy {
         return this.statusOf(item) === 'SUBMITTED' || this.statusOf(item) === 'RESUBMITTED';
       case 'APPROVED':
         return this.statusOf(item) === 'APPROVED';
+      case 'NOT_APPLICABLE':
+        return this.statusOf(item) === 'NOT_APPLICABLE';
       case 'ALL':
       default:
         return true;

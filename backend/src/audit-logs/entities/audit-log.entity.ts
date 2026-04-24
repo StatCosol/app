@@ -12,7 +12,13 @@ export type AuditEntityType =
   | 'ASSIGNMENT'
   | 'CONTRACTOR'
   | 'USER'
-  | 'SYSTEM';
+  | 'SYSTEM'
+  | 'RETURN_TASK'
+  | 'RENEWAL_TASK'
+  | 'DOCUMENT'
+  | 'AUDIT_OBSERVATION'
+  | 'MCD'
+  | 'NOTIFICATION';
 
 export type AuditAction =
   | 'CREATE'
@@ -26,7 +32,23 @@ export type AuditAction =
   | 'DELETE_REJECT'
   | 'STATUS_CHANGE'
   | 'PASSWORD_RESET'
-  | 'MASTER_DATA_UPDATED';
+  | 'MASTER_DATA_UPDATED'
+  | 'CREATED'
+  | 'ASSIGNED'
+  | 'DOCUMENT_UPLOADED'
+  | 'DOCUMENT_REUPLOADED'
+  | 'RETURNED_FOR_CORRECTION'
+  | 'SUBMITTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'VERIFIED'
+  | 'CLOSED'
+  | 'REMINDER_SENT'
+  | 'NOTIFICATION_SENT'
+  | 'DUE_DATE_CHANGED'
+  | 'OWNER_CHANGED'
+  | 'EXPORT_GENERATED'
+  | 'BULK_ACTION';
 
 @Entity('audit_logs')
 @Index(['entityType', 'entityId'])

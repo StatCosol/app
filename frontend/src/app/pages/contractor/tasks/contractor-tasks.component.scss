@@ -150,6 +150,7 @@
 }
 
 .list-row {
+  display: block;
   width: 100%;
   text-align: left;
   border: 1px solid #e5e7eb;
@@ -213,15 +214,16 @@
 .list-row__meta {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: space-between;
+  margin-top: 0.3rem;
   color: #64748b;
   font-size: 0.76rem;
 }
 
 .list-row__due {
-  margin-top: 0.4rem;
   font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .list-row__due--overdue {
@@ -230,6 +232,13 @@
 
 .list-row__due--normal {
   color: #475569;
+}
+
+.list-row__hint {
+  margin-top: 0.3rem;
+  font-size: 0.74rem;
+  color: #6366f1;
+  font-weight: 500;
 }
 
 .detail-content {
@@ -387,6 +396,21 @@
   font-weight: 700;
   color: #1e3a8a;
   margin-bottom: 0.5rem;
+}
+
+.wizard-doc-section {
+  margin-bottom: 0.75rem;
+}
+
+.wizard-doc-section__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .wizard-doc-grid {
@@ -568,4 +592,223 @@
   .task-center-layout {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr);
   }
+}
+
+// --- Monthly Document Checklist ---------------------------------------
+.monthly-checklist {
+  margin-bottom: 1rem;
+}
+
+.checklist-items {
+  padding: 0.5rem 1rem;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &--done {
+    opacity: 0.72;
+  }
+}
+
+.checklist-row__icon {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+
+  .icon {
+    width: 100%;
+    height: 100%;
+
+    &--green {
+      color: #059669;
+    }
+
+    &--red {
+      color: #dc2626;
+    }
+  }
+}
+
+.checklist-row__info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.checklist-row__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.checklist-row__filename {
+  font-size: 0.75rem;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14rem;
+}
+
+.checklist-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &--ok {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  &--missing {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+}
+
+.btn-upload {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #e0e7ff;
+  }
+}
+
+.checklist-upload-form {
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 0 0 1rem 1rem;
+
+  h6 {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 0.75rem;
+  }
+}
+
+.checklist-upload-form__fields {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 0.7rem;
+  margin-bottom: 0.85rem;
+}
+
+.checklist-upload-form__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: #4338ca;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-secondary {
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+@media (min-width: 640px) {
+  .checklist-upload-form__fields {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+// ─── Extensions for monthly compliance checklist ──────────────────────
+.panel-head__sub {
+  font-size: 0.72rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 400;
+}
+
+.checklist-row__desc {
+  font-size: 0.72rem;
+  color: #6b7280;
+  flex-basis: 100%;
+  margin-top: -0.15rem;
+}
+
+.checklist-badge--review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.checklist-badge--rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.checklist-badge--status {
+  font-size: 0.62rem;
+}
+
+.btn-upload--reupload {
+  color: #6b7280;
+  background: #f9fafb;
+  border-color: #d1d5db;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+.checklist-empty {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #9ca3af;
 }

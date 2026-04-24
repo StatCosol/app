@@ -43,6 +43,31 @@ export class RegisterTemplateEntity {
   })
   columnDefinitions: any[];
 
+  @Column({ name: 'law_family', type: 'varchar', length: 60, nullable: true })
+  lawFamily: string | null;
+
+  @Column({ name: 'form_code', type: 'varchar', length: 30, nullable: true })
+  formCode: string | null;
+
+  @Column({
+    name: 'register_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'STATE_OLD',
+  })
+  registerMode: string;
+
+  @Column({ name: 'frequency', type: 'varchar', length: 20, default: 'MONTHLY' })
+  frequency: string;
+
+  @Column({
+    name: 'applies_when',
+    type: 'jsonb',
+    default: () => "'{}'::jsonb",
+    nullable: true,
+  })
+  appliesWhen: Record<string, any> | null;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 

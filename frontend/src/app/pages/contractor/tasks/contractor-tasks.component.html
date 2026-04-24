@@ -1,18 +1,9 @@
 ﻿<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    title="My Workboard"
-    description="Simple page to upload documents, fix rejected files, and complete audit work"
+    [title]="typeFilter === 'AUDIT' ? 'Audits' : 'My Workboard'"
+    [description]="typeFilter === 'AUDIT' ? 'Upload compliance documents and complete audit checklist items' : 'Simple page to upload documents, fix rejected files, and complete audit work'"
     icon="clipboard-list">
   </ui-page-header>
-
-  <div class="task-center-card helper-strip">
-    <div class="helper-strip__title">How to use this page</div>
-    <div class="helper-strip__steps">
-      <span>1. Select an item from the left list</span>
-      <span>2. Upload or fix documents on the right side</span>
-      <span>3. Click submit when done</span>
-    </div>
-  </div>
 
   <div class="summary-grid">
     <div
@@ -27,6 +18,99 @@
       }">
       <div class="summary-card__label">{{ card.label }}</div>
       <div class="summary-card__value">{{ card.value }}</div>
+    </div>
+  </div>
+
+  <!-- Monthly Compliance Upload -->
+  <div class="task-center-card monthly-checklist">
+    <div class="panel-head">
+      <div>
+        <h3>Monthly Compliance Documents</h3>
+        <p class="panel-head__sub">Statutory documents for contract employees — {{ currentMonthLabel }}</p>
+      </div>
+      <span *ngIf="monthlyChecklist">
+        {{ monthlyChecklistUploadedCount }}/{{ monthlyChecklist.items.length }} uploaded
+      </span>
+    </div>
+
+    <ui-loading-spinner *ngIf="checklistLoading" size="sm" text="Loading checklist..."></ui-loading-spinner>
+
+    <div *ngIf="!checklistLoading" class="checklist-items">
+      <div
+        *ngFor="let item of monthlyChecklist?.items"
+        class="checklist-row"
+        [class.checklist-row--done]="item.uploaded">
+        <div class="checklist-row__icon">
+          <svg *ngIf="item.uploaded" xmlns="http://www.w3.org/2000/svg" class="icon icon--green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+          <svg *ngIf="!item.uploaded" xmlns="http://www.w3.org/2000/svg" class="icon icon--red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+          </svg>
+        </div>
+        <div class="checklist-row__info">
+          <span class="checklist-row__name">{{ monthlyDocLabel(item.docType) }}</span>
+          <span class="checklist-row__desc">{{ monthlyDocDesc(item.docType) }}</span>
+          <span class="checklist-badge"
+                [class.checklist-badge--ok]="item.uploaded"
+                [class.checklist-badge--missing]="!item.uploaded">
+            {{ item.uploaded ? 'Uploaded' : 'Pending' }}
+          </span>
+          <span *ngIf="item.uploaded && item.uploadedDocs[0]" class="checklist-row__filename">
+            {{ item.uploadedDocs[0].fileName }}
+            <span class="checklist-badge checklist-badge--status"
+                  [class.checklist-badge--ok]="item.uploadedDocs[0].status === 'APPROVED'"
+                  [class.checklist-badge--review]="item.uploadedDocs[0].status === 'PENDING'"
+                  [class.checklist-badge--rejected]="item.uploadedDocs[0].status === 'REJECTED'">
+              {{ item.uploadedDocs[0].status | titlecase }}
+            </span>
+          </span>
+        </div>
+        <button class="btn-upload" type="button"
+                (click)="openChecklistUpload(item)"
+                [class.btn-upload--reupload]="item.uploaded">
+          {{ item.uploaded ? 'Re-upload' : 'Upload' }}
+        </button>
+      </div>
+
+      <!-- Empty state if no checklist loaded -->
+      <div *ngIf="!monthlyChecklist" class="checklist-empty">
+        Could not load monthly checklist. Please refresh.
+      </div>
+    </div>
+
+    <!-- Inline upload form -->
+    <div *ngIf="checklistUploadItem" class="checklist-upload-form">
+      <h6>Upload: {{ monthlyDocLabel(checklistUploadItem.docType) }}</h6>
+      <div class="checklist-upload-form__fields">
+        <label class="filter-field">
+          <span>Title</span>
+          <input type="text" name="chkTitle" autocomplete="off"
+                 [(ngModel)]="checklistUploadTitle" />
+        </label>
+        <label class="filter-field" *ngIf="availableBranches.length > 1">
+          <span>Branch</span>
+          <select name="chkBranch" [(ngModel)]="checklistUploadBranchId">
+            <option value="">Select branch</option>
+            <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name }}</option>
+          </select>
+        </label>
+        <label class="filter-field">
+          <span>File (PDF, PNG, JPG, XLSX)</span>
+          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx"
+                 (change)="onChecklistFileChange($event)" />
+        </label>
+      </div>
+      <div class="checklist-upload-form__actions">
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="checklistUploading || !checklistUploadFile || !checklistUploadBranchId.trim()"
+          (click)="submitChecklistUpload()">
+          {{ checklistUploading ? 'Uploading…' : 'Submit' }}
+        </button>
+        <button type="button" class="btn-secondary" (click)="cancelChecklistUpload()">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -118,17 +202,12 @@
           <div class="list-row__title">{{ row.title }}</div>
 
           <div class="list-row__meta">
-            <span>{{ row.branchName || 'No branch' }}</span>
-            <span>&middot;</span>
             <span>{{ row.dueDate ? (row.dueDate | date: 'mediumDate') : 'No due date' }}</span>
-          </div>
-
-          <div class="list-row__due"
-               [ngClass]="{
-                 'list-row__due--overdue': dueText(row).includes('Overdue'),
-                 'list-row__due--normal': !dueText(row).includes('Overdue')
-               }">
-            {{ dueText(row) }}
+            <span class="list-row__due"
+                  [ngClass]="{
+                    'list-row__due--overdue': dueText(row).includes('Overdue'),
+                    'list-row__due--normal': !dueText(row).includes('Overdue')
+                  }">{{ dueText(row) }}</span>
           </div>
 
           <div class="list-row__hint">{{ nextStepHint(row) }}</div>
@@ -363,23 +442,26 @@
 
         <!-- Upload audit compliance documents -->
         <div class="action-card action-card--wizard">
-          <h5>Upload Audit Documents (Easy Steps)</h5>
+          <h5>Upload Audit Documents</h5>
           <p class="text-sm text-gray-600" style="margin-bottom: 0.25rem;">
-            Do not worry about technical terms. Follow these steps one by one.
+            Upload the documents requested by the auditor's checklist. Use the quick-picks below or type a custom document type.
           </p>
 
           <div class="wizard-step">
-            <div class="wizard-step__title">Step 1: Pick document from common checklist</div>
-            <div class="wizard-doc-grid">
-              <button
-                type="button"
-                class="wizard-doc-card"
-                *ngFor="let item of auditDocTemplates"
-                (click)="useAuditDocTemplate(item)">
-                <div class="wizard-doc-card__head">{{ item.label }}</div>
-                <div class="wizard-doc-card__text">{{ item.helpText }}</div>
-                <div class="wizard-doc-card__hint">Use this</div>
-              </button>
+            <div class="wizard-step__title">Step 1: Pick from audit document quick-list</div>
+            <div *ngFor="let section of auditDocSections" class="wizard-doc-section">
+              <div class="wizard-doc-section__label">{{ section }}</div>
+              <div class="wizard-doc-grid">
+                <button
+                  type="button"
+                  class="wizard-doc-card"
+                  *ngFor="let item of auditDocTemplatesBySection(section)"
+                  (click)="useAuditDocTemplate(item)">
+                  <div class="wizard-doc-card__head">{{ item.label }}</div>
+                  <div class="wizard-doc-card__text">{{ item.helpText }}</div>
+                  <div class="wizard-doc-card__hint">Use this</div>
+                </button>
+              </div>
             </div>
           </div>
 

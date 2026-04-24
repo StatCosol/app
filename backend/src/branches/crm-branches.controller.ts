@@ -4,7 +4,6 @@ import {
   Get,
   Post,
   Param,
-  Request,
   UseGuards,
   ForbiddenException,
   Patch,
@@ -12,6 +11,8 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { BranchesService } from './branches.service';
+import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateBranchDto } from './dto/update-branch.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -22,6 +23,8 @@ import {
   CrmAssignmentGuard,
 } from '../assignments/crm-assignment.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Branches')
 @ApiBearerAuth('JWT')
@@ -34,18 +37,6 @@ export class CrmBranchesController {
     private readonly assignmentsService: AssignmentsService,
     private readonly compliancesService: CompliancesService,
   ) {}
-
-  private async ensureClientAssigned(clientId: string, userId: string) {
-    const isAssigned = await this.assignmentsService.isClientAssignedToCrm(
-      clientId,
-      userId,
-    );
-    if (!isAssigned) {
-      throw new ForbiddenException(
-        'Client is not assigned to the current CRM user',
-      );
-    }
-  }
 
   private async ensureBranchAssigned(branchId: string, userId: string) {
     const branch = await this.branchesService.findById(branchId);
@@ -69,7 +60,7 @@ export class CrmBranchesController {
   @UseGuards(CrmAssignmentGuard)
   async listByClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Request() req,
+    @CurrentUser() _user: ReqUser,
   ) {
     return this.branchesService.findByClient(clientId);
   }
@@ -80,14 +71,14 @@ export class CrmBranchesController {
   @UseGuards(CrmAssignmentGuard)
   async createBranch(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Body() dto: any,
-    @Request() req,
+    @Body() dto: CreateBranchDto,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.branchesService.create(
       clientId,
       dto,
-      req.user?.userId,
-      req.user?.roleCode,
+      user?.userId,
+      user?.roleCode,
     );
   }
 
@@ -97,9 +88,9 @@ export class CrmBranchesController {
   @Get('branches/:id/compliances')
   async listCompliances(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.ensureBranchAssigned(id, req.user.userId);
+    await this.ensureBranchAssigned(id, user.userId);
     return this.compliancesService.getBranchCompliances(id);
   }
 
@@ -108,14 +99,14 @@ export class CrmBranchesController {
   async saveCompliances(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { complianceIds: string[] },
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    const branch = await this.ensureBranchAssigned(id, req.user.userId);
+    const branch = await this.ensureBranchAssigned(id, user.userId);
     return this.compliancesService.saveBranchCompliances(
       id,
       branch.clientId,
       body.complianceIds ?? [],
-      req.user.userId,
+      user.userId,
     );
   }
 
@@ -125,21 +116,24 @@ export class CrmBranchesController {
   @Patch('branches/:id')
   async updateBranch(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: any,
-    @Request() req,
+    @Body() dto: UpdateBranchDto,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.ensureBranchAssigned(id, req.user.userId);
+    await this.ensureBranchAssigned(id, user.userId);
     return this.branchesService.update(id, dto);
   }
 
   @ApiOperation({ summary: 'Delete Branch' })
   @Delete('branches/:id')
-  async deleteBranch(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
-    await this.ensureBranchAssigned(id, req.user.userId);
+  async deleteBranch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.ensureBranchAssigned(id, user.userId);
     return this.branchesService.delete(
       id,
-      req.user?.userId,
-      req.user?.roleCode,
+      user?.userId,
+      user?.roleCode,
       'CRM delete',
     );
   }
@@ -150,9 +144,9 @@ export class CrmBranchesController {
   @Get('branches/:id/contractors')
   async listContractors(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.ensureBranchAssigned(id, req.user.userId);
+    await this.ensureBranchAssigned(id, user.userId);
     return this.branchesService.listContractors(id);
   }
 
@@ -161,9 +155,9 @@ export class CrmBranchesController {
   async addContractor(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('userId', ParseUUIDPipe) userId: string,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.ensureBranchAssigned(id, req.user.userId);
+    await this.ensureBranchAssigned(id, user.userId);
     return this.branchesService.addContractor(id, userId);
   }
 
@@ -172,9 +166,9 @@ export class CrmBranchesController {
   async removeContractor(
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
-    @Request() req,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.ensureBranchAssigned(branchId, req.user.userId);
+    await this.ensureBranchAssigned(branchId, user.userId);
     return this.branchesService.removeContractor(branchId, userId);
   }
 }

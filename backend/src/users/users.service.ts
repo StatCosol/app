@@ -15,10 +15,10 @@ import { DeletionRequestEntity } from './entities/deletion-request.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UserDirectoryQueryDto } from './dto/user-directory-query.dto';
 import { ClientEntity } from '../clients/entities/client.entity';
-import { ClientUserEntity } from '../clients/entities/client-user.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
+import { ConfigService } from '@nestjs/config';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
-// BranchContractorEntity removed from directory query (table absent); use user_branches join table instead
+
 
 export type ListUsersPagedArgs = {
   q?: string;
@@ -36,6 +36,16 @@ export type PagedResult<T> = {
   page: number;
   pageSize: number;
 };
+
+export interface ContractorRow {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  isActive: boolean;
+  status: 'ACTIVE' | 'INACTIVE';
+  branchId: string;
+}
 
 export type UserListItem = {
   id: string;
@@ -75,7 +85,7 @@ export class UsersService implements OnModuleInit {
   /**
    * Find all contractors linked to the given branch IDs (for client view)
    */
-  async findContractorsByBranchIds(branchIds: string[]): Promise<any[]> {
+  async findContractorsByBranchIds(branchIds: string[]): Promise<ContractorRow[]> {
     if (!branchIds || branchIds.length === 0) return [];
 
     const rows = await this.usersRepo.manager.query(
@@ -98,7 +108,7 @@ export class UsersService implements OnModuleInit {
       [branchIds],
     );
 
-    return rows.map((r: any) => ({
+    return rows.map((r: { id: string; name: string; email: string; mobile: string; isActive: boolean; branchId: string }) => ({
       id: r.id,
       name: r.name,
       email: r.email,
@@ -119,20 +129,15 @@ export class UsersService implements OnModuleInit {
     private branchesRepo: Repository<BranchEntity>,
     private dataSource: DataSource,
     private auditLogs: AuditLogsService,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
-    if (process.env.SKIP_BOOTSTRAP_SEED === 'true') {
-      this.logger.warn(
-        'Skipping UsersService module seed/init due to SKIP_BOOTSTRAP_SEED=true',
-      );
+    if (this.config.get<string>('SKIP_BOOTSTRAP_SEED') === 'true') {
       return;
     }
 
-    // Ensure base roles exist
-    await this.seedRolesIfEmpty();
-    // Ensure there is at least one admin user for initial login
-    await this.seedAdminIfMissing();
+    // Seeding (roles + admin) is handled in main.ts bootstrap — not duplicated here.
     // One-time: regenerate all user codes to new format (fire-and-forget, non-blocking)
     this.regenerateUserCodesOnce().catch((err) => {
       this.logger.warn(
@@ -206,7 +211,8 @@ export class UsersService implements OnModuleInit {
   }
 
   async seedAdminIfMissing() {
-    const adminEmail = 'admin@statcosol.com';
+    const adminEmail = 'it_admin@statcosol.com';
+    const explicitPass = this.config.get<string>('DEFAULT_SEED_PASSWORD');
 
     const adminRole = await this.rolesRepo.findOne({
       where: { code: 'ADMIN' },
@@ -219,19 +225,66 @@ export class UsersService implements OnModuleInit {
       where: { email: adminEmail.toLowerCase() },
     });
     if (existing) {
+      // Recovery path: when explicitly configured, rotate/reset the admin password.
+      if (explicitPass) {
+        const passwordHash = await bcrypt.hash(explicitPass, 10);
+        await this.usersRepo.update(
+          { id: existing.id },
+          { passwordHash, isActive: true, deletedAt: null },
+        );
+      }
       return;
     }
 
     // Dev convenience: allow seeding a default admin only in non-production
     // In production, require DEFAULT_SEED_PASSWORD to be explicitly provided.
-    const isProd = process.env.NODE_ENV === 'production';
-    const seedPass = process.env.DEFAULT_SEED_PASSWORD ?? 'Admin@123';
-    if (isProd && !process.env.DEFAULT_SEED_PASSWORD) {
-      // Avoid silently creating an insecure default account in production.
+    const isProd = this.config.get<string>('NODE_ENV') === 'production';
+    if (!explicitPass) {
+      if (isProd) {
+        // Avoid silently creating an insecure default account in production.
+        return;
+      }
+      // In dev/test, generate a random one-time password and log it once.
+      const randomPass = require('crypto')
+        .randomBytes(12)
+        .toString('base64url');
+      const passwordHash = await bcrypt.hash(randomPass, 10);
+      const admin = this.usersRepo.create({
+        userCode: 'SAAD01',
+        roleId: adminRole.id,
+        name: 'System Admin',
+        email: adminEmail.toLowerCase(),
+        mobile: null,
+        passwordHash,
+        isActive: true,
+        clientId: null,
+        ownerCcoId: null,
+      });
+      await this.usersRepo.save(admin);
+      this.logger.warn(
+        `[SEED] Admin account created: ${adminEmail} (one-time password written to .seed-admin-password — or set DEFAULT_SEED_PASSWORD env var)`,
+      );
+      // Write password to a local file instead of logging it, to avoid credential leakage in shared logs.
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.join(process.cwd(), '.seed-admin-password');
+        fs.writeFileSync(filePath, `${adminEmail}\n${randomPass}\n`, {
+          mode: 0o600,
+        });
+        this.logger.warn(
+          `[SEED] Password written to ${filePath} — read it and delete the file.`,
+        );
+      } catch {
+        // If file write fails (e.g. read-only container), fall back to a masked hint.
+        this.logger.warn(
+          '[SEED] Could not write password file. Set DEFAULT_SEED_PASSWORD env var to control the password.',
+        );
+      }
       return;
     }
 
-    const passwordHash = await bcrypt.hash(seedPass, 10);
+    const passwordHash = await bcrypt.hash(explicitPass, 10);
 
     const admin = this.usersRepo.create({
       userCode: 'SAAD01', // System Admin - AD(min) - 01
@@ -260,7 +313,7 @@ export class UsersService implements OnModuleInit {
   private async regenerateUserCodesOnce() {
     try {
       // Quick check: if at least one user already has the new format, skip.
-      const sample: any[] = await this.usersRepo.manager.query(
+      const sample: { userCode: string | null }[] = await this.usersRepo.manager.query(
         `SELECT user_code AS "userCode" FROM users WHERE user_code IS NOT NULL LIMIT 50`,
       );
 
@@ -450,6 +503,7 @@ export class UsersService implements OnModuleInit {
       AUDITOR: 'AU',
       CLIENT: 'CL',
       CONTRACTOR: 'CO',
+      ACCOUNTS: 'AC',
     };
     return map[roleCode] ?? roleCode.substring(0, 2).toUpperCase();
   }
@@ -639,6 +693,14 @@ export class UsersService implements OnModuleInit {
 
     const saved = await this.usersRepo.save(user);
 
+    // Persist userType via raw SQL (entity has insert:false/update:false)
+    if (userType) {
+      await this.usersRepo.manager.query(
+        `UPDATE users SET user_type = $1 WHERE id = $2`,
+        [userType, saved.id],
+      );
+    }
+
     // Assign branches for BRANCH CLIENT users via user_branches join table
     if (
       role.code === 'CLIENT' &&
@@ -751,6 +813,12 @@ export class UsersService implements OnModuleInit {
     });
 
     const saved = await manager.save(UserEntity, user);
+
+    // Persist userType via raw SQL (entity has insert:false/update:false)
+    await manager.query(
+      `UPDATE users SET user_type = $1 WHERE id = $2`,
+      ['MASTER', saved.id],
+    );
 
     // Audit log for master user creation
     await this.auditLogs.log({
@@ -898,7 +966,8 @@ export class UsersService implements OnModuleInit {
     if (!user) throw new NotFoundException('User not found');
 
     const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
-    const roleCode = role?.code;
+    if (!role) throw new NotFoundException('Role not found for user');
+    const roleCode = role.code;
 
     // Prevent changing status of ADMIN or CEO users entirely
     if (roleCode === 'ADMIN' || roleCode === 'CEO') {
@@ -959,7 +1028,8 @@ export class UsersService implements OnModuleInit {
     if (!user) throw new NotFoundException('User not found');
 
     const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
-    const roleCode = role?.code;
+    if (!role) throw new NotFoundException('Role not found for user');
+    const roleCode = role.code;
 
     // Prevent editing ADMIN or CEO users by other admins
     if (
@@ -1006,7 +1076,8 @@ export class UsersService implements OnModuleInit {
     if (!user) throw new NotFoundException('User not found');
 
     const role = await this.rolesRepo.findOne({ where: { id: user.roleId } });
-    const roleCode = role?.code;
+    if (!role) throw new NotFoundException('Role not found for user');
+    const roleCode = role.code;
 
     if (roleCode === 'ADMIN' || roleCode === 'CEO') {
       throw new BadRequestException(
@@ -1090,6 +1161,24 @@ export class UsersService implements OnModuleInit {
     return role.code;
   }
 
+  async getAssignedClientIds(userId: string): Promise<string[]> {
+    const rows: { client_id: string }[] = await this.dataSource.query(
+      `SELECT client_id FROM client_assignments_current
+       WHERE assigned_to_user_id = $1`,
+      [userId],
+    );
+    return rows.map((r) => r.client_id);
+  }
+
+  async getPayrollAssignedClientIds(userId: string): Promise<string[]> {
+    const rows: { client_id: string }[] = await this.dataSource.query(
+      `SELECT client_id FROM payroll_client_assignments
+       WHERE payroll_user_id = $1 AND status = 'ACTIVE' AND end_date IS NULL`,
+      [userId],
+    );
+    return rows.map((r) => r.client_id);
+  }
+
   // Ensure a user is scoped to a single client. If clientId is not set, assign it;
   // if already set to a different client, throw.
   async ensureUserClientScope(userId: string, clientId: string) {
@@ -1126,7 +1215,7 @@ export class UsersService implements OnModuleInit {
 
     // Build raw SQL to avoid any TypeORM column-resolution issues
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramIdx = 1;
 
     // CRITICAL: Always exclude soft-deleted users
@@ -1217,7 +1306,7 @@ export class UsersService implements OnModuleInit {
     );
     this.logger.debug('[getUserDirectory] Params:', dataParams);
 
-    const dataRows: any[] = await this.dataSource.query(dataSql, dataParams);
+    const dataRows: { id: string; userCode: string | null; name: string; email: string; mobile: string | null; isActive: boolean; createdAt: string; deletedAt: string | null; roleCode: string | null; roleName: string | null; clientId: string | null; clientName: string | null }[] = await this.dataSource.query(dataSql, dataParams);
 
     this.logger.debug(
       `[getUserDirectory] DB returned ${dataRows.length} rows, total=${total}`,
@@ -1259,7 +1348,14 @@ export class UsersService implements OnModuleInit {
     }
 
     // Group by client for summary view
-    const groupsMap = new Map<string, any>();
+    const groupsMap = new Map<
+      string,
+      {
+        client: { id: string; name: string };
+        counts: { contractors: number; clientUsers: number };
+        items: typeof items;
+      }
+    >();
 
     for (const u of items) {
       const cid: string = u.clientId ?? '__unlinked__';
@@ -1273,6 +1369,7 @@ export class UsersService implements OnModuleInit {
       }
 
       const g = groupsMap.get(cid);
+      if (!g) continue;
       if (u.roleCode === 'CONTRACTOR') {
         g.counts.contractors++;
       }
@@ -1294,7 +1391,7 @@ export class UsersService implements OnModuleInit {
     const role = await this.rolesRepo.findOne({ where: { code: roleCode } });
     if (!role) throw new NotFoundException(`Role not found: ${roleCode}`);
 
-    const where: any = { roleId: role.id, isActive: true, deletedAt: IsNull() };
+    const where: { roleId: string; isActive: true; deletedAt: ReturnType<typeof IsNull>; clientId?: string } = { roleId: role.id, isActive: true, deletedAt: IsNull() };
 
     // For contractor dropdowns, optionally scope by clientId
     if (roleCode === 'CONTRACTOR' && clientId) {
@@ -1390,7 +1487,8 @@ export class UsersService implements OnModuleInit {
     if (!u) throw new NotFoundException('User not found');
 
     const role = await this.rolesRepo.findOne({ where: { id: u.roleId } });
-    const roleCode = role?.code;
+    if (!role) throw new NotFoundException('Role not found for user');
+    const roleCode = role.code;
 
     // Prevent deleting any ADMIN or CEO user, or deleting yourself
     if (roleCode === 'ADMIN') {
@@ -1473,14 +1571,10 @@ export class UsersService implements OnModuleInit {
     let requiredApproverUserId: string | null = null;
 
     if (roleCode === 'CRM') {
-      if (!user.ownerCcoId) {
-        throw new BadRequestException(
-          'CRM has no assigned CCO. Assign owner CCO first.',
-        );
-      }
-
       requiredApproverRole = 'CCO';
-      requiredApproverUserId = user.ownerCcoId;
+      // Prefer user-level routing to owner CCO when available.
+      // Fallback to role-queue so deletion does not fail for legacy/unassigned CRM users.
+      requiredApproverUserId = user.ownerCcoId ?? null;
     } else if (roleCode === 'CCO') {
       // CCO deletions must be approved by CEO (role-based queue)
       requiredApproverRole = 'CEO';
@@ -1526,7 +1620,7 @@ export class UsersService implements OnModuleInit {
     // Enrich with friendly labels for UI (entity + requester)
     const cleanEmail = (e: string) =>
       e ? e.replace(/#deleted#\d+/g, '').replace(/#deleted#/g, '') : e;
-    const result: any[] = [];
+    const result: { id: number; entityType: string; entityId: string; status: string; remarks: string | null; entityLabel: string | null; requestedBy: { id: string; name: string; email: string } | null; createdAt: Date; updatedAt: Date | null }[] = [];
     for (const r of rows) {
       let entityLabel: string | null = null;
       if (r.entityType === 'USER') {
@@ -1659,6 +1753,9 @@ export class UsersService implements OnModuleInit {
     approverRoleCode: string,
   ) {
     const reqId = Number(requestId);
+    if (isNaN(reqId)) {
+      throw new BadRequestException('Invalid request ID');
+    }
     const req = await this.deletionRepo.findOne({ where: { id: reqId } });
     if (!req || req.status !== 'PENDING') {
       throw new BadRequestException('Invalid request');
@@ -1707,6 +1804,9 @@ export class UsersService implements OnModuleInit {
     remarks: string,
   ) {
     const reqId = Number(requestId);
+    if (isNaN(reqId)) {
+      throw new BadRequestException('Invalid request ID');
+    }
     const req = await this.deletionRepo.findOne({ where: { id: reqId } });
 
     if (!req || req.status !== 'PENDING') {

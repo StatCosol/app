@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { DbService } from '../common/db/db.service';
-import { normalizeDateFilters, normalizePaging } from '../common/utils/filters';
+import { normalizeDateFilters, normalizePaging, FilterQuery } from '../common/utils/filters';
 import { AUDIT_TAB, AuditorAuditTab } from '../common/utils/enums';
 import {
   AUDITOR_SUMMARY_SQL,
@@ -33,18 +33,19 @@ export interface AuditorAuditDto {
 }
 
 export interface AuditorObservationDto {
-  observation_id: string;
-  audit_id: string;
-  client_id: string;
-  client_name: string;
-  branch_id: string;
-  branch_name: string;
+  observationId: string;
+  auditId: string;
+  clientId: string;
+  clientName: string;
+  branchId: string;
+  branchName: string;
   title: string;
   risk: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-  owner_role: string;
+  ownerName: string;
+  ownerRole: string;
   status: string;
-  ageing_days: number;
-  created_at: Date;
+  ageingDays: number;
+  createdAt: Date;
 }
 
 export interface AuditorReportDto {
@@ -73,7 +74,7 @@ export class AuditorDashboardService {
    */
   async getSummary(
     auditorUserId: string,
-    query: any,
+    query: FilterQuery,
   ): Promise<AuditorSummaryDto> {
     const f = normalizeDateFilters(query);
 
@@ -92,7 +93,7 @@ export class AuditorDashboardService {
    */
   async getAudits(
     auditorUserId: string,
-    query: any,
+    query: FilterQuery,
   ): Promise<AuditorAuditDto[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);
@@ -120,7 +121,7 @@ export class AuditorDashboardService {
    */
   async getObservations(
     auditorUserId: string,
-    query: any,
+    query: FilterQuery,
   ): Promise<AuditorObservationDto[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);
@@ -144,7 +145,7 @@ export class AuditorDashboardService {
    */
   async getReports(
     auditorUserId: string,
-    query: any,
+    query: FilterQuery,
   ): Promise<AuditorReportDto[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);

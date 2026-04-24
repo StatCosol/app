@@ -1194,12 +1194,40 @@ export class PayrollService {
     const colGross = findCol(['gross']);
     const colTotalDed = findCol(['total deduction', 'total deductions']);
     const colNetPay = findCol(['net salary', 'net pay', 'net']);
-    const colEmployerCost = findCol(['monthly ctc', 'ctc', 'employer cost']);
+    const colMonthlyCtc = findCol([
+      'monthly ctc',
+      'month ctc',
+      'ctc monthly',
+      'total monthly ctc',
+    ]);
+    const colEmployerContribution = findCol([
+      'employer contributions',
+      'employer contribution',
+      'employer cost',
+      'total employer contribution',
+    ]);
+    // Intentionally do not match generic "ctc" / "total ctc" to avoid ingesting annual CTC.
+    const colEmployerCost = colMonthlyCtc || colEmployerContribution;
+    const colPfEmployee = findCol(['pf employee', 'employee pf', 'pf emp', 'pf deduction']);
+    const colEsiEmployee = findCol(['esi employee', 'employee esi', 'esi emp', 'esi deduction']);
+    const colPt = findCol(['professional tax', 'prof tax', 'pt']);
+    const colPfEmployer = findCol(['pf employer', 'employer pf', 'pf er']);
+    const colEsiEmployer = findCol(['esi employer', 'employer esi', 'esi er']);
+    const colBonus = findCol(['bonus', 'attendance bonus', 'bonus provision']);
 
     if (!colEmployeeName)
       throw new BadRequestException('Required column not found: Name');
 
     const rows: Partial<PayrollRunEmployeeEntity>[] = [];
+    const componentRows: Array<{
+      employeeCode: string;
+      pfEmployee: number | null;
+      esiEmployee: number | null;
+      pt: number | null;
+      pfEmployer: number | null;
+      esiEmployer: number | null;
+      bonus: number | null;
+    }> = [];
     const lastRow = ws.actualRowCount || ws.rowCount || 1;
 
     for (let i = 2; i <= lastRow; i++) {
@@ -1235,6 +1263,24 @@ export class PayrollService {
       const employerCost = colEmployerCost
         ? this.numberFromCell(row.getCell(colEmployerCost).value)
         : null;
+      const pfEmployee = colPfEmployee
+        ? this.numberFromCell(row.getCell(colPfEmployee).value)
+        : null;
+      const esiEmployee = colEsiEmployee
+        ? this.numberFromCell(row.getCell(colEsiEmployee).value)
+        : null;
+      const pt = colPt
+        ? this.numberFromCell(row.getCell(colPt).value)
+        : null;
+      const pfEmployer = colPfEmployer
+        ? this.numberFromCell(row.getCell(colPfEmployer).value)
+        : null;
+      const esiEmployer = colEsiEmployer
+        ? this.numberFromCell(row.getCell(colEsiEmployer).value)
+        : null;
+      const bonus = colBonus
+        ? this.numberFromCell(row.getCell(colBonus).value)
+        : null;
 
       rows.push({
         runId: run.id,
@@ -1249,6 +1295,22 @@ export class PayrollService {
         totalDeductions: String(totalDed ?? 0),
         netPay: String(netPay ?? 0),
         employerCost: String(employerCost ?? 0),
+        pfEmployee: pfEmployee !== null ? String(pfEmployee) : null,
+        esiEmployee: esiEmployee !== null ? String(esiEmployee) : null,
+        pt: pt !== null ? String(pt) : null,
+        pfEmployer: pfEmployer !== null ? String(pfEmployer) : null,
+        esiEmployer: esiEmployer !== null ? String(esiEmployer) : null,
+        bonus: bonus !== null ? String(bonus) : null,
+      });
+
+      componentRows.push({
+        employeeCode,
+        pfEmployee,
+        esiEmployee,
+        pt,
+        pfEmployer,
+        esiEmployer,
+        bonus,
       });
     }
 
@@ -1258,6 +1320,44 @@ export class PayrollService {
       'runId',
       'employeeCode',
     ]);
+
+    const cvRepo = this.runEmployeeRepo.manager.getRepository(PayrollRunComponentValueEntity);
+    const runEmployees = await this.runEmployeeRepo.find({ where: { runId: run.id } });
+    const runEmpByCode = new Map(runEmployees.map((re) => [re.employeeCode, re.id]));
+    const componentValues: Partial<PayrollRunComponentValueEntity>[] = [];
+
+    for (const row of componentRows) {
+      const runEmployeeId = runEmpByCode.get(row.employeeCode);
+      if (!runEmployeeId) continue;
+
+      const pushComp = (code: string, amount: number | null) => {
+        if (amount === null || amount === undefined) return;
+        componentValues.push({
+          runId: run.id,
+          runEmployeeId,
+          componentCode: code,
+          amount: String(amount),
+          source: 'UPLOADED',
+        });
+      };
+
+      pushComp('PF_EMP', row.pfEmployee);
+      pushComp('ESI_EMP', row.esiEmployee);
+      pushComp('PT', row.pt);
+      pushComp('PF_ER', row.pfEmployer);
+      pushComp('ESI_ER', row.esiEmployer);
+      pushComp('BONUS', row.bonus);
+    }
+
+    if (componentValues.length) {
+      await cvRepo
+        .createQueryBuilder()
+        .insert()
+        .values(componentValues)
+        .orUpdate(['amount', 'source'], ['run_employee_id', 'component_code'])
+        .execute();
+    }
+
     // Keep run status unchanged on employee import. Processing transition
     // is controlled explicitly by the process action.
 

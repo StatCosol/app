@@ -74,6 +74,21 @@ interface AuditDocTemplate {
   docType: string;
   titleHint: string;
   helpText: string;
+  section?: string;
+}
+
+interface ChecklistItem {
+  id: string;
+  docType: string;
+  branchId: string | null;
+  isRequired: boolean;
+  uploaded: boolean;
+  uploadedDocs: { id: string; fileName: string; status: string; uploadedAt: string; branchId: string | null }[];
+}
+
+interface MonthlyChecklist {
+  month: string;
+  items: ChecklistItem[];
 }
 
 @Component({
@@ -114,6 +129,8 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   branchFilter = '';
   dueFilter: 'ALL' | 'OVERDUE' | 'DUE_TODAY' | 'DUE_7_DAYS' = 'ALL';
 
+  availableBranches: { id: string; name: string }[] = [];
+
   readonly statusOptions = [
     'ALL',
     'OPEN',
@@ -137,44 +154,250 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   reuploadFile: File | null = null;
   auditNcFiles: Record<string, File | null> = {};
 
+  // Monthly document checklist
+  monthlyChecklist: MonthlyChecklist | null = null;
+  checklistLoading = false;
+  checklistUploadItem: ChecklistItem | null = null;
+  checklistUploadFile: File | null = null;
+  checklistUploadTitle = '';
+  checklistUploadBranchId = '';
+  checklistUploading = false;
+
   // Audit primary document upload
   auditDocFile: File | null = null;
   auditDocType = '';
   auditDocTitle = '';
   auditDocUploading = false;
 
+  private static readonly MONTHLY_DOC_META: Record<string, { label: string; desc: string }> = {
+    WAGE_REGISTER:  { label: 'Wage Register',            desc: 'Monthly wage sheet for all contract workers' },
+    MUSTER_ROLL:    { label: 'Muster Roll',              desc: 'Attendance register (Form XVI) for the month' },
+    OT_REGISTER:    { label: 'Overtime (OT) Register',   desc: 'Record of overtime hours worked by contract employees' },
+    PF_CHALLAN:     { label: 'PF Challan',               desc: 'Provident Fund payment challan / ECR receipt' },
+    ESI_CHALLAN:    { label: 'ESI Challan',              desc: 'ESI contribution payment receipt for the month' },
+    PT_CHALLAN:     { label: 'Professional Tax (PT)',    desc: 'Professional Tax challan / payment proof' },
+  };
+
   readonly auditDocTemplates: AuditDocTemplate[] = [
+    // Section I – License Details
     {
-      label: 'Wage Register',
+      section: 'I. License Details',
+      label: 'CLRA License',
+      docType: 'CLRA_LICENSE',
+      titleHint: 'CLRA License – Validity & Workcentre Address',
+      helpText: 'Valid CLRA license showing validity period and workcentre address.',
+    },
+    // Section II – Agreement
+    {
+      section: 'II. Agreement',
+      label: 'Work Order / Contract Agreement',
+      docType: 'WORK_ORDER',
+      titleHint: 'Work Order / Contract Agreement',
+      helpText: 'Signed agreement between contractor and principal employer.',
+    },
+    // Section III – Registers
+    {
+      section: 'III. Registers',
+      label: 'Register of Muster Roll',
+      docType: 'MUSTER_ROLL_REGISTER',
+      titleHint: 'Register of Muster Roll',
+      helpText: 'Attendance muster roll maintained for all contract employees.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Register of Wages',
       docType: 'WAGE_REGISTER',
-      titleHint: 'Wage Register - <Month Year>',
-      helpText: 'Monthly wage sheet signed or approved by your team.',
+      titleHint: 'Register of Wages',
+      helpText: 'Monthly wage register for all contract employees.',
     },
     {
-      label: 'PF Challan',
+      section: 'III. Registers',
+      label: 'Register of Fines',
+      docType: 'REGISTER_OF_FINES',
+      titleHint: 'Register of Fines',
+      helpText: 'Register recording all fines imposed on contract workers.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Register of Deductions for Damage',
+      docType: 'REGISTER_OF_DEDUCTIONS',
+      titleHint: 'Register of Deductions for Damage or Loss',
+      helpText: 'Register of deductions made for damage or loss caused by workers.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Register of Advances',
+      docType: 'REGISTER_OF_ADVANCES',
+      titleHint: 'Register of Advances',
+      helpText: 'Register of salary / wage advances given to contract workers.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Register of Overtime',
+      docType: 'OT_REGISTER',
+      titleHint: 'Register of Overtime',
+      helpText: 'Register recording overtime hours and payments for contract employees.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Register of Employment (Form-13)',
+      docType: 'EMPLOYMENT_REGISTER_F13',
+      titleHint: 'Register of Employment – Form 13',
+      helpText: 'Form 13 register listing all employed contract workers.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Half Yearly Returns (Form XIV)',
+      docType: 'HALF_YEARLY_RETURNS_F14',
+      titleHint: 'Half Yearly Returns – Form XIV under CLRA',
+      helpText: 'Half-yearly returns submitted under the Contract Labour (R&A) Act.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Wages Slips',
+      docType: 'WAGE_SLIPS',
+      titleHint: 'Wages Slips for Contract Employees',
+      helpText: 'Individual pay slips issued to each contract employee.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Employment Cards',
+      docType: 'EMPLOYMENT_CARDS',
+      titleHint: 'Employment Cards',
+      helpText: 'Employment cards issued to each contract worker.',
+    },
+    {
+      section: 'III. Registers',
+      label: 'Form 6A – Commencement of Contract Work',
+      docType: 'FORM_6A',
+      titleHint: 'Form 6A – Commencement / Completion of Contract Work',
+      helpText: 'Notice of commencement/completion of contract work filed with the authority.',
+    },
+    // Section IV – Minimum Wages
+    {
+      section: 'IV. Minimum Wages',
+      label: 'Minimum Wages Returns',
+      docType: 'MINIMUM_WAGES_RETURNS',
+      titleHint: 'Annual Returns – Payment of Minimum Wages',
+      helpText: 'Annual returns under the Minimum Wages Act confirming statutory wages are paid.',
+    },
+    // Section V – Weekly Off
+    {
+      section: 'V. Weekly Off',
+      label: 'Weekly Off Record',
+      docType: 'WEEKLY_OFF_RECORD',
+      titleHint: 'Weekly Off Roster / Record',
+      helpText: 'Record showing that weekly off is being given to all contract employees.',
+    },
+    // Section VI – Provident Fund
+    {
+      section: 'VI. Provident Fund (PF)',
+      label: 'PF Allotment Code',
+      docType: 'PF_ALLOTMENT_CODE',
+      titleHint: 'PF Allotment Code Number',
+      helpText: 'PF code allotment letter / establishment registration under EPFO.',
+    },
+    {
+      section: 'VI. Provident Fund (PF)',
+      label: 'PF Challans (Monthly)',
       docType: 'PF_CHALLAN',
-      titleHint: 'PF Challan - <Month Year>',
-      helpText: 'Provident Fund challan or payment receipt.',
+      titleHint: 'PF Challans – Month Wise',
+      helpText: 'Monthly Provident Fund payment challans deposited with EPFO.',
     },
     {
-      label: 'ESI Challan',
+      section: 'VI. Provident Fund (PF)',
+      label: 'PF Individual Numbers (Location Wise)',
+      docType: 'PF_INDIVIDUAL_NUMBERS',
+      titleHint: 'PF Individual Numbers – Location Wise',
+      helpText: 'List of PF account numbers assigned to each contract employee.',
+    },
+    {
+      section: 'VI. Provident Fund (PF)',
+      label: 'PF ECR, Payment Receipt & Acknowledgement',
+      docType: 'PF_ECR',
+      titleHint: 'PF ECR / Payment Receipt / Acknowledgement Copy – Month Wise',
+      helpText: 'Electronic Challan cum Return (ECR), payment proof, and EPFO acknowledgement.',
+    },
+    {
+      section: 'VI. Provident Fund (PF)',
+      label: 'PF Nomination & Declaration Forms',
+      docType: 'PF_NOMINATION',
+      titleHint: 'PF Nomination & Declaration Forms',
+      helpText: 'Nomination forms (Form 2) and declaration forms for all contract employees.',
+    },
+    // Section VII – ESI
+    {
+      section: 'VII. ESI',
+      label: 'ESI Code / Sub Code No.',
+      docType: 'ESI_CODE',
+      titleHint: 'ESI Code / Sub Code Allotment Letter',
+      helpText: 'ESIC code or sub-code allotment letter for the contractor.',
+    },
+    {
+      section: 'VII. ESI',
+      label: 'ESI No. & Card for Employees',
+      docType: 'ESI_EMPLOYEE_CARDS',
+      titleHint: 'ESI Insurance Numbers & Cards',
+      helpText: 'ESI insurance numbers and cards issued to all eligible contract workers.',
+    },
+    {
+      section: 'VII. ESI',
+      label: 'ESIC Challans (Month Wise)',
       docType: 'ESI_CHALLAN',
-      titleHint: 'ESI Challan - <Month Year>',
-      helpText: 'ESI payment proof for the selected period.',
+      titleHint: 'ESIC Challans – Month Wise',
+      helpText: 'Monthly ESIC contribution challans deposited with ESIC.',
     },
     {
-      label: 'Attendance Sheet',
-      docType: 'ATTENDANCE_SHEET',
-      titleHint: 'Attendance Sheet - <Month Year>',
-      helpText: 'Attendance register used for payroll processing.',
+      section: 'VII. ESI',
+      label: 'Form 7 – Register of Employees',
+      docType: 'ESI_FORM7',
+      titleHint: 'ESIC Form 7 – Register of Employees',
+      helpText: 'Form 7 register of insured contract employees maintained under ESIC.',
     },
     {
-      label: 'Salary Slip Summary',
-      docType: 'SALARY_SLIP',
-      titleHint: 'Salary Slip Summary - <Month Year>',
-      helpText: 'Salary slip set or payroll summary for workers.',
+      section: 'VII. ESI',
+      label: 'Register of Accidents',
+      docType: 'ACCIDENT_REGISTER',
+      titleHint: 'Register of Accidents',
+      helpText: 'Register recording workplace accidents involving contract employees.',
+    },
+    {
+      section: 'VII. ESI',
+      label: 'ESI Permanent / Temporary Cards',
+      docType: 'ESI_CARDS_SIGNED',
+      titleHint: 'ESI Permanent/Temporary Cards – Signed by Employee & Employer',
+      helpText: 'ESI cards duly signed by both employee and employer.',
+    },
+    // Section VIII – Bonus
+    {
+      section: 'VIII. Payment of Bonus',
+      label: 'Register of Form C (Bonus)',
+      docType: 'BONUS_FORM_C',
+      titleHint: 'Register of Form C – Payment of Bonus',
+      helpText: 'Form C register showing bonus paid to each eligible contract employee.',
+    },
+    {
+      section: 'VIII. Payment of Bonus',
+      label: 'Form D – Annual Returns (Bonus)',
+      docType: 'BONUS_FORM_D',
+      titleHint: 'Form D – Annual Returns under Payment of Bonus Act',
+      helpText: 'Annual returns filed under the Payment of Bonus Act.',
     },
   ];
+
+  get auditDocSections(): string[] {
+    const seen = new Set<string>();
+    const sections: string[] = [];
+    for (const t of this.auditDocTemplates) {
+      const s = t.section ?? '';
+      if (!seen.has(s)) { seen.add(s); sections.push(s); }
+    }
+    return sections;
+  }
+
+  auditDocTemplatesBySection(section: string): AuditDocTemplate[] {
+    return this.auditDocTemplates.filter((t) => (t.section ?? '') === section);
+  }
 
   private pendingTaskIdFromRoute: string | null = null;
 
@@ -188,7 +411,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.applyRouteDefaults();
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.applyRouteDefaults();
+      this.applyFilters();
+    });
 
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       this.pendingTaskIdFromRoute = params.get('id');
@@ -207,11 +433,13 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.loading = true;
+    this.loadChecklist();
 
     forkJoin({
       tasks: this.api.getContractorTasks({}),
       reuploads: this.api.contractorGetReuploadRequests({}),
       audits: this.auditsApi.contractorListAudits({}),
+      profile: this.contractorProfileApi.getContractorBranches(),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -221,7 +449,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe({
-        next: ({ tasks, reuploads, audits }) => {
+        next: ({ tasks, reuploads, audits, profile }) => {
           const taskRows = this.toArray(tasks).map((t: any) =>
             this.mapTaskRow(t),
           );
@@ -231,6 +459,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           const auditRows = this.toArray(audits).map((a: any) =>
             this.mapAuditRow(a),
           );
+
+          this.availableBranches = (profile?.branches || []).map((b: any) => ({
+            id: b.id,
+            name: b.name || b.branchName || '',
+          })).filter((b: any) => b.name);
 
           this.allRows = [...taskRows, ...reuploadRows, ...auditRows].sort(
             (a, b) => this.dateValue(a.dueDate) - this.dateValue(b.dueDate),
@@ -266,8 +499,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         }
       }
 
-      if (this.branchFilter && row.branchName !== this.branchFilter) {
-        return false;
+      if (this.branchFilter) {
+        // Match by branchName directly, or look up by branchId if branchName not set
+        const rowBranch = row.branchName && row.branchName !== '-'
+          ? row.branchName
+          : this.availableBranches.find((b) => b.id === row.branchId)?.name || '-';
+        if (rowBranch !== this.branchFilter) {
+          return false;
+        }
       }
 
       if (!this.matchDueFilter(row)) {
@@ -685,10 +924,13 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   get uniqueBranches(): string[] {
-    const set = new Set(
-      this.allRows.map((r) => r.branchName).filter((b) => b && b !== '-'),
-    );
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    // Merge API-loaded branches with any branch names found in rows
+    const fromApi = this.availableBranches.map((b) => b.name).filter(Boolean);
+    const fromRows = this.allRows
+      .map((r) => r.branchName)
+      .filter((b) => b && b !== '-');
+    const merged = new Set([...fromApi, ...fromRows]);
+    return Array.from(merged).sort((a, b) => a.localeCompare(b));
   }
 
   get summaryCards(): Array<{ label: string; value: number; tone: string }> {
@@ -835,6 +1077,112 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     );
   }
 
+  private loadChecklist(): void {
+    this.checklistLoading = true;
+    this.contractorProfileApi
+      .getMonthlyDocChecklist()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.checklistLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (data) => {
+          this.monthlyChecklist = data;
+        },
+        error: () => {
+          this.monthlyChecklist = null;
+        },
+      });
+  }
+
+  get currentMonthLabel(): string {
+    const now = new Date();
+    return now.toLocaleString('default', { month: 'long', year: 'numeric' });
+  }
+
+  get monthlyChecklistUploadedCount(): number {
+    return this.monthlyChecklist?.items.filter((i) => i.uploaded).length ?? 0;
+  }
+
+  monthlyDocLabel(docType: string): string {
+    return ContractorTasksComponent.MONTHLY_DOC_META[docType]?.label ?? this.formatDocType(docType);
+  }
+
+  monthlyDocDesc(docType: string): string {
+    return ContractorTasksComponent.MONTHLY_DOC_META[docType]?.desc ?? '';
+  }
+
+  formatDocType(docType: string): string {
+    return (docType || '')
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  openChecklistUpload(item: ChecklistItem): void {
+    this.checklistUploadItem = item;
+    this.checklistUploadFile = null;
+    this.checklistUploadTitle = `${this.monthlyDocLabel(item.docType)} - ${this.currentMonthLabel}`;
+    this.checklistUploadBranchId =
+      item.branchId ||
+      (this.availableBranches.length === 1 ? this.availableBranches[0].id : '');
+    this.cdr.markForCheck();
+  }
+
+  onChecklistFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.checklistUploadFile = input.files?.[0] ?? null;
+    this.cdr.markForCheck();
+  }
+
+  submitChecklistUpload(): void {
+    if (
+      !this.checklistUploadItem ||
+      !this.checklistUploadFile ||
+      !this.checklistUploadBranchId.trim()
+    ) {
+      return;
+    }
+    this.checklistUploading = true;
+    this.cdr.markForCheck();
+    this.contractorProfileApi
+      .uploadMonthlyDoc({
+        docType: this.checklistUploadItem.docType,
+        branchId: this.checklistUploadBranchId,
+        title: this.checklistUploadTitle.trim(),
+        file: this.checklistUploadFile,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.checklistUploading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Uploaded', 'Document uploaded successfully.');
+          this.checklistUploadItem = null;
+          this.checklistUploadFile = null;
+          this.load();
+        },
+        error: (err: any) =>
+          this.toast.error(
+            'Upload failed',
+            err?.error?.message || 'Could not upload document.',
+          ),
+      });
+  }
+
+  cancelChecklistUpload(): void {
+    this.checklistUploadItem = null;
+    this.checklistUploadFile = null;
+    this.cdr.markForCheck();
+  }
+
   private mapTaskRow(task: any): UnifiedWorkRow {
     return {
       id: String(task?.id || ''),
@@ -964,6 +1312,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   private applyRouteDefaults(): void {
+    // Recompute from URL each time query params change to avoid stale view state.
+    this.statusFilter = 'ALL';
+    this.typeFilter = 'ALL';
+    this.dueFilter = 'ALL';
+
     const qStatus = (this.route.snapshot.queryParamMap.get('status') || '')
       .trim()
       .toUpperCase();

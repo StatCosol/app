@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { PageHeaderComponent } from '../../../shared/ui';
+import { PageHeaderComponent, ClientContextStripComponent } from '../../../shared/ui';
 import { environment } from '../../../../environments/environment';
 
 interface PayrollSummary {
@@ -33,10 +34,12 @@ interface PayrollRun {
 @Component({
   standalone: true,
   selector: 'app-crm-payroll-status',
-  imports: [CommonModule, PageHeaderComponent, FormsModule],
+  imports: [CommonModule, PageHeaderComponent, FormsModule, ClientContextStripComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <ui-page-header title="Payroll Status" description="Payroll processing status for your assigned clients"></ui-page-header>
+      <ui-page-header title="Payroll Status" description="Payroll processing status for your assigned clients">
+        <ui-client-context-strip [inline]="true"></ui-client-context-strip>
+      </ui-page-header>
 
       <!-- Loading state -->
       @if (loading()) {
@@ -128,7 +131,7 @@ interface PayrollRun {
         @if (activeTab() === 'runs') {
           <!-- Filter row -->
           <div class="flex flex-wrap items-center gap-3 mb-4">
-            <select [(ngModel)]="runStatusFilter" (ngModelChange)="loadRuns()"
+            <select id="cps-run-status-filter" name="runStatusFilter" [(ngModel)]="runStatusFilter" (ngModelChange)="loadRuns()"
               class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
               <option value="">All Statuses</option>
               <option value="DRAFT">Draft</option>
@@ -198,10 +201,16 @@ export class CrmPayrollStatusComponent implements OnInit, OnDestroy {
   runs = signal<PayrollRun[]>([]);
 
   runStatusFilter = '';
+  private clientId = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private route: ActivatedRoute) {}
 
   ngOnInit(): void {
+    // clientId may be in current or parent route: /crm/clients/:clientId/payroll-status
+    this.clientId =
+      this.route.snapshot.paramMap.get('clientId') ??
+      this.route.parent?.snapshot.paramMap.get('clientId') ??
+      '';
     this.loadAll();
   }
 
@@ -215,7 +224,8 @@ export class CrmPayrollStatusComponent implements OnInit, OnDestroy {
     this.error.set(null);
 
     // Load summary + clients in parallel
-    this.http.get<any>(`${this.base}/summary`).pipe(takeUntil(this.destroy$)).subscribe({
+    const summaryParams = this.clientId ? new HttpParams().set('clientId', this.clientId) : new HttpParams();
+    this.http.get<any>(`${this.base}/summary`, { params: summaryParams }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (r) => this.summary.set({
         assignedClients: Number(r?.assignedClients ?? 0),
         pendingRuns: Number(r?.pendingRuns ?? 0),
@@ -239,6 +249,9 @@ export class CrmPayrollStatusComponent implements OnInit, OnDestroy {
 
   loadRuns(): void {
     let params = new HttpParams();
+    if (this.clientId) {
+      params = params.set('clientId', this.clientId);
+    }
     if (this.runStatusFilter) {
       params = params.set('status', this.runStatusFilter);
     }
@@ -257,7 +270,7 @@ export class CrmPayrollStatusComponent implements OnInit, OnDestroy {
         })));
         this.loading.set(false);
       },
-      error: (err) => {
+      error: () => {
         this.error.set('Failed to load payroll data. Please try again.');
         this.loading.set(false);
       },

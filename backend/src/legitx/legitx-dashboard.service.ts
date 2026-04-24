@@ -33,8 +33,8 @@ export class LegitxDashboardService {
   constructor(private readonly db: DbService) {}
 
   async getSummary(
-    userId: string,
-    query: any,
+    _userId: string,
+    query: { month?: number; year?: number; branchId?: string; contractorId?: string; toggle?: string },
     clientId?: string | null,
   ): Promise<LegitxDashboardResponse> {
     const scope = this.parseScope(query, clientId);
@@ -108,7 +108,7 @@ export class LegitxDashboardService {
   }
 
   private parseScope(
-    query: any,
+    query: { month?: number; year?: number; branchId?: string; contractorId?: string; toggle?: string },
     clientId?: string | null,
   ): LegitxDashboardScope {
     const now = new Date();
@@ -122,7 +122,7 @@ export class LegitxDashboardService {
       query.contractorId && query.contractorId !== 'ALL'
         ? String(query.contractorId)
         : null;
-    const toggle = ['ALL', 'CRITICAL', 'PENDING'].includes(query.toggle)
+    const toggle = query.toggle && ['ALL', 'CRITICAL', 'PENDING'].includes(query.toggle)
       ? (query.toggle as LegitxToggle)
       : 'ALL';
     return {
@@ -135,20 +135,20 @@ export class LegitxDashboardService {
     };
   }
 
-  private toInt(value: any, fallback: number): number {
-    const n = parseInt(value, 10);
+  private toInt(value: string | number | null | undefined, fallback: number): number {
+    const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
   }
 
   private async getMeta(scope: LegitxDashboardScope): Promise<LegitxMeta> {
-    const branchParams: any[] = [];
+    const branchParams: unknown[] = [];
     const branchConditions = ['isdeleted = false', 'isactive = true'];
     if (scope.clientId) {
       branchParams.push(scope.clientId);
       branchConditions.push(`clientid = $${branchParams.length}`);
     }
 
-    const contractorParams: any[] = [];
+    const contractorParams: unknown[] = [];
     const contractorConditions: string[] = [];
     if (scope.clientId) {
       contractorParams.push(scope.clientId);
@@ -203,7 +203,7 @@ export class LegitxDashboardService {
     };
 
     // Build date range for the requested month/year
-    const params: any[] = [scope.year, scope.month];
+    const params: unknown[] = [scope.year, scope.month];
     const branchFilter: string[] = [];
 
     if (scope.branchId) {
@@ -231,8 +231,8 @@ export class LegitxDashboardService {
        )
        SELECT
          COUNT(*)::int AS total,
-         COUNT(CASE WHEN e.gender = 'M' THEN 1 END)::int AS male,
-         COUNT(CASE WHEN e.gender = 'F' THEN 1 END)::int AS female,
+         COUNT(CASE WHEN LOWER(e.gender) IN ('m','male') THEN 1 END)::int AS male,
+         COUNT(CASE WHEN LOWER(e.gender) IN ('f','female') THEN 1 END)::int AS female,
          COUNT(CASE WHEN e.is_active = true THEN 1 END)::int AS active,
          COUNT(CASE WHEN e.date_of_joining >= mr.start_dt AND e.date_of_joining <= mr.end_dt THEN 1 END)::int AS joiners,
          COUNT(CASE WHEN e.date_of_exit >= mr.start_dt AND e.date_of_exit <= mr.end_dt THEN 1 END)::int AS left,
@@ -252,7 +252,7 @@ export class LegitxDashboardService {
     const months = this.lastMonths(scope.month, scope.year, 6);
 
     const branchFilter: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (scope.branchId) {
       params.push(scope.branchId);
@@ -316,42 +316,54 @@ export class LegitxDashboardService {
 
   private async getContractors(scope: LegitxDashboardScope) {
     const fallback = { total: 0, male: 0, female: 0 };
-    const params: any[] = [];
+    const params: unknown[] = [];
     const where: string[] = [];
 
     if (scope.clientId) {
       params.push(scope.clientId);
-      where.push(`bc.client_id = $${params.length}`);
+      where.push(`ce.client_id = $${params.length}`);
     }
     if (scope.branchId) {
       params.push(scope.branchId);
-      where.push(`bc.branch_id = $${params.length}`);
+      where.push(`ce.branch_id = $${params.length}`);
     }
     if (scope.contractorId) {
       params.push(scope.contractorId);
-      where.push(`bc.contractor_user_id = $${params.length}`);
+      where.push(`ce.contractor_user_id = $${params.length}`);
     }
 
+    where.push('ce.is_active = true');
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     const row = await this.safeOne(
       `SELECT 
          COUNT(*)::int AS total,
-         COUNT(CASE WHEN emp.gender = 'M' THEN 1 END)::int AS male,
-         COUNT(CASE WHEN emp.gender = 'F' THEN 1 END)::int AS female
-      FROM branch_contractor bc
-      LEFT JOIN users u ON u.id = bc.contractor_user_id
-      LEFT JOIN employees emp ON emp.id = u.employee_id
+         COUNT(CASE WHEN LOWER(ce.gender) IN ('m','male') THEN 1 END)::int AS male,
+         COUNT(CASE WHEN LOWER(ce.gender) IN ('f','female') THEN 1 END)::int AS female
+      FROM contractor_employees ce
        ${whereClause}`,
       params,
       fallback,
     );
 
+    // If no contractor_employees records exist yet, fall back to the declared
+    // contractorcount stored on the branch record (entered at branch creation).
+    if (row.total === 0 && scope.branchId) {
+      const branchRow = await this.safeOne<{ contractorcount: number }>(
+        `SELECT contractorcount FROM client_branches WHERE id = $1`,
+        [scope.branchId],
+        { contractorcount: 0 },
+      );
+      if (branchRow.contractorcount > 0) {
+        return { total: branchRow.contractorcount, male: 0, female: 0 };
+      }
+    }
+
     return row;
   }
 
   private async getContractorDocsBuckets(scope: LegitxDashboardScope) {
-    const params: any[] = [];
+    const params: unknown[] = [];
     const conditions: string[] = [];
 
     if (scope.clientId) {
@@ -403,7 +415,7 @@ export class LegitxDashboardService {
       pendingFF: 0,
     };
 
-    const params: any[] = [scope.year, scope.month];
+    const params: unknown[] = [scope.year, scope.month];
     const whereRuns: string[] = [
       `status NOT IN ('CANCELLED')`,
       `period_year = $1`,
@@ -444,7 +456,7 @@ export class LegitxDashboardService {
   }
 
   private async getBranchKpi(scope: LegitxDashboardScope) {
-    const params: any[] = [];
+    const params: unknown[] = [];
     const conditions = ['isdeleted = false', 'isactive = true'];
     if (scope.clientId) {
       params.push(scope.clientId);
@@ -470,7 +482,7 @@ export class LegitxDashboardService {
   }
 
   private async getComplianceKpis(scope: LegitxDashboardScope) {
-    const compParams: any[] = [];
+    const compParams: unknown[] = [];
     const compConditions: string[] = [];
 
     if (scope.clientId) {
@@ -517,7 +529,7 @@ export class LegitxDashboardService {
     const minKey = months[months.length - 1].key;
     const maxKey = months[0].key;
 
-    const trendParams: any[] = [minKey, maxKey];
+    const trendParams: unknown[] = [minKey, maxKey];
     const trendConditions = [
       '(EXTRACT(YEAR FROM created_at)::int * 12 + EXTRACT(MONTH FROM created_at)::int) BETWEEN $1 AND $2',
     ];
@@ -567,7 +579,7 @@ export class LegitxDashboardService {
   }
 
   private async getComplianceOps(scope: LegitxDashboardScope) {
-    const opsParams: any[] = [scope.month, scope.year];
+    const opsParams: unknown[] = [scope.month, scope.year];
 
     let scopeFilter = '';
     if (scope.branchId) {
@@ -635,7 +647,7 @@ export class LegitxDashboardService {
   }
 
   private async getBranchComplianceRanking(scope: LegitxDashboardScope) {
-    const params: any[] = [];
+    const params: unknown[] = [];
     const conditions = ['b.isdeleted = false', 'b.isactive = true'];
     if (scope.clientId) {
       params.push(scope.clientId);
@@ -675,7 +687,7 @@ export class LegitxDashboardService {
   }
 
   private async getAuditKpis(scope: LegitxDashboardScope) {
-    const params: any[] = [];
+    const params: unknown[] = [];
     const conditions: string[] = [];
     if (scope.clientId) {
       params.push(scope.clientId);
@@ -869,27 +881,27 @@ export class LegitxDashboardService {
 
   private async safeOne<T>(
     sql: string,
-    params: any[],
+    params: unknown[],
     fallback: T,
   ): Promise<T> {
     try {
       const row = await this.db.one<T>(sql, params);
       return (row as T) ?? fallback;
-    } catch (err: any) {
-      this.logger.debug(`SQL one failed: ${err?.message ?? err}`);
+    } catch (err: unknown) {
+      this.logger.debug(`SQL one failed: ${(err as Error)?.message ?? err}`);
       return fallback;
     }
   }
 
   private async safeMany<T>(
     sql: string,
-    params: any[],
+    params: unknown[],
     fallback: T[],
   ): Promise<T[]> {
     try {
       return (await this.db.many<T>(sql, params)) ?? fallback;
-    } catch (err: any) {
-      this.logger.debug(`SQL many failed: ${err?.message ?? err}`);
+    } catch (err: unknown) {
+      this.logger.debug(`SQL many failed: ${(err as Error)?.message ?? err}`);
       return fallback;
     }
   }

@@ -15,7 +15,7 @@ type FactOp =
 interface ConditionItem {
   fact: string;
   op: FactOp;
-  value?: any;
+  value?: unknown;
   threshold?: string;
 }
 
@@ -30,7 +30,7 @@ export class RuleEvaluatorService {
 
   async matches(
     conditions: ConditionsJson,
-    facts: Record<string, any>,
+    facts: Record<string, unknown>,
     stateCode: string,
     onDate?: string,
   ): Promise<boolean> {
@@ -50,7 +50,7 @@ export class RuleEvaluatorService {
 
   private async evalList(
     items: ConditionItem[],
-    facts: Record<string, any>,
+    facts: Record<string, unknown>,
     stateCode: string,
     onDate: string | undefined,
     mode: 'ALL' | 'ANY',
@@ -75,7 +75,7 @@ export class RuleEvaluatorService {
 
     if (item.op === 'exists') return factVal !== undefined && factVal !== null;
 
-    let rhs: any = item.value;
+    let rhs: unknown = item.value;
     if (item.threshold) {
       try {
         rhs = await this.thresholds.getNumber(

@@ -34,8 +34,10 @@ describe('GlobalExceptionFilter', () => {
   });
 
   it('should handle QueryFailedError with code 23505', () => {
-    const exception = new QueryFailedError('', [], new Error('duplicate'));
-    (exception as any).code = '23505';
+    const exception = new QueryFailedError('', [], {
+      code: '23505',
+      message: 'duplicate',
+    } as any);
     filter.catch(exception, mockHost);
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.CONFLICT);
     expect(mockJson).toHaveBeenCalledWith(
@@ -47,8 +49,10 @@ describe('GlobalExceptionFilter', () => {
   });
 
   it('should handle QueryFailedError with code 23502', () => {
-    const exception = new QueryFailedError('', [], new Error('not null'));
-    (exception as any).code = '23502';
+    const exception = new QueryFailedError('', [], {
+      code: '23502',
+      message: 'not null',
+    } as any);
     filter.catch(exception, mockHost);
     expect(mockStatus).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
     expect(mockJson).toHaveBeenCalledWith(

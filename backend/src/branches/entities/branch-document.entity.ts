@@ -77,6 +77,15 @@ export class BranchDocumentEntity {
   @Column({ name: 'uploaded_by', type: 'uuid', nullable: true })
   uploadedBy: string | null;
 
+  @Column({ name: 'uploaded_by_role', type: 'varchar', length: 20, nullable: true })
+  uploadedByRole: string | null;
+
+  @Column({ name: 'acting_on_behalf', type: 'boolean', default: false })
+  actingOnBehalf: boolean;
+
+  @Column({ name: 'original_owner_role', type: 'varchar', length: 20, nullable: true })
+  originalOwnerRole: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

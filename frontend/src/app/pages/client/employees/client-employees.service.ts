@@ -8,8 +8,7 @@ export type Employee = {
   clientId: string;
   branchId: string | null;
   employeeCode: string;
-  firstName: string;
-  lastName: string | null;
+  name: string;
   dateOfBirth: string | null;
   gender: string | null;
   fatherName: string | null;
@@ -27,6 +26,8 @@ export type Employee = {
   dateOfJoining: string | null;
   dateOfExit: string | null;
   stateCode: string | null;
+  ctc: number | null;
+  monthlyGross: number | null;
   isActive: boolean;
   approvalStatus: string;
 };
@@ -95,8 +96,8 @@ export class ClientEmployeesService {
     return this.http.put<any>(`${this.base}/${id}`, body).pipe(map((r) => this.mapEmployee(r)));
   }
 
-  deactivate(id: string): Observable<Employee> {
-    return this.http.put<any>(`${this.base}/${id}/deactivate`, {}).pipe(map((r) => this.mapEmployee(r)));
+  deactivate(id: string, body?: { exitReason?: string; dateOfExit?: string }): Observable<Employee> {
+    return this.http.put<any>(`${this.base}/${id}/deactivate`, body || {}).pipe(map((r) => this.mapEmployee(r)));
   }
 
   listNominations(employeeId: string): Observable<EmployeeNomination[]> {
@@ -117,6 +118,22 @@ export class ClientEmployeesService {
     return this.http.get<any>(`${this.base}/${employeeId}/forms`).pipe(
       map((res) => (Array.isArray(res) ? res : res?.data ?? [])),
     );
+  }
+
+  /** Download appointment letter PDF or Word */
+  downloadAppointmentLetter(employeeId: string, format: 'pdf' | 'docx' = 'pdf'): Observable<Blob> {
+    const params = format === 'docx' ? '?format=docx' : '';
+    return this.http.get(`${this.base}/${employeeId}/appointment-letter${params}`, {
+      responseType: 'blob',
+    });
+  }
+
+  /** Download all appointment letters as a ZIP */
+  downloadAppointmentLettersBulk(format: 'pdf' | 'docx' = 'pdf'): Observable<Blob> {
+    const params = format === 'docx' ? '?format=docx' : '';
+    return this.http.get(`${this.base}/appointment-letters-bulk${params}`, {
+      responseType: 'blob',
+    });
   }
 
   /** Create ESS login for an employee */
@@ -142,8 +159,7 @@ export class ClientEmployeesService {
       clientId: r?.clientId ?? r?.client_id ?? '',
       branchId: r?.branchId ?? r?.branch_id ?? null,
       employeeCode: r?.employeeCode ?? r?.employee_code ?? '',
-      firstName: r?.firstName ?? r?.first_name ?? '',
-      lastName: r?.lastName ?? r?.last_name ?? null,
+      name: r?.name ?? ([r?.firstName ?? r?.first_name, r?.lastName ?? r?.last_name].filter(Boolean).join(' ').trim() || ''),
       dateOfBirth: r?.dateOfBirth ?? r?.date_of_birth ?? null,
       gender: r?.gender ?? null,
       fatherName: r?.fatherName ?? r?.father_name ?? null,
@@ -161,8 +177,10 @@ export class ClientEmployeesService {
       dateOfJoining: r?.dateOfJoining ?? r?.date_of_joining ?? null,
       dateOfExit: r?.dateOfExit ?? r?.date_of_exit ?? null,
       stateCode: r?.stateCode ?? r?.state_code ?? null,
+      ctc: r?.ctc != null ? Number(r.ctc) : null,
+      monthlyGross: r?.monthlyGross != null ? Number(r.monthlyGross) : (r?.monthly_gross != null ? Number(r.monthly_gross) : null),
       isActive: r?.isActive ?? r?.is_active ?? true,
-      approvalStatus: r?.approvalStatus ?? r?.approval_status ?? 'APPROVED',
+      approvalStatus: (r?.approvalStatus ?? r?.approval_status ?? 'APPROVED').toUpperCase(),
     };
   }
 }

@@ -14,6 +14,7 @@ import { ComplianceReturnMasterEntity } from './entities/compliance-return-maste
 import { BranchAccessService } from '../auth/branch-access.service';
 import {
   UploadComplianceDocDto,
+  MarkNotApplicableDto,
   ReviewComplianceDocDto,
   ChecklistQueryDto,
   ReturnMasterQueryDto,
@@ -22,6 +23,8 @@ import {
 } from './dto/branch-compliance.dto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ReqUser } from '../access/access-scope.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
@@ -42,6 +45,7 @@ export class BranchComplianceService {
     private readonly masterRepo: Repository<ComplianceReturnMasterEntity>,
     private readonly branchAccess: BranchAccessService,
     private readonly dataSource: DataSource,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   // ─── Return Master CRUD ────────────────────────────────────
@@ -56,6 +60,17 @@ export class BranchComplianceService {
       });
     if (q.lawArea) qb.andWhere('m.law_area = :la', { la: q.lawArea });
     if (q.category) qb.andWhere('m.category = :cat', { cat: q.category });
+    if (q.appliesTo)
+      qb.andWhere("(m.applies_to = :at OR m.applies_to = 'BOTH')", {
+        at: q.appliesTo,
+      });
+    if (q.stateCode)
+      qb.andWhere("(m.state_code = 'ALL' OR m.state_code LIKE :sc)", {
+        sc: `%${q.stateCode}%`,
+      });
+    if (q.responsibleRole)
+      qb.andWhere('m.responsible_role = :rr', { rr: q.responsibleRole });
+    if (q.riskLevel) qb.andWhere('m.risk_level = :rl', { rl: q.riskLevel });
     if (q.isActive !== undefined)
       qb.andWhere('m.is_active = :active', { active: q.isActive });
 
@@ -82,6 +97,13 @@ export class BranchComplianceService {
       applicableFor: dto.applicableFor || 'BOTH',
       dueDay: dto.dueDay ?? null,
       category: dto.category ?? null,
+      stateCode: dto.stateCode || 'ALL',
+      appliesTo: dto.appliesTo || 'BRANCH',
+      uploadRequired: dto.uploadRequired ?? true,
+      dueDateRule: dto.dueDateRule ?? null,
+      riskLevel: dto.riskLevel || 'MEDIUM',
+      responsibleRole: dto.responsibleRole || 'BRANCH_USER',
+      remarks: dto.remarks ?? null,
     });
     return this.masterRepo.save(entity);
   }
@@ -97,7 +119,7 @@ export class BranchComplianceService {
 
   // ─── Checklist (Branch User) ───────────────────────────────
 
-  async getChecklist(user: any, q: ChecklistQueryDto) {
+  async getChecklist(user: ReqUser, q: ChecklistQueryDto) {
     const branchId = await this.resolveBranchId(user, q.branchId);
 
     await this.assertBranchAccess(user, branchId);
@@ -106,13 +128,55 @@ export class BranchComplianceService {
     const year = q.year || new Date().getFullYear();
     const frequency = q.frequency || 'MONTHLY';
 
-    // Get master list filtered by branch type
-    const masterItems = await this.getReturnMaster({
+    // Resolve the branch state code and type for state-based filtering
+    const branchRows = await this.dataSource.query(
+      `SELECT statecode, branchtype FROM client_branches WHERE id = $1 LIMIT 1`,
+      [branchId],
+    );
+    const branchRow = branchRows.length ? branchRows[0] : null;
+
+    // Gate factory compliance: branch must be FACTORY type
+    const branchType = String(branchRow?.branchtype || '').toUpperCase();
+    if (q.appliesTo === 'FACTORY' && branchType !== 'FACTORY') {
+      return {
+        data: [],
+        total: 0,
+        message:
+          'Factory compliance items are only available for factory-type branches.',
+      };
+    }
+    // Gate office compliance: branch must NOT be FACTORY type
+    if (q.appliesTo === 'OFFICE' && branchType === 'FACTORY') {
+      return {
+        data: [],
+        total: 0,
+        message:
+          'Office compliance items are only available for office / establishment branches.',
+      };
+    }
+
+    let branchStateCode: string | undefined = q.stateCode;
+    if (!branchStateCode && branchRow?.statecode) {
+      branchStateCode = branchRow.statecode;
+    }
+
+    // Get master list filtered by branch type and state
+    let masterItems = await this.getReturnMaster({
       frequency,
       isActive: true,
       lawArea: q.lawArea,
       category: q.category,
+      appliesTo: q.appliesTo,
+      stateCode: branchStateCode,
     });
+
+    // When no explicit appliesTo filter (e.g. MCD page), exclude items
+    // meant for the other branch type so FACTORY branches don't see
+    // OFFICE items and vice-versa.
+    if (!q.appliesTo && branchType) {
+      const exclude = branchType === 'FACTORY' ? 'OFFICE' : 'FACTORY';
+      masterItems = masterItems.filter((m) => m.appliesTo !== exclude);
+    }
 
     if (!masterItems.length) {
       return {
@@ -157,11 +221,19 @@ export class BranchComplianceService {
         frequency: master.frequency,
         category: master.category,
         dueDay: master.dueDay,
+        stateCode: master.stateCode,
+        appliesTo: master.appliesTo,
+        uploadRequired: master.uploadRequired,
+        dueDateRule: master.dueDateRule,
+        riskLevel: master.riskLevel,
+        responsibleRole: master.responsibleRole,
+        remarks: master.remarks,
         document: doc
           ? {
               id: doc.id,
               status: doc.status,
               uploadedFileName: doc.uploadedFileName,
+              uploadedFileUrl: doc.uploadedFileUrl,
               uploadedAt: doc.uploadedAt,
               version: doc.version,
               remarks: doc.remarks,
@@ -177,10 +249,74 @@ export class BranchComplianceService {
     return { data: checklist, total: checklist.length };
   }
 
+  // ─── Mark Not Applicable (Branch User) ────────────────────
+
+  async markNotApplicable(user: ReqUser, dto: MarkNotApplicableDto) {
+    const branchId = dto.branchId;
+    await this.assertBranchAccess(user, branchId);
+
+    const companyId = user.clientId;
+    if (!companyId)
+      throw new ForbiddenException('No company associated with user');
+
+    const master = await this.masterRepo.findOne({
+      where: { returnCode: dto.returnCode },
+    });
+    if (!master)
+      throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
+
+    const existing = await this.findExistingDoc(
+      branchId,
+      companyId,
+      dto.returnCode,
+      dto.frequency,
+      dto.periodYear,
+      dto.periodMonth,
+      dto.periodQuarter,
+      dto.periodHalf,
+    );
+
+    if (existing) {
+      if (existing.isLocked) {
+        throw new BadRequestException(
+          'Cannot modify a locked/approved document.',
+        );
+      }
+      existing.status = ComplianceDocStatus.NOT_APPLICABLE;
+      existing.uploaderRemarks = dto.remarks;
+      existing.uploadedByUserId = user.userId;
+      existing.uploadedAt = new Date();
+      return this.docRepo.save(existing);
+    }
+
+    const doc = this.docRepo.create({
+      tenantId: null,
+      companyId,
+      branchId,
+      moduleSource: 'BRANCHDESK',
+      documentScope: 'BRANCH',
+      lawArea: master.lawArea,
+      returnCode: dto.returnCode,
+      returnName: master.returnName,
+      frequency: dto.frequency,
+      periodYear: dto.periodYear,
+      periodMonth: dto.periodMonth ?? null,
+      periodQuarter: dto.periodQuarter ?? null,
+      periodHalf: dto.periodHalf ?? null,
+      status: ComplianceDocStatus.NOT_APPLICABLE,
+      uploaderRemarks: dto.remarks,
+      uploadedByUserId: user.userId,
+      uploadedAt: new Date(),
+      version: 0,
+    });
+
+    return this.docRepo.save(doc);
+  }
+
   // ─── Upload (Branch User) ─────────────────────────────────
 
   async uploadDocument(
-    user: any,
+    user: ReqUser,
     dto: UploadComplianceDocDto,
     file: UploadedFile,
   ) {
@@ -267,7 +403,7 @@ export class BranchComplianceService {
 
     // New upload
     const doc = this.docRepo.create({
-      tenantId: user.tenantId || null,
+      tenantId: null,
       companyId,
       branchId,
       moduleSource: 'BRANCHDESK',
@@ -293,9 +429,165 @@ export class BranchComplianceService {
     return this.docRepo.save(doc);
   }
 
+  // ─── CRM Upload On Behalf ─────────────────────────────────
+
+  async crmUploadOnBehalf(
+    user: ReqUser,
+    dto: UploadComplianceDocDto & { companyId: string },
+    file: UploadedFile,
+  ) {
+    if (!file) throw new BadRequestException('File is required');
+    if (!this.allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException(
+        'File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX',
+      );
+    }
+
+    const branchId = dto.branchId;
+    const companyId = dto.companyId;
+    if (!companyId) throw new BadRequestException('companyId is required');
+    if (!branchId) throw new BadRequestException('branchId is required');
+
+    // Verify CRM is assigned to this client
+    const assignment = await this.dataSource.query(
+      `SELECT 1 FROM client_assignment_current
+       WHERE client_id = $1 AND assignment_type = 'CRM'
+         AND assigned_to_user_id = $2 LIMIT 1`,
+      [companyId, user.userId],
+    );
+    if (!assignment?.length) {
+      throw new ForbiddenException('You are not assigned to this client');
+    }
+
+    // Verify client has on-behalf enabled
+    const client = await this.dataSource.query(
+      `SELECT crm_on_behalf_enabled FROM clients WHERE id = $1 LIMIT 1`,
+      [companyId],
+    );
+    if (!client?.length || !client[0].crm_on_behalf_enabled) {
+      throw new ForbiddenException(
+        'CRM on-behalf uploads are not enabled for this client',
+      );
+    }
+
+    // Verify branch belongs to client
+    const branch = await this.dataSource.query(
+      `SELECT 1 FROM client_branches WHERE id = $1 AND clientid = $2 AND isactive = true LIMIT 1`,
+      [branchId, companyId],
+    );
+    if (!branch?.length) {
+      throw new ForbiddenException('Branch not found or not active for this client');
+    }
+
+    // Verify return code exists
+    const master = await this.masterRepo.findOne({
+      where: { returnCode: dto.returnCode },
+    });
+    if (!master) {
+      throw new BadRequestException(`Invalid return code: ${dto.returnCode}`);
+    }
+
+    // Check existing
+    const existing = await this.findExistingDoc(
+      branchId,
+      companyId,
+      dto.returnCode,
+      dto.frequency,
+      dto.periodYear,
+      dto.periodMonth,
+      dto.periodQuarter,
+      dto.periodHalf,
+    );
+
+    if (existing && existing.isLocked) {
+      throw new ForbiddenException('Document is locked after approval. Cannot reupload.');
+    }
+
+    const fileUrl = await this.saveFile(file, companyId, branchId, dto.returnCode, dto.periodYear);
+    const dueDate = this.computeDueDate(
+      master.dueDay, dto.frequency, dto.periodYear,
+      dto.periodMonth, dto.periodQuarter, dto.periodHalf,
+    );
+
+    if (existing) {
+      existing.uploadedFileUrl = fileUrl;
+      existing.uploadedFileName = file.originalname;
+      existing.uploadedByUserId = user.userId;
+      existing.uploadedAt = new Date();
+      existing.version = existing.version + 1;
+      existing.remarks = null;
+      existing.uploaderRemarks = dto.remarks || null;
+      existing.reviewedByUserId = null;
+      existing.reviewedAt = null;
+      existing.dueDate = dueDate;
+      existing.moduleSource = 'CRM';
+      existing.uploadedByRole = 'CRM';
+      existing.actingOnBehalf = true;
+      existing.originalOwnerRole = 'BRANCH';
+
+      const existingStatus = existing.status as ComplianceDocStatus;
+      if (existingStatus === ComplianceDocStatus.REUPLOAD_REQUIRED) {
+        existing.status = ComplianceDocStatus.RESUBMITTED;
+      } else {
+        existing.status = ComplianceDocStatus.SUBMITTED;
+      }
+
+      const savedExisting = await this.docRepo.save(existing);
+      this.auditLogs.log({
+        entityType: 'DOCUMENT',
+        entityId: savedExisting.id,
+        action: 'DOCUMENT_UPLOADED' as any,
+        performedBy: user.userId,
+        performedRole: 'CRM',
+        afterJson: { fileName: file.originalname, version: savedExisting.version },
+        meta: { actingOnBehalf: true, originalOwnerRole: 'BRANCH', companyId, branchId },
+      }).catch(() => {});
+      return savedExisting;
+    }
+
+    const doc = this.docRepo.create({
+      tenantId: null,
+      companyId,
+      branchId,
+      moduleSource: 'CRM',
+      documentScope: 'BRANCH',
+      lawArea: master.lawArea,
+      returnCode: dto.returnCode,
+      returnName: master.returnName,
+      frequency: dto.frequency,
+      periodYear: dto.periodYear,
+      periodMonth: dto.periodMonth ?? null,
+      periodQuarter: dto.periodQuarter ?? null,
+      periodHalf: dto.periodHalf ?? null,
+      dueDate,
+      uploadedFileUrl: fileUrl,
+      uploadedFileName: file.originalname,
+      uploadedByUserId: user.userId,
+      uploadedAt: new Date(),
+      status: ComplianceDocStatus.SUBMITTED,
+      uploaderRemarks: dto.remarks || null,
+      version: 1,
+      uploadedByRole: 'CRM',
+      actingOnBehalf: true,
+      originalOwnerRole: 'BRANCH',
+    });
+
+    const saved = await this.docRepo.save(doc);
+    this.auditLogs.log({
+      entityType: 'DOCUMENT',
+      entityId: saved.id,
+      action: 'DOCUMENT_UPLOADED' as any,
+      performedBy: user.userId,
+      performedRole: 'CRM',
+      afterJson: { fileName: file.originalname, version: 1 },
+      meta: { actingOnBehalf: true, originalOwnerRole: 'BRANCH', companyId, branchId },
+    }).catch(() => {});
+    return saved;
+  }
+
   // ─── List for Branch User ─────────────────────────────────
 
-  async listForBranch(user: any, q: ChecklistQueryDto) {
+  async listForBranch(user: ReqUser, q: ChecklistQueryDto) {
     const branchId = q.branchId || this.extractBranchId(user);
     if (!branchId) throw new BadRequestException('branchId is required');
     await this.assertBranchAccess(user, branchId);
@@ -334,7 +626,7 @@ export class BranchComplianceService {
 
   // ─── Review (CRM) ─────────────────────────────────────────
 
-  async listForCrmReview(user: any, q: ChecklistQueryDto) {
+  async listForCrmReview(_user: ReqUser, q: ChecklistQueryDto) {
     // CRM sees documents belonging to their assigned clients
     const qb = this.docRepo
       .createQueryBuilder('d')
@@ -382,7 +674,11 @@ export class BranchComplianceService {
     return { data, total, page, pageSize };
   }
 
-  async reviewDocument(user: any, docId: string, dto: ReviewComplianceDocDto) {
+  async reviewDocument(
+    user: ReqUser,
+    docId: string,
+    dto: ReviewComplianceDocDto,
+  ) {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc) throw new NotFoundException('Document not found');
 
@@ -418,7 +714,7 @@ export class BranchComplianceService {
 
   // ─── Client (Master Client) view ──────────────────────────
 
-  async listForClient(user: any, q: ChecklistQueryDto) {
+  async listForClient(user: ReqUser, q: ChecklistQueryDto) {
     const companyId = q.companyId || user.clientId;
     if (!companyId) throw new ForbiddenException('No company associated');
 
@@ -457,13 +753,13 @@ export class BranchComplianceService {
   // ─── Dashboard KPIs ───────────────────────────────────────
 
   async getBranchDashboardKpis(
-    user: any,
+    user: ReqUser,
     branchId: string,
     year: number,
     month?: number,
   ) {
     await this.assertBranchAccess(user, branchId);
-    const companyId = user.clientId;
+    const companyId = user.clientId!;
 
     const results = await this.dataSource.query(
       `SELECT
@@ -586,7 +882,7 @@ export class BranchComplianceService {
   }
 
   async getClientDashboardKpis(
-    user: any,
+    _user: ReqUser,
     companyId: string,
     year: number,
     month?: number,
@@ -625,7 +921,7 @@ export class BranchComplianceService {
       totalBranches > 0
         ? Math.round(
             (branches.reduce(
-              (sum: number, b: any) => sum + Number(b.compliance_pct),
+              (sum: number, b: { compliance_pct: string | number }) => sum + Number(b.compliance_pct),
               0,
             ) /
               totalBranches) *
@@ -643,8 +939,13 @@ export class BranchComplianceService {
   }
 
   async getCrmDashboardKpis(
-    user: any,
-    q: { companyId?: string; year?: number; month?: number },
+    _user: ReqUser,
+    q: {
+      companyId?: string;
+      year?: number;
+      month?: number;
+      frequency?: string;
+    },
   ) {
     const year = q.year || new Date().getFullYear();
     const month = q.month;
@@ -658,11 +959,19 @@ export class BranchComplianceService {
         "COUNT(*) FILTER (WHERE d.status = 'REUPLOAD_REQUIRED')::int AS reupload_required",
         "COUNT(*) FILTER (WHERE d.status IN ('NOT_UPLOADED','OVERDUE'))::int AS not_uploaded",
         "COUNT(*) FILTER (WHERE d.status = 'OVERDUE')::int AS overdue",
+        "COUNT(*) FILTER (WHERE d.acting_on_behalf = true)::int AS crm_on_behalf_total",
+        "COUNT(*) FILTER (WHERE d.acting_on_behalf = true AND d.status = 'APPROVED')::int AS crm_on_behalf_approved",
+        "COUNT(*) FILTER (WHERE d.acting_on_behalf = true AND d.status IN ('SUBMITTED','RESUBMITTED'))::int AS crm_on_behalf_pending",
       ])
       .where('d.period_year = :year', { year });
 
     if (q.companyId) qb.andWhere('d.company_id = :cid', { cid: q.companyId });
-    if (month) qb.andWhere('d.period_month = :month', { month });
+    if (q.frequency)
+      qb.andWhere('d.frequency = :frequency', { frequency: q.frequency });
+    // Only filter by month for MONTHLY frequency — YEARLY/QUARTERLY/HALF_YEARLY docs have NULL period_month
+    if (month && q.frequency === 'MONTHLY') {
+      qb.andWhere('d.period_month = :month', { month });
+    }
 
     const result = await qb.getRawOne();
     return result;
@@ -687,7 +996,7 @@ export class BranchComplianceService {
 
   // ─── Auditor read-only ────────────────────────────────────
 
-  async listForAuditor(user: any, q: ChecklistQueryDto) {
+  async listForAuditor(_user: ReqUser, q: ChecklistQueryDto) {
     // Auditor can view all branches assigned through audits
     const qb = this.docRepo
       .createQueryBuilder('d')
@@ -748,8 +1057,8 @@ export class BranchComplianceService {
       hasBranch ? [companyId, year, branchId] : [companyId, year],
     );
 
-    const byMonth = new Map<number, any>(
-      rows.map((r: any) => [Number(r.month), r]),
+    const byMonth = new Map<number, { month: string; total: string; approved: string }>(
+      rows.map((r: { month: string; total: string; approved: string }) => [Number(r.month), r]),
     );
     return Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
@@ -845,12 +1154,12 @@ export class BranchComplianceService {
   // ─── Unified Branch Compliance Dashboard ──────────────────
 
   async getBranchComplianceDashboard(
-    user: any,
+    user: ReqUser,
     branchId: string,
     year: number,
   ) {
     await this.assertBranchAccess(user, branchId);
-    const companyId = user.clientId;
+    const companyId = user.clientId!;
 
     const [kpis, trend, risk, badges] = await Promise.all([
       this.getBranchDashboardKpis(user, branchId, year),
@@ -929,7 +1238,7 @@ export class BranchComplianceService {
       [companyId, year, limit],
     );
 
-    return (rows || []).map((r: any) => ({
+    return (rows || []).map((r: { branch_id: string; branch_name: string; total: string; approved: string; compliance_pct: string; overdue_count: string; pending_count?: string; reupload_count?: string }) => ({
       branchId: r.branch_id,
       branchName: r.branch_name,
       total: Number(r.total),
@@ -978,14 +1287,13 @@ export class BranchComplianceService {
 
   // ─── Private Helpers ──────────────────────────────────────
 
-  private extractBranchId(user: any): string | null {
+  private extractBranchId(user: ReqUser): string | null {
     if (user.branchIds?.length) return user.branchIds[0];
-    if (user.branchId) return user.branchId;
     return null;
   }
 
   /** Resolve branchId from query param, user mapping, or first active branch for client */
-  async resolveBranchId(user: any, branchId?: string): Promise<string> {
+  async resolveBranchId(user: ReqUser, branchId?: string): Promise<string> {
     let resolved = branchId || this.extractBranchId(user);
     if (!resolved && user.clientId) {
       const rows = await this.dataSource.query(
@@ -998,7 +1306,7 @@ export class BranchComplianceService {
     return resolved;
   }
 
-  private async assertBranchAccess(user: any, branchId: string) {
+  private async assertBranchAccess(user: ReqUser, branchId: string) {
     try {
       await this.branchAccess.assertBranchAccess(
         user.userId ?? user.id,

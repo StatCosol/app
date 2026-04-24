@@ -45,22 +45,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof QueryFailedError) {
       status = HttpStatus.CONFLICT;
       error = 'Database Error';
-      const pg = exception as any;
+      const pg = exception.driverError as Record<string, unknown>;
       // Unique-violation (23505)
-      if (pg.code === '23505') {
+      if (pg?.code === '23505') {
         message = 'A record with the same key already exists.';
-      } else if (pg.code === '23503') {
+      } else if (pg?.code === '23503') {
         message = 'Cannot complete because related records exist.';
-      } else if (pg.code === '23502') {
+      } else if (pg?.code === '23502') {
         message = 'A required field is missing.';
         status = HttpStatus.BAD_REQUEST;
         error = 'Bad Request';
       } else {
         message = 'A database error occurred.';
       }
+      const pgCode =
+        typeof pg?.code === 'string' || typeof pg?.code === 'number'
+          ? String(pg.code)
+          : 'unknown';
       this.logger.error(
-        `QueryFailedError [${pg.code}]: ${pg.message}`,
-        pg.stack,
+        `QueryFailedError [${pgCode}]: ${exception.message}`,
+        exception.stack,
       );
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;

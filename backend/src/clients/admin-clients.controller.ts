@@ -4,10 +4,10 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
-  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -25,6 +25,8 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Clients')
 @ApiBearerAuth('JWT')
@@ -44,13 +46,6 @@ export class AdminClientsController {
     return this.clientsService.listClients(include);
   }
 
-  @ApiOperation({ summary: 'List With Aggregates' })
-  @Get('clients/with-aggregates')
-  listWithAggregates(@Query('includeDeleted') includeDeleted?: string) {
-    const include = includeDeleted === 'true';
-    return this.clientsService.listClients(include);
-  }
-
   @ApiOperation({ summary: 'Find One' })
   @Get('clients/:id')
   findOne(
@@ -63,7 +58,7 @@ export class AdminClientsController {
 
   @ApiOperation({ summary: 'Create' })
   @Post('clients')
-  create(@Body() dto: CreateClientDto, @Req() req: any) {
+  create(@Body() dto: CreateClientDto, @CurrentUser() user: ReqUser) {
     const fallbackCode =
       dto.clientName
         ?.split(' ')
@@ -76,11 +71,7 @@ export class AdminClientsController {
       clientCode: dto.clientCode?.trim() || fallbackCode,
     };
 
-    return this.clientsService.create(
-      payload,
-      req.user?.userId,
-      req.user?.roleCode,
-    );
+    return this.clientsService.create(payload, user?.userId, user?.roleCode);
   }
 
   @ApiOperation({ summary: 'Update' })
@@ -88,14 +79,9 @@ export class AdminClientsController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateClientDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.clientsService.update(
-      id,
-      dto,
-      req.user?.userId,
-      req.user?.roleCode,
-    );
+    return this.clientsService.update(id, dto, user?.userId, user?.roleCode);
   }
 
   @ApiOperation({ summary: 'Readiness Check' })
@@ -108,14 +94,14 @@ export class AdminClientsController {
   @Delete('clients/:id')
   async softDelete(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
-    @Body('reason') reason?: string,
+    @CurrentUser() user: ReqUser,
+    @Body('reason') _reason?: string,
   ) {
     // Client deletion requires CEO approval
     return this.usersService.createDeletionRequest(
       'CLIENT',
       id,
-      req.user?.userId,
+      user?.userId,
       'CEO',
       null,
     );
@@ -123,12 +109,11 @@ export class AdminClientsController {
 
   @ApiOperation({ summary: 'Restore' })
   @Post('clients/:id/restore')
-  restore(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.clientsService.restore(
-      id,
-      req.user?.userId,
-      req.user?.roleCode,
-    );
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.clientsService.restore(id, user?.userId, user?.roleCode);
   }
 
   @ApiOperation({ summary: 'List Client Users With Client' })
@@ -167,17 +152,20 @@ export class AdminClientsController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: (req, file, cb) => {
+        destination: (_req, _file, cb) => {
           const dir = path.join(process.cwd(), 'uploads', 'logos');
           if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
         filename: (req, file, cb) => {
           const ext = path.extname(file.originalname).toLowerCase();
-          cb(null, `${(req.params as any).id}${ext}`);
+          const clientId = Array.isArray(req.params.id)
+            ? req.params.id[0]
+            : req.params.id;
+          cb(null, `${clientId}${ext}`);
         },
       }),
-      fileFilter: (req: any, file: any, cb: any) => {
+      fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
         const allowed = [
           'image/png',
           'image/jpeg',
@@ -199,7 +187,7 @@ export class AdminClientsController {
   )
   async uploadLogo(
     @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     const logoUrl = `/uploads/logos/${file.filename}`;
@@ -248,5 +236,24 @@ export class AdminClientsController {
 
     const logoUrl = `/uploads/logos/${id}.svg`;
     return this.clientsService.updateLogo(id, logoUrl);
+  }
+
+  // ── Toggle CRM On-Behalf ────────────────────────────────
+  @ApiOperation({ summary: 'Toggle CRM On Behalf' })
+  @Patch('clients/:id/crm-on-behalf')
+  async toggleCrmOnBehalf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('enabled') enabled: boolean,
+    @CurrentUser() user: ReqUser,
+  ) {
+    if (typeof enabled !== 'boolean') {
+      throw new BadRequestException('enabled must be a boolean');
+    }
+    return this.clientsService.toggleCrmOnBehalf(
+      id,
+      enabled,
+      user?.userId,
+      user?.roleCode,
+    );
   }
 }

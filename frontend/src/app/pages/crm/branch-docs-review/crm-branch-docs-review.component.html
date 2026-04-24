@@ -2,23 +2,24 @@
   <ui-page-header
     title="Branch Compliance Review"
     subtitle="Review, approve, or request reupload of branch compliance documents">
+    <ui-button variant="secondary" size="sm" (clicked)="goBack()">← Back</ui-button>
   </ui-page-header>
 
   <!-- Filter Bar -->
   <div class="filter-bar">
-    <select class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
+    <select id="cbdr-selected-frequency" name="selectedFrequency" class="filter-select" [(ngModel)]="selectedFrequency" (change)="load()">
       <option *ngFor="let f of frequencies" [ngValue]="f.value">{{ f.label }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
+    <select id="cbdr-selected-month" name="selectedMonth" class="filter-select" [(ngModel)]="selectedMonth" (change)="load()">
       <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
+    <select id="cbdr-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
       <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedStatus" (change)="load()">
+    <select id="cbdr-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="load()">
       <option *ngFor="let s of statuses" [ngValue]="s.value">{{ s.label }}</option>
     </select>
 
@@ -101,22 +102,22 @@
           <span class="text-sm">v{{ row.version }}</span>
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
-          <div class="flex flex-wrap items-center gap-2">
-            <button *ngIf="row.uploadedFileUrl" class="btn-outline" (click)="viewDoc(row)">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="action-btn-group">
+            <button type="button" *ngIf="row.uploadedFileUrl" class="btn-outline action-btn" (click)="viewDoc(row)">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
               </svg>
               View
             </button>
-            <button *ngIf="canReview(row)" class="btn-approve" (click)="openReviewModal(row, 'APPROVED')">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" *ngIf="canReview(row)" class="btn-approve action-btn" (click)="openReviewModal(row, 'APPROVED')">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
               </svg>
               Approve
             </button>
-            <button *ngIf="canReview(row)" class="btn-reject" (click)="openReviewModal(row, 'REUPLOAD_REQUIRED')">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button" *ngIf="canReview(row)" class="btn-reject action-btn" (click)="openReviewModal(row, 'REUPLOAD_REQUIRED')">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
               Reupload
@@ -157,10 +158,10 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="cbdr-review-remarks">
           Remarks {{ reviewAction === 'REUPLOAD_REQUIRED' ? '(Required)' : '(Optional)' }}
         </label>
-        <textarea
+        <textarea autocomplete="off" id="cbdr-review-remarks" name="reviewRemarks"
           class="remarks-textarea"
           [(ngModel)]="reviewRemarks"
           placeholder="Enter your remarks here..."
@@ -169,19 +170,19 @@
       </div>
 
       <div class="flex justify-end gap-3 pt-2">
-        <button
+        <button type="button"
           class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
           (click)="closeReviewModal()">
           Cancel
         </button>
-        <button
+        <button type="button"
           *ngIf="reviewAction === 'APPROVED'"
           class="btn-approve px-4 py-2 text-sm"
           [disabled]="reviewing"
           (click)="submitReview()">
           {{ reviewing ? 'Processing...' : 'Approve' }}
         </button>
-        <button
+        <button type="button"
           *ngIf="reviewAction === 'REUPLOAD_REQUIRED'"
           class="btn-reject px-4 py-2 text-sm"
           [disabled]="reviewing || !reviewRemarks.trim()"

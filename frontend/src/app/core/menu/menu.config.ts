@@ -24,7 +24,8 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Dashboard', route: '/cco/dashboard', roles: ['CCO'] },
   { label: 'CRM Management', route: '/cco/crms-under-me', roles: ['CCO'] },
   { label: 'Approvals', route: '/cco/approvals', roles: ['CCO'] },
-  { label: 'Escalations', route: '/cco/oversight', roles: ['CCO'] },
+  { label: 'Oversight', route: '/cco/oversight', roles: ['CCO'] },
+  { label: 'Escalations', route: '/cco/escalations', roles: ['CCO'] },
   { label: 'Registers', route: '/cco/registers', roles: ['CCO'] },
   { label: 'Notifications', route: '/cco/notifications', roles: ['CCO'] },
   { label: 'Reports', route: '/cco/crm-performance', roles: ['CCO'] },
@@ -55,8 +56,9 @@ export const APP_MENUS: MenuItem[] = [
   // AUDITOR (AuditXpert)
   { label: 'Dashboard', route: '/auditor/dashboard', roles: ['AUDITOR'] },
   { label: 'Audits', route: '/auditor/audits', roles: ['AUDITOR'] },
-  { label: 'Registers', route: '/auditor/registers', roles: ['AUDITOR'] },
-  { label: 'Compliance', route: '/auditor/compliance', roles: ['AUDITOR'] },
+  { label: 'Observations', route: '/auditor/observations', roles: ['AUDITOR'] },
+  { label: 'Reports', route: '/auditor/reports', roles: ['AUDITOR'] },
+  { label: 'Notifications', route: '/auditor/notifications', roles: ['AUDITOR'] },
 
   // CLIENT (LegitX) — navigation handled by sidebar in client-layout
 
@@ -66,6 +68,10 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Compliance', route: '/contractor/compliance', roles: ['CONTRACTOR'] },
   { label: 'Notifications', route: '/contractor/notifications', roles: ['CONTRACTOR'] },
   { label: 'Support', route: '/contractor/support', roles: ['CONTRACTOR'] },
+
+  // PF_TEAM
+  { label: 'Dashboard', route: '/pf-team/dashboard', roles: ['PF_TEAM'] },
+  { label: 'Tickets', route: '/pf-team/tickets', roles: ['PF_TEAM'] },
 
   // PAYROLL
   { label: 'Dashboard', route: '/payroll/dashboard', roles: ['PAYROLL'] },

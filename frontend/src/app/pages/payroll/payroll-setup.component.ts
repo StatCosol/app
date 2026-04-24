@@ -17,7 +17,10 @@ import {
   PayrollSetupApiService,
 } from './payroll-setup-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
+import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { LeaveManagementService } from '../client/leave-management.service';
 
 type SetupTab =
   | 'statutory'
@@ -57,7 +60,7 @@ interface LocalSetupAddon {
 @Component({
   selector: 'app-payroll-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-setup.component.html',
   styleUrls: ['./payroll-setup.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -117,6 +120,21 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
   readonly attendanceSources = ['MANUAL', 'BIOMETRIC', 'INTEGRATION'] as const;
   readonly lopModes = ['PRORATED', 'FULL_DAY'] as const;
 
+  // EL Accrual
+  elAccrualYear = new Date().getFullYear();
+  elAccrualMonth = new Date().getMonth() + 1;
+  elAccruing = false;
+  elAccrualResult = '';
+  elAccrualError = false;
+  readonly months = [
+    { value: 1, label: 'January' }, { value: 2, label: 'February' },
+    { value: 3, label: 'March' }, { value: 4, label: 'April' },
+    { value: 5, label: 'May' }, { value: 6, label: 'June' },
+    { value: 7, label: 'July' }, { value: 8, label: 'August' },
+    { value: 9, label: 'September' }, { value: 10, label: 'October' },
+    { value: 11, label: 'November' }, { value: 12, label: 'December' },
+  ];
+
   // Components and deduction rules
   loadingComponents = false;
   components: PayrollComponent[] = [];
@@ -143,12 +161,18 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
   constructor(
     private readonly setupApi: PayrollSetupApiService,
     private readonly payrollApi: PayrollApiService,
+    private readonly leaveMgmtSvc: LeaveManagementService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
-    this.loadClients();
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) {
+      this.selectedClientId = routeClientId;
+      this.onClientChange();
+    }
   }
 
   ngOnDestroy(): void {
@@ -244,6 +268,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       esiEmployerRate: this.setup.esiEmployerRate,
       esiEmployeeRate: this.setup.esiEmployeeRate,
       pfWageCeiling: this.setup.pfWageCeiling,
+      pfGrossThreshold: this.setup.pfGrossThreshold,
       esiWageCeiling: this.setup.esiWageCeiling,
     };
 
@@ -355,6 +380,37 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
           const msg = err?.error?.message || 'Unable to save leave/pay policy';
           this.setSectionMessage('leave-policy', msg, true);
           this.toast.error(msg);
+        },
+      });
+  }
+
+  accrueEL(): void {
+    if (!this.selectedClientId) {
+      this.toast.error('Select a client first');
+      return;
+    }
+    this.elAccruing = true;
+    this.elAccrualResult = '';
+    this.elAccrualError = false;
+    this.leaveMgmtSvc
+      .accrueEL(this.elAccrualYear, this.elAccrualMonth)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.elAccruing = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.elAccrualResult = res?.message || `Accrued: ${res?.accrued}, Skipped: ${res?.skipped}, Already done: ${res?.alreadyAccrued}`;
+          this.elAccrualError = false;
+          this.toast.success(this.elAccrualResult);
+        },
+        error: (err) => {
+          this.elAccrualResult = err?.error?.message || 'EL accrual failed';
+          this.elAccrualError = true;
+          this.toast.error(this.elAccrualResult);
         },
       });
   }
@@ -691,6 +747,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       esiEmployerRate: this.numberOrDefault(raw?.esiEmployerRate ?? raw?.esi_employer_rate, defaults.esiEmployerRate),
       esiEmployeeRate: this.numberOrDefault(raw?.esiEmployeeRate ?? raw?.esi_employee_rate, defaults.esiEmployeeRate),
       pfWageCeiling: this.numberOrDefault(raw?.pfWageCeiling ?? raw?.pf_wage_ceiling, defaults.pfWageCeiling),
+      pfGrossThreshold: this.numberOrDefault(raw?.pfGrossThreshold ?? raw?.pf_gross_threshold, defaults.pfGrossThreshold),
       esiWageCeiling: this.numberOrDefault(raw?.esiWageCeiling ?? raw?.esi_wage_ceiling, defaults.esiWageCeiling),
       payCycle: String(raw?.payCycle ?? raw?.pay_cycle ?? defaults.payCycle),
       effectiveFrom: String(raw?.effectiveFrom ?? raw?.effective_from ?? defaults.effectiveFrom),
@@ -851,6 +908,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
         esiEmployerRate: this.setup.esiEmployerRate,
         esiEmployeeRate: this.setup.esiEmployeeRate,
         pfWageCeiling: this.setup.pfWageCeiling,
+        pfGrossThreshold: this.setup.pfGrossThreshold,
         esiWageCeiling: this.setup.esiWageCeiling,
       });
     }
@@ -905,6 +963,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       esiEmployerRate: 3.25,
       esiEmployeeRate: 0.75,
       pfWageCeiling: 15000,
+      pfGrossThreshold: 0,
       esiWageCeiling: 21000,
       payCycle: 'MONTHLY',
       effectiveFrom: new Date().toISOString().slice(0, 10),

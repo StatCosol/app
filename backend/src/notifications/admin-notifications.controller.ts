@@ -17,6 +17,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('JWT')
@@ -28,7 +29,7 @@ export class AdminNotificationsController {
 
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@CurrentUser() user: any, @Query() q: ListNotificationsDto) {
+  async list(@CurrentUser() user: ReqUser, @Query() q: ListNotificationsDto) {
     return this.notificationsService.listTicketsForAdmin(user.id, q);
   }
 
@@ -40,14 +41,17 @@ export class AdminNotificationsController {
 
   @ApiOperation({ summary: 'Create' })
   @Post()
-  async create(@CurrentUser() user: any, @Body() dto: CreateNotificationDto) {
+  async create(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: CreateNotificationDto,
+  ) {
     return this.notificationsService.createTicket(user.id, user.roleCode, dto);
   }
 
   @ApiOperation({ summary: 'Reply' })
   @Post(':id/reply')
   async reply(
-    @CurrentUser() user: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() dto: ReplyNotificationDto,
   ) {
@@ -61,7 +65,7 @@ export class AdminNotificationsController {
 
   @ApiOperation({ summary: 'Mark Read' })
   @Post(':id/read')
-  async markRead(@CurrentUser() user: any, @Param('id') id: string) {
+  async markRead(@CurrentUser() user: ReqUser, @Param('id') id: string) {
     return this.notificationsService.markRead(id, user.id);
   }
 

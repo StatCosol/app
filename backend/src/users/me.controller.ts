@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { ChangeMyPasswordDto } from './dto/change-my-password.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT')
@@ -14,21 +16,24 @@ export class MeController {
 
   @ApiOperation({ summary: 'Get current user profile' })
   @Get()
-  getMe(@Req() req: any) {
-    return this.usersService.getMe(req.user?.userId);
+  getMe(@CurrentUser() user: ReqUser) {
+    return this.usersService.getMe(user?.userId);
   }
 
   @ApiOperation({ summary: 'Update current user profile' })
   @Patch('profile')
-  updateProfile(@Req() req: any, @Body() dto: UpdateMyProfileDto) {
-    return this.usersService.updateMyProfile(req.user?.userId, dto);
+  updateProfile(@CurrentUser() user: ReqUser, @Body() dto: UpdateMyProfileDto) {
+    return this.usersService.updateMyProfile(user?.userId, dto);
   }
 
   @ApiOperation({ summary: 'Change current user password' })
   @Patch('password')
-  changePassword(@Req() req: any, @Body() dto: ChangeMyPasswordDto) {
+  changePassword(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: ChangeMyPasswordDto,
+  ) {
     return this.usersService.changeMyPassword(
-      req.user?.userId,
+      user?.userId,
       dto.currentPassword,
       dto.newPassword,
     );

@@ -42,7 +42,7 @@ export class ComplianceDocumentsService {
     @InjectRepository(ComplianceDocLibraryEntity)
     private readonly docRepo: Repository<ComplianceDocLibraryEntity>,
     @InjectRepository(ComplianceDocumentVisibilityEntity)
-    private readonly visibilityRepo: Repository<ComplianceDocumentVisibilityEntity>,
+    private readonly _visibilityRepo: Repository<ComplianceDocumentVisibilityEntity>,
     @InjectRepository(CompanySettingsEntity)
     private readonly settingsRepo: Repository<CompanySettingsEntity>,
     @InjectRepository(ClientAssignmentCurrentEntity)
@@ -78,7 +78,6 @@ export class ComplianceDocumentsService {
     fs.mkdirSync(dir, { recursive: true });
 
     const ts = Date.now();
-    const ext = path.extname(file.originalname) || '.pdf';
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const diskName = `${ts}_${safeName}`;
     const filePath = path.join(dir, diskName);
@@ -260,7 +259,9 @@ export class ComplianceDocumentsService {
   // ══════════════════════════════════════════════════════════
   // COMPANY SETTINGS
   // ══════════════════════════════════════════════════════════
-  async getCompanySettings(clientId: string): Promise<Record<string, any>> {
+  async getCompanySettings(
+    clientId: string,
+  ): Promise<Record<string, unknown>> {
     const row = await this.settingsRepo.findOne({ where: { clientId } });
     return (
       row?.settings || {
@@ -274,7 +275,7 @@ export class ComplianceDocumentsService {
     clientId: string,
     userId: string,
     dto: UpdateCompanySettingsDto,
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     let row = await this.settingsRepo.findOne({ where: { clientId } });
     if (!row) {
       row = this.settingsRepo.create({

@@ -37,15 +37,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
       - run: npm ci
 
+      - name: Security audit
+        run: npm audit --audit-level=high
+
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Build
         run: npm run build
@@ -63,17 +65,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
 
       - name: Lint
-        run: npx ng lint 2>/dev/null || echo "No lint config - skipping"
+        run: npm run lint
 
       - name: Build
         run: npx ng build --configuration=production
+
+      - name: Unit tests
+        run: npm run test -- --watch=false
 
   payroll-transition-smoke:
     runs-on: ubuntu-latest
@@ -103,6 +108,7 @@ jobs:
       NODE_ENV: test
       EMAIL_ENABLED: "false"
       SKIP_BOOTSTRAP_SEED: "true"
+      SMOKE_ADMIN_EMAIL: it_admin@statcosol.com
     steps:
       - uses: actions/checkout@v4
 
@@ -118,6 +124,12 @@ jobs:
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Generate smoke admin password
+        run: |
+          password="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AB')"
+          echo "DEFAULT_SEED_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "SMOKE_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
 
       - name: Apply SQL migrations
         run: |
@@ -209,7 +221,7 @@ jobs:
 
       - name: Run PayDek transition smoke
         shell: pwsh
-        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api" -AdminEmail "admin@statcosol.com" -AdminPassword "Admin@123" -OutFile "$PWD/paydek_transition_results_ci.txt"
+        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api" -AdminEmail "$env:SMOKE_ADMIN_EMAIL" -AdminPassword "$env:SMOKE_ADMIN_PASSWORD" -OutFile "$PWD/paydek_transition_results_ci.txt"
 
       - name: Upload smoke artifacts
         if: always()

@@ -1,21 +1,26 @@
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
 import { PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent, ActionButtonComponent } from '../../../shared/ui';
+import { ClientReuploadInboxComponent } from './client-reupload-inbox.component';
 
 @Component({
   standalone: true,
   selector: 'app-client-mcd',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent, ActionButtonComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, StatusBadgeComponent, EmptyStateComponent, LoadingSpinnerComponent, ActionButtonComponent, ClientReuploadInboxComponent],
   templateUrl: './client-mcd.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-mcd.component.scss'],
 })
 export class ClientMcdComponent implements OnDestroy {
+  activeTab: 'uploads' | 'reupload' = 'uploads';
   private destroy$ = new Subject<void>();
   loading = true;
+  focusCode = '';
+  focusTitle = '';
   branches: any[] = [];
   tasks: any[] = [];
   items: Record<string, any[] | null> = {};
@@ -31,7 +36,7 @@ export class ClientMcdComponent implements OnDestroy {
   monthOptions = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: new Date(2000, i, 1).toLocaleString('en', { month: 'long' }) }));
   yearOptions: number[];
 
-  constructor(private api: ClientComplianceService, private cdr: ChangeDetectorRef) {
+  constructor(private api: ClientComplianceService, private cdr: ChangeDetectorRef, private route: ActivatedRoute) {
     const now = new Date();
     this.filters.month = now.getMonth() + 1;
     this.filters.year = now.getFullYear();
@@ -40,6 +45,17 @@ export class ClientMcdComponent implements OnDestroy {
   }
 
   ngOnInit() {
+    const params = this.route.snapshot.queryParamMap;
+    const branchId = params.get('branchId') || '';
+    const code = params.get('code') || '';
+    const title = params.get('title') || '';
+    const month = Number(params.get('periodMonth') || params.get('month')?.split('-')[1] || '');
+    const year = Number(params.get('year') || params.get('month')?.split('-')[0] || '');
+    this.focusCode = this.normalizeCode(code);
+    this.focusTitle = title.trim();
+    if (branchId) this.filters.branchId = branchId;
+    if (month >= 1 && month <= 12) this.filters.month = month;
+    if (year >= 2000) this.filters.year = year;
     this.loadBranches();
   }
 
@@ -68,7 +84,12 @@ export class ClientMcdComponent implements OnDestroy {
 
   loadTasks() {
     this.loading = true;
-    const payload = { ...this.filters, frequency: 'MONTHLY' };
+    const payload = {
+      ...this.filters,
+      frequency: 'MONTHLY',
+      code: this.focusCode || undefined,
+      title: this.focusTitle || undefined,
+    };
     this.api.getTasks(payload).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
@@ -78,7 +99,8 @@ export class ClientMcdComponent implements OnDestroy {
         this.loading = false;
         this.tasks = (res?.data || res || []).map((t: any) => ({
           ...t,
-          complianceTitle: t.complianceTitle || t.title || t.compliance?.title,
+          complianceTitle: t.complianceTitle || t.compliance?.complianceName || t.title,
+          complianceCode: t.complianceCode || t.compliance?.code || t.code || this.inferTaskCode(t),
           branchName: t.branchName || t.branch?.branchName || '-',
           evidenceCount: t.evidenceCount ?? 0,
           dueDate: this.computeDueDateString(t),
@@ -173,6 +195,7 @@ export class ClientMcdComponent implements OnDestroy {
   itemStatusLabel(item: any) {
     const s = (item.status || '').toUpperCase();
     if (s === 'VERIFIED') return 'Verified';
+    if (s === 'APPROVED') return 'Approved';
     if (s === 'REJECTED') return 'Rejected';
     if (s === 'SUBMITTED') return 'Submitted';
     return 'Pending';
@@ -237,5 +260,66 @@ export class ClientMcdComponent implements OnDestroy {
     if (now < start) return `Opens ${win.start}`;
     if (now > end) return `Closed ${win.end}`;
     return `Open until ${win.end}`;
+  }
+
+  focusLabel(): string {
+    if (this.focusTitle) return this.focusTitle;
+    return this.focusCode ? this.focusCode.replace(/_/g, ' ') : '';
+  }
+
+  hasFocusTarget(): boolean {
+    return !!(this.focusCode || this.focusTitle);
+  }
+
+  hasFocusedTask(): boolean {
+    return this.tasks.some((task) => this.isFocusedTask(task));
+  }
+
+  focusSummaryText(): string {
+    if (!this.hasFocusTarget()) return '';
+    if (this.hasFocusedTask()) {
+      return `Showing the monthly workspace for ${this.focusLabel()}.`;
+    }
+    return `Opened the monthly workspace for ${this.focusLabel()}. This screen is scoped to the selected branch and period even when there is no single direct row match.`;
+  }
+
+  isFocusedTask(task: any): boolean {
+    if (!this.focusCode) return false;
+    const candidates = [
+      task?.complianceCode,
+      task?.code,
+      task?.compliance?.code,
+      task?.complianceTitle,
+      task?.title,
+      task?.description,
+    ];
+    return candidates.some((value) => this.matchesFocusCode(value));
+  }
+
+  private matchesFocusCode(value: unknown): boolean {
+    const normalized = this.normalizeCode(value);
+    if (!normalized || !this.focusCode) return false;
+    if (normalized === this.focusCode) return true;
+    if (this.focusCode === 'MCD_UPLOAD' && ['MCD', 'MONTHLY_COMPLIANCE_DOCUMENT_UPLOAD', 'MONTHLY_COMPLIANCE_DOCKET'].includes(normalized)) {
+      return true;
+    }
+    return normalized.includes(this.focusCode) || this.focusCode.includes(normalized);
+  }
+
+  private inferTaskCode(task: any): string {
+    const title = this.normalizeCode(task?.complianceTitle || task?.title || '');
+    if (title.includes('MONTHLY_COMPLIANCE_DOCUMENT_UPLOAD')) return 'MCD_UPLOAD';
+    if (title.includes('MONTHLY_COMPLIANCE_DOCKET')) return 'MCD_UPLOAD';
+    if (title.includes('MCD')) return 'MCD_UPLOAD';
+    return '';
+  }
+
+  private normalizeCode(value: unknown): string {
+    return String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/&/g, 'AND')
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
   }
 }

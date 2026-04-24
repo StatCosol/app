@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,8 +19,16 @@ import { PayrollRunEntity } from '../payroll/entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employee.entity';
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { AttendanceService } from '../attendance/attendance.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  CreateEssNominationDto,
+  ResubmitNominationDto,
+  ApplyLeaveDto,
+  CreateLeavePolicyDto,
+  UpdateLeavePolicyDto,
+} from './dto/ess.dto';
 
 // ─── Types ────────────────────────────────────────────────────
 export type EssUser = {
@@ -32,10 +39,22 @@ export type EssUser = {
   employeeId: string | null;
 };
 
+interface DocRow {
+  id: string;
+  docType: string;
+  docName: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  mimeType: string | null;
+  expiryDate: string | null;
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Service ──────────────────────────────────────────────────
 @Injectable()
 export class EssService {
-  private readonly logger = new Logger(EssService.name);
 
   constructor(
     @InjectRepository(EmployeeEntity)
@@ -57,13 +76,14 @@ export class EssService {
     @InjectRepository(PayrollPayslipArchiveEntity)
     private readonly payslipRepo: Repository<PayrollPayslipArchiveEntity>,
     @InjectRepository(PayrollRunEntity)
-    private readonly runRepo: Repository<PayrollRunEntity>,
+    private readonly _runRepo: Repository<PayrollRunEntity>,
     @InjectRepository(PayrollRunEmployeeEntity)
     private readonly runEmpRepo: Repository<PayrollRunEmployeeEntity>,
     @InjectRepository(PayrollRunComponentValueEntity)
     private readonly compValRepo: Repository<PayrollRunComponentValueEntity>,
     @InjectRepository(ClientEntity)
     private readonly clientRepo: Repository<ClientEntity>,
+    private readonly attendanceService: AttendanceService,
     private readonly ds: DataSource,
   ) {}
 
@@ -149,8 +169,9 @@ export class EssService {
     if (user.employeeId) {
       const emp = await this.empRepo.findOne({
         where: { id: user.employeeId },
+        relations: ['branch'],
       });
-      branchName = (emp as any)?.branchName ?? null;
+      branchName = emp?.branch?.branchName ?? null;
     }
 
     return {
@@ -197,7 +218,7 @@ export class EssService {
     ];
     for (const key of allowed) {
       if (body[key] !== undefined) {
-        (emp as any)[key] = body[key];
+        (emp[key] as string | null | undefined) = body[key] ?? null;
       }
     }
     return this.empRepo.save(emp);
@@ -366,14 +387,20 @@ export class EssService {
     const rows = await this.ds
       .query(
         `SELECT
-           a.date,
+           a.date::text AS date,
            a.status,
            a.check_in AS "checkIn",
            a.check_out AS "checkOut",
            a.worked_hours AS "workedHours",
            a.overtime_hours AS "overtimeHours",
            a.remarks,
-           a.source
+           a.source,
+           a.capture_method AS "captureMethod",
+           a.self_marked AS "selfMarked",
+           a.check_in_lat AS "checkInLat",
+           a.check_in_lng AS "checkInLng",
+           a.check_out_lat AS "checkOutLat",
+           a.check_out_lng AS "checkOutLng"
          FROM attendance_records a
          WHERE a.employee_id = $1
            AND a.date >= $2::date
@@ -432,7 +459,7 @@ export class EssService {
     const rows = await this.ds
       .query(
         `SELECT
-           a.date,
+           a.date::text AS date,
            a.status,
            COALESCE(NULLIF(a.remarks, ''), CASE WHEN a.status = 'WEEK_OFF' THEN 'Weekly Off' ELSE 'Holiday' END) AS label
          FROM attendance_records a
@@ -449,6 +476,369 @@ export class EssService {
       month: range.month,
       items: rows,
     };
+  }
+
+  // -- Self Check-In / Check-Out -----------------------------------------------
+  async getTodayAttendance(user: EssUser) {
+    const empId = this.ensureEmployee(user);
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await this.ds.query(
+      `SELECT id, date::text AS date, status, check_in AS "checkIn", check_out AS "checkOut",
+              capture_method AS "captureMethod", self_marked AS "selfMarked",
+              check_in_lat AS "checkInLat", check_in_lng AS "checkInLng",
+              check_out_lat AS "checkOutLat", check_out_lng AS "checkOutLng"
+       FROM attendance_records
+       WHERE employee_id = $1 AND date = $2::date`,
+      [empId, today],
+    );
+    return (
+      rows[0] || { date: today, status: null, checkIn: null, checkOut: null }
+    );
+  }
+
+  async selfCheckIn(
+    user: EssUser,
+    body: {
+      captureMethod?: string;
+      latitude?: number;
+      longitude?: number;
+      deviceInfo?: string;
+    },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+    // Check if record already exists
+    const existing = await this.ds.query(
+      `SELECT id, check_in AS "checkIn" FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
+      [empId, today],
+    );
+
+    if (existing.length && existing[0].checkIn) {
+      throw new BadRequestException(
+        'Already checked in today at ' + existing[0].checkIn,
+      );
+    }
+
+    const method = ['MANUAL', 'BIOMETRIC', 'FACE', 'GEOLOCATION'].includes(
+      String(body.captureMethod || '').toUpperCase(),
+    )
+      ? String(body.captureMethod).toUpperCase()
+      : 'MANUAL';
+
+    if (existing.length) {
+      // Update existing record (e.g. admin-seeded WEEK_OFF or HOLIDAY shouldn't be overwritten)
+      const rec = existing[0];
+      await this.ds.query(
+        `UPDATE attendance_records
+         SET check_in = $1, status = 'PRESENT', capture_method = $2,
+             check_in_lat = $3, check_in_lng = $4, device_info = $5,
+             self_marked = true, source = 'MANUAL', updated_at = NOW()
+         WHERE id = $6`,
+        [
+          timeStr,
+          method,
+          body.latitude ?? null,
+          body.longitude ?? null,
+          body.deviceInfo ?? null,
+          rec.id,
+        ],
+      );
+    } else {
+      // Create new attendance record
+      await this.ds.query(
+        `INSERT INTO attendance_records
+           (id, client_id, branch_id, employee_id, employee_code, date,
+            status, check_in, source, capture_method,
+            check_in_lat, check_in_lng, device_info, self_marked)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5,
+                 'PRESENT', $6, 'MANUAL', $7, $8, $9, $10, true)`,
+        [
+          emp.clientId,
+          emp.branchId,
+          emp.id,
+          emp.employeeCode,
+          today,
+          timeStr,
+          method,
+          body.latitude ?? null,
+          body.longitude ?? null,
+          body.deviceInfo ?? null,
+        ],
+      );
+    }
+
+    return {
+      success: true,
+      date: today,
+      checkIn: timeStr,
+      captureMethod: method,
+    };
+  }
+
+  async selfCheckOut(
+    user: EssUser,
+    body: {
+      captureMethod?: string;
+      latitude?: number;
+      longitude?: number;
+      deviceInfo?: string;
+    },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+    const existing = await this.ds.query(
+      `SELECT id, status, check_in AS "checkIn", check_out AS "checkOut"
+       FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
+      [empId, today],
+    );
+
+    if (!existing.length || !existing[0].checkIn) {
+      throw new BadRequestException('Must check in before checking out');
+    }
+    if (existing[0].checkOut) {
+      throw new BadRequestException(
+        'Already checked out today at ' + existing[0].checkOut,
+      );
+    }
+
+    // Calculate worked hours
+    const checkInParts = String(existing[0].checkIn).split(':').map(Number);
+    const checkInMinutes = checkInParts[0] * 60 + checkInParts[1];
+    const checkOutMinutes = now.getHours() * 60 + now.getMinutes();
+    const workedDecimal = Math.max(0, (checkOutMinutes - checkInMinutes) / 60);
+    const workedHrs = workedDecimal.toFixed(2);
+    const STANDARD_HOURS = 9;
+
+    // Determine overtime / short-work
+    const excessHrs = Math.max(0, workedDecimal - STANDARD_HOURS);
+    const otHours = excessHrs > 0 ? excessHrs.toFixed(2) : '0.00';
+    const isShort = workedDecimal < STANDARD_HOURS;
+    const dayStatus = existing[0].status; // PRESENT, HOLIDAY, WEEK_OFF, etc.
+
+    // Get employee monthly gross to determine OT vs C/Off
+    const salaryInfo = await this.getEmployeeMonthlyGross(empId);
+    const monthlyGross = salaryInfo?.monthlyGross ?? 0;
+    const OT_THRESHOLD = 21000; // ₹21,000/month
+
+    // Determine overtime_type
+    let overtimeType: string | null = null;
+    if (excessHrs > 0 || dayStatus === 'HOLIDAY' || dayStatus === 'WEEK_OFF') {
+      overtimeType = monthlyGross > OT_THRESHOLD ? 'COFF' : 'OT';
+    }
+
+    const method = ['MANUAL', 'BIOMETRIC', 'FACE', 'GEOLOCATION'].includes(
+      String(body.captureMethod || '').toUpperCase(),
+    )
+      ? String(body.captureMethod).toUpperCase()
+      : 'MANUAL';
+
+    await this.ds.query(
+      `UPDATE attendance_records
+       SET check_out = $1, worked_hours = $2, overtime_hours = $3,
+           overtime_type = $4,
+           check_out_lat = $5, check_out_lng = $6,
+           updated_at = NOW()
+       WHERE id = $7`,
+      [
+        timeStr,
+        workedHrs,
+        otHours,
+        overtimeType,
+        body.latitude ?? null,
+        body.longitude ?? null,
+        existing[0].id,
+      ],
+    );
+
+    // Auto-accrue comp-off for eligible employees
+    let coffAccrued = 0;
+    if (overtimeType === 'COFF') {
+      coffAccrued = await this.accrueCompOff(
+        emp,
+        existing[0].id,
+        today,
+        dayStatus,
+        excessHrs,
+      );
+    }
+
+    return {
+      success: true,
+      date: today,
+      checkOut: timeStr,
+      workedHours: workedHrs,
+      overtimeHours: otHours,
+      overtimeType,
+      isShortDay: isShort,
+      shortWorkReasonRequired: isShort,
+      coffAccrued,
+      captureMethod: method,
+    };
+  }
+
+  /** Submit reason for working less than 9 hours */
+  async submitShortWorkReason(
+    user: EssUser,
+    body: { date?: string; reason: string },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const targetDate = body.date || new Date().toISOString().slice(0, 10);
+    const reason = (body.reason || '').trim();
+    if (!reason || reason.length < 5) {
+      throw new BadRequestException(
+        'Please provide a valid reason (at least 5 characters)',
+      );
+    }
+    const rows = await this.ds.query(
+      `UPDATE attendance_records
+       SET short_work_reason = $1, updated_at = NOW()
+       WHERE employee_id = $2 AND date = $3::date
+       RETURNING id`,
+      [reason, empId, targetDate],
+    );
+    if (!rows.length)
+      throw new NotFoundException('Attendance record not found for that date');
+    return { success: true, date: targetDate };
+  }
+
+  /** Get comp-off balance for an employee */
+  async getCompOffBalance(user: EssUser) {
+    const empId = this.ensureEmployee(user);
+    const rows = await this.ds.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN entry_type = 'ACCRUAL' THEN days ELSE 0 END), 0) AS accrued,
+         COALESCE(SUM(CASE WHEN entry_type = 'USED' THEN ABS(days) ELSE 0 END), 0) AS used,
+         COALESCE(SUM(CASE WHEN entry_type = 'LAPSED' THEN ABS(days) ELSE 0 END), 0) AS lapsed,
+         COALESCE(SUM(days), 0) AS available
+       FROM comp_off_ledger WHERE employee_id = $1`,
+      [empId],
+    );
+    return {
+      accrued: parseFloat(rows[0]?.accrued ?? 0),
+      used: parseFloat(rows[0]?.used ?? 0),
+      lapsed: parseFloat(rows[0]?.lapsed ?? 0),
+      available: parseFloat(rows[0]?.available ?? 0),
+    };
+  }
+
+  /** Get comp-off ledger history */
+  async getCompOffLedger(user: EssUser) {
+    const empId = this.ensureEmployee(user);
+    return this.ds.query(
+      `SELECT id, entry_date AS "entryDate", entry_type AS "entryType",
+              days, reason, remarks, created_at AS "createdAt"
+       FROM comp_off_ledger WHERE employee_id = $1
+       ORDER BY entry_date DESC, created_at DESC LIMIT 50`,
+      [empId],
+    );
+  }
+
+  /** Get overtime summary for a month */
+  async getOvertimeSummary(user: EssUser, month?: string) {
+    const empId = this.ensureEmployee(user);
+    const range = this.resolveMonthRange(month);
+    const rows = await this.ds.query(
+      `SELECT
+         COALESCE(SUM(overtime_hours), 0) AS "totalOtHours",
+         COALESCE(SUM(CASE WHEN overtime_type = 'OT' THEN overtime_hours ELSE 0 END), 0) AS "paidOtHours",
+         COALESCE(SUM(CASE WHEN overtime_type = 'COFF' THEN overtime_hours ELSE 0 END), 0) AS "coffOtHours",
+         COUNT(*) FILTER (WHERE worked_hours < 9 AND status = 'PRESENT') AS "shortDays",
+         COUNT(*) FILTER (WHERE worked_hours < 9 AND status = 'PRESENT' AND short_work_reason IS NULL) AS "shortDaysPending",
+         COUNT(*) FILTER (WHERE overtime_hours > 0) AS "overtimeDays",
+         COUNT(*) FILTER (WHERE status IN ('HOLIDAY','WEEK_OFF') AND check_in IS NOT NULL) AS "workedOnOffDays"
+       FROM attendance_records
+       WHERE employee_id = $1 AND date >= $2::date AND date < $3::date`,
+      [empId, range.startDate, range.endDate],
+    );
+    const salaryInfo = await this.getEmployeeMonthlyGross(empId);
+    return {
+      month: range.month,
+      monthlyGross: salaryInfo?.monthlyGross ?? 0,
+      otEligibility:
+        (salaryInfo?.monthlyGross ?? 0) <= 21000 ? 'OT_PAY' : 'COMP_OFF',
+      totalOtHours: parseFloat(rows[0]?.totalOtHours ?? 0),
+      paidOtHours: parseFloat(rows[0]?.paidOtHours ?? 0),
+      coffOtHours: parseFloat(rows[0]?.coffOtHours ?? 0),
+      shortDays: parseInt(rows[0]?.shortDays ?? 0, 10),
+      shortDaysPending: parseInt(rows[0]?.shortDaysPending ?? 0, 10),
+      overtimeDays: parseInt(rows[0]?.overtimeDays ?? 0, 10),
+      workedOnOffDays: parseInt(rows[0]?.workedOnOffDays ?? 0, 10),
+    };
+  }
+
+  // ── Private helpers for OT/C-Off ──────────────────
+  private async getEmployeeMonthlyGross(
+    empId: string,
+  ): Promise<{ monthlyGross: number } | null> {
+    const rows = await this.ds.query(
+      `SELECT new_ctc FROM employee_salary_revisions
+       WHERE employee_id = $1 ORDER BY effective_date DESC LIMIT 1`,
+      [empId],
+    );
+    if (!rows.length) return null;
+    const annualCtc = parseFloat(rows[0].new_ctc);
+    return { monthlyGross: Math.round(annualCtc / 12) };
+  }
+
+  private async accrueCompOff(
+    emp: EmployeeEntity,
+    attendanceId: string,
+    date: string,
+    dayStatus: string,
+    excessHrs: number,
+  ): Promise<number> {
+    let days = 0;
+    let reason = '';
+    let remarks = '';
+
+    if (dayStatus === 'WEEKLY_OFF' || dayStatus === 'WEEK_OFF') {
+      // Worked on weekly off → 1 C/Off
+      days = 1;
+      reason = 'WEEKLY_OFF_WORK';
+      remarks = 'Worked on weekly off';
+    } else if (dayStatus === 'HOLIDAY') {
+      // Worked on holiday → 1 C/Off (or 3x wages — tracked separately)
+      days = 1;
+      reason = 'HOLIDAY_WORK';
+      remarks = 'Worked on holiday';
+    } else if (excessHrs >= 9) {
+      // 9+ excess hours → floor(excess / 9) C/Off days
+      days = Math.floor(excessHrs / 9);
+      reason = 'EXCESS_HOURS';
+      remarks = `${excessHrs.toFixed(1)} excess hours accumulated`;
+    }
+
+    if (days > 0) {
+      await this.ds.query(
+        `INSERT INTO comp_off_ledger (id, client_id, employee_id, entry_date, entry_type, days, reason, ref_attendance_id, remarks, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3::date, 'ACCRUAL', $4, $5, $6, $7, NOW())`,
+        [emp.clientId, emp.id, date, days, reason, attendanceId, remarks],
+      );
+
+      // Update leave balance
+      await this.ds.query(
+        `INSERT INTO leave_balances (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
+         VALUES (gen_random_uuid(), $1, $2, EXTRACT(YEAR FROM $3::date)::int, 'COMP_OFF', 0, $4, 0, 0, $4, NOW())
+         ON CONFLICT (employee_id, year, leave_type)
+         DO UPDATE SET accrued = leave_balances.accrued + $4,
+                       available = leave_balances.available + $4,
+                       last_updated_at = NOW()`,
+        [emp.id, emp.clientId, date, days],
+      );
+    }
+    return days;
   }
 
   // -- Employee Document Vault ------------------------------------------------
@@ -483,26 +873,29 @@ export class EssService {
 
     const categoryFilter = String(opts?.category || '').toUpperCase();
     const yearFilter = opts?.year ? Number(opts.year) : null;
-    const q = String(opts?.q || '').trim().toLowerCase();
+    const q = String(opts?.q || '')
+      .trim()
+      .toLowerCase();
 
-    let items = rows.map((r: any) => ({
+    let items = rows.map((r: DocRow) => ({
       ...r,
       category: this.mapDocCategory(r.docType),
     }));
 
     if (categoryFilter && categoryFilter !== 'ALL') {
-      items = items.filter((r: any) => r.category === categoryFilter);
+      items = items.filter((r) => r.category === categoryFilter);
     }
     if (yearFilter) {
-      items = items.filter((r: any) => {
+      items = items.filter((r) => {
         if (!r.createdAt) return false;
         const y = new Date(r.createdAt).getFullYear();
         return y === yearFilter;
       });
     }
     if (q) {
-      items = items.filter((r: any) => {
-        const hay = `${r.docType || ''} ${r.docName || ''} ${r.fileName || ''}`.toLowerCase();
+      items = items.filter((r) => {
+        const hay =
+          `${r.docType || ''} ${r.docName || ''} ${r.fileName || ''}`.toLowerCase();
         return hay.includes(q);
       });
     }
@@ -592,10 +985,14 @@ export class EssService {
     }));
   }
 
-  async createNomination(user: EssUser, dto: any) {
+  async createNomination(user: EssUser, dto: CreateEssNominationDto) {
     const empId = this.ensureEmployee(user);
     const emp = await this.empRepo.findOne({ where: { id: empId } });
     if (!emp) throw new NotFoundException('Employee not found');
+
+    if (!dto.nominationType) {
+      throw new BadRequestException('nominationType is required');
+    }
 
     // Determine status: save as DRAFT or directly SUBMITTED
     const asDraft = dto.asDraft === true;
@@ -604,7 +1001,7 @@ export class EssService {
       employeeId: empId,
       clientId: emp.clientId,
       branchId: emp.branchId,
-      nominationType: dto.nominationType,
+      nominationType: dto.nominationType as EmployeeNominationEntity['nominationType'],
       declarationDate: dto.declarationDate || null,
       witnessName: dto.witnessName || null,
       witnessAddress: dto.witnessAddress || null,
@@ -614,14 +1011,14 @@ export class EssService {
     const saved = await this.nomRepo.save(nom);
 
     // Save members
-    const members = (dto.members ?? []).filter((m: any) =>
+    const members = (dto.members ?? []).filter((m) =>
       m.memberName?.trim(),
     );
     if (members.length) {
-      const entities = members.map((m: any) =>
+      const entities = members.map((m) =>
         this.nomMemberRepo.create({
           nominationId: saved.id,
-          memberName: m.memberName.trim(),
+          memberName: m.memberName!.trim(),
           relationship: m.relationship || null,
           dateOfBirth: m.dateOfBirth || null,
           sharePct: m.sharePct ?? 0,
@@ -654,7 +1051,7 @@ export class EssService {
   }
 
   // Resubmit a REJECTED nomination (clears rejection, goes back to SUBMITTED)
-  async resubmitNomination(user: EssUser, nominationId: string, dto: any) {
+  async resubmitNomination(user: EssUser, nominationId: string, dto: ResubmitNominationDto) {
     const empId = this.ensureEmployee(user);
     const nom = await this.nomRepo.findOne({
       where: { id: nominationId, employeeId: empId },
@@ -681,15 +1078,15 @@ export class EssService {
     await this.nomRepo.save(nom);
 
     // Replace members if provided
-    const members = (dto.members ?? []).filter((m: any) =>
+    const members = (dto.members ?? []).filter((m) =>
       m.memberName?.trim(),
     );
     if (members.length) {
       await this.nomMemberRepo.delete({ nominationId });
-      const entities = members.map((m: any) =>
+      const entities = members.map((m) =>
         this.nomMemberRepo.create({
           nominationId,
-          memberName: m.memberName.trim(),
+          memberName: m.memberName!.trim(),
           relationship: m.relationship || null,
           dateOfBirth: m.dateOfBirth || null,
           sharePct: m.sharePct ?? 0,
@@ -734,7 +1131,7 @@ export class EssService {
     });
   }
 
-  async applyLeave(user: EssUser, dto: any) {
+  async applyLeave(user: EssUser, dto: ApplyLeaveDto) {
     const empId = this.ensureEmployee(user);
     const emp = await this.empRepo.findOne({ where: { id: empId } });
     if (!emp) throw new NotFoundException('Employee not found');
@@ -834,7 +1231,7 @@ export class EssService {
     // Attach members + employee name
     const empIds = [...new Set(noms.map((n) => n.employeeId))];
     const nomIds = noms.map((n) => n.id);
-    let empMap: Record<string, any> = {};
+    let empMap: Record<string, EmployeeEntity> = {};
     if (empIds.length) {
       const emps = await this.empRepo
         .createQueryBuilder('e')
@@ -842,7 +1239,7 @@ export class EssService {
         .getMany();
       empMap = Object.fromEntries(emps.map((e) => [e.id, e]));
     }
-    const membersMap: Record<string, any[]> = {};
+    const membersMap: Record<string, EmployeeNominationMemberEntity[]> = {};
     if (nomIds.length) {
       const members = await this.nomMemberRepo
         .createQueryBuilder('m')
@@ -893,7 +1290,7 @@ export class EssService {
     const apps = await qb.getMany();
 
     const empIds = [...new Set(apps.map((a) => a.employeeId))];
-    let empMap: Record<string, any> = {};
+    let empMap: Record<string, EmployeeEntity> = {};
     if (empIds.length) {
       const emps = await this.empRepo
         .createQueryBuilder('e')
@@ -936,14 +1333,27 @@ export class EssService {
     clientId: string,
     id: string,
     type?: 'LEAVE' | 'NOMINATION',
-  ): Promise<any> {
+  ): Promise<{
+    type: 'NOMINATION' | 'LEAVE';
+    branchId?: string | null;
+    status?: string | null;
+    createdAt?: Date | string | null;
+    submittedAt?: Date | string | null;
+    approvedAt?: Date | string | null;
+    appliedAt?: Date | string | null;
+    actionedAt?: Date | string | null;
+    rejectionReason?: string | null;
+    [key: string]: unknown;
+  }> {
     if (type === 'NOMINATION') {
       const nom = await this.nomRepo.findOne({ where: { id, clientId } });
       if (!nom) throw new NotFoundException('Approval item not found');
       return { type: 'NOMINATION', ...nom };
     }
     if (type === 'LEAVE') {
-      const leave = await this.leaveAppRepo.findOne({ where: { id, clientId } });
+      const leave = await this.leaveAppRepo.findOne({
+        where: { id, clientId },
+      });
       if (!leave) throw new NotFoundException('Approval item not found');
       return { type: 'LEAVE', ...leave };
     }
@@ -964,7 +1374,7 @@ export class EssService {
   ) {
     const item = await this.getClientApprovalById(clientId, id, type);
     const events: Array<{
-      at: string | null;
+      at: Date | string | null;
       event: string;
       status: string | null;
       note?: string | null;
@@ -1046,7 +1456,8 @@ export class EssService {
     type?: 'LEAVE' | 'NOMINATION',
   ) {
     const item = await this.getClientApprovalById(clientId, id, type);
-    if (item.type === 'NOMINATION') return this.rejectNomination(id, userId, reason);
+    if (item.type === 'NOMINATION')
+      return this.rejectNomination(id, userId, reason);
     return this.rejectLeave(id, userId, reason);
   }
 
@@ -1120,26 +1531,32 @@ export class EssService {
     });
   }
 
-  async createLeavePolicy(clientId: string, dto: any) {
+  async createLeavePolicy(clientId: string, dto: CreateLeavePolicyDto) {
+    if (!dto.leaveType) {
+      throw new BadRequestException('leaveType is required');
+    }
+    if (!dto.leaveName) {
+      throw new BadRequestException('leaveName is required');
+    }
     const policy = this.leavePolicyRepo.create({
       clientId,
       branchId: dto.branchId || null,
       leaveType: dto.leaveType,
       leaveName: dto.leaveName,
       accrualMethod: dto.accrualMethod || 'MONTHLY',
-      accrualRate: dto.accrualRate ?? '0',
-      carryForwardLimit: dto.carryForwardLimit ?? '0',
-      yearlyLimit: dto.yearlyLimit ?? '0',
+      accrualRate: String(dto.accrualRate ?? '0'),
+      carryForwardLimit: String(dto.carryForwardLimit ?? '0'),
+      yearlyLimit: String(dto.yearlyLimit ?? '0'),
       allowNegative: dto.allowNegative ?? false,
       minNoticeDays: dto.minNoticeDays ?? 0,
-      maxDaysPerRequest: dto.maxDaysPerRequest ?? '0',
+      maxDaysPerRequest: String(dto.maxDaysPerRequest ?? '0'),
       requiresDocument: dto.requiresDocument ?? false,
       isActive: true,
     });
     return this.leavePolicyRepo.save(policy);
   }
 
-  async updateLeavePolicy(clientId: string, id: string, dto: any) {
+  async updateLeavePolicy(clientId: string, id: string, dto: UpdateLeavePolicyDto) {
     const policy = await this.leavePolicyRepo.findOne({
       where: { id, clientId },
     });
@@ -1188,7 +1605,7 @@ export class EssService {
         leaveType: 'EL',
         leaveName: 'Earned Leave / Privilege Leave',
         accrualMethod: 'MONTHLY',
-        accrualRate: '1.25',
+        accrualRate: '0.05',
         yearlyLimit: '15',
         carryForwardLimit: '30',
         allowNegative: false,
@@ -1262,6 +1679,196 @@ export class EssService {
       skipped,
       employees: employees.length,
       policies: policies.length,
+    };
+  }
+
+  /**
+   * Accrue Earned Leave for a given month.
+   *
+   * Rules:
+   *  - Earned Leave (EL) = workedDays / 20  (proportional to actual days worked)
+   *  - Paid Leave: from accumulated EL balance, max 1.5 days of leave per month
+   *    are paid (deducted from EL balance and added to payable days).
+   *  - EL balance accumulates month over month.
+   *
+   * Flow per employee:
+   *  1. Determine paid leave = min(daysOnLeave, 1.5, currentELBalance)
+   *  2. Deduct paid leave from EL balance
+   *  3. Calculate new EL earned = workedDays / 20
+   *  4. Add new EL to balance
+   */
+  async accrueMonthlyEL(
+    clientId: string,
+    year: number,
+    month: number,
+  ): Promise<{
+    message: string;
+    accrued: number;
+    skipped: number;
+    alreadyAccrued: number;
+    details: Array<{
+      employeeId: string;
+      workedDays: number;
+      daysOnLeave: number;
+      paidLeave: number;
+      earnedLeave: number;
+      newBalance: number;
+    }>;
+  }> {
+    const MAX_PAID_LEAVE_PER_MONTH = 1.5;
+    const EL_DIVISOR = 20;
+    const LEAVE_TYPE = 'EL';
+
+    // Get attendance summaries for the month
+    const summaries = await this.attendanceService.getMonthlySummary({
+      clientId,
+      year,
+      month,
+    });
+
+    if (!summaries.length) {
+      return {
+        message: `No attendance records found for ${year}-${String(month).padStart(2, '0')}`,
+        accrued: 0,
+        skipped: 0,
+        alreadyAccrued: 0,
+        details: [],
+      };
+    }
+
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const entryDate = `${monthStr}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`; // last day of month
+
+    let accrued = 0;
+    let skipped = 0;
+    let alreadyAccrued = 0;
+    const details: Array<{
+      employeeId: string;
+      workedDays: number;
+      daysOnLeave: number;
+      paidLeave: number;
+      earnedLeave: number;
+      newBalance: number;
+    }> = [];
+
+    for (const summary of summaries) {
+      const { employeeId, effectivePresent, daysOnLeave, holidays } = summary;
+
+      // Check if already accrued for this month (prevent double-run)
+      const existingLedger = await this.leaveLedgerRepo.findOne({
+        where: {
+          employeeId,
+          leaveType: LEAVE_TYPE,
+          refType: 'EL_ACCRUAL',
+          remarks: `EL accrual for ${monthStr}`,
+        },
+      });
+      if (existingLedger) {
+        alreadyAccrued++;
+        continue;
+      }
+
+      // workedDays = effective present + holidays (holidays count as worked)
+      const workedDays = effectivePresent + holidays;
+
+      // Skip if zero worked days
+      if (workedDays <= 0) {
+        skipped++;
+        continue;
+      }
+
+      // Upsert leave balance for the year
+      let balance = await this.leaveBalRepo.findOne({
+        where: { employeeId, year, leaveType: LEAVE_TYPE },
+      });
+
+      if (!balance) {
+        balance = this.leaveBalRepo.create({
+          employeeId,
+          clientId,
+          leaveType: LEAVE_TYPE,
+          year,
+          opening: '0',
+          accrued: '0',
+          used: '0',
+          lapsed: '0',
+          available: '0',
+        });
+      }
+
+      let currentAvailable = parseFloat(balance.available);
+
+      // ── Step 1: Calculate paid leave from EL balance ──────────────
+      // Paid leave = min(daysOnLeave, 1.5, currentBalance)
+      const paidLeave = Math.min(
+        daysOnLeave,
+        MAX_PAID_LEAVE_PER_MONTH,
+        Math.max(0, currentAvailable),
+      );
+
+      // ── Step 2: Deduct paid leave from balance ────────────────────
+      if (paidLeave > 0) {
+        const newUsed = parseFloat(balance.used) + paidLeave;
+        currentAvailable = currentAvailable - paidLeave;
+        balance.used = String(Math.round(newUsed * 100) / 100);
+        balance.available = String(Math.round(currentAvailable * 100) / 100);
+
+        // Create ledger entry for paid leave deduction
+        const paidLeaveLedger = this.leaveLedgerRepo.create({
+          employeeId,
+          clientId,
+          leaveType: LEAVE_TYPE,
+          entryDate,
+          qty: String(-paidLeave),
+          refType: 'EL_PAID_LEAVE',
+          refId: null,
+          remarks: `Paid leave (${paidLeave} days) for ${monthStr}`,
+        });
+        await this.leaveLedgerRepo.save(paidLeaveLedger);
+      }
+
+      // ── Step 3: Calculate earned leave = workedDays / 20 ─────────
+      const earnedLeave = Math.round((workedDays / EL_DIVISOR) * 100) / 100;
+
+      // ── Step 4: Add earned leave to balance ───────────────────────
+      const newAccrued = parseFloat(balance.accrued) + earnedLeave;
+      currentAvailable = currentAvailable + earnedLeave;
+      balance.accrued = String(Math.round(newAccrued * 100) / 100);
+      balance.available = String(Math.round(currentAvailable * 100) / 100);
+      balance.lastUpdatedAt = new Date();
+      await this.leaveBalRepo.save(balance);
+
+      // Create ledger entry for EL accrual
+      const accrualLedger = this.leaveLedgerRepo.create({
+        employeeId,
+        clientId,
+        leaveType: LEAVE_TYPE,
+        entryDate,
+        qty: String(earnedLeave),
+        refType: 'EL_ACCRUAL',
+        refId: null,
+        remarks: `EL accrual for ${monthStr}`,
+      });
+      await this.leaveLedgerRepo.save(accrualLedger);
+
+      details.push({
+        employeeId,
+        workedDays,
+        daysOnLeave,
+        paidLeave,
+        earnedLeave,
+        newBalance: Math.round(currentAvailable * 100) / 100,
+      });
+
+      accrued++;
+    }
+
+    return {
+      message: `EL accrual completed for ${monthStr}: ${accrued} employees credited`,
+      accrued,
+      skipped,
+      alreadyAccrued,
+      details,
     };
   }
 }

@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { forkJoin, Observable, of, Subject, firstValueFrom } from 'rxjs';
 import { catchError, finalize, timeout, takeUntil } from 'rxjs/operators';
 
-import { AdminUsersApi, Role, UserDirectoryResponse, UserDto, UserRow } from '../../../core/api/admin-users.api';
+import { AdminUsersApi, Role, UserDto, UserRow } from '../../../core/api/admin-users.api';
 import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
@@ -96,13 +96,13 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   // Table columns
   usersColumns: TableColumn[] = [
-    { key: 'userCode', header: 'Code', sortable: true },
-    { key: 'role', header: 'Role', sortable: true },
-    { key: 'email', header: 'Email', sortable: true },
-    { key: 'mobile', header: 'Mobile' },
-    { key: 'name', header: 'Name', sortable: true },
-    { key: 'status', header: 'Status', sortable: true },
-    { key: 'actions', header: 'Action', align: 'right' },
+    { key: 'userCode', header: 'Code', sortable: true, width: '10%' },
+    { key: 'role', header: 'Role', sortable: true, width: '10%' },
+    { key: 'email', header: 'Email', sortable: true, width: '24%' },
+    { key: 'mobile', header: 'Mobile', width: '14%' },
+    { key: 'name', header: 'Name', sortable: true, width: '16%' },
+    { key: 'status', header: 'Status', sortable: true, width: '10%' },
+    { key: 'actions', header: 'Action', align: 'right', width: '16%' },
   ];
 
   constructor(
@@ -132,10 +132,12 @@ export class UsersComponent implements OnInit, OnDestroy {
   readonly pageSizeSelectOptions: SelectOption[] = [10, 20, 50, 100].map(s => ({ value: s, label: s.toString() }));
 
   private rebuildRoleOptions(): void {
-    // CLIENT users are now created via the Client Registration page — exclude from this form
-    const creatableRoles = this.roles.filter(r => (r['roleCode'] ?? r['code']) !== 'CLIENT');
+    // CLIENT users are created via the Client Registration page, EMPLOYEE users
+    // are provisioned via the Client Portal's "Provision ESS" flow — exclude both
+    const excludedRoles = ['CLIENT', 'EMPLOYEE'];
+    const creatableRoles = this.roles.filter(r => !excludedRoles.includes((r['roleCode'] ?? r['code']) as string));
     const roleOptions = [
-      { value: null as any, label: 'Select role' },
+      { value: null, label: 'Select role' },
       ...creatableRoles.map(r => ({
         value: r.id,
         label: this.getRoleOptionLabel(r),
@@ -160,7 +162,7 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   private rebuildClientOptions(): void {
     const opts = [
-      { value: null as any, label: 'Select company' },
+      { value: null, label: 'Select company' },
       ...this.clients.map(c => ({ value: c.id, label: c.clientName }))
     ];
     this.deferUi(() => {
@@ -170,7 +172,7 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   private rebuildCcoOptions(): void {
     const opts = [
-      { value: null as any, label: 'Select CCO' },
+      { value: null, label: 'Select CCO' },
       ...this.ccoUsers.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }))
     ];
     this.deferUi(() => {
@@ -375,8 +377,7 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   private getRoleCodeForRow(u: UserRow): string | null {
-    const anyU = u as any;
-    const rawCode = anyU.roleCode || anyU.role_code || anyU.rolecode;
+    const rawCode = u.roleCode || u['role_code'] || u['rolecode'];
     if (rawCode) {
       return String(rawCode);
     }
@@ -527,6 +528,38 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
 
+  get emailFieldError(): string {
+    const v = (this.email || '').trim();
+    if (!v) return '';
+    if (!v.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Please enter a valid email address';
+    return '';
+  }
+
+  get mobileFieldError(): string {
+    const v = (this.mobile || '').trim();
+    if (!v) return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Mobile must include country code + 10 digits (e.g. +919876543210)';
+    return '';
+  }
+
+  get editEmailFieldError(): string {
+    const v = (this.editEmail || '').trim();
+    if (!v) return '';
+    if (!v.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Please enter a valid email address';
+    return '';
+  }
+
+  get editMobileFieldError(): string {
+    const v = (this.editMobile || '').trim();
+    if (!v) return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Mobile must include country code + 10 digits (e.g. +919876543210)';
+    return '';
+  }
+
   create(): void {
     this.msg = '';
     this.err = '';
@@ -555,6 +588,10 @@ export class UsersComponent implements OnInit, OnDestroy {
     const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!emailPattern.test(trimmedEmail)) {
       this.err = 'Please enter a valid email address';
+      return;
+    }
+    if (this.mobileFieldError) {
+      this.err = this.mobileFieldError;
       return;
     }
     if (this.password && this.password.length < 6) {
@@ -636,7 +673,7 @@ export class UsersComponent implements OnInit, OnDestroy {
 
     this.msg = '';
     this.err = '';
-    if (!(await this.dialog.confirm('Delete User', `Delete user #${u.id} (${u.email})? This cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    if (!(await this.dialog.confirm('Delete User', `Delete user ${u.name || u.email}? This cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
     // Optimistically remove from UI so it disappears immediately
     const previousUsers = this.users;
     this.users = this.users.filter((row) => row.id !== u.id);
@@ -728,7 +765,7 @@ export class UsersComponent implements OnInit, OnDestroy {
     this.editingUser = u;
     this.editName = u.name || '';
     this.editEmail = u.email || '';
-    this.editMobile = (u as any).mobile || '';
+    this.editMobile = u.mobile || '';
   }
 
   cancelEdit(): void {
@@ -747,6 +784,7 @@ export class UsersComponent implements OnInit, OnDestroy {
     if (!trimmedEmail) { this.err = 'Email is required'; return; }
     const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!emailPattern.test(trimmedEmail)) { this.err = 'Please enter a valid email address'; return; }
+    if (this.editMobileFieldError) { this.err = this.editMobileFieldError; return; }
 
     this.msg = '';
     this.err = '';
@@ -771,7 +809,7 @@ export class UsersComponent implements OnInit, OnDestroy {
           if (user) {
             user.name = trimmedName;
             user.email = trimmedEmail;
-            (user as any).mobile = this.editMobile?.trim() || null;
+            user.mobile = this.editMobile?.trim() || null;
           }
           this.cancelEdit();
           this.msg = 'User updated successfully';

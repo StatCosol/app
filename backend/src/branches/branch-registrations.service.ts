@@ -6,6 +6,46 @@ import { BranchEntity } from './entities/branch.entity';
 import { CreateBranchRegistrationDto } from './dto/create-branch-registration.dto';
 import { UpdateBranchRegistrationDto } from './dto/update-branch-registration.dto';
 
+export interface RegistrationListRow {
+  id: string;
+  type: string;
+  registrationNumber: string | null;
+  authority: string | null;
+  issuedDate: string | null;
+  expiryDate: string | null;
+  documentPath: string | null;
+  documentUrl: string | null;
+  renewalDocumentUrl: string | null;
+  renewedOn: string | null;
+  remarks: string | null;
+  createdAt: string;
+  computedStatus: string;
+  daysRemaining: number;
+}
+
+interface RegistrationSummaryRow {
+  total: number;
+  active: number;
+  expiringSoon: number;
+  expired: number;
+}
+
+export interface AuditObservationRow {
+  id: string;
+  observationRef: string;
+  category: string;
+  description: string;
+  raisedDate: string;
+  dueDate: string;
+  severity: string;
+  status: string;
+  assignedTo: string;
+  risk: string;
+  consequences: string | null;
+  complianceRequirements: string | null;
+  rawDueDate: string | null;
+}
+
 @Injectable()
 export class BranchRegistrationsService {
   constructor(
@@ -29,7 +69,7 @@ export class BranchRegistrationsService {
       throw new NotFoundException('Branch not found for this client');
     }
 
-    const rows: any[] = await this.dataSource.query(
+    const rows: RegistrationListRow[] = await this.dataSource.query(
       `SELECT
         r.id,
         r.type,
@@ -183,14 +223,14 @@ export class BranchRegistrationsService {
    * Used by dashboards.
    */
   async getRegistrationSummary(clientId: string, branchId?: string) {
-    const params: any[] = [clientId];
+    const params: unknown[] = [clientId];
     let branchFilter = '';
     if (branchId) {
       branchFilter = 'AND r.branch_id = $2';
       params.push(branchId);
     }
 
-    const rows: any[] = await this.dataSource.query(
+    const rows: RegistrationSummaryRow[] = await this.dataSource.query(
       `
       SELECT
         COUNT(*)::int AS total,
@@ -230,14 +270,14 @@ export class BranchRegistrationsService {
     clientId: string,
     branchId?: string,
   ): Promise<number> {
-    const params: any[] = [clientId];
+    const params: unknown[] = [clientId];
     let branchFilter = '';
     if (branchId) {
       branchFilter = 'AND r.branch_id = $2';
       params.push(branchId);
     }
 
-    const rows: any[] = await this.dataSource.query(
+    const rows: { daysRemaining: number }[] = await this.dataSource.query(
       `
       SELECT
         CASE
@@ -269,7 +309,7 @@ export class BranchRegistrationsService {
    * Get alerts for a client (or branch), for in-app notifications.
    */
   async getAlerts(clientId: string, branchId?: string, limit = 50) {
-    const params: any[] = [clientId, limit];
+    const params: unknown[] = [clientId, limit];
     let branchFilter = '';
     if (branchId) {
       branchFilter = 'AND a.branch_id = $3';
@@ -310,7 +350,7 @@ export class BranchRegistrationsService {
       throw new NotFoundException('Branch not found for this client');
     }
 
-    const rows: any[] = await this.dataSource.query(
+    const rows: AuditObservationRow[] = await this.dataSource.query(
       `SELECT
         ao.id,
         COALESCE('AO-' || TO_CHAR(ao.created_at, 'YYYY') || '-' ||

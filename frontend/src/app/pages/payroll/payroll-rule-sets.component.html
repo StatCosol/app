@@ -4,26 +4,20 @@
       <h1>Payroll Rule Sets</h1>
       <p>Manage effective-dated payroll rule versions, maintain parameter libraries, and compare version deltas before activation.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
-          <option value="">Select client</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-      <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateRuleSet()">
-        + New Rule Set
-      </button>
-    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </header>
+
+  <div class="head-controls">
+    <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateRuleSet()">
+      + New Rule Set
+    </button>
+  </div>
 
   <section class="summary-grid" *ngIf="selectedClientId">
     <article class="summary-card">
       <span class="label">Rule Sets</span>
-      <strong>{{ ruleSets.length }}</strong>
-      <span class="sub">Total versions</span>
+      <strong>{{ activeCount }}</strong>
+      <span class="sub">Active only</span>
     </article>
     <article class="summary-card summary-card--ok">
       <span class="label">Active</span>
@@ -58,12 +52,12 @@
       <div class="filter-row">
         <label class="search-box">
           Search
-          <input type="search" [(ngModel)]="searchTerm" placeholder="Name / branch / date" />
+          <input autocomplete="off" id="prs-search-term" type="search" name="searchTerm" [(ngModel)]="searchTerm" placeholder="Name / branch / date" />
         </label>
 
         <label>
           Status
-          <select [(ngModel)]="statusFilter">
+          <select id="prs-status-filter" name="statusFilter" [(ngModel)]="statusFilter">
             <option value="ALL">All</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
@@ -90,9 +84,8 @@
             >
               <td>
                 <div class="strong">{{ row.name }}</div>
-                <div class="minor">{{ row.id }}</div>
               </td>
-              <td>{{ row.branchId || 'Global' }}</td>
+              <td>{{ row.branchName || (row.branchId ? 'Branch' : 'Global') }}</td>
               <td>
                 <div>{{ formatDate(row.effectiveFrom) }}</div>
                 <div class="minor">to {{ formatDate(row.effectiveTo) }}</div>
@@ -131,7 +124,7 @@
         <div class="kv-grid">
           <div>
             <span>Branch Mapping</span>
-            <strong>{{ selected.branchId || 'Global' }}</strong>
+            <strong>{{ selected.branchName || (selected.branchId ? 'Branch' : 'Global') }}</strong>
           </div>
           <div>
             <span>Effective From</span>
@@ -258,22 +251,22 @@
     <div class="modal-grid">
       <label class="span-2">
         Name
-        <input type="text" [(ngModel)]="ruleSetForm.name" placeholder="e.g. Standard Statutory Rules" />
+        <input autocomplete="off" id="prs-name" type="text" name="ruleSetName" [(ngModel)]="ruleSetForm.name" placeholder="e.g. Standard Statutory Rules" />
       </label>
 
       <label>
         Branch ID (optional)
-        <input type="text" [(ngModel)]="ruleSetForm.branchId" placeholder="Leave blank for global" />
+        <input autocomplete="off" id="prs-branch-id" type="text" name="ruleSetBranchId" [(ngModel)]="ruleSetForm.branchId" placeholder="Leave blank for global" />
       </label>
 
       <label>
         Effective From
-        <input type="date" [(ngModel)]="ruleSetForm.effectiveFrom" />
+        <input autocomplete="off" id="prs-effective-from" type="date" name="ruleSetEffectiveFrom" [(ngModel)]="ruleSetForm.effectiveFrom" />
       </label>
 
       <label>
         Effective To
-        <input type="date" [(ngModel)]="ruleSetForm.effectiveTo" />
+        <input autocomplete="off" id="prs-effective-to" type="date" name="ruleSetEffectiveTo" [(ngModel)]="ruleSetForm.effectiveTo" />
       </label>
     </div>
 
@@ -302,27 +295,27 @@
     <div class="modal-grid">
       <label class="span-2">
         Key
-        <input type="text" [(ngModel)]="paramForm.key" placeholder="e.g. PF_EMP_RATE" />
+        <input autocomplete="off" id="prs-key" type="text" name="paramKey" [(ngModel)]="paramForm.key" placeholder="e.g. PF_EMP_RATE" />
       </label>
 
       <label>
         Numeric Value
-        <input type="number" [(ngModel)]="paramForm.valueNum" />
+        <input autocomplete="off" id="prs-value-num" type="number" name="paramValueNum" [(ngModel)]="paramForm.valueNum" />
       </label>
 
       <label>
         Text Value
-        <input type="text" [(ngModel)]="paramForm.valueText" />
+        <input autocomplete="off" id="prs-value-text" type="text" name="paramValueText" [(ngModel)]="paramForm.valueText" />
       </label>
 
       <label>
         Unit
-        <input type="text" [(ngModel)]="paramForm.unit" placeholder="%, INR, days" />
+        <input autocomplete="off" id="prs-unit" type="text" name="paramUnit" [(ngModel)]="paramForm.unit" placeholder="%, INR, days" />
       </label>
 
       <label class="span-2">
         Notes
-        <textarea rows="3" [(ngModel)]="paramForm.notes"></textarea>
+        <textarea autocomplete="off" id="prs-notes" rows="3" name="paramNotes" [(ngModel)]="paramForm.notes"></textarea>
       </label>
     </div>
 
@@ -351,7 +344,7 @@
 
       <label>
         Compare With
-        <select [(ngModel)]="compareTargetId" (ngModelChange)="runComparison()">
+        <select id="prs-compare-target-id" name="compareTargetId" [(ngModel)]="compareTargetId" (ngModelChange)="runComparison()">
           <option value="">Select version</option>
           <option *ngFor="let c of compareCandidates" [value]="c.id">
             {{ c.name }} · {{ formatDate(c.effectiveFrom) }} · {{ c.isActive ? 'Active' : 'Inactive' }}
@@ -360,7 +353,7 @@
       </label>
       <label>
         Row Filter
-        <select [(ngModel)]="compareStateFilter">
+        <select id="prs-compare-state-filter" name="compareStateFilter" [(ngModel)]="compareStateFilter">
           <option value="ALL">All</option>
           <option value="UPDATED">Updated</option>
           <option value="ADDED">Added</option>

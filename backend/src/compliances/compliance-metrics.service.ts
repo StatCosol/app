@@ -1,12 +1,19 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, LessThanOrEqual } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  LessThan,
+  LessThanOrEqual,
+  FindOptionsWhere,
+} from 'typeorm';
 import { BranchEntity } from '../branches/entities/branch.entity';
-import { MonthlyComplianceUploadEntity } from '../monthly-documents/entities/monthly-compliance-upload.entity';
+import { ComplianceDocumentEntity } from '../branch-compliance/entities/compliance-document.entity';
 import { SlaTaskEntity } from '../sla/entities/sla-task.entity';
 import { BranchRegistrationEntity } from '../branches/entities/branch-registration.entity';
 import { SlaComplianceResolverService } from './sla-compliance-resolver.service';
 import { SlaComplianceScheduleService } from './sla-compliance-schedule.service';
+import { ReqUser } from '../access/access-scope.service';
 
 export interface CompletionRow {
   branchId: string;
@@ -19,6 +26,130 @@ export interface CompletionRow {
   completionPercent: number;
 }
 
+export interface RiskScoreRow {
+  branchId: string;
+  branchName: string;
+  stateCode: string | null;
+  month: string;
+  completionPercent: number;
+  overdueSla: number;
+  highCritical: number;
+  expiringRegistrations: boolean;
+  riskScore: number;
+  riskLevel: string;
+  inspectionProbability: number;
+  reasons: string[];
+}
+
+export interface CompletionTrendRow {
+  month: string;
+  completionPercent: number;
+  uploaded: number;
+  totalApplicable: number;
+}
+
+export interface CompletionResult {
+  items: CompletionRow[];
+}
+
+export interface LowestBranchesResult {
+  month: string;
+  items: CompletionRow[];
+}
+
+export interface CompletionTrendResult {
+  branchId: string;
+  items: CompletionTrendRow[];
+}
+
+export interface RiskScoreResult {
+  items: RiskScoreRow[];
+}
+
+export interface RiskRankingResult {
+  month: string;
+  highestRisk: RiskScoreRow[];
+  lowestRisk: RiskScoreRow[];
+}
+
+export interface RiskHeatmapState {
+  stateCode: string;
+  LOW: number;
+  MODERATE: number;
+  HIGH: number;
+  CRITICAL: number;
+  avgProbability: number;
+  count: number;
+}
+
+export interface RiskHeatmapResult {
+  month: string;
+  states: RiskHeatmapState[];
+}
+
+export interface ActionPlanItem {
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  category: string;
+  text: string;
+  impact: string;
+}
+
+export interface ActionPlanResult {
+  branchId: string;
+  branchName?: string;
+  month: string;
+  riskScore: number;
+  riskLevel: string;
+  inspectionProbability: number;
+  actions: ActionPlanItem[];
+}
+
+export interface BranchSummaryResult {
+  month: string;
+  branchId: string;
+  summary: string;
+  details: RiskScoreRow | null;
+}
+
+export interface CompanySummaryResult {
+  month: string;
+  totalBranches: number;
+  avgInspectionProbability: number;
+  avgCompletionPercent: number;
+  highRiskBranches: number;
+  criticalBranches: number;
+  highlights: string[];
+}
+
+export type SummaryResult = BranchSummaryResult | CompanySummaryResult;
+
+export interface BenchmarkBranchResult {
+  branchId: string;
+  branchName: string;
+  completionPercent: number;
+  completionPercentile: number;
+  inspectionProbability: number;
+  probabilityPercentile: number;
+  grade: string;
+  riskLevel: string;
+}
+
+export interface BenchmarkResult {
+  month: string;
+  branches: BenchmarkBranchResult[];
+}
+
+export interface ExportPackResult {
+  generatedAt: string;
+  month: string;
+  companySummary: CompanySummaryResult;
+  riskRanking: RiskRankingResult;
+  lowestComplianceBranches: LowestBranchesResult;
+  stateHeatmap: RiskHeatmapResult;
+  benchmark: BenchmarkResult;
+  actionPlans: ActionPlanResult[];
+}
+
 @Injectable()
 export class ComplianceMetricsService {
   private readonly logger = new Logger(ComplianceMetricsService.name);
@@ -26,25 +157,29 @@ export class ComplianceMetricsService {
   constructor(
     @InjectRepository(BranchEntity)
     private readonly branchRepo: Repository<BranchEntity>,
-    @InjectRepository(MonthlyComplianceUploadEntity)
-    private readonly docRepo: Repository<MonthlyComplianceUploadEntity>,
+    @InjectRepository(ComplianceDocumentEntity)
+    private readonly _docRepo: Repository<ComplianceDocumentEntity>,
     @InjectRepository(SlaTaskEntity)
     private readonly slaTaskRepo: Repository<SlaTaskEntity>,
     @InjectRepository(BranchRegistrationEntity)
     private readonly regRepo: Repository<BranchRegistrationEntity>,
+    private readonly dataSource: DataSource,
     private readonly resolver: SlaComplianceResolverService,
     private readonly schedule: SlaComplianceScheduleService,
   ) {}
 
   /**
    * Compute upload completion % for one or all branches.
+   *
+   * Uses the branch-compliance return master + compliance_documents tables
+   * to determine how many monthly items have been uploaded vs total applicable.
    */
   async getCompletion(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     branchId?: string;
-  }): Promise<{ items: CompletionRow[] }> {
+  }): Promise<CompletionResult> {
     const { clientId, user, month } = params;
 
     // Determine branch scope
@@ -53,9 +188,14 @@ export class ComplianceMetricsService {
     if (params.branchId) {
       branchIds = [params.branchId];
     } else {
+      const where: FindOptionsWhere<BranchEntity> = {
+        isActive: true,
+        isDeleted: false,
+      };
+      if (clientId) where.clientId = clientId;
       const rows = await this.branchRepo.find({
-        where: { clientId } as any,
-        select: ['id'] as any,
+        where,
+        select: ['id'],
       });
       branchIds = rows.map((b) => b.id);
     }
@@ -69,47 +209,62 @@ export class ComplianceMetricsService {
       }
     }
 
+    // Parse month into year + month number
+    const [yearStr, monthStr] = month.split('-');
+    const periodYear = Number(yearStr);
+    const periodMonth = Number(monthStr);
+
     const items: CompletionRow[] = [];
 
     for (const bid of branchIds) {
       try {
-        const { branch, applicable } =
-          await this.resolver.getApplicableRules(bid);
-        const entries = this.schedule.buildMonthSchedule({
-          branch,
-          applicable,
-          month,
+        // Fetch branch details
+        const branch = await this.branchRepo.findOne({
+          where: { id: bid, isActive: true, isDeleted: false },
         });
+        if (!branch) continue;
 
-        const applicableCodes = [...new Set(entries.map((e) => e.code))];
+        const branchType = String(branch.branchType || '').toUpperCase();
+        const stateCode = branch.stateCode ?? null;
 
-        // Query uploaded docs for this branch + month
-        const docs = await this.docRepo
-          .createQueryBuilder('d')
-          .select('DISTINCT d.code', 'code')
-          .where('d.branch_id = :bid', { bid })
-          .andWhere('d.month = :month', { month })
-          .andWhere('d.is_deleted = false')
-          .getRawMany();
+        // Count applicable MONTHLY return master items for this branch type/state
+        const excludeAppliesTo = branchType === 'FACTORY' ? 'OFFICE' : 'FACTORY';
+        const masterCountResult = await this.dataSource.query(
+          `SELECT COUNT(*) AS total
+           FROM compliance_return_master
+           WHERE is_active = true
+             AND frequency = 'MONTHLY'
+             AND applies_to != $1
+             AND (state_code = 'ALL' OR state_code LIKE '%' || $2 || '%' OR $2 IS NULL)`,
+          [excludeAppliesTo, stateCode],
+        );
+        const total = Number(masterCountResult[0]?.total ?? 0);
 
-        const uploadedCodes = new Set(docs.map((d: any) => d.code));
-        const uploaded = applicableCodes.filter((c) =>
-          uploadedCodes.has(c),
-        ).length;
-        const total = applicableCodes.length;
+        // Count uploaded / submitted documents for this branch + period
+        const uploadedResult = await this.dataSource.query(
+          `SELECT COUNT(DISTINCT return_code) AS uploaded
+           FROM compliance_documents
+           WHERE branch_id = $1
+             AND period_year = $2
+             AND period_month = $3
+             AND status NOT IN ('NOT_UPLOADED')`,
+          [bid, periodYear, periodMonth],
+        );
+        const uploaded = Number(uploadedResult[0]?.uploaded ?? 0);
+
         const pct = total === 0 ? 0 : Math.round((uploaded / total) * 100);
 
         items.push({
           branchId: bid,
-          branchName: (branch as any).branchName || 'Branch',
-          stateCode: (branch as any).stateCode ?? null,
-          establishmentType: (branch as any).establishmentType ?? null,
+          branchName: branch.branchName || 'Branch',
+          stateCode: branch.stateCode ?? null,
+          establishmentType: branch.establishmentType ?? null,
           month,
           totalApplicable: total,
           uploaded,
           completionPercent: pct,
         });
-      } catch (err) {
+      } catch (err: any) {
         this.logger.warn(`Skipping branch ${bid}: ${err?.message}`);
       }
     }
@@ -122,10 +277,10 @@ export class ComplianceMetricsService {
    */
   async getLowestBranches(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     limit: number;
-  }): Promise<{ month: string; items: CompletionRow[] }> {
+  }): Promise<LowestBranchesResult> {
     const res = await this.getCompletion({
       clientId: params.clientId,
       user: params.user,
@@ -144,10 +299,10 @@ export class ComplianceMetricsService {
    */
   async getCompletionTrend(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     branchId: string;
     months: number;
-  }) {
+  }): Promise<CompletionTrendResult> {
     const { clientId, user, branchId, months } = params;
 
     // Branch user restriction
@@ -157,10 +312,9 @@ export class ComplianceMetricsService {
     }
 
     const monthsList = this.lastNMonths(months);
-    const items: any[] = [];
+    const items: CompletionTrendRow[] = [];
 
     for (const m of monthsList) {
-      // Use a 'SYSTEM' role override so branch-user checks don't interfere
       const res = await this.getCompletion({
         clientId,
         user: { ...user, branchIds: [] },
@@ -199,10 +353,10 @@ export class ComplianceMetricsService {
    */
   async getRiskScore(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     branchId?: string;
-  }) {
+  }): Promise<RiskScoreResult> {
     const { clientId, user, month } = params;
 
     // Get completion rows (single or multi-branch)
@@ -213,7 +367,7 @@ export class ComplianceMetricsService {
       branchId: params.branchId || undefined,
     });
 
-    const items: any[] = [];
+    const items: RiskScoreRow[] = [];
 
     for (const row of comp.items) {
       const bid = row.branchId;
@@ -270,10 +424,10 @@ export class ComplianceMetricsService {
    */
   async getRiskRanking(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     limit: number;
-  }) {
+  }): Promise<RiskRankingResult> {
     const risk = await this.getRiskScore({
       clientId: params.clientId,
       user: params.user,
@@ -282,9 +436,7 @@ export class ComplianceMetricsService {
 
     const sorted = (risk.items || [])
       .slice()
-      .sort(
-        (a: any, b: any) => b.inspectionProbability - a.inspectionProbability,
-      );
+      .sort((a, b) => b.inspectionProbability - a.inspectionProbability);
 
     return {
       month: params.month,
@@ -296,7 +448,11 @@ export class ComplianceMetricsService {
   /**
    * State-wise risk heatmap aggregation.
    */
-  async getRiskHeatmap(params: { clientId: string; user: any; month: string }) {
+  async getRiskHeatmap(params: {
+    clientId: string;
+    user: ReqUser;
+    month: string;
+  }): Promise<RiskHeatmapResult> {
     const risk = await this.getRiskScore({
       clientId: params.clientId,
       user: params.user,
@@ -306,7 +462,18 @@ export class ComplianceMetricsService {
     const bucket = (p: number) =>
       p >= 75 ? 'CRITICAL' : p >= 55 ? 'HIGH' : p >= 35 ? 'MODERATE' : 'LOW';
 
-    const byState: Record<string, any> = {};
+    const byState: Record<
+      string,
+      {
+        stateCode: string;
+        LOW: number;
+        MODERATE: number;
+        HIGH: number;
+        CRITICAL: number;
+        avgProbability: number;
+        count: number;
+      }
+    > = {};
 
     for (const r of risk.items || []) {
       const st = r.stateCode || 'NA';
@@ -326,7 +493,7 @@ export class ComplianceMetricsService {
       byState[st].count += 1;
     }
 
-    const states = Object.values(byState).map((x: any) => ({
+    const states = Object.values(byState).map((x) => ({
       ...x,
       avgProbability: x.count ? Math.round(x.avgProbability / x.count) : 0,
     }));
@@ -343,8 +510,8 @@ export class ComplianceMetricsService {
       where: {
         clientId,
         branchId,
-        status: 'OPEN' as any,
-        dueDate: LessThan(new Date()) as any,
+        status: 'OPEN',
+        dueDate: LessThan(new Date().toISOString()),
       },
     });
   }
@@ -363,9 +530,9 @@ export class ComplianceMetricsService {
         month,
       });
       return entries.filter(
-        (e: any) => e.priority === 'HIGH' || e.priority === 'CRITICAL',
+        (e) => e.priority === 'HIGH' || e.priority === 'CRITICAL',
       ).length;
-    } catch (e) {
+    } catch (e: any) {
       this.logger.warn(
         `getHighCriticalCount failed for branch ${branchId}`,
         (e as Error)?.message,
@@ -386,7 +553,7 @@ export class ComplianceMetricsService {
       where: {
         clientId,
         branchId,
-        expiryDate: LessThanOrEqual(next30) as any,
+        expiryDate: LessThanOrEqual(next30),
       },
     });
     return cnt > 0;
@@ -455,10 +622,10 @@ export class ComplianceMetricsService {
    */
   async getActionPlan(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     branchId: string;
-  }) {
+  }): Promise<ActionPlanResult> {
     const { clientId, user, month, branchId } = params;
 
     // Get risk data for this branch
@@ -469,6 +636,7 @@ export class ComplianceMetricsService {
       return {
         branchId,
         month,
+        riskScore: 0,
         riskLevel: 'LOW',
         inspectionProbability: 0,
         actions: [
@@ -482,12 +650,7 @@ export class ComplianceMetricsService {
       };
     }
 
-    const actions: {
-      priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-      category: string;
-      text: string;
-      impact: string;
-    }[] = [];
+    const actions: ActionPlanItem[] = [];
 
     // ── 1. Upload Completion (40% of risk) ──
     const comp = row.completionPercent ?? 100;
@@ -611,7 +774,7 @@ export class ComplianceMetricsService {
    */
   async getRiskForecast(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     branchId: string;
     monthsHistory: number;
   }) {
@@ -628,8 +791,7 @@ export class ComplianceMetricsService {
 
     const rows = trend.items || [];
     const avg = rows.length
-      ? rows.reduce((s: number, r: any) => s + (r.completionPercent || 0), 0) /
-        rows.length
+      ? rows.reduce((s, r) => s + (r.completionPercent || 0), 0) / rows.length
       : 0;
     const last = rows.length ? rows[rows.length - 1].completionPercent : avg;
 
@@ -699,14 +861,14 @@ export class ComplianceMetricsService {
    */
   async getSummary(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     branchId?: string;
-  }) {
+  }): Promise<SummaryResult> {
     const risk = await this.getRiskScore(params);
     const rows = risk.items || [];
 
-    const makeNarrative = (r: any) => {
+    const makeNarrative = (r: RiskScoreRow) => {
       const reasons = (r.reasons || []).slice(0, 3);
       return [
         `Inspection probability is ${r.inspectionProbability}% (${r.riskLevel}).`,
@@ -741,24 +903,19 @@ export class ComplianceMetricsService {
     // Company-wide summary
     const avgProb = rows.length
       ? Math.round(
-          rows.reduce((s: number, x: any) => s + x.inspectionProbability, 0) /
-            rows.length,
+          rows.reduce((s, x) => s + x.inspectionProbability, 0) / rows.length,
         )
       : 0;
-    const high = rows.filter((x: any) => x.inspectionProbability >= 70).length;
-    const critical = rows.filter(
-      (x: any) => x.inspectionProbability >= 85,
-    ).length;
+    const high = rows.filter((x) => x.inspectionProbability >= 70).length;
+    const critical = rows.filter((x) => x.inspectionProbability >= 85).length;
     const lowest = rows
       .slice()
-      .sort((a: any, b: any) => a.completionPercent - b.completionPercent)
+      .sort((a, b) => a.completionPercent - b.completionPercent)
       .slice(0, 5);
     const avgCompletion = rows.length
       ? Math.round(
-          rows.reduce(
-            (s: number, x: any) => s + (x.completionPercent || 0),
-            0,
-          ) / rows.length,
+          rows.reduce((s, x) => s + (x.completionPercent || 0), 0) /
+            rows.length,
         )
       : 0;
 
@@ -775,7 +932,7 @@ export class ComplianceMetricsService {
         `${high} branch(es) are in HIGH zone (≥70%).`,
         `Average upload completion: ${avgCompletion}%.`,
         lowest.length
-          ? `Lowest upload completion: ${lowest.map((x: any) => `${x.branchName} (${x.completionPercent}%)`).join(', ')}.`
+          ? `Lowest upload completion: ${lowest.map((x) => `${x.branchName} (${x.completionPercent}%)`).join(', ')}.`
           : 'No branch data available.',
       ],
     };
@@ -787,7 +944,11 @@ export class ComplianceMetricsService {
    * Internal peer benchmark — compares each branch against the
    * client's own average to produce percentile ranks and grades.
    */
-  async getBenchmark(params: { clientId: string; user: any; month: string }) {
+  async getBenchmark(params: {
+    clientId: string;
+    user: ReqUser;
+    month: string;
+  }): Promise<BenchmarkResult> {
     const risk = await this.getRiskScore(params);
     const rows = risk.items || [];
     const n = rows.length;
@@ -798,10 +959,10 @@ export class ComplianceMetricsService {
 
     // Sorted arrays for percentile calculation
     const completions = rows
-      .map((r: any) => r.completionPercent)
+      .map((r) => r.completionPercent)
       .sort((a: number, b: number) => a - b);
     const probabilities = rows
-      .map((r: any) => r.inspectionProbability)
+      .map((r) => r.inspectionProbability)
       .sort((a: number, b: number) => a - b);
 
     const percentileOf = (sorted: number[], value: number): number => {
@@ -823,7 +984,7 @@ export class ComplianceMetricsService {
       return 'D';
     };
 
-    const branches = rows.map((r: any) => {
+    const branches = rows.map((r) => {
       const compPctile = percentileOf(completions, r.completionPercent);
       const riskPctile = percentileOf(probabilities, r.inspectionProbability);
 
@@ -842,7 +1003,7 @@ export class ComplianceMetricsService {
     // Sort by grade A→D, then by completion descending
     const gradeOrder: Record<string, number> = { A: 0, B: 1, C: 2, D: 3 };
     branches.sort(
-      (a: any, b: any) =>
+      (a, b) =>
         (gradeOrder[a.grade] ?? 9) - (gradeOrder[b.grade] ?? 9) ||
         b.completionPercent - a.completionPercent,
     );
@@ -858,7 +1019,7 @@ export class ComplianceMetricsService {
    */
   async simulateRisk(params: {
     clientId: string;
-    user: any;
+    user: ReqUser;
     month: string;
     branchId: string;
     completionPercent: number;
@@ -920,13 +1081,17 @@ export class ComplianceMetricsService {
    * One-call payload that bundles all executive intelligence for
    * PDF/PPT/dashboard export.
    */
-  async getExportPack(params: { clientId: string; user: any; month: string }) {
+  async getExportPack(params: {
+    clientId: string;
+    user: ReqUser;
+    month: string;
+  }): Promise<ExportPackResult> {
     const [summary, ranking, lowest, heatmap, benchmark] = await Promise.all([
       this.getSummary({
         clientId: params.clientId,
         user: params.user,
         month: params.month,
-      }),
+      }).then((result) => result as CompanySummaryResult),
       this.getRiskRanking({
         clientId: params.clientId,
         user: params.user,
@@ -953,7 +1118,7 @@ export class ComplianceMetricsService {
 
     // Action plans for top 10 riskiest branches
     const topRisk = (ranking.highestRisk || []).slice(0, 10);
-    const actionPlans: any[] = [];
+    const actionPlans: ActionPlanResult[] = [];
     for (const r of topRisk) {
       try {
         const ap = await this.getActionPlan({
@@ -963,7 +1128,7 @@ export class ComplianceMetricsService {
           branchId: r.branchId,
         });
         actionPlans.push(ap);
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(
           `Action plan fetch failed for branch ${r.branchId}`,
           (e as Error)?.message,
@@ -995,5 +1160,149 @@ export class ComplianceMetricsService {
     const d = new Date(y, m - 1, 1);
     d.setMonth(d.getMonth() + delta);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  // ─── XLSX Export Pack builder ───────────────────────────────
+
+  async buildExportPackXlsx(
+    data: ExportPackResult,
+    month: string,
+  ): Promise<Buffer> {
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'StatComply';
+    wb.created = new Date();
+
+    const headerStyle: Partial<import('exceljs').Style> = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4F46E5' },
+      },
+      alignment: { horizontal: 'center' },
+    };
+
+    // ── Sheet 1: Company Summary ──
+    const ws1 = wb.addWorksheet('Summary');
+    const summary = data.companySummary;
+    ws1.columns = [
+      { header: 'Metric', key: 'metric', width: 35 },
+      { header: 'Value', key: 'value', width: 20 },
+    ];
+    ws1.getRow(1).eachCell((c) => Object.assign(c, { style: headerStyle }));
+    const summaryRows: [string, string | number | null | undefined][] = [
+      ['Report Month', month],
+      ['Generated At', data.generatedAt],
+      ['Total Branches', summary.totalBranches],
+      [
+        'Average Inspection Probability',
+        `${summary.avgInspectionProbability}%`,
+      ],
+      ['Average Completion %', `${summary.avgCompletionPercent}%`],
+      ['High Risk Branches', summary.highRiskBranches],
+      ['Critical Branches', summary.criticalBranches],
+      ['Top Highlight', summary.highlights[0] ?? 'N/A'],
+    ];
+    for (const [metric, value] of summaryRows) {
+      ws1.addRow({ metric, value: value ?? 'N/A' });
+    }
+
+    // ── Sheet 2: Risk Ranking ──
+    const ws2 = wb.addWorksheet('Risk Ranking');
+    const highRisk = data.riskRanking?.highestRisk || [];
+    ws2.columns = [
+      { header: 'Branch', key: 'branch', width: 30 },
+      { header: 'State', key: 'state', width: 15 },
+      { header: 'Risk Score', key: 'riskScore', width: 15 },
+      { header: 'Compliance %', key: 'compliance', width: 15 },
+      { header: 'Overdue', key: 'overdue', width: 12 },
+      { header: 'Pending', key: 'pending', width: 12 },
+    ];
+    ws2.getRow(1).eachCell((c) => Object.assign(c, { style: headerStyle }));
+    for (const r of highRisk) {
+      ws2.addRow({
+        branch: r.branchName || r.branchId,
+        state: r.stateCode || '',
+        riskScore: r.riskScore ?? '',
+        compliance:
+          r.completionPercent != null ? `${r.completionPercent}%` : '',
+        overdue: r.overdueSla ?? '',
+        pending: r.highCritical ?? '',
+      });
+    }
+
+    // ── Sheet 3: Lowest Compliance Branches ──
+    const ws3 = wb.addWorksheet('Lowest Compliance');
+    const lowestArr = data.lowestComplianceBranches.items || [];
+    ws3.columns = [
+      { header: 'Branch', key: 'branch', width: 30 },
+      { header: 'Compliance %', key: 'compliance', width: 15 },
+      { header: 'Total', key: 'total', width: 12 },
+      { header: 'Uploaded', key: 'uploaded', width: 12 },
+      { header: 'Pending', key: 'pending', width: 12 },
+    ];
+    ws3.getRow(1).eachCell((c) => Object.assign(c, { style: headerStyle }));
+    for (const r of lowestArr) {
+      ws3.addRow({
+        branch: r.branchName || r.branchId || '',
+        compliance:
+          r.completionPercent != null ? `${r.completionPercent}%` : '',
+        total: r.totalApplicable ?? '',
+        uploaded: r.uploaded ?? '',
+        pending:
+          r.totalApplicable != null && r.uploaded != null
+            ? r.totalApplicable - r.uploaded
+            : '',
+      });
+    }
+
+    // ── Sheet 4: State Heatmap ──
+    const ws4 = wb.addWorksheet('State Heatmap');
+    const heatmapArr = data.stateHeatmap.states || [];
+    ws4.columns = [
+      { header: 'State', key: 'state', width: 20 },
+      { header: 'Branches', key: 'branches', width: 12 },
+      { header: 'Avg Probability', key: 'probability', width: 15 },
+      { header: 'Critical', key: 'critical', width: 12 },
+      { header: 'High', key: 'high', width: 12 },
+    ];
+    ws4.getRow(1).eachCell((c) => Object.assign(c, { style: headerStyle }));
+    for (const r of heatmapArr) {
+      ws4.addRow({
+        state: r.stateCode || '',
+        branches: r.count ?? '',
+        probability: `${r.avgProbability}%`,
+        critical: r.CRITICAL ?? 0,
+        high: r.HIGH ?? 0,
+      });
+    }
+
+    // ── Sheet 5: Action Plans ──
+    if (data.actionPlans?.length) {
+      const ws5 = wb.addWorksheet('Action Plans');
+      ws5.columns = [
+        { header: 'Branch', key: 'branch', width: 28 },
+        { header: 'Item', key: 'item', width: 35 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Due Date', key: 'due', width: 15 },
+        { header: 'Priority', key: 'priority', width: 12 },
+      ];
+      ws5.getRow(1).eachCell((c) => Object.assign(c, { style: headerStyle }));
+      for (const plan of data.actionPlans) {
+        for (const item of plan.actions) {
+          ws5.addRow({
+            branch: plan.branchName || plan.branchId || '',
+            item: item.text || '',
+            status: item.category || '',
+            due: '',
+            priority: item.priority || '',
+          });
+        }
+      }
+    }
+
+    const arrayBuffer = await wb.xlsx.writeBuffer();
+    return Buffer.from(arrayBuffer);
   }
 }

@@ -9,6 +9,8 @@ import { CONTRACTOR_ROUTES } from './pages/contractor/contractor.routes';
 import { CRM_ROUTES } from './pages/crm/crm.routes';
 import { ESS_ROUTES } from './pages/ess/ess.routes';
 import { PAYROLL_ROUTES } from './pages/payroll/payroll.routes';
+import { PF_TEAM_ROUTES } from './pages/pf-team/pf-team.routes';
+import { ACCOUNTS_ROUTES } from './pages/accounts/accounts.routes';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -17,6 +19,16 @@ export const routes: Routes = [
     path: 'login',
     loadComponent: () =>
       import('./pages/login/login.component').then((m) => m.LoginComponent),
+  },
+  {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./pages/forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./pages/reset-password/reset-password.component').then((m) => m.ResetPasswordComponent),
   },
 
   // ── Role-based modules (each file defines its own layout + children) ──
@@ -29,7 +41,9 @@ export const routes: Routes = [
   ...BRANCH_ROUTES,
   ...CONTRACTOR_ROUTES,
   ...PAYROLL_ROUTES,
+  ...PF_TEAM_ROUTES,
   ...ESS_ROUTES,
+  ...ACCOUNTS_ROUTES,
 
   // ── Shared ──
   {

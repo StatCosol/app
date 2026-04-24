@@ -41,7 +41,7 @@ export class BranchAccessService {
    */
   async getAllowedBranchIds(
     userId: string,
-    clientId: string,
+    _clientId: string,
   ): Promise<string[] | 'ALL'> {
     const ids = await this.getUserBranchIds(userId);
     if (ids.length === 0) return 'ALL'; // master

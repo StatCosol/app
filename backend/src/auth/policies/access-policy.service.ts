@@ -1,11 +1,12 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { ReqUser } from '../../access/access-scope.service';
 
 @Injectable()
 export class AccessPolicyService {
   constructor(private readonly ds: DataSource) {}
 
-  async assertClientAccess(user: any, clientId: string) {
+  async assertClientAccess(user: ReqUser, clientId: string) {
     const role = user?.roleCode;
     const userId = user?.id;
     if (!role) throw new ForbiddenException('Access denied');
@@ -41,7 +42,7 @@ export class AccessPolicyService {
         `
         SELECT 1
         FROM branch_contractor bc
-        JOIN client_branches b ON b.id = bc.branch_id
+        JOIN client_branches b ON b.id = bc.branch_id AND b.isactive = TRUE AND b.isdeleted = FALSE
         WHERE bc.contractor_user_id = $1 AND b.clientid = $2
         LIMIT 1
         `,
@@ -55,16 +56,16 @@ export class AccessPolicyService {
     throw new ForbiddenException('Access denied');
   }
 
-  async assertBranchAccess(user: any, branchId: string) {
+  async assertBranchAccess(user: ReqUser, branchId: string) {
     const rows = await this.ds.query(
-      `SELECT "clientId" FROM client_branches WHERE id = $1 LIMIT 1`,
+      `SELECT "clientId" FROM client_branches WHERE id = $1 AND isactive = TRUE AND isdeleted = FALSE LIMIT 1`,
       [branchId],
     );
     if (!rows.length) throw new ForbiddenException('Branch not found');
     await this.assertClientAccess(user, rows[0].clientId);
   }
 
-  async assertThreadAccess(user: any, threadId: string) {
+  async assertThreadAccess(user: ReqUser, threadId: string) {
     const role = user?.roleCode;
     if (!role) throw new ForbiddenException('Access denied');
 

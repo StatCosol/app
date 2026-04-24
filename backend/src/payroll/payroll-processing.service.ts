@@ -18,7 +18,7 @@ import { PayrollComponentSlabEntity } from './entities/payroll-component-slab.en
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { StatutoryCalculatorService } from './services/statutory-calculator.service';
 import { StateStatutoryService } from './services/state-statutory.service';
-import { evaluateFormula, FormulaError } from './engine/expression';
+import { evaluateFormula } from './engine/expression';
 
 /** Component codes that are system-generated — skip during upload validation */
 const SYSTEM_CODES = new Set([
@@ -35,6 +35,11 @@ const SYSTEM_CODES = new Set([
   'LWF_ER',
   'GROSS',
   'NET_PAY',
+  'LOP_DAYS',
+  'NCP_DAYS',
+  'OT_HOURS',
+  'OTHER_EARNINGS',
+  'OTHER_DEDUCTIONS',
 ]);
 
 @Injectable()
@@ -45,7 +50,7 @@ export class PayrollProcessingService {
     @InjectRepository(PayrollRunEmployeeEntity)
     private readonly runEmpRepo: Repository<PayrollRunEmployeeEntity>,
     @InjectRepository(PayrollRunItemEntity)
-    private readonly runItemRepo: Repository<PayrollRunItemEntity>,
+    private readonly _runItemRepo: Repository<PayrollRunItemEntity>,
     @InjectRepository(PayrollRunComponentValueEntity)
     private readonly compValRepo: Repository<PayrollRunComponentValueEntity>,
     @InjectRepository(PayrollClientSetupEntity)
@@ -64,7 +69,7 @@ export class PayrollProcessingService {
   ) {}
 
   // ── Upload Breakup Excel ────────────────────────────────
-  async uploadBreakup(runId: string, file: any) {
+  async uploadBreakup(runId: string, file: Express.Multer.File) {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
 
@@ -214,7 +219,7 @@ export class PayrollProcessingService {
         }
 
         const fullName = masterEmp
-          ? `${masterEmp.firstName}${masterEmp.lastName ? ' ' + masterEmp.lastName : ''}`
+          ? masterEmp.name
           : pr.empName;
 
         if (!existingRunEmp) {
@@ -395,6 +400,30 @@ export class PayrollProcessingService {
         }
       }
 
+      // ── 1b. Fallback: use employee monthlyGross if no earning values ──
+      const hasAnyEarning = components.some(
+        (c) => c.componentType === 'EARNING' && (valueMap.get(c.code) ?? 0) > 0,
+      );
+      if (!hasAnyEarning && emp.employeeId) {
+        const masterEmp = await this.empRepo.findOne({
+          where: { id: emp.employeeId },
+          select: ['id', 'monthlyGross', 'ctc'],
+        });
+        const gross =
+          Number(masterEmp?.monthlyGross) ||
+          (Number(masterEmp?.ctc) ? Number(masterEmp!.ctc) / 12 : 0);
+        if (gross > 0) {
+          // Find the first EARNING component (typically BASIC) to assign the gross
+          const firstEarning = components.find(
+            (c) => c.componentType === 'EARNING',
+          );
+          if (firstEarning) {
+            await this.upsertValue(runId, emp.id, firstEarning.code, Math.round(gross));
+            valueMap.set(firstEarning.code, Math.round(gross));
+          }
+        }
+      }
+
       // ── 2. Statutory PF/ESI via StatutoryCalculatorService ──
       const valuesObj: Record<string, number> = {};
       valueMap.forEach((v, k) => {
@@ -549,12 +578,180 @@ export class PayrollProcessingService {
       .execute();
   }
 
-  private normalizeHeader(value: any): string {
+  // ─── Attendance Excel Upload ─────────────────────────────────────────
+  async uploadAttendance(
+    runId: string,
+    file: Express.Multer.File,
+  ): Promise<{ matched: number; skipped: string[] }> {
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Run not found');
+
+    let employees = await this.runEmpRepo.find({ where: { runId } });
+
+    // Auto-seed from master employee list if run has no employees yet
+    if (!employees.length) {
+      const whereClause: Record<string, any> = {
+        clientId: run.clientId,
+        isActive: true,
+      };
+      if (run.branchId) whereClause.branchId = run.branchId;
+      const masterEmps = await this.empRepo.find({
+        where: whereClause,
+        order: { employeeCode: 'ASC' },
+      });
+      if (!masterEmps.length) {
+        throw new BadRequestException(
+          'No active employees found for this client',
+        );
+      }
+      const seedEntities = masterEmps.map((emp) =>
+        this.runEmpRepo.create({
+          runId,
+          clientId: run.clientId,
+          branchId: emp.branchId ?? run.branchId ?? null,
+          employeeId: emp.id,
+          employeeCode: emp.employeeCode,
+          employeeName: emp.name,
+          designation: emp.designation ?? null,
+          uan: emp.uan ?? null,
+          esic: emp.esic ?? null,
+          stateCode: emp.stateCode ?? null,
+        }),
+      );
+      await this.runEmpRepo.save(seedEntities);
+      employees = await this.runEmpRepo.find({ where: { runId } });
+    }
+
+    const empMap = new Map<string, typeof employees[0]>();
+    for (const e of employees) {
+      empMap.set(e.employeeCode.toLowerCase(), e);
+    }
+
+    const wb = new ExcelJS.Workbook();
+    const ext = (file.originalname || '').split('.').pop()?.toLowerCase();
+    if (ext === 'csv') {
+      await wb.csv.readFile(file.path);
+    } else {
+      await wb.xlsx.readFile(file.path);
+    }
+    const ws = wb.worksheets[0];
+    if (!ws) throw new BadRequestException('Empty workbook');
+
+    // Parse header row
+    const headerRow = ws.getRow(1);
+    const headers: Record<number, string> = {};
+    headerRow.eachCell((cell, colNum) => {
+      headers[colNum] = this.normalizeHeader(cell.value);
+    });
+
+    // Find required columns
+    let codeCol = -1;
+    let workingDaysCol = -1;
+  let payableDaysCol = -1;
+  let otHoursCol = -1;
+  let otherEarningsCol = -1;
+  let arrearAttBonusCol = -1;
+  let otherDeductionsCol = -1;
+
+  for (const [col, h] of Object.entries(headers)) {
+    const c = Number(col);
+    if (/employee.*(code|id)|emp.*(code|id)/.test(h)) codeCol = c;
+    else if (/working.*days|work.*days|days.*worked/.test(h)) workingDaysCol = c;
+    else if (/payable.*days|pay.*days/.test(h)) payableDaysCol = c;
+    else if (/ot.*hours|overtime/.test(h)) otHoursCol = c;
+    else if (/other.*earning|arrear(?!.*bonus)/.test(h)) otherEarningsCol = c;
+    else if (/arrears.*(?:attendance.*)?bonus|bonus.*arrear|arrear.*att/.test(h)) arrearAttBonusCol = c;
+    else if (/other.*deduction/.test(h)) otherDeductionsCol = c;
+    }
+
+    if (codeCol < 0) throw new BadRequestException('Column "Employee Code" / "Employee ID" not found in header');
+    if (workingDaysCol < 0) throw new BadRequestException('Column "Working Days" not found in header');
+
+    const daysInMonth = new Date(run.periodYear, run.periodMonth, 0).getDate();
+    const skipped: string[] = [];
+    let matched = 0;
+    let maxPayableDays = 0;
+    const parsedAttendance: Array<{
+      emp: typeof employees[0];
+      workingDays: number;
+      payableDays: number;
+      otHours: number;
+      otherEarnings: number;
+      arrearAttBonus: number;
+      otherDeductions: number;
+    }> = [];
+
+    for (let r = 2; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      const empCode = this.cellStr(row.getCell(codeCol).value);
+      if (!empCode) continue;
+
+      const emp = empMap.get(empCode.toLowerCase());
+      if (!emp) {
+        skipped.push(empCode);
+        continue;
+      }
+
+      const workingDays = this.cellNum(row.getCell(workingDaysCol).value) ?? 0;
+      const payableDays = payableDaysCol > 0 ? (this.cellNum(row.getCell(payableDaysCol).value) ?? workingDays) : workingDays;
+      const otHours = otHoursCol > 0 ? (this.cellNum(row.getCell(otHoursCol).value) ?? 0) : 0;
+      const otherEarnings = otherEarningsCol > 0 ? (this.cellNum(row.getCell(otherEarningsCol).value) ?? 0) : 0;
+      const arrearAttBonus = arrearAttBonusCol > 0 ? (this.cellNum(row.getCell(arrearAttBonusCol).value) ?? 0) : 0;
+      const otherDeductions = otherDeductionsCol > 0 ? (this.cellNum(row.getCell(otherDeductionsCol).value) ?? 0) : 0;
+
+      if (payableDays > maxPayableDays) maxPayableDays = payableDays;
+      parsedAttendance.push({ emp, workingDays, payableDays, otHours, otherEarnings, arrearAttBonus, otherDeductions });
+      matched++;
+    }
+
+    // Second pass: compute LOP using max payable days as the month total
+    const totalPayable = maxPayableDays > 0 ? maxPayableDays : daysInMonth;
+    for (const att of parsedAttendance) {
+      const { emp, payableDays, otHours, otherEarnings, arrearAttBonus, otherDeductions } = att;
+      const lopDays = Math.max(0, totalPayable - payableDays);
+
+      emp.totalDays = totalPayable;
+      emp.daysPresent = payableDays;
+      emp.lopDays = lopDays;
+      emp.ncpDays = lopDays;
+      emp.otHours = otHours;
+      await this.runEmpRepo.save(emp);
+
+      const upserts: Array<{ code: string; amount: number }> = [
+        { code: 'LOP_DAYS', amount: lopDays },
+        { code: 'WORKED_DAYS', amount: att.workingDays },
+        { code: 'PAYABLE_DAYS', amount: payableDays },
+      ];
+      if (otHours > 0) upserts.push({ code: 'OT_HOURS', amount: otHours });
+      upserts.push({ code: 'OTHER_EARNINGS', amount: otherEarnings });
+      if (arrearAttBonus > 0) upserts.push({ code: 'ARREAR_ATT_BONUS', amount: arrearAttBonus });
+      if (otherDeductions > 0) upserts.push({ code: 'OTHER_DEDUCTIONS', amount: otherDeductions });
+
+      for (const { code, amount } of upserts) {
+        await this.compValRepo
+          .createQueryBuilder()
+          .insert()
+          .values({
+            runId,
+            runEmployeeId: emp.id,
+            componentCode: code,
+            amount: String(amount),
+            source: 'UPLOADED' as const,
+          })
+          .orUpdate(['amount', 'source'], ['run_employee_id', 'component_code'])
+          .execute();
+      }
+    }
+
+    return { matched, skipped };
+  }
+
+  private normalizeHeader(value: unknown): string {
     if (value === null || value === undefined) return '';
     return String(value).replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  private cellStr(value: any): string {
+  private cellStr(value: unknown): string {
     if (value && typeof value === 'object') {
       if ('result' in value) return String(value.result);
       if ('text' in value) return String(value.text);
@@ -562,7 +759,7 @@ export class PayrollProcessingService {
     return value ? String(value).trim() : '';
   }
 
-  private cellNum(value: any): number | null {
+  private cellNum(value: unknown): number | null {
     const str = this.cellStr(value);
     if (!str) return null;
     const n = Number(str);

@@ -25,6 +25,9 @@ import { evaluateFormula, FormulaError } from './expression';
 
 import { StatutoryCalculatorService } from '../services/statutory-calculator.service';
 import { StateStatutoryService } from '../services/state-statutory.service';
+import { AttendanceService } from '../../attendance/attendance.service';
+import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
+import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
 
 interface SlabEntry {
   from: number;
@@ -57,7 +60,7 @@ export class PayrollEngineService {
     @InjectRepository(PayrollRunEmployeeEntity)
     private readonly runEmpRepo: Repository<PayrollRunEmployeeEntity>,
     @InjectRepository(PayrollRunItemEntity)
-    private readonly runItemRepo: Repository<PayrollRunItemEntity>,
+    private readonly _runItemRepo: Repository<PayrollRunItemEntity>,
     @InjectRepository(PayrollRunComponentValueEntity)
     private readonly compValRepo: Repository<PayrollRunComponentValueEntity>,
     @InjectRepository(PayrollComponentEntity)
@@ -65,7 +68,7 @@ export class PayrollEngineService {
     @InjectRepository(PayrollClientSetupEntity)
     private readonly setupRepo: Repository<PayrollClientSetupEntity>,
     @InjectRepository(PayCalcTraceEntity)
-    private readonly traceRepo: Repository<PayCalcTraceEntity>,
+    private readonly _traceRepo: Repository<PayCalcTraceEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly ds: DataSource,
@@ -75,6 +78,11 @@ export class PayrollEngineService {
     private readonly stateStat: StateStatutoryService,
     private readonly rounding: RoundingService,
     private readonly wageBase: WageBaseService,
+    private readonly attendanceService: AttendanceService,
+    @InjectRepository(LeaveLedgerEntity)
+    private readonly _leaveLedgerRepo: Repository<LeaveLedgerEntity>,
+    @InjectRepository(LeaveBalanceEntity)
+    private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
   ) {}
 
   async processWithEngine(runId: string): Promise<ProcessResult> {
@@ -82,9 +90,9 @@ export class PayrollEngineService {
     if (!run) {
       throw new BadRequestException(`Payroll run ${runId} not found`);
     }
-    if (run.status === 'PROCESSED' || run.status === 'APPROVED') {
+    if (run.status === 'APPROVED') {
       throw new ConflictException(
-        `Run ${runId} is already ${run.status}. Cannot re-process.`,
+        `Run ${runId} is already APPROVED. Cannot re-process.`,
       );
     }
 
@@ -113,11 +121,37 @@ export class PayrollEngineService {
 
     const asOfDate = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}-01`;
 
+    // ── Fetch attendance summaries (LOP/working days) ────────────────────────
+    const attendanceMap = new Map<
+      string,
+      { totalDays: number; effectivePresent: number; lopDays: number; holidays: number; weekOffs: number; daysOnLeave: number }
+    >();
+    try {
+      const summaries = await this.attendanceService.getMonthlySummary({
+        clientId: run.clientId,
+        year: run.periodYear,
+        month: run.periodMonth,
+        approvedOnly: true,
+      });
+      for (const s of summaries) {
+        if (s.employeeCode) {
+          attendanceMap.set(s.employeeCode, s);
+        }
+      }
+      this.logger.log(
+        `Attendance loaded for ${attendanceMap.size} employees`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Attendance fetch skipped: ${msg}`);
+    }
+
     const errors: string[] = [];
     let processed = 0;
 
     for (const emp of runEmployees) {
       try {
+        const att = attendanceMap.get(emp.employeeCode);
         await this.processEmployee(
           run,
           emp,
@@ -125,6 +159,7 @@ export class PayrollEngineService {
           components,
           asOfDate,
           errors,
+          att,
         );
         processed++;
       } catch (err) {
@@ -141,10 +176,83 @@ export class PayrollEngineService {
     return { processed, status: 'PROCESSED', errors };
   }
 
+  /**
+   * Process specific employees in an existing run without changing run status.
+   * Used for late-adding employees to an already-approved run.
+   */
+  async processSpecificEmployees(
+    runId: string,
+    employeeCodes: string[],
+  ): Promise<ProcessResult> {
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException(`Payroll run ${runId} not found`);
+
+    const setup = await this.setupRepo.findOne({
+      where: { clientId: run.clientId },
+    });
+    if (!setup) {
+      throw new BadRequestException(
+        `Payroll setup not found for client ${run.clientId}`,
+      );
+    }
+
+    const components = await this.compRepo.find({
+      where: { clientId: run.clientId, isActive: true },
+      order: { displayOrder: 'ASC' },
+    });
+    if (!components.length) {
+      throw new BadRequestException(
+        `No payroll components configured for client ${run.clientId}`,
+      );
+    }
+
+    const runEmployees = await this.runEmpRepo.find({ where: { runId } });
+    const targets = runEmployees.filter((e) =>
+      employeeCodes.includes(e.employeeCode),
+    );
+
+    const asOfDate = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}-01`;
+
+    const attendanceMap = new Map<
+      string,
+      { totalDays: number; effectivePresent: number; lopDays: number; holidays: number; weekOffs: number; daysOnLeave: number }
+    >();
+    try {
+      const summaries = await this.attendanceService.getMonthlySummary({
+        clientId: run.clientId,
+        year: run.periodYear,
+        month: run.periodMonth,
+        approvedOnly: true,
+      });
+      for (const s of summaries) {
+        if (s.employeeCode) attendanceMap.set(s.employeeCode, s);
+      }
+    } catch {
+      this.logger.warn('Attendance fetch skipped for specific employees');
+    }
+
+    const errors: string[] = [];
+    let processed = 0;
+
+    for (const emp of targets) {
+      try {
+        const att = attendanceMap.get(emp.employeeCode);
+        await this.processEmployee(run, emp, setup, components, asOfDate, errors, att);
+        processed++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`Employee ${emp.employeeName || emp.employeeCode}: ${msg}`);
+      }
+    }
+
+    // Do NOT change run status
+    return { processed, status: run.status, errors };
+  }
+
   async previewEmployee(params: {
     clientId: string;
-    employeeId: string | null;
-    branchId: string | null;
+    employeeId?: string | null;
+    branchId?: string | null;
     grossAmount: number;
     asOfDate: string;
   }): Promise<Record<string, number>> {
@@ -152,9 +260,8 @@ export class PayrollEngineService {
 
     const setup = await this.setupRepo.findOne({ where: { clientId } });
     if (!setup) {
-      throw new BadRequestException(
-        `Payroll setup not found for client ${clientId}`,
-      );
+      // No setup configured — return a minimal preview with just gross = net
+      return { ACTUAL_GROSS: grossAmount, GROSS: grossAmount, NET_PAY: grossAmount };
     }
 
     const components = await this.compRepo.find({
@@ -162,16 +269,16 @@ export class PayrollEngineService {
       order: { displayOrder: 'ASC' },
     });
     if (!components.length) {
-      throw new BadRequestException(
-        `No payroll components configured for client ${clientId}`,
-      );
+      // No components configured — return gross = net
+      return { ACTUAL_GROSS: grossAmount, GROSS: grossAmount, NET_PAY: grossAmount };
     }
 
     const values: Record<string, number> = { ACTUAL_GROSS: grossAmount };
 
-    // Look up employee's departmentId and gradeId for structure scoping
+    // Look up employee for structure scoping and state code
     let departmentId: string | null = null;
     let gradeId: string | null = null;
+    let employeeStateCode = '';
     if (employeeId) {
       const employee = await this.empRepo.findOne({
         where: { id: employeeId },
@@ -179,13 +286,14 @@ export class PayrollEngineService {
       if (employee) {
         departmentId = employee.departmentId ?? null;
         gradeId = employee.gradeId ?? null;
+        employeeStateCode = employee.stateCode ?? '';
       }
     }
 
     const resolved = await this.structureResolver.resolve({
       clientId,
-      employeeId,
-      branchId,
+      employeeId: employeeId ?? null,
+      branchId: branchId ?? null,
       departmentId,
       gradeId,
       asOfDate,
@@ -205,12 +313,12 @@ export class PayrollEngineService {
     const ruleSetResult = structure.ruleSetId
       ? await this.rulesetResolver.resolveAndLoad({
           clientId,
-          branchId,
+          branchId: branchId ?? null,
           asOfDate,
         })
       : await this.rulesetResolver.resolveAndLoad({
           clientId,
-          branchId,
+          branchId: branchId ?? null,
           asOfDate,
         });
 
@@ -235,14 +343,8 @@ export class PayrollEngineService {
     const statResult = this.statutory.compute({ values, setup, components });
     Object.assign(values, statResult.values);
 
-    // State statutory (PT/LWF) — use a placeholder stateCode for preview
-    let stateCode = '';
-    if (employeeId) {
-      const employee = await this.empRepo.findOne({
-        where: { id: employeeId },
-      });
-      stateCode = employee?.stateCode ?? '';
-    }
+    // State statutory (PT/LWF)
+    const stateCode = employeeStateCode;
 
     if (stateCode) {
       const stateDeductions = await this.stateStat.applyStateDeductions({
@@ -270,6 +372,7 @@ export class PayrollEngineService {
     components: PayrollComponentEntity[],
     asOfDate: string,
     errors: string[],
+    attendance?: { totalDays: number; effectivePresent: number; lopDays: number; holidays: number; weekOffs: number; daysOnLeave: number },
   ): Promise<void> {
     const qr = this.ds.createQueryRunner();
     await qr.connect();
@@ -290,9 +393,46 @@ export class PayrollEngineService {
         values[row.componentCode] = Number(row.amount) || 0;
       }
 
+      // ── Seed attendance data (uploaded values take precedence) ──────────
+      const daysInMonth = new Date(run.periodYear, run.periodMonth, 0).getDate();
+      const attendanceUploaded = emp.totalDays > 0; // means Excel was uploaded before processing
+
+      if (attendanceUploaded) {
+        // Attendance was uploaded via Excel – keep entity fields as-is
+        // Only fill in component values if not already uploaded
+        if (values['LOP_DAYS'] === undefined) {
+          values['LOP_DAYS'] = emp.lopDays;
+        }
+        if (values['NCP_DAYS'] === undefined) {
+          values['NCP_DAYS'] = emp.ncpDays;
+        }
+        if (values['OT_HOURS'] === undefined) {
+          values['OT_HOURS'] = emp.otHours;
+        }
+      } else if (attendance) {
+        if (values['LOP_DAYS'] === undefined) {
+          values['LOP_DAYS'] = attendance.lopDays;
+        }
+        if (values['NCP_DAYS'] === undefined) {
+          values['NCP_DAYS'] = attendance.lopDays; // NCP = LOP for govt returns
+        }
+        emp.totalDays = attendance.totalDays;
+        emp.daysPresent = attendance.effectivePresent;
+        emp.lopDays = values['LOP_DAYS'];
+        emp.ncpDays = values['NCP_DAYS'];
+      } else {
+        // No attendance data — use uploaded or default to 0
+        emp.totalDays = daysInMonth;
+        emp.daysPresent = daysInMonth - (values['LOP_DAYS'] ?? 0);
+        emp.lopDays = values['LOP_DAYS'] ?? 0;
+        emp.ncpDays = values['NCP_DAYS'] ?? 0;
+      }
+
       // Look up employee's departmentId and gradeId for structure scoping
       let departmentId: string | null = null;
       let gradeId: string | null = null;
+      let empPfApplicable: boolean | undefined;
+      let empEsiApplicable: boolean | undefined;
       if (emp.employeeId) {
         const masterEmp = await this.empRepo.findOne({
           where: { id: emp.employeeId },
@@ -300,7 +440,165 @@ export class PayrollEngineService {
         if (masterEmp) {
           departmentId = masterEmp.departmentId ?? null;
           gradeId = masterEmp.gradeId ?? null;
+          empPfApplicable = masterEmp.pfApplicable;
+          empEsiApplicable = masterEmp.esiApplicable;
+
+          // Fallback: seed ACTUAL_GROSS from employee monthlyGross or CTC/12
+          if (values['ACTUAL_GROSS'] === undefined || values['ACTUAL_GROSS'] === 0) {
+            const mg = Number(masterEmp.monthlyGross) || 0;
+            const ctcMonthly = Number(masterEmp.ctc) ? Number(masterEmp.ctc) / 12 : 0;
+            const fallbackGross = mg || ctcMonthly;
+            if (fallbackGross > 0) {
+              values['ACTUAL_GROSS'] = Math.round(fallbackGross);
+            }
+          }
         }
+      }
+
+      // ── Seed WORKED_DAYS / PAYABLE_DAYS for formula use ──────────────
+      const WORKING_DAYS_IN_MONTH = 26;
+      if (values['WORKED_DAYS'] === undefined) {
+        values['WORKED_DAYS'] = emp.daysPresent || WORKING_DAYS_IN_MONTH;
+      }
+
+      // ── Holidays from attendance records ──────────────────────────
+      const holidayDays = attendance?.holidays ?? 0;
+      values['HOLIDAYS'] = holidayDays;
+      values['WEEK_OFFS'] = attendance?.weekOffs ?? 0;
+
+      // ── Earned Leave (EL) calculation ─────────────────────────────
+      // Skip EL for employees who joined in the same month as the payroll run
+      const workedDays = values['WORKED_DAYS'] ?? (emp.daysPresent || WORKING_DAYS_IN_MONTH);
+      let skipEL = false;
+      if (emp.employeeId) {
+        const masterEmpForEL = await this.empRepo.findOne({ where: { id: emp.employeeId } });
+        if (masterEmpForEL?.dateOfJoining) {
+          const doj = new Date(masterEmpForEL.dateOfJoining);
+          if (doj.getFullYear() === run.periodYear && doj.getMonth() + 1 === run.periodMonth) {
+            skipEL = true;
+          }
+        }
+      }
+
+      const elAccrued = skipEL ? 0 : Math.round((workedDays / 20) * 100) / 100; // 1/20 * worked days
+      values['EL_ACCRUED'] = elAccrued;
+
+      let paidLeaveDays = 0;
+      let elBalanceBefore = 0;
+      let elBalanceAfter = 0;
+
+      if (emp.employeeId) {
+        // Look up current EL balance
+        const elBalance = await this.leaveBalanceRepo.findOne({
+          where: {
+            employeeId: emp.employeeId,
+            year: run.periodYear,
+            leaveType: 'EL',
+          },
+        });
+        elBalanceBefore = elBalance ? parseFloat(elBalance.available) || 0 : 0;
+
+        // Calculate absent days = total month days (26) minus worked days
+        const absentDays = Math.max(0, WORKING_DAYS_IN_MONTH - workedDays);
+
+        // Paid leave = min(absent days, available balance, 1.5)
+        if (absentDays > 0 && elBalanceBefore > 0) {
+          paidLeaveDays = Math.min(absentDays, elBalanceBefore, 1.5);
+          paidLeaveDays = Math.round(paidLeaveDays * 100) / 100;
+        }
+
+        // New balance = old balance - paid leave + accrued this month
+        elBalanceAfter = Math.round((elBalanceBefore - paidLeaveDays + elAccrued) * 100) / 100;
+
+        // ── Write ledger entries & update balance (inside the transaction) ──
+        const monthStr = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
+        const entryDate = `${monthStr}-01`;
+
+        // Delete any existing EL entries for this month (idempotent re-processing)
+        await qr.manager
+          .createQueryBuilder()
+          .delete()
+          .from(LeaveLedgerEntity)
+          .where('employee_id = :empId', { empId: emp.employeeId })
+          .andWhere('leave_type = :lt', { lt: 'EL' })
+          .andWhere('remarks LIKE :m', { m: `%${monthStr}%` })
+          .execute();
+
+        // Ledger entry: EL accrual (credit)
+        if (elAccrued > 0) {
+          const accrualEntry = qr.manager.create(LeaveLedgerEntity, {
+            employeeId: emp.employeeId,
+            clientId: run.clientId,
+            leaveType: 'EL',
+            entryDate,
+            qty: String(elAccrued),
+            refType: 'EL_ACCRUAL',
+            refId: run.id,
+            remarks: `EL accrual for ${monthStr}: ${elAccrued} days`,
+          });
+          await qr.manager.save(LeaveLedgerEntity, accrualEntry);
+        }
+
+        // Ledger entry: EL paid leave (debit, negative qty)
+        if (paidLeaveDays > 0) {
+          const paidEntry = qr.manager.create(LeaveLedgerEntity, {
+            employeeId: emp.employeeId,
+            clientId: run.clientId,
+            leaveType: 'EL',
+            entryDate,
+            qty: String(-paidLeaveDays),
+            refType: 'EL_PAID_LEAVE',
+            refId: run.id,
+            remarks: `EL paid leave for ${monthStr}: ${paidLeaveDays} days`,
+          });
+          await qr.manager.save(LeaveLedgerEntity, paidEntry);
+        }
+
+        // Update leave_balances (upsert)
+        // For insert: set accrued=elAccrued, used=paidLeaveDays, available=elAccrued-paidLeaveDays
+        // For update: recalculate from all ledger entries for this year
+        await qr.manager.query(
+          `INSERT INTO leave_balances (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'EL', 0, $4, $5, 0, $6, NOW())
+           ON CONFLICT (employee_id, year, leave_type)
+           DO UPDATE SET accrued   = COALESCE((
+                           SELECT SUM(ABS(qty)) FROM leave_ledger
+                           WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
+                             AND EXTRACT(YEAR FROM entry_date::date) = $3
+                         ), 0),
+                         used      = COALESCE((
+                           SELECT SUM(ABS(qty)) FROM leave_ledger
+                           WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
+                             AND EXTRACT(YEAR FROM entry_date::date) = $3
+                         ), 0),
+                         available = leave_balances.opening
+                           + COALESCE((
+                               SELECT SUM(ABS(qty)) FROM leave_ledger
+                               WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
+                                 AND EXTRACT(YEAR FROM entry_date::date) = $3
+                             ), 0)
+                           - COALESCE((
+                               SELECT SUM(ABS(qty)) FROM leave_ledger
+                               WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
+                                 AND EXTRACT(YEAR FROM entry_date::date) = $3
+                             ), 0),
+                         last_updated_at = NOW()`,
+          [emp.employeeId, run.clientId, run.periodYear, elAccrued, paidLeaveDays, elAccrued - paidLeaveDays],
+        );
+
+        // Re-read updated balance for component value
+        const updatedBal = await qr.manager.findOne(LeaveBalanceEntity, {
+          where: { employeeId: emp.employeeId, year: run.periodYear, leaveType: 'EL' },
+        });
+        elBalanceAfter = updatedBal ? parseFloat(updatedBal.available) || 0 : elBalanceAfter;
+      }
+
+      values['EL_PAID_LEAVE_DAYS'] = paidLeaveDays;
+      values['EL_BALANCE'] = elBalanceAfter;
+
+      if (values['PAYABLE_DAYS'] === undefined) {
+        // Payable = worked days + holidays + paid leave from EL balance
+        values['PAYABLE_DAYS'] = workedDays + holidayDays + paidLeaveDays;
       }
 
       const resolved = await this.structureResolver.resolve({
@@ -355,6 +653,20 @@ export class PayrollEngineService {
         }
       }
 
+      // ── Pro-rata: multiply earned salary components by payableDays / 26 ──
+      const payableDays = values['PAYABLE_DAYS'] ?? WORKING_DAYS_IN_MONTH;
+      const proRataFactor = payableDays / WORKING_DAYS_IN_MONTH;
+      const NON_PRORATA_CODES = new Set(['ATT_BONUS', 'OTHER_EARNINGS', 'ARREAR_ATT_BONUS', 'OTHER_DEDUCTIONS', 'ACTUAL_GROSS']);
+      for (const comp of components) {
+        if (
+          comp.componentType === 'EARNING' &&
+          !NON_PRORATA_CODES.has(comp.code) &&
+          values[comp.code] !== undefined
+        ) {
+          values[comp.code] = values[comp.code] * proRataFactor;
+        }
+      }
+
       // Compute wage bases
       const { pfWage, esiWage, gross } = this.wageBase.computeWageBases({
         values,
@@ -365,7 +677,11 @@ export class PayrollEngineService {
       values['GROSS'] = gross;
 
       // Statutory deductions (PF/ESI)
-      const statResult = this.statutory.compute({ values, setup, components });
+      const statResult = this.statutory.compute({
+        values, setup, components,
+        pfApplicable: empPfApplicable,
+        esiApplicable: empEsiApplicable,
+      });
       Object.assign(values, statResult.values);
 
       // State-based deductions (PT/LWF)
@@ -397,7 +713,11 @@ export class PayrollEngineService {
       emp.netPay = String(values['NET_PAY'] ?? 0);
       await qr.manager.save(PayrollRunEmployeeEntity, emp);
 
-      // Save calc trace
+      // Save calc trace (delete stale trace first for re-processing)
+      await qr.manager.delete(PayCalcTraceEntity, {
+        runId: run.id,
+        employeeId: emp.employeeId ?? emp.id,
+      });
       const trace = qr.manager.create(PayCalcTraceEntity, {
         runId: run.id,
         employeeId: emp.employeeId ?? emp.id,
@@ -584,15 +904,17 @@ export class PayrollEngineService {
   ): number {
     let total = 0;
 
-    // Statutory employee deductions
-    total += values['PF_EMP'] ?? 0;
-    total += values['ESI_EMP'] ?? 0;
-    total += values['PT'] ?? 0;
-    total += values['LWF_EMP'] ?? 0;
+    // Statutory deduction codes that are always summed (even if not in components list)
+    const STATUTORY_CODES = new Set(['PF_EMP', 'ESI_EMP', 'PT', 'LWF_EMP', 'PF_ER_FROM_EMP']);
 
-    // All DEDUCTION type components
+    // Statutory employee deductions
+    for (const code of STATUTORY_CODES) {
+      total += values[code] ?? 0;
+    }
+
+    // All other DEDUCTION type components (skip statutory to avoid double-count)
     for (const comp of components) {
-      if (comp.componentType === 'DEDUCTION') {
+      if (comp.componentType === 'DEDUCTION' && !STATUTORY_CODES.has(comp.code)) {
         total += values[comp.code] ?? 0;
       }
     }

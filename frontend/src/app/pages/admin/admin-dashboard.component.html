@@ -369,7 +369,7 @@
           </ng-template>
 
           <ng-template uiTableCell="lastUpdated" let-row>
-            <span class="text-sm text-gray-600">{{ row.lastUpdated | date:'short' }}</span>
+            <span class="text-sm text-gray-600">{{ row.lastUpdated ? (row.lastUpdated | date:'short') : '-' }}</span>
           </ng-template>
 
           <ng-template uiTableCell="escActions" let-row>

@@ -49,8 +49,8 @@ interface ReportHistoryRow {
       <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-4">
         <div class="flex flex-wrap items-end gap-3">
           <div>
-            <label class="block text-xs text-gray-600 mb-1">Period</label>
-            <input
+            <label class="block text-xs text-gray-600 mb-1" for="cr-period">Period</label>
+            <input autocomplete="off" id="cr-period" name="period"
               type="month"
               [(ngModel)]="period"
               class="h-10 rounded-lg border border-gray-200 px-3 text-sm"

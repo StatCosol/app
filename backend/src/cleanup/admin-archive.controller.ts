@@ -1,11 +1,11 @@
 import {
   Controller,
   Get,
+  NotFoundException,
   Param,
   Post,
   ParseUUIDPipe,
   UseGuards,
-  Req,
   Query,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -14,6 +14,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ClientsService } from '../clients/clients.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Admin')
 @ApiBearerAuth('JWT')
@@ -104,7 +106,7 @@ export class AdminArchiveController {
        FROM clients WHERE id = $1`,
       [id],
     );
-    if (!client) return { error: 'Client not found' };
+    if (!client) throw new NotFoundException('Client not found');
 
     const counts = await this.dataSource.query(
       `
@@ -254,11 +256,10 @@ export class AdminArchiveController {
   /** Restore a soft-deleted client */
   @ApiOperation({ summary: 'Restore Client' })
   @Post('clients/:id/restore')
-  async restoreClient(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.clientsService.restore(
-      id,
-      req.user?.userId,
-      req.user?.roleCode,
-    );
+  async restoreClient(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.clientsService.restore(id, user?.userId, user?.roleCode);
   }
 }

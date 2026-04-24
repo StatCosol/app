@@ -15,6 +15,7 @@ import { PayrollRunEntity } from '../payroll/entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from '../payroll/entities/payroll-run-employee.entity';
 import { PayrollRunComponentValueEntity } from '../payroll/entities/payroll-run-component-value.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { AttendanceService } from '../attendance/attendance.service';
 
 describe('EssService', () => {
   let service: EssService;
@@ -82,6 +83,10 @@ describe('EssService', () => {
         {
           provide: getRepositoryToken(ClientEntity),
           useValue: { ...mockRepo },
+        },
+        {
+          provide: AttendanceService,
+          useValue: { getAttendanceSummary: jest.fn() },
         },
         { provide: DataSource, useValue: { query: jest.fn() } },
       ],

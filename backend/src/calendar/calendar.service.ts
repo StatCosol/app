@@ -14,7 +14,7 @@ interface CalendarItem {
   branchId: string | null;
   branchName: string | null;
   entityId: string | null;
-  meta: Record<string, any>;
+  meta: Record<string, unknown>;
 }
 
 @Injectable()
@@ -118,14 +118,14 @@ export class CalendarService {
         AND r.expiry_date IS NOT NULL
         AND r.expiry_date BETWEEN $2 AND $3
     `;
-    const params: any[] = [clientId, start, end];
+    const params: unknown[] = [clientId, start, end];
 
     if (branchIds?.length) {
       params.push(branchIds);
       sql += ` AND r.branch_id = ANY($${params.length}::uuid[])`;
     }
 
-    const rows: any[] = await this.ds.query(sql, params);
+    const rows: { id: string; type: string; registration_number: string | null; authority: string | null; expiry_date: string; branch_id: string; status: string }[] = await this.ds.query(sql, params);
     const now = new Date();
 
     return rows.map((r) => {
@@ -160,12 +160,12 @@ export class CalendarService {
     // Fetch branch IDs to process
     let branchSql = `SELECT id FROM client_branches
                      WHERE clientid = $1 AND isdeleted = false AND status = 'ACTIVE'`;
-    const branchParams: any[] = [clientId];
+    const branchParams: unknown[] = [clientId];
     if (branchIds?.length) {
       branchParams.push(branchIds);
       branchSql += ` AND id = ANY($${branchParams.length}::uuid[])`;
     }
-    const branchRows: any[] = await this.ds.query(branchSql, branchParams);
+    const branchRows: { id: string }[] = await this.ds.query(branchSql, branchParams);
 
     // Get months in range
     const months = this.monthsBetween(start, end);
@@ -188,7 +188,6 @@ export class CalendarService {
 
       for (const month of months) {
         const entries = this.schedule.buildMonthSchedule({
-          branch: {} as any,
           applicable,
           month,
         });
@@ -266,20 +265,6 @@ export class CalendarService {
     return out;
   }
 
-  /** Render title_template with {open}, {close}, {due} placeholders */
-  private renderTitle(
-    template: string | null,
-    itemName: string,
-    vars: Record<string, string>,
-  ): string {
-    if (!template) return itemName;
-    let result = template;
-    for (const [key, val] of Object.entries(vars)) {
-      result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), val);
-    }
-    return result;
-  }
-
   /** Bump priority one level for window-close events */
   private escalatePriority(p: Priority): Priority {
     switch (p) {
@@ -306,7 +291,7 @@ export class CalendarService {
     return Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
   }
 
-  private toISODate(d: any): string {
+  private toISODate(d: string | Date): string {
     const dt = new Date(d);
     const yyyy = dt.getFullYear();
     const mm = String(dt.getMonth() + 1).padStart(2, '0');

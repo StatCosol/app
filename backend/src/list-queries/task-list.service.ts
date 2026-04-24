@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, SelectQueryBuilder } from 'typeorm';
 import {
   AccessScopeService,
   ReqUser,
-  ScopeResult,
 } from '../access/access-scope.service';
 import { ScopedListQueryDto } from '../common/dto/scoped-list-query.dto';
 import { Page } from '../common/types/page.type';
@@ -75,7 +74,7 @@ export class TaskListService {
     return paginate(qb, q.page, q.limit);
   }
 
-  private applyTaskTab(qb: any, tab: string) {
+  private applyTaskTab(qb: SelectQueryBuilder<ComplianceTask>, tab: string) {
     const today = new Date().toISOString().slice(0, 10);
     switch (tab.toUpperCase()) {
       case 'OVERDUE':

@@ -1,17 +1,11 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT')
@@ -24,8 +18,7 @@ export class ApprovalsController {
   // Pending deletion approvals for the logged-in approver (CCO/CEO)
   @ApiOperation({ summary: 'Get pending deletion approvals' })
   @Get('pending')
-  async getPending(@Req() req: any) {
-    const user = req.user;
+  async getPending(@CurrentUser() user: ReqUser) {
     return this.usersService.listPendingDeletionRequestsForApprover(
       user.userId,
       user.roleCode,
@@ -35,8 +28,7 @@ export class ApprovalsController {
   // Approve a specific deletion request
   @ApiOperation({ summary: 'Approve a deletion request' })
   @Post(':id/approve')
-  async approve(@Param('id') id: string, @Req() req: any) {
-    const user = req.user;
+  async approve(@Param('id') id: string, @CurrentUser() user: ReqUser) {
     return this.usersService.approveDeletionRequest(
       id,
       user.userId,
@@ -50,9 +42,8 @@ export class ApprovalsController {
   async reject(
     @Param('id') id: string,
     @Body() body: { remarks?: string },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    const user = req.user;
     return this.usersService.rejectDeletionRequest(
       id,
       user.userId,

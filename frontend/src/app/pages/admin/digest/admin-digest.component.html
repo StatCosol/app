@@ -84,7 +84,7 @@
         <div class="flex items-center gap-2">
           <label class="text-xs text-gray-600">
             Limit
-            <select class="field" [(ngModel)]="historyLimit" (ngModelChange)="refreshHistory()">
+            <select id="ad-history-limit" class="field" name="historyLimit" [(ngModel)]="historyLimit" (ngModelChange)="refreshHistory()">
               <option [ngValue]="10">10</option>
               <option [ngValue]="30">30</option>
               <option [ngValue]="50">50</option>
@@ -95,11 +95,10 @@
         </div>
       </div>
 
-      <div *ngIf="history.length; else noHistory" class="table-wrap">
+      <div *ngIf="history.length; else noHistory" class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
-              <th>ID</th>
               <th>Type</th>
               <th>Status</th>
               <th>Source</th>
@@ -110,7 +109,6 @@
           </thead>
           <tbody>
             <tr *ngFor="let row of history; trackBy: trackHistory">
-              <td class="mono">{{ row.id }}</td>
               <td>{{ row.digestType }}</td>
               <td><span [class]="statusTone(row.status)">{{ row.status }}</span></td>
               <td>{{ row.source }}</td>

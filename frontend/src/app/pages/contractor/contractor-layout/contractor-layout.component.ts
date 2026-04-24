@@ -1,19 +1,20 @@
-import { Component } from '@angular/core';
+import { Component , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { ContractorSidebarComponent } from './contractor-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
+import { NewsTickerComponent } from '../../../shared/news/news-ticker.component';
 
 @Component({
   selector: 'app-contractor-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, ContractorSidebarComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, RouterOutlet, ContractorSidebarComponent, NewsTickerComponent],
   template: `
     <div class="contractor-shell">
       <!-- Mobile menu toggle -->
       <button
-        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80"
-        style="background: linear-gradient(135deg, #3D0A1E, #2A0615);"
+        class="lg:hidden fixed bottom-6 right-6 z-50 p-3.5 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 ring-4 ring-white/80 role-fab-contractor"
         (click)="mobileOpen = true"
       >
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,10 +44,10 @@ import { AuthService } from '../../../core/auth.service';
                   </svg>
                 </div>
                 <div class="leading-tight">
-                  <h1 class="text-2xl sm:text-3xl font-bold tracking-tight" style="color: #0a2656; font-family: 'Times New Roman', Georgia, serif;">
+                  <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-statco-blue font-brand">
                     StatCo Solutions
                   </h1>
-                  <p class="text-xs sm:text-sm font-medium text-slate-500">Ensuring Compliance, Empowering Success</p>
+                  <p class="text-xs font-medium text-slate-500">Ensuring Compliance, Empowering Success</p>
                 </div>
                 <!-- Contact (xl+) -->
                 <div class="hidden xl:flex flex-col items-start gap-1 ml-6 text-xs text-gray-400">
@@ -73,8 +74,7 @@ import { AuthService } from '../../../core/auth.service';
                 <div class="hidden sm:block text-sm font-semibold text-gray-900">{{ userName }}</div>
                 <button
                   (click)="logout()"
-                  class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
-                  style="background: linear-gradient(135deg, #3D0A1E, #7A1B3D);"
+                  class="inline-flex items-center gap-2 px-3.5 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 role-btn-contractor"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -85,6 +85,9 @@ import { AuthService } from '../../../core/auth.service';
             </div>
           </div>
         </header>
+
+        <!-- News ticker ribbon -->
+        <app-news-ticker></app-news-ticker>
 
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-rose-50/30 to-slate-50">

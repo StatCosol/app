@@ -40,20 +40,26 @@ import { EssApiService, EssProfile } from '../ess-api.service';
         <div class="info-card">
           <h2 class="card-title">Personal Information</h2>
           <div class="info-grid">
-            <div class="info-row"><span class="label">Full Name</span><span class="value">{{ emp.firstName }} {{ emp.lastName || '' }}</span></div>
+            <div class="info-row"><span class="label">Name as per Aadhaar</span><span class="value">{{ emp.name }}</span></div>
             <div class="info-row"><span class="label">Employee Code</span><span class="value font-mono">{{ emp.employeeCode }}</span></div>
             <div class="info-row"><span class="label">Gender</span><span class="value">{{ emp.gender || '-' }}</span></div>
-            <div class="info-row"><span class="label">Date of Birth</span><span class="value">{{ emp.dateOfBirth || '-' }}</span></div>
+            <div class="info-row"><span class="label">DOB as per Aadhaar</span><span class="value">{{ emp.dateOfBirth || '-' }}</span></div>
             <div class="info-row"><span class="label">Father's Name</span><span class="value">{{ emp.fatherName || '-' }}</span></div>
             <div class="info-row">
               <span class="label">Phone</span>
               <span class="value" *ngIf="!editing">{{ emp.phone || '-' }}</span>
-              <input *ngIf="editing" [(ngModel)]="editForm.phone" class="edit-input" placeholder="Phone" />
+              <div *ngIf="editing" class="edit-field">
+                <input id="ess-phone" name="phone" autocomplete="tel" [(ngModel)]="editForm.phone" class="edit-input" [class.border-red-500]="phoneError" placeholder="e.g. +919876543210" />
+                <p *ngIf="phoneError" class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ phoneError }}</p>
+              </div>
             </div>
             <div class="info-row">
               <span class="label">Email</span>
               <span class="value" *ngIf="!editing">{{ emp.email || '-' }}</span>
-              <input *ngIf="editing" [(ngModel)]="editForm.email" class="edit-input" placeholder="Email" />
+              <div *ngIf="editing" class="edit-field">
+                <input id="ess-email" name="email" autocomplete="email" [(ngModel)]="editForm.email" class="edit-input" [class.border-red-500]="editEmailError" placeholder="Email" />
+                <p *ngIf="editEmailError" class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ editEmailError }}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -64,7 +70,7 @@ import { EssApiService, EssProfile } from '../ess-api.service';
           <div class="info-grid">
             <div class="info-row"><span class="label">Designation</span><span class="value">{{ emp.designation || '-' }}</span></div>
             <div class="info-row"><span class="label">Department</span><span class="value">{{ emp.department || '-' }}</span></div>
-            <div class="info-row"><span class="label">Date of Joining</span><span class="value">{{ emp.dateOfJoining || '-' }}</span></div>
+            <div class="info-row"><span class="label">Date of Joining</span><span class="value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
             <div *ngIf="emp.dateOfExit" class="info-row"><span class="label">Date of Exit</span><span class="value text-red-600">{{ emp.dateOfExit }}</span></div>
             <div class="info-row"><span class="label">State</span><span class="value">{{ emp.stateCode || '-' }}</span></div>
             <div class="info-row"><span class="label">Status</span>
@@ -97,17 +103,17 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row">
               <span class="label">Bank Name</span>
               <span class="value" *ngIf="!editing">{{ emp.bankName || '-' }}</span>
-              <input *ngIf="editing" [(ngModel)]="editForm.bankName" class="edit-input" placeholder="Bank Name" />
+              <input autocomplete="off" *ngIf="editing" id="ess-bank-name" name="bankName" [(ngModel)]="editForm.bankName" class="edit-input" placeholder="Bank Name" />
             </div>
             <div class="info-row">
               <span class="label">Account Number</span>
               <span class="value font-mono" *ngIf="!editing">{{ emp.bankAccount || '-' }}</span>
-              <input *ngIf="editing" [(ngModel)]="editForm.bankAccount" class="edit-input" placeholder="Account Number" />
+              <input autocomplete="off" *ngIf="editing" id="ess-bank-account" name="bankAccount" [(ngModel)]="editForm.bankAccount" class="edit-input" placeholder="Account Number" />
             </div>
             <div class="info-row">
               <span class="label">IFSC</span>
               <span class="value font-mono" *ngIf="!editing">{{ emp.ifsc || '-' }}</span>
-              <input *ngIf="editing" [(ngModel)]="editForm.ifsc" class="edit-input" placeholder="IFSC Code" />
+              <input autocomplete="off" *ngIf="editing" id="ess-ifsc" name="ifsc" [(ngModel)]="editForm.ifsc" class="edit-input" placeholder="IFSC Code" />
             </div>
           </div>
         </div>
@@ -210,8 +216,32 @@ export class EssProfileComponent implements OnInit, OnDestroy {
     this.editForm = {};
   }
 
+  get phoneError(): string {
+    const v = (this.editForm.phone || '').trim();
+    if (!v) return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Phone must include country code + 10 digits (e.g. +919876543210)';
+    return '';
+  }
+
+  get editEmailError(): string {
+    const v = (this.editForm.email || '').trim();
+    if (!v) return '';
+    if (!v.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Please enter a valid email address';
+    return '';
+  }
+
   saveEdit(): void {
     if (!this.emp) return;
+    if (this.phoneError) {
+      this.error = this.phoneError;
+      return;
+    }
+    if (this.editEmailError) {
+      this.error = this.editEmailError;
+      return;
+    }
     this.saving = true;
     this.saveSuccess = false;
     // Merge edits into profile for optimistic UI, then persist

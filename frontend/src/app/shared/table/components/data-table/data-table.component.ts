@@ -62,9 +62,21 @@ export class SmartDataTableComponent<T = any> {
 
   // ── Pagination ──
   goToPage(page: number): void {
-    if (page < 1 || page > this.totalPages()) return;
-    this.query = { ...this.query, page };
+    const safePage = this.normalizePage(page);
+    if (safePage === this.query.page) return;
+    this.query = { ...this.query, page: safePage };
     this.queryChange.emit(this.query);
+  }
+
+  commitPageInput(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) return;
+
+    const parsed = Number(input.value);
+    const safePage = this.normalizePage(parsed);
+
+    input.value = String(safePage);
+    this.goToPage(safePage);
   }
 
   setLimit(limit: number): void {
@@ -108,6 +120,12 @@ export class SmartDataTableComponent<T = any> {
 
   totalPages(): number {
     return Math.max(1, Math.ceil((this.total || 0) / (this.query.limit || 10)));
+  }
+
+  private normalizePage(page: number): number {
+    if (!Number.isFinite(page)) return this.query.page || 1;
+    const rounded = Math.trunc(page);
+    return Math.min(this.totalPages(), Math.max(1, rounded));
   }
 
   colSpan(): number {

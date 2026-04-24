@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
@@ -7,20 +7,19 @@ import { PayrollRunComponentValueEntity } from './entities/payroll-run-component
 import { PayrollFnfEntity } from './entities/payroll-fnf.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { ClientEntity } from '../clients/entities/client.entity';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class PayrollReportsService {
-  private readonly logger = new Logger(PayrollReportsService.name);
-
   constructor(
     @InjectRepository(PayrollRunEntity)
-    private readonly runRepo: Repository<PayrollRunEntity>,
+    private readonly _runRepo: Repository<PayrollRunEntity>,
     @InjectRepository(PayrollRunEmployeeEntity)
     private readonly runEmpRepo: Repository<PayrollRunEmployeeEntity>,
     @InjectRepository(PayrollRunComponentValueEntity)
-    private readonly compValRepo: Repository<PayrollRunComponentValueEntity>,
+    private readonly _compValRepo: Repository<PayrollRunComponentValueEntity>,
     @InjectRepository(PayrollFnfEntity)
-    private readonly fnfRepo: Repository<PayrollFnfEntity>,
+    private readonly _fnfRepo: Repository<PayrollFnfEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
     @InjectRepository(ClientEntity)
@@ -29,7 +28,7 @@ export class PayrollReportsService {
 
   // ── Bank Statement CSV ─────────────────────────────────
   async generateBankStatement(
-    user: any,
+    _user: ReqUser,
     runId?: string,
     clientId?: string,
     year?: number,
@@ -91,7 +90,7 @@ export class PayrollReportsService {
 
   // ── Muster Roll CSV ────────────────────────────────────
   async generateMusterRoll(
-    user: any,
+    _user: ReqUser,
     clientId?: string,
     year?: number,
     month?: number,
@@ -105,6 +104,9 @@ export class PayrollReportsService {
         're.designation',
         're.grossEarnings',
         're.netPay',
+        're.totalDays',
+        're.daysPresent',
+        're.lopDays',
         'r.periodYear',
         'r.periodMonth',
         'r.status',
@@ -120,9 +122,8 @@ export class PayrollReportsService {
       'S.No,Employee Code,Employee Name,Designation,Period,Days Present,Days Absent,Overtime Hours,Gross Pay,Net Pay';
     const rows = raws.map((r, i) => {
       const period = `${r.r_period_year}-${String(r.r_period_month).padStart(2, '0')}`;
-      // Default working days (30) since attendance data isn't tracked separately
-      const daysPresent = 30;
-      const daysAbsent = 0;
+      const daysPresent = Number(r.re_days_present) || 0;
+      const daysAbsent = Number(r.re_lop_days) || 0;
       const overtimeHours = 0;
       return [
         i + 1,
@@ -148,7 +149,7 @@ export class PayrollReportsService {
 
   // ── Cost Analysis CSV ──────────────────────────────────
   async generateCostAnalysis(
-    user: any,
+    _user: ReqUser,
     clientId?: string,
     year?: number,
   ): Promise<{ csv: string; fileName: string }> {
@@ -211,7 +212,7 @@ export class PayrollReportsService {
 
   // ── Form 16 / TDS Summary CSV ──────────────────────────
   async generateForm16Summary(
-    user: any,
+    _user: ReqUser,
     clientId?: string,
     financialYear?: string,
   ): Promise<{ csv: string; fileName: string }> {

@@ -4,10 +4,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import { AuthService } from '../../../core/auth.service';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-branch-employees',
@@ -22,18 +24,69 @@ import { AuthService } from '../../../core/auth.service';
           <p class="page-subtitle">Manage employee registrations for this branch</p>
         </div>
         <div class="flex items-center gap-3">
-          <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="search-input" />
-          <select [(ngModel)]="statusFilter" (ngModelChange)="onSearch()" class="filter-select">
+          <label for="emp-search" class="sr-only">Search employees</label>
+          <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="search-input" />
+          <label for="emp-status-filter" class="sr-only">Status filter</label>
+          <select id="emp-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="onSearch()" class="filter-select">
             <option value="">All</option>
             <option value="true">Active</option>
             <option value="false">Inactive</option>
           </select>
+          <button (click)="showImportDialog = !showImportDialog" class="btn-secondary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            Import Excel
+          </button>
+          <button (click)="downloadEmployees()" class="btn-secondary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download List
+          </button>
+          <button [disabled]="downloadingLetters" (click)="downloadAppointmentLetters()" class="btn-secondary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            {{ downloadingLetters ? 'Generating...' : 'Appointment Letters' }}
+          </button>
           <button (click)="registerEmployee()" class="btn-primary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
             </svg>
             Register Employee
           </button>
+        </div>
+      </div>
+
+      <!-- Bulk Import Dialog -->
+      <div *ngIf="showImportDialog" class="import-dialog">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-900">Bulk Import Employees from Excel</h3>
+          <button (click)="showImportDialog = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-3">Download the template, fill in employee details, then upload the file.</p>
+        <div class="flex items-end gap-3 flex-wrap">
+          <button (click)="downloadTemplate()" class="btn-secondary text-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download Template
+          </button>
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1" for="branch-emp-file">Excel File (.xlsx, .xls, .csv)</label>
+            <input id="branch-emp-file" type="file" (change)="onImportFileChange($event)" accept=".xlsx,.xls,.csv"
+              class="text-xs border border-gray-300 rounded-lg p-1.5 bg-white" />
+          </div>
+          <button [disabled]="!importFile || importing" (click)="bulkImport()" class="btn-primary text-xs">
+            {{ importing ? 'Importing...' : 'Upload & Import' }}
+          </button>
+        </div>
+        <div *ngIf="importResult" class="mt-3 text-xs rounded-lg p-3" [class.bg-green-50]="!importHasError" [class.text-green-700]="!importHasError" [class.bg-red-50]="importHasError" [class.text-red-700]="importHasError">
+          {{ importResult }}
+        </div>
+        <div *ngIf="importErrors.length" class="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
+          <div *ngFor="let e of importErrors" class="py-0.5">• {{ e }}</div>
         </div>
       </div>
 
@@ -80,7 +133,7 @@ import { AuthService } from '../../../core/auth.service';
                 <td class="text-slate-500 font-mono text-xs">{{ emp.employeeCode || '—' }}</td>
                 <td class="font-medium text-slate-800">
                   <a [routerLink]="['/branch/employees', emp.id]" class="hover:text-indigo-600 cursor-pointer">
-                    {{ emp.firstName }} {{ emp.lastName || '' }}
+                    {{ emp.name }}
                   </a>
                 </td>
                 <td>
@@ -92,7 +145,7 @@ import { AuthService } from '../../../core/auth.service';
                 </td>
                 <td class="text-slate-600">{{ emp.phone || '—' }}</td>
                 <td class="text-slate-600">{{ emp.designation || '—' }}</td>
-                <td class="text-slate-500 text-xs">{{ emp.dateOfJoining || '—' }}</td>
+                <td class="text-slate-500 text-xs">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '—' }}</td>
                 <td>
                   <span class="badge" [class.bg-emerald-100]="emp.isActive" [class.text-emerald-700]="emp.isActive"
                         [class.bg-red-100]="!emp.isActive" [class.text-red-700]="!emp.isActive">
@@ -145,6 +198,16 @@ import { AuthService } from '../../../core/auth.service';
       cursor: pointer; transition: background 0.2s;
       &:hover { background: #4338ca; }
     }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.5rem 1rem;
+      background: white; color: #374151; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      &:hover { background: #f8fafc; border-color: #cbd5e1; }
+    }
+    .import-dialog {
+      background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1rem 1.25rem;
+      margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
     .summary-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
     @media (max-width: 768px) { .summary-strip { grid-template-columns: repeat(2, 1fr); } }
     .summary-card { background: white; border-radius: 0.75rem; padding: 1rem; text-align: center; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
@@ -168,6 +231,13 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
   total = 0;
   activeCount = 0;
   err = '';
+  showImportDialog = false;
+  importFile: File | null = null;
+  importing = false;
+  importResult = '';
+  importHasError = false;
+  importErrors: string[] = [];
+  downloadingLetters = false;
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -175,6 +245,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     private empService: ClientEmployeesService,
     private authService: AuthService,
     private router: Router,
+    private http: HttpClient,
   ) {}
 
   ngOnInit(): void {
@@ -219,8 +290,110 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
 
   trackById(_: number, emp: Employee): string { return emp.id; }
 
+  // ── Bulk Import ───────────────────────────────────────
+  onImportFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.importFile = input.files?.[0] ?? null;
+  }
+
+  downloadTemplate(): void {
+    this.http.get(`${environment.apiBaseUrl}/api/v1/client/employees/bulk-import/template`, {
+      responseType: 'blob',
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'employee_import_template.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => { this.importResult = 'Failed to download template'; this.importHasError = true; this.cdr.markForCheck(); },
+    });
+  }
+
+  bulkImport(): void {
+    if (!this.importFile) return;
+    this.importing = true;
+    this.importResult = '';
+    this.importErrors = [];
+    const fd = new FormData();
+    fd.append('file', this.importFile);
+    this.http.post<any>(`${environment.apiBaseUrl}/api/v1/client/employees/bulk-import`, fd).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.importing = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: (res) => {
+        const imported = res?.imported ?? 0;
+        const updated = res?.updated ?? 0;
+        const skipped = res?.skipped ?? 0;
+        const errors = Array.isArray(res?.errors) ? res.errors : [];
+        const parts: string[] = [];
+        if (imported) parts.push(`${imported} new`);
+        if (updated) parts.push(`${updated} updated`);
+        if (skipped) parts.push(`${skipped} skipped`);
+        if (errors.length) parts.push(`${errors.length} error(s)`);
+        this.importResult = parts.length ? parts.join(', ') : 'No records processed';
+        this.importHasError = imported === 0 && updated === 0 && errors.length > 0;
+        this.importErrors = errors.map((e: any) => typeof e === 'string' ? e : (e?.message || JSON.stringify(e)));
+        this.importFile = null;
+        if (res?.warnings?.length) {
+          this.importErrors = [...this.importErrors, ...res.warnings];
+        }
+        this.loadEmployees();
+      },
+      error: (e) => {
+        this.importResult = e?.error?.message || 'Import failed';
+        this.importHasError = true;
+        this.importErrors = Array.isArray(e?.error?.errors)
+          ? e.error.errors.map((err: any) => typeof err === 'string' ? err : (err?.message || JSON.stringify(err)))
+          : [];
+      },
+    });
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  downloadEmployees(): void {
+    const params = new URLSearchParams();
+    if (this.searchQuery) params.set('search', this.searchQuery);
+    if (this.statusFilter) params.set('isActive', this.statusFilter);
+    const branchId = this.authService.getBranchIds()?.[0];
+    if (branchId) params.set('branchId', branchId);
+    const qs = params.toString();
+    this.http.get(`${environment.apiBaseUrl}/api/v1/client/employees/export${qs ? '?' + qs : ''}`, {
+      responseType: 'blob',
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'employees.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => { this.importResult = 'Failed to download'; this.importHasError = true; this.cdr.markForCheck(); },
+    });
+  }
+
+  downloadAppointmentLetters(): void {
+    this.downloadingLetters = true;
+    this.empService.downloadAppointmentLettersBulk('docx').pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.downloadingLetters = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Appointment_Letters.zip';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => { this.importResult = 'Failed to download appointment letters'; this.importHasError = true; this.cdr.markForCheck(); },
+    });
   }
 }

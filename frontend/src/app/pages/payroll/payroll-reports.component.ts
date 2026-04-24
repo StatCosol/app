@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -21,6 +21,7 @@ interface ReportCard {
 @Component({
   selector: 'app-payroll-reports',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent, EmptyStateComponent],
   template: `
     <div class="page">
@@ -32,28 +33,28 @@ interface ReportCard {
       <div class="bg-white rounded-2xl border border-gray-100 shadow-card p-4 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label class="block text-xs text-gray-600 mb-1">Client</label>
-            <select [(ngModel)]="selectedClientId" class="input-sm w-full">
+            <label class="block text-xs text-gray-600 mb-1" for="pr-selected-client-id">Client</label>
+            <select id="pr-selected-client-id" name="selectedClientId" [(ngModel)]="selectedClientId" class="input-sm w-full">
               <option value="">All Assigned Clients</option>
               <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-600 mb-1">Year</label>
-            <select [(ngModel)]="selectedYear" class="input-sm w-full">
+            <label class="block text-xs text-gray-600 mb-1" for="pr-selected-year">Year</label>
+            <select id="pr-selected-year" name="selectedYear" [(ngModel)]="selectedYear" class="input-sm w-full">
               <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-600 mb-1">Month</label>
-            <select [(ngModel)]="selectedMonth" class="input-sm w-full">
+            <label class="block text-xs text-gray-600 mb-1" for="pr-selected-month">Month</label>
+            <select id="pr-selected-month" name="selectedMonth" [(ngModel)]="selectedMonth" class="input-sm w-full">
               <option [ngValue]="0">All months</option>
               <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-600 mb-1">Financial Year</label>
-            <input
+            <label class="block text-xs text-gray-600 mb-1" for="pr-selected-financial-year">Financial Year</label>
+            <input autocomplete="off" id="pr-selected-financial-year" name="selectedFinancialYear"
               [(ngModel)]="selectedFinancialYear"
               class="input-sm w-full"
               placeholder="2025-26" />

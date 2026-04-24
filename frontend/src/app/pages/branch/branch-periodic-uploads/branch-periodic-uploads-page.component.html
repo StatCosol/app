@@ -10,7 +10,7 @@
 
   <div class="filter-bar">
     <div class="frequency-tabs" *ngIf="showFrequencyTabs">
-      <button
+      <button type="button"
         *ngFor="let f of frequencies"
         class="freq-tab"
         [class.active]="selectedFrequency === f.value"
@@ -19,19 +19,19 @@
       </button>
     </div>
 
-    <select *ngIf="selectedFrequency === 'QUARTERLY'" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
+    <select id="bpup-selected-quarter" name="selectedQuarter" *ngIf="selectedFrequency === 'QUARTERLY'" class="filter-select" [(ngModel)]="selectedQuarter" (change)="load()">
       <option *ngFor="let q of quarters" [ngValue]="q.value">{{ q.label }}</option>
     </select>
 
-    <select *ngIf="selectedFrequency === 'HALF_YEARLY'" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
+    <select id="bpup-selected-half" name="selectedHalf" *ngIf="selectedFrequency === 'HALF_YEARLY'" class="filter-select" [(ngModel)]="selectedHalf" (change)="load()">
       <option *ngFor="let h of halves" [ngValue]="h.value">{{ h.label }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
+    <select id="bpup-selected-year" name="selectedYear" class="filter-select" [(ngModel)]="selectedYear" (change)="load()">
       <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedStatus" (change)="onFiltersChanged()">
+    <select id="bpup-selected-status" name="selectedStatus" class="filter-select" [(ngModel)]="selectedStatus" (change)="onFiltersChanged()">
       <option value="ALL">All statuses</option>
       <option value="NOT_UPLOADED">Pending upload</option>
       <option value="SUBMITTED">Submitted</option>
@@ -41,17 +41,17 @@
       <option value="OVERDUE">Overdue</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedLawArea" (change)="onFiltersChanged()">
+    <select id="bpup-selected-law-area" name="selectedLawArea" class="filter-select" [(ngModel)]="selectedLawArea" (change)="onFiltersChanged()">
       <option value="ALL">All law areas</option>
       <option *ngFor="let law of lawAreas" [value]="law">{{ law }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="selectedCategory" (change)="onFiltersChanged()">
+    <select id="bpup-selected-category" name="selectedCategory" class="filter-select" [(ngModel)]="selectedCategory" (change)="onFiltersChanged()">
       <option value="ALL">All categories</option>
       <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
     </select>
 
-    <input
+    <input autocomplete="off" id="bpup-search-term" name="searchTerm"
       class="filter-input"
       type="text"
       placeholder="Search return name / code"
@@ -104,69 +104,55 @@
         <h3>Upload Checklist</h3>
         <span>{{ filteredChecklist.length }} item(s)</span>
       </div>
-      <div class="table-wrap">
-        <table class="doc-table">
-          <thead>
-            <tr>
-              <th>Return Name</th>
-              <th>Law Area</th>
-              <th>Period</th>
-              <th>Due Date</th>
-              <th>Workflow</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              *ngFor="let item of filteredChecklist; trackBy: trackByReturnCode"
-              [class.row-active]="selectedItem?.returnCode === item.returnCode"
-              [class.row-returned]="isReturned(item)"
-              [class.row-overdue]="isOverdue(item)"
-              (click)="selectItem(item)">
-              <td>
-                <div class="font-medium">{{ item.returnName }}</div>
-                <div class="meta-code">
-                  {{ item.returnCode }}
-                  <span *ngIf="hasPendingQuery(item)" class="pending-query">Pending query</span>
-                </div>
-              </td>
-              <td>
-                <span class="meta-pill">{{ item.lawArea }}</span>
-              </td>
-              <td>{{ periodLabel() }}</td>
-              <td>{{ dueDateLabel(item) }}</td>
-              <td>
-                <span [class]="workflowClass(item)">{{ workflowState(item) }}</span>
-              </td>
-              <td>
-                <ui-status-badge [status]="statusOf(item)" size="sm"></ui-status-badge>
-              </td>
-              <td>
-                <div class="action-row">
-                  <button
-                    *ngIf="canUpload(item)"
-                    class="btn-outline"
-                    (click)="openUploadModal(item); $event.stopPropagation()">
-                    {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Resubmit' : 'Upload' }}
-                  </button>
-                  <button
-                    *ngIf="item.document?.uploadedFileName"
-                    class="btn-outline"
-                    (click)="previewFile(item); $event.stopPropagation()">
-                    Preview
-                  </button>
-                  <button
-                    *ngIf="item.document?.uploadedFileName"
-                    class="btn-outline"
-                    (click)="downloadFile(item); $event.stopPropagation()">
-                    Download
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="list-wrap">
+        <button *ngFor="let item of filteredChecklist; trackBy: trackByReturnCode"
+          type="button" class="list-row"
+          [class.list-row--active]="selectedItem?.returnCode === item.returnCode"
+          [class.list-row--returned]="isReturned(item)"
+          (click)="selectItem(item)">
+
+          <div class="row-main">
+            <span class="row-title">{{ item.returnName }}</span>
+            <ui-status-badge [status]="statusOf(item)" size="sm"></ui-status-badge>
+          </div>
+
+          <div class="row-sub">
+            <span class="row-code">{{ item.returnCode }}</span>
+            <span class="row-sep">&middot;</span>
+            <span>{{ item.lawArea }}</span>
+            <ng-container *ngIf="item.category">
+              <span class="row-sep">|</span>
+              <span>{{ item.category }}</span>
+            </ng-container>
+          </div>
+
+          <div class="row-footer">
+            <span class="row-due">{{ dueInLabel(item) }}</span>
+            <span *ngIf="hasPendingQuery(item)" class="pending-query">Pending query</span>
+            <span class="signal-tag" [ngClass]="signalClass(item)" *ngIf="signalLabel(item)">{{ signalLabel(item) }}</span>
+          </div>
+
+          <div class="row-actions" *ngIf="canUpload(item) || item.document?.uploadedFileName">
+            <button type="button"
+              *ngIf="canUpload(item)"
+              class="btn-outline"
+              (click)="openUploadModal(item); $event.stopPropagation()">
+              {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Resubmit' : 'Upload' }}
+            </button>
+            <button type="button"
+              *ngIf="item.document?.uploadedFileName"
+              class="btn-outline"
+              (click)="previewFile(item); $event.stopPropagation()">
+              Preview
+            </button>
+            <button type="button"
+              *ngIf="item.document?.uploadedFileName"
+              class="btn-outline"
+              (click)="downloadFile(item); $event.stopPropagation()">
+              Download
+            </button>
+          </div>
+        </button>
       </div>
     </section>
 
@@ -223,9 +209,9 @@
 
           <div class="timeline">
             <div class="timeline-title">Notes History</div>
-            <shared-timeline
+            <ui-shared-timeline
               [events]="timeline"
-              [emptyMessage]="'No history available for this filing item.'"></shared-timeline>
+              [emptyMessage]="'No history available for this filing item.'"></ui-shared-timeline>
           </div>
 
           <div class="review-notes">
@@ -300,8 +286,8 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Acknowledgement / Reference No.</label>
-        <input
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="bpup-acknowledgement-ref">Acknowledgement / Reference No.</label>
+        <input autocomplete="off" id="bpup-acknowledgement-ref" name="acknowledgementRef"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           type="text"
           [(ngModel)]="acknowledgementRef"
@@ -309,8 +295,8 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Comments (Optional)</label>
-        <textarea
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="bpup-upload-remarks">Comments (Optional)</label>
+        <textarea autocomplete="off" id="bpup-upload-remarks" name="uploadRemarks"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           rows="2"
           [(ngModel)]="uploadRemarks"
@@ -318,12 +304,12 @@
       </div>
 
       <div class="flex justify-end gap-3 pt-2">
-        <button
+        <button type="button"
           class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
           (click)="closeUploadModal()">
           Cancel
         </button>
-        <button
+        <button type="button"
           class="btn-primary"
           [disabled]="!selectedFile || uploading"
           (click)="submitUpload()">
@@ -335,9 +321,9 @@
     <div slot="footer"></div>
   </ui-modal>
 
-  <shared-file-preview-modal
+  <ui-file-preview-modal
     [open]="showPreviewModal"
     [file]="previewData"
     (closed)="closePreviewModal()"
-    (download)="downloadPreviewFile()"></shared-file-preview-modal>
+    (download)="downloadPreviewFile()"></ui-file-preview-modal>
 </div>

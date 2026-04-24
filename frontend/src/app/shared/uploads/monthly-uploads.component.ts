@@ -76,6 +76,7 @@ export class MonthlyUploadsComponent implements OnInit, OnDestroy {
   branches: { id: string; name: string }[] = [];
 
   loading = false;
+  deleting = false;
   stateCode: string | null = null;
   establishmentType: string | null = null;
 
@@ -207,8 +208,10 @@ export class MonthlyUploadsComponent implements OnInit, OnDestroy {
 
   async deleteDoc(doc: UploadedDoc): Promise<void> {
     if (!(await this.dialog.confirm('Delete Document', `Delete "${doc.fileName}"?`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    this.deleting = true;
     this.api.deleteMonthlyDocument(doc.id).pipe(
       takeUntil(this.destroy$),
+      finalize(() => this.deleting = false),
     ).subscribe({
       next: () => this.loadDocs(),
       error: (err: any) => this.toast.error(err?.error?.message || 'Delete failed'),

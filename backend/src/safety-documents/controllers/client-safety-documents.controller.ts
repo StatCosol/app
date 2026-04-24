@@ -1,8 +1,10 @@
-import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { SafetyDocumentsService } from '../safety-documents.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 
 /**
  * Client user controller for viewing safety documents (read-only).
@@ -25,8 +27,8 @@ export class ClientSafetyDocumentsController {
   /** Get Safety Risk Score for client */
   @ApiOperation({ summary: 'Get Safety Score' })
   @Get('safety-score')
-  async getSafetyScore(@Req() req: any) {
-    const clientId = req.user.clientId;
+  async getSafetyScore(@CurrentUser() user: ReqUser) {
+    const clientId = user.clientId;
     if (!clientId) return { overallScore: 0, categoryScores: [] };
     return this.svc.getSafetyScore({ clientId });
   }
@@ -34,8 +36,11 @@ export class ClientSafetyDocumentsController {
   /** List all safety documents for the client */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Req() req: any, @Query() query: any) {
-    const clientId = req.user.clientId;
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    const clientId = user.clientId;
     if (!clientId) return [];
     return this.svc.listForClient(clientId, {
       branchId: query.branchId,
@@ -48,8 +53,8 @@ export class ClientSafetyDocumentsController {
   /** Get documents expiring soon */
   @ApiOperation({ summary: 'Get Expiring' })
   @Get('expiring')
-  async getExpiring(@Req() req: any) {
-    const clientId = req.user.clientId;
+  async getExpiring(@CurrentUser() user: ReqUser) {
+    const clientId = user.clientId;
     if (!clientId) return [];
     return this.svc.getExpiringDocuments({ clientId });
   }
@@ -59,10 +64,10 @@ export class ClientSafetyDocumentsController {
   @Get(':id/download')
   async download(
     @Param('id') id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId;
     const doc = await this.svc.getDocumentEntity(id);
 
     if (doc.clientId !== clientId) {

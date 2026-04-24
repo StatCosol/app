@@ -12,7 +12,15 @@ import { BranchEntity } from '../../branches/entities/branch.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { AuditType, Frequency } from '../../common/enums';
 
-export type AuditStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type AuditStatus =
+  | 'PLANNED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'SUBMITTED'
+  | 'CORRECTION_PENDING'
+  | 'REVERIFICATION_PENDING'
+  | 'CLOSED';
 
 @Entity('audits')
 export class AuditEntity {
@@ -75,7 +83,7 @@ export class AuditEntity {
   @JoinColumn({ name: 'created_by_user_id' })
   createdBy?: UserEntity;
 
-  @Column({ type: 'varchar', length: 20, default: 'PLANNED' })
+  @Column({ type: 'varchar', length: 30, default: 'PLANNED' })
   status: AuditStatus;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
@@ -89,6 +97,22 @@ export class AuditEntity {
 
   @Column({ name: 'score_calculated_at', type: 'timestamptz', nullable: true })
   scoreCalculatedAt: Date | null;
+
+  @Column({ name: 'submitted_at', type: 'timestamptz', nullable: true })
+  submittedAt: Date | null;
+
+  @Column({ name: 'final_remark', type: 'text', nullable: true })
+  finalRemark: string | null;
+
+  @Column({ name: 'scheduled_date', type: 'date', nullable: true })
+  scheduledDate: string | null;
+
+  @Column({ name: 'scheduled_by_user_id', type: 'uuid', nullable: true })
+  scheduledByUserId: string | null;
+
+  @ManyToOne(() => UserEntity, { eager: false })
+  @JoinColumn({ name: 'scheduled_by_user_id' })
+  scheduledBy?: UserEntity | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

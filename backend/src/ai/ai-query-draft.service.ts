@@ -156,8 +156,8 @@ Generate a professional draft reply, key clarifying questions, and confidence.`;
       });
 
       return result;
-    } catch (err: any) {
-      await this.requestLog.failRequest(request.id, err.message);
+    } catch (err: unknown) {
+      await this.requestLog.failRequest(request.id, (err as Error).message);
       throw err;
     }
   }
@@ -186,7 +186,7 @@ Generate a professional draft reply, key clarifying questions, and confidence.`;
   }
 
   /** Fallback reply when AI is unavailable */
-  private fallbackReply(route: RouteTarget, message: string): string {
+  private fallbackReply(route: RouteTarget, _message: string): string {
     return (
       `Thank you for your query. This has been routed to the ${route.department} team (${route.role}). ` +
       `A team member will review your query and respond within 24 hours. ` +

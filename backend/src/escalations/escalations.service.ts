@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { EscalationEntity } from './entities/escalation.entity';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class EscalationsService {
@@ -16,10 +17,10 @@ export class EscalationsService {
 
   async list(
     clientId: string,
-    user: any,
+    user: ReqUser,
     q: { status?: string; branchId?: string },
   ): Promise<{ items: EscalationEntity[] }> {
-    const where: any = { clientId };
+    const where: FindOptionsWhere<EscalationEntity> = { clientId };
 
     if (q.status) where.status = q.status;
     if (q.branchId) where.branchId = q.branchId;
@@ -43,10 +44,10 @@ export class EscalationsService {
 
   /** List ALL escalations across all clients (admin view) */
   async listAll(
-    user: any,
+    _user: ReqUser,
     q: { status?: string; branchId?: string },
   ): Promise<{ items: EscalationEntity[] }> {
-    const where: any = {};
+    const where: FindOptionsWhere<EscalationEntity> = {};
     if (q.status) where.status = q.status;
     if (q.branchId) where.branchId = q.branchId;
 
@@ -61,7 +62,7 @@ export class EscalationsService {
 
   async update(
     clientId: string,
-    user: any,
+    user: ReqUser,
     id: string,
     body: { status?: string },
   ): Promise<EscalationEntity> {
@@ -100,7 +101,7 @@ export class EscalationsService {
     slaOverdueCount?: number;
   }): Promise<EscalationEntity> {
     const existing = await this.repo.findOne({
-      where: { clientId: input.clientId, sourceKey: input.sourceKey } as any,
+      where: { clientId: input.clientId, sourceKey: input.sourceKey },
     });
     if (existing) return existing;
 

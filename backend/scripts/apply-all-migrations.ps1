@@ -4,12 +4,51 @@ param(
     [string]$Database = "statcompy",
     [string]$User = "postgres",
     [string]$Password = "",
-    [switch]$IncludeLegacySeeds
+    [switch]$IncludeLegacySeeds,
+    [switch]$BootstrapExisting
 )
 
-Write-Host "=== StatCo: Apply Active Migrations ===" -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+
+function Escape-SqlLiteral {
+    param([string]$Value)
+    return $Value.Replace("'", "''")
+}
+
+function Invoke-Psql {
+    param(
+        [Parameter(Mandatory = $true)][string]$Sql,
+        [switch]$Quiet
+    )
+
+    $args = @(
+        "-w",
+        "-h", $DbHost,
+        "-p", $DbPort,
+        "-U", $User,
+        "-d", $Database,
+        "-v", "ON_ERROR_STOP=1"
+    )
+
+    if ($Quiet) {
+        $args += @("-t", "-A")
+    }
+
+    $args += @("-c", $Sql)
+
+    $result = & psql @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "psql command failed"
+    }
+    return $result
+}
+
+Write-Host "=== StatCo: Apply Active SQL Migrations ===" -ForegroundColor Cyan
 Write-Host "Database: $Database @ ${DbHost}:${DbPort}" -ForegroundColor Yellow
 Write-Host "User: $User" -ForegroundColor Yellow
+if ($BootstrapExisting) {
+    Write-Host "Mode: bootstrap existing database into migration tracking" -ForegroundColor Yellow
+}
 
 $psql = Get-Command psql -ErrorAction SilentlyContinue
 if (-not $psql) {
@@ -24,7 +63,6 @@ if (-not (Test-Path $migrationsPath)) {
     exit 1
 }
 
-# In CI, prefer explicit -Password; fallback to DB_PASS env when not passed.
 if ([string]::IsNullOrWhiteSpace($Password) -and -not [string]::IsNullOrWhiteSpace($env:DB_PASS)) {
     $Password = $env:DB_PASS
 }
@@ -53,28 +91,67 @@ if ($activeFiles.Count -eq 0) {
     exit 0
 }
 
-Write-Host ("Applying {0} migration files..." -f $activeFiles.Count) -ForegroundColor White
+Invoke-Psql @"
+CREATE TABLE IF NOT EXISTS sql_migrations (
+    filename        TEXT PRIMARY KEY,
+    checksum_sha256 TEXT NOT NULL,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    execution_mode  VARCHAR(20) NOT NULL DEFAULT 'apply'
+);
+"@
 
-$failed = @()
+Write-Host ("Processing {0} migration files..." -f $activeFiles.Count) -ForegroundColor White
+
 $applied = 0
+$bootstrapped = 0
+$skipped = 0
+$failed = @()
 
 foreach ($file in $activeFiles) {
-    Write-Host ("-> {0}" -f $file.Name) -ForegroundColor White
-    # -w disables interactive password prompts; relies on PGPASSWORD/env auth.
-    & psql -w -h $DbHost -p $DbPort -U $User -d $Database -v ON_ERROR_STOP=1 -f $file.FullName
+    $hash = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash.ToLowerInvariant()
+    $safeName = Escape-SqlLiteral $file.Name
+    $existingRows = @(Invoke-Psql -Quiet -Sql "SELECT checksum_sha256 FROM sql_migrations WHERE filename = '$safeName';")
+    $existing = ""
+    if ($existingRows.Count -gt 0 -and $null -ne $existingRows[0]) {
+        $existing = ([string]$existingRows[0]).Trim()
+    }
 
+    if (-not [string]::IsNullOrWhiteSpace($existing)) {
+        if ($existing -ne $hash) {
+            Write-Host ("FAIL: checksum drift for {0}" -f $file.Name) -ForegroundColor Red
+            $failed += ("{0} :: checksum drift (recorded {1}, current {2})" -f $file.Name, $existing, $hash)
+            continue
+        }
+
+        $skipped += 1
+        Write-Host ("SKIP: {0}" -f $file.Name) -ForegroundColor DarkYellow
+        continue
+    }
+
+    if ($BootstrapExisting) {
+        Write-Host ("BOOTSTRAP: {0}" -f $file.Name) -ForegroundColor White
+        Invoke-Psql "INSERT INTO sql_migrations (filename, checksum_sha256, execution_mode) VALUES ('$safeName', '$hash', 'bootstrap');"
+        $bootstrapped += 1
+        continue
+    }
+
+    Write-Host ("APPLY: {0}" -f $file.Name) -ForegroundColor White
+    & psql -w -h $DbHost -p $DbPort -U $User -d $Database -v ON_ERROR_STOP=1 -f $file.FullName
     if ($LASTEXITCODE -ne 0) {
         Write-Host ("FAIL: {0}" -f $file.Name) -ForegroundColor Red
         $failed += $file.Name
         continue
     }
 
+    Invoke-Psql "INSERT INTO sql_migrations (filename, checksum_sha256, execution_mode) VALUES ('$safeName', '$hash', 'apply');"
     $applied += 1
     Write-Host ("OK: {0}" -f $file.Name) -ForegroundColor Green
 }
 
 Write-Host ""
 Write-Host ("Applied: {0}" -f $applied) -ForegroundColor Green
+Write-Host ("Bootstrapped: {0}" -f $bootstrapped) -ForegroundColor Cyan
+Write-Host ("Skipped: {0}" -f $skipped) -ForegroundColor DarkYellow
 
 if ($failed.Count -gt 0) {
     Write-Host ("Failed: {0}" -f $failed.Count) -ForegroundColor Red
@@ -84,4 +161,4 @@ if ($failed.Count -gt 0) {
     exit 2
 }
 
-Write-Host "All active migrations applied successfully." -ForegroundColor Cyan
+Write-Host "SQL migration tracking is up to date." -ForegroundColor Cyan

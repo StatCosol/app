@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
@@ -16,7 +17,13 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn(), getOrThrow: jest.fn() },
+        },
+      ],
     }).compile();
 
     controller = moduleRef.get(AuthController);
@@ -30,7 +37,7 @@ describe('AuthController', () => {
     const result = await controller.login({
       email: 'a@b.com',
       password: 'pass',
-    } as any);
+    } as any, { headers: {}, ip: '127.0.0.1' } as any);
     expect(result).toEqual({ accessToken: 'tok' });
   });
 

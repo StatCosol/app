@@ -465,27 +465,24 @@ export class ContractorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   isLinkActive(item: SidebarItem): boolean {
-    const [currentPath] = this.router.url.split('?');
+    const [currentPath, currentQuery] = this.router.url.split('?');
     if (currentPath !== item.route) return false;
 
-    const currentQuery = this.routeQueryParams();
-    const expected = item.queryParams || {};
-
-    // For links with explicit query params (e.g., Audits), all must match.
-    if (Object.keys(expected).length > 0) {
-      return Object.entries(expected).every(([key, value]) => currentQuery[key] === value);
+    // If the link has queryParams, check they match the current URL
+    if (item.queryParams && Object.keys(item.queryParams).length > 0) {
+      const currentParams = this.routeQueryParams();
+      return Object.entries(item.queryParams).every(
+        ([k, v]) => currentParams[k] === v,
+      );
     }
 
-    // Keep Tasks inactive when a query-specific sibling (Audits) matches.
-    const hasMatchingSiblingWithQuery = this.navGroups
-      .flatMap((group) => group.items)
-      .some((candidate) =>
-        candidate.route === item.route &&
-        !!candidate.queryParams &&
-        Object.entries(candidate.queryParams).every(([key, value]) => currentQuery[key] === value),
-      );
+    // For plain Tasks link (no queryParams), only active when no type=AUDIT filter
+    if (item.route === '/contractor/tasks') {
+      const currentParams = this.routeQueryParams();
+      return currentParams['type'] !== 'AUDIT';
+    }
 
-    return !hasMatchingSiblingWithQuery;
+    return true;
   }
 
   private routeQueryParams(): Record<string, string> {
@@ -522,7 +519,7 @@ export class ContractorSidebarComponent implements OnChanges, OnDestroy {
   private defaultCollapsedLinks(): SidebarItem[] {
     return [
       { label: 'Dashboard', route: '/contractor/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
-      { label: 'Tasks', route: '/contractor/tasks', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+      { label: 'Tasks', route: '/contractor/tasks', queryParams: { type: 'TASK' }, icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
       { label: 'Employees', route: '/contractor/employees', icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z') },
       { label: 'Notifications', route: '/contractor/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
       { label: 'Support', route: '/contractor/support', icon: this.svg('M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z') },
@@ -544,7 +541,7 @@ export class ContractorSidebarComponent implements OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Tasks', route: '/contractor/tasks', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
-          { label: 'Audits', route: '/contractor/tasks', queryParams: { type: 'AUDIT' }, icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
+          { label: 'Audits', route: '/contractor/tasks', queryParams: { type: 'AUDIT' }, icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 12h6m-3-3v6') },
           { label: 'Employees', route: '/contractor/employees', icon: this.svg('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z') },
           { label: 'Notifications', route: '/contractor/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
         ],

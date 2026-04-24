@@ -1,0 +1,604 @@
+<div class="page-wrap">
+  <header class="page-head card">
+    <div>
+      <h1>Client Payroll Configuration</h1>
+      <p>Configure salary structures, components, formulas, and statutory rules per client.</p>
+    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
+  </header>
+
+  <div class="head-controls">
+    <button *ngIf="view === 'list'" type="button" class="btn btn-primary"
+            [disabled]="!selectedClientId" (click)="openCreateForm()">+ New Structure</button>
+    <button *ngIf="view !== 'list'" type="button" class="btn btn-secondary" (click)="backToList()">← Back to List</button>
+  </div>
+
+  <div *ngIf="loading" class="loader">Loading...</div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- LIST VIEW                                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="!loading && selectedClientId && view === 'list'">
+    <section class="summary-grid">
+      <article class="summary-card">
+        <span class="label">Structures</span>
+        <strong>{{ structures.length }}</strong>
+        <span class="sub">Active only</span>
+      </article>
+      <article class="summary-card summary-card--ok">
+        <span class="label">Active</span>
+        <strong>{{ activeCount }}</strong>
+        <span class="sub">Currently active</span>
+      </article>
+      <article class="summary-card summary-card--info">
+        <span class="label">Default Structure</span>
+        <strong class="truncate">{{ defaultStructureName }}</strong>
+      </article>
+    </section>
+
+    <div *ngIf="!structures.length" class="empty-state">
+      No structures configured for this client. Click "+ New Structure" to create one.
+    </div>
+
+    <div class="table-wrap" *ngIf="structures.length">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Version</th>
+            <th>Effective From</th>
+            <th>Effective To</th>
+            <th>Status</th>
+            <th>Default</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of structures; trackBy: trackStructure"
+              [class.row-inactive]="!s.isActive">
+            <td class="font-medium">{{ s.name }}</td>
+            <td><code>{{ s.code }}</code></td>
+            <td class="text-center">v{{ s.version }}</td>
+            <td>{{ s.effectiveFrom }}</td>
+            <td>{{ s.effectiveTo || '—' }}</td>
+            <td>
+              <span class="badge" [class.badge-green]="s.isActive" [class.badge-gray]="!s.isActive">
+                {{ s.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span *ngIf="s.isDefault" class="badge badge-blue">Default</span>
+            </td>
+            <td class="text-right">
+              <button type="button" class="btn btn-sm btn-ghost" (click)="selectStructure(s)">View</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- CREATE FORM VIEW                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="!loading && view === 'form'">
+    <section class="card form-section">
+      <h2>Structure Details</h2>
+      <div class="form-grid-4">
+        <label>
+          Name *
+          <input type="text" [(ngModel)]="structureForm.name" placeholder="e.g. Standard Worker Structure" />
+        </label>
+        <label>
+          Code *
+          <input type="text" [(ngModel)]="structureForm.code" placeholder="e.g. STD_WORKER" />
+        </label>
+        <label>
+          Effective From *
+          <input type="date" [(ngModel)]="structureForm.effectiveFrom" />
+        </label>
+        <label>
+          Effective To
+          <input type="date" [(ngModel)]="structureForm.effectiveTo" />
+        </label>
+      </div>
+      <div class="form-grid-4" style="margin-top:12px;">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="structureForm.isActive" /> Active
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="structureForm.isDefault" /> Default Structure
+        </label>
+      </div>
+    </section>
+
+    <!-- ── Components ────────────────────────────────────────────────────── -->
+    <section class="card form-section">
+      <header class="section-head">
+        <h2>Salary Components</h2>
+        <button type="button" class="btn btn-sm btn-primary" (click)="openCompModal()">+ Add Component</button>
+      </header>
+
+      <div *ngIf="!componentForms.length" class="empty-state-sm">
+        No components added yet. Add at least one salary component.
+      </div>
+
+      <div class="table-wrap" *ngIf="componentForms.length">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Calc Method</th>
+              <th>Value / Formula</th>
+              <th>Round</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let c of componentForms; let i = index" [class.row-inactive]="!c.isActive">
+              <td>{{ c.displayOrder }}</td>
+              <td><code>{{ c.code }}</code></td>
+              <td>{{ c.name }}</td>
+              <td>
+                <span class="badge"
+                      [class.badge-green]="c.type === 'EARNING'"
+                      [class.badge-red]="c.type === 'DEDUCTION'"
+                      [class.badge-blue]="c.type === 'EMPLOYER_CONTRIBUTION'">{{ c.type }}</span>
+              </td>
+              <td>{{ c.calculationMethod }}</td>
+              <td class="mono">
+                <span *ngIf="c.calculationMethod === 'FIXED'">₹{{ c.fixedValue }}</span>
+                <span *ngIf="c.calculationMethod === 'PERCENTAGE'">{{ c.percentageValue }}% of {{ c.basedOn }}</span>
+                <span *ngIf="c.calculationMethod === 'FORMULA'">{{ c.formula }}</span>
+                <span *ngIf="c.calculationMethod === 'BALANCING'">Balancing</span>
+                <span *ngIf="c.calculationMethod === 'CONDITIONAL_FIXED'">₹{{ c.fixedValue }} (cond.)</span>
+              </td>
+              <td>{{ c.roundRule }}</td>
+              <td class="text-right actions-cell">
+                <button type="button" class="btn btn-xs btn-ghost" (click)="moveComp(i, -1)" [disabled]="i === 0">↑</button>
+                <button type="button" class="btn btn-xs btn-ghost" (click)="moveComp(i, 1)" [disabled]="i === componentForms.length - 1">↓</button>
+                <button type="button" class="btn btn-xs btn-ghost" (click)="openCompModal(i)">Edit</button>
+                <button type="button" class="btn btn-xs btn-danger" (click)="removeComp(i)">×</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Statutory Configs ─────────────────────────────────────────────── -->
+    <section class="card form-section">
+      <header class="section-head">
+        <h2>Statutory Configuration (per State)</h2>
+        <button type="button" class="btn btn-sm btn-primary" (click)="openStatModal()">+ Add State</button>
+      </header>
+
+      <div *ngIf="!statConfigForms.length" class="empty-state-sm">
+        No statutory configuration added. Add state-wise PF / ESI / PT rules.
+      </div>
+
+      <div *ngFor="let sc of statConfigForms; let i = index" class="stat-card">
+        <div class="stat-card-head">
+          <h3>{{ getStateName(sc.stateCode) }} <code>{{ sc.stateCode }}</code></h3>
+          <div class="stat-card-actions">
+            <button type="button" class="btn btn-xs btn-ghost" (click)="openStatModal(i)">Edit</button>
+            <button type="button" class="btn btn-xs btn-danger" (click)="removeStat(i)">×</button>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div><span class="stat-label">Min. Wage</span><span class="stat-val">₹{{ sc.minimumWage || '—' }}</span></div>
+          <div>
+            <span class="stat-label">PF</span>
+            <span class="stat-val" [class.off]="!sc.enablePf">{{ sc.enablePf ? sc.pfEmployeeRate + '% (cap ₹' + sc.pfWageCap + ')' : 'Disabled' }}</span>
+          </div>
+          <div>
+            <span class="stat-label">ESI</span>
+            <span class="stat-val" [class.off]="!sc.enableEsi">{{ sc.enableEsi ? sc.esiEmployeeRate + '% + ' + sc.esiEmployerRate + '% (≤₹' + sc.esiGrossCeiling + ')' : 'Disabled' }}</span>
+          </div>
+          <div>
+            <span class="stat-label">PT</span>
+            <span class="stat-val" [class.off]="!sc.enablePt">{{ sc.enablePt ? 'Enabled' : 'Disabled' }}</span>
+          </div>
+          <div>
+            <span class="stat-label">Leave Accrual</span>
+            <span class="stat-val">{{ sc.monthlyPaidLeaveAccrual }} days/month</span>
+          </div>
+          <div *ngIf="sc.attendanceBonusAmount">
+            <span class="stat-label">Attendance Bonus</span>
+            <span class="stat-val">₹{{ sc.attendanceBonusAmount }} (LOP ≤ {{ sc.attendanceBonusIfLopLte }})</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Save ──────────────────────────────────────────────────────────── -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" (click)="backToList()">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveStructure()">
+        {{ saving ? 'Saving...' : 'Save Structure' }}
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- DETAIL VIEW                                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="!loading && view === 'detail' && selectedStructure">
+    <section class="card">
+      <header class="detail-head">
+        <div>
+          <h2>{{ selectedStructure.name }}</h2>
+          <p class="detail-sub">
+            Code: <code>{{ selectedStructure.code }}</code> · Version {{ selectedStructure.version }} ·
+            {{ selectedStructure.effectiveFrom }}{{ selectedStructure.effectiveTo ? ' → ' + selectedStructure.effectiveTo : '' }}
+          </p>
+        </div>
+        <div class="detail-actions">
+          <span class="badge" [class.badge-green]="selectedStructure.isActive" [class.badge-gray]="!selectedStructure.isActive">
+            {{ selectedStructure.isActive ? 'Active' : 'Inactive' }}
+          </span>
+          <span *ngIf="selectedStructure.isDefault" class="badge badge-blue">Default</span>
+          <button type="button" class="btn btn-sm btn-secondary" (click)="toggleActive()">
+            {{ selectedStructure.isActive ? 'Deactivate' : 'Activate' }}
+          </button>
+          <button type="button" class="btn btn-sm btn-primary" (click)="openVersionModal()">Clone as New Version</button>
+        </div>
+      </header>
+    </section>
+
+    <!-- Components table -->
+    <section class="card">
+      <h3>Salary Components ({{ selectedStructure.components?.length || 0 }})</h3>
+      <div class="table-wrap" *ngIf="selectedStructure.components?.length">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Label</th>
+              <th>Type</th>
+              <th>Calc Method</th>
+              <th>Value / Formula</th>
+              <th>Round</th>
+              <th>Taxable</th>
+              <th>Payslip</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let c of selectedStructure.components; trackBy: trackComp" [class.row-inactive]="!c.isActive">
+              <td>{{ c.displayOrder }}</td>
+              <td><code>{{ c.code }}</code></td>
+              <td>{{ c.name }}</td>
+              <td>{{ c.label }}</td>
+              <td>
+                <span class="badge"
+                      [class.badge-green]="c.componentType === 'EARNING'"
+                      [class.badge-red]="c.componentType === 'DEDUCTION'"
+                      [class.badge-blue]="c.componentType === 'EMPLOYER_CONTRIBUTION'">{{ c.componentType }}</span>
+              </td>
+              <td>{{ c.calculationMethod }}</td>
+              <td class="mono">
+                <span *ngIf="c.calculationMethod === 'FIXED'">₹{{ c.fixedValue }}</span>
+                <span *ngIf="c.calculationMethod === 'PERCENTAGE'">{{ c.percentageValue }}% of {{ c.basedOn }}</span>
+                <span *ngIf="c.calculationMethod === 'FORMULA'" class="formula-text">{{ c.formula }}</span>
+                <span *ngIf="c.calculationMethod === 'BALANCING'">Balancing</span>
+                <span *ngIf="c.calculationMethod === 'CONDITIONAL_FIXED'">₹{{ c.fixedValue }} (cond.)</span>
+              </td>
+              <td>{{ c.roundRule }}</td>
+              <td>{{ c.taxable ? '✓' : '—' }}</td>
+              <td>{{ c.isVisibleInPayslip ? '✓' : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Statutory configs -->
+    <section class="card" *ngIf="selectedStructure.statutoryConfigs?.length">
+      <h3>Statutory Configuration</h3>
+      <div *ngFor="let sc of selectedStructure.statutoryConfigs; trackBy: trackStat" class="stat-card">
+        <div class="stat-card-head">
+          <h4>{{ getStateName(sc.stateCode) }} <code>{{ sc.stateCode }}</code></h4>
+        </div>
+        <div class="stat-grid">
+          <div><span class="stat-label">Min. Wage</span><span class="stat-val">{{ sc.minimumWage ? '₹' + sc.minimumWage : '—' }}</span></div>
+          <div>
+            <span class="stat-label">PF</span>
+            <span class="stat-val">{{ sc.enablePf ? sc.pfEmployeeRate + '% (cap ₹' + sc.pfWageCap + ')' : 'Disabled' }}</span>
+          </div>
+          <div>
+            <span class="stat-label">ESI</span>
+            <span class="stat-val">{{ sc.enableEsi ? sc.esiEmployeeRate + '% + ' + sc.esiEmployerRate + '% (≤₹' + sc.esiGrossCeiling + ')' : 'Disabled' }}</span>
+          </div>
+          <div><span class="stat-label">PT</span><span class="stat-val">{{ sc.enablePt ? 'Enabled' : 'Disabled' }}</span></div>
+          <div><span class="stat-label">Leave Accrual</span><span class="stat-val">{{ sc.monthlyPaidLeaveAccrual }} days/month</span></div>
+          <div *ngIf="sc.attendanceBonusAmount"><span class="stat-label">Attendance Bonus</span><span class="stat-val">₹{{ sc.attendanceBonusAmount }}</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Payroll Preview / Calculator ──────────────────────────────────── -->
+    <section class="card preview-section">
+      <h3>Payroll Preview Calculator</h3>
+      <p class="hint">Enter gross salary + parameters to preview the payroll breakup for this structure.</p>
+      <div class="form-grid-4">
+        <label>
+          Gross Salary (₹) *
+          <input type="number" [(ngModel)]="previewForm.gross" min="0" />
+        </label>
+        <label>
+          LOP Days
+          <input type="number" [(ngModel)]="previewForm.lopDays" min="0" max="31" />
+        </label>
+        <label>
+          State
+          <select [(ngModel)]="previewForm.stateCode">
+            <option *ngFor="let st of indianStates" [value]="st.code">{{ st.name }}</option>
+          </select>
+        </label>
+        <label>
+          Month / Year
+          <div class="month-year">
+            <select [(ngModel)]="previewForm.month">
+              <option *ngFor="let m of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="m">{{ m }}</option>
+            </select>
+            <input type="number" [(ngModel)]="previewForm.year" min="2020" max="2040" />
+          </div>
+        </label>
+      </div>
+      <button type="button" class="btn btn-primary mt-3" [disabled]="previewLoading || !previewForm.gross" (click)="calculate()">
+        {{ previewLoading ? 'Calculating...' : 'Calculate Preview' }}
+      </button>
+
+      <div *ngIf="previewResult" class="preview-result">
+        <!-- Warnings -->
+        <div *ngIf="previewResult.warnings?.length" class="preview-warnings">
+          <div *ngFor="let w of previewResult.warnings" class="warning-row">⚠ {{ w }}</div>
+        </div>
+
+        <div class="preview-grid">
+          <!-- Earnings -->
+          <div class="preview-card preview-card--earn">
+            <h4>Earnings</h4>
+            <div class="preview-rows">
+              <ng-container *ngFor="let kv of previewResult.values | keyvalue">
+                <div class="preview-row" *ngIf="isEarning(kv.key)">
+                  <span>{{ kv.key }}</span>
+                  <span class="amount">₹{{ kv.value | number:'1.0-0' }}</span>
+                </div>
+              </ng-container>
+            </div>
+            <div class="preview-total">
+              <span>Total Earnings</span>
+              <span class="amount">₹{{ previewResult.totalEarnings | number:'1.0-0' }}</span>
+            </div>
+          </div>
+
+          <!-- Deductions -->
+          <div class="preview-card preview-card--ded">
+            <h4>Deductions</h4>
+            <div class="preview-rows">
+              <ng-container *ngFor="let kv of previewResult.values | keyvalue">
+                <div class="preview-row" *ngIf="isDeduction(kv.key)">
+                  <span>{{ kv.key }}</span>
+                  <span class="amount">₹{{ kv.value | number:'1.0-0' }}</span>
+                </div>
+              </ng-container>
+            </div>
+            <div class="preview-total">
+              <span>Total Deductions</span>
+              <span class="amount">₹{{ previewResult.totalDeductions | number:'1.0-0' }}</span>
+            </div>
+          </div>
+
+          <!-- Employer Contributions -->
+          <div class="preview-card preview-card--emp" *ngIf="previewResult.employerContributions">
+            <h4>Employer Contributions</h4>
+            <div class="preview-rows">
+              <div class="preview-row" *ngFor="let kv of previewResult.employerContributions | keyvalue">
+                <span>{{ kv.key }}</span>
+                <span class="amount">₹{{ kv.value | number:'1.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Net Pay -->
+        <div class="net-pay-bar">
+          <span>Net Pay</span>
+          <span class="net-amount">₹{{ previewResult.netPay | number:'1.0-0' }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Version clone modal -->
+    <div class="modal-backdrop" *ngIf="showVersionModal" (click)="showVersionModal = false">
+      <div class="modal-box" (click)="$event.stopPropagation()">
+        <h3>Clone as New Version</h3>
+        <p>This will copy all components and statutory configs to a new version.</p>
+        <label>
+          New Version Effective From *
+          <input type="date" [(ngModel)]="versionEffectiveFrom" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="showVersionModal = false">Cancel</button>
+          <button type="button" class="btn btn-primary" [disabled]="saving || !versionEffectiveFrom" (click)="cloneVersion()">
+            {{ saving ? 'Cloning...' : 'Create Version' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- COMPONENT MODAL                                                        -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showCompModal" (click)="showCompModal = false">
+    <div class="modal-box modal-box--wide" (click)="$event.stopPropagation()">
+      <h3>{{ editingCompIdx >= 0 ? 'Edit' : 'Add' }} Salary Component</h3>
+      <div class="form-grid-4">
+        <label>
+          Code *
+          <input type="text" [(ngModel)]="compForm.code" placeholder="e.g. BASIC" />
+        </label>
+        <label>
+          Name *
+          <input type="text" [(ngModel)]="compForm.name" placeholder="e.g. Basic Salary" />
+        </label>
+        <label>
+          Label *
+          <input type="text" [(ngModel)]="compForm.label" placeholder="e.g. Basic" />
+        </label>
+        <label>
+          Type *
+          <select [(ngModel)]="compForm.type">
+            <option *ngFor="let t of componentTypes" [value]="t">{{ t }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-grid-4" style="margin-top:12px;">
+        <label>
+          Calculation Method *
+          <select [(ngModel)]="compForm.calculationMethod">
+            <option *ngFor="let m of calcMethods" [value]="m">{{ m }}</option>
+          </select>
+        </label>
+        <label *ngIf="compForm.calculationMethod === 'FIXED' || compForm.calculationMethod === 'CONDITIONAL_FIXED'">
+          Fixed Value (₹)
+          <input type="number" [(ngModel)]="compForm.fixedValue" />
+        </label>
+        <label *ngIf="compForm.calculationMethod === 'PERCENTAGE'">
+          Percentage (%)
+          <input type="number" [(ngModel)]="compForm.percentageValue" step="0.01" />
+        </label>
+        <label *ngIf="compForm.calculationMethod === 'PERCENTAGE'">
+          Based On
+          <select [(ngModel)]="compForm.basedOn">
+            <option *ngFor="let b of baseOptions" [value]="b">{{ b }}</option>
+          </select>
+        </label>
+        <label *ngIf="compForm.calculationMethod === 'FORMULA'">
+          Formula
+          <input type="text" [(ngModel)]="compForm.formula" placeholder="e.g. IF(GROSS < 15000, GROSS, GROSS * 0.50)" />
+        </label>
+      </div>
+      <div class="form-grid-4" style="margin-top:12px;">
+        <label>
+          Rounding
+          <select [(ngModel)]="compForm.roundRule">
+            <option *ngFor="let r of roundRules" [value]="r">{{ r }}</option>
+          </select>
+        </label>
+        <label>
+          Display Order
+          <input type="number" [(ngModel)]="compForm.displayOrder" min="1" />
+        </label>
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="compForm.taxable" /> Taxable</label>
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="compForm.statutory" /> Statutory</label>
+      </div>
+      <div class="form-grid-4" style="margin-top:8px;">
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="compForm.isVisibleInPayslip" /> Show on Payslip</label>
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="compForm.isActive" /> Active</label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="showCompModal = false">Cancel</button>
+        <button type="button" class="btn btn-primary" [disabled]="!compForm.code || !compForm.name || !compForm.label" (click)="saveComp()">
+          {{ editingCompIdx >= 0 ? 'Update' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- STATUTORY CONFIG MODAL                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showStatModal" (click)="showStatModal = false">
+    <div class="modal-box modal-box--wide" (click)="$event.stopPropagation()">
+      <h3>{{ editingStatIdx >= 0 ? 'Edit' : 'Add' }} Statutory Configuration</h3>
+      <div class="form-grid-4">
+        <label>
+          State *
+          <select [(ngModel)]="statForm.stateCode">
+            <option value="">Select state...</option>
+            <option *ngFor="let st of indianStates" [value]="st.code">{{ st.name }} ({{ st.code }})</option>
+          </select>
+        </label>
+        <label>
+          Minimum Wage (₹)
+          <input type="number" [(ngModel)]="statForm.minimumWage" />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="statForm.warnIfGrossBelowMinWage" /> Warn if below min. wage
+        </label>
+      </div>
+
+      <h4 class="sub-heading">Provident Fund</h4>
+      <div class="form-grid-4">
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="statForm.enablePf" /> Enable PF</label>
+        <label>
+          Employee PF Rate (%)
+          <input type="number" [(ngModel)]="statForm.pfEmployeeRate" step="0.01" [disabled]="!statForm.enablePf" />
+        </label>
+        <label>
+          PF Wage Cap (₹)
+          <input type="number" [(ngModel)]="statForm.pfWageCap" [disabled]="!statForm.enablePf" />
+        </label>
+        <label>
+          Apply PF if Gross Above (₹)
+          <input type="number" [(ngModel)]="statForm.pfApplyIfGrossAbove" [disabled]="!statForm.enablePf" />
+        </label>
+      </div>
+
+      <h4 class="sub-heading">ESI</h4>
+      <div class="form-grid-4">
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="statForm.enableEsi" /> Enable ESI</label>
+        <label>
+          Employee ESI Rate (%)
+          <input type="number" [(ngModel)]="statForm.esiEmployeeRate" step="0.01" [disabled]="!statForm.enableEsi" />
+        </label>
+        <label>
+          Employer ESI Rate (%)
+          <input type="number" [(ngModel)]="statForm.esiEmployerRate" step="0.01" [disabled]="!statForm.enableEsi" />
+        </label>
+        <label>
+          ESI Gross Ceiling (₹)
+          <input type="number" [(ngModel)]="statForm.esiGrossCeiling" [disabled]="!statForm.enableEsi" />
+        </label>
+      </div>
+
+      <h4 class="sub-heading">Professional Tax &amp; Leave</h4>
+      <div class="form-grid-4">
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="statForm.enablePt" /> Enable PT</label>
+        <label class="checkbox-label"><input type="checkbox" [(ngModel)]="statForm.carryForwardLeave" /> Carry Forward Leave</label>
+        <label>
+          Monthly Paid Leave Accrual (days)
+          <input type="number" [(ngModel)]="statForm.monthlyPaidLeaveAccrual" step="0.1" />
+        </label>
+      </div>
+
+      <h4 class="sub-heading">Attendance Bonus</h4>
+      <div class="form-grid-4">
+        <label>
+          Bonus Amount (₹)
+          <input type="number" [(ngModel)]="statForm.attendanceBonusAmount" />
+        </label>
+        <label>
+          If LOP Days ≤
+          <input type="number" [(ngModel)]="statForm.attendanceBonusIfLopLte" />
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="showStatModal = false">Cancel</button>
+        <button type="button" class="btn btn-primary" [disabled]="!statForm.stateCode" (click)="saveStat()">
+          {{ editingStatIdx >= 0 ? 'Update' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

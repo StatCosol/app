@@ -80,10 +80,10 @@ SELECT id, 'TN', NULL, TRUE, 31, 3, 0, 10, NULL,
        'PT Remittance due Mar 31 – Tamil Nadu (Half-Yearly)', TRUE
 FROM sla_compliance_items WHERE code = 'PT_PAYMENT_HALF_YEARLY';
 
--- G) MCD Window – All India default 20–25
+-- G) MCD Window – All India default 20–27
 INSERT INTO sla_compliance_rules
   (compliance_item_id, state_code, establishment_type, applicable, window_open_day, window_close_day, create_before_days, priority, title_template, is_active)
-SELECT id, NULL, NULL, TRUE, 20, 25, 0, NULL,
+SELECT id, NULL, NULL, TRUE, 20, 27, 0, NULL,
        'MCD upload window ({open}–{close})', TRUE
 FROM sla_compliance_items WHERE code = 'MCD_UPLOAD';
 

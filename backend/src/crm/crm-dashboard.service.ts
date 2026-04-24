@@ -74,7 +74,7 @@ export class CrmDashboardService {
    * Get CRM dashboard summary KPIs
    * Scoped to clients assigned to the CRM user
    */
-  async getSummary(crmUserId: string, query: any): Promise<CrmSummaryDto> {
+  async getSummary(crmUserId: string, query: { clientId?: string; branchId?: string; fromDate?: string; toDate?: string; windowDays?: number | string }): Promise<CrmSummaryDto> {
     const f = normalizeDateFilters(query);
 
     return this.db.one<CrmSummaryDto>(CRM_SUMMARY_SQL, [
@@ -92,7 +92,7 @@ export class CrmDashboardService {
    */
   async getDueCompliances(
     crmUserId: string,
-    query: any,
+    query: { clientId?: string; branchId?: string; fromDate?: string; toDate?: string; windowDays?: number | string; tab?: string; limit?: number | string; offset?: number | string },
   ): Promise<CrmComplianceItemDto[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);
@@ -123,7 +123,7 @@ export class CrmDashboardService {
    */
   async getLowCoverageBranches(
     crmUserId: string,
-    query: any,
+    query: { clientId?: string; branchId?: string; fromDate?: string; toDate?: string; windowDays?: number | string; limit?: number | string; offset?: number | string },
   ): Promise<CrmLowCoverageBranchDto[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);
@@ -138,7 +138,7 @@ export class CrmDashboardService {
    * Get compliance queries inbox
    * Scoped to CRM user
    */
-  async getQueries(crmUserId: string, query: any): Promise<CrmQueryDto[]> {
+  async getQueries(crmUserId: string, query: { clientId?: string; branchId?: string; fromDate?: string; toDate?: string; windowDays?: number | string; status?: string; limit?: number | string; offset?: number | string }): Promise<CrmQueryDto[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);
 
@@ -160,7 +160,7 @@ export class CrmDashboardService {
    * Returns contractor documents awaiting upload/review
    * Scoped to CRM user's assigned clients
    */
-  async getPendingDocuments(crmUserId: string, query: any): Promise<any[]> {
+  async getPendingDocuments(crmUserId: string, query: { clientId?: string; branchId?: string; fromDate?: string; toDate?: string; windowDays?: number | string; limit?: number | string; offset?: number | string }): Promise<{ id: string; docType: string; docMonth: string; status: string; uploadedAt: string; branchId: string; branchName: string; clientId: string; clientName: string }[]> {
     const f = normalizeDateFilters(query);
     const p = normalizePaging(query);
 

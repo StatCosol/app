@@ -37,15 +37,15 @@ import {
 
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Year</label>
-            <select class="input-sm w-full" [(ngModel)]="selectedYear" (ngModelChange)="loadDocuments()">
+            <label for="dv-year" class="block text-xs text-gray-500 mb-1">Year</label>
+            <select id="dv-year" name="selectedYear" class="input-sm w-full" [(ngModel)]="selectedYear" (ngModelChange)="loadDocuments()">
               <option [ngValue]="null">All Years</option>
               <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Status</label>
-            <select class="input-sm w-full" [(ngModel)]="statusFilter">
+            <label for="dv-status" class="block text-xs text-gray-500 mb-1">Status</label>
+            <select id="dv-status" name="statusFilter" class="input-sm w-full" [(ngModel)]="statusFilter">
               <option value="ALL">All</option>
               <option value="VERIFIED">Verified</option>
               <option value="PENDING">Pending Verification</option>
@@ -54,8 +54,8 @@ import {
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Sort</label>
-            <select class="input-sm w-full" [(ngModel)]="sortBy">
+            <label for="dv-sort" class="block text-xs text-gray-500 mb-1">Sort</label>
+            <select id="dv-sort" name="sortBy" class="input-sm w-full" [(ngModel)]="sortBy">
               <option value="uploaded_desc">Uploaded (Newest)</option>
               <option value="uploaded_asc">Uploaded (Oldest)</option>
               <option value="expiry_asc">Expiry (Earliest)</option>
@@ -64,9 +64,9 @@ import {
             </select>
           </div>
           <div class="md:col-span-2">
-            <label class="block text-xs text-gray-500 mb-1">Search</label>
+            <label for="dv-search" class="block text-xs text-gray-500 mb-1">Search</label>
             <div class="flex gap-2">
-              <input class="input-sm flex-1" [(ngModel)]="searchText" (keyup.enter)="loadDocuments()" placeholder="Search by document type, name, file" />
+              <input autocomplete="off" id="dv-search" name="searchText" class="input-sm flex-1" [(ngModel)]="searchText" (keyup.enter)="loadDocuments()" placeholder="Search by document type, name, file" />
               <button class="btn-secondary" (click)="loadDocuments()">Apply</button>
             </div>
           </div>
@@ -161,12 +161,12 @@ import {
       </div>
     </div>
 
-    <shared-file-preview-modal
+    <ui-file-preview-modal
       [open]="previewOpen"
       [file]="previewFile"
       (closed)="closePreview()"
       (download)="downloadFromPreview()"
-    ></shared-file-preview-modal>
+    ></ui-file-preview-modal>
   `,
   styles: [
     `

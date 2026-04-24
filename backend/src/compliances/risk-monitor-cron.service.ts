@@ -7,6 +7,8 @@ import { ComplianceMetricsService } from './compliance-metrics.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EscalationsService } from '../escalations/escalations.service';
 import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class RiskMonitorCronService {
@@ -23,6 +25,7 @@ export class RiskMonitorCronService {
     private readonly notifications: NotificationsService,
     private readonly escalations: EscalationsService,
     private readonly emailService: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -42,12 +45,13 @@ export class RiskMonitorCronService {
 
     try {
       const branches = await this.branchRepo.find({
-        select: ['id', 'clientId', 'branchName'] as any,
+        where: { isActive: true, isDeleted: false },
+        select: ['id', 'clientId', 'branchName'],
       });
 
       // Group by client
-      const byClient = new Map<string, any[]>();
-      for (const b of branches as any[]) {
+      const byClient = new Map<string, typeof branches>();
+      for (const b of branches) {
         if (!b.clientId) continue;
         if (!byClient.has(b.clientId)) byClient.set(b.clientId, []);
         byClient.get(b.clientId)!.push(b);
@@ -73,7 +77,7 @@ export class RiskMonitorCronService {
       this.logger.log(
         `Risk monitor complete: ${processed} branches, ${alerts} alerts generated`,
       );
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error('Risk monitor cron failed', err?.stack);
     }
   }
@@ -94,7 +98,7 @@ export class RiskMonitorCronService {
       // Current month risk
       const cur = await this.metrics.getRiskScore({
         clientId,
-        user: { branchIds: [] },
+        user: { branchIds: [] } as unknown as ReqUser,
         month,
         branchId,
       });
@@ -153,7 +157,7 @@ export class RiskMonitorCronService {
       if (prob >= this.CRITICAL_THRESHOLD) {
         const prev = await this.metrics.getRiskScore({
           clientId,
-          user: { branchIds: [] },
+          user: { branchIds: [] } as unknown as ReqUser,
           month: prevMonth,
           branchId,
         });
@@ -200,7 +204,7 @@ export class RiskMonitorCronService {
           alertCount++;
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       this.logger.warn(
         `Risk monitor: error processing branch ${branchId}: ${err?.message}`,
       );
@@ -209,7 +213,7 @@ export class RiskMonitorCronService {
     return alertCount;
   }
 
-  private buildMessage(row: any, level: string, month: string): string {
+  private buildMessage(row: { inspectionProbability: number; completionPercent: number; overdueSla: number; highCritical: number; expiringRegistrations: boolean; reasons?: string[] }, level: string, month: string): string {
     const parts: string[] = [];
     parts.push(`Month: ${month}`);
     parts.push(
@@ -246,7 +250,7 @@ export class RiskMonitorCronService {
    */
   private async sendRiskEmail(
     branchName: string,
-    row: any,
+    row: { inspectionProbability: number; completionPercent: number; overdueSla: number; highCritical: number; expiringRegistrations: boolean; branchId?: string; reasons?: string[] },
     level: 'HIGH' | 'CRITICAL',
     month: string,
   ) {
@@ -265,7 +269,7 @@ export class RiskMonitorCronService {
       try {
         const plan = await this.metrics.getActionPlan({
           clientId: '',
-          user: { branchIds: [] },
+          user: { branchIds: [] } as unknown as ReqUser,
           month,
           branchId: row.branchId || '',
         });
@@ -274,7 +278,7 @@ export class RiskMonitorCronService {
           actionHtml = `
             <p style="font-size:13px;font-weight:600;color:#374151;margin-top:16px;">Top Recommended Actions:</p>
             <ol style="font-size:13px;color:#374151;margin:8px 0;padding-left:20px;">
-              ${top3.map((a: any) => `<li style="margin-bottom:6px;"><span style="color:${a.priority === 'CRITICAL' ? '#dc2626' : a.priority === 'HIGH' ? '#f97316' : '#6b7280'};font-weight:600;">[${a.priority}]</span> ${a.text}</li>`).join('')}
+              ${top3.map((a: { priority: string; text: string }) => `<li style="margin-bottom:6px;"><span style="color:${a.priority === 'CRITICAL' ? '#dc2626' : a.priority === 'HIGH' ? '#f97316' : '#6b7280'};font-weight:600;">[${a.priority}]</span> ${a.text}</li>`).join('')}
             </ol>
           `;
         }
@@ -294,7 +298,10 @@ export class RiskMonitorCronService {
         .filter(Boolean)
         .join(' ');
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+      const frontendUrl = this.config.get<string>(
+        'FRONTEND_URL',
+        'http://localhost:4200',
+      );
       const deepLink = `${frontendUrl}/crm/branches/${row.branchId || ''}/compliance?month=${month}`;
 
       const bodyHtml = `
@@ -335,7 +342,7 @@ export class RiskMonitorCronService {
         `${level} Risk Alert`,
         bodyHtml,
       );
-    } catch (err) {
+    } catch (err: any) {
       this.logger.warn(
         `Failed to send ${level} risk email for ${branchName}: ${err?.message}`,
       );
@@ -351,7 +358,7 @@ export class RiskMonitorCronService {
     prevMonth: string,
     prob: number,
     prevProb: number,
-    row: any,
+    row: { reasons?: string[] },
   ) {
     try {
       const recipients = this.emailService.adminRecipients();
@@ -385,7 +392,7 @@ export class RiskMonitorCronService {
         'Escalation Alert',
         bodyHtml,
       );
-    } catch (err) {
+    } catch (err: any) {
       this.logger.warn(
         `Failed to send escalation email for ${branchName}: ${err?.message}`,
       );
@@ -404,7 +411,7 @@ export class RiskMonitorCronService {
     branchId: string,
     branchName: string,
     month: string,
-    row: any,
+    row: { completionPercent?: number; overdueSla?: number; highCritical?: number; expiringRegistrations?: boolean; reasons?: string[]; riskScore?: number },
   ) {
     const tasks: { key: string; reason: string }[] = [];
 
@@ -462,7 +469,7 @@ export class RiskMonitorCronService {
           riskScore: row.riskScore ?? 0,
           slaOverdueCount: row.overdueSla ?? 0,
         });
-      } catch (err) {
+      } catch (err: any) {
         this.logger.warn(
           `Failed to create remediation task ${t.key}: ${err?.message}`,
         );

@@ -17,15 +17,15 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <!-- Filter bar -->
       <div class="flex flex-wrap items-end gap-3">
         <div>
-          <label class="block text-xs text-gray-500 mb-1">Year</label>
-          <select [(ngModel)]="filterYear" (ngModelChange)="applyFilter()" class="input-sm">
+          <label for="payslip-year" class="block text-xs text-gray-500 mb-1">Year</label>
+          <select id="payslip-year" name="filterYear" [(ngModel)]="filterYear" (ngModelChange)="applyFilter()" class="input-sm">
             <option value="">All Years</option>
             <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs text-gray-500 mb-1">Month</label>
-          <select [(ngModel)]="filterMonth" (ngModelChange)="applyFilter()" class="input-sm">
+          <label for="payslip-month" class="block text-xs text-gray-500 mb-1">Month</label>
+          <select id="payslip-month" name="filterMonth" [(ngModel)]="filterMonth" (ngModelChange)="applyFilter()" class="input-sm">
             <option value="">All Months</option>
             <option *ngFor="let m of monthFilterOptions" [value]="m.value">{{ m.label }}</option>
           </select>

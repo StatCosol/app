@@ -5,7 +5,6 @@ import {
   Param,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,7 +12,11 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollService } from './payroll.service';
 import { PayrollConfigAuditService } from './payroll-config-audit.service';
+import { SaveComponentOverridesDto } from './dto/payroll-config.dto';
+import { SaveClientPayslipLayoutDto } from './dto/save-client-payslip-layout.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
@@ -29,36 +32,39 @@ export class PayrollConfigController {
   // Effective components = component master + per-client override
   @ApiOperation({ summary: 'Get Effective Components' })
   @Get(':clientId/components-effective')
-  getEffectiveComponents(@Req() req: any, @Param('clientId') clientId: string) {
-    return this.svc.getClientEffectiveComponents(req.user, clientId);
+  getEffectiveComponents(
+    @CurrentUser() user: ReqUser,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.svc.getClientEffectiveComponents(user, clientId);
   }
 
   // Save overrides
   @ApiOperation({ summary: 'Save Overrides' })
   @Post(':clientId/component-overrides')
   saveOverrides(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
-    @Body() dto: any,
+    @Body() dto: SaveComponentOverridesDto,
   ) {
-    return this.svc.saveClientComponentOverrides(req.user, clientId, dto);
+    return this.svc.saveClientComponentOverrides(user, clientId, dto);
   }
 
   // Payslip layout per client
   @ApiOperation({ summary: 'Get Layout' })
   @Get(':clientId/payslip-layout')
-  getLayout(@Req() req: any, @Param('clientId') clientId: string) {
-    return this.svc.getClientPayslipLayout(req.user, clientId);
+  getLayout(@CurrentUser() user: ReqUser, @Param('clientId') clientId: string) {
+    return this.svc.getClientPayslipLayout(user, clientId);
   }
 
   @ApiOperation({ summary: 'Save Layout' })
   @Post(':clientId/payslip-layout')
   saveLayout(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('clientId') clientId: string,
-    @Body() dto: any,
+    @Body() dto: SaveClientPayslipLayoutDto,
   ) {
-    return this.svc.saveClientPayslipLayout(req.user, clientId, dto);
+    return this.svc.saveClientPayslipLayout(user, clientId, dto);
   }
 
   @ApiOperation({ summary: 'Get Config Audit' })

@@ -1,0 +1,2493 @@
+=== TABLES (170) ===
+  admin_digest_runs
+  ae_act_master
+  ae_act_package_map
+  ae_compliance_master
+  ae_labour_code
+  ae_package_item
+  ae_package_master
+  ae_rule_condition
+  ae_rule_master
+  ae_unit
+  ae_unit_act
+  ae_unit_act_profile
+  ae_unit_compliance
+  ae_unit_compliance_override
+  ae_unit_facts
+  ae_unit_task
+  ai_audit_observations
+  ai_configurations
+  ai_document_analyses
+  ai_document_checks
+  ai_insights
+  ai_payroll_anomalies
+  ai_requests
+  ai_responses
+  ai_risk_assessments
+  ai_usage_logs
+  applicability_rule
+  approval_requests
+  approvals
+  attendance_records
+  audit_checklist_items
+  audit_document_reviews
+  audit_frequency_rules
+  audit_logs
+  audit_non_compliances
+  audit_observation_categories
+  audit_observations
+  audit_reports
+  audit_resubmissions
+  audit_schedules
+  audits
+  branch_applicable_compliances
+  branch_auditor_assignments
+  branch_compliance_applicability
+  branch_compliances
+  branch_contractor
+  branch_documents
+  branch_registrations
+  branch_risk_snapshots
+  branch_safety_upload
+  cco_escalation_thresholds
+  cco_reminder_rules
+  cco_sla_rules
+  client_assignments
+  client_assignments_current
+  client_assignments_history
+  client_branches
+  client_users
+  clients
+  comp_off_ledger
+  company_settings
+  compliance_applicability
+  compliance_comments
+  compliance_doc_library
+  compliance_document_visibility
+  compliance_documents
+  compliance_evidence
+  compliance_master
+  compliance_mcd_items
+  compliance_notification_center
+  compliance_package
+  compliance_return_master
+  compliance_returns
+  compliance_tasks
+  contractor_documents
+  contractor_employees
+  contractor_required_documents
+  crm_unit_documents
+  cron_execution_logs
+  deletion_audit
+  deletion_requests
+  departments
+  designations
+  document_remarks
+  document_reupload_requests
+  document_versions
+  employee_documents
+  employee_generated_forms
+  employee_nomination_members
+  employee_nominations
+  employee_salary_revisions
+  employee_sequence
+  employee_statutory
+  employees
+  escalations
+  grades
+  helpdesk_message_files
+  helpdesk_messages
+  helpdesk_tickets
+  leave_applications
+  leave_balances
+  leave_ledger
+  leave_policies
+  monthly_compliance_cycles
+  monthly_compliance_items
+  monthly_compliance_uploads
+  news_items
+  notification_messages
+  notification_reads
+  notification_threads
+  notifications
+  package_compliance
+  package_rule
+  pay_calc_traces
+  pay_rule_parameters
+  pay_rule_sets
+  pay_salary_structure_items
+  pay_salary_structures
+  payroll_client_assignments
+  payroll_client_component_overrides
+  payroll_client_payslip_layout
+  payroll_client_settings
+  payroll_client_setup
+  payroll_client_structures
+  payroll_client_template
+  payroll_component_conditions
+  payroll_component_master
+  payroll_component_rules
+  payroll_component_slabs
+  payroll_components
+  payroll_config_audit_logs
+  payroll_fnf
+  payroll_fnf_events
+  payroll_input_files
+  payroll_input_status_history
+  payroll_inputs
+  payroll_payslip_archives
+  payroll_queries
+  payroll_query_messages
+  payroll_run_component_values
+  payroll_run_employees
+  payroll_run_items
+  payroll_runs
+  payroll_statutory_configs
+  payroll_statutory_slabs
+  payroll_structure_components
+  payroll_template_components
+  payroll_templates
+  refresh_tokens
+  register_templates
+  registers_records
+  registration_alerts
+  registration_expiry_tasks
+  return_task_proofs
+  roles
+  safety_document_master
+  safety_documents
+  sla_compliance_items
+  sla_compliance_rules
+  sla_tasks
+  sql_migrations
+  system_tasks
+  task_approval_history
+  threshold_master
+  unit_applicability_audit
+  unit_applicable_compliance
+  unit_compliance_master
+  unit_facts
+  user_branches
+  users
+
+=== TABLE SCHEMAS ===
+
+--- admin_digest_runs (9 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('admin_digest_runs_id_seq'::regclass)
+  digest_type                        character varying(20)         NOT NULL
+  status                             character varying(20)         NOT NULL
+  source                             character varying(40)         NOT NULL  DEFAULT 'UNKNOWN'::character varying
+  triggered_by                       uuid                          NULL
+  recipients_count                   integer                       NOT NULL  DEFAULT 0
+  summary                            jsonb                         NULL
+  error_message                      text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ae_act_master (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(50)         NOT NULL
+  name                               character varying(255)        NOT NULL
+  scope                              character varying(20)         NOT NULL
+  requires_profile                   boolean                       NOT NULL  DEFAULT false
+  has_license                        boolean                       NOT NULL  DEFAULT false
+  is_active                          boolean                       NOT NULL  DEFAULT true
+
+--- ae_act_package_map (3 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  act_code                           character varying(50)         NOT NULL
+  package_code                       character varying(80)         NOT NULL
+
+--- ae_compliance_master (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(80)         NOT NULL
+  name                               character varying(500)        NOT NULL
+  labour_code                        character varying(30)         NOT NULL
+  group_code                         character varying(80)         NULL
+  periodicity                        character varying(20)         NOT NULL
+  evidence_schema                    jsonb                         NULL
+  task_template                      jsonb                         NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+
+--- ae_labour_code (3 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(30)         NOT NULL
+  name                               character varying(255)        NOT NULL
+
+--- ae_package_item (3 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  package_code                       character varying(80)         NOT NULL
+  compliance_id                      uuid                          NOT NULL
+
+--- ae_package_master (4 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(80)         NOT NULL
+  name                               character varying(255)        NOT NULL
+  scope                              character varying(20)         NOT NULL
+
+--- ae_rule_condition (3 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  rule_id                            uuid                          NOT NULL
+  condition_json                     jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+
+--- ae_rule_master (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  name                               character varying(255)        NOT NULL
+  priority                           integer                       NOT NULL
+  enabled                            boolean                       NOT NULL  DEFAULT true
+  scope                              character varying(20)         NOT NULL
+  apply_mode                         character varying(30)         NOT NULL
+  target_package_code                character varying(80)         NULL
+  target_compliance_id               uuid                          NULL
+  effect_json                        jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+
+--- ae_unit (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  tenant_id                          uuid                          NOT NULL
+  unit_type                          character varying(20)         NOT NULL
+  name                               character varying(255)        NOT NULL
+  state                              character varying(64)         NULL
+  establishment_type                 character varying(30)         NOT NULL  DEFAULT 'ESTABLISHMENT'::character varying
+  plant_type                         character varying(20)         NOT NULL  DEFAULT 'NA'::character varying
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  branch_id                          uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ae_unit_act (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  unit_id                            uuid                          NOT NULL
+  act_code                           character varying(50)         NOT NULL
+  enabled                            boolean                       NOT NULL  DEFAULT false
+  enabled_at                         timestamp with time zone      NULL
+  enabled_by                         uuid                          NULL
+
+--- ae_unit_act_profile (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  unit_id                            uuid                          NOT NULL
+  act_code                           character varying(50)         NOT NULL
+  data_json                          jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_by                         uuid                          NULL
+
+--- ae_unit_compliance (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  unit_id                            uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  is_applicable                      boolean                       NOT NULL  DEFAULT true
+  source                             character varying(30)         NOT NULL
+  locked                             boolean                       NOT NULL  DEFAULT true
+  explain_json                       jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  computed_at                        timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ae_unit_compliance_override (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  unit_id                            uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  force_applicable                   boolean                       NULL
+  force_not_applicable               boolean                       NULL
+  locked                             boolean                       NULL
+  reason                             text                          NULL
+  set_by                             uuid                          NULL
+  set_at                             timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ae_unit_facts (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  unit_id                            uuid                          NOT NULL
+  facts_json                         jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  facts_version                      integer                       NOT NULL  DEFAULT 1
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_by                         uuid                          NULL
+
+--- ae_unit_task (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  unit_id                            uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  period_start                       date                          NULL
+  due_date                           date                          NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  assignee_role                      character varying(40)         NULL
+  generated_by                       character varying(30)         NOT NULL  DEFAULT 'ENGINE'::character varying
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ai_audit_observations (28 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  finding_type                       character varying(100)        NULL
+  finding_description                text                          NOT NULL
+  uploaded_documents                 jsonb                         NULL  DEFAULT '[]'::jsonb
+  observation_title                  character varying(500)        NULL
+  observation_text                   text                          NULL
+  consequence                        text                          NULL
+  section_reference                  text                          NULL
+  fine_estimation_min                numeric                       NULL
+  fine_estimation_max                numeric                       NULL
+  risk_rating                        character varying(20)         NULL  DEFAULT 'MEDIUM'::character varying
+  corrective_action                  text                          NULL
+  timeline_days                      integer                       NULL
+  applicable_state                   character varying(100)        NULL
+  state_specific_rules               text                          NULL
+  ai_model                           character varying(100)        NULL
+  ai_prompt_tokens                   integer                       NULL
+  ai_completion_tokens               integer                       NULL
+  confidence_score                   numeric                       NULL
+  status                             character varying(30)         NULL  DEFAULT 'DRAFT'::character varying
+  reviewed_by                        uuid                          NULL
+  reviewed_at                        timestamp with time zone      NULL
+  auditor_notes                      text                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- ai_configurations (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  provider                           character varying(50)         NOT NULL  DEFAULT 'openai'::character varying
+  model_name                         character varying(100)        NOT NULL  DEFAULT 'gpt-4o-mini'::character varying
+  api_key_encrypted                  text                          NULL
+  temperature                        numeric                       NULL  DEFAULT 0.3
+  max_tokens                         integer                       NULL  DEFAULT 2000
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- ai_document_analyses (19 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  document_type                      character varying(100)        NULL
+  file_name                          character varying(500)        NULL
+  file_url                           text                          NULL
+  analysis_result                    jsonb                         NULL  DEFAULT '{}'::jsonb
+  issues_found                       integer                       NULL  DEFAULT 0
+  expiry_date                        date                          NULL
+  days_until_expiry                  integer                       NULL
+  amount_expected                    numeric                       NULL
+  amount_found                       numeric                       NULL
+  headcount_expected                 integer                       NULL
+  headcount_found                    integer                       NULL
+  ai_model                           character varying(100)        NULL
+  confidence_score                   numeric                       NULL
+  status                             character varying(30)         NULL  DEFAULT 'ANALYZED'::character varying
+  reviewed_by                        uuid                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- ai_document_checks (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  document_id                        uuid                          NULL
+  client_id                          uuid                          NULL
+  branch_id                          uuid                          NULL
+  document_type                      character varying(100)        NULL
+  document_name                      character varying(500)        NULL
+  issues                             jsonb                         NOT NULL  DEFAULT '[]'::jsonb
+  result                             character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  suggested_fix                      jsonb                         NOT NULL  DEFAULT '[]'::jsonb
+  ai_request_id                      uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ai_insights (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NULL
+  branch_id                          uuid                          NULL
+  insight_type                       character varying(100)        NOT NULL
+  category                           character varying(50)         NULL  DEFAULT 'GENERAL'::character varying
+  severity                           character varying(20)         NULL  DEFAULT 'INFO'::character varying
+  title                              character varying(500)        NOT NULL
+  description                        text                          NOT NULL
+  data                               jsonb                         NULL  DEFAULT '{}'::jsonb
+  is_dismissed                       boolean                       NULL  DEFAULT false
+  dismissed_by                       uuid                          NULL
+  valid_until                        timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- ai_payroll_anomalies (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  employee_id                        uuid                          NULL
+  payroll_run_id                     uuid                          NULL
+  anomaly_type                       character varying(100)        NOT NULL
+  severity                           character varying(20)         NULL  DEFAULT 'MEDIUM'::character varying
+  description                        text                          NOT NULL
+  details                            jsonb                         NULL  DEFAULT '{}'::jsonb
+  recommendation                     text                          NULL
+  status                             character varying(30)         NULL  DEFAULT 'OPEN'::character varying
+  resolved_by                        uuid                          NULL
+  resolved_at                        timestamp with time zone      NULL
+  resolution_notes                   text                          NULL
+  detected_at                        timestamp with time zone      NULL  DEFAULT now()
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- ai_requests (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  tenant_id                          uuid                          NULL
+  module                             character varying(50)         NOT NULL  DEFAULT 'GENERAL'::character varying
+  entity_type                        character varying(50)         NULL
+  entity_id                          uuid                          NULL
+  request_payload                    jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  status                             character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  created_by                         uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ai_responses (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  ai_request_id                      uuid                          NOT NULL
+  response_text                      text                          NULL
+  response_json                      jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  confidence                         numeric                       NULL
+  tokens_used                        integer                       NULL
+  model                              character varying(100)        NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- ai_risk_assessments (23 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  assessment_type                    character varying(50)         NOT NULL  DEFAULT 'COMPLIANCE'::character varying
+  risk_score                         integer                       NOT NULL
+  risk_level                         character varying(20)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  inspection_probability             numeric                       NULL
+  penalty_exposure_min               numeric                       NULL
+  penalty_exposure_max               numeric                       NULL
+  summary                            text                          NOT NULL
+  risk_factors                       jsonb                         NULL  DEFAULT '[]'::jsonb
+  recommendations                    jsonb                         NULL  DEFAULT '[]'::jsonb
+  predictions                        jsonb                         NULL  DEFAULT '{}'::jsonb
+  input_data                         jsonb                         NULL  DEFAULT '{}'::jsonb
+  ai_model                           character varying(100)        NULL
+  ai_prompt_tokens                   integer                       NULL
+  ai_completion_tokens               integer                       NULL
+  assessed_by                        uuid                          NULL
+  period_month                       integer                       NULL
+  period_year                        integer                       NULL
+  expires_at                         timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- ai_usage_logs (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NULL
+  user_id                            uuid                          NULL
+  module                             character varying(50)         NOT NULL
+  month                              character varying(7)          NOT NULL
+  prompt_tokens                      integer                       NOT NULL  DEFAULT 0
+  completion_tokens                  integer                       NOT NULL  DEFAULT 0
+  total_tokens                       integer                       NOT NULL  DEFAULT 0
+  estimated_cost_usd                 numeric                       NOT NULL  DEFAULT 0
+  model                              character varying(100)        NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- applicability_rule (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  name                               text                          NOT NULL
+  state_code                         text                          NULL
+  priority                           integer                       NOT NULL  DEFAULT 100
+  target_compliance_id               uuid                          NOT NULL
+  effect                             text                          NOT NULL  DEFAULT 'ENABLE'::text
+  conditions_json                    jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- approval_requests (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  request_type                       character varying(50)         NOT NULL
+  requester_user_id                  uuid                          NOT NULL
+  approver_user_id                   uuid                          NULL
+  status                             character varying(30)         NULL  DEFAULT 'PENDING'::character varying
+  target_entity_id                   uuid                          NOT NULL
+  target_entity_type                 character varying(50)         NOT NULL
+  reason                             text                          NULL
+  approver_notes                     text                          NULL
+  approved_at                        timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  updated_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+
+--- approvals (10 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('approvals_id_seq'::regclass)
+  entity_type                        character varying(50)         NOT NULL
+  entity_id                          uuid                          NOT NULL
+  action                             character varying(30)         NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  remarks                            text                          NULL
+  requested_by                       uuid                          NOT NULL
+  requested_to                       uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- attendance_records (27 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  employee_id                        uuid                          NOT NULL
+  employee_code                      character varying(50)         NOT NULL
+  date                               date                          NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'PRESENT'::character varying
+  check_in                           time without time zone        NULL
+  check_out                          time without time zone        NULL
+  worked_hours                       numeric                       NULL
+  overtime_hours                     numeric                       NOT NULL  DEFAULT 0
+  remarks                            text                          NULL
+  source                             character varying(30)         NOT NULL  DEFAULT 'MANUAL'::character varying
+  leave_application_id               uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  capture_method                     character varying(20)         NULL  DEFAULT 'MANUAL'::character varying
+  latitude                           numeric                       NULL
+  longitude                          numeric                       NULL
+  device_info                        character varying(255)        NULL
+  check_in_lat                       numeric                       NULL
+  check_in_lng                       numeric                       NULL
+  check_out_lat                      numeric                       NULL
+  check_out_lng                      numeric                       NULL
+  self_marked                        boolean                       NULL  DEFAULT false
+  short_work_reason                  text                          NULL
+  overtime_type                      character varying(20)         NULL  DEFAULT NULL::character varying
+
+--- audit_checklist_items (14 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NOT NULL
+  item_label                         character varying(255)        NOT NULL
+  doc_type                           character varying(100)        NULL
+  is_required                        boolean                       NOT NULL  DEFAULT true
+  status                             character varying(30)         NOT NULL  DEFAULT 'PENDING'::character varying
+  linked_doc_id                      uuid                          NULL
+  linked_doc_table                   character varying(30)         NULL
+  remarks                            text                          NULL
+  reviewed_by                        uuid                          NULL
+  reviewed_at                        timestamp with time zone      NULL
+  sort_order                         integer                       NOT NULL  DEFAULT 0
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT CURRENT_TIMESTAMP
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT CURRENT_TIMESTAMP
+
+--- audit_document_reviews (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NOT NULL
+  document_id                        uuid                          NOT NULL
+  source_table                       character varying(30)         NOT NULL  DEFAULT 'contractor_documents'::character varying
+  checklist_item_id                  uuid                          NULL
+  compliance_mark                    character varying(20)         NOT NULL
+  auditor_remark                     text                          NULL
+  version                            integer                       NOT NULL  DEFAULT 1
+  reviewed_by                        uuid                          NOT NULL
+  reviewed_at                        timestamp with time zone      NOT NULL  DEFAULT CURRENT_TIMESTAMP
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  updated_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+
+--- audit_frequency_rules (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  audit_type                         character varying(50)         NOT NULL
+  frequency                          character varying(30)         NOT NULL
+  branch_id                          uuid                          NULL
+  contractor_id                      uuid                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- audit_logs (7 cols) ---
+  id                                 integer                       NOT NULL  DEFAULT nextval('audit_logs_id_seq'::regclass)
+  entity_type                        character varying(80)         NOT NULL
+  entity_id                          uuid                          NOT NULL
+  action                             character varying(80)         NOT NULL
+  performed_by                       uuid                          NULL
+  snapshot                           jsonb                         NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- audit_non_compliances (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NOT NULL
+  document_id                        uuid                          NULL
+  source_table                       character varying(30)         NULL
+  checklist_item_id                  uuid                          NULL
+  document_review_id                 uuid                          NULL
+  document_name                      character varying(512)        NULL
+  requested_to_role                  character varying(30)         NULL
+  requested_to_user_id               uuid                          NULL
+  remark                             text                          NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'NC_RAISED'::character varying
+  raised_at                          timestamp with time zone      NOT NULL  DEFAULT CURRENT_TIMESTAMP
+  closed_at                          timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  updated_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  due_date                           date                          NULL
+
+--- audit_observation_categories (4 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  name                               character varying(200)        NOT NULL
+  description                        text                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+
+--- audit_observations (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NOT NULL
+  category_id                        uuid                          NULL
+  sequence_number                    integer                       NULL
+  observation                        text                          NOT NULL
+  consequences                       text                          NULL
+  compliance_requirements            text                          NULL
+  elaboration                        text                          NULL
+  risk                               text                          NULL
+  status                             character varying(50)         NOT NULL  DEFAULT 'OPEN'::character varying
+  recorded_by_user_id                uuid                          NOT NULL
+  evidence_file_paths                text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  clause                             character varying(255)        NULL  DEFAULT NULL::character varying
+  recommendation                     text                          NULL
+
+--- audit_reports (15 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NOT NULL
+  report_type                        character varying(50)         NOT NULL  DEFAULT 'STANDARD'::character varying
+  report_number                      character varying(50)         NULL
+  executive_summary                  text                          NULL
+  findings                           text                          NULL
+  recommendations                    text                          NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'DRAFT'::character varying
+  prepared_by_user_id                uuid                          NULL
+  approved_by_user_id                uuid                          NULL
+  prepared_date                      date                          NULL
+  approved_date                      date                          NULL
+  published_date                     date                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- audit_resubmissions (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  audit_id                           uuid                          NOT NULL
+  non_compliance_id                  uuid                          NOT NULL
+  document_id                        uuid                          NULL
+  source_table                       character varying(30)         NULL
+  file_path                          text                          NULL
+  file_name                          character varying(512)        NULL
+  mime_type                          character varying(128)        NULL
+  file_size                          bigint                        NULL  DEFAULT 0
+  resubmitted_by                     uuid                          NOT NULL
+  resubmitted_at                     timestamp with time zone      NOT NULL  DEFAULT CURRENT_TIMESTAMP
+  auditor_remark                     text                          NULL
+  final_mark                         character varying(20)         NULL
+  reviewed_by                        uuid                          NULL
+  reviewed_at                        timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  updated_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+
+--- audit_schedules (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  audit_type                         character varying(30)         NOT NULL
+  branch_id                          uuid                          NULL
+  contractor_user_id                 uuid                          NULL
+  auditor_id                         uuid                          NOT NULL
+  scheduled_by_crm_id                uuid                          NULL
+  scheduled_by_system                boolean                       NOT NULL  DEFAULT false
+  schedule_date                      date                          NOT NULL
+  due_date                           date                          NULL
+  frequency                          character varying(20)         NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'SCHEDULED'::character varying
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  contractor_id                      uuid                          NULL
+  frequency_rule_id                  uuid                          NULL
+  remarks                            text                          NULL
+
+--- audits (24 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  assigned_auditor_id                uuid                          NOT NULL
+  contractor_user_id                 uuid                          NULL
+  audit_type                         character varying(50)         NOT NULL
+  frequency                          USER-DEFINED                  NOT NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'PLANNED'::character varying
+  notes                              text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  period_year                        integer                       NOT NULL  DEFAULT 2026
+  period_code                        character varying(20)         NOT NULL  DEFAULT '2026'::character varying
+  created_by_user_id                 uuid                          NULL
+  due_date                           date                          NULL
+  audit_code                         character varying(20)         NULL
+  score                              numeric                       NULL
+  score_calculated_at                timestamp with time zone      NULL
+  branch_id                          uuid                          NULL
+  submitted_at                       timestamp with time zone      NULL
+  final_remark                       text                          NULL
+  scheduled_date                     date                          NULL
+  scheduled_by_user_id               uuid                          NULL
+  score_percent                      integer                       NULL
+  schedule_id                        uuid                          NULL
+
+--- branch_applicable_compliances (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  is_applicable                      boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  created_by                         uuid                          NULL
+
+--- branch_auditor_assignments (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  auditor_user_id                    uuid                          NOT NULL
+  start_date                         timestamp with time zone      NOT NULL  DEFAULT now()
+  end_date                           timestamp with time zone      NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- branch_compliance_applicability (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  is_applicable                      boolean                       NOT NULL  DEFAULT true
+  reason                             text                          NULL
+  evaluated_at                       timestamp with time zone      NOT NULL  DEFAULT now()
+  rule_id                            uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- branch_compliances (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  compliance_id                      uuid                          NULL
+  owner_user_id                      uuid                          NULL
+  is_applicable                      boolean                       NOT NULL
+  source                             character varying(255)        NOT NULL
+  reason                             text                          NULL
+  status                             character varying(30)         NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  last_updated                       timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- branch_contractor (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  contractor_user_id                 uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- branch_documents (19 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  category                           character varying(50)         NOT NULL  DEFAULT 'REGISTRATION'::character varying
+  doc_type                           character varying(255)        NOT NULL
+  period_year                        integer                       NULL
+  period_month                       integer                       NULL
+  file_path                          text                          NOT NULL
+  file_name                          character varying(512)        NOT NULL
+  mime_type                          character varying(128)        NULL
+  file_size                          bigint                        NULL  DEFAULT 0
+  status                             character varying(30)         NOT NULL  DEFAULT 'UPLOADED'::character varying
+  reviewer_role                      character varying(30)         NULL
+  reviewed_by                        uuid                          NULL
+  reviewed_at                        timestamp with time zone      NULL
+  remarks                            text                          NULL
+  uploaded_by                        uuid                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+  updated_at                         timestamp with time zone      NULL  DEFAULT CURRENT_TIMESTAMP
+
+--- branch_registrations (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  type                               character varying(200)        NOT NULL
+  registration_number                character varying(100)        NULL
+  authority                          character varying(200)        NULL
+  issued_date                        date                          NULL
+  expiry_date                        date                          NULL
+  status                             character varying(30)         NULL  DEFAULT 'ACTIVE'::character varying
+  document_path                      text                          NULL
+  remarks                            text                          NULL
+  created_by                         uuid                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+  document_url                       text                          NULL
+  renewal_document_url               text                          NULL
+  renewed_on                         timestamp with time zone      NULL
+
+--- branch_risk_snapshots (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  snapshot_date                      date                          NOT NULL
+  risk_score                         integer                       NOT NULL
+  created_at                         timestamp without time zone   NOT NULL  DEFAULT now()
+
+--- branch_safety_upload (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  doc_master_id                      integer                       NOT NULL
+  period_month                       date                          NOT NULL
+  file_url                           text                          NOT NULL
+  uploaded_by                        uuid                          NULL
+  uploaded_at                        timestamp with time zone      NULL  DEFAULT now()
+  status                             text                          NOT NULL  DEFAULT 'UPLOADED'::text
+  remarks                            text                          NULL
+
+--- cco_escalation_thresholds (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  type                               character varying(50)         NOT NULL
+  value                              integer                       NOT NULL
+  window_days                        integer                       NOT NULL  DEFAULT 30
+  severity                           character varying(20)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- cco_reminder_rules (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  scope                              character varying(100)        NOT NULL
+  days_before_due                    integer                       NOT NULL
+  notify_roles                       ARRAY                         NOT NULL  DEFAULT '{}'::text[]
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- cco_sla_rules (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  scope                              character varying(100)        NOT NULL
+  priority                           character varying(20)         NOT NULL  DEFAULT 'NORMAL'::character varying
+  target_hours                       integer                       NOT NULL
+  escalation_level1_hours            integer                       NOT NULL
+  escalation_level2_hours            integer                       NOT NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- client_assignments (14 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  crm_user_id                        uuid                          NULL
+  auditor_user_id                    uuid                          NULL
+  status                             USER-DEFINED                  NOT NULL  DEFAULT 'ACTIVE'::assignment_status_enum
+  start_date                         date                          NULL
+  end_date                           date                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  crm_assigned_from                  date                          NULL
+  crm_assigned_to                    date                          NULL
+  auditor_assigned_from              date                          NULL
+  auditor_assigned_to                date                          NULL
+  created_by                         uuid                          NULL
+
+--- client_assignments_current (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  assignment_type                    character varying             NOT NULL
+  assigned_to_user_id                uuid                          NULL
+  start_date                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- client_assignments_history (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  assignment_type                    character varying             NOT NULL
+  assigned_to_user_id                uuid                          NULL
+  start_date                         timestamp with time zone      NOT NULL  DEFAULT now()
+  end_date                           timestamp with time zone      NULL
+  changed_by_user_id                 uuid                          NULL
+  change_reason                      character varying             NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- client_branches (22 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  clientid                           uuid                          NOT NULL
+  branch_code                        character varying(50)         NOT NULL
+  branchname                         character varying(200)        NULL
+  branchtype                         character varying             NOT NULL
+  address                            text                          NOT NULL
+  statecode                          character varying(10)         NOT NULL
+  city                               character varying(50)         NULL
+  pincode                            character varying(10)         NULL
+  isactive                           boolean                       NOT NULL  DEFAULT true
+  deletedat                          timestamp with time zone      NULL
+  createdat                          timestamp with time zone      NOT NULL  DEFAULT now()
+  updatedat                          timestamp with time zone      NOT NULL  DEFAULT now()
+  headcount                          integer                       NOT NULL  DEFAULT 0
+  employeecount                      integer                       NOT NULL  DEFAULT 0
+  contractorcount                    integer                       NOT NULL  DEFAULT 0
+  status                             character varying             NOT NULL  DEFAULT 'ACTIVE'::character varying
+  isdeleted                          boolean                       NOT NULL  DEFAULT false
+  deletedby                          uuid                          NULL
+  deletereason                       text                          NULL
+  establishment_type                 character varying(30)         NOT NULL  DEFAULT 'BRANCH'::character varying
+  special_flags_json                 jsonb                         NULL  DEFAULT '{}'::jsonb
+
+--- client_users (4 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  user_id                            uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- clients (21 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_code                        character varying(30)         NOT NULL
+  client_name                        character varying(200)        NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'ACTIVE'::character varying
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  is_deleted                         boolean                       NOT NULL  DEFAULT false
+  deleted_at                         timestamp with time zone      NULL
+  deleted_by                         uuid                          NULL
+  delete_reason                      text                          NULL
+  assigned_crm_id                    uuid                          NULL
+  assigned_auditor_id                uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  logo_url                           character varying(500)        NULL  DEFAULT NULL::character varying
+  registered_address                 text                          NULL
+  industry                           character varying(100)        NULL
+  primary_contact_name               character varying(255)        NULL
+  primary_contact_email              character varying(255)        NULL
+  primary_contact_mobile             character varying(20)         NULL
+  company_code                       character varying(30)         NULL
+  state                              character varying(50)         NULL
+
+--- comp_off_ledger (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  employee_id                        uuid                          NOT NULL
+  entry_date                         date                          NOT NULL
+  entry_type                         character varying(10)         NOT NULL
+  days                               numeric                       NOT NULL
+  reason                             character varying(30)         NOT NULL
+  ref_attendance_id                  uuid                          NULL
+  ref_leave_id                       uuid                          NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- company_settings (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  settings                           jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  updated_by                         uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_applicability (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  compliance_id                      uuid                          NOT NULL
+  state_code                         character varying(10)         NULL
+  branch_category                    character varying(30)         NOT NULL
+  min_headcount                      integer                       NULL
+  max_headcount                      integer                       NULL
+  priority                           integer                       NOT NULL  DEFAULT 100
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_comments (5 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('compliance_comments_id_seq'::regclass)
+  task_id                            bigint                        NOT NULL
+  user_id                            uuid                          NOT NULL
+  comment                            text                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_doc_library (21 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  category                           character varying(60)         NOT NULL
+  sub_category                       character varying(120)        NULL
+  title                              character varying(255)        NOT NULL
+  description                        text                          NULL
+  file_path                          text                          NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_size                          bigint                        NULL  DEFAULT 0
+  mime_type                          character varying(120)        NULL
+  period_year                        integer                       NULL
+  period_month                       integer                       NULL
+  period_label                       character varying(30)         NULL
+  uploaded_by                        uuid                          NOT NULL
+  uploaded_role                      character varying(30)         NOT NULL  DEFAULT 'CRM'::character varying
+  is_deleted                         boolean                       NOT NULL  DEFAULT false
+  deleted_at                         timestamp with time zone      NULL
+  deleted_by                         uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_document_visibility (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  document_id                        uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  role                               character varying(30)         NULL
+  visible                            boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_documents (28 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  tenant_id                          uuid                          NULL
+  company_id                         uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  module_source                      character varying(30)         NOT NULL  DEFAULT 'BRANCHDESK'::character varying
+  document_scope                     character varying(20)         NOT NULL  DEFAULT 'BRANCH'::character varying
+  law_area                           character varying(40)         NOT NULL
+  return_code                        character varying(60)         NOT NULL
+  return_name                        character varying(200)        NOT NULL
+  frequency                          character varying(20)         NOT NULL  DEFAULT 'MONTHLY'::character varying
+  period_year                        integer                       NOT NULL
+  period_month                       integer                       NULL
+  period_quarter                     integer                       NULL
+  period_half                        integer                       NULL
+  due_date                           date                          NULL
+  uploaded_file_url                  character varying(500)        NULL
+  uploaded_file_name                 character varying(300)        NULL
+  uploaded_by_user_id                uuid                          NULL
+  uploaded_at                        timestamp with time zone      NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'NOT_UPLOADED'::character varying
+  reviewed_by_user_id                uuid                          NULL
+  reviewed_at                        timestamp with time zone      NULL
+  remarks                            text                          NULL
+  version                            integer                       NOT NULL  DEFAULT 1
+  is_locked                          boolean                       NOT NULL  DEFAULT false
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  uploader_remarks                   text                          NULL
+
+--- compliance_evidence (12 cols) ---
+  task_id                            bigint                        NOT NULL
+  uploaded_by_user_id                uuid                          NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_path                          text                          NOT NULL
+  mime_type                          character varying(120)        NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  file_type                          character varying(150)        NULL
+  file_size                          bigint                        NULL
+  notes                              text                          NULL
+  mcd_item_id                        bigint                        NULL
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+
+--- compliance_master (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(120)        NOT NULL
+  compliance_name                    character varying(250)        NOT NULL
+  law_name                           character varying(250)        NOT NULL
+  law_family                         character varying(100)        NOT NULL
+  state_scope                        character varying(50)         NULL
+  min_headcount                      integer                       NULL
+  max_headcount                      integer                       NULL
+  frequency                          USER-DEFINED                  NOT NULL
+  description                        text                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_mcd_items (13 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('compliance_mcd_items_id_seq'::regclass)
+  task_id                            bigint                        NOT NULL
+  item_key                           character varying(120)        NULL
+  item_label                         text                          NOT NULL
+  unit_type                          character varying(60)         NULL
+  state_code                         character varying(10)         NULL
+  required                           boolean                       NOT NULL  DEFAULT true
+  status                             character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  remarks                            text                          NULL
+  verified_by_user_id                uuid                          NULL
+  verified_at                        timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- compliance_notification_center (14 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT uuid_generate_v4()
+  clientId                           uuid                          NULL
+  branchId                           uuid                          NULL
+  role                               character varying(30)         NOT NULL
+  module                             character varying(50)         NOT NULL
+  title                              character varying(255)        NOT NULL
+  message                            text                          NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  priority                           character varying(20)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  entityId                           uuid                          NULL
+  entityType                         character varying(30)         NULL
+  dueDate                            date                          NULL
+  createdAt                          timestamp without time zone   NOT NULL  DEFAULT now()
+  updatedAt                          timestamp without time zone   NOT NULL  DEFAULT now()
+
+--- compliance_package (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               text                          NOT NULL
+  name                               text                          NOT NULL
+  state_code                         text                          NULL
+  applies_to                         text                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+
+--- compliance_return_master (18 cols) ---
+  return_code                        character varying(60)         NOT NULL
+  return_name                        character varying(200)        NOT NULL
+  law_area                           character varying(100)        NOT NULL
+  frequency                          character varying(20)         NOT NULL  DEFAULT 'MONTHLY'::character varying
+  scope_default                      character varying(20)         NOT NULL  DEFAULT 'BRANCH'::character varying
+  applicable_for                     character varying(20)         NOT NULL  DEFAULT 'BOTH'::character varying
+  due_day                            integer                       NULL
+  category                           character varying(60)         NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  state_code                         character varying(20)         NOT NULL  DEFAULT 'ALL'::character varying
+  applies_to                         character varying(20)         NOT NULL  DEFAULT 'BRANCH'::character varying
+  upload_required                    boolean                       NOT NULL  DEFAULT true
+  due_date_rule                      character varying(40)         NULL
+  risk_level                         character varying(10)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  responsible_role                   character varying(30)         NOT NULL  DEFAULT 'BRANCH_USER'::character varying
+  remarks                            text                          NULL
+
+--- compliance_returns (27 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT uuid_generate_v4()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  law_type                           character varying(50)         NOT NULL
+  return_type                        character varying(120)        NOT NULL
+  period_year                        integer                       NOT NULL
+  period_month                       integer                       NULL
+  period_label                       character varying(20)         NULL
+  due_date                           date                          NULL
+  filed_date                         date                          NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  filed_by_user_id                   uuid                          NULL
+  ack_number                         character varying(100)        NULL
+  ack_file_path                      text                          NULL
+  challan_file_path                  text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  is_deleted                         boolean                       NOT NULL  DEFAULT false
+  deleted_at                         timestamp with time zone      NULL
+  deleted_by                         uuid                          NULL
+  delete_reason                      text                          NULL
+  crm_owner                          character varying(150)        NULL
+  crm_last_reminder_at               timestamp with time zone      NULL
+  crm_last_note                      text                          NULL
+  crm_last_note_at                   timestamp with time zone      NULL
+  created_by_role                    character varying(20)         NULL  DEFAULT NULL::character varying
+  status_change_reason               text                          NULL
+
+--- compliance_tasks (13 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('compliance_tasks_id_seq'::regclass)
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  compliance_id                      uuid                          NULL
+  title                              character varying(255)        NOT NULL
+  description                        text                          NULL
+  frequency                          USER-DEFINED                  NOT NULL
+  due_date                           date                          NULL
+  assigned_to_user_id                uuid                          NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'OPEN'::character varying
+  created_by_user_id                 uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- contractor_documents (20 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  contractor_user_id                 uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  doc_type                           character varying(255)        NOT NULL
+  title                              character varying(255)        NOT NULL
+  audit_id                           uuid                          NULL
+  observation_id                     uuid                          NULL
+  file_name                          character varying(255)        NOT NULL
+  file_path                          text                          NOT NULL
+  file_type                          character varying(100)        NULL
+  file_size                          bigint                        NULL
+  uploaded_by_user_id                uuid                          NOT NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'UPLOADED'::character varying
+  doc_month                          character varying(7)          NULL
+  expiry_date                        date                          NULL
+  reviewed_by_user_id                uuid                          NULL
+  reviewed_at                        timestamp with time zone      NULL
+  review_notes                       text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- contractor_employees (24 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  contractor_user_id                 uuid                          NOT NULL
+  name                               character varying(250)        NOT NULL
+  date_of_birth                      date                          NULL
+  gender                             character varying(10)         NULL
+  father_name                        character varying(200)        NULL
+  phone                              character varying(20)         NULL
+  email                              character varying(200)        NULL
+  aadhaar                            character varying(20)         NULL
+  pan                                character varying(20)         NULL
+  uan                                character varying(30)         NULL
+  esic                               character varying(30)         NULL
+  pf_applicable                      boolean                       NULL  DEFAULT false
+  esi_applicable                     boolean                       NULL  DEFAULT false
+  designation                        character varying(120)        NULL
+  department                         character varying(120)        NULL
+  date_of_joining                    date                          NULL
+  date_of_exit                       date                          NULL
+  exit_reason                        character varying(500)        NULL
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- contractor_required_documents (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  contractor_user_id                 uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  doc_type                           character varying(255)        NOT NULL
+  is_required                        boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- crm_unit_documents (19 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  scope                              character varying(20)         NOT NULL  DEFAULT 'BRANCH'::character varying
+  branch_id                          uuid                          NULL
+  month                              character varying(7)          NULL
+  law_category                       character varying(60)         NOT NULL
+  document_type                      character varying(60)         NOT NULL
+  period_from                        date                          NULL
+  period_to                          date                          NULL
+  file_name                          character varying(500)        NOT NULL
+  file_path                          character varying(1000)       NOT NULL
+  mime_type                          character varying(120)        NULL
+  file_size                          bigint                        NULL  DEFAULT 0
+  uploaded_by                        uuid                          NOT NULL
+  remarks                            text                          NULL
+  deleted_at                         timestamp with time zone      NULL
+  deleted_by                         uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- cron_execution_logs (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  jobName                            character varying(120)        NOT NULL
+  startedAt                          timestamp with time zone      NOT NULL  DEFAULT now()
+  finishedAt                         timestamp with time zone      NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'RUNNING'::character varying
+  itemsProcessed                     integer                       NOT NULL  DEFAULT 0
+  errorMessage                       text                          NULL
+
+--- deletion_audit (6 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('deletion_audit_id_seq'::regclass)
+  entity_type                        character varying(50)         NOT NULL
+  entity_id                          uuid                          NOT NULL
+  performed_by                       uuid                          NOT NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- deletion_requests (10 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('deletion_requests_id_seq'::regclass)
+  entity_type                        character varying(50)         NOT NULL
+  entity_id                          uuid                          NOT NULL
+  requested_by_user_id               uuid                          NOT NULL
+  required_approver_role             character varying(30)         NOT NULL
+  required_approver_user_id          uuid                          NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- departments (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  code                               character varying(50)         NOT NULL
+  name                               character varying(200)        NOT NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- designations (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  code                               character varying(50)         NOT NULL
+  name                               character varying(200)        NOT NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- document_remarks (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  document_id                        bigint                        NOT NULL
+  document_type                      character varying(50)         NOT NULL
+  created_by_role                    character varying(20)         NOT NULL
+  created_by_user_id                 uuid                          NOT NULL
+  visibility                         character varying(30)         NOT NULL  DEFAULT 'INTERNAL'::character varying
+  text                               text                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- document_reupload_requests (19 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  document_id                        bigint                        NOT NULL
+  document_type                      character varying(50)         NOT NULL
+  client_id                          uuid                          NOT NULL
+  unit_id                            uuid                          NULL
+  contractor_user_id                 uuid                          NULL
+  target_role                        character varying(20)         NOT NULL
+  requested_by_role                  character varying(20)         NOT NULL
+  requested_by_user_id               uuid                          NOT NULL
+  reason                             character varying(200)        NOT NULL
+  remarks_visible                    text                          NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  deadline_date                      date                          NULL
+  submitted_at                       timestamp with time zone      NULL
+  reverified_at                      timestamp with time zone      NULL
+  reverified_by_user_id              uuid                          NULL
+  crm_remarks                        text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- document_versions (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  document_id                        bigint                        NOT NULL
+  document_type                      character varying(50)         NOT NULL
+  version_no                         integer                       NOT NULL
+  file_path                          text                          NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_type                          character varying(150)        NULL
+  file_size                          bigint                        NULL
+  uploaded_by_role                   character varying(20)         NOT NULL
+  uploaded_by_user_id                uuid                          NOT NULL
+  reupload_request_id                uuid                          NULL
+  uploaded_at                        timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- employee_documents (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  employee_id                        uuid                          NOT NULL
+  doc_type                           character varying(80)         NOT NULL
+  doc_name                           character varying(255)        NOT NULL
+  file_name                          character varying(500)        NOT NULL
+  file_path                          character varying(1000)       NOT NULL
+  file_size                          integer                       NOT NULL  DEFAULT 0
+  mime_type                          character varying(100)        NULL
+  uploaded_by_user_id                uuid                          NOT NULL
+  expiry_date                        date                          NULL
+  is_verified                        boolean                       NOT NULL  DEFAULT false
+  verified_by_user_id                uuid                          NULL
+  verified_at                        timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- employee_generated_forms (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  employee_id                        uuid                          NOT NULL
+  form_type                          character varying(30)         NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_path                          text                          NOT NULL
+  file_size                          bigint                        NULL  DEFAULT 0
+  generated_by                       uuid                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  client_id                          uuid                          NULL
+  branch_id                          uuid                          NULL
+  version                            integer                       NOT NULL  DEFAULT 1
+  status                             character varying(20)         NOT NULL  DEFAULT 'DRAFT'::character varying
+
+--- employee_nomination_members (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  nomination_id                      uuid                          NOT NULL
+  member_name                        character varying(200)        NOT NULL
+  relationship                       character varying(60)         NULL
+  date_of_birth                      date                          NULL
+  share_pct                          numeric                       NULL  DEFAULT 0
+  address                            text                          NULL
+  is_minor                           boolean                       NULL  DEFAULT false
+  guardian_name                      character varying(200)        NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- employee_nominations (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  employee_id                        uuid                          NOT NULL
+  nomination_type                    character varying(30)         NOT NULL
+  declaration_date                   date                          NULL
+  witness_name                       character varying(200)        NULL
+  witness_address                    text                          NULL
+  status                             character varying(30)         NULL  DEFAULT 'DRAFT'::character varying
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- employee_salary_revisions (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  employee_id                        uuid                          NOT NULL
+  effective_date                     date                          NOT NULL
+  previous_ctc                       numeric                       NOT NULL
+  new_ctc                            numeric                       NOT NULL
+  increment_pct                      numeric                       NULL
+  reason                             text                          NULL
+  approved_by_user_id                uuid                          NULL
+  revision_letter_path               character varying(500)        NULL
+  component_snapshot                 jsonb                         NULL
+  created_by_user_id                 uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- employee_sequence (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  state_code                         character varying(10)         NOT NULL
+  branch_code                        character varying(10)         NOT NULL
+  year                               integer                       NOT NULL
+  last_seq                           integer                       NOT NULL  DEFAULT 0
+
+--- employee_statutory (18 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  employee_id                        uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  pf_uan                             character varying(30)         NULL
+  pf_member_id                       character varying(30)         NULL
+  pf_join_date                       date                          NULL
+  pf_exit_date                       date                          NULL
+  pf_wages                           numeric                       NULL
+  esi_ip_number                      character varying(30)         NULL
+  esi_dispensary                     character varying(200)        NULL
+  esi_join_date                      date                          NULL
+  esi_exit_date                      date                          NULL
+  esi_wages                          numeric                       NULL
+  pt_registration_number             character varying(60)         NULL
+  lwf_applicable                     boolean                       NULL  DEFAULT false
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- employees (36 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  employee_code                      character varying(50)         NOT NULL
+  date_of_birth                      date                          NULL
+  gender                             character varying(10)         NULL
+  father_name                        character varying(200)        NULL
+  phone                              character varying(20)         NULL
+  email                              character varying(200)        NULL
+  aadhaar                            character varying(20)         NULL
+  pan                                character varying(20)         NULL
+  uan                                character varying(30)         NULL
+  esic                               character varying(30)         NULL
+  bank_name                          character varying(200)        NULL
+  bank_account                       character varying(40)         NULL
+  ifsc                               character varying(20)         NULL
+  designation                        character varying(120)        NULL
+  department                         character varying(120)        NULL
+  date_of_joining                    date                          NULL
+  date_of_exit                       date                          NULL
+  state_code                         character varying(10)         NULL
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+  pf_applicable                      boolean                       NULL  DEFAULT false
+  pf_registered                      boolean                       NULL  DEFAULT false
+  pf_applicable_from                 date                          NULL
+  esi_applicable                     boolean                       NULL  DEFAULT false
+  esi_registered                     boolean                       NULL  DEFAULT false
+  esi_applicable_from                date                          NULL
+  approval_status                    character varying(20)         NOT NULL  DEFAULT 'APPROVED'::character varying
+  department_id                      uuid                          NULL
+  grade_id                           uuid                          NULL
+  designation_id                     uuid                          NULL
+  name                               character varying(250)        NOT NULL
+  exit_reason                        character varying(500)        NULL
+
+--- escalations (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  reason                             text                          NOT NULL
+  risk_score                         integer                       NOT NULL
+  sla_overdue_count                  integer                       NOT NULL  DEFAULT 0
+  status                             character varying(15)         NOT NULL  DEFAULT 'OPEN'::character varying
+  created_at                         timestamp without time zone   NOT NULL  DEFAULT now()
+  updated_at                         timestamp without time zone   NOT NULL  DEFAULT now()
+  source_key                         text                          NULL
+
+--- grades (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  code                               character varying(50)         NOT NULL
+  name                               character varying(200)        NOT NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- helpdesk_message_files (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  message_id                         uuid                          NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_path                          text                          NOT NULL
+  file_type                          character varying(120)        NOT NULL
+  file_size                          bigint                        NOT NULL  DEFAULT 0
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- helpdesk_messages (5 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  ticket_id                          uuid                          NOT NULL
+  sender_user_id                     uuid                          NOT NULL
+  message                            text                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- helpdesk_tickets (14 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  category                           character varying(40)         NOT NULL
+  sub_category                       character varying(80)         NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  employee_ref                       character varying(80)         NULL
+  priority                           character varying(20)         NOT NULL  DEFAULT 'NORMAL'::character varying
+  status                             character varying(30)         NOT NULL  DEFAULT 'OPEN'::character varying
+  description                        text                          NOT NULL
+  created_by_user_id                 uuid                          NOT NULL
+  assigned_to_user_id                uuid                          NULL
+  sla_due_at                         timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- leave_applications (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  employee_id                        uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  leave_type                         character varying(30)         NOT NULL
+  from_date                          date                          NOT NULL
+  to_date                            date                          NOT NULL
+  total_days                         numeric                       NOT NULL
+  reason                             text                          NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'DRAFT'::character varying
+  approver_user_id                   uuid                          NULL
+  applied_at                         timestamp with time zone      NULL
+  actioned_at                        timestamp with time zone      NULL
+  rejection_reason                   text                          NULL
+  attachment_path                    text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- leave_balances (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  employee_id                        uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  year                               integer                       NOT NULL
+  leave_type                         character varying(30)         NOT NULL
+  opening                            numeric                       NOT NULL  DEFAULT 0
+  accrued                            numeric                       NOT NULL  DEFAULT 0
+  used                               numeric                       NOT NULL  DEFAULT 0
+  lapsed                             numeric                       NOT NULL  DEFAULT 0
+  available                          numeric                       NOT NULL  DEFAULT 0
+  last_updated_at                    timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- leave_ledger (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  employee_id                        uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  leave_type                         character varying(30)         NOT NULL
+  entry_date                         date                          NOT NULL
+  qty                                numeric                       NOT NULL
+  ref_type                           character varying(30)         NOT NULL
+  ref_id                             uuid                          NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- leave_policies (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  leave_type                         character varying(30)         NOT NULL
+  leave_name                         character varying(100)        NOT NULL
+  accrual_method                     character varying(20)         NOT NULL  DEFAULT 'MONTHLY'::character varying
+  accrual_rate                       numeric                       NOT NULL  DEFAULT 0
+  carry_forward_limit                numeric                       NOT NULL  DEFAULT 0
+  yearly_limit                       numeric                       NOT NULL  DEFAULT 0
+  allow_negative                     boolean                       NOT NULL  DEFAULT false
+  min_notice_days                    integer                       NOT NULL  DEFAULT 0
+  max_days_per_request               numeric                       NOT NULL  DEFAULT 0
+  requires_document                  boolean                       NOT NULL  DEFAULT false
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- monthly_compliance_cycles (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  month                              integer                       NOT NULL
+  year                               integer                       NOT NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  opened_at                          timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- monthly_compliance_items (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  cycle_id                           uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  item_name                          character varying(255)        NOT NULL
+  responsible_role                   character varying(30)         NOT NULL  DEFAULT 'BRANCH'::character varying
+  due_date                           date                          NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'PENDING'::character varying
+  source_type                        character varying(20)         NOT NULL  DEFAULT 'SYSTEM'::character varying
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- monthly_compliance_uploads (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  month                              character varying(7)          NOT NULL
+  code                               character varying(100)        NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_path                          text                          NOT NULL
+  file_size                          bigint                        NOT NULL  DEFAULT 0
+  mime_type                          character varying(120)        NULL
+  uploaded_by                        uuid                          NOT NULL
+  is_deleted                         boolean                       NOT NULL  DEFAULT false
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- news_items (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  title                              character varying(255)        NOT NULL
+  body                               text                          NOT NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_by                         uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  category                           character varying(30)         NOT NULL  DEFAULT 'GENERAL'::character varying
+  pinned                             boolean                       NOT NULL  DEFAULT false
+  expires_at                         timestamp with time zone      NULL
+  image_url                          character varying(500)        NULL
+  updated_by                         uuid                          NULL
+  deleted_at                         timestamp with time zone      NULL
+
+--- notification_messages (7 cols) ---
+  id                                 bigint                        NOT NULL  DEFAULT nextval('notification_messages_id_seq'::regclass)
+  thread_id                          uuid                          NOT NULL
+  sender_user_id                     uuid                          NOT NULL
+  message                            text                          NOT NULL
+  attachment_path                    text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  notification_id                    uuid                          NULL
+
+--- notification_reads (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  notification_id                    uuid                          NOT NULL
+  user_id                            uuid                          NOT NULL
+  last_read_at                       timestamp with time zone      NOT NULL  DEFAULT now()
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- notification_threads (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  title                              character varying(255)        NOT NULL
+  query_type                         character varying(50)         NOT NULL
+  priority                           character varying(20)         NOT NULL  DEFAULT 'NORMAL'::character varying
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  from_user_id                       uuid                          NOT NULL
+  to_user_id                         uuid                          NOT NULL
+  client_id                          uuid                          NULL
+  branch_id                          uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- notifications (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  created_by_user_id                 uuid                          NOT NULL
+  created_by_role                    character varying(30)         NOT NULL
+  query_type                         character varying(30)         NOT NULL
+  subject                            text                          NOT NULL
+  client_id                          uuid                          NULL
+  branch_id                          uuid                          NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'OPEN'::character varying
+  priority                           smallint                      NOT NULL  DEFAULT 2
+  assigned_to_user_id                uuid                          NULL
+  assigned_to_role                   character varying(30)         NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  closed_at                          timestamp with time zone      NULL
+  read_at                            timestamp with time zone      NULL
+  is_archived                        boolean                       NOT NULL  DEFAULT false
+  source_key                         text                          NULL
+
+--- package_compliance (4 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  package_id                         uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  included_by_default                boolean                       NOT NULL  DEFAULT true
+
+--- package_rule (3 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  package_id                         uuid                          NOT NULL
+  rule_id                            uuid                          NOT NULL
+
+--- pay_calc_traces (5 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  run_id                             uuid                          NOT NULL
+  employee_id                        uuid                          NOT NULL
+  trace                              jsonb                         NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- pay_rule_parameters (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  rule_set_id                        uuid                          NOT NULL
+  key                                character varying(100)        NOT NULL
+  value_num                          numeric                       NULL
+  value_text                         character varying(500)        NULL
+  unit                               character varying(50)         NULL
+  notes                              text                          NULL
+
+--- pay_rule_sets (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  name                               character varying(200)        NOT NULL
+  effective_from                     date                          NOT NULL
+  effective_to                       date                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- pay_salary_structure_items (15 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  structure_id                       uuid                          NOT NULL
+  component_id                       uuid                          NOT NULL
+  calc_method                        character varying(30)         NOT NULL  DEFAULT 'FIXED'::character varying
+  fixed_amount                       numeric                       NULL
+  percentage                         numeric                       NULL
+  percentage_base                    character varying(60)         NULL
+  formula                            text                          NULL
+  slab_ref                           jsonb                         NULL
+  balancing_config                   jsonb                         NULL
+  min_amount                         numeric                       NULL
+  max_amount                         numeric                       NULL
+  rounding_mode                      character varying(30)         NOT NULL  DEFAULT 'NEAREST_RUPEE'::character varying
+  priority                           integer                       NOT NULL  DEFAULT 100
+  enabled                            boolean                       NOT NULL  DEFAULT true
+
+--- pay_salary_structures (14 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  name                               character varying(200)        NOT NULL
+  scope_type                         character varying(30)         NOT NULL  DEFAULT 'TENANT'::character varying
+  branch_id                          uuid                          NULL
+  department_id                      uuid                          NULL
+  grade_id                           uuid                          NULL
+  employee_id                        uuid                          NULL
+  rule_set_id                        uuid                          NULL
+  effective_from                     date                          NOT NULL
+  effective_to                       date                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_client_assignments (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  payroll_user_id                    uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  start_date                         date                          NOT NULL  DEFAULT CURRENT_DATE
+  end_date                           date                          NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'ACTIVE'::character varying
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_client_component_overrides (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  component_id                       uuid                          NOT NULL
+  enabled                            boolean                       NULL
+  display_order                      integer                       NULL
+  show_on_payslip                    boolean                       NULL
+  label_override                     character varying(200)        NULL  DEFAULT NULL::character varying
+  formula_override                   text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_client_payslip_layout (6 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  layout_json                        jsonb                         NOT NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_client_settings (5 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  settings                           jsonb                         NOT NULL  DEFAULT '{}'::jsonb
+  updated_by                         uuid                          NULL
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_client_setup (34 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  pf_enabled                         boolean                       NULL  DEFAULT true
+  esi_enabled                        boolean                       NULL  DEFAULT true
+  pt_enabled                         boolean                       NULL  DEFAULT false
+  lwf_enabled                        boolean                       NULL  DEFAULT false
+  pf_employer_rate                   numeric                       NULL  DEFAULT 12.00
+  pf_employee_rate                   numeric                       NULL  DEFAULT 12.00
+  esi_employer_rate                  numeric                       NULL  DEFAULT 3.25
+  esi_employee_rate                  numeric                       NULL  DEFAULT 0.75
+  pf_wage_ceiling                    numeric                       NULL  DEFAULT 15000
+  esi_wage_ceiling                   numeric                       NULL  DEFAULT 21000
+  pay_cycle                          character varying(20)         NULL  DEFAULT 'MONTHLY'::character varying
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+  effective_from                     date                          NULL
+  cycle_start_day                    integer                       NOT NULL  DEFAULT 1
+  payout_day                         integer                       NOT NULL  DEFAULT 1
+  lock_day                           integer                       NOT NULL  DEFAULT 26
+  arrear_mode                        character varying(20)         NOT NULL  DEFAULT 'CURRENT'::character varying
+  leave_accrual_per_month            numeric                       NOT NULL  DEFAULT 1.50
+  max_carry_forward                  integer                       NOT NULL  DEFAULT 30
+  allow_carry_forward                boolean                       NOT NULL  DEFAULT true
+  lop_mode                           character varying(20)         NOT NULL  DEFAULT 'PRORATED'::character varying
+  attendance_source                  character varying(20)         NOT NULL  DEFAULT 'MANUAL'::character varying
+  attendance_cutoff_day              integer                       NOT NULL  DEFAULT 25
+  grace_minutes                      integer                       NOT NULL  DEFAULT 10
+  auto_lock_attendance               boolean                       NOT NULL  DEFAULT true
+  sync_enabled                       boolean                       NOT NULL  DEFAULT false
+  enable_loan_recovery               boolean                       NOT NULL  DEFAULT true
+  enable_advance_recovery            boolean                       NOT NULL  DEFAULT true
+  default_deduction_cap_pct          numeric                       NOT NULL  DEFAULT 50.00
+  recovery_order                     character varying(220)        NOT NULL  DEFAULT 'STATUTORY > LOAN > ADVANCE > OTHER'::character varying
+  pf_gross_threshold                 numeric                       NULL  DEFAULT 0
+
+--- payroll_client_structures (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  name                               character varying(120)        NOT NULL
+  code                               character varying(60)         NOT NULL
+  version                            integer                       NOT NULL  DEFAULT 1
+  effective_from                     date                          NOT NULL
+  effective_to                       date                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  is_default                         boolean                       NOT NULL  DEFAULT false
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_client_template (5 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  template_id                        uuid                          NOT NULL
+  effective_from                     date                          NOT NULL
+  effective_to                       date                          NULL
+
+--- payroll_component_conditions (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  component_id                       uuid                          NOT NULL
+  field_name                         character varying(80)         NOT NULL
+  operator                           character varying(10)         NOT NULL
+  field_value                        character varying(100)        NOT NULL
+  action_type                        character varying(30)         NOT NULL
+  action_value                       character varying(200)        NULL
+  message                            character varying(255)        NULL
+
+--- payroll_component_master (11 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(50)         NOT NULL
+  name                               character varying(200)        NOT NULL
+  component_type                     character varying(30)         NOT NULL  DEFAULT 'EARNING'::character varying
+  is_taxable                         boolean                       NOT NULL  DEFAULT false
+  affects_pf_wage                    boolean                       NOT NULL  DEFAULT false
+  affects_esi_wage                   boolean                       NOT NULL  DEFAULT false
+  default_formula                    text                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_component_rules (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  component_id                       uuid                          NOT NULL
+  rule_type                          character varying(30)         NOT NULL
+  base_component                     character varying(60)         NULL
+  percentage                         numeric                       NULL
+  fixed_amount                       numeric                       NULL
+  formula                            text                          NULL
+  priority                           integer                       NULL  DEFAULT 0
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  client_id                          uuid                          NULL
+  effective_from                     date                          NULL
+  effective_to                       date                          NULL
+
+--- payroll_component_slabs (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  rule_id                            uuid                          NOT NULL
+  from_amount                        numeric                       NOT NULL  DEFAULT 0
+  to_amount                          numeric                       NULL
+  slab_pct                           numeric                       NULL
+  slab_fixed                         numeric                       NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  client_id                          uuid                          NULL
+
+--- payroll_components (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  code                               character varying(60)         NOT NULL
+  name                               character varying(200)        NOT NULL
+  component_type                     character varying(30)         NOT NULL
+  is_taxable                         boolean                       NULL  DEFAULT false
+  affects_pf_wage                    boolean                       NULL  DEFAULT false
+  affects_esi_wage                   boolean                       NULL  DEFAULT false
+  is_required                        boolean                       NULL  DEFAULT false
+  display_order                      integer                       NULL  DEFAULT 0
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- payroll_config_audit_logs (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  user_id                            uuid                          NOT NULL
+  action                             character varying(50)         NOT NULL
+  entity_type                        character varying(100)        NOT NULL
+  entity_id                          uuid                          NULL
+  old_values                         jsonb                         NULL
+  new_values                         jsonb                         NULL
+  description                        text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_fnf (15 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  employee_id                        uuid                          NOT NULL
+  separation_date                    date                          NOT NULL
+  last_working_day                   date                          NULL
+  reason                             character varying(100)        NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'INITIATED'::character varying
+  checklist                          jsonb                         NULL  DEFAULT '[]'::jsonb
+  settlement_amount                  numeric                       NULL
+  remarks                            text                          NULL
+  initiated_by                       uuid                          NULL
+  approved_by                        uuid                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  settlement_breakup                 jsonb                         NULL
+
+--- payroll_fnf_events (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  fnf_id                             uuid                          NOT NULL
+  status_from                        character varying(30)         NULL
+  status_to                          character varying(30)         NOT NULL
+  action                             character varying(40)         NOT NULL  DEFAULT 'STATUS_UPDATE'::character varying
+  remarks                            text                          NULL
+  settlement_amount                  numeric                       NULL
+  performed_by                       uuid                          NULL
+  metadata                           jsonb                         NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_input_files (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  payroll_input_id                   uuid                          NOT NULL
+  doc_type                           character varying(80)         NULL
+  file_name                          character varying(300)        NOT NULL
+  file_path                          text                          NOT NULL
+  file_type                          character varying(120)        NOT NULL
+  file_size                          bigint                        NOT NULL  DEFAULT 0
+  uploaded_by_user_id                uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_input_status_history (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  payroll_input_id                   uuid                          NOT NULL
+  from_status                        character varying(50)         NULL
+  to_status                          character varying(50)         NOT NULL
+  changed_by_user_id                 uuid                          NOT NULL
+  remarks                            character varying(500)        NULL
+  changed_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_inputs (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  period_year                        integer                       NOT NULL
+  period_month                       integer                       NOT NULL
+  title                              character varying(200)        NOT NULL
+  notes                              text                          NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'SUBMITTED'::character varying
+  submitted_by_user_id               uuid                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  status_updated_at                  timestamp with time zone      NULL
+  status_updated_by_user_id          uuid                          NULL
+
+--- payroll_payslip_archives (13 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  run_id                             uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  employee_code                      character varying(50)         NOT NULL
+  period_year                        integer                       NOT NULL
+  period_month                       integer                       NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_type                          character varying(100)        NOT NULL  DEFAULT 'application/pdf'::character varying
+  file_size                          bigint                        NOT NULL
+  file_path                          text                          NOT NULL
+  generated_by_user_id               uuid                          NOT NULL
+  generated_at                       timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_queries (15 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  employee_id                        uuid                          NULL
+  raised_by                          uuid                          NOT NULL
+  assigned_to                        uuid                          NULL
+  subject                            character varying(255)        NOT NULL
+  category                           character varying(50)         NOT NULL  DEFAULT 'GENERAL'::character varying
+  priority                           character varying(20)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  status                             character varying(30)         NOT NULL  DEFAULT 'OPEN'::character varying
+  description                        text                          NULL
+  resolved_at                        timestamp with time zone      NULL
+  resolved_by                        uuid                          NULL
+  resolution                         text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_query_messages (5 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  query_id                           uuid                          NOT NULL
+  sender_id                          uuid                          NOT NULL
+  message                            text                          NOT NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_run_component_values (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  run_id                             uuid                          NOT NULL
+  run_employee_id                    uuid                          NOT NULL
+  component_code                     character varying(60)         NOT NULL
+  amount                             numeric                       NULL  DEFAULT 0
+  source                             character varying(20)         NOT NULL  DEFAULT 'UPLOADED'::character varying
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- payroll_run_employees (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  run_id                             uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  employee_code                      character varying(50)         NOT NULL
+  employee_name                      character varying(200)        NOT NULL
+  designation                        character varying(120)        NULL
+  uan                                character varying(30)         NULL
+  esic                               character varying(30)         NULL
+  gross_earnings                     numeric                       NOT NULL  DEFAULT 0
+  total_deductions                   numeric                       NOT NULL  DEFAULT 0
+  employer_cost                      numeric                       NOT NULL  DEFAULT 0
+  net_pay                            numeric                       NOT NULL  DEFAULT 0
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  employee_id                        uuid                          NULL
+  state_code                         character varying(10)         NULL
+
+--- payroll_run_items (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  run_id                             uuid                          NOT NULL
+  run_employee_id                    uuid                          NOT NULL
+  component_code                     character varying(60)         NOT NULL
+  amount                             numeric                       NOT NULL  DEFAULT 0
+  units                              numeric                       NULL
+  rate                               numeric                       NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  source                             character varying(20)         NULL  DEFAULT 'UPLOADED'::character varying
+
+--- payroll_runs (18 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  period_year                        integer                       NOT NULL
+  period_month                       integer                       NOT NULL
+  status                             character varying(30)         NOT NULL  DEFAULT 'DRAFT'::character varying
+  source_payroll_input_id            uuid                          NULL
+  title                              character varying(200)        NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  submitted_by_user_id               uuid                          NULL
+  submitted_at                       timestamp with time zone      NULL
+  approved_by_user_id                uuid                          NULL
+  approved_at                        timestamp with time zone      NULL
+  approval_comments                  text                          NULL
+  rejected_by_user_id                uuid                          NULL
+  rejected_at                        timestamp with time zone      NULL
+  rejection_reason                   text                          NULL
+
+--- payroll_statutory_configs (18 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  structure_id                       uuid                          NOT NULL
+  state_code                         character varying(10)         NOT NULL
+  minimum_wage                       numeric                       NULL
+  warn_if_gross_below_min_wage       boolean                       NOT NULL  DEFAULT true
+  enable_pt                          boolean                       NOT NULL  DEFAULT true
+  enable_pf                          boolean                       NOT NULL  DEFAULT true
+  enable_esi                         boolean                       NOT NULL  DEFAULT true
+  pf_employee_rate                   numeric                       NOT NULL  DEFAULT 12
+  pf_wage_cap                        numeric                       NOT NULL  DEFAULT 15000
+  pf_apply_if_gross_above            numeric                       NULL
+  esi_employee_rate                  numeric                       NOT NULL  DEFAULT 0.75
+  esi_employer_rate                  numeric                       NOT NULL  DEFAULT 3.25
+  esi_gross_ceiling                  numeric                       NOT NULL  DEFAULT 21000
+  carry_forward_leave                boolean                       NOT NULL  DEFAULT true
+  monthly_paid_leave_accrual         numeric                       NOT NULL  DEFAULT 1.5
+  attendance_bonus_amount            numeric                       NULL
+  attendance_bonus_if_lop_lte        numeric                       NULL
+
+--- payroll_statutory_slabs (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  state_code                         character varying(10)         NOT NULL  DEFAULT 'ALL'::character varying
+  component_code                     character varying(30)         NOT NULL
+  from_amount                        numeric                       NOT NULL  DEFAULT 0
+  to_amount                          numeric                       NULL
+  value_amount                       numeric                       NULL
+  value_percent                      numeric                       NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- payroll_structure_components (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  structure_id                       uuid                          NOT NULL
+  code                               character varying(80)         NOT NULL
+  name                               character varying(120)        NOT NULL
+  label                              character varying(120)        NOT NULL
+  component_type                     character varying(30)         NOT NULL
+  calculation_method                 character varying(30)         NOT NULL
+  display_order                      integer                       NOT NULL  DEFAULT 1
+  fixed_value                        numeric                       NULL
+  percentage_value                   numeric                       NULL
+  based_on                           character varying(80)         NULL
+  formula                            text                          NULL
+  round_rule                         character varying(20)         NOT NULL  DEFAULT 'NONE'::character varying
+  taxable                            boolean                       NOT NULL  DEFAULT true
+  statutory                          boolean                       NOT NULL  DEFAULT false
+  is_visible_in_payslip              boolean                       NOT NULL  DEFAULT true
+  is_active                          boolean                       NOT NULL  DEFAULT true
+
+--- payroll_template_components (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  template_id                        uuid                          NOT NULL
+  code                               character varying(255)        NOT NULL
+  label                              character varying(255)        NOT NULL
+  type                               character varying(255)        NOT NULL
+  input_type                         character varying(255)        NULL
+  default_value                      double precision              NULL
+  order_no                           integer                       NOT NULL  DEFAULT 0
+  is_taxable                         boolean                       NOT NULL  DEFAULT false
+  is_statutory                       boolean                       NOT NULL  DEFAULT false
+  formula_expression                 character varying(255)        NULL
+  round_rule                         character varying(255)        NULL
+
+--- payroll_templates (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  name                               character varying(255)        NOT NULL
+  version                            integer                       NOT NULL  DEFAULT 1
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  file_name                          character varying(300)        NULL
+  file_path                          text                          NULL
+  file_type                          character varying(150)        NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- refresh_tokens (7 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  jti                                character varying(64)         NOT NULL
+  user_id                            uuid                          NOT NULL
+  family                             uuid                          NOT NULL
+  expires_at                         timestamp with time zone      NOT NULL
+  revoked_at                         timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- register_templates (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  state_code                         character varying(10)         NOT NULL
+  establishment_type                 character varying(30)         NOT NULL  DEFAULT 'FACTORY'::character varying
+  register_type                      character varying(60)         NOT NULL
+  title                              character varying(200)        NOT NULL
+  description                        text                          NULL
+  template_file_path                 text                          NULL
+  column_definitions                 jsonb                         NULL  DEFAULT '[]'::jsonb
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- registers_records (19 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  payroll_input_id                   uuid                          NULL
+  category                           character varying(20)         NOT NULL
+  title                              character varying(200)        NOT NULL
+  period_year                        integer                       NULL
+  period_month                       integer                       NULL
+  prepared_by_user_id                uuid                          NOT NULL
+  file_name                          character varying(255)        NOT NULL
+  file_path                          text                          NOT NULL
+  file_type                          character varying(120)        NOT NULL
+  file_size                          bigint                        NOT NULL  DEFAULT 0
+  register_type                      character varying(60)         NULL
+  state_code                         character varying(10)         NULL
+  approval_status                    character varying(20)         NOT NULL  DEFAULT 'PENDING'::character varying
+  approved_by_user_id                uuid                          NULL
+  approved_at                        timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- registration_alerts (12 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  registration_id                    uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  alert_type                         character varying(30)         NOT NULL
+  priority                           character varying(10)         NOT NULL  DEFAULT 'LOW'::character varying
+  title                              text                          NOT NULL
+  message                            text                          NOT NULL
+  module                             character varying(30)         NOT NULL  DEFAULT 'REGISTRATION'::character varying
+  is_read                            boolean                       NOT NULL  DEFAULT false
+  emailed                            boolean                       NOT NULL  DEFAULT false
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- registration_expiry_tasks (15 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  registration_id                    uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  registration_name                  text                          NOT NULL
+  expiry_date                        date                          NOT NULL
+  days_before_expiry                 integer                       NOT NULL  DEFAULT 0
+  status                             USER-DEFINED                  NOT NULL  DEFAULT 'PENDING'::expiry_task_status
+  assigned_to                        uuid                          NULL
+  renewal_file_path                  text                          NULL
+  renewal_date                       date                          NULL
+  notes                              text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  completed_at                       timestamp with time zone      NULL
+
+--- return_task_proofs (14 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  return_id                          uuid                          NOT NULL
+  proof_type                         USER-DEFINED                  NOT NULL  DEFAULT 'ACK_RECEIPT'::return_proof_type
+  file_path                          text                          NOT NULL
+  file_name                          text                          NOT NULL
+  file_size                          integer                       NULL
+  mime_type                          text                          NULL
+  uploaded_by                        uuid                          NULL
+  uploaded_at                        timestamp with time zone      NOT NULL  DEFAULT now()
+  verified                           boolean                       NULL  DEFAULT false
+  verified_by                        uuid                          NULL
+  verified_at                        timestamp with time zone      NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- roles (5 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(30)         NOT NULL
+  name                               character varying(120)        NOT NULL
+  is_system                          boolean                       NOT NULL  DEFAULT false
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- safety_document_master (15 cols) ---
+  id                                 integer                       NOT NULL  DEFAULT nextval('safety_document_master_id_seq'::regclass)
+  document_name                      character varying(255)        NOT NULL
+  category                           character varying(100)        NOT NULL
+  frequency                          character varying(30)         NOT NULL
+  applicable_to                      character varying(100)        NOT NULL  DEFAULT 'ALL'::character varying
+  is_mandatory                       boolean                       NULL  DEFAULT false
+  sort_order                         integer                       NULL  DEFAULT 0
+  is_active                          boolean                       NULL  DEFAULT true
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  code                               text                          NULL
+  is_hazardous_only                  boolean                       NULL  DEFAULT false
+  min_headcount                      integer                       NULL
+  max_headcount                      integer                       NULL
+  special_act_code                   text                          NULL
+  conditions_json                    jsonb                         NULL
+
+--- safety_documents (31 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  client_id                          uuid                          NOT NULL
+  document_type                      character varying(100)        NOT NULL
+  document_name                      character varying(255)        NOT NULL
+  file_name                          character varying(500)        NOT NULL
+  file_path                          character varying(1000)       NOT NULL
+  mime_type                          character varying(100)        NULL
+  file_size                          bigint                        NULL
+  valid_from                         date                          NULL
+  valid_to                           date                          NULL
+  status                             character varying(30)         NULL  DEFAULT 'ACTIVE'::character varying
+  remarks                            text                          NULL
+  uploaded_by                        uuid                          NOT NULL
+  is_deleted                         boolean                       NULL  DEFAULT false
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+  category                           character varying(100)        NULL
+  frequency                          character varying(30)         NULL
+  applicable_to                      character varying(100)        NULL  DEFAULT 'ALL'::character varying
+  period_month                       integer                       NULL
+  period_quarter                     integer                       NULL
+  period_year                        integer                       NULL
+  is_mandatory                       boolean                       NULL  DEFAULT false
+  verified_by_crm                    boolean                       NULL  DEFAULT false
+  crm_verified_at                    timestamp with time zone      NULL
+  crm_verified_by                    uuid                          NULL
+  verified_by_auditor                boolean                       NULL  DEFAULT false
+  auditor_verified_at                timestamp with time zone      NULL
+  auditor_verified_by                uuid                          NULL
+  master_document_id                 integer                       NULL
+
+--- sla_compliance_items (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               character varying(50)         NOT NULL
+  name                               character varying(200)        NOT NULL
+  module                             character varying(30)         NOT NULL
+  frequency                          character varying(20)         NOT NULL  DEFAULT 'MONTHLY'::character varying
+  default_priority                   character varying(15)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  default_sla_days                   integer                       NOT NULL  DEFAULT 5
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- sla_compliance_rules (17 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  compliance_item_id                 uuid                          NOT NULL
+  state_code                         character varying(10)         NULL
+  establishment_type                 character varying(60)         NULL
+  applicable                         boolean                       NOT NULL  DEFAULT true
+  due_day                            integer                       NULL
+  due_month_offset                   integer                       NOT NULL  DEFAULT 0
+  window_open_day                    integer                       NULL
+  window_close_day                   integer                       NULL
+  create_before_days                 integer                       NOT NULL  DEFAULT 5
+  priority                           character varying(15)         NULL
+  sla_days                           integer                       NULL
+  title_template                     text                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  due_month                          integer                       NULL
+
+--- sla_tasks (15 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  client_id                          uuid                          NOT NULL
+  branch_id                          uuid                          NULL
+  module                             character varying(30)         NOT NULL
+  entity_id                          uuid                          NULL
+  title                              text                          NOT NULL
+  priority                           character varying(15)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  due_date                           date                          NOT NULL
+  assigned_to_user_id                uuid                          NULL
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  closed_at                          timestamp without time zone   NULL
+  created_at                         timestamp without time zone   NOT NULL  DEFAULT now()
+  updated_at                         timestamp without time zone   NOT NULL  DEFAULT now()
+  deleted_at                         timestamp without time zone   NULL
+  source_key                         text                          NULL
+
+--- sql_migrations (4 cols) ---
+  filename                           text                          NOT NULL
+  checksum_sha256                    text                          NOT NULL
+  applied_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  execution_mode                     character varying(20)         NOT NULL  DEFAULT 'apply'::character varying
+
+--- system_tasks (19 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  task_type                          character varying(50)         NOT NULL
+  module                             character varying(30)         NOT NULL
+  reference_id                       uuid                          NULL
+  reference_type                     character varying(50)         NULL
+  client_id                          uuid                          NULL
+  branch_id                          uuid                          NULL
+  contractor_id                      uuid                          NULL
+  assigned_role                      character varying(30)         NOT NULL
+  assigned_user_id                   uuid                          NULL
+  title                              character varying(500)        NOT NULL
+  description                        text                          NULL
+  due_date                           date                          NULL
+  priority                           character varying(10)         NOT NULL  DEFAULT 'MEDIUM'::character varying
+  status                             character varying(20)         NOT NULL  DEFAULT 'OPEN'::character varying
+  created_by_system                  boolean                       NOT NULL  DEFAULT true
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  closed_at                          timestamp with time zone      NULL
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- task_approval_history (10 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  task_type                          character varying(40)         NOT NULL
+  task_id                            uuid                          NOT NULL
+  stage                              character varying(60)         NOT NULL
+  decision                           character varying(40)         NOT NULL
+  actor_user_id                      uuid                          NULL
+  actor_name                         character varying(120)        NULL
+  actor_role                         character varying(40)         NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+
+--- threshold_master (9 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               text                          NOT NULL
+  description                        text                          NULL
+  value_number                       numeric                       NULL
+  value_text                         text                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  state_code                         text                          NULL
+  effective_from                     date                          NOT NULL
+  effective_to                       date                          NULL
+
+--- unit_applicability_audit (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  actor_user_id                      uuid                          NULL
+  action                             text                          NOT NULL
+  before_json                        jsonb                         NULL
+  after_json                         jsonb                         NULL
+  remarks                            text                          NULL
+  created_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- unit_applicable_compliance (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  compliance_id                      uuid                          NOT NULL
+  is_applicable                      boolean                       NOT NULL  DEFAULT false
+  source                             text                          NOT NULL  DEFAULT 'AUTO'::text
+  override_reason                    text                          NULL
+  computed_by                        uuid                          NULL
+  computed_at                        timestamp with time zone      NULL  DEFAULT now()
+
+--- unit_compliance_master (8 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  code                               text                          NOT NULL
+  name                               text                          NOT NULL
+  category                           text                          NOT NULL  DEFAULT 'LABOUR_CODE'::text
+  state_code                         text                          NULL
+  frequency                          text                          NOT NULL  DEFAULT 'MONTHLY'::text
+  applies_to                         text                          NOT NULL  DEFAULT 'BOTH'::text
+  is_active                          boolean                       NOT NULL  DEFAULT true
+
+--- unit_facts (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  branch_id                          uuid                          NOT NULL
+  state_code                         text                          NOT NULL
+  establishment_type                 text                          NOT NULL  DEFAULT 'ESTABLISHMENT'::text
+  is_hazardous                       boolean                       NOT NULL  DEFAULT false
+  industry_category                  text                          NULL
+  employee_total                     integer                       NOT NULL  DEFAULT 0
+  employee_male                      integer                       NOT NULL  DEFAULT 0
+  employee_female                    integer                       NOT NULL  DEFAULT 0
+  contract_workers_total             integer                       NOT NULL  DEFAULT 0
+  contractors_count                  integer                       NOT NULL  DEFAULT 0
+  is_bocw_project                    boolean                       NOT NULL  DEFAULT false
+  has_canteen                        boolean                       NULL
+  has_creche                         boolean                       NULL
+  updated_by                         uuid                          NULL
+  updated_at                         timestamp with time zone      NULL  DEFAULT now()
+
+--- user_branches (2 cols) ---
+  user_id                            uuid                          NOT NULL
+  branch_id                          uuid                          NOT NULL
+
+--- users (16 cols) ---
+  id                                 uuid                          NOT NULL  DEFAULT gen_random_uuid()
+  user_code                          character varying(30)         NOT NULL
+  name                               character varying(120)        NOT NULL
+  email                              character varying(180)        NOT NULL
+  mobile                             character varying(20)         NULL
+  password_hash                      character varying(255)        NOT NULL
+  role_id                            uuid                          NOT NULL
+  client_id                          uuid                          NULL
+  owner_cco_id                       uuid                          NULL
+  is_active                          boolean                       NOT NULL  DEFAULT true
+  deleted_at                         timestamp with time zone      NULL
+  created_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  updated_at                         timestamp with time zone      NOT NULL  DEFAULT now()
+  user_type                          character varying(10)         NULL  DEFAULT NULL::character varying
+  employee_id                        uuid                          NULL
+  last_login_at                      timestamp with time zone      NULL

@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { PayrollRunEntity } from '../entities/payroll-run.entity';
 import { PayrollRunEmployeeEntity } from '../entities/payroll-run-employee.entity';
 import { PayrollRunComponentValueEntity } from '../entities/payroll-run-component-value.entity';
 import { PayrollClientSetupEntity } from '../entities/payroll-client-setup.entity';
+import { RegistersRecordEntity } from '../entities/registers-record.entity';
 
 /**
  * PF ECR (Electronic Challan cum Return) Generator
@@ -28,10 +31,13 @@ export class PfEcrGenerator {
     private readonly compValRepo: Repository<PayrollRunComponentValueEntity>,
     @InjectRepository(PayrollClientSetupEntity)
     private readonly setupRepo: Repository<PayrollClientSetupEntity>,
+    @InjectRepository(RegistersRecordEntity)
+    private readonly rrRepo: Repository<RegistersRecordEntity>,
   ) {}
 
   async generate(
     runId: string,
+    userId?: string,
   ): Promise<{ fileName: string; content: string }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Payroll run not found');
@@ -89,8 +95,42 @@ export class PfEcrGenerator {
 
     const period = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
     const fileName = `ECR_${period}_${run.clientId.substring(0, 8)}.txt`;
+    const content = lines.join('\n');
 
-    return { fileName, content: lines.join('\n') };
+    await this.saveLinkage(run, fileName, content, userId);
+
+    return { fileName, content };
+  }
+
+  private async saveLinkage(
+    run: PayrollRunEntity,
+    fileName: string,
+    content: string,
+    userId?: string,
+  ): Promise<void> {
+    const dir = path.join(process.cwd(), 'uploads', 'pf-ecr');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, `${Date.now()}_${fileName}`);
+    fs.writeFileSync(filePath, content, 'utf-8');
+    const stats = fs.statSync(filePath);
+    const period = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
+    const record = this.rrRepo.create({
+      clientId: run.clientId,
+      branchId: run.branchId ?? null,
+      category: 'RECORD',
+      title: `PF ECR - ${period}`,
+      periodYear: run.periodYear,
+      periodMonth: run.periodMonth,
+      preparedByUserId: userId || '00000000-0000-0000-0000-000000000000',
+      fileName,
+      filePath,
+      fileType: 'text/plain',
+      fileSize: String(stats.size),
+      registerType: 'ECR',
+      stateCode: null,
+      approvalStatus: 'PENDING',
+    });
+    await this.rrRepo.save(record);
   }
 
   private num(v: any): number {

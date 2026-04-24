@@ -11,7 +11,6 @@ import {
   Res,
   UseGuards,
   ParseUUIDPipe,
-  Req,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,8 +19,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DataSource } from 'typeorm';
 import type { Response } from 'express';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Admin')
 @ApiBearerAuth('JWT')
@@ -65,20 +66,9 @@ export class AdminReportsController {
 
       // If download parameter is true, export to Excel
       if (download === 'true' && res) {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'User Activity');
-
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename=user-activity.xlsx',
-        );
+        const buffer = await jsonToExcelBuffer(rows, 'User Activity');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=user-activity.xlsx');
         res.send(buffer);
         return;
       }
@@ -130,20 +120,9 @@ export class AdminReportsController {
       );
 
       if (download === 'true' && res) {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'User Registrations');
-
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename=user-registrations.xlsx',
-        );
+        const buffer = await jsonToExcelBuffer(rows, 'User Registrations');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=user-registrations.xlsx');
         res.send(buffer);
         return;
       }
@@ -193,20 +172,9 @@ export class AdminReportsController {
       );
 
       if (download === 'true' && res) {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'User Deletions');
-
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename=user-deletions.xlsx',
-        );
+        const buffer = await jsonToExcelBuffer(rows, 'User Deletions');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=user-deletions.xlsx');
         res.send(buffer);
         return;
       }
@@ -256,20 +224,9 @@ export class AdminReportsController {
       );
 
       if (download === 'true' && res) {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Access Logs');
-
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename=access-logs.xlsx',
-        );
+        const buffer = await jsonToExcelBuffer(rows, 'Access Logs');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=access-logs.xlsx');
         res.send(buffer);
         return;
       }
@@ -301,40 +258,58 @@ export class AdminReportsController {
       const endDate = to ? new Date(to) : new Date();
 
       const rows = await this.dataSource.query(
-        `SELECT 
-           ca.id,
+        `WITH assignment_rows AS (
+           SELECT
+             ca.id,
+             ca.client_id,
+             'CRM'::text as "assignmentType",
+             ca.crm_user_id as "assignedUserId",
+             ca.start_date as "assignedOn",
+             ca.end_date as "rotationDueOn",
+             ca.status,
+             ca.created_at as "createdAt",
+             ca.updated_at as "updatedAt"
+           FROM client_assignments ca
+           WHERE ca.crm_user_id IS NOT NULL
+
+           UNION ALL
+
+           SELECT
+             ca.id,
+             ca.client_id,
+             'AUDITOR'::text as "assignmentType",
+             ca.auditor_user_id as "assignedUserId",
+             ca.start_date as "assignedOn",
+             ca.end_date as "rotationDueOn",
+             ca.status,
+             ca.created_at as "createdAt",
+             ca.updated_at as "updatedAt"
+           FROM client_assignments ca
+           WHERE ca.auditor_user_id IS NOT NULL
+         )
+         SELECT
+           ar.id,
            c.client_name as "clientName",
-           ca.assignment_type as "assignmentType",
+           ar."assignmentType",
            u.name as "assignedUserName",
-           ca.status,
-           ca.assigned_on as "assignedOn",
-           ca.rotation_due_on as "rotationDueOn",
-           ca.created_at as "createdAt",
-           ca.updated_at as "updatedAt"
-         FROM client_assignments ca
-         INNER JOIN clients c ON ca.client_id = c.id
-         LEFT JOIN users u ON ca.assigned_user_id = u.id
-         WHERE ca.created_at BETWEEN $1 AND $2
-         ORDER BY ca.created_at DESC
+           ar.status,
+           ar."assignedOn",
+           ar."rotationDueOn",
+           ar."createdAt",
+           ar."updatedAt"
+         FROM assignment_rows ar
+         INNER JOIN clients c ON ar.client_id = c.id
+         LEFT JOIN users u ON ar."assignedUserId" = u.id
+         WHERE ar."createdAt" BETWEEN $1 AND $2
+         ORDER BY ar."createdAt" DESC
          LIMIT 1000`,
         [startDate, endDate],
       );
 
       if (download === 'true' && res) {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Assignments');
-
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename=assignments.xlsx',
-        );
+        const buffer = await jsonToExcelBuffer(rows, 'Assignments');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=assignments.xlsx');
         res.send(buffer);
         return;
       }
@@ -372,7 +347,7 @@ export class AdminReportsController {
   ) {
     try {
       const conditions: string[] = [];
-      const params: any[] = [];
+      const params: unknown[] = [];
       let paramIdx = 1;
 
       if (status) {
@@ -434,18 +409,9 @@ export class AdminReportsController {
       );
 
       if (download === 'true' && res) {
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Audit Reports');
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-        res.setHeader(
-          'Content-Type',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        );
-        res.setHeader(
-          'Content-Disposition',
-          'attachment; filename=audit-reports.xlsx',
-        );
+        const buffer = await jsonToExcelBuffer(rows, 'Audit Reports');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=audit-reports.xlsx');
         res.send(buffer);
         return;
       }
@@ -552,7 +518,7 @@ export class AdminReportsController {
       findings?: string;
       recommendations?: string;
     },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     if (!body.auditId) throw new BadRequestException('auditId is required');
 
@@ -575,7 +541,7 @@ export class AdminReportsController {
         body.executiveSummary || null,
         body.findings || null,
         body.recommendations || null,
-        req.user?.userId || req.user?.id || null,
+        user?.userId || user?.id || null,
       ],
     );
 
@@ -612,7 +578,7 @@ export class AdminReportsController {
     }
 
     const sets: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     let idx = 1;
 
     if (body.reportType !== undefined) {
@@ -679,7 +645,7 @@ export class AdminReportsController {
   @Patch('audit-reports/:id/approve')
   async approveAuditReport(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     const existing = await this.dataSource.query(
       'SELECT id, status FROM audit_reports WHERE id = $1',
@@ -696,7 +662,7 @@ export class AdminReportsController {
            approved_date = CURRENT_DATE,
            updated_at = NOW()
        WHERE id = $2`,
-      [req.user?.userId || req.user?.id || null, id],
+      [user?.userId || user?.id || null, id],
     );
     return { ok: true, message: 'Report approved' };
   }
@@ -733,9 +699,9 @@ export class AdminReportsController {
     from?: string,
     to?: string,
     startParamIndex = 1,
-  ): { clause: string; params: any[] } {
+  ): { clause: string; params: unknown[] } {
     const filters: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     let idx = startParamIndex;
 
     if (from) {

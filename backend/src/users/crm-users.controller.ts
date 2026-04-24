@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -21,7 +21,7 @@ export class CrmUsersController {
 
   @ApiOperation({ summary: 'List contractors for CRM' })
   @Get('contractors')
-  listContractors() {
-    return this.usersService.listActiveUsersByRoleCode('CONTRACTOR');
+  listContractors(@Query('clientId') clientId?: string) {
+    return this.usersService.listActiveUsersByRoleCode('CONTRACTOR', clientId);
   }
 }

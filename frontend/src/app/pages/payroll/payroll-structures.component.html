@@ -4,20 +4,22 @@
       <h1>Payroll Structures Builder</h1>
       <p>Create and version salary structures, map component formulas, and preview calculations before activation.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
-          <option value="">Select client</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-      <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateStructure()">
-        + New Structure
-      </button>
-    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </header>
+
+  <div class="head-controls">
+    <button type="button" class="btn btn-primary" [disabled]="!selectedClientId" (click)="openCreateStructure()">
+      + New Structure
+    </button>
+    <button
+      type="button"
+      class="btn btn-secondary"
+      [disabled]="!selectedClientId || saving || inactiveStructureCount === 0"
+      (click)="cleanupInactiveStructures()"
+    >
+      Remove Inactive ({{ inactiveStructureCount }})
+    </button>
+  </div>
 
   <section class="summary-grid" *ngIf="selectedClientId">
     <article class="summary-card">
@@ -58,7 +60,7 @@
       <div class="filter-row">
         <label class="search-box">
           Search
-          <input
+          <input autocomplete="off" id="ps-structure-search" name="structureSearch"
             type="search"
             [(ngModel)]="structureSearch"
             placeholder="Name / scope"
@@ -67,7 +69,7 @@
 
         <label>
           Status
-          <select [(ngModel)]="structureStatusFilter">
+          <select id="ps-structure-status-filter" name="structureStatusFilter" [(ngModel)]="structureStatusFilter">
             <option value="ALL">All</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
@@ -76,7 +78,7 @@
 
         <label>
           Scope
-          <select [(ngModel)]="structureScopeFilter">
+          <select id="ps-structure-scope-filter" name="structureScopeFilter" [(ngModel)]="structureScopeFilter">
             <option value="ALL">All</option>
             <option *ngFor="let scope of scopeOptions" [value]="scope">{{ scope }}</option>
           </select>
@@ -103,7 +105,7 @@
             >
               <td>
                 <div class="strong">{{ row.name }}</div>
-                <div class="minor">{{ row.id }}</div>
+                <div class="minor">{{ row.scopeType }}</div>
               </td>
               <td>{{ row.scopeType }}</td>
               <td class="mono">{{ scopeContextText(row) }}</td>
@@ -124,7 +126,14 @@
                   Activate
                 </button>
                 <button type="button" class="link" (click)="openEditStructure(row); $event.stopPropagation()">Edit</button>
-                <button type="button" class="link link-danger" (click)="deleteStructure(row); $event.stopPropagation()">Delete</button>
+                <button
+                  type="button"
+                  class="link link-danger"
+                  *ngIf="canDeleteStructure(row)"
+                  (click)="deleteStructure(row); $event.stopPropagation()"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           </tbody>
@@ -242,7 +251,7 @@
         <div class="compare-controls" *ngIf="compareCandidates.length; else noCompareCandidates">
           <label>
             Compare With
-            <select [(ngModel)]="compareVersionId" (ngModelChange)="loadCompareVersion($event)">
+            <select id="ps-compare-version-id" name="compareVersionId" [(ngModel)]="compareVersionId" (ngModelChange)="loadCompareVersion($event)">
               <option value="">Select version</option>
               <option *ngFor="let version of compareCandidates" [value]="version.id">
                 {{ formatDate(version.effectiveFrom) }} to {{ formatDate(version.effectiveTo) }}
@@ -251,7 +260,7 @@
           </label>
           <label>
             Row Filter
-            <select [(ngModel)]="compareStateFilter">
+            <select id="ps-compare-state-filter" name="compareStateFilter" [(ngModel)]="compareStateFilter">
               <option value="ALL">All</option>
               <option value="CHANGED">Changed</option>
               <option value="ADDED">Added</option>
@@ -291,7 +300,6 @@
               <tr *ngFor="let row of filteredComparisonRows">
                 <td>
                   <div class="strong">{{ row.componentName }}</div>
-                  <div class="minor">{{ row.componentId }}</div>
                 </td>
                 <td class="mono">{{ row.selectedItem ? itemValueText(row.selectedItem) : '-' }}</td>
                 <td class="mono">{{ row.comparedItem ? itemValueText(row.comparedItem) : '-' }}</td>
@@ -339,7 +347,7 @@
           <tr *ngFor="let item of items; trackBy: trackItem">
             <td>
               <div class="strong">{{ getComponentName(item.componentId) }}</div>
-              <div class="minor">{{ getComponentCode(item.componentId) || item.componentId }}</div>
+              <div class="minor">{{ getComponentCode(item.componentId) || '-' }}</div>
             </td>
             <td><span [class]="itemMethodClass(item.calcMethod)">{{ item.calcMethod }}</span></td>
             <td class="mono">{{ itemValueText(item) }}</td>
@@ -369,19 +377,25 @@
     <div class="preview-form">
       <label>
         Gross Amount
-        <input type="number" [(ngModel)]="previewForm.grossAmount" min="1" />
+        <input autocomplete="off" id="ps-gross-amount" type="number" name="grossAmount" [(ngModel)]="previewForm.grossAmount" min="1" />
       </label>
       <label>
         As-of Date
-        <input type="date" [(ngModel)]="previewForm.asOfDate" />
+        <input autocomplete="off" id="ps-as-of-date" type="date" name="asOfDate" [(ngModel)]="previewForm.asOfDate" />
       </label>
       <label>
         Branch (optional)
-        <input type="text" [(ngModel)]="previewForm.branchId" placeholder="Branch ID" />
+        <select id="ps-branch-id" name="previewBranchId" [(ngModel)]="previewForm.branchId">
+          <option value="">— None —</option>
+          <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.branchName }}</option>
+        </select>
       </label>
       <label>
         Employee (optional)
-        <input type="text" [(ngModel)]="previewForm.employeeId" placeholder="Employee ID" />
+        <select id="ps-employee-id" name="previewEmployeeId" [(ngModel)]="previewForm.employeeId">
+          <option value="">— None —</option>
+          <option *ngFor="let e of employeeOptions" [value]="e.id">{{ e.label }}</option>
+        </select>
       </label>
       <button type="button" class="btn btn-primary" [disabled]="previewLoading" (click)="runPreview()">
         {{ previewLoading ? 'Running...' : 'Run Preview' }}
@@ -397,15 +411,39 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of previewRows">
+          <!-- Earnings -->
+          <tr class="section-header"><td colspan="2" class="font-semibold text-green-700 bg-green-50 py-1 px-2">Earnings</td></tr>
+          <tr *ngFor="let row of previewEarnings">
+            <td class="mono">{{ row.component }}</td>
+            <td class="text-right">{{ formatAmount(row.amount) }}</td>
+          </tr>
+          <tr class="subtotal-row">
+            <td class="font-semibold">Total Earnings (Gross)</td>
+            <td class="text-right font-semibold">{{ formatAmount(previewTotalEarnings) }}</td>
+          </tr>
+
+          <!-- Deductions -->
+          <tr class="section-header"><td colspan="2" class="font-semibold text-red-700 bg-red-50 py-1 px-2">Deductions</td></tr>
+          <tr *ngFor="let row of previewDeductions">
+            <td class="mono">{{ row.component }}</td>
+            <td class="text-right">{{ formatAmount(row.amount) }}</td>
+          </tr>
+          <tr class="subtotal-row">
+            <td class="font-semibold">Total Deductions</td>
+            <td class="text-right font-semibold">{{ formatAmount(previewTotalDeductions) }}</td>
+          </tr>
+
+          <!-- Employer contributions -->
+          <tr *ngIf="previewEmployer.length" class="section-header"><td colspan="2" class="font-semibold text-blue-700 bg-blue-50 py-1 px-2">Employer Contributions</td></tr>
+          <tr *ngFor="let row of previewEmployer">
             <td class="mono">{{ row.component }}</td>
             <td class="text-right">{{ formatAmount(row.amount) }}</td>
           </tr>
         </tbody>
         <tfoot>
-          <tr>
-            <th>Total</th>
-            <th class="text-right">{{ formatAmount(previewTotal) }}</th>
+          <tr class="net-pay-row">
+            <th>Net Pay</th>
+            <th class="text-right">{{ formatAmount(previewNetPay) }}</th>
           </tr>
         </tfoot>
       </table>
@@ -426,49 +464,61 @@
     <div class="modal-grid">
       <label>
         Structure Name
-        <input type="text" [(ngModel)]="structureForm.name" placeholder="e.g. Standard Monthly Structure" />
+        <input autocomplete="off" id="ps-name" type="text" name="structureName" [(ngModel)]="structureForm.name" placeholder="e.g. Standard Monthly Structure" />
       </label>
 
       <label>
         Scope
-        <select [(ngModel)]="structureForm.scopeType" (ngModelChange)="onScopeTypeChange()">
+        <select id="ps-scope-type" name="scopeType" [(ngModel)]="structureForm.scopeType" (ngModelChange)="onScopeTypeChange()">
           <option *ngFor="let scope of scopeOptions" [value]="scope">{{ scope }}</option>
         </select>
       </label>
 
       <label *ngIf="structureForm.scopeType === 'BRANCH'">
-        Branch ID
-        <input type="text" [(ngModel)]="structureForm.branchId" placeholder="Branch UUID" />
+        Branch
+        <select id="ps-branch-id-2" name="structureBranchId" [(ngModel)]="structureForm.branchId">
+          <option value="">Select branch…</option>
+          <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.branchName }}</option>
+        </select>
       </label>
 
       <label *ngIf="structureForm.scopeType === 'DEPARTMENT'">
-        Department ID
-        <input type="text" [(ngModel)]="structureForm.departmentId" placeholder="Department UUID" />
+        Department
+        <select id="ps-department-id" name="departmentId" [(ngModel)]="structureForm.departmentId">
+          <option value="">Select department…</option>
+          <option *ngFor="let d of departmentOptions" [value]="d.id">{{ d.code ? d.code + ' – ' : '' }}{{ d.name }}</option>
+        </select>
       </label>
 
       <label *ngIf="structureForm.scopeType === 'GRADE'">
-        Grade ID
-        <input type="text" [(ngModel)]="structureForm.gradeId" placeholder="Grade UUID" />
+        Grade
+        <select id="ps-grade-id" name="gradeId" [(ngModel)]="structureForm.gradeId">
+          <option value="">Select grade…</option>
+          <option *ngFor="let g of gradeOptions" [value]="g.id">{{ g.code ? g.code + ' – ' : '' }}{{ g.name }}</option>
+        </select>
       </label>
 
       <label *ngIf="structureForm.scopeType === 'EMPLOYEE'">
-        Employee ID
-        <input type="text" [(ngModel)]="structureForm.employeeId" placeholder="Employee UUID" />
+        Employee
+        <select id="ps-employee-id-2" name="structureEmployeeId" [(ngModel)]="structureForm.employeeId">
+          <option value="">Select employee…</option>
+          <option *ngFor="let e of employeeOptions" [value]="e.id">{{ e.label }}</option>
+        </select>
       </label>
 
       <label>
         Effective From
-        <input type="date" [(ngModel)]="structureForm.effectiveFrom" />
+        <input autocomplete="off" id="ps-effective-from" type="date" name="structureEffectiveFrom" [(ngModel)]="structureForm.effectiveFrom" />
       </label>
 
       <label>
         Effective To
-        <input type="date" [(ngModel)]="structureForm.effectiveTo" />
+        <input autocomplete="off" id="ps-effective-to" type="date" name="structureEffectiveTo" [(ngModel)]="structureForm.effectiveTo" />
       </label>
 
       <label class="span-2">
         Linked Rule Set
-        <select [(ngModel)]="structureForm.ruleSetId">
+        <select id="ps-rule-set-id" name="ruleSetId" [(ngModel)]="structureForm.ruleSetId">
           <option value="">Select rule set</option>
           <option *ngFor="let rs of ruleSetOptions" [value]="rs.value">{{ rs.label }}</option>
         </select>
@@ -495,7 +545,7 @@
     <div class="modal-grid">
       <label>
         Component
-        <select [(ngModel)]="itemForm.componentId">
+        <select id="ps-component-id" name="componentId" [(ngModel)]="itemForm.componentId">
           <option value="">Select component</option>
           <option *ngFor="let comp of componentOptions" [value]="comp.value">{{ comp.label }}</option>
         </select>
@@ -503,25 +553,25 @@
 
       <label>
         Calculation Method
-        <select [(ngModel)]="itemForm.calcMethod" (ngModelChange)="onCalcMethodChange()">
+        <select id="ps-calc-method" name="calcMethod" [(ngModel)]="itemForm.calcMethod" (ngModelChange)="onCalcMethodChange()">
           <option *ngFor="let method of calcMethodOptions" [value]="method">{{ method }}</option>
         </select>
       </label>
 
       <label *ngIf="itemForm.calcMethod === 'FIXED'">
         Fixed Amount
-        <input type="number" [(ngModel)]="itemForm.fixedAmount" />
+        <input autocomplete="off" id="ps-fixed-amount" type="number" name="fixedAmount" [(ngModel)]="itemForm.fixedAmount" />
       </label>
 
       <ng-container *ngIf="itemForm.calcMethod === 'PERCENT'">
         <label>
           Percentage
-          <input type="number" [(ngModel)]="itemForm.percentage" />
+          <input autocomplete="off" id="ps-percentage" type="number" name="percentage" [(ngModel)]="itemForm.percentage" />
         </label>
 
         <label>
           Base
-          <select [(ngModel)]="itemForm.percentageBase">
+          <select id="ps-percentage-base" name="percentageBase" [(ngModel)]="itemForm.percentageBase">
             <option *ngFor="let base of percentageBaseOptions" [value]="base">{{ base }}</option>
           </select>
         </label>
@@ -529,7 +579,7 @@
 
       <label class="span-2" *ngIf="itemForm.calcMethod === 'FORMULA'">
         Formula
-        <textarea rows="3" [(ngModel)]="itemForm.formula" placeholder="e.g. BASIC * 0.4 + HRA"></textarea>
+        <textarea autocomplete="off" id="ps-formula" rows="3" name="formula" [(ngModel)]="itemForm.formula" placeholder="e.g. BASIC * 0.4 + HRA"></textarea>
       </label>
 
       <div class="span-2 token-block" *ngIf="itemForm.calcMethod === 'FORMULA'">
@@ -550,28 +600,28 @@
 
       <label>
         Min Amount
-        <input type="number" [(ngModel)]="itemForm.minAmount" />
+        <input autocomplete="off" id="ps-min-amount" type="number" name="minAmount" [(ngModel)]="itemForm.minAmount" />
       </label>
 
       <label>
         Max Amount
-        <input type="number" [(ngModel)]="itemForm.maxAmount" />
+        <input autocomplete="off" id="ps-max-amount" type="number" name="maxAmount" [(ngModel)]="itemForm.maxAmount" />
       </label>
 
       <label>
         Rounding
-        <select [(ngModel)]="itemForm.roundingMode">
+        <select id="ps-rounding-mode" name="roundingMode" [(ngModel)]="itemForm.roundingMode">
           <option *ngFor="let mode of roundingOptions" [value]="mode">{{ mode }}</option>
         </select>
       </label>
 
       <label>
         Priority
-        <input type="number" [(ngModel)]="itemForm.priority" min="1" />
+        <input autocomplete="off" id="ps-priority" type="number" name="itemPriority" [(ngModel)]="itemForm.priority" min="1" />
       </label>
 
       <label class="inline-checkbox span-2">
-        <input type="checkbox" [(ngModel)]="itemForm.enabled" />
+        <input autocomplete="off" id="ps-enabled" type="checkbox" name="itemEnabled" [(ngModel)]="itemForm.enabled" />
         Enabled
       </label>
     </div>

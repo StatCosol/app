@@ -69,8 +69,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
           <div class="modal-body space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="field-label">Nomination Type *</label>
-                <select [(ngModel)]="form.nominationType" class="field-input">
+                <label class="field-label" for="nom-type">Nomination Type *</label>
+                <select id="nom-type" name="nominationType" [(ngModel)]="form.nominationType" class="field-input">
                   <option value="">Select type</option>
                   <option value="PF">PF</option>
                   <option value="ESI">ESI</option>
@@ -80,30 +80,33 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </select>
               </div>
               <div>
-                <label class="field-label">Declaration Date</label>
-                <input type="date" [(ngModel)]="form.declarationDate" class="field-input" />
+                <label class="field-label" for="nom-declaration-date">Declaration Date</label>
+                <input autocomplete="off" id="nom-declaration-date" name="declarationDate" type="date" [(ngModel)]="form.declarationDate" class="field-input" />
               </div>
               <div>
-                <label class="field-label">Witness Name</label>
-                <input type="text" [(ngModel)]="form.witnessName" class="field-input" />
+                <label class="field-label" for="nom-witness-name">Witness Name</label>
+                <input autocomplete="off" id="nom-witness-name" name="witnessName" type="text" [(ngModel)]="form.witnessName" class="field-input" />
               </div>
               <div>
-                <label class="field-label">Witness Address</label>
-                <input type="text" [(ngModel)]="form.witnessAddress" class="field-input" />
+                <label class="field-label" for="nom-witness-address">Witness Address</label>
+                <input autocomplete="off" id="nom-witness-address" name="witnessAddress" type="text" [(ngModel)]="form.witnessAddress" class="field-input" />
               </div>
             </div>
 
             <div>
               <div class="flex justify-between items-center mb-2">
-                <label class="field-label">Nominee Members</label>
+                <span class="field-label">Nominee Members</span>
                 <button class="text-xs text-blue-600 hover:underline" (click)="addMember()">+ Add Member</button>
               </div>
               <div *ngFor="let m of form.members; let i = index" class="member-form-row">
-                <input type="text" [(ngModel)]="m.memberName" placeholder="Name *" class="field-input" />
-                <input type="text" [(ngModel)]="m.relationship" placeholder="Relationship" class="field-input" />
-                <input type="number" [(ngModel)]="m.sharePct" placeholder="Share %" class="field-input" />
-                <label class="flex items-center gap-1 text-xs">
-                  <input type="checkbox" [(ngModel)]="m.isMinor" /> Minor
+                <label class="sr-only" [attr.for]="'member-name-' + i">Member Name</label>
+                <input autocomplete="off" [id]="'member-name-' + i" [name]="'memberName-' + i" type="text" [(ngModel)]="m.memberName" placeholder="Name *" class="field-input" />
+                <label class="sr-only" [attr.for]="'member-relationship-' + i">Relationship</label>
+                <input autocomplete="off" [id]="'member-relationship-' + i" [name]="'relationship-' + i" type="text" [(ngModel)]="m.relationship" placeholder="Relationship" class="field-input" />
+                <label class="sr-only" [attr.for]="'member-share-' + i">Share %</label>
+                <input autocomplete="off" [id]="'member-share-' + i" [name]="'sharePct-' + i" type="number" [(ngModel)]="m.sharePct" placeholder="Share %" class="field-input" />
+                <label class="flex items-center gap-1 text-xs" [attr.for]="'member-minor-' + i">
+                  <input autocomplete="off" [id]="'member-minor-' + i" [name]="'isMinor-' + i" type="checkbox" [(ngModel)]="m.isMinor" /> Minor
                 </label>
                 <button *ngIf="form.members.length > 1" (click)="form.members.splice(i, 1)"
                         class="text-xs text-red-600 hover:underline">Remove</button>

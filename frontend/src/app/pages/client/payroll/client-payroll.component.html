@@ -10,34 +10,34 @@
     <div class="filter-grid">
       <label>
         <span>Year</span>
-        <select [(ngModel)]="filters.periodYear" (ngModelChange)="onFiltersChanged()">
+        <select id="cp-period-year" name="periodYear" [(ngModel)]="filters.periodYear" (ngModelChange)="onFiltersChanged()">
           <option *ngFor="let y of yearOptions" [ngValue]="y.value">{{ y.label }}</option>
         </select>
       </label>
       <label>
         <span>Month</span>
-        <select [(ngModel)]="filters.periodMonth" (ngModelChange)="onFiltersChanged()">
+        <select id="cp-period-month" name="periodMonth" [(ngModel)]="filters.periodMonth" (ngModelChange)="onFiltersChanged()">
           <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
         </select>
       </label>
       <label>
         <span>Status</span>
-        <select [(ngModel)]="filters.status" (ngModelChange)="onFiltersChanged()">
+        <select id="cp-status" name="statusFilter" [(ngModel)]="filters.status" (ngModelChange)="onFiltersChanged()">
           <option *ngFor="let s of statusOptions" [ngValue]="s.value">{{ s.label }}</option>
         </select>
       </label>
       <label>
         <span>Branch</span>
-        <input
-          type="text"
-          [(ngModel)]="filters.branchId"
-          (ngModelChange)="onFiltersChanged()"
-          placeholder="Filter by branch id" />
+        <select id="cp-branch-id" name="filterBranchId" [(ngModel)]="filters.branchId" (ngModelChange)="onFiltersChanged()">
+          <option value="">All Branches</option>
+          <option *ngFor="let b of branchOptions" [ngValue]="b.value">{{ b.label }}</option>
+        </select>
       </label>
       <label class="wide">
         <span>Search</span>
-        <input
+        <input autocomplete="off" id="cp-search"
           type="text"
+          name="filterSearch"
           [(ngModel)]="filters.search"
           (ngModelChange)="onFiltersChanged()"
           placeholder="Title, branch, input id" />
@@ -50,11 +50,11 @@
 
   <div class="summary-grid mb-6">
     <article class="summary-card">
-      <h4>Total Inputs</h4>
+      <h4>Total Records</h4>
       <div>{{ summary.total }}</div>
     </article>
     <article class="summary-card">
-      <h4>Pending Inputs</h4>
+      <h4>Pending</h4>
       <div>{{ summary.pending }}</div>
     </article>
     <article class="summary-card">
@@ -84,7 +84,7 @@
           <h3>Branch Payroll Status</h3>
           <span class="muted">Branch comparison view</span>
         </div>
-        <div class="table-wrap" *ngIf="branchStatusRows.length; else noBranchRows">
+        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="branchStatusRows.length; else noBranchRows">
           <table>
             <thead>
               <tr>
@@ -100,7 +100,7 @@
             </thead>
             <tbody>
               <tr *ngFor="let row of branchStatusRows; trackBy: trackById">
-                <td>{{ row.branchId }}</td>
+                <td>{{ row.branchName || 'Branch' }}</td>
                 <td>{{ row.totalInputs }}</td>
                 <td>{{ row.pendingInputs }}</td>
                 <td>{{ row.approvalQueue }}</td>
@@ -129,26 +129,26 @@
           <h3>Processed Month History</h3>
           <span class="muted">Last 12 cycles</span>
         </div>
-        <div class="table-wrap compact" *ngIf="cycleHistoryRows.length; else noCycleRows">
-          <table>
+        <div class="table-wrap max-h-[600px] overflow-y-auto compact" *ngIf="cycleHistoryRows.length; else noCycleRows">
+            <table class="history-table min-w-full">
             <thead>
               <tr>
-                <th>Period</th>
-                <th>Total</th>
-                <th>Pending</th>
-                <th>Approvals</th>
-                <th>Exceptions</th>
-                <th>Completed</th>
+                <th class="period">Period</th>
+                  <th class="metric">Total</th>
+                  <th class="metric">Pending</th>
+                  <th class="metric">Approvals</th>
+                  <th class="metric">Exceptions</th>
+                  <th class="metric">Completed</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let row of cycleHistoryRows; trackBy: trackById">
-                <td>{{ row.periodLabel }}</td>
-                <td>{{ row.total }}</td>
-                <td>{{ row.pending }}</td>
-                <td>{{ row.approvals }}</td>
-                <td>{{ row.exceptions }}</td>
-                <td>{{ row.completed }}</td>
+                <td class="period">{{ row.periodLabel }}</td>
+                  <td class="metric">{{ row.total }}</td>
+                  <td class="metric">{{ row.pending }}</td>
+                  <td class="metric">{{ row.approvals }}</td>
+                  <td class="metric">{{ row.exceptions }}</td>
+                  <td class="metric">{{ row.completed }}</td>
               </tr>
             </tbody>
           </table>
@@ -162,7 +162,7 @@
           <h3>Pending Inputs</h3>
           <span class="muted">Requires client action</span>
         </div>
-        <div class="table-wrap" *ngIf="pendingInputs.length; else noPendingRows">
+        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="pendingInputs.length; else noPendingRows">
           <table>
             <thead>
               <tr>
@@ -195,7 +195,7 @@
           <h3>Approval Queue</h3>
           <span class="muted">Awaiting payroll processing</span>
         </div>
-        <div class="table-wrap" *ngIf="approvalQueue.length; else noApprovalRows">
+        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="approvalQueue.length; else noApprovalRows">
           <table>
             <thead>
               <tr>
@@ -229,7 +229,7 @@
         <h3>Exception List</h3>
         <span class="muted">Needs clarification or rejected</span>
       </div>
-      <div class="table-wrap" *ngIf="exceptionList.length; else noExceptions">
+      <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="exceptionList.length; else noExceptions">
         <table>
           <thead>
             <tr>
@@ -266,31 +266,34 @@
         <div class="form-grid">
           <label class="wide">
             <span>Title</span>
-            <input type="text" [(ngModel)]="newInput.title" placeholder="March payroll input" />
+            <input autocomplete="off" id="cp-title" type="text" name="newInputTitle" [(ngModel)]="newInput.title" placeholder="March payroll input" />
           </label>
           <label>
             <span>Year</span>
-            <input type="number" [(ngModel)]="newInput.periodYear" />
+            <input autocomplete="off" id="cp-period-year-2" type="number" name="newInputYear" [(ngModel)]="newInput.periodYear" />
           </label>
           <label>
             <span>Month</span>
-            <select [(ngModel)]="newInput.periodMonth">
+            <select id="cp-period-month-2" name="newInputMonth" [(ngModel)]="newInput.periodMonth">
               <option *ngFor="let m of monthOptions" [ngValue]="m.value" [disabled]="m.value === 0">
                 {{ m.label }}
               </option>
             </select>
           </label>
           <label>
-            <span>Branch ID</span>
-            <input type="text" [(ngModel)]="newInput.branchId" placeholder="Optional" />
+            <span>Branch</span>
+            <select id="cp-branch-id-2" name="newInputBranchId" [(ngModel)]="newInput.branchId">
+              <option value="">-- No branch --</option>
+              <option *ngFor="let b of branchOptions" [ngValue]="b.value">{{ b.label }}</option>
+            </select>
           </label>
           <label class="wide">
             <span>Notes</span>
-            <textarea rows="3" [(ngModel)]="newInput.notes" placeholder="Notes for payroll team"></textarea>
+            <textarea autocomplete="off" id="cp-notes" rows="3" name="newInputNotes" [(ngModel)]="newInput.notes" placeholder="Notes for payroll team"></textarea>
           </label>
           <label class="wide">
             <span>Initial Attachment</span>
-            <input type="file" (change)="onCreateFileSelected($event)" />
+            <input type="file" name="createFile" (change)="onCreateFileSelected($event)" />
           </label>
         </div>
         <div class="inline-actions">
@@ -341,17 +344,17 @@
 
         <label class="mb-4 block">
           <span class="label">Remarks for status update</span>
-          <textarea rows="2" [(ngModel)]="detailRemarks" placeholder="Optional remarks"></textarea>
+          <textarea autocomplete="off" id="cp-detail-remarks" rows="2" name="detailRemarks" [(ngModel)]="detailRemarks" placeholder="Optional remarks"></textarea>
         </label>
 
         <div class="uploader mb-4">
           <label>
             <span>Doc Type</span>
-            <input type="text" [(ngModel)]="detailDocType" />
+            <input autocomplete="off" id="cp-detail-doc-type" type="text" name="detailDocType" [(ngModel)]="detailDocType" />
           </label>
           <label class="wide">
             <span>Attachment</span>
-            <input type="file" (change)="onDetailFileSelected($event)" />
+            <input type="file" name="detailFile" (change)="onDetailFileSelected($event)" />
           </label>
           <div class="actions">
             <ui-button

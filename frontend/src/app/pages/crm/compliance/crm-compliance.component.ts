@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { catchError, finalize, of, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 import { CrmContractorDocumentsApi } from '../../../core/api/crm-contractor-documents.api';
 import { ComplianceApiService } from '../../../shared/services/compliance-api.service';
-import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ClientContextStripComponent } from '../../../shared/ui';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { McdRowDto } from '../../../shared/models/compliance.models';
@@ -17,7 +17,7 @@ type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
 @Component({
   selector: 'app-crm-compliance',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent],
+  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ClientContextStripComponent],
   templateUrl: './crm-compliance.component.html',
   styleUrls: ['./crm-compliance.component.scss'],
 })
@@ -30,6 +30,8 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   clients: any[] = [];
   branches: any[] = [];
   yearOptions: number[] = [];
+  /** Non-empty when navigated from a client workspace (/crm/clients/:clientId/…) */
+  routeClientId = '';
   monthOptions = [
     { value: 1, label: 'January' }, { value: 2, label: 'February' },
     { value: 3, label: 'March' }, { value: 4, label: 'April' },
@@ -42,13 +44,22 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   /* ═══════ Tab 1: Documents (Work Queue) ═══════ */
   docKpis: any = { uploaded: 0, pending_review: 0, approved: 0, reupload_required: 0, expired: 0 };
   docs: any[] = [];
+  complianceDocs: any[] = [];
   docLoading = false;
+  complianceDocsLoading = false;
   docErrorMsg: string | null = null;
   docFilters: any = {
     clientId: '', branchId: '', status: '', contractorId: '', expiringInDays: '',
   };
   reviewingDocId: string | null = null;
+  reviewingCompDocId: string | null = null;
   reuploadBacklog: any = null;
+  /* Compliance upload on behalf */
+  showComplianceUpload = false;
+  complianceUploading = false;
+  complianceUploadFile: File | null = null;
+  complianceReturnMaster: any[] = [];
+  compUploadForm: any = { branchId: '', returnCode: '', frequency: 'MONTHLY', periodYear: new Date().getFullYear(), periodMonth: new Date().getMonth() + 1, remarks: '' };
 
   /* ═══════ Tab 2: MCD Tracker ═══════ */
   mcdRows: McdRowDto[] = [];
@@ -57,6 +68,13 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
   mcdMonth = new Date().getMonth() + 1;
   mcdClientId = '';
   finalizingBranchId: string | null = null;
+  expandedMcdBranchId: string | null = null;
+  mcdItems: any[] = [];
+  mcdItemsLoading = false;
+  mcdUploadingItemId: number | null = null;
+  approvingItemId: number | null = null;
+  rejectingItemId: number | null = null;
+  rejectRemarks = '';
 
   /** Computed YYYY-MM key from mcdYear + mcdMonth */
   get mcdMonthKey(): string {
@@ -218,7 +236,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     this.exportingPack = true;
     const query = {
       clientId: this.mcdClientId || undefined,
-      monthKey: this.mcdMonthKey,
+      month: this.mcdMonthKey,
       type: 'MCD',
     };
     this.complianceApi.exportPack(query)
@@ -240,6 +258,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     private crmClientsApi: CrmClientsApi,
     private crmDocsApi: CrmContractorDocumentsApi,
     private route: ActivatedRoute,
+    private router: Router,
     private dialog: ConfirmDialogService,
     private toast: ToastService,
   ) {
@@ -249,6 +268,22 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadClients();
+    // Auto-populate clientId from route if navigated from client workspace
+    // clientId lives in a parent route segment: /crm/clients/:clientId/compliance-tracker
+    let routeClientId = '';
+    let snap: any = this.route.snapshot;
+    while (snap && !routeClientId) {
+      routeClientId = snap.paramMap.get('clientId') || '';
+      snap = snap.parent;
+    }
+    if (routeClientId) {
+      this.routeClientId = routeClientId;
+      this.docFilters.clientId = routeClientId;
+      this.mcdClientId = routeClientId;
+      this.auditClosuresClientId = routeClientId;
+      // Pre-load branches for the selected client workspace
+      this.onClientChange('doc');
+    }
     // Support deep-link ?tab=DOCS&status=REJECTED etc.
     const qp = this.route.snapshot.queryParams;
     if (qp['tab'] && ['DOCS', 'MCD', 'EXPIRY', 'AUDIT_CLOSURES', 'TASKS'].includes(qp['tab'])) {
@@ -256,6 +291,10 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     }
     if (qp['status']) this.docFilters.status = qp['status'];
     this.onTabSwitch(this.activeTab);
+  }
+
+  goBack(): void {
+    this.router.navigate(['/crm/dashboard']);
   }
 
   /* ─── Tab switching ─── */
@@ -266,7 +305,7 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
 
   private onTabSwitch(tab: TrackerTab): void {
     switch (tab) {
-      case 'DOCS':   this.loadDocKpis(); this.loadDocs(); this.loadReuploadBacklog(); break;
+      case 'DOCS':   this.loadDocKpis(); this.loadDocs(); this.loadComplianceDocs(); this.loadReuploadBacklog(); break;
       case 'MCD':    this.loadMcd(); break;
       case 'EXPIRY': this.loadExpiry(); break;
       case 'AUDIT_CLOSURES': this.loadAuditClosures(); break;
@@ -341,10 +380,87 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     });
   }
 
+  /* ─── Compliance Returns ─── */
+  loadComplianceDocs(): void {
+    this.complianceDocsLoading = true;
+    const query: any = {};
+    if (this.docFilters.clientId) query.companyId = this.docFilters.clientId;
+    if (this.docFilters.branchId) query.branchId = this.docFilters.branchId;
+    this.complianceApi.crmListBranchCompliance(query).pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of({ data: [] })),
+      finalize(() => { this.complianceDocsLoading = false; this.cdr.detectChanges(); }),
+    ).subscribe((res: any) => { this.complianceDocs = res?.data || res || []; });
+  }
+
+  async reviewComplianceDoc(doc: any, status: string): Promise<void> {
+    const isReject = status === 'REUPLOAD_REQUIRED';
+    const label = isReject ? 'Rejection reason (required):' : 'Review notes (optional):';
+    const result = await this.dialog.prompt(isReject ? 'Request Reupload' : 'Approve Document', label, { placeholder: 'Notes' });
+    if (!result.confirmed) return;
+    const remarks = result.value || '';
+    if (isReject && !remarks.trim()) return;
+    this.reviewingCompDocId = doc.id;
+    this.complianceApi.crmReviewBranchCompliance(doc.id, { status, remarks }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.reviewingCompDocId = null; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: () => { this.loadComplianceDocs(); },
+      error: (e) => { this.toast.error(e?.error?.message || 'Failed to review document.'); },
+    });
+  }
+
+  /* ─── Compliance Upload On Behalf ─── */
+  loadReturnMaster(): void {
+    if (this.complianceReturnMaster.length) return;
+    this.complianceApi.crmGetReturnMaster().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (data) => { this.complianceReturnMaster = data || []; this.cdr.detectChanges(); },
+    });
+  }
+
+  onComplianceFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.complianceUploadFile = input.files?.[0] || null;
+  }
+
+  submitComplianceUpload(): void {
+    const f = this.compUploadForm;
+    if (!f.branchId || !f.returnCode || !f.periodYear || !this.complianceUploadFile) {
+      this.toast.error('Branch, Return, Period Year, and File are required.');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', this.complianceUploadFile);
+    fd.append('companyId', this.docFilters.clientId || this.routeClientId);
+    fd.append('branchId', f.branchId);
+    fd.append('returnCode', f.returnCode);
+    fd.append('frequency', f.frequency);
+    fd.append('periodYear', String(f.periodYear));
+    if (f.frequency === 'MONTHLY' && f.periodMonth) fd.append('periodMonth', String(f.periodMonth));
+    if (f.frequency === 'QUARTERLY' && f.periodQuarter) fd.append('periodQuarter', String(f.periodQuarter));
+    if (f.frequency === 'HALF_YEARLY' && f.periodHalf) fd.append('periodHalf', String(f.periodHalf));
+    if (f.remarks) fd.append('remarks', f.remarks);
+
+    this.complianceUploading = true;
+    this.complianceApi.crmUploadOnBehalf(fd).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.complianceUploading = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: () => {
+        this.toast.success('Document uploaded on behalf of branch.');
+        this.showComplianceUpload = false;
+        this.complianceUploadFile = null;
+        this.compUploadForm = { branchId: '', returnCode: '', frequency: 'MONTHLY', periodYear: new Date().getFullYear(), periodMonth: new Date().getMonth() + 1, remarks: '' };
+        this.loadComplianceDocs();
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Upload failed'),
+    });
+  }
+
   /* ═══════ Tab 2: MCD Tracker (via ComplianceApiService) ═══════ */
   loadMcd(): void {
     this.mcdLoading = true;
-    this.complianceApi.crmGetMcd({ clientId: this.mcdClientId || undefined, monthKey: this.mcdMonthKey })
+    this.complianceApi.crmGetMcd({ clientId: this.mcdClientId || undefined, year: this.mcdYear, month: this.mcdMonth })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.mcdLoading = false; this.cdr.detectChanges(); }))
       .subscribe({
         next: (res: any) => { this.mcdRows = res?.data || res || []; },
@@ -357,11 +473,108 @@ export class CrmComplianceComponent implements OnInit, OnDestroy {
     const name = match ? this.getBranchName(match) : branchId;
     if (!(await this.dialog.confirm('Finalize MCD', `Finalize MCD for ${name} (${this.mcdMonthKey})?`))) return;
     this.finalizingBranchId = branchId;
-    this.complianceApi.crmFinalizeMcd(branchId, { monthKey: this.mcdMonthKey })
+    this.complianceApi.crmFinalizeMcd(branchId, { year: this.mcdYear, month: this.mcdMonth })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.finalizingBranchId = null; this.cdr.detectChanges(); }))
       .subscribe({
         next: () => { this.toast.success('MCD finalized successfully.'); this.loadMcd(); },
         error: (e) => { this.toast.error(e?.error?.message || 'Failed to finalize MCD. Please try again.'); },
+      });
+  }
+
+  toggleMcdItems(row: any): void {
+    const branchId = this.getBranchId(row);
+    if (this.expandedMcdBranchId === branchId) {
+      this.expandedMcdBranchId = null;
+      this.mcdItems = [];
+      return;
+    }
+    this.expandedMcdBranchId = branchId;
+    this.mcdItemsLoading = true;
+    this.mcdItems = [];
+    this.complianceApi.crmGetMcdItems(branchId, { year: this.mcdYear, month: this.mcdMonth })
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.mcdItemsLoading = false; this.cdr.detectChanges(); }))
+      .subscribe({
+        next: (res: any) => { this.mcdItems = res?.data || []; },
+        error: () => { this.mcdItems = []; this.toast.error('Failed to load MCD items.'); },
+      });
+  }
+
+  onMcdItemFileSelected(event: Event, item: any): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.mcdUploadingItemId = item.id;
+    this.complianceApi.crmUploadMcdItem(item.id, file)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.mcdUploadingItemId = null; this.cdr.detectChanges(); }))
+      .subscribe({
+        next: () => {
+          this.toast.success('Evidence uploaded successfully.');
+          // Refresh the items list
+          item.status = 'SUBMITTED';
+          const branchId = this.expandedMcdBranchId;
+          if (branchId) {
+            this.complianceApi.crmGetMcdItems(branchId, { year: this.mcdYear, month: this.mcdMonth })
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({ next: (res: any) => { this.mcdItems = res?.data || []; this.cdr.detectChanges(); } });
+          }
+          this.loadMcd();
+        },
+        error: (e) => { this.toast.error(e?.error?.message || 'Upload failed.'); },
+      });
+    input.value = '';
+  }
+
+  approveMcdItem(item: any): void {
+    this.approvingItemId = item.id;
+    this.complianceApi.crmApproveMcdItem(item.id)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.approvingItemId = null; this.cdr.detectChanges(); }))
+      .subscribe({
+        next: () => {
+          this.toast.success('Item approved.');
+          item.status = 'APPROVED';
+          const branchId = this.expandedMcdBranchId;
+          if (branchId) {
+            this.complianceApi.crmGetMcdItems(branchId, { year: this.mcdYear, month: this.mcdMonth })
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({ next: (res: any) => { this.mcdItems = res?.data || []; this.cdr.detectChanges(); } });
+          }
+          this.loadMcd();
+        },
+        error: (e) => { this.toast.error(e?.error?.message || 'Approve failed.'); },
+      });
+  }
+
+  startRejectMcdItem(item: any): void {
+    this.rejectingItemId = item.id;
+    this.rejectRemarks = '';
+  }
+
+  cancelReject(): void {
+    this.rejectingItemId = null;
+    this.rejectRemarks = '';
+  }
+
+  confirmRejectMcdItem(item: any): void {
+    if (!this.rejectRemarks.trim()) {
+      this.toast.error('Remarks are required when rejecting.');
+      return;
+    }
+    this.complianceApi.crmRejectMcdItem(item.id, this.rejectRemarks.trim())
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.rejectingItemId = null; this.rejectRemarks = ''; this.cdr.detectChanges(); }))
+      .subscribe({
+        next: () => {
+          this.toast.success('Item rejected.');
+          item.status = 'REJECTED';
+          item.remarks = this.rejectRemarks.trim();
+          const branchId = this.expandedMcdBranchId;
+          if (branchId) {
+            this.complianceApi.crmGetMcdItems(branchId, { year: this.mcdYear, month: this.mcdMonth })
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({ next: (res: any) => { this.mcdItems = res?.data || []; this.cdr.detectChanges(); } });
+          }
+          this.loadMcd();
+        },
+        error: (e) => { this.toast.error(e?.error?.message || 'Reject failed.'); },
       });
   }
 

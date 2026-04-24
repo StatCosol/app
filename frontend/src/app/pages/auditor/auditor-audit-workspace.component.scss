@@ -556,3 +556,33 @@ textarea:focus {
     grid-column: auto;
   }
 }
+
+// ─── Tab bar ──────────────────────────────────────
+.tab-bar {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover {
+    color: #111827;
+    background: #f3f4f6;
+  }
+
+  &--active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+    background: #fff;
+  }
+}

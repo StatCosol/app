@@ -6,6 +6,9 @@ export class ComplianceMasterEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'code', type: 'varchar', length: 120 })
+  code: string;
+
   @Column({ name: 'compliance_name' })
   complianceName: string;
 

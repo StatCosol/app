@@ -16,7 +16,9 @@ import {
   PayrollFnfDetail,
   PayrollFnfItem,
 } from './payroll-api.service';
+import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 
 type FnfLifecycleFilter = 'ALL' | 'INITIATED' | 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
 type LifecycleAction = 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
@@ -43,7 +45,7 @@ interface ChecklistItem {
 @Component({
   selector: 'app-payroll-fnf',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-fnf.component.html',
   styleUrls: ['./payroll-fnf.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,6 +61,26 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   clients: PayrollClient[] = [];
   cases: PayrollFnfItem[] = [];
   selectedCase: PayrollFnfDetail | null = null;
+
+  // Settlement documents
+  fnfDocuments: any[] = [];
+  fnfDocsLoading = false;
+  fnfDocUploading = false;
+  fnfDocType = 'SETTLEMENT_STATEMENT';
+  fnfDocName = '';
+  fnfDocRemarks = '';
+
+  readonly fnfDocTypeOptions = [
+    { value: 'SETTLEMENT_STATEMENT', label: 'Settlement Statement' },
+    { value: 'RELIEVING_LETTER', label: 'Relieving Letter' },
+    { value: 'EXPERIENCE_CERTIFICATE', label: 'Experience Certificate' },
+    { value: 'NO_DUES_CERTIFICATE', label: 'No Dues Certificate' },
+    { value: 'FORM_16', label: 'Form 16' },
+    { value: 'PF_WITHDRAWAL', label: 'PF Withdrawal Form' },
+    { value: 'GRATUITY_FORM', label: 'Gratuity Form' },
+    { value: 'SALARY_SLIP', label: 'Final Salary Slip' },
+    { value: 'OTHER', label: 'Other' },
+  ];
 
   lifecycleFilter: FnfLifecycleFilter = 'ALL';
   selectedClientId = '';
@@ -104,9 +126,15 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) {
+      this.selectedClientId = routeClientId;
+      this.createModel.clientId = routeClientId;
+    }
     this.loadClientsAndCases();
   }
 
@@ -306,6 +334,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
         next: (detail) => {
           this.selectedCase = detail;
           this.seedLocalInputsFromDetail(detail);
+          this.loadFnfDocuments(detail.id);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to load F&F case detail'),
       });
@@ -418,6 +447,83 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     const copy = [...this.documentChecklistDraft];
     copy[index] = { ...copy[index], done: checked };
     this.documentChecklistDraft = copy;
+  }
+
+  // ── Settlement Document Repository ──
+  loadFnfDocuments(fnfId: string): void {
+    this.fnfDocsLoading = true;
+    this.payrollApi
+      .listFnfDocuments(fnfId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.fnfDocsLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (docs) => (this.fnfDocuments = docs || []),
+        error: () => (this.fnfDocuments = []),
+      });
+  }
+
+  onFnfDocFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.selectedCase) return;
+
+    this.fnfDocUploading = true;
+    this.payrollApi
+      .uploadFnfDocument(
+        this.selectedCase.id,
+        file,
+        this.fnfDocType,
+        this.fnfDocName || file.name,
+        this.fnfDocRemarks || undefined,
+      )
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.fnfDocUploading = false;
+          input.value = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Document uploaded');
+          this.fnfDocName = '';
+          this.fnfDocRemarks = '';
+          this.loadFnfDocuments(this.selectedCase!.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Upload failed'),
+      });
+  }
+
+  downloadFnfDoc(doc: any): void {
+    this.payrollApi.downloadFnfDocument(doc.id, doc.docName || doc.fileName);
+  }
+
+  deleteFnfDoc(doc: any): void {
+    if (!confirm('Remove this document permanently?')) return;
+    this.payrollApi
+      .deleteFnfDocument(doc.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success('Document removed');
+          this.loadFnfDocuments(this.selectedCase!.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Delete failed'),
+      });
+  }
+
+  formatFileSize(bytes: number): string {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   }
 
   caseStatusClass(status: string): string {
@@ -558,13 +664,13 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   }
 
   private seedLocalInputsFromDetail(detail: PayrollFnfDetail): void {
-    const breakup = detail.settlementBreakup || {};
+    const breakup: Record<string, number> = detail.settlementBreakup || {};
     this.settlementInputs = {
-      pendingSalary: Number((breakup as any)?.pendingSalary || 0),
-      leaveEncashment: Number((breakup as any)?.leaveEncashment || 0),
-      bonusArrears: Number((breakup as any)?.bonusArrears || 0),
-      deductions: Number((breakup as any)?.deductions || 0),
-      recoveries: Number((breakup as any)?.recoveries || 0),
+      pendingSalary: Number(breakup['pendingSalary'] || 0),
+      leaveEncashment: Number(breakup['leaveEncashment'] || 0),
+      bonusArrears: Number(breakup['bonusArrears'] || 0),
+      deductions: Number(breakup['deductions'] || 0),
+      recoveries: Number(breakup['recoveries'] || 0),
     };
     this.settlementAmountInput = detail.settlementAmount || 0;
     this.statusRemarks = detail.remarks || '';

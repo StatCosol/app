@@ -3,7 +3,6 @@ import {
   Get,
   Param,
   Query,
-  Req,
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
@@ -11,7 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { BranchesService } from '../branches/branches.service';
-import { UsersService } from '../users/users.service';
+import { UsersService, ContractorRow } from '../users/users.service';
 import { ContractorDocumentsService } from './contractor-documents.service';
 import { ContractorDashboardService } from './contractor-dashboard.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,6 +18,18 @@ import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+
+interface ContractorDocStat {
+  contractorId: string;
+  totalDocs: string;
+  approvedDocs: string;
+  rejectedDocs: string;
+  pendingReviewDocs: string;
+  uploadedDocs: string;
+  lastUploadedAt: string | null;
+}
 
 @ApiTags('Contractor')
 @ApiBearerAuth('JWT')
@@ -39,18 +50,15 @@ export class ClientContractorsController {
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
     @Query('month') month?: string,
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId!;
 
     // Get branches for this client and apply branch-access filtering
     let branches = await this.branchesService.findByClient(clientId);
-    branches = await this.branchAccess.filterBranches(
-      req.user.userId,
-      branches,
-    );
+    branches = await this.branchAccess.filterBranches(user.userId, branches);
 
     // Optional branch filter must be within allowed branches
     const branchIds = branchId
@@ -69,8 +77,8 @@ export class ClientContractorsController {
       await this.usersService.findContractorsByBranchIds(branchIds);
 
     // Dedupe in case multiple branch links returned
-    const contractorMap = new Map<string, any>();
-    contractors.forEach((c: any) => {
+    const contractorMap = new Map<string, ContractorRow>();
+    contractors.forEach((c) => {
       if (!contractorMap.has(String(c.id))) {
         contractorMap.set(String(c.id), c);
       }
@@ -79,7 +87,7 @@ export class ClientContractorsController {
     if (!uniqueContractors.length) return [];
 
     const { start, end } = this.dashboardService.getMonthRange(month);
-    const contractorIds = uniqueContractors.map((c: any) => c.id);
+    const contractorIds = uniqueContractors.map((c) => c.id);
     const monthStats = await this.dashboardService.monthListStats(
       clientId,
       contractorIds,
@@ -89,7 +97,7 @@ export class ClientContractorsController {
     );
 
     // Document stats per contractor (scoped to allowed branches)
-    const stats = await this.docRepo
+    const stats: ContractorDocStat[] = await this.docRepo
       .createQueryBuilder('d')
       .select('d.contractor_user_id', 'contractorId')
       .addSelect('COUNT(*)', 'totalDocs')
@@ -115,11 +123,11 @@ export class ClientContractorsController {
       .groupBy('d.contractor_user_id')
       .getRawMany();
 
-    const statMap = new Map<string, any>();
-    stats.forEach((s: any) => statMap.set(String(s.contractorId), s));
+    const statMap = new Map<string, ContractorDocStat>();
+    stats.forEach((s) => statMap.set(String(s.contractorId), s));
 
     return uniqueContractors.map((c) => {
-      const s = statMap.get(String(c.id)) || {};
+      const s: Partial<ContractorDocStat> = statMap.get(String(c.id)) || {};
       const m = monthStats.get(String(c.id)) || {};
       return {
         ...c,
@@ -136,7 +144,7 @@ export class ClientContractorsController {
         monthRejectedCount: m.monthRejectedCount ?? Number(s.rejectedDocs || 0),
         monthPendingCount:
           m.monthPendingCount ??
-          Number((s.pendingReviewDocs || 0) + (s.uploadedDocs || 0)),
+          Number(s.pendingReviewDocs || 0) + Number(s.uploadedDocs || 0),
         monthPendingReviewCount:
           m.monthPendingReviewCount ?? Number(s.pendingReviewDocs || 0),
         monthUploadedCount: m.monthUploadedCount ?? Number(s.uploadedDocs || 0),
@@ -150,12 +158,15 @@ export class ClientContractorsController {
 
   @ApiOperation({ summary: 'Documents' })
   @Get('documents')
-  async documents(@Req() req: any, @Query() q: any) {
-    const clientId = req.user.clientId;
+  async documents(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const clientId = user.clientId!;
 
     // Enforce branch scope for branch users
     const allowed = await this.branchAccess.getAllowedBranchIds(
-      req.user.userId,
+      user.userId,
       clientId,
     );
 
@@ -166,11 +177,11 @@ export class ClientContractorsController {
       }
       // If no branchId passed, scope to allowed list (usually 1 branch)
       if (!q?.branchId) {
-        q.branchIds = allowed;
+        (q as Record<string, unknown>).branchIds = allowed;
       }
     }
 
-    return this.contractorDocsService.listByClient(req.user, {
+    return this.contractorDocsService.listByClient(user, {
       clientId,
       ...q,
     });
@@ -178,10 +189,13 @@ export class ClientContractorsController {
 
   @ApiOperation({ summary: 'Dashboard' })
   @Get('dashboard')
-  async dashboard(@Req() req: any, @Query('month') month?: string) {
-    const clientId = req.user.clientId;
+  async dashboard(
+    @CurrentUser() user: ReqUser,
+    @Query('month') month?: string,
+  ) {
+    const clientId = user.clientId!;
     const allowed = await this.branchAccess.getAllowedBranchIds(
-      req.user.userId,
+      user.userId,
       clientId,
     );
     const branchIds = allowed === 'ALL' ? undefined : allowed;
@@ -191,13 +205,13 @@ export class ClientContractorsController {
   @ApiOperation({ summary: 'Branch Dashboard' })
   @Get('dashboard/branch/:branchId')
   async branchDashboard(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Query('month') month?: string,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, branchId);
+    await this.branchAccess.assertBranchAccess(user.userId, branchId);
     return this.dashboardService.branchOverview(
-      req.user.clientId,
+      user.clientId!,
       branchId,
       month,
     );
@@ -206,23 +220,23 @@ export class ClientContractorsController {
   @ApiOperation({ summary: 'Contractor Dashboard' })
   @Get('dashboard/contractor/:contractorId')
   async contractorDashboard(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('contractorId') contractorId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId!;
 
     // Ensure contractor belongs to an allowed branch for branch users
     const allowed = await this.branchAccess.getAllowedBranchIds(
-      req.user.userId,
+      user.userId,
       clientId,
     );
     if (allowed !== 'ALL') {
       const contractors =
         await this.usersService.findContractorsByBranchIds(allowed);
       const ok = contractors.some(
-        (c: any) => String(c.id) === String(contractorId),
+        (c) => String(c.id) === String(contractorId),
       );
       if (!ok)
         throw new ForbiddenException(

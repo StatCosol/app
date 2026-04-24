@@ -1,13 +1,14 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'outline' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 @Component({
   selector: 'ui-button',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterModule],
   template: `
     <ng-container *ngIf="routerLink; else buttonTemplate">
@@ -66,9 +67,11 @@ export class ActionButtonComponent {
     };
 
     const variantClasses: Record<ButtonVariant, string> = {
-      primary: 'text-white focus:ring-statco-blue shadow-sm hover:shadow-md hover:-translate-y-px',
-      secondary: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-gray-500 shadow-sm hover:-translate-y-px',
-      danger: 'text-white focus:ring-error-500 shadow-sm hover:shadow-md hover:-translate-y-px',
+      primary: 'text-white focus:ring-statco-blue shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
+      secondary: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-gray-500 shadow-sm hover:-translate-y-px active:translate-y-0',
+      danger: 'text-white focus:ring-error-500 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
+      success: 'text-white focus:ring-emerald-500 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
+      warning: 'text-white focus:ring-amber-500 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0',
       outline: 'bg-transparent border-2 border-statco-blue text-statco-blue hover:bg-statco-blue hover:text-white focus:ring-statco-blue',
       ghost: 'bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
     };
@@ -79,12 +82,12 @@ export class ActionButtonComponent {
   }
 
   get buttonStyle(): string {
-    if (this.variant === 'primary') {
-      return 'background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%)';
-    }
-    if (this.variant === 'danger') {
-      return 'background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%)';
-    }
-    return '';
+    const gradients: Partial<Record<ButtonVariant, string>> = {
+      primary: 'background: linear-gradient(135deg, #0a2656 0%, #1e40af 100%)',
+      danger: 'background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%)',
+      success: 'background: linear-gradient(135deg, #047857 0%, #10b981 100%)',
+      warning: 'background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%)',
+    };
+    return gradients[this.variant] ?? '';
   }
 }

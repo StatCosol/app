@@ -5,6 +5,7 @@ import { CrmOptionsController } from './crm-options.controller';
 import { ClientOptionsController } from './client-options.controller';
 import { BranchOptionsController } from './branch-options.controller';
 import { PaydekOptionsController } from './paydek-options.controller';
+import { PayrollOptionsController } from './payroll-options.controller';
 import { AuditorOptionsController } from './auditor-options.controller';
 
 /**
@@ -19,6 +20,7 @@ import { AuditorOptionsController } from './auditor-options.controller';
     ClientOptionsController,
     BranchOptionsController,
     PaydekOptionsController,
+    PayrollOptionsController,
     AuditorOptionsController,
   ],
 })

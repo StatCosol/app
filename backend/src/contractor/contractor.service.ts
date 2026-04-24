@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, FindOptionsWhere } from 'typeorm';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { BranchComplianceEntity } from '../checklists/entities/branch-compliance.entity';
@@ -11,6 +11,14 @@ import { UsersService } from '../users/users.service';
 import { ClientEntity } from '../clients/entities/client.entity';
 import { UserEntity } from '../users/entities/user.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
+
+type ComplianceItem = {
+  complianceId: string | null;
+  complianceName: string;
+  lawName: string | null;
+  frequency: string | null;
+  status: string;
+};
 
 @Injectable()
 export class ContractorService {
@@ -97,7 +105,7 @@ export class ContractorService {
     const branchIds = links.map((l) => l.branchId);
 
     const branches = await this.branchRepo.find({
-      where: { id: In(branchIds) },
+      where: { id: In(branchIds), isActive: true, isDeleted: false },
       order: { id: 'ASC' },
     });
 
@@ -117,7 +125,7 @@ export class ContractorService {
 
     const branchMap = new Map<
       string,
-      { id: string; name: string; compliances: any[] }
+      { id: string; name: string; compliances: ComplianceItem[] }
     >();
     for (const b of branches) {
       branchMap.set(b.id, {
@@ -199,8 +207,11 @@ export class ContractorService {
     );
     const auditRiskPoints = Number(riskRow?.riskPoints || 0);
 
+    const clientEntity = await this.clientRepo.findOne({ where: { id: clientId } });
+
     return {
       clientId,
+      clientName: clientEntity?.clientName ?? null,
       branches: Array.from(branchMap.values()),
       monthSummary: {
         month: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`,
@@ -234,7 +245,9 @@ export class ContractorService {
     });
     const branchIds = links.map((l) => l.branchId);
     const branches = branchIds.length
-      ? await this.branchRepo.find({ where: { id: In(branchIds) } })
+      ? await this.branchRepo.find({
+          where: { id: In(branchIds), isActive: true, isDeleted: false },
+        })
       : [];
 
     return {
@@ -242,7 +255,7 @@ export class ContractorService {
       clientId: user.clientId,
       contractorName: user.name ?? null,
       email: user.email ?? null,
-      phone: (user as any).phone ?? null,
+      phone: user.mobile ?? null,
       branches: branches.map((b) => ({
         id: b.id,
         branchName: b.branchName ?? '',
@@ -251,12 +264,12 @@ export class ContractorService {
     };
   }
 
-  async listContractorDocuments(userId: string, q: any) {
+  async listContractorDocuments(userId: string, q: Record<string, string>) {
     const user = await this.usersService.findById(userId);
     if (!user?.clientId) {
       throw new BadRequestException('Contractor is not linked to a client');
     }
-    const where: any = {
+    const where: FindOptionsWhere<ContractorDocumentEntity> = {
       clientId: user.clientId,
       contractorUserId: userId,
     };
@@ -290,7 +303,7 @@ export class ContractorService {
       auditId?: string;
       remarks?: string;
     },
-    file: any,
+    file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('file required');
     if (!dto?.docType) throw new BadRequestException('docType required');
@@ -354,14 +367,17 @@ export class ContractorService {
     };
   }
 
-  async listAuditsForContractor(userId: string, q: any) {
+  async listAuditsForContractor(userId: string, q: Record<string, string>) {
     const user = await this.usersService.findById(userId);
     if (!user?.clientId) {
       throw new BadRequestException('Contractor is not linked to a client');
     }
 
-    const where: any = { clientId: user.clientId, contractorUserId: userId };
-    if (q?.status) where.status = q.status;
+    const where: FindOptionsWhere<AuditEntity> = {
+      clientId: user.clientId,
+      contractorUserId: userId,
+    };
+    if (q?.status) where.status = q.status as AuditEntity['status'];
 
     const audits = await this.auditRepo.find({
       where,
@@ -409,7 +425,9 @@ export class ContractorService {
     const branchIds = links.map((l) => l.branchId);
 
     const branches = branchIds.length
-      ? await this.branchRepo.find({ where: { id: In(branchIds) } })
+      ? await this.branchRepo.find({
+          where: { id: In(branchIds), isActive: true, isDeleted: false },
+        })
       : [];
 
     return {
@@ -442,6 +460,8 @@ export class ContractorService {
           where: {
             id: In(branchIds),
             clientId: contractor.clientId ?? undefined,
+            isActive: true,
+            isDeleted: false,
           },
         })
       : [];
@@ -487,7 +507,12 @@ export class ContractorService {
     );
 
     const branches = await this.branchRepo.find({
-      where: { id: In(branchIds), clientId: contractor.clientId ?? undefined },
+      where: {
+        id: In(branchIds),
+        clientId: contractor.clientId ?? undefined,
+        isActive: true,
+        isDeleted: false,
+      },
     });
 
     if (branches.length !== branchIds.length) {

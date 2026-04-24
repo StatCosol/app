@@ -91,4 +91,70 @@ export class ClientAttendanceService {
   seedDefaults(body: { year: number; month: number; branchId?: string; weeklyOffDays?: number[] }): Observable<any> {
     return this.http.post(`${this.base}/seed-defaults`, body);
   }
+
+  // ── Daily Attendance Management ────────────────────────────
+  listDaily(date: string, branchId?: string, approvalStatus?: string): Observable<DailyAttendanceRecord[]> {
+    let p = new HttpParams().set('date', date);
+    if (branchId) p = p.set('branchId', branchId);
+    if (approvalStatus) p = p.set('approvalStatus', approvalStatus);
+    return this.http.get<any>(`${this.base}/daily`, { params: p }).pipe(
+      map(res => Array.isArray(res) ? res : res?.data ?? []),
+    );
+  }
+
+  getApprovalStats(date: string, branchId?: string): Observable<ApprovalStats> {
+    let p = new HttpParams().set('date', date);
+    if (branchId) p = p.set('branchId', branchId);
+    return this.http.get<ApprovalStats>(`${this.base}/daily/stats`, { params: p });
+  }
+
+  editRecord(id: string, body: {
+    status: string;
+    checkIn?: string;
+    checkOut?: string;
+    workedHours?: number;
+    overtimeHours?: number;
+    remarks?: string;
+  }): Observable<any> {
+    return this.http.put(`${this.base}/${id}`, body);
+  }
+
+  approveRecords(ids: string[]): Observable<{ approved: number }> {
+    return this.http.post<{ approved: number }>(`${this.base}/approve`, { ids });
+  }
+
+  rejectRecords(ids: string[], reason?: string): Observable<{ rejected: number }> {
+    return this.http.post<{ rejected: number }>(`${this.base}/reject`, { ids, reason });
+  }
+}
+
+export interface DailyAttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  branchId: string;
+  branchName: string;
+  date: string;
+  status: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  workedHours: string | null;
+  overtimeHours: string | null;
+  remarks: string | null;
+  source: string;
+  captureMethod: string;
+  selfMarked: boolean;
+  shortWorkReason: string | null;
+  approvalStatus: string;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface ApprovalStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
 }

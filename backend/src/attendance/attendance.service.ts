@@ -1,10 +1,9 @@
 import {
   Injectable,
-  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { In, Repository, DataSource } from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 
@@ -15,6 +14,7 @@ export class AttendanceService {
     private readonly repo: Repository<AttendanceEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
+    private readonly ds: DataSource,
   ) {}
 
   /** Mark attendance for a single employee/date */
@@ -131,6 +131,7 @@ export class AttendanceService {
     branchId?: string;
     year: number;
     month: number;
+    approvedOnly?: boolean;
   }) {
     const firstDay = `${params.year}-${String(params.month).padStart(2, '0')}-01`;
     const lastDay = new Date(params.year, params.month, 0);
@@ -158,6 +159,9 @@ export class AttendanceService {
 
     if (params.branchId) {
       qb.andWhere('a.branch_id = :branchId', { branchId: params.branchId });
+    }
+    if (params.approvedOnly) {
+      qb.andWhere("a.approval_status = 'APPROVED'");
     }
 
     const rows = await qb.getRawMany();
@@ -314,5 +318,161 @@ export class AttendanceService {
       }
     }
     return { created, employees: employees.length, days: lastDay };
+  }
+
+  // ── Daily Attendance with Employee Names ───────────────────
+  /** List daily attendance records with employee names for branch/client review */
+  async listDaily(params: {
+    clientId: string;
+    date: string;
+    branchId?: string;
+    approvalStatus?: string;
+  }) {
+    const qb = this.ds
+      .createQueryBuilder()
+      .select([
+        'a.id            AS "id"',
+        'a.employee_id   AS "employeeId"',
+        'a.employee_code AS "employeeCode"',
+        'a.branch_id     AS "branchId"',
+        'a.date          AS "date"',
+        'a.status        AS "status"',
+        'a.check_in      AS "checkIn"',
+        'a.check_out     AS "checkOut"',
+        'a.worked_hours   AS "workedHours"',
+        'a.overtime_hours AS "overtimeHours"',
+        'a.remarks       AS "remarks"',
+        'a.source        AS "source"',
+        'a.capture_method AS "captureMethod"',
+        'a.self_marked   AS "selfMarked"',
+        'a.short_work_reason AS "shortWorkReason"',
+        'a.approval_status   AS "approvalStatus"',
+        'a.approved_by_user_id AS "approvedByUserId"',
+        'a.approved_at   AS "approvedAt"',
+        'a.rejection_reason AS "rejectionReason"',
+        'e.name          AS "employeeName"',
+        'b.branchname    AS "branchName"',
+      ])
+      .from('attendance_records', 'a')
+      .leftJoin('employees', 'e', 'e.id = a.employee_id')
+      .leftJoin('client_branches', 'b', 'b.id = a.branch_id')
+      .where('a.client_id = :clientId', { clientId: params.clientId })
+      .andWhere('a.date = :date', { date: params.date })
+      .orderBy('e.name', 'ASC')
+      .addOrderBy('a.employee_code', 'ASC');
+
+    if (params.branchId) {
+      qb.andWhere('a.branch_id = :branchId', { branchId: params.branchId });
+    }
+    if (params.approvalStatus) {
+      qb.andWhere('a.approval_status = :approvalStatus', {
+        approvalStatus: params.approvalStatus,
+      });
+    }
+
+    return qb.getRawMany();
+  }
+
+  /** Edit an attendance record (status, check-in/out, hours, remarks) */
+  async editRecord(
+    clientId: string,
+    recordId: string,
+    body: {
+      status: AttendanceEntity['status'];
+      checkIn?: string;
+      checkOut?: string;
+      workedHours?: number;
+      overtimeHours?: number;
+      remarks?: string;
+    },
+  ) {
+    const record = await this.repo.findOne({
+      where: { id: recordId, clientId },
+    });
+    if (!record) throw new NotFoundException('Attendance record not found');
+
+    record.status = body.status;
+    if (body.checkIn !== undefined) record.checkIn = body.checkIn || null;
+    if (body.checkOut !== undefined) record.checkOut = body.checkOut || null;
+    if (body.workedHours !== undefined)
+      record.workedHours = String(body.workedHours);
+    if (body.overtimeHours !== undefined)
+      record.overtimeHours = String(body.overtimeHours);
+    if (body.remarks !== undefined) record.remarks = body.remarks || null;
+
+    // Reset approval when edited
+    record.approvalStatus = 'PENDING';
+    record.approvedByUserId = null;
+    record.approvedAt = null;
+    record.rejectionReason = null;
+
+    return this.repo.save(record);
+  }
+
+  /** Bulk approve attendance records */
+  async approveRecords(clientId: string, ids: string[], userId: string) {
+    const records = await this.repo.find({
+      where: { clientId, id: In(ids) },
+    });
+    if (!records.length) throw new NotFoundException('No records found');
+
+    const now = new Date();
+    for (const rec of records) {
+      rec.approvalStatus = 'APPROVED';
+      rec.approvedByUserId = userId;
+      rec.approvedAt = now;
+      rec.rejectionReason = null;
+    }
+    await this.repo.save(records);
+    return { approved: records.length };
+  }
+
+  /** Bulk reject attendance records */
+  async rejectRecords(
+    clientId: string,
+    ids: string[],
+    userId: string,
+    reason?: string,
+  ) {
+    const records = await this.repo.find({
+      where: { clientId, id: In(ids) },
+    });
+    if (!records.length) throw new NotFoundException('No records found');
+
+    const now = new Date();
+    for (const rec of records) {
+      rec.approvalStatus = 'REJECTED';
+      rec.approvedByUserId = userId;
+      rec.approvedAt = now;
+      rec.rejectionReason = reason || null;
+    }
+    await this.repo.save(records);
+    return { rejected: records.length };
+  }
+
+  /** Approval stats for a given day */
+  async getApprovalStats(clientId: string, date: string, branchId?: string) {
+    const qb = this.repo
+      .createQueryBuilder('a')
+      .select("a.approval_status", 'status')
+      .addSelect('COUNT(*)::int', 'count')
+      .where('a.client_id = :clientId', { clientId })
+      .andWhere('a.date = :date', { date })
+      .groupBy('a.approval_status');
+
+    if (branchId) {
+      qb.andWhere('a.branch_id = :branchId', { branchId });
+    }
+
+    const rows = await qb.getRawMany();
+    const stats = { total: 0, pending: 0, approved: 0, rejected: 0 };
+    for (const r of rows) {
+      const cnt = Number(r.count);
+      stats.total += cnt;
+      if (r.status === 'PENDING') stats.pending = cnt;
+      else if (r.status === 'APPROVED') stats.approved = cnt;
+      else if (r.status === 'REJECTED') stats.rejected = cnt;
+    }
+    return stats;
   }
 }

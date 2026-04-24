@@ -21,10 +21,14 @@ import {
   LeaveManagementController,
 } from './ess.controller';
 import { AuthModule } from '../auth/auth.module';
+import { AttendanceModule } from '../attendance/attendance.module';
+import { PerformanceAppraisalModule } from '../performance-appraisal/performance-appraisal.module';
 
 @Module({
   imports: [
     AuthModule,
+    AttendanceModule,
+    PerformanceAppraisalModule,
     TypeOrmModule.forFeature([
       EmployeeEntity,
       EmployeeStatutoryEntity,

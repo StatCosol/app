@@ -1,10 +1,12 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ClientDashboardService } from './client-dashboard.service';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Clients')
 @ApiBearerAuth('JWT')
@@ -16,16 +18,19 @@ export class ClientStatsDashboardController {
 
   @ApiOperation({ summary: 'Get Pf Esi' })
   @Get('pf-esi-summary')
-  getPfEsi(@Req() req: any, @Query() query: ClientDashboardQueryDto) {
-    return this.svc.getPfEsiSummary(req.user, query);
+  getPfEsi(
+    @CurrentUser() user: ReqUser,
+    @Query() query: ClientDashboardQueryDto,
+  ) {
+    return this.svc.getPfEsiSummary(user, query);
   }
 
   @ApiOperation({ summary: 'Get Contractor Summary' })
   @Get('contractor-upload-summary')
   getContractorSummary(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query() query: ClientDashboardQueryDto,
   ) {
-    return this.svc.getContractorUploadSummary(req.user, query);
+    return this.svc.getContractorUploadSummary(user, query);
   }
 }

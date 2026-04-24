@@ -47,7 +47,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <div class="header-top">
             <div class="header-info">
               <div class="header-name">
-                {{ emp.firstName }} {{ emp.lastName || '' }}
+                {{ emp.name }}
                 <ui-status-badge [status]="emp.isActive ? 'ACTIVE' : 'INACTIVE'" class="ml-2"></ui-status-badge>
                 <span *ngIf="emp.approvalStatus === 'PENDING'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
                 <span *ngIf="emp.approvalStatus === 'REJECTED'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
@@ -59,7 +59,60 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             </div>
             <div class="header-actions">
               <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
+              <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()">
+                {{ downloadingLetter ? 'Downloading...' : 'Appointment Letter (PDF)' }}
+              </ui-button>
+              <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()">
+                {{ downloadingDocx ? 'Downloading...' : 'Appointment Letter (Word)' }}
+              </ui-button>
+              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
+                [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
+                {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
+              </ui-button>
               <ui-button *ngIf="emp.isActive" variant="danger" (clicked)="confirmDeactivate()">Deactivate</ui-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ESS Credentials Card -->
+        <div *ngIf="essResult?.generatedPassword" class="ess-credentials-card">
+          <div class="ess-cred-header">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <h4 class="text-sm font-semibold text-green-800">ESS Login Created Successfully</h4>
+            </div>
+            <button (click)="essResult = null" class="text-gray-400 hover:text-gray-600 p-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <p class="text-xs text-amber-700 mb-3">
+            <svg class="w-3.5 h-3.5 inline -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Copy these credentials now. The password will not be shown again.
+          </p>
+          <div class="ess-cred-fields">
+            <div class="ess-cred-row">
+              <span class="ess-cred-label">Email</span>
+              <span class="ess-cred-value">{{ essResult.email }}</span>
+              <button class="ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ess-cred-row">
+              <span class="ess-cred-label">Password</span>
+              <span class="ess-cred-value font-mono">{{ essResult.generatedPassword }}</span>
+              <button class="ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -69,9 +122,9 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
           <div class="info-section">
             <h4 class="info-section-title">Personal Information</h4>
             <div class="info-rows">
-              <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">{{ emp.firstName }} {{ emp.lastName || '' }}</span></div>
+              <div class="info-row"><span class="info-label">Name as per Aadhaar</span><span class="info-value">{{ emp.name }}</span></div>
               <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ emp.gender || '-' }}</span></div>
-              <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">DOB as per Aadhaar</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Father's Name</span><span class="info-value">{{ emp.fatherName || '-' }}</span></div>
             </div>
           </div>
@@ -100,7 +153,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <div class="info-row"><span class="info-label">Employee Code</span><span class="info-value font-mono">{{ emp.employeeCode }}</span></div>
               <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ emp.designation || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
-              <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining || '-' }}</span></div>
+              <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
               <div *ngIf="emp.dateOfExit" class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
               <div class="info-row"><span class="info-label">State</span><span class="info-value">{{ emp.stateCode || '-' }}</span></div>
             </div>
@@ -150,6 +203,60 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
       .info-grid { grid-template-columns: 1fr; }
       .header-top { flex-direction: column; }
     }
+
+    .ess-credentials-card {
+      background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+      border: 1px solid #86efac;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .ess-cred-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .ess-cred-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .ess-cred-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: white;
+      border: 1px solid #d1fae5;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+    }
+    .ess-cred-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      min-width: 64px;
+    }
+    .ess-cred-value {
+      flex: 1;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #111827;
+      word-break: break-all;
+    }
+    .ess-copy-btn {
+      background: none;
+      border: 1px solid #d1d5db;
+      border-radius: 0.375rem;
+      padding: 0.25rem;
+      cursor: pointer;
+      color: #6b7280;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .ess-copy-btn:hover {
+      color: #4f46e5;
+      border-color: #4f46e5;
+    }
   `],
 })
 export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
@@ -158,6 +265,10 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
   emp: Employee | null = null;
   loading = false;
   error = '';
+  downloadingLetter = false;
+  downloadingDocx = false;
+  provisioningEss = false;
+  essResult: any = null;
 
   constructor(
     private svc: ClientEmployeesService,
@@ -194,11 +305,49 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
     this.router.navigate(['/branch/employees', this.employeeId, 'edit']);
   }
 
+  downloadAppointmentLetter(): void {
+    if (this.downloadingLetter) return;
+    this.downloadingLetter = true;
+    this.svc.downloadAppointmentLetter(this.employeeId).pipe(
+      finalize(() => { this.downloadingLetter = false; this.cdr.detectChanges(); }),
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Appointment_Letter_${this.emp?.employeeCode || 'employee'}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to generate appointment letter'),
+    });
+  }
+
+  downloadAppointmentLetterDocx(): void {
+    if (this.downloadingDocx) return;
+    this.downloadingDocx = true;
+    this.svc.downloadAppointmentLetter(this.employeeId, 'docx').pipe(
+      finalize(() => { this.downloadingDocx = false; this.cdr.detectChanges(); }),
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Appointment_Letter_${this.emp?.employeeCode || 'employee'}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to generate appointment letter'),
+    });
+  }
+
   async confirmDeactivate(): Promise<void> {
     if (!this.emp) return;
     const confirmed = await this.dialog.confirm(
       'Deactivate Employee',
-      `Deactivate ${this.emp.firstName} ${this.emp.lastName || ''}?`,
+      `Deactivate ${this.emp.name}?`,
       { variant: 'danger', confirmText: 'Deactivate' },
     );
     if (!confirmed) return;
@@ -206,6 +355,49 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
       next: () => this.loadEmployee(),
       error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
     });
+  }
+
+  hasValidEmail(): boolean {
+    const e = (this.emp?.email || '').trim().toLowerCase();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  }
+
+  provisionEssLogin(): void {
+    if (!this.emp || !this.hasValidEmail()) {
+      this.toast.error('Please add a valid email address for this employee first');
+      return;
+    }
+    if (!confirm(`Create ESS login for ${this.emp.name}?\nEmail: ${this.emp.email}`)) return;
+    this.provisioningEss = true;
+    this.essResult = null;
+    this.cdr.detectChanges();
+
+    this.svc.provisionEss(this.employeeId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.provisioningEss = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => {
+        this.provisioningEss = false;
+        this.essResult = res;
+        if (res.generatedPassword) {
+          this.toast.success('ESS login created — see credentials below');
+        } else {
+          this.toast.success(`ESS login created for ${res.email}`);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (e) => {
+        this.provisioningEss = false;
+        this.toast.error(e?.error?.message || 'Failed to create ESS login');
+      },
+    });
+  }
+
+  copyCredential(value: string): void {
+    navigator.clipboard.writeText(value).then(
+      () => this.toast.success('Copied to clipboard'),
+      () => this.toast.error('Failed to copy'),
+    );
   }
 
   goBack(): void {

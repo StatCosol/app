@@ -106,7 +106,7 @@ export class AiController {
         user.userId,
         dto.assessmentType,
       );
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Risk assessment failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -178,7 +178,7 @@ export class AiController {
   async generateAuditObservation(@Body() dto: GenerateAuditObservationDto) {
     try {
       return await this.auditAi.generateObservation(dto);
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Observation generation failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -231,7 +231,7 @@ export class AiController {
         dto.clientId,
         dto.payrollRunId,
       );
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Anomaly detection failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -304,7 +304,7 @@ export class AiController {
         subject: dto.subject,
         createdBy: user?.userId,
       });
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Query draft failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -323,7 +323,7 @@ export class AiController {
   ) {
     try {
       return await this.docCheck.checkDocument(documentId, user?.userId);
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Document check failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -364,7 +364,7 @@ export class AiController {
         month: dto.month,
         assessedBy: user?.userId,
       });
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Branch risk assessment failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -391,7 +391,7 @@ export class AiController {
     }
     try {
       return await this.riskEngine.getBranchRiskSnapshot(branchId, year, month);
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Branch risk lookup failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
