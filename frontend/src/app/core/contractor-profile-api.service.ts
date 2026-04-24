@@ -66,9 +66,10 @@ export class ContractorProfileApiService {
     return this.http.post('/api/v1/contractor/documents/upload', form);
   }
 
-  getMonthlyDocChecklist(month?: string): Observable<{ month: string; items: any[] }> {
+  getMonthlyDocChecklist(month?: string, branchId?: string): Observable<{ month: string; items: any[] }> {
     const params: Record<string, string> = {};
     if (month) params['month'] = month;
+    if (branchId) params['branchId'] = branchId;
     return this.http.get<{ month: string; items: any[] }>(
       '/api/v1/contractor/monthly-checklist',
       { params },
@@ -79,6 +80,7 @@ export class ContractorProfileApiService {
     docType: string;
     branchId: string;
     title: string;
+    month?: string;
     file: File;
   }): Observable<any> {
     const form = new FormData();
@@ -86,6 +88,7 @@ export class ContractorProfileApiService {
     form.append('docType', params.docType);
     form.append('branchId', params.branchId);
     form.append('title', params.title);
+    if (params.month) form.append('month', params.month);
     return this.http.post('/api/v1/contractor/documents/upload', form);
   }
 }

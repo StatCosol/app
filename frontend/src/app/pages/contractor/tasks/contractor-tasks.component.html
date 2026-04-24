@@ -21,16 +21,90 @@
     </div>
   </div>
 
-  <!-- Monthly Compliance Upload -->
-  <div class="task-center-card monthly-checklist">
+  <!-- Monthly Compliance Upload — hidden on dedicated Audits page -->
+  <div *ngIf="typeFilter !== 'AUDIT'" class="task-center-card monthly-checklist">
     <div class="panel-head">
       <div>
         <h3>Monthly Compliance Documents</h3>
-        <p class="panel-head__sub">Statutory documents for contract employees — {{ currentMonthLabel }}</p>
+        <p class="panel-head__sub">Upload statutory documents for the selected month &amp; branch</p>
       </div>
-      <span *ngIf="monthlyChecklist">
+      <span *ngIf="monthlyChecklist" class="checklist-progress-badge"
+            [class.checklist-progress-badge--done]="monthlyChecklistUploadedCount === monthlyChecklist.items.length">
         {{ monthlyChecklistUploadedCount }}/{{ monthlyChecklist.items.length }} uploaded
       </span>
+    </div>
+
+    <!-- Branch / Month / Year selectors -->
+    <div class="checklist-context-bar">
+      <label class="filter-field" *ngIf="availableBranches.length > 0">
+        <span>Branch</span>
+        <select name="chkBranchCtx" [(ngModel)]="checklistBranchId" (ngModelChange)="reloadChecklist()">
+          <option value="">All branches</option>
+          <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name }}</option>
+        </select>
+      </label>
+      <label class="filter-field">
+        <span>Month</span>
+        <select name="chkMonthCtx" [(ngModel)]="checklistMonth" (ngModelChange)="reloadChecklist()">
+          <option *ngFor="let m of monthNames; let i = index" [value]="i + 1">{{ m }}</option>
+        </select>
+      </label>
+      <label class="filter-field">
+        <span>Year</span>
+        <select name="chkYearCtx" [(ngModel)]="checklistYear" (ngModelChange)="reloadChecklist()">
+          <option *ngFor="let y of availableYears" [value]="y">{{ y }}</option>
+        </select>
+      </label>
+      <div class="checklist-context-bar__info">
+        Showing: <strong>{{ monthNames[checklistMonth - 1] }} {{ checklistYear }}</strong>
+        <span *ngIf="checklistBranchId"> — {{ branchName(checklistBranchId) }}</span>
+      </div>
+    </div>
+
+    <!-- Branch-selection prompt when multiple branches but none selected -->
+    <div *ngIf="availableBranches.length > 1 && !checklistBranchId"
+         class="checklist-branch-prompt">
+      <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>Select a <strong>branch</strong> above to see and upload documents for that branch.</span>
+    </div>
+
+    <!-- Upload progress bar -->
+    <div class="checklist-progress-bar-wrap" *ngIf="monthlyChecklist && monthlyChecklist.items.length > 0">
+      <div class="checklist-progress-bar">
+        <div class="checklist-progress-bar__fill"
+             [style.width.%]="(monthlyChecklistUploadedCount / monthlyChecklist.items.length) * 100">
+        </div>
+      </div>
+      <span class="checklist-progress-bar__label">
+        {{ ((monthlyChecklistUploadedCount / monthlyChecklist.items.length) * 100) | number:'1.0-0' }}% complete
+      </span>
+    </div>
+
+    <!-- MCD upload deadline -->
+    <div class="checklist-deadline"
+         [class.checklist-deadline--overdue]="checklistDeadlineTone === 'overdue'"
+         [class.checklist-deadline--urgent]="checklistDeadlineTone === 'urgent'"
+         [class.checklist-deadline--warning]="checklistDeadlineTone === 'warning'"
+         [class.checklist-deadline--ok]="checklistDeadlineTone === 'ok'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <span>
+        <strong>Upload deadline:</strong> {{ checklistDeadlineLabel }}
+        <span class="checklist-deadline__rule">({{ monthNames[checklistMonth - 1] }} documents must be uploaded by the 20th of {{ checklistMonth === 12 ? monthNames[0] : monthNames[checklistMonth] }})</span>
+      </span>
+    </div>
+
+    <!-- Rejected banner -->
+    <div *ngIf="rejectedChecklistItems.length" class="checklist-rejected-banner">
+      <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+      </svg>
+      <strong>{{ rejectedChecklistItems.length }} document(s) rejected by CRM</strong> — scroll down to re-upload them.
     </div>
 
     <ui-loading-spinner *ngIf="checklistLoading" size="sm" text="Loading checklist..."></ui-loading-spinner>
@@ -39,37 +113,48 @@
       <div
         *ngFor="let item of monthlyChecklist?.items"
         class="checklist-row"
-        [class.checklist-row--done]="item.uploaded">
+        [class.checklist-row--done]="item.uploaded && item.uploadedDocs[0]?.status === 'APPROVED'"
+        [class.checklist-row--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'">
         <div class="checklist-row__icon">
-          <svg *ngIf="item.uploaded" xmlns="http://www.w3.org/2000/svg" class="icon icon--green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg *ngIf="item.uploaded && item.uploadedDocs[0]?.status === 'APPROVED'" xmlns="http://www.w3.org/2000/svg" class="icon icon--green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
           </svg>
-          <svg *ngIf="!item.uploaded" xmlns="http://www.w3.org/2000/svg" class="icon icon--red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+          <svg *ngIf="item.uploaded && item.uploadedDocs[0]?.status === 'REJECTED'" xmlns="http://www.w3.org/2000/svg" class="icon icon--red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          <svg *ngIf="item.uploaded && item.uploadedDocs[0]?.status === 'PENDING'" xmlns="http://www.w3.org/2000/svg" class="icon icon--amber" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <svg *ngIf="!item.uploaded" xmlns="http://www.w3.org/2000/svg" class="icon icon--muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m9-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
         <div class="checklist-row__info">
           <span class="checklist-row__name">{{ monthlyDocLabel(item.docType) }}</span>
           <span class="checklist-row__desc">{{ monthlyDocDesc(item.docType) }}</span>
           <span class="checklist-badge"
-                [class.checklist-badge--ok]="item.uploaded"
+                [class.checklist-badge--ok]="item.uploadedDocs[0]?.status === 'APPROVED'"
+                [class.checklist-badge--review]="item.uploadedDocs[0]?.status === 'PENDING'"
+                [class.checklist-badge--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'"
                 [class.checklist-badge--missing]="!item.uploaded">
-            {{ item.uploaded ? 'Uploaded' : 'Pending' }}
+            {{ item.uploaded ? (item.uploadedDocs[0]?.status | titlecase) : 'Pending upload' }}
           </span>
           <span *ngIf="item.uploaded && item.uploadedDocs[0]" class="checklist-row__filename">
             {{ item.uploadedDocs[0].fileName }}
-            <span class="checklist-badge checklist-badge--status"
-                  [class.checklist-badge--ok]="item.uploadedDocs[0].status === 'APPROVED'"
-                  [class.checklist-badge--review]="item.uploadedDocs[0].status === 'PENDING'"
-                  [class.checklist-badge--rejected]="item.uploadedDocs[0].status === 'REJECTED'">
-              {{ item.uploadedDocs[0].status | titlecase }}
-            </span>
           </span>
+          <!-- Rejection reason from CRM -->
+          <div *ngIf="item.uploadedDocs[0]?.status === 'REJECTED'" class="checklist-row__rejection">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon--sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+            </svg>
+            Rejected by CRM — please re-upload a corrected file.
+          </div>
         </div>
         <button class="btn-upload" type="button"
                 (click)="openChecklistUpload(item)"
-                [class.btn-upload--reupload]="item.uploaded">
-          {{ item.uploaded ? 'Re-upload' : 'Upload' }}
+                [class.btn-upload--reupload]="item.uploaded && item.uploadedDocs[0]?.status !== 'REJECTED'"
+                [class.btn-upload--rejected]="item.uploadedDocs[0]?.status === 'REJECTED'">
+          {{ item.uploadedDocs[0]?.status === 'REJECTED' ? 'Re-upload' : (item.uploaded ? 'Replace' : 'Upload') }}
         </button>
       </div>
 
@@ -81,7 +166,7 @@
 
     <!-- Inline upload form -->
     <div *ngIf="checklistUploadItem" class="checklist-upload-form">
-      <h6>Upload: {{ monthlyDocLabel(checklistUploadItem.docType) }}</h6>
+      <h6>{{ checklistUploadItem.uploadedDocs[0]?.status === 'REJECTED' ? 'Re-upload' : 'Upload' }}: {{ monthlyDocLabel(checklistUploadItem.docType) }}</h6>
       <div class="checklist-upload-form__fields">
         <label class="filter-field">
           <span>Title</span>
@@ -89,9 +174,9 @@
                  [(ngModel)]="checklistUploadTitle" />
         </label>
         <label class="filter-field" *ngIf="availableBranches.length > 1">
-          <span>Branch</span>
+          <span>Branch <span class="text-red-500">*</span></span>
           <select name="chkBranch" [(ngModel)]="checklistUploadBranchId">
-            <option value="">Select branch</option>
+            <option value="">Select branch…</option>
             <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name }}</option>
           </select>
         </label>
@@ -101,16 +186,24 @@
                  (change)="onChecklistFileChange($event)" />
         </label>
       </div>
+      <p class="checklist-upload-form__note">
+        Uploaded documents are reviewed and verified by <strong>CRM</strong>. Clients can view documents only.
+      </p>
       <div class="checklist-upload-form__actions">
         <button
           type="button"
           class="btn-primary"
           [disabled]="checklistUploading || !checklistUploadFile || !checklistUploadBranchId.trim()"
           (click)="submitChecklistUpload()">
+          <span *ngIf="checklistUploading" class="spinner-xs"></span>
           {{ checklistUploading ? 'Uploading…' : 'Submit' }}
         </button>
         <button type="button" class="btn-secondary" (click)="cancelChecklistUpload()">Cancel</button>
       </div>
+    </div>
+
+    <div *ngIf="!checklistLoading && monthlyChecklist && !monthlyChecklist.items?.length" class="checklist-empty">
+      No documents found for {{ monthNames[checklistMonth - 1] }} {{ checklistYear }}.
     </div>
   </div>
 
@@ -127,12 +220,11 @@
             placeholder="Type task name, branch, or reason..." />
       </label>
 
-      <label class="filter-field">
+      <label class="filter-field" *ngIf="typeFilter !== 'AUDIT'">
         <span>Work Type</span>
         <select id="ct-type" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">{{ rowTypeLabel('ALL') }}</option>
           <option value="TASK">{{ rowTypeLabel('TASK') }}</option>
-          <option value="AUDIT">{{ rowTypeLabel('AUDIT') }}</option>
           <option value="REUPLOAD">{{ rowTypeLabel('REUPLOAD') }}</option>
         </select>
       </label>
@@ -177,7 +269,7 @@
   <div *ngIf="!loading" class="task-center-layout">
     <section class="task-center-card list-panel">
       <div class="panel-head">
-        <h3>Your Pending Work</h3>
+        <h3>{{ typeFilter === 'AUDIT' ? 'Your Audits' : 'Your Pending Work' }}</h3>
         <span>{{ filteredRows.length }} item(s)</span>
       </div>
 
@@ -368,7 +460,7 @@
             <button
               type="button"
               class="btn btn--ghost"
-              [disabled]="actionBusy || selectedRow.status !== 'OPEN'"
+              [disabled]="actionBusy || (selectedRow.status !== 'OPEN' && selectedRow.status !== 'PENDING')"
               (click)="submitReupload()">
               Submit for review
             </button>

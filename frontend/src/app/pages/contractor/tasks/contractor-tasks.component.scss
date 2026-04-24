@@ -812,3 +812,250 @@
   font-size: 0.82rem;
   color: #9ca3af;
 }
+
+// ─── MCD upload deadline banner ───────────────────────────────────────
+.checklist-deadline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 1rem 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid;
+
+  .icon {
+    flex-shrink: 0;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: 0.1rem;
+  }
+
+  &__rule {
+    display: block;
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 0.1rem;
+  }
+
+  &--ok {
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #166534;
+  }
+
+  &--warning {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    color: #92400e;
+  }
+
+  &--urgent {
+    background: #fff7ed;
+    border-color: #fb923c;
+    color: #9a3412;
+    font-weight: 600;
+  }
+
+  &--overdue {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+    font-weight: 700;
+    animation: pulse-red 2s ease-in-out infinite;
+  }
+}
+
+// ─── Checklist context selectors (branch / month / year) ─────────────
+.checklist-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 1rem;
+  padding: 0.65rem 1rem 0.75rem;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+
+  select {
+    min-width: 8rem;
+  }
+
+  .checklist-context-bar__info {
+    flex: 1;
+    min-width: 10rem;
+    font-size: 0.78rem;
+    color: #6b7280;
+    padding-bottom: 0.35rem;
+
+    strong {
+      color: #1f2937;
+    }
+  }
+}
+
+// ─── Progress bar ─────────────────────────────────────────────────────
+.checklist-progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
+}
+
+.checklist-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    background: #4f46e5;
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+    min-width: 4px;
+  }
+}
+
+.checklist-progress-bar__label {
+  font-size: 0.72rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.checklist-progress-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background: #e0e7ff;
+  color: #4338ca;
+
+  &--done {
+    background: #d1fae5;
+    color: #065f46;
+  }
+}
+
+// ─── Rejected banner & row ────────────────────────────────────────────
+.checklist-branch-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1rem 0.75rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  font-size: 0.8rem;
+  color: #1d4ed8;
+
+  .icon {
+    flex-shrink: 0;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+}
+
+.checklist-rejected-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1rem 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.5rem;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  font-size: 0.8rem;
+  color: #b91c1c;
+
+  .icon {
+    flex-shrink: 0;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+}
+
+.checklist-row--rejected {
+  background: #fff7f7;
+  border-left: 3px solid #ef4444;
+  padding-left: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.checklist-row__rejection {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.73rem;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 0.15rem;
+
+  .icon--sm {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex-shrink: 0;
+  }
+}
+
+.btn-upload--rejected {
+  color: #fff;
+  background: #dc2626;
+  border-color: #dc2626;
+  font-weight: 700;
+  animation: pulse-red 1.8s ease-in-out infinite;
+
+  &:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
+  }
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+  50%       { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0); }
+}
+
+// ─── Icon tones ───────────────────────────────────────────────────────
+.icon--amber {
+  color: #d97706;
+}
+
+.icon--muted {
+  color: #9ca3af;
+}
+
+// ─── Upload form note & spinner ───────────────────────────────────────
+.checklist-upload-form__note {
+  font-size: 0.73rem;
+  color: #6b7280;
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0.7rem;
+  background: #f0fdf4;
+  border-radius: 0.4rem;
+  border: 1px solid #bbf7d0;
+
+  strong {
+    color: #065f46;
+  }
+}
+
+.spinner-xs {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.3rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+

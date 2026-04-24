@@ -163,6 +163,59 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   checklistUploadBranchId = '';
   checklistUploading = false;
 
+  // Checklist selectors (branch / month / year)
+  checklistBranchId = '';
+  checklistMonth: number = new Date().getMonth() + 1;   // 1-12
+  checklistYear: number = new Date().getFullYear();
+
+  readonly monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  get availableYears(): number[] {
+    const y = new Date().getFullYear();
+    return [y - 1, y, y + 1];
+  }
+
+  get checklistMonthParam(): string {
+    return `${this.checklistYear}-${String(this.checklistMonth).padStart(2, '0')}`;
+  }
+
+  /** MCD deadline: 20th of the month following the selected month/year */
+  get checklistDeadline(): Date {
+    let year = this.checklistYear;
+    let month = this.checklistMonth; // 1-12
+    if (month === 12) { month = 1; year += 1; } else { month += 1; }
+    return new Date(year, month - 1, 20);   // month-1 because Date() uses 0-indexed months
+  }
+
+  /** Days until (positive) or past (negative) the MCD deadline */
+  get checklistDeadlineDaysLeft(): number {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dl = new Date(this.checklistDeadline);
+    dl.setHours(0, 0, 0, 0);
+    return Math.ceil((dl.getTime() - today.getTime()) / 86400000);
+  }
+
+  get checklistDeadlineTone(): 'overdue' | 'urgent' | 'warning' | 'ok' {
+    const d = this.checklistDeadlineDaysLeft;
+    if (d < 0) return 'overdue';
+    if (d <= 3) return 'urgent';
+    if (d <= 7) return 'warning';
+    return 'ok';
+  }
+
+  get checklistDeadlineLabel(): string {
+    const d = this.checklistDeadlineDaysLeft;
+    const fmt = this.checklistDeadline.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (d < 0) return `Overdue by ${Math.abs(d)} day(s) — deadline was ${fmt}`;
+    if (d === 0) return `Due today — ${fmt}`;
+    if (d === 1) return `1 day left — due ${fmt}`;
+    return `${d} days left — due ${fmt}`;
+  }
+
   // Audit primary document upload
   auditDocFile: File | null = null;
   auditDocType = '';
@@ -465,6 +518,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
             name: b.name || b.branchName || '',
           })).filter((b: any) => b.name);
 
+          // Auto-select first branch for checklist if none chosen yet
+          if (!this.checklistBranchId && this.availableBranches.length === 1) {
+            this.checklistBranchId = this.availableBranches[0].id;
+          }
+
           this.allRows = [...taskRows, ...reuploadRows, ...auditRows].sort(
             (a, b) => this.dateValue(a.dueDate) - this.dateValue(b.dueDate),
           );
@@ -488,6 +546,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
     this.filteredRows = this.allRows.filter((row) => {
       if (this.typeFilter !== 'ALL' && row.rowType !== this.typeFilter) {
+        return false;
+      }
+      // My Workboard shows only TASK and REUPLOAD — audits are on the dedicated Audits page
+      if (this.typeFilter === 'ALL' && row.rowType === 'AUDIT') {
         return false;
       }
 
@@ -934,17 +996,20 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   }
 
   get summaryCards(): Array<{ label: string; value: number; tone: string }> {
-    const openCount = this.allRows.filter((r) => this.isOpenStatus(r.status)).length;
-    const overdueCount = this.allRows.filter((r) =>
+    const scopedRows = this.typeFilter === 'AUDIT'
+      ? this.allRows.filter((r) => r.rowType === 'AUDIT')
+      : this.allRows.filter((r) => r.rowType !== 'AUDIT');
+    const openCount = scopedRows.filter((r) => this.isOpenStatus(r.status)).length;
+    const overdueCount = scopedRows.filter((r) =>
       this.isOverdueStatus(r.status, r.dueDate),
     ).length;
-    const reuploadOpen = this.allRows.filter(
+    const reuploadOpen = scopedRows.filter(
       (r) => r.rowType === 'REUPLOAD' && this.isOpenStatus(r.status),
     ).length;
-    const submitted = this.allRows.filter((r) => r.status === 'SUBMITTED').length;
+    const submitted = scopedRows.filter((r) => r.status === 'SUBMITTED').length;
 
     return [
-      { label: 'Total items', value: this.allRows.length, tone: 'neutral' },
+      { label: 'Total items', value: scopedRows.length, tone: 'neutral' },
       { label: 'Open items', value: openCount, tone: 'info' },
       { label: 'Overdue', value: overdueCount, tone: 'danger' },
       { label: 'Open reuploads', value: reuploadOpen, tone: 'warning' },
@@ -1077,10 +1142,17 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     );
   }
 
+  reloadChecklist(): void {
+    // Reset upload form when context changes
+    this.checklistUploadItem = null;
+    this.checklistUploadFile = null;
+    this.loadChecklist();
+  }
+
   private loadChecklist(): void {
     this.checklistLoading = true;
     this.contractorProfileApi
-      .getMonthlyDocChecklist()
+      .getMonthlyDocChecklist(this.checklistMonthParam, this.checklistBranchId || undefined)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -1122,11 +1194,23 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
+  branchName(id: string): string {
+    return this.availableBranches.find((b) => b.id === id)?.name ?? id;
+  }
+
+  get rejectedChecklistItems(): ChecklistItem[] {
+    return (this.monthlyChecklist?.items ?? []).filter(
+      (i) => i.uploadedDocs.some((d) => d.status === 'REJECTED'),
+    );
+  }
+
   openChecklistUpload(item: ChecklistItem): void {
     this.checklistUploadItem = item;
     this.checklistUploadFile = null;
-    this.checklistUploadTitle = `${this.monthlyDocLabel(item.docType)} - ${this.currentMonthLabel}`;
+    const mon = this.monthNames[this.checklistMonth - 1];
+    this.checklistUploadTitle = `${this.monthlyDocLabel(item.docType)} - ${mon} ${this.checklistYear}`;
     this.checklistUploadBranchId =
+      this.checklistBranchId ||
       item.branchId ||
       (this.availableBranches.length === 1 ? this.availableBranches[0].id : '');
     this.cdr.markForCheck();
@@ -1153,6 +1237,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         docType: this.checklistUploadItem.docType,
         branchId: this.checklistUploadBranchId,
         title: this.checklistUploadTitle.trim(),
+        month: this.checklistMonthParam,
         file: this.checklistUploadFile,
       })
       .pipe(

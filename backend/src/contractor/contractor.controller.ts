@@ -191,6 +191,7 @@ export class ContractorController {
   async getMonthlyChecklist(
     @CurrentUser() user: ReqUser,
     @Query('month') month?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const userId = user?.userId;
     const profile = await this.service.getContractorProfile(userId);
@@ -198,6 +199,7 @@ export class ContractorController {
       userId,
       profile.clientId,
       month,
+      branchId,
     );
   }
 

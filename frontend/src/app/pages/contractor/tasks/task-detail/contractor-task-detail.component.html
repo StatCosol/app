@@ -29,10 +29,13 @@
   <!-- Progress Stepper -->
   <div class="contractor-stepper mb-6">
     <div class="contractor-stepper__step">
-      <div class="contractor-stepper__circle contractor-stepper__circle--done">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-        </svg>
+      <div [class]="(evidence.length||0) > 0 ? 'contractor-stepper__circle contractor-stepper__circle--done' : 'contractor-stepper__circle contractor-stepper__circle--inactive'">
+        <ng-container *ngIf="(evidence.length||0) > 0; else step1Num">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+        </ng-container>
+        <ng-template #step1Num>1</ng-template>
       </div>
       <span class="contractor-stepper__label text-gray-900">Upload Evidence</span>
     </div>

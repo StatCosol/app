@@ -163,11 +163,13 @@ export class ContractorRequiredDocumentsService {
    * Get the monthly document checklist for a contractor (contractor-facing).
    * Always returns the 6 standard monthly statutory doc types plus any
    * additional ones configured by CRM in contractor_required_documents.
+   * When branchId is provided, filters required docs and uploaded docs to that branch.
    */
   async getContractorChecklist(
     contractorUserId: string,
     clientId: string,
     month?: string,
+    branchId?: string,
   ) {
     const now = new Date();
     const resolvedMonth =
@@ -179,11 +181,20 @@ export class ContractorRequiredDocumentsService {
       throw new BadRequestException('Invalid month format, expected YYYY-MM');
     }
     const start = new Date(Date.UTC(y, m - 1, 1));
-    const end = new Date(Date.UTC(y, m, 1));
+    // Grace period: docs for month M can be submitted up to end of month M+1
+    // (deadline is the 20th, but we use end-of-month to avoid edge cases).
+    const gracePeriodEnd = new Date(Date.UTC(y, m + 1, 1));
 
-    // DB-configured required docs for this contractor
+    // DB-configured required docs for this contractor.
+    // When branchId is provided: include global (null-branch) AND branch-specific docs.
+    // When not provided: include everything across all branches.
     const dbRequired = await this.repo.find({
-      where: { contractorUserId, clientId, isRequired: true },
+      where: branchId
+        ? [
+            { contractorUserId, clientId, isRequired: true, branchId },
+            { contractorUserId, clientId, isRequired: true, branchId: IsNull() },
+          ]
+        : { contractorUserId, clientId, isRequired: true },
       order: { docType: 'ASC' },
     });
 
@@ -209,7 +220,19 @@ export class ContractorRequiredDocumentsService {
       }
     }
 
-    // Upload records for this month
+    // Upload records for this month.
+    // Uses doc_month when the column exists (safe DDL probe), otherwise falls
+    // back to the created_at grace-period window so the query never fails on
+    // databases that haven't had the column migration applied yet.
+    const hasDocMonthCol = await this.repo.manager
+      .query(
+        `SELECT 1 FROM information_schema.columns
+         WHERE table_name = 'contractor_documents' AND column_name = 'doc_month'
+         LIMIT 1`,
+      )
+      .then((rows: unknown[]) => rows.length > 0)
+      .catch(() => false);
+
     const uploaded: Array<{
       doc_type: string;
       id: string;
@@ -217,14 +240,32 @@ export class ContractorRequiredDocumentsService {
       status: string;
       created_at: Date;
       branch_id: string | null;
-    }> = await this.repo.manager.query(
-      `SELECT doc_type, id, file_name, status, created_at, branch_id
-       FROM contractor_documents
-       WHERE contractor_user_id = $1 AND client_id = $2
-         AND created_at >= $3 AND created_at < $4
-       ORDER BY created_at DESC`,
-      [contractorUserId, clientId, start, end],
-    );
+    }> = hasDocMonthCol
+      ? await this.repo.manager.query(
+          `SELECT doc_type, id, file_name, status, created_at, branch_id
+           FROM contractor_documents
+           WHERE contractor_user_id = $1 AND client_id = $2
+             AND (
+               doc_month = $3
+               OR (doc_month IS NULL AND created_at >= $4 AND created_at < $5)
+             )
+             ${branchId ? 'AND branch_id = $6' : ''}
+           ORDER BY created_at DESC`,
+          branchId
+            ? [contractorUserId, clientId, resolvedMonth, start, gracePeriodEnd, branchId]
+            : [contractorUserId, clientId, resolvedMonth, start, gracePeriodEnd],
+        )
+      : await this.repo.manager.query(
+          `SELECT doc_type, id, file_name, status, created_at, branch_id
+           FROM contractor_documents
+           WHERE contractor_user_id = $1 AND client_id = $2
+             AND created_at >= $3 AND created_at < $4
+             ${branchId ? 'AND branch_id = $5' : ''}
+           ORDER BY created_at DESC`,
+          branchId
+            ? [contractorUserId, clientId, start, gracePeriodEnd, branchId]
+            : [contractorUserId, clientId, start, gracePeriodEnd],
+        );
 
     const uploadedMap = new Map<string, typeof uploaded[number][]>();
     for (const doc of uploaded) {
