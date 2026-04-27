@@ -81,6 +81,7 @@ function dottedLine(
       .fontSize(7)
       .fillColor(MUTED)
       .text(label, x, y + 2, { width });
+    doc.x = doc.page.margins.left;
   }
 }
 
@@ -116,6 +117,22 @@ function pageBreakIfNeeded(doc: any, needed = 80): void {
   }
 }
 
+/** Reset the text cursor to the left margin so subsequent paragraphs
+ *  flow at full page width (PDFKit otherwise inherits the last x used
+ *  by `text(value, x, y, …)` which leaves narrow column wrapping). */
+function resetX(doc: any): void {
+  doc.x = doc.page.margins.left;
+}
+
+function cellValue(c: { key: string }, row: NomineeRow | undefined, idx: number): string {
+  if (!row) return c.key === 'sno' ? `${idx + 1}.` : '';
+  if (c.key === 'sno') return `${idx + 1}.`;
+  const v = row[c.key as keyof NomineeRow];
+  if (c.key === 'sharePct' && v != null) return `${v}%`;
+  if (c.key === 'name') return row.memberName || row.name || '';
+  return v == null ? '' : String(v);
+}
+
 function drawNomineeTable(
   doc: any,
   cols: { header: string; width: number; key: keyof NomineeRow | 'sno' }[],
@@ -124,82 +141,103 @@ function drawNomineeTable(
 ): void {
   const startX = doc.page.margins.left;
   const totalWidth = cols.reduce((s, c) => s + c.width, 0);
-  const headerH = 28;
-  const rowH = 26;
+  const headerPad = 4;
+  const rowPad = 4;
+  const minRowH = 22;
 
-  pageBreakIfNeeded(doc, headerH + Math.max(rows.length, minRows) * rowH + 20);
+  doc.fontSize(8);
+  // Compute header height from the tallest header cell
+  let headerTextH = 0;
+  cols.forEach((c) => {
+    const h = doc.heightOfString(c.header, { width: c.width - 6, align: 'center' });
+    if (h > headerTextH) headerTextH = h;
+  });
+  const headerH = headerTextH + headerPad * 2;
+  const numH = 12; // column-number band
+
+  const totalRows = Math.max(rows.length, minRows);
+  // Pre-compute body row heights based on content
+  const rowHeights: number[] = [];
+  for (let r = 0; r < totalRows; r++) {
+    let maxH = minRowH;
+    cols.forEach((c) => {
+      const val = cellValue(c, rows[r], r);
+      if (!val) return;
+      const h =
+        doc.heightOfString(val, { width: c.width - 6, align: c.key === 'sno' ? 'center' : 'left' }) +
+        rowPad * 2;
+      if (h > maxH) maxH = h;
+    });
+    rowHeights.push(maxH);
+  }
+  const bodyHeight = rowHeights.reduce((s, h) => s + h, 0);
+
+  pageBreakIfNeeded(doc, headerH + numH + bodyHeight + 12);
   const top = doc.y;
 
-  // Header
-  doc.rect(startX, top, totalWidth, headerH).strokeColor(LINE).lineWidth(0.7).stroke();
+  // Header background border
+  doc
+    .rect(startX, top, totalWidth, headerH)
+    .strokeColor(LINE)
+    .lineWidth(0.7)
+    .stroke();
   let cx = startX;
-  cols.forEach((c) => {
+  cols.forEach((c, i) => {
+    if (i > 0) {
+      doc.moveTo(cx, top).lineTo(cx, top + headerH + numH).stroke();
+    }
     doc
       .fontSize(8)
       .fillColor(TEXT)
-      .text(c.header, cx + 3, top + 4, {
+      .text(c.header, cx + 3, top + headerPad, {
         width: c.width - 6,
         align: 'center',
       });
-    if (cx > startX) {
-      doc
-        .moveTo(cx, top)
-        .lineTo(cx, top + headerH)
-        .stroke();
-    }
     cx += c.width;
   });
-  // Final right border
-  doc.moveTo(startX + totalWidth, top).lineTo(startX + totalWidth, top + headerH).stroke();
 
-  // Column-number row beneath header (e.g., (1)(2)(3))
-  const numY = top + headerH - 12;
+  // Number row (1)(2)(3) directly below the header band
+  const numY = top + headerH;
+  doc.rect(startX, numY, totalWidth, numH).stroke();
   cx = startX;
   cols.forEach((c, i) => {
     doc
       .fontSize(7)
       .fillColor(MUTED)
-      .text(`(${i + 1})`, cx, numY, { width: c.width, align: 'center' });
+      .text(`(${i + 1})`, cx + 3, numY + 2, {
+        width: c.width - 6,
+        align: 'center',
+      });
     cx += c.width;
   });
 
-  // Body rows
-  const bodyTop = top + headerH;
-  const totalRows = Math.max(rows.length, minRows);
+  // Body rows with dynamic heights
+  let rowY = numY + numH;
   for (let r = 0; r < totalRows; r++) {
-    const rowY = bodyTop + r * rowH;
-    doc.rect(startX, rowY, totalWidth, rowH).stroke();
+    const rH = rowHeights[r];
+    doc.rect(startX, rowY, totalWidth, rH).stroke();
     cx = startX;
     cols.forEach((c, ci) => {
       if (ci > 0) {
-        doc.moveTo(cx, rowY).lineTo(cx, rowY + rowH).stroke();
+        doc.moveTo(cx, rowY).lineTo(cx, rowY + rH).stroke();
       }
-      const row = rows[r];
-      let val = '';
-      if (row) {
-        if (c.key === 'sno') val = `${r + 1}.`;
-        else {
-          const v = row[c.key as keyof NomineeRow];
-          if (c.key === 'sharePct' && v != null) val = `${v}%`;
-          else if (c.key === 'name')
-            val = row.memberName || row.name || '';
-          else val = v == null ? '' : String(v);
-        }
-      } else {
-        if (c.key === 'sno') val = `${r + 1}.`;
+      const val = cellValue(c, rows[r], r);
+      if (val) {
+        doc
+          .fontSize(8)
+          .fillColor(TEXT)
+          .text(val, cx + 3, rowY + rowPad, {
+            width: c.width - 6,
+            align: c.key === 'sno' ? 'center' : 'left',
+          });
       }
-      doc
-        .fontSize(8)
-        .fillColor(TEXT)
-        .text(val, cx + 3, rowY + 8, {
-          width: c.width - 6,
-          align: c.key === 'sno' ? 'center' : 'left',
-        });
       cx += c.width;
     });
+    rowY += rH;
   }
 
-  doc.y = bodyTop + totalRows * rowH + 8;
+  doc.y = rowY + 8;
+  resetX(doc);
 }
 
 function signatureBlock(doc: any): void {
@@ -214,9 +252,11 @@ function signatureBlock(doc: any): void {
     width: 240,
     align: 'right',
   });
+  resetX(doc);
   doc.moveDown(1);
   doc.text('Date:  ____________________', left, doc.y);
   doc.moveDown(1.2);
+  resetX(doc);
 }
 
 function witnessBlock(
