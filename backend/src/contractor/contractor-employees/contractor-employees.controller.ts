@@ -29,11 +29,19 @@ export class ContractorEmployeesController {
 
   @ApiOperation({ summary: 'List own employees' })
   @Get()
-  async list(@CurrentUser() user: ReqUser, @Query() query: Record<string, string>) {
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
     return this.svc.list(user.userId, {
       clientId: user.clientId || undefined,
       branchId: query.branchId || undefined,
-      isActive: query.isActive === 'true' ? true : query.isActive === 'false' ? false : undefined,
+      isActive:
+        query.isActive === 'true'
+          ? true
+          : query.isActive === 'false'
+            ? false
+            : undefined,
       search: query.search || undefined,
     });
   }
@@ -56,7 +64,11 @@ export class ContractorEmployeesController {
 
   @ApiOperation({ summary: 'Update employee' })
   @Put(':id')
-  async update(@CurrentUser() user: ReqUser, @Param('id') id: string, @Body() body: any) {
+  async update(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
     return this.svc.update(id, user.userId, body);
   }
 
@@ -85,20 +97,31 @@ export class ClientContractorEmployeesController {
 
   @ApiOperation({ summary: 'List contractor employees for a branch' })
   @Get()
-  async list(@CurrentUser() user: ReqUser, @Query() query: Record<string, string>) {
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const branchId = query.branchId || user.branchIds?.[0];
     if (!branchId) throw new BadRequestException('Branch is required');
 
-    const allowed = await this.branchAccess.getAllowedBranchIds(user.userId, clientId);
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      clientId,
+    );
     if (allowed !== 'ALL' && !allowed.includes(branchId)) {
       return { data: [], total: 0 };
     }
 
     return this.svc.listByBranch(clientId, branchId, {
       contractorUserId: query.contractorUserId || undefined,
-      isActive: query.isActive === 'true' ? true : query.isActive === 'false' ? false : undefined,
+      isActive:
+        query.isActive === 'true'
+          ? true
+          : query.isActive === 'false'
+            ? false
+            : undefined,
       search: query.search || undefined,
     });
   }

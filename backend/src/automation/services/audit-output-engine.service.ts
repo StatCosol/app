@@ -181,14 +181,23 @@ export class AuditOutputEngineService {
         methodology: report.methodology || '',
         findings: report.findings || '',
         recommendations: report.recommendations || '',
-        observations: (obsRows || []).map((o: { sequence_number: number | null; observation: string; clause: string | null; risk: string | null; status: string; recommendation: string | null }) => ({
-          sequenceNumber: o.sequence_number ?? null,
-          observation: o.observation || '',
-          clause: o.clause || null,
-          risk: o.risk || null,
-          status: o.status || 'OPEN',
-          recommendation: o.recommendation || null,
-        })),
+        observations: (obsRows || []).map(
+          (o: {
+            sequence_number: number | null;
+            observation: string;
+            clause: string | null;
+            risk: string | null;
+            status: string;
+            recommendation: string | null;
+          }) => ({
+            sequenceNumber: o.sequence_number ?? null,
+            observation: o.observation || '',
+            clause: o.clause || null,
+            risk: o.risk || null,
+            status: o.status || 'OPEN',
+            recommendation: o.recommendation || null,
+          }),
+        ),
       });
 
       this.logger.log(
@@ -349,27 +358,29 @@ export class AuditOutputEngineService {
        ORDER BY ar.version_no DESC`,
       [auditId],
     );
-    return rows.map((r: {
-      id: string;
-      version_no: number;
-      report_type: string;
-      status: string;
-      blended_score: number | null;
-      prepared_date: string | null;
-      finalized_at: string | null;
-      prepared_by_name: string | null;
-      created_at: string;
-    }) => ({
-      id: r.id,
-      versionNo: r.version_no,
-      reportType: r.report_type,
-      status: r.status,
-      blendedScore: r.blended_score,
-      preparedBy: r.prepared_by_name,
-      preparedDate: r.prepared_date,
-      finalizedAt: r.finalized_at,
-      createdAt: r.created_at,
-    }));
+    return rows.map(
+      (r: {
+        id: string;
+        version_no: number;
+        report_type: string;
+        status: string;
+        blended_score: number | null;
+        prepared_date: string | null;
+        finalized_at: string | null;
+        prepared_by_name: string | null;
+        created_at: string;
+      }) => ({
+        id: r.id,
+        versionNo: r.version_no,
+        reportType: r.report_type,
+        status: r.status,
+        blendedScore: r.blended_score,
+        preparedBy: r.prepared_by_name,
+        preparedDate: r.prepared_date,
+        finalizedAt: r.finalized_at,
+        createdAt: r.created_at,
+      }),
+    );
   }
 
   /**

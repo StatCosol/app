@@ -51,7 +51,12 @@ export class ComplianceMcdItem {
   @Column({ name: 'remarks', type: 'text', nullable: true })
   remarks: string | null;
 
-  @Column({ name: 'uploaded_by_role', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'uploaded_by_role',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   uploadedByRole: string | null;
 
   @Column({ name: 'verified_by_user_id', type: 'uuid', nullable: true })

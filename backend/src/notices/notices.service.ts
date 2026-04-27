@@ -21,7 +21,6 @@ export interface ReqUser {
 
 @Injectable()
 export class NoticesService {
-
   constructor(
     @InjectRepository(NoticeEntity)
     private readonly repo: Repository<NoticeEntity>,
@@ -114,11 +113,18 @@ export class NoticesService {
     }
 
     // Filters
-    if (query.clientId) qb.andWhere('n.clientId = :clientId', { clientId: query.clientId });
-    if (query.branchId) qb.andWhere('n.branchId = :branchId', { branchId: query.branchId });
-    if (query.status) qb.andWhere('n.status = :status', { status: query.status });
-    if (query.severity) qb.andWhere('n.severity = :severity', { severity: query.severity });
-    if (query.noticeType) qb.andWhere('n.noticeType = :noticeType', { noticeType: query.noticeType });
+    if (query.clientId)
+      qb.andWhere('n.clientId = :clientId', { clientId: query.clientId });
+    if (query.branchId)
+      qb.andWhere('n.branchId = :branchId', { branchId: query.branchId });
+    if (query.status)
+      qb.andWhere('n.status = :status', { status: query.status });
+    if (query.severity)
+      qb.andWhere('n.severity = :severity', { severity: query.severity });
+    if (query.noticeType)
+      qb.andWhere('n.noticeType = :noticeType', {
+        noticeType: query.noticeType,
+      });
     if (query.search) {
       qb.andWhere(
         '(n.subject ILIKE :s OR n.referenceNo ILIKE :s OR n.departmentName ILIKE :s OR n.noticeCode ILIKE :s)',
@@ -138,10 +144,18 @@ export class NoticesService {
     if (!notice) throw new NotFoundException('Notice not found');
 
     // Role-based scope check
-    if (user.roleCode === 'CLIENT' && user.clientId && notice.clientId !== user.clientId) {
+    if (
+      user.roleCode === 'CLIENT' &&
+      user.clientId &&
+      notice.clientId !== user.clientId
+    ) {
       throw new ForbiddenException();
     }
-    if (user.roleCode === 'BRANCH' && user.branchId && notice.branchId !== user.branchId) {
+    if (
+      user.roleCode === 'BRANCH' &&
+      user.branchId &&
+      notice.branchId !== user.branchId
+    ) {
       throw new ForbiddenException();
     }
 
@@ -161,21 +175,29 @@ export class NoticesService {
   }
 
   /** Update notice fields + status transitions */
-  async update(user: ReqUser, id: string, dto: UpdateNoticeDto): Promise<NoticeEntity> {
+  async update(
+    user: ReqUser,
+    id: string,
+    dto: UpdateNoticeDto,
+  ): Promise<NoticeEntity> {
     const notice = await this.repo.findOneBy({ id });
     if (!notice) throw new NotFoundException('Notice not found');
 
     const oldStatus = notice.status;
 
     if (dto.noticeType !== undefined) notice.noticeType = dto.noticeType as any;
-    if (dto.departmentName !== undefined) notice.departmentName = dto.departmentName;
+    if (dto.departmentName !== undefined)
+      notice.departmentName = dto.departmentName;
     if (dto.referenceNo !== undefined) notice.referenceNo = dto.referenceNo;
     if (dto.subject !== undefined) notice.subject = dto.subject;
     if (dto.description !== undefined) notice.description = dto.description;
-    if (dto.responseDueDate !== undefined) notice.responseDueDate = dto.responseDueDate;
+    if (dto.responseDueDate !== undefined)
+      notice.responseDueDate = dto.responseDueDate;
     if (dto.severity !== undefined) notice.severity = dto.severity as any;
-    if (dto.assignedToUserId !== undefined) notice.assignedToUserId = dto.assignedToUserId;
-    if (dto.responseSummary !== undefined) notice.responseSummary = dto.responseSummary;
+    if (dto.assignedToUserId !== undefined)
+      notice.assignedToUserId = dto.assignedToUserId;
+    if (dto.responseSummary !== undefined)
+      notice.responseSummary = dto.responseSummary;
     if (dto.responseDate !== undefined) notice.responseDate = dto.responseDate;
 
     if (dto.status && dto.status !== oldStatus) {
@@ -185,7 +207,14 @@ export class NoticesService {
         notice.closedByUserId = user.userId;
         notice.closureRemarks = dto.closureRemarks ?? null;
       }
-      await this.logActivity(id, 'STATUS_CHANGE', user, oldStatus, dto.status, dto.remarks);
+      await this.logActivity(
+        id,
+        'STATUS_CHANGE',
+        user,
+        oldStatus,
+        dto.status,
+        dto.remarks,
+      );
     }
 
     return this.repo.save(notice);
@@ -212,7 +241,14 @@ export class NoticesService {
       uploadedByUserId: user.userId,
     });
     const saved = await this.docRepo.save(doc);
-    await this.logActivity(noticeId, 'DOCUMENT_UPLOADED', user, null, null, `Uploaded: ${fileName}`);
+    await this.logActivity(
+      noticeId,
+      'DOCUMENT_UPLOADED',
+      user,
+      null,
+      null,
+      `Uploaded: ${fileName}`,
+    );
     return saved;
   }
 
@@ -237,14 +273,19 @@ export class NoticesService {
       received: all.filter((n) => n.status === 'RECEIVED').length,
       underReview: all.filter((n) => n.status === 'UNDER_REVIEW').length,
       actionRequired: all.filter((n) => n.status === 'ACTION_REQUIRED').length,
-      responseDrafted: all.filter((n) => n.status === 'RESPONSE_DRAFTED').length,
-      responseSubmitted: all.filter((n) => n.status === 'RESPONSE_SUBMITTED').length,
+      responseDrafted: all.filter((n) => n.status === 'RESPONSE_DRAFTED')
+        .length,
+      responseSubmitted: all.filter((n) => n.status === 'RESPONSE_SUBMITTED')
+        .length,
       closed: all.filter((n) => n.status === 'CLOSED').length,
       escalated: all.filter((n) => n.status === 'ESCALATED').length,
       overdue: all.filter(
-        (n) => n.responseDueDate && n.responseDueDate < now && n.status !== 'CLOSED',
+        (n) =>
+          n.responseDueDate && n.responseDueDate < now && n.status !== 'CLOSED',
       ).length,
-      critical: all.filter((n) => n.severity === 'CRITICAL' && n.status !== 'CLOSED').length,
+      critical: all.filter(
+        (n) => n.severity === 'CRITICAL' && n.status !== 'CLOSED',
+      ).length,
     };
   }
 }

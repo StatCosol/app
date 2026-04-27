@@ -160,7 +160,9 @@ export class BranchComplianceService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
-  private normalizeStateCode(value: string | null | undefined): string | undefined {
+  private normalizeStateCode(
+    value: string | null | undefined,
+  ): string | undefined {
     const normalized = String(value || '')
       .trim()
       .toUpperCase()
@@ -364,7 +366,9 @@ export class BranchComplianceService {
       };
     }
 
-    let branchStateCode: string | undefined = this.normalizeStateCode(q.stateCode);
+    let branchStateCode: string | undefined = this.normalizeStateCode(
+      q.stateCode,
+    );
     if (!branchStateCode && branchRow?.statecode) {
       branchStateCode = this.normalizeStateCode(branchRow.statecode);
     }
@@ -685,7 +689,9 @@ export class BranchComplianceService {
       [branchId, companyId],
     );
     if (!branch?.length) {
-      throw new ForbiddenException('Branch not found or not active for this client');
+      throw new ForbiddenException(
+        'Branch not found or not active for this client',
+      );
     }
 
     // Verify return code exists
@@ -709,13 +715,25 @@ export class BranchComplianceService {
     );
 
     if (existing && existing.isLocked) {
-      throw new ForbiddenException('Document is locked after approval. Cannot reupload.');
+      throw new ForbiddenException(
+        'Document is locked after approval. Cannot reupload.',
+      );
     }
 
-    const fileUrl = await this.saveFile(file, companyId, branchId, dto.returnCode, dto.periodYear);
+    const fileUrl = await this.saveFile(
+      file,
+      companyId,
+      branchId,
+      dto.returnCode,
+      dto.periodYear,
+    );
     const dueDate = this.computeDueDate(
-      master.dueDay, dto.frequency, dto.periodYear,
-      dto.periodMonth, dto.periodQuarter, dto.periodHalf,
+      master.dueDay,
+      dto.frequency,
+      dto.periodYear,
+      dto.periodMonth,
+      dto.periodQuarter,
+      dto.periodHalf,
     );
 
     if (existing) {
@@ -742,15 +760,25 @@ export class BranchComplianceService {
       }
 
       const savedExisting = await this.docRepo.save(existing);
-      this.auditLogs.log({
-        entityType: 'DOCUMENT',
-        entityId: savedExisting.id,
-        action: 'DOCUMENT_UPLOADED' as any,
-        performedBy: user.userId,
-        performedRole: 'CRM',
-        afterJson: { fileName: file.originalname, version: savedExisting.version },
-        meta: { actingOnBehalf: true, originalOwnerRole: 'BRANCH', companyId, branchId },
-      }).catch(() => {});
+      this.auditLogs
+        .log({
+          entityType: 'DOCUMENT',
+          entityId: savedExisting.id,
+          action: 'DOCUMENT_UPLOADED' as any,
+          performedBy: user.userId,
+          performedRole: 'CRM',
+          afterJson: {
+            fileName: file.originalname,
+            version: savedExisting.version,
+          },
+          meta: {
+            actingOnBehalf: true,
+            originalOwnerRole: 'BRANCH',
+            companyId,
+            branchId,
+          },
+        })
+        .catch(() => {});
       return savedExisting;
     }
 
@@ -782,15 +810,22 @@ export class BranchComplianceService {
     });
 
     const saved = await this.docRepo.save(doc);
-    this.auditLogs.log({
-      entityType: 'DOCUMENT',
-      entityId: saved.id,
-      action: 'DOCUMENT_UPLOADED' as any,
-      performedBy: user.userId,
-      performedRole: 'CRM',
-      afterJson: { fileName: file.originalname, version: 1 },
-      meta: { actingOnBehalf: true, originalOwnerRole: 'BRANCH', companyId, branchId },
-    }).catch(() => {});
+    this.auditLogs
+      .log({
+        entityType: 'DOCUMENT',
+        entityId: saved.id,
+        action: 'DOCUMENT_UPLOADED' as any,
+        performedBy: user.userId,
+        performedRole: 'CRM',
+        afterJson: { fileName: file.originalname, version: 1 },
+        meta: {
+          actingOnBehalf: true,
+          originalOwnerRole: 'BRANCH',
+          companyId,
+          branchId,
+        },
+      })
+      .catch(() => {});
     return saved;
   }
 
@@ -1131,7 +1166,8 @@ export class BranchComplianceService {
       totalBranches > 0
         ? Math.round(
             (branches.reduce(
-              (sum: number, b: { compliance_pct: string | number }) => sum + Number(b.compliance_pct),
+              (sum: number, b: { compliance_pct: string | number }) =>
+                sum + Number(b.compliance_pct),
               0,
             ) /
               totalBranches) *
@@ -1169,7 +1205,7 @@ export class BranchComplianceService {
         "COUNT(*) FILTER (WHERE d.status = 'REUPLOAD_REQUIRED')::int AS reupload_required",
         "COUNT(*) FILTER (WHERE d.status IN ('NOT_UPLOADED','OVERDUE'))::int AS not_uploaded",
         "COUNT(*) FILTER (WHERE d.status = 'OVERDUE')::int AS overdue",
-        "COUNT(*) FILTER (WHERE d.acting_on_behalf = true)::int AS crm_on_behalf_total",
+        'COUNT(*) FILTER (WHERE d.acting_on_behalf = true)::int AS crm_on_behalf_total',
         "COUNT(*) FILTER (WHERE d.acting_on_behalf = true AND d.status = 'APPROVED')::int AS crm_on_behalf_approved",
         "COUNT(*) FILTER (WHERE d.acting_on_behalf = true AND d.status IN ('SUBMITTED','RESUBMITTED'))::int AS crm_on_behalf_pending",
       ])
@@ -1267,8 +1303,14 @@ export class BranchComplianceService {
       hasBranch ? [companyId, year, branchId] : [companyId, year],
     );
 
-    const byMonth = new Map<number, { month: string; total: string; approved: string }>(
-      rows.map((r: { month: string; total: string; approved: string }) => [Number(r.month), r]),
+    const byMonth = new Map<
+      number,
+      { month: string; total: string; approved: string }
+    >(
+      rows.map((r: { month: string; total: string; approved: string }) => [
+        Number(r.month),
+        r,
+      ]),
     );
     return Array.from({ length: 12 }, (_, i) => {
       const m = i + 1;
@@ -1448,20 +1490,31 @@ export class BranchComplianceService {
       [companyId, year, limit],
     );
 
-    return (rows || []).map((r: { branch_id: string; branch_name: string; total: string; approved: string; compliance_pct: string; overdue_count: string; pending_count?: string; reupload_count?: string }) => ({
-      branchId: r.branch_id,
-      branchName: r.branch_name,
-      total: Number(r.total),
-      approved: Number(r.approved),
-      compliancePct: Number(r.compliance_pct),
-      overdueCount: Number(r.overdue_count),
-      riskScore: Math.min(
-        100,
-        Number(r.overdue_count) * 8 +
-          Number(r.reupload_count) * 5 +
-          Number(r.pending_count) * 2,
-      ),
-    }));
+    return (rows || []).map(
+      (r: {
+        branch_id: string;
+        branch_name: string;
+        total: string;
+        approved: string;
+        compliance_pct: string;
+        overdue_count: string;
+        pending_count?: string;
+        reupload_count?: string;
+      }) => ({
+        branchId: r.branch_id,
+        branchName: r.branch_name,
+        total: Number(r.total),
+        approved: Number(r.approved),
+        compliancePct: Number(r.compliance_pct),
+        overdueCount: Number(r.overdue_count),
+        riskScore: Math.min(
+          100,
+          Number(r.overdue_count) * 8 +
+            Number(r.reupload_count) * 5 +
+            Number(r.pending_count) * 2,
+        ),
+      }),
+    );
   }
 
   // ─── Docs Due Soon (for reminders) ────────────────────────

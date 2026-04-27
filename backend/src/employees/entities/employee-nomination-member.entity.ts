@@ -47,7 +47,12 @@ export class EmployeeNominationMemberEntity {
   })
   guardianName: string | null;
 
-  @Column({ name: 'guardian_relationship', type: 'varchar', length: 60, nullable: true })
+  @Column({
+    name: 'guardian_relationship',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
   guardianRelationship: string | null;
 
   @Column({ name: 'guardian_address', type: 'text', nullable: true })

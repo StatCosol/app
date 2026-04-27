@@ -71,10 +71,7 @@ export class CrmReturnsController {
 
   @ApiOperation({ summary: 'Types' })
   @Get('types')
-  types(
-    @CurrentUser() user: ReqUser,
-    @Query('branchId') branchId?: string,
-  ) {
+  types(@CurrentUser() user: ReqUser, @Query('branchId') branchId?: string) {
     return this.returns.getReturnTypes(user, branchId);
   }
 

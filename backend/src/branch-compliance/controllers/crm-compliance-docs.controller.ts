@@ -53,7 +53,9 @@ export class CrmComplianceDocsController {
   /** CRM upload on behalf of branch */
   @ApiOperation({ summary: 'CRM Upload On Behalf' })
   @Post('upload-on-behalf')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
   uploadOnBehalf(
     @CurrentUser() user: ReqUser,
     @Body() dto: UploadComplianceDocDto & { companyId: string },

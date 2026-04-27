@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invoice, InvoicePayment } from '../entities';
@@ -14,15 +18,24 @@ export class InvoicePaymentsService {
     private readonly paymentRepo: Repository<InvoicePayment>,
   ) {}
 
-  async recordPayment(invoiceId: string, dto: RecordPaymentDto, userId: string) {
-    const invoice = await this.invoiceRepo.findOne({ where: { id: invoiceId } });
+  async recordPayment(
+    invoiceId: string,
+    dto: RecordPaymentDto,
+    userId: string,
+  ) {
+    const invoice = await this.invoiceRepo.findOne({
+      where: { id: invoiceId },
+    });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
     if (invoice.invoiceStatus === InvoiceStatus.CANCELLED) {
-      throw new BadRequestException('Cannot record payment on a cancelled invoice');
+      throw new BadRequestException(
+        'Cannot record payment on a cancelled invoice',
+      );
     }
 
-    const netReceived = dto.amountReceived - (dto.tdsAmount || 0) - (dto.otherDeduction || 0);
+    const netReceived =
+      dto.amountReceived - (dto.tdsAmount || 0) - (dto.otherDeduction || 0);
     const receiptNumber = await this.generateReceiptNumber();
 
     const payment = this.paymentRepo.create({
@@ -45,17 +58,19 @@ export class InvoicePaymentsService {
     const totalReceived = +invoice.amountReceived + netReceived;
     const balance = +invoice.grandTotal - totalReceived;
 
-    const paymentStatus = balance <= 0
-      ? PaymentStatus.PAID
-      : totalReceived > 0
-        ? PaymentStatus.PARTIALLY_PAID
-        : PaymentStatus.UNPAID;
+    const paymentStatus =
+      balance <= 0
+        ? PaymentStatus.PAID
+        : totalReceived > 0
+          ? PaymentStatus.PARTIALLY_PAID
+          : PaymentStatus.UNPAID;
 
-    const invoiceStatus = paymentStatus === PaymentStatus.PAID
-      ? InvoiceStatus.PAID
-      : paymentStatus === PaymentStatus.PARTIALLY_PAID
-        ? InvoiceStatus.PARTIALLY_PAID
-        : invoice.invoiceStatus;
+    const invoiceStatus =
+      paymentStatus === PaymentStatus.PAID
+        ? InvoiceStatus.PAID
+        : paymentStatus === PaymentStatus.PARTIALLY_PAID
+          ? InvoiceStatus.PARTIALLY_PAID
+          : invoice.invoiceStatus;
 
     await this.invoiceRepo.update(invoiceId, {
       amountReceived: totalReceived,
@@ -91,9 +106,10 @@ export class InvoicePaymentsService {
 
   private async generateReceiptNumber(): Promise<string> {
     const date = new Date();
-    const fy = date.getMonth() >= 3
-      ? `${date.getFullYear()}-${String(date.getFullYear() + 1).slice(2)}`
-      : `${date.getFullYear() - 1}-${String(date.getFullYear()).slice(2)}`;
+    const fy =
+      date.getMonth() >= 3
+        ? `${date.getFullYear()}-${String(date.getFullYear() + 1).slice(2)}`
+        : `${date.getFullYear() - 1}-${String(date.getFullYear()).slice(2)}`;
 
     const prefix = `STS/REC/${fy}/`;
     const last = await this.paymentRepo

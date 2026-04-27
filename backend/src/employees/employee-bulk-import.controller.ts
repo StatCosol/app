@@ -81,13 +81,21 @@ export class EmployeeBulkImportController {
     ws.columns = headers.map((h) => ({ width: Math.max(h.length + 4, 15) }));
 
     // Add Yes/No data validation for boolean columns
-    const yesNoCols = ['PF Applicable', 'ESI Applicable', 'PF Registered', 'ESI Registered'];
+    const yesNoCols = [
+      'PF Applicable',
+      'ESI Applicable',
+      'PF Registered',
+      'ESI Registered',
+    ];
     for (const colName of yesNoCols) {
       const colIdx = headers.indexOf(colName) + 1;
       if (colIdx > 0) {
-        ws.getColumn(colIdx).eachCell({ includeEmpty: false }, (_cell, rowNum) => {
-          if (rowNum > 1) return; // skip header, validation applies to data rows below
-        });
+        ws.getColumn(colIdx).eachCell(
+          { includeEmpty: false },
+          (_cell, rowNum) => {
+            if (rowNum > 1) return; // skip header, validation applies to data rows below
+          },
+        );
         // Apply validation to rows 2–1001
         for (let r = 2; r <= 1001; r++) {
           ws.getCell(r, colIdx).dataValidation = {
@@ -195,7 +203,8 @@ export class EmployeeBulkImportController {
     if (!clientId) throw new BadRequestException('Client context required');
     if (!file) throw new BadRequestException('File is required');
 
-    const defaultBranchId = user.branchIds?.length === 1 ? user.branchIds[0] : undefined;
+    const defaultBranchId =
+      user.branchIds?.length === 1 ? user.branchIds[0] : undefined;
     return this.importSvc.importFromExcel(clientId, file.path, defaultBranchId);
   }
 }

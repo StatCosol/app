@@ -40,13 +40,20 @@ export class ClraWagePeriod {
   @Column({ name: 'payment_date', type: 'date', nullable: true })
   paymentDate: string | null;
 
-  @Column({ name: 'payment_place', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'payment_place',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   paymentPlace: string | null;
 
   @Column({ length: 30, default: 'OPEN' })
   status: string;
 
-  @ManyToOne(() => ClraContractorAssignment, (a) => a.wagePeriods, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ClraContractorAssignment, (a) => a.wagePeriods, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'assignment_id' })
   assignment: ClraContractorAssignment;
 

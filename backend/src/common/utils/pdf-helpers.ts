@@ -40,7 +40,11 @@ export function toBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
 
 /* ──────── Header ──────── */
 
-export function header(doc: PDFKit.PDFDocument, title: string, subtitle?: string): void {
+export function header(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  subtitle?: string,
+): void {
   doc.fontSize(18).fillColor(BRAND).text(title, { align: 'left' });
   if (subtitle) {
     doc.fontSize(9).fillColor(MUTED).text(subtitle, { align: 'left' });

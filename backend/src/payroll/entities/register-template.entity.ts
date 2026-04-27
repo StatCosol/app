@@ -57,7 +57,12 @@ export class RegisterTemplateEntity {
   })
   registerMode: string;
 
-  @Column({ name: 'frequency', type: 'varchar', length: 20, default: 'MONTHLY' })
+  @Column({
+    name: 'frequency',
+    type: 'varchar',
+    length: 20,
+    default: 'MONTHLY',
+  })
   frequency: string;
 
   @Column({

@@ -1,111 +1,155 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, IsNumber, IsBoolean, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsNumber,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ReviewItemDto {
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   itemId?: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   itemName: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   rating?: number;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   remarks?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   targetValue?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   achievementValue?: string;
 }
 
 export class ManagerReviewDto {
-  @IsArray() @ValidateNested({ each: true }) @Type(() => ReviewItemDto)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReviewItemDto)
   items: ReviewItemDto[];
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   recommendation?: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   recommendedIncrementPercent?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   recommendedNewCtc?: number;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   remarks?: string;
 
-  @IsBoolean() @IsOptional()
+  @IsBoolean()
+  @IsOptional()
   pipRequired?: boolean;
 }
 
 export class BranchReviewDto {
-  @IsArray() @ValidateNested({ each: true }) @Type(() => ReviewItemDto)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReviewItemDto)
   items: ReviewItemDto[];
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   recommendation?: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   recommendedIncrementPercent?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   recommendedNewCtc?: number;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   remarks?: string;
 
-  @IsBoolean() @IsOptional()
+  @IsBoolean()
+  @IsOptional()
   pipRequired?: boolean;
 }
 
 export class ClientApproveDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   action: 'APPROVE' | 'REJECT' | 'SEND_BACK';
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   remarks?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   recommendation?: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   recommendedIncrementPercent?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   recommendedNewCtc?: number;
 }
 
 export class AppraisalFilterDto {
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   clientId?: string;
 
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   branchId?: string;
 
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   cycleId?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   departmentId?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   designationId?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   status?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   recommendation?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   search?: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   page?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   pageSize?: number;
 }

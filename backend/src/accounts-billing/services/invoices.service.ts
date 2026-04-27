@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Invoice, InvoiceItem, BillingClient, BillingSetting } from '../entities';
+import {
+  Invoice,
+  InvoiceItem,
+  BillingClient,
+  BillingSetting,
+} from '../entities';
 import { InvoiceStatus, PaymentStatus, MailStatus } from '../enums';
 import { CreateInvoiceDto } from '../dto';
 import { BillingCalculationService } from './billing-calculation.service';
@@ -23,7 +32,9 @@ export class InvoicesService {
   ) {}
 
   async create(dto: CreateInvoiceDto, userId: string) {
-    const client = await this.clientRepo.findOne({ where: { id: dto.billingClientId } });
+    const client = await this.clientRepo.findOne({
+      where: { id: dto.billingClientId },
+    });
     if (!client) throw new NotFoundException('Billing client not found');
 
     const settings = await this.settingsRepo.findOne({ where: {} });
@@ -31,15 +42,22 @@ export class InvoicesService {
     const clientStateCode = client.stateCode;
     const gstRate = client.defaultGstRate || settings?.defaultGstRate || 18;
 
-    const intraState = this.calcService.isIntraState(supplierStateCode, clientStateCode);
+    const intraState = this.calcService.isIntraState(
+      supplierStateCode,
+      clientStateCode,
+    );
 
     const invoiceNumber = await this.numberService.generateInvoiceNumber(
       dto.invoiceType,
       dto.invoiceDate,
     );
-    const financialYear = this.numberService.getFinancialYear(new Date(dto.invoiceDate));
+    const financialYear = this.numberService.getFinancialYear(
+      new Date(dto.invoiceDate),
+    );
 
-    const dueDate = dto.dueDate || this.calculateDueDate(dto.invoiceDate, client.paymentTermsDays || 30);
+    const dueDate =
+      dto.dueDate ||
+      this.calculateDueDate(dto.invoiceDate, client.paymentTermsDays || 30);
 
     const itemResults = dto.items.map((item) => {
       const itemGstRate = item.gstRate ?? gstRate;
@@ -131,10 +149,14 @@ export class InvoicesService {
       qb.andWhere('inv.invoice_status = :status', { status: query.status });
     }
     if (query.paymentStatus) {
-      qb.andWhere('inv.payment_status = :paymentStatus', { paymentStatus: query.paymentStatus });
+      qb.andWhere('inv.payment_status = :paymentStatus', {
+        paymentStatus: query.paymentStatus,
+      });
     }
     if (query.clientId) {
-      qb.andWhere('inv.billing_client_id = :clientId', { clientId: query.clientId });
+      qb.andWhere('inv.billing_client_id = :clientId', {
+        clientId: query.clientId,
+      });
     }
     if (query.search) {
       qb.andWhere(
@@ -143,7 +165,9 @@ export class InvoicesService {
       );
     }
     if (query.fromDate) {
-      qb.andWhere('inv.invoice_date >= :fromDate', { fromDate: query.fromDate });
+      qb.andWhere('inv.invoice_date >= :fromDate', {
+        fromDate: query.fromDate,
+      });
     }
     if (query.toDate) {
       qb.andWhere('inv.invoice_date <= :toDate', { toDate: query.toDate });
@@ -187,7 +211,10 @@ export class InvoicesService {
   }
 
   async updatePdfPath(id: string, pdfPath: string) {
-    await this.invoiceRepo.update(id, { pdfPath, invoiceStatus: InvoiceStatus.GENERATED });
+    await this.invoiceRepo.update(id, {
+      pdfPath,
+      invoiceStatus: InvoiceStatus.GENERATED,
+    });
   }
 
   async updateMailStatus(id: string, mailStatus: MailStatus) {
@@ -201,7 +228,7 @@ export class InvoicesService {
         'COUNT(*) as "totalInvoices"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'DRAFT\') as "draftCount"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'APPROVED\') as "approvedCount"',
-        'COUNT(*) FILTER (WHERE inv.payment_status = \'UNPAID\' OR inv.payment_status = \'PARTIALLY_PAID\') as "pendingPaymentCount"',
+        "COUNT(*) FILTER (WHERE inv.payment_status = 'UNPAID' OR inv.payment_status = 'PARTIALLY_PAID') as \"pendingPaymentCount\"",
         'COUNT(*) FILTER (WHERE inv.payment_status = \'PAID\') as "paidCount"',
         'COUNT(*) FILTER (WHERE inv.invoice_status = \'OVERDUE\') as "overdueCount"',
         'COALESCE(SUM(inv.grand_total), 0) as "totalBilled"',
@@ -230,7 +257,9 @@ export class InvoicesService {
       ])
       .where('inv.invoice_date >= :fromDate', { fromDate })
       .andWhere('inv.invoice_date <= :toDate', { toDate })
-      .andWhere('inv.invoice_status != :cancelled', { cancelled: InvoiceStatus.CANCELLED })
+      .andWhere('inv.invoice_status != :cancelled', {
+        cancelled: InvoiceStatus.CANCELLED,
+      })
       .orderBy('inv.invoice_date', 'ASC')
       .getRawMany();
   }

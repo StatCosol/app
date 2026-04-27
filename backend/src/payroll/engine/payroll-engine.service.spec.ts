@@ -87,8 +87,14 @@ describe('PayrollEngineService', () => {
           provide: AttendanceService,
           useValue: { getAttendanceSummary: jest.fn() },
         },
-        { provide: getRepositoryToken(LeaveLedgerEntity), useFactory: mockRepo },
-        { provide: getRepositoryToken(LeaveBalanceEntity), useFactory: mockRepo },
+        {
+          provide: getRepositoryToken(LeaveLedgerEntity),
+          useFactory: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(LeaveBalanceEntity),
+          useFactory: mockRepo,
+        },
       ],
     }).compile();
 

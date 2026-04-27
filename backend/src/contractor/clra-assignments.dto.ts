@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsBoolean, IsUUID, MaxLength, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsUUID,
+  MaxLength,
+  IsEnum,
+} from 'class-validator';
 
 export class CreateClraPeEstablishmentDto {
   @IsUUID()

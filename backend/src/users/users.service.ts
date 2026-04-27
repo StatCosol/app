@@ -19,7 +19,6 @@ import { BranchEntity } from '../branches/entities/branch.entity';
 import { ConfigService } from '@nestjs/config';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
-
 export type ListUsersPagedArgs = {
   q?: string;
   roleId?: string;
@@ -85,7 +84,9 @@ export class UsersService implements OnModuleInit {
   /**
    * Find all contractors linked to the given branch IDs (for client view)
    */
-  async findContractorsByBranchIds(branchIds: string[]): Promise<ContractorRow[]> {
+  async findContractorsByBranchIds(
+    branchIds: string[],
+  ): Promise<ContractorRow[]> {
     if (!branchIds || branchIds.length === 0) return [];
 
     const rows = await this.usersRepo.manager.query(
@@ -108,15 +109,24 @@ export class UsersService implements OnModuleInit {
       [branchIds],
     );
 
-    return rows.map((r: { id: string; name: string; email: string; mobile: string; isActive: boolean; branchId: string }) => ({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      mobile: r.mobile,
-      isActive: !!r.isActive,
-      status: r.isActive ? 'ACTIVE' : 'INACTIVE',
-      branchId: r.branchId,
-    }));
+    return rows.map(
+      (r: {
+        id: string;
+        name: string;
+        email: string;
+        mobile: string;
+        isActive: boolean;
+        branchId: string;
+      }) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        mobile: r.mobile,
+        isActive: !!r.isActive,
+        status: r.isActive ? 'ACTIVE' : 'INACTIVE',
+        branchId: r.branchId,
+      }),
+    );
   }
   constructor(
     @InjectRepository(RoleEntity) private rolesRepo: Repository<RoleEntity>,
@@ -313,9 +323,10 @@ export class UsersService implements OnModuleInit {
   private async regenerateUserCodesOnce() {
     try {
       // Quick check: if at least one user already has the new format, skip.
-      const sample: { userCode: string | null }[] = await this.usersRepo.manager.query(
-        `SELECT user_code AS "userCode" FROM users WHERE user_code IS NOT NULL LIMIT 50`,
-      );
+      const sample: { userCode: string | null }[] =
+        await this.usersRepo.manager.query(
+          `SELECT user_code AS "userCode" FROM users WHERE user_code IS NOT NULL LIMIT 50`,
+        );
 
       const newFormatRegex = /^[A-Z]{2,}\d{2,}$/;
       const alreadyMigrated = sample.some(
@@ -784,7 +795,10 @@ export class UsersService implements OnModuleInit {
     const existingEmail = await manager.findOne(UserEntity, {
       where: { email },
     });
-    if (existingEmail) throw new BadRequestException('Email already in use. Please use a different email address.');
+    if (existingEmail)
+      throw new BadRequestException(
+        'Email already in use. Please use a different email address.',
+      );
 
     // Enforce single MASTER per client
     const existingMaster = await manager.findOne(UserEntity, {
@@ -815,10 +829,10 @@ export class UsersService implements OnModuleInit {
     const saved = await manager.save(UserEntity, user);
 
     // Persist userType via raw SQL (entity has insert:false/update:false)
-    await manager.query(
-      `UPDATE users SET user_type = $1 WHERE id = $2`,
-      ['MASTER', saved.id],
-    );
+    await manager.query(`UPDATE users SET user_type = $1 WHERE id = $2`, [
+      'MASTER',
+      saved.id,
+    ]);
 
     // Audit log for master user creation
     await this.auditLogs.log({
@@ -1306,7 +1320,20 @@ export class UsersService implements OnModuleInit {
     );
     this.logger.debug('[getUserDirectory] Params:', dataParams);
 
-    const dataRows: { id: string; userCode: string | null; name: string; email: string; mobile: string | null; isActive: boolean; createdAt: string; deletedAt: string | null; roleCode: string | null; roleName: string | null; clientId: string | null; clientName: string | null }[] = await this.dataSource.query(dataSql, dataParams);
+    const dataRows: {
+      id: string;
+      userCode: string | null;
+      name: string;
+      email: string;
+      mobile: string | null;
+      isActive: boolean;
+      createdAt: string;
+      deletedAt: string | null;
+      roleCode: string | null;
+      roleName: string | null;
+      clientId: string | null;
+      clientName: string | null;
+    }[] = await this.dataSource.query(dataSql, dataParams);
 
     this.logger.debug(
       `[getUserDirectory] DB returned ${dataRows.length} rows, total=${total}`,
@@ -1391,7 +1418,12 @@ export class UsersService implements OnModuleInit {
     const role = await this.rolesRepo.findOne({ where: { code: roleCode } });
     if (!role) throw new NotFoundException(`Role not found: ${roleCode}`);
 
-    const where: { roleId: string; isActive: true; deletedAt: ReturnType<typeof IsNull>; clientId?: string } = { roleId: role.id, isActive: true, deletedAt: IsNull() };
+    const where: {
+      roleId: string;
+      isActive: true;
+      deletedAt: ReturnType<typeof IsNull>;
+      clientId?: string;
+    } = { roleId: role.id, isActive: true, deletedAt: IsNull() };
 
     // For contractor dropdowns, optionally scope by clientId
     if (roleCode === 'CONTRACTOR' && clientId) {
@@ -1620,7 +1652,17 @@ export class UsersService implements OnModuleInit {
     // Enrich with friendly labels for UI (entity + requester)
     const cleanEmail = (e: string) =>
       e ? e.replace(/#deleted#\d+/g, '').replace(/#deleted#/g, '') : e;
-    const result: { id: number; entityType: string; entityId: string; status: string; remarks: string | null; entityLabel: string | null; requestedBy: { id: string; name: string; email: string } | null; createdAt: Date; updatedAt: Date | null }[] = [];
+    const result: {
+      id: number;
+      entityType: string;
+      entityId: string;
+      status: string;
+      remarks: string | null;
+      entityLabel: string | null;
+      requestedBy: { id: string; name: string; email: string } | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+    }[] = [];
     for (const r of rows) {
       let entityLabel: string | null = null;
       if (r.entityType === 'USER') {

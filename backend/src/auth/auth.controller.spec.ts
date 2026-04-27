@@ -34,10 +34,13 @@ describe('AuthController', () => {
   });
 
   it('login should return token', async () => {
-    const result = await controller.login({
-      email: 'a@b.com',
-      password: 'pass',
-    } as any, { headers: {}, ip: '127.0.0.1' } as any);
+    const result = await controller.login(
+      {
+        email: 'a@b.com',
+        password: 'pass',
+      } as any,
+      { headers: {}, ip: '127.0.0.1' } as any,
+    );
     expect(result).toEqual({ accessToken: 'tok' });
   });
 

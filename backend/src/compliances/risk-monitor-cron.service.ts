@@ -213,7 +213,18 @@ export class RiskMonitorCronService {
     return alertCount;
   }
 
-  private buildMessage(row: { inspectionProbability: number; completionPercent: number; overdueSla: number; highCritical: number; expiringRegistrations: boolean; reasons?: string[] }, level: string, month: string): string {
+  private buildMessage(
+    row: {
+      inspectionProbability: number;
+      completionPercent: number;
+      overdueSla: number;
+      highCritical: number;
+      expiringRegistrations: boolean;
+      reasons?: string[];
+    },
+    level: string,
+    month: string,
+  ): string {
     const parts: string[] = [];
     parts.push(`Month: ${month}`);
     parts.push(
@@ -250,7 +261,15 @@ export class RiskMonitorCronService {
    */
   private async sendRiskEmail(
     branchName: string,
-    row: { inspectionProbability: number; completionPercent: number; overdueSla: number; highCritical: number; expiringRegistrations: boolean; branchId?: string; reasons?: string[] },
+    row: {
+      inspectionProbability: number;
+      completionPercent: number;
+      overdueSla: number;
+      highCritical: number;
+      expiringRegistrations: boolean;
+      branchId?: string;
+      reasons?: string[];
+    },
     level: 'HIGH' | 'CRITICAL',
     month: string,
   ) {
@@ -411,7 +430,14 @@ export class RiskMonitorCronService {
     branchId: string,
     branchName: string,
     month: string,
-    row: { completionPercent?: number; overdueSla?: number; highCritical?: number; expiringRegistrations?: boolean; reasons?: string[]; riskScore?: number },
+    row: {
+      completionPercent?: number;
+      overdueSla?: number;
+      highCritical?: number;
+      expiringRegistrations?: boolean;
+      reasons?: string[];
+      riskScore?: number;
+    },
   ) {
     const tasks: { key: string; reason: string }[] = [];
 

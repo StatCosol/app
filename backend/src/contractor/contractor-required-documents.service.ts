@@ -192,7 +192,12 @@ export class ContractorRequiredDocumentsService {
       where: branchId
         ? [
             { contractorUserId, clientId, isRequired: true, branchId },
-            { contractorUserId, clientId, isRequired: true, branchId: IsNull() },
+            {
+              contractorUserId,
+              clientId,
+              isRequired: true,
+              branchId: IsNull(),
+            },
           ]
         : { contractorUserId, clientId, isRequired: true },
       order: { docType: 'ASC' },
@@ -200,7 +205,11 @@ export class ContractorRequiredDocumentsService {
 
     // Merge standard types with DB-configured types (deduped, standard first)
     const dbDocTypes = new Set(dbRequired.map((r) => r.docType));
-    const allDocTypes: Array<{ docType: string; branchId: string | null; dbId: string | null }> = [];
+    const allDocTypes: Array<{
+      docType: string;
+      branchId: string | null;
+      dbId: string | null;
+    }> = [];
 
     for (const dt of ContractorRequiredDocumentsService.STANDARD_MONTHLY_DOC_TYPES) {
       const dbEntry = dbRequired.find((r) => r.docType === dt);
@@ -212,10 +221,19 @@ export class ContractorRequiredDocumentsService {
     }
 
     for (const r of dbRequired) {
-      if (!dbDocTypes.has(r.docType) || !ContractorRequiredDocumentsService.STANDARD_MONTHLY_DOC_TYPES.includes(r.docType)) {
+      if (
+        !dbDocTypes.has(r.docType) ||
+        !ContractorRequiredDocumentsService.STANDARD_MONTHLY_DOC_TYPES.includes(
+          r.docType,
+        )
+      ) {
         // only add if not already added from standard list
         if (!allDocTypes.some((x) => x.docType === r.docType)) {
-          allDocTypes.push({ docType: r.docType, branchId: r.branchId, dbId: r.id });
+          allDocTypes.push({
+            docType: r.docType,
+            branchId: r.branchId,
+            dbId: r.id,
+          });
         }
       }
     }
@@ -252,8 +270,21 @@ export class ContractorRequiredDocumentsService {
              ${branchId ? 'AND branch_id = $6' : ''}
            ORDER BY created_at DESC`,
           branchId
-            ? [contractorUserId, clientId, resolvedMonth, start, gracePeriodEnd, branchId]
-            : [contractorUserId, clientId, resolvedMonth, start, gracePeriodEnd],
+            ? [
+                contractorUserId,
+                clientId,
+                resolvedMonth,
+                start,
+                gracePeriodEnd,
+                branchId,
+              ]
+            : [
+                contractorUserId,
+                clientId,
+                resolvedMonth,
+                start,
+                gracePeriodEnd,
+              ],
         )
       : await this.repo.manager.query(
           `SELECT doc_type, id, file_name, status, created_at, branch_id
@@ -267,7 +298,7 @@ export class ContractorRequiredDocumentsService {
             : [contractorUserId, clientId, start, gracePeriodEnd],
         );
 
-    const uploadedMap = new Map<string, typeof uploaded[number][]>();
+    const uploadedMap = new Map<string, (typeof uploaded)[number][]>();
     for (const doc of uploaded) {
       const key = doc.doc_type;
       if (!uploadedMap.has(key)) uploadedMap.set(key, []);

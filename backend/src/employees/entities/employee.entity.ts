@@ -56,7 +56,12 @@ export class EmployeeEntity {
   @Column({ name: 'father_name', type: 'varchar', length: 200, nullable: true })
   fatherName: string | null;
 
-  @Column({ name: 'marital_status', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'marital_status',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   maritalStatus: string | null;
 
   @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
@@ -89,7 +94,13 @@ export class EmployeeEntity {
   @Column({ name: 'pf_service_start_date', type: 'date', nullable: true })
   pfServiceStartDate: string | null;
 
-  @Column({ name: 'basic_at_pf_start', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'basic_at_pf_start',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   basicAtPfStart: number | null;
 
   @Column({ name: 'esi_applicable', type: 'boolean', default: false })
@@ -152,10 +163,22 @@ export class EmployeeEntity {
   @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
   stateCode: string | null;
 
-  @Column({ name: 'ctc', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'ctc',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   ctc: number | null;
 
-  @Column({ name: 'monthly_gross', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'monthly_gross',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   monthlyGross: number | null;
 
   @Column({

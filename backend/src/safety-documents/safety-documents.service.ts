@@ -134,7 +134,12 @@ export class SafetyDocumentsService {
     }
 
     // If masterDocumentId provided, look up defaults
-    let masterDefaults: { category?: string; frequency?: string; applicableTo?: string; isMandatory?: boolean } = {};
+    let masterDefaults: {
+      category?: string;
+      frequency?: string;
+      applicableTo?: string;
+      isMandatory?: boolean;
+    } = {};
     if (dto.masterDocumentId) {
       const [master] = await this.repo.manager.query(
         `SELECT document_name, category, frequency, applicable_to, is_mandatory FROM safety_document_master WHERE id = $1`,
@@ -407,7 +412,7 @@ export class SafetyDocumentsService {
     // Get applicable master documents
     const masterRows = await this.repo.manager.query(
       `SELECT category, COUNT(*) as total FROM safety_document_master WHERE is_active = true AND is_mandatory = true GROUP BY category`,
-    ) as { category: string; total: string }[];
+    );
 
     // Count uploaded documents per category (current year)
     const currentYear = new Date().getFullYear();
@@ -430,17 +435,20 @@ export class SafetyDocumentsService {
     }
     uploadedSql += ` GROUP BY category`;
 
-    const uploadedRows = await this.repo.manager.query(
-      uploadedSql,
-      params,
-    ) as { category: string; uploaded: string }[];
+    const uploadedRows = await this.repo.manager.query(uploadedSql, params);
     const uploadedMap: Record<string, number> = {};
     for (const r of uploadedRows) {
       uploadedMap[r.category] = parseInt(r.uploaded, 10);
     }
 
     let overallScore = 0;
-    const categoryScores: { category: string; weight: number; uploaded: number; required: number; score: number }[] = [];
+    const categoryScores: {
+      category: string;
+      weight: number;
+      uploaded: number;
+      required: number;
+      score: number;
+    }[] = [];
 
     for (const [category, weight] of Object.entries(CATEGORY_WEIGHTS)) {
       const masterRow = masterRows.find((r) => r.category === category);

@@ -76,7 +76,14 @@ export class CrmNoticesController {
     @Body('remarks') remarks?: string,
   ) {
     const fileUrl = `/uploads/notices/${file.filename}`;
-    return this.svc.uploadDocument(user, id, documentType || 'SUPPORTING', file.originalname, fileUrl, remarks);
+    return this.svc.uploadDocument(
+      user,
+      id,
+      documentType || 'SUPPORTING',
+      file.originalname,
+      fileUrl,
+      remarks,
+    );
   }
 }
 

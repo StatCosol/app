@@ -56,7 +56,6 @@ interface DocRow {
 // ─── Service ──────────────────────────────────────────────────
 @Injectable()
 export class EssService {
-
   constructor(
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
@@ -1043,7 +1042,8 @@ export class EssService {
       employeeId: empId,
       clientId: emp.clientId,
       branchId: emp.branchId,
-      nominationType: dto.nominationType as EmployeeNominationEntity['nominationType'],
+      nominationType:
+        dto.nominationType as EmployeeNominationEntity['nominationType'],
       declarationDate: dto.declarationDate || null,
       witnessName: dto.witnessName || null,
       witnessAddress: dto.witnessAddress || null,
@@ -1053,9 +1053,7 @@ export class EssService {
     const saved = await this.nomRepo.save(nom);
 
     // Save members
-    const members = (dto.members ?? []).filter((m) =>
-      m.memberName?.trim(),
-    );
+    const members = (dto.members ?? []).filter((m) => m.memberName?.trim());
     if (members.length) {
       const entities = members.map((m) =>
         this.nomMemberRepo.create({
@@ -1095,7 +1093,11 @@ export class EssService {
   }
 
   // Resubmit a REJECTED nomination (clears rejection, goes back to SUBMITTED)
-  async resubmitNomination(user: EssUser, nominationId: string, dto: ResubmitNominationDto) {
+  async resubmitNomination(
+    user: EssUser,
+    nominationId: string,
+    dto: ResubmitNominationDto,
+  ) {
     const empId = this.ensureEmployee(user);
     const nom = await this.nomRepo.findOne({
       where: { id: nominationId, employeeId: empId },
@@ -1122,9 +1124,7 @@ export class EssService {
     await this.nomRepo.save(nom);
 
     // Replace members if provided
-    const members = (dto.members ?? []).filter((m) =>
-      m.memberName?.trim(),
-    );
+    const members = (dto.members ?? []).filter((m) => m.memberName?.trim());
     if (members.length) {
       await this.nomMemberRepo.delete({ nominationId });
       const entities = members.map((m) =>
@@ -1148,7 +1148,11 @@ export class EssService {
   }
 
   // Update a DRAFT or APPROVED nomination (e.g., employee married after joining)
-  async updateNomination(user: EssUser, nominationId: string, dto: UpdateEssNominationDto) {
+  async updateNomination(
+    user: EssUser,
+    nominationId: string,
+    dto: UpdateEssNominationDto,
+  ) {
     const empId = this.ensureEmployee(user);
     const nom = await this.nomRepo.findOne({
       where: { id: nominationId, employeeId: empId },
@@ -1160,9 +1164,12 @@ export class EssService {
       );
     }
 
-    if (dto.declarationDate !== undefined) nom.declarationDate = dto.declarationDate || null;
-    if (dto.witnessName !== undefined) nom.witnessName = dto.witnessName || null;
-    if (dto.witnessAddress !== undefined) nom.witnessAddress = dto.witnessAddress || null;
+    if (dto.declarationDate !== undefined)
+      nom.declarationDate = dto.declarationDate || null;
+    if (dto.witnessName !== undefined)
+      nom.witnessName = dto.witnessName || null;
+    if (dto.witnessAddress !== undefined)
+      nom.witnessAddress = dto.witnessAddress || null;
 
     const asDraft = dto.asDraft !== false;
     nom.status = asDraft ? 'DRAFT' : 'SUBMITTED';
@@ -1651,7 +1658,11 @@ export class EssService {
     return this.leavePolicyRepo.save(policy);
   }
 
-  async updateLeavePolicy(clientId: string, id: string, dto: UpdateLeavePolicyDto) {
+  async updateLeavePolicy(
+    clientId: string,
+    id: string,
+    dto: UpdateLeavePolicyDto,
+  ) {
     const policy = await this.leavePolicyRepo.findOne({
       where: { id, clientId },
     });

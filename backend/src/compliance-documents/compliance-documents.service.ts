@@ -259,9 +259,7 @@ export class ComplianceDocumentsService {
   // ══════════════════════════════════════════════════════════
   // COMPANY SETTINGS
   // ══════════════════════════════════════════════════════════
-  async getCompanySettings(
-    clientId: string,
-  ): Promise<Record<string, unknown>> {
+  async getCompanySettings(clientId: string): Promise<Record<string, unknown>> {
     const row = await this.settingsRepo.findOne({ where: { clientId } });
     return (
       row?.settings || {

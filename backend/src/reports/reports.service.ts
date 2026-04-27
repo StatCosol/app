@@ -180,14 +180,23 @@ export class ReportsService {
         .addOrderBy('t.id', 'ASC')
         .getRawMany();
 
-      return rows.map((r: { id: string; clientId: string; branchName: string | null; complianceName: string | null; dueDate: string; status: string }) => ({
-        id: r.id,
-        clientId: r.clientId,
-        branchName: r.branchName as string | null,
-        complianceName: (r.complianceName as string | null) || '',
-        dueDate: String(r.dueDate),
-        status: String(r.status),
-      }));
+      return rows.map(
+        (r: {
+          id: string;
+          clientId: string;
+          branchName: string | null;
+          complianceName: string | null;
+          dueDate: string;
+          status: string;
+        }) => ({
+          id: r.id,
+          clientId: r.clientId,
+          branchName: r.branchName,
+          complianceName: r.complianceName || '',
+          dueDate: String(r.dueDate),
+          status: String(r.status),
+        }),
+      );
     } catch (err) {
       this.logger.error('complianceSummary query failed', (err as Error).stack);
       return [];

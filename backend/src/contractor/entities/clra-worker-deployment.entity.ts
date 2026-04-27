@@ -35,23 +35,57 @@ export class ClraWorkerDeployment {
   @Column({ name: 'deployment_end', type: 'date', nullable: true })
   deploymentEnd: string | null;
 
-  @Column({ name: 'rate_per_day', type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: { to: (v) => v, from: (v) => v != null ? parseFloat(v) : null } })
+  @Column({
+    name: 'rate_per_day',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v) => v,
+      from: (v) => (v != null ? parseFloat(v) : null),
+    },
+  })
   ratePerDay: number | null;
 
-  @Column({ name: 'rate_per_month', type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: { to: (v) => v, from: (v) => v != null ? parseFloat(v) : null } })
+  @Column({
+    name: 'rate_per_month',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v) => v,
+      from: (v) => (v != null ? parseFloat(v) : null),
+    },
+  })
   ratePerMonth: number | null;
 
-  @Column({ name: 'ot_rate_per_hour', type: 'numeric', precision: 12, scale: 2, nullable: true, transformer: { to: (v) => v, from: (v) => v != null ? parseFloat(v) : null } })
+  @Column({
+    name: 'ot_rate_per_hour',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v) => v,
+      from: (v) => (v != null ? parseFloat(v) : null),
+    },
+  })
   otRatePerHour: number | null;
 
   @Column({ length: 30, default: 'ACTIVE' })
   status: string;
 
-  @ManyToOne(() => ClraContractorAssignment, (a) => a.deployments, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ClraContractorAssignment, (a) => a.deployments, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'assignment_id' })
   assignment: ClraContractorAssignment;
 
-  @ManyToOne(() => ClraContractorWorker, (w) => w.deployments, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => ClraContractorWorker, (w) => w.deployments, {
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'worker_id' })
   worker: ClraContractorWorker;
 

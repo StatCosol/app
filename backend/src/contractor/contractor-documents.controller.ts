@@ -46,7 +46,11 @@ const storage = diskStorage({
 
 const fileUploadOptions = {
   storage,
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = [
       'application/pdf',
       'image/png',

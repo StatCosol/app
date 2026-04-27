@@ -4,12 +4,15 @@ export class SendInvoiceEmailDto {
   @IsEmail()
   toEmail: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   ccEmail?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   subject?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   body?: string;
 }

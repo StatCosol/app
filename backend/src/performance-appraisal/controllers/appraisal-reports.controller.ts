@@ -14,21 +14,30 @@ export class AppraisalReportsController {
   @Get('branch-summary')
   @Roles('CLIENT', 'ADMIN')
   @ApiOperation({ summary: 'Branch-wise appraisal summary' })
-  branchSummary(@CurrentUser() user: ReqUser, @Query('cycleId') cycleId?: string) {
+  branchSummary(
+    @CurrentUser() user: ReqUser,
+    @Query('cycleId') cycleId?: string,
+  ) {
     return this.reportsService.branchSummary(user.clientId!, cycleId);
   }
 
   @Get('department-summary')
   @Roles('CLIENT', 'ADMIN')
   @ApiOperation({ summary: 'Department-wise appraisal summary' })
-  departmentSummary(@CurrentUser() user: ReqUser, @Query('cycleId') cycleId?: string) {
+  departmentSummary(
+    @CurrentUser() user: ReqUser,
+    @Query('cycleId') cycleId?: string,
+  ) {
     return this.reportsService.departmentSummary(user.clientId!, cycleId);
   }
 
   @Get('recommendations')
   @Roles('CLIENT', 'ADMIN')
   @ApiOperation({ summary: 'Recommendation distribution' })
-  recommendations(@CurrentUser() user: ReqUser, @Query('cycleId') cycleId?: string) {
+  recommendations(
+    @CurrentUser() user: ReqUser,
+    @Query('cycleId') cycleId?: string,
+  ) {
     return this.reportsService.recommendations(user.clientId!, cycleId);
   }
 

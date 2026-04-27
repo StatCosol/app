@@ -1,5 +1,10 @@
 import {
-  IsString, IsOptional, IsNumber, IsEnum, IsDateString, IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  IsDateString,
+  IsNotEmpty,
 } from 'class-validator';
 import { PaymentMode } from '../enums';
 
@@ -10,21 +15,26 @@ export class RecordPaymentDto {
   @IsNumber()
   amountReceived: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   tdsAmount?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   otherDeduction?: number;
 
   @IsEnum(PaymentMode)
   paymentMode: PaymentMode;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   referenceNumber?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   bankName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   remarks?: string;
 }

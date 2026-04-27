@@ -124,7 +124,14 @@ export class PayrollEngineService {
     // ── Fetch attendance summaries (LOP/working days) ────────────────────────
     const attendanceMap = new Map<
       string,
-      { totalDays: number; effectivePresent: number; lopDays: number; holidays: number; weekOffs: number; daysOnLeave: number }
+      {
+        totalDays: number;
+        effectivePresent: number;
+        lopDays: number;
+        holidays: number;
+        weekOffs: number;
+        daysOnLeave: number;
+      }
     >();
     try {
       const summaries = await this.attendanceService.getMonthlySummary({
@@ -138,9 +145,7 @@ export class PayrollEngineService {
           attendanceMap.set(s.employeeCode, s);
         }
       }
-      this.logger.log(
-        `Attendance loaded for ${attendanceMap.size} employees`,
-      );
+      this.logger.log(`Attendance loaded for ${attendanceMap.size} employees`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(`Attendance fetch skipped: ${msg}`);
@@ -215,7 +220,14 @@ export class PayrollEngineService {
 
     const attendanceMap = new Map<
       string,
-      { totalDays: number; effectivePresent: number; lopDays: number; holidays: number; weekOffs: number; daysOnLeave: number }
+      {
+        totalDays: number;
+        effectivePresent: number;
+        lopDays: number;
+        holidays: number;
+        weekOffs: number;
+        daysOnLeave: number;
+      }
     >();
     try {
       const summaries = await this.attendanceService.getMonthlySummary({
@@ -237,7 +249,15 @@ export class PayrollEngineService {
     for (const emp of targets) {
       try {
         const att = attendanceMap.get(emp.employeeCode);
-        await this.processEmployee(run, emp, setup, components, asOfDate, errors, att);
+        await this.processEmployee(
+          run,
+          emp,
+          setup,
+          components,
+          asOfDate,
+          errors,
+          att,
+        );
         processed++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -261,7 +281,11 @@ export class PayrollEngineService {
     const setup = await this.setupRepo.findOne({ where: { clientId } });
     if (!setup) {
       // No setup configured — return a minimal preview with just gross = net
-      return { ACTUAL_GROSS: grossAmount, GROSS: grossAmount, NET_PAY: grossAmount };
+      return {
+        ACTUAL_GROSS: grossAmount,
+        GROSS: grossAmount,
+        NET_PAY: grossAmount,
+      };
     }
 
     const components = await this.compRepo.find({
@@ -270,7 +294,11 @@ export class PayrollEngineService {
     });
     if (!components.length) {
       // No components configured — return gross = net
-      return { ACTUAL_GROSS: grossAmount, GROSS: grossAmount, NET_PAY: grossAmount };
+      return {
+        ACTUAL_GROSS: grossAmount,
+        GROSS: grossAmount,
+        NET_PAY: grossAmount,
+      };
     }
 
     const values: Record<string, number> = { ACTUAL_GROSS: grossAmount };
@@ -372,7 +400,14 @@ export class PayrollEngineService {
     components: PayrollComponentEntity[],
     asOfDate: string,
     errors: string[],
-    attendance?: { totalDays: number; effectivePresent: number; lopDays: number; holidays: number; weekOffs: number; daysOnLeave: number },
+    attendance?: {
+      totalDays: number;
+      effectivePresent: number;
+      lopDays: number;
+      holidays: number;
+      weekOffs: number;
+      daysOnLeave: number;
+    },
   ): Promise<void> {
     const qr = this.ds.createQueryRunner();
     await qr.connect();
@@ -394,7 +429,11 @@ export class PayrollEngineService {
       }
 
       // ── Seed attendance data (uploaded values take precedence) ──────────
-      const daysInMonth = new Date(run.periodYear, run.periodMonth, 0).getDate();
+      const daysInMonth = new Date(
+        run.periodYear,
+        run.periodMonth,
+        0,
+      ).getDate();
       const attendanceUploaded = emp.totalDays > 0; // means Excel was uploaded before processing
 
       if (attendanceUploaded) {
@@ -445,12 +484,19 @@ export class PayrollEngineService {
           empPfApplicable = masterEmp.pfApplicable;
           empEsiApplicable = masterEmp.esiApplicable;
           empPfServiceStartDate = masterEmp.pfServiceStartDate ?? null;
-          empBasicAtPfStart = masterEmp.basicAtPfStart ? Number(masterEmp.basicAtPfStart) : null;
+          empBasicAtPfStart = masterEmp.basicAtPfStart
+            ? Number(masterEmp.basicAtPfStart)
+            : null;
 
           // Fallback: seed ACTUAL_GROSS from employee monthlyGross or CTC/12
-          if (values['ACTUAL_GROSS'] === undefined || values['ACTUAL_GROSS'] === 0) {
+          if (
+            values['ACTUAL_GROSS'] === undefined ||
+            values['ACTUAL_GROSS'] === 0
+          ) {
             const mg = Number(masterEmp.monthlyGross) || 0;
-            const ctcMonthly = Number(masterEmp.ctc) ? Number(masterEmp.ctc) / 12 : 0;
+            const ctcMonthly = Number(masterEmp.ctc)
+              ? Number(masterEmp.ctc) / 12
+              : 0;
             const fallbackGross = mg || ctcMonthly;
             if (fallbackGross > 0) {
               values['ACTUAL_GROSS'] = Math.round(fallbackGross);
@@ -472,13 +518,19 @@ export class PayrollEngineService {
 
       // ── Earned Leave (EL) calculation ─────────────────────────────
       // Skip EL for employees who joined in the same month as the payroll run
-      const workedDays = values['WORKED_DAYS'] ?? (emp.daysPresent || WORKING_DAYS_IN_MONTH);
+      const workedDays =
+        values['WORKED_DAYS'] ?? (emp.daysPresent || WORKING_DAYS_IN_MONTH);
       let skipEL = false;
       if (emp.employeeId) {
-        const masterEmpForEL = await this.empRepo.findOne({ where: { id: emp.employeeId } });
+        const masterEmpForEL = await this.empRepo.findOne({
+          where: { id: emp.employeeId },
+        });
         if (masterEmpForEL?.dateOfJoining) {
           const doj = new Date(masterEmpForEL.dateOfJoining);
-          if (doj.getFullYear() === run.periodYear && doj.getMonth() + 1 === run.periodMonth) {
+          if (
+            doj.getFullYear() === run.periodYear &&
+            doj.getMonth() + 1 === run.periodMonth
+          ) {
             skipEL = true;
           }
         }
@@ -512,7 +564,8 @@ export class PayrollEngineService {
         }
 
         // New balance = old balance - paid leave + accrued this month
-        elBalanceAfter = Math.round((elBalanceBefore - paidLeaveDays + elAccrued) * 100) / 100;
+        elBalanceAfter =
+          Math.round((elBalanceBefore - paidLeaveDays + elAccrued) * 100) / 100;
 
         // ── Write ledger entries & update balance (inside the transaction) ──
         const monthStr = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
@@ -587,14 +640,27 @@ export class PayrollEngineService {
                                  AND EXTRACT(YEAR FROM entry_date::date) = $3
                              ), 0),
                          last_updated_at = NOW()`,
-          [emp.employeeId, run.clientId, run.periodYear, elAccrued, paidLeaveDays, elAccrued - paidLeaveDays],
+          [
+            emp.employeeId,
+            run.clientId,
+            run.periodYear,
+            elAccrued,
+            paidLeaveDays,
+            elAccrued - paidLeaveDays,
+          ],
         );
 
         // Re-read updated balance for component value
         const updatedBal = await qr.manager.findOne(LeaveBalanceEntity, {
-          where: { employeeId: emp.employeeId, year: run.periodYear, leaveType: 'EL' },
+          where: {
+            employeeId: emp.employeeId,
+            year: run.periodYear,
+            leaveType: 'EL',
+          },
         });
-        elBalanceAfter = updatedBal ? parseFloat(updatedBal.available) || 0 : elBalanceAfter;
+        elBalanceAfter = updatedBal
+          ? parseFloat(updatedBal.available) || 0
+          : elBalanceAfter;
       }
 
       values['EL_PAID_LEAVE_DAYS'] = paidLeaveDays;
@@ -660,7 +726,13 @@ export class PayrollEngineService {
       // ── Pro-rata: multiply earned salary components by payableDays / 26 ──
       const payableDays = values['PAYABLE_DAYS'] ?? WORKING_DAYS_IN_MONTH;
       const proRataFactor = payableDays / WORKING_DAYS_IN_MONTH;
-      const NON_PRORATA_CODES = new Set(['ATT_BONUS', 'OTHER_EARNINGS', 'ARREAR_ATT_BONUS', 'OTHER_DEDUCTIONS', 'ACTUAL_GROSS']);
+      const NON_PRORATA_CODES = new Set([
+        'ATT_BONUS',
+        'OTHER_EARNINGS',
+        'ARREAR_ATT_BONUS',
+        'OTHER_DEDUCTIONS',
+        'ACTUAL_GROSS',
+      ]);
       for (const comp of components) {
         if (
           comp.componentType === 'EARNING' &&
@@ -682,7 +754,9 @@ export class PayrollEngineService {
 
       // Statutory deductions (PF/ESI)
       const statResult = this.statutory.compute({
-        values, setup, components,
+        values,
+        setup,
+        components,
         pfApplicable: empPfApplicable,
         esiApplicable: empEsiApplicable,
         pfServiceStartDate: empPfServiceStartDate,
@@ -911,7 +985,13 @@ export class PayrollEngineService {
     let total = 0;
 
     // Statutory deduction codes that are always summed (even if not in components list)
-    const STATUTORY_CODES = new Set(['PF_EMP', 'ESI_EMP', 'PT', 'LWF_EMP', 'PF_ER_FROM_EMP']);
+    const STATUTORY_CODES = new Set([
+      'PF_EMP',
+      'ESI_EMP',
+      'PT',
+      'LWF_EMP',
+      'PF_ER_FROM_EMP',
+    ]);
 
     // Statutory employee deductions
     for (const code of STATUTORY_CODES) {
@@ -920,7 +1000,10 @@ export class PayrollEngineService {
 
     // All other DEDUCTION type components (skip statutory to avoid double-count)
     for (const comp of components) {
-      if (comp.componentType === 'DEDUCTION' && !STATUTORY_CODES.has(comp.code)) {
+      if (
+        comp.componentType === 'DEDUCTION' &&
+        !STATUTORY_CODES.has(comp.code)
+      ) {
         total += values[comp.code] ?? 0;
       }
     }

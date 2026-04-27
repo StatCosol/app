@@ -1,8 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-} from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { TdsCalculatorService } from './services/tds-calculator.service';
 import { TdsCalculateDto } from './dto/tds-calculate.dto';

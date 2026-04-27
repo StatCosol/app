@@ -77,7 +77,8 @@ export class PayrollClientSetupEntity {
     precision: 14,
     scale: 2,
     default: 0,
-    comment: 'PF only applies when gross exceeds this amount. 0 = apply to all.',
+    comment:
+      'PF only applies when gross exceeds this amount. 0 = apply to all.',
   })
   pfGrossThreshold: string;
 

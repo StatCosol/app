@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { EmployeeAppraisalEntity } from './employee-appraisal.entity';
 
 @Entity({ name: 'employee_appraisal_items' })
@@ -23,7 +30,13 @@ export class EmployeeAppraisalItemEntity {
   @Column({ name: 'item_name', type: 'varchar', length: 150 })
   itemName: string;
 
-  @Column({ name: 'weightage', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'weightage',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
   weightage: number;
 
   @Column({ name: 'target_value', type: 'text', nullable: true })
@@ -32,19 +45,49 @@ export class EmployeeAppraisalItemEntity {
   @Column({ name: 'achievement_value', type: 'text', nullable: true })
   achievementValue: string | null;
 
-  @Column({ name: 'self_rating', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'self_rating',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   selfRating: number | null;
 
-  @Column({ name: 'manager_rating', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'manager_rating',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   managerRating: number | null;
 
-  @Column({ name: 'branch_rating', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'branch_rating',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   branchRating: number | null;
 
-  @Column({ name: 'final_rating', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({
+    name: 'final_rating',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
   finalRating: number | null;
 
-  @Column({ name: 'weighted_score', type: 'numeric', precision: 7, scale: 2, nullable: true })
+  @Column({
+    name: 'weighted_score',
+    type: 'numeric',
+    precision: 7,
+    scale: 2,
+    nullable: true,
+  })
   weightedScore: number | null;
 
   @Column({ name: 'employee_remarks', type: 'text', nullable: true })

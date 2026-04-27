@@ -29,9 +29,10 @@ export class EscalationCronService {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    const branches: { id: string; clientid: string; branchname: string }[] = await this.ds.query(
-      `SELECT id, clientid, branchname FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
-    );
+    const branches: { id: string; clientid: string; branchname: string }[] =
+      await this.ds.query(
+        `SELECT id, clientid, branchname FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
+      );
 
     let escalated = 0;
 

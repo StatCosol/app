@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { AppraisalTemplateEntity } from './appraisal-template.entity';
 import { AppraisalTemplateSectionEntity } from './appraisal-template-section.entity';
 
@@ -32,16 +39,33 @@ export class AppraisalTemplateItemEntity {
   @Column({ name: 'description', type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ name: 'weightage', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'weightage',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
   weightage: number;
 
-  @Column({ name: 'max_score', type: 'numeric', precision: 5, scale: 2, default: 5 })
+  @Column({
+    name: 'max_score',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 5,
+  })
   maxScore: number;
 
   @Column({ name: 'sequence', type: 'int', default: 0 })
   sequence: number;
 
-  @Column({ name: 'input_type', type: 'varchar', length: 30, default: 'RATING' })
+  @Column({
+    name: 'input_type',
+    type: 'varchar',
+    length: 30,
+    default: 'RATING',
+  })
   inputType: string;
 
   @Column({ name: 'is_required', type: 'boolean', default: true })

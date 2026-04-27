@@ -37,12 +37,7 @@ export class PayrollComponentConditionEntity {
     type: 'varchar',
     length: 30,
   })
-  actionType:
-    | 'SET_FIXED'
-    | 'APPLY_PERCENT'
-    | 'ENABLE'
-    | 'DISABLE'
-    | 'WARNING';
+  actionType: 'SET_FIXED' | 'APPLY_PERCENT' | 'ENABLE' | 'DISABLE' | 'WARNING';
 
   @Column({
     name: 'action_value',

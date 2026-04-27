@@ -34,9 +34,7 @@ export class TaskCenterService {
 
     const total = rows.length;
     const open = rows.filter((x) => x.status === 'OPEN').length;
-    const inProgress = rows.filter(
-      (x) => x.status === 'IN_PROGRESS',
-    ).length;
+    const inProgress = rows.filter((x) => x.status === 'IN_PROGRESS').length;
     const overdue = rows.filter((x) => {
       if (!x.due_date) return false;
       return (
@@ -128,7 +126,7 @@ export class TaskCenterService {
         t.created_at DESC
     `;
 
-    return this.dataSource.query(sql, values) as Promise<TaskRow[]>;
+    return this.dataSource.query(sql, values);
   }
 
   async getOverdueItems(params: {

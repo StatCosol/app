@@ -219,7 +219,9 @@ export class ContractorService {
     const rejectedDocs = Number(allTimeDocRow?.rejectedDocs ?? 0);
     const pendingReviewDocs = Number(allTimeDocRow?.pendingReviewDocs ?? 0);
 
-    const clientEntity = await this.clientRepo.findOne({ where: { id: clientId } });
+    const clientEntity = await this.clientRepo.findOne({
+      where: { id: clientId },
+    });
 
     return {
       clientId,

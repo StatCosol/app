@@ -7,7 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 import { CrmContractorDocumentsApi } from '../../../core/api/crm-contractor-documents.api';
 import { ComplianceApiService } from '../../../shared/services/compliance-api.service';
-import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ClientContextStripComponent } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent } from '../../../shared/ui';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { McdRowDto } from '../../../shared/models/compliance.models';
@@ -17,7 +17,7 @@ type TrackerTab = 'DOCS' | 'MCD' | 'EXPIRY' | 'AUDIT_CLOSURES' | 'TASKS';
 @Component({
   selector: 'app-crm-compliance',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, ClientContextStripComponent],
+  imports: [CommonModule, FormsModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent],
   templateUrl: './crm-compliance.component.html',
   styleUrls: ['./crm-compliance.component.scss'],
 })

@@ -13,7 +13,8 @@ export class AppraisalReportsService {
       params.push(cycleId);
     }
 
-    return this.dataSource.query(`
+    return this.dataSource.query(
+      `
       SELECT b.branchname AS branch_name,
              COUNT(*)::int AS total,
              COUNT(*) FILTER (WHERE ea.status IN ('CLIENT_APPROVED','LOCKED','CLOSED'))::int AS completed,
@@ -27,7 +28,9 @@ export class AppraisalReportsService {
       WHERE ${where}
       GROUP BY b.branchname
       ORDER BY avg_score DESC NULLS LAST
-    `, params);
+    `,
+      params,
+    );
   }
 
   async departmentSummary(clientId: string, cycleId?: string) {
@@ -38,7 +41,8 @@ export class AppraisalReportsService {
       params.push(cycleId);
     }
 
-    return this.dataSource.query(`
+    return this.dataSource.query(
+      `
       SELECT e.department,
              COUNT(*)::int AS total,
              ROUND(AVG(ea.total_score)::numeric, 2) AS avg_score,
@@ -51,7 +55,9 @@ export class AppraisalReportsService {
       WHERE ${where}
       GROUP BY e.department
       ORDER BY avg_score DESC NULLS LAST
-    `, params);
+    `,
+      params,
+    );
   }
 
   async recommendations(clientId: string, cycleId?: string) {
@@ -62,14 +68,17 @@ export class AppraisalReportsService {
       params.push(cycleId);
     }
 
-    return this.dataSource.query(`
+    return this.dataSource.query(
+      `
       SELECT ea.recommendation, COUNT(*)::int AS count,
              ROUND(AVG(ea.total_score)::numeric, 2) AS avg_score
       FROM employee_appraisals ea
       WHERE ${where} AND ea.recommendation IS NOT NULL
       GROUP BY ea.recommendation
       ORDER BY count DESC
-    `, params);
+    `,
+      params,
+    );
   }
 
   async exportData(clientId: string, cycleId?: string) {
@@ -80,7 +89,8 @@ export class AppraisalReportsService {
       params.push(cycleId);
     }
 
-    return this.dataSource.query(`
+    return this.dataSource.query(
+      `
       SELECT e.employee_code, e.name AS employee_name, e.department, e.designation,
              e.date_of_joining, b.branchname AS branch_name, e.ctc, e.monthly_gross,
              ac.cycle_name, ac.financial_year,
@@ -93,6 +103,8 @@ export class AppraisalReportsService {
       JOIN appraisal_cycles ac ON ea.cycle_id = ac.id
       WHERE ${where}
       ORDER BY b.branchname, e.name
-    `, params);
+    `,
+      params,
+    );
   }
 }

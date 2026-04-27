@@ -342,7 +342,13 @@ export class BranchReportsController {
 
     return {
       data: rows,
-      summary: { total, pfRegistered, esicRegistered, bothRegistered, neitherRegistered },
+      summary: {
+        total,
+        pfRegistered,
+        esicRegistered,
+        bothRegistered,
+        neitherRegistered,
+      },
     };
   }
 
@@ -400,7 +406,13 @@ export class BranchReportsController {
 
     return {
       data: rows,
-      summary: { totalActive, totalInactive, male, female, branches: rows.length },
+      summary: {
+        totalActive,
+        totalInactive,
+        male,
+        female,
+        branches: rows.length,
+      },
     };
   }
 
@@ -476,9 +488,7 @@ export class BranchReportsController {
         totalApproved,
         totalPending,
         overallPct:
-          totalDocs > 0
-            ? Math.round((totalApproved * 100) / totalDocs)
-            : 0,
+          totalDocs > 0 ? Math.round((totalApproved * 100) / totalDocs) : 0,
       },
     };
   }

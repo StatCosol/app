@@ -109,7 +109,10 @@ import { ClientStructuresService } from './client-structures.service';
 import { ClientPayrollCalculationService } from './client-payroll-calculation.service';
 import { ClientStructuresController } from './client-structures.controller';
 import { CtcSummaryService } from './ctc-summary.service';
-import { ClientCtcSummaryController, BranchCtcController } from './ctc-summary.controller';
+import {
+  ClientCtcSummaryController,
+  BranchCtcController,
+} from './ctc-summary.controller';
 
 @Module({
   imports: [

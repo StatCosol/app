@@ -33,7 +33,12 @@ export class UserLoginLogEntity {
   @Column({ type: 'varchar', length: 15, default: 'SUCCESS' })
   status: 'SUCCESS' | 'FAILED';
 
-  @Column({ type: 'varchar', length: 80, name: 'failure_reason', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 80,
+    name: 'failure_reason',
+    nullable: true,
+  })
   failureReason: string | null;
 
   @CreateDateColumn({ type: 'timestamptz', name: 'logged_in_at' })

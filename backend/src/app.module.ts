@@ -76,10 +76,15 @@ import { AccountsBillingModule } from './accounts-billing/accounts-billing.modul
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         pinoHttp: {
-          level: config.get<string>('NODE_ENV') === 'production' ? 'info' : 'debug',
-          transport: config.get<string>('NODE_ENV') !== 'production'
-            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
-            : undefined,
+          level:
+            config.get<string>('NODE_ENV') === 'production' ? 'info' : 'debug',
+          transport:
+            config.get<string>('NODE_ENV') !== 'production'
+              ? {
+                  target: 'pino-pretty',
+                  options: { colorize: true, singleLine: true },
+                }
+              : undefined,
           autoLogging: { ignore: (req: any) => req.url === '/api/v1/health' },
           redact: ['req.headers.authorization', 'req.headers.cookie'],
         },
@@ -97,9 +102,10 @@ import { AccountsBillingModule } from './accounts-billing/accounts-billing.modul
         schema: 'public',
         autoLoadEntities: true,
         synchronize: false, // Always false — use SQL migrations for schema changes
-        ssl: config.get<string>('DB_SSL') === 'true'
-          ? { rejectUnauthorized: false }
-          : false,
+        ssl:
+          config.get<string>('DB_SSL') === 'true'
+            ? { rejectUnauthorized: false }
+            : false,
         extra: {
           // Pool configuration — prevent first-query hangs
           max: config.get<number>('DB_POOL_MAX', 20),

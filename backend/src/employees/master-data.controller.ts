@@ -43,7 +43,10 @@ export class MasterDataController {
   // ── Departments ──────────────────────────────────────────
   @ApiOperation({ summary: 'List Departments' })
   @Get('departments')
-  async listDepartments(@CurrentUser() user: ReqUser, @Query('clientId') qClientId?: string) {
+  async listDepartments(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') qClientId?: string,
+  ) {
     const clientId = this.resolveClientId(user, qClientId);
     return this.ds
       .getRepository(DepartmentEntity)
@@ -93,7 +96,10 @@ export class MasterDataController {
   // ── Grades ────────────────────────────────────────────────
   @ApiOperation({ summary: 'List Grades' })
   @Get('grades')
-  async listGrades(@CurrentUser() user: ReqUser, @Query('clientId') qClientId?: string) {
+  async listGrades(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') qClientId?: string,
+  ) {
     const clientId = this.resolveClientId(user, qClientId);
     return this.ds
       .getRepository(GradeEntity)
@@ -143,7 +149,10 @@ export class MasterDataController {
   // ── Designations ──────────────────────────────────────────
   @ApiOperation({ summary: 'List Designations' })
   @Get('designations')
-  async listDesignations(@CurrentUser() user: ReqUser, @Query('clientId') qClientId?: string) {
+  async listDesignations(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') qClientId?: string,
+  ) {
     const clientId = this.resolveClientId(user, qClientId);
     return this.ds
       .getRepository(DesignationEntity)

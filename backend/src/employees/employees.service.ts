@@ -214,8 +214,14 @@ export class EmployeesService {
       emp.esic = EmployeesService.sanitizeRegNumber(emp.esic);
 
       // Auto-set registration flags when valid numbers are present
-      if (emp.uan) { emp.pfApplicable = true; emp.pfRegistered = true; }
-      if (emp.esic) { emp.esiApplicable = true; emp.esiRegistered = true; }
+      if (emp.uan) {
+        emp.pfApplicable = true;
+        emp.pfRegistered = true;
+      }
+      if (emp.esic) {
+        emp.esiApplicable = true;
+        emp.esiRegistered = true;
+      }
 
       return manager.save(emp);
     });
@@ -253,10 +259,9 @@ export class EmployeesService {
       });
     }
     if (filters.search) {
-      qb.andWhere(
-        '(LOWER(e.name) LIKE :s OR e.employeeCode LIKE :s)',
-        { s: `%${filters.search.toLowerCase()}%` },
-      );
+      qb.andWhere('(LOWER(e.name) LIKE :s OR e.employeeCode LIKE :s)', {
+        s: `%${filters.search.toLowerCase()}%`,
+      });
     }
     qb.orderBy('e.createdAt', 'DESC');
     qb.take(filters.limit || 100);
@@ -315,7 +320,12 @@ export class EmployeesService {
     }
 
     // Strip read-only fields the frontend may send
-    const { id: _id, clientId: _cid, employeeCode: _ec, ...safeDto } = dto as any;
+    const {
+      id: _id,
+      clientId: _cid,
+      employeeCode: _ec,
+      ...safeDto
+    } = dto as any;
     Object.assign(emp, safeDto);
 
     // Sanitize UAN/ESIC — reject text like "Not applicable"
@@ -323,8 +333,14 @@ export class EmployeesService {
     emp.esic = EmployeesService.sanitizeRegNumber(emp.esic);
 
     // Auto-set registration flags when valid numbers are present
-    if (emp.uan) { emp.pfApplicable = true; emp.pfRegistered = true; }
-    if (emp.esic) { emp.esiApplicable = true; emp.esiRegistered = true; }
+    if (emp.uan) {
+      emp.pfApplicable = true;
+      emp.pfRegistered = true;
+    }
+    if (emp.esic) {
+      emp.esiApplicable = true;
+      emp.esiRegistered = true;
+    }
 
     const saved = await this.empRepo.save(emp);
     if (saved.branchId)
@@ -340,38 +356,93 @@ export class EmployeesService {
     const emp = await this.findById(clientId, id);
     await this.ds.transaction(async (mgr) => {
       // Delete from all child tables that reference employee_id
-      await mgr.query(`DELETE FROM employee_nomination_members WHERE nomination_id IN (SELECT id FROM employee_nominations WHERE employee_id = $1)`, [id]);
-      await mgr.query(`DELETE FROM employee_nominations WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_generated_forms WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_documents WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_statutory WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_salary_revisions WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM attendance_records WHERE employee_id = $1`, [id]);
+      await mgr.query(
+        `DELETE FROM employee_nomination_members WHERE nomination_id IN (SELECT id FROM employee_nominations WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM employee_nominations WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM employee_generated_forms WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM employee_documents WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM employee_statutory WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM employee_salary_revisions WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM attendance_records WHERE employee_id = $1`, [
+        id,
+      ]);
       await mgr.query(`DELETE FROM leave_ledger WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM leave_balances WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM leave_applications WHERE employee_id = $1`, [id]);
+      await mgr.query(`DELETE FROM leave_balances WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM leave_applications WHERE employee_id = $1`, [
+        id,
+      ]);
       // Payroll child tables
-      await mgr.query(`DELETE FROM payroll_run_component_values WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`, [id]);
-      await mgr.query(`DELETE FROM payroll_run_items WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`, [id]);
-      await mgr.query(`DELETE FROM pay_calc_traces WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM payroll_run_employees WHERE employee_id = $1`, [id]);
+      await mgr.query(
+        `DELETE FROM payroll_run_component_values WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM payroll_run_items WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM pay_calc_traces WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM payroll_run_employees WHERE employee_id = $1`,
+        [id],
+      );
       await mgr.query(`DELETE FROM payroll_fnf WHERE employee_id = $1`, [id]);
       // Nullable FK tables — set null instead of delete
-      await mgr.query(`UPDATE pay_salary_structures SET employee_id = NULL WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE payroll_queries SET employee_id = NULL WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE ai_payroll_anomalies SET employee_id = NULL WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE users SET employee_id = NULL WHERE employee_id = $1`, [id]);
+      await mgr.query(
+        `UPDATE pay_salary_structures SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE payroll_queries SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE ai_payroll_anomalies SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE users SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
       // Finally delete the employee
-      await mgr.query(`DELETE FROM employees WHERE id = $1 AND client_id = $2`, [id, clientId]);
+      await mgr.query(
+        `DELETE FROM employees WHERE id = $1 AND client_id = $2`,
+        [id, clientId],
+      );
     });
     if (emp.branchId) {
-      this.riskCache.invalidateBranch(emp.branchId).catch((e) =>
-        this.logger.warn('riskCache invalidation failed', e?.message),
-      );
+      this.riskCache
+        .invalidateBranch(emp.branchId)
+        .catch((e) =>
+          this.logger.warn('riskCache invalidation failed', e?.message),
+        );
     }
   }
 
-  async deactivate(clientId: string, id: string, exitReason?: string, dateOfExit?: string): Promise<EmployeeEntity> {
+  async deactivate(
+    clientId: string,
+    id: string,
+    exitReason?: string,
+    dateOfExit?: string,
+  ): Promise<EmployeeEntity> {
     const emp = await this.findById(clientId, id);
     emp.isActive = false;
     emp.dateOfExit = dateOfExit || new Date().toISOString().split('T')[0];

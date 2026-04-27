@@ -315,7 +315,11 @@ export class AdminDigestService {
     }
   }
 
-  private buildHtml(audits: OverdueAuditRow[], assigns: AssignmentDueRow[], compliance: ComplianceRow[]): string {
+  private buildHtml(
+    audits: OverdueAuditRow[],
+    assigns: AssignmentDueRow[],
+    compliance: ComplianceRow[],
+  ): string {
     const row = (cols: (string | number | null)[]) =>
       `<tr>${cols.map((c) => `<td>${this.escapeHtml(c)}</td>`).join('')}</tr>`;
 
@@ -350,7 +354,10 @@ export class AdminDigestService {
     `;
   }
 
-  private buildCriticalHtml(audits: CriticalAuditRow[], assigns: CriticalAssignmentRow[]): string {
+  private buildCriticalHtml(
+    audits: CriticalAuditRow[],
+    assigns: CriticalAssignmentRow[],
+  ): string {
     const row = (cols: (string | number | null)[]) =>
       `<tr>${cols.map((c) => `<td>${this.escapeHtml(c)}</td>`).join('')}</tr>`;
 
@@ -525,7 +532,10 @@ export class AdminDigestService {
     return { overdueAudits30, assignmentsPastDue };
   }
 
-  private async safeQuery<T = Record<string, unknown>>(sql: string, tag: string): Promise<T[]> {
+  private async safeQuery<T = Record<string, unknown>>(
+    sql: string,
+    tag: string,
+  ): Promise<T[]> {
     try {
       return (await this.ds.query(sql)) || [];
     } catch (err) {

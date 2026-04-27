@@ -93,7 +93,10 @@ export class ClientPayrollCalculationService {
 
     // ── Statutory deductions ──────────────────────────────────────────────
     if (statutory.enablePt) {
-      ctx['PT'] = this.calculatePt(ctx['GROSS'] ?? input.gross, input.stateCode);
+      ctx['PT'] = this.calculatePt(
+        ctx['GROSS'] ?? input.gross,
+        input.stateCode,
+      );
     }
     if (statutory.enablePf) {
       ctx['PF_EMPLOYEE'] = this.calculatePfEmployee(ctx, statutory);
@@ -132,9 +135,7 @@ export class ClientPayrollCalculationService {
       .reduce((sum, c) => sum + (ctx[c.code] || 0), 0);
 
     const totalDeductions =
-      (ctx['PT'] || 0) +
-      (ctx['PF_EMPLOYEE'] || 0) +
-      (ctx['ESI_EMPLOYEE'] || 0);
+      (ctx['PT'] || 0) + (ctx['PF_EMPLOYEE'] || 0) + (ctx['ESI_EMPLOYEE'] || 0);
 
     const employerContributions =
       (ctx['PF_EMPLOYER'] || 0) + (ctx['ESI_EMPLOYER'] || 0);

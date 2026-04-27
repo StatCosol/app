@@ -3,7 +3,6 @@ import { DataSource } from 'typeorm';
 
 @Injectable()
 export class ClientReturnsVisibilityService {
-
   constructor(private readonly dataSource: DataSource) {}
 
   /** Return tasks for a client (optionally filtered by branch) */

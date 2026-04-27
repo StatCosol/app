@@ -132,19 +132,28 @@ export class ClientDashboardService {
       )
       .getRawMany();
 
-    const pfPending = pfPendingRows.map((r: { id: string; employeeCode: string; name: string; dateOfJoining: string | null; pfApplicableFrom: string | null; uan: string | null }) => ({
-      employeeId: r.id,
-      empCode: r.employeeCode,
-      name: r.name || '',
-      dateOfJoining: r.dateOfJoining || null,
-      pfApplicable: true,
-      pfRegistered: false,
-      uanAvailable: !!r.uan,
-      uan: r.uan || null,
-      pendingDays: this.computePendingDays(
-        r.pfApplicableFrom || r.dateOfJoining,
-      ),
-    }));
+    const pfPending = pfPendingRows.map(
+      (r: {
+        id: string;
+        employeeCode: string;
+        name: string;
+        dateOfJoining: string | null;
+        pfApplicableFrom: string | null;
+        uan: string | null;
+      }) => ({
+        employeeId: r.id,
+        empCode: r.employeeCode,
+        name: r.name || '',
+        dateOfJoining: r.dateOfJoining || null,
+        pfApplicable: true,
+        pfRegistered: false,
+        uanAvailable: !!r.uan,
+        uan: r.uan || null,
+        pendingDays: this.computePendingDays(
+          r.pfApplicableFrom || r.dateOfJoining,
+        ),
+      }),
+    );
 
     const esiRegistered = await baseQb
       .clone()
@@ -166,19 +175,28 @@ export class ClientDashboardService {
       )
       .getRawMany();
 
-    const esiPending = esiPendingRows.map((r: { id: string; employeeCode: string; name: string; dateOfJoining: string | null; esiApplicableFrom: string | null; ipNumber: string | null }) => ({
-      employeeId: r.id,
-      empCode: r.employeeCode,
-      name: r.name || '',
-      dateOfJoining: r.dateOfJoining || null,
-      esiApplicable: true,
-      esiRegistered: false,
-      ipNumberAvailable: !!r.ipNumber,
-      ipNumber: r.ipNumber || null,
-      pendingDays: this.computePendingDays(
-        r.esiApplicableFrom || r.dateOfJoining,
-      ),
-    }));
+    const esiPending = esiPendingRows.map(
+      (r: {
+        id: string;
+        employeeCode: string;
+        name: string;
+        dateOfJoining: string | null;
+        esiApplicableFrom: string | null;
+        ipNumber: string | null;
+      }) => ({
+        employeeId: r.id,
+        empCode: r.employeeCode,
+        name: r.name || '',
+        dateOfJoining: r.dateOfJoining || null,
+        esiApplicable: true,
+        esiRegistered: false,
+        ipNumberAvailable: !!r.ipNumber,
+        ipNumber: r.ipNumber || null,
+        pendingDays: this.computePendingDays(
+          r.esiApplicableFrom || r.dateOfJoining,
+        ),
+      }),
+    );
 
     const result = {
       pf: {
@@ -263,8 +281,9 @@ export class ClientDashboardService {
       .groupBy('r.contractor_user_id')
       .getRawMany();
     const requiredMap = new Map<string, number>();
-    requiredRows.forEach((r: { contractorId: string; expected: string | number }) =>
-      requiredMap.set(String(r.contractorId), Number(r.expected || 0)),
+    requiredRows.forEach(
+      (r: { contractorId: string; expected: string | number }) =>
+        requiredMap.set(String(r.contractorId), Number(r.expected || 0)),
     );
 
     // ─── 3. Uploaded docs from contractor_documents (scoped to real contractors) ───
@@ -295,8 +314,9 @@ export class ClientDashboardService {
       .groupBy('d.contractor_user_id')
       .getRawMany();
     const uploadedMap = new Map<string, number>();
-    uploadedRows.forEach((r: { contractorId: string; uploaded: string | number }) =>
-      uploadedMap.set(String(r.contractorId), Number(r.uploaded || 0)),
+    uploadedRows.forEach(
+      (r: { contractorId: string; uploaded: string | number }) =>
+        uploadedMap.set(String(r.contractorId), Number(r.uploaded || 0)),
     );
 
     // ─── 4. Build results for every known contractor ───

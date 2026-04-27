@@ -50,7 +50,13 @@ export class CeoDashboardService {
    * CEO branch workspace list.
    * Aggregates branch-level compliance, overdue, audit score, and risk.
    */
-  async getBranchWorkspaceList(query: { month?: string; state?: string; client?: string; q?: string; riskBand?: string }) {
+  async getBranchWorkspaceList(query: {
+    month?: string;
+    state?: string;
+    client?: string;
+    q?: string;
+    riskBand?: string;
+  }) {
     const { year, month } = this.resolveMonthParts(query?.month);
     const { startDate, endDate } = this.resolveMonthBounds(query?.month);
 
@@ -387,7 +393,11 @@ export class CeoDashboardService {
   /**
    * Get client overview with branch counts and metrics
    */
-  async getClientOverview(query: { limit?: number | string; offset?: number | string; search?: string }) {
+  async getClientOverview(query: {
+    limit?: number | string;
+    offset?: number | string;
+    search?: string;
+  }) {
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
     const search = query.search || '';
@@ -490,7 +500,11 @@ export class CeoDashboardService {
   /**
    * Get recent escalations requiring CEO attention
    */
-  async getRecentEscalations(query: { limit?: number | string; offset?: number | string; status?: string }) {
+  async getRecentEscalations(query: {
+    limit?: number | string;
+    offset?: number | string;
+    status?: string;
+  }) {
     const limit = Number(query.limit) || 50;
     const offset = Number(query.offset) || 0;
     const status = query.status || 'PENDING';

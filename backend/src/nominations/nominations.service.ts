@@ -277,9 +277,7 @@ export class NominationsService {
 
       // Employee details
       doc.fontSize(11).text(`Employee Code: ${emp.employeeCode}`);
-      doc.text(
-        `Employee Name: ${emp.name ?? ''}`,
-      );
+      doc.text(`Employee Name: ${emp.name ?? ''}`);
       doc.text(`Designation: ${emp.designation ?? ''}`);
       doc.text(`State: ${emp.stateCode ?? ''}`);
       doc.text(`Date of Joining: ${emp.dateOfJoining ?? ''}`);

@@ -284,7 +284,10 @@ export class EssController {
         },
         filename: (_req, file, cb) => {
           const ext = path.extname(file.originalname).toLowerCase();
-          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+          cb(
+            null,
+            `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
+          );
         },
       }),
       limits: { fileSize: 10 * 1024 * 1024 },
@@ -336,14 +339,19 @@ export class EssController {
   @ApiOperation({ summary: 'List my appraisals' })
   @Get('appraisals')
   getMyAppraisals(@CurrentUser() user: ReqUser) {
-    if (!user.employeeId) throw new BadRequestException('No employee record linked');
+    if (!user.employeeId)
+      throw new BadRequestException('No employee record linked');
     return this.appraisalSvc.findByEmployee(user.employeeId);
   }
 
   @ApiOperation({ summary: 'Get my appraisal detail' })
   @Get('appraisals/:id')
-  getMyAppraisal(@CurrentUser() user: ReqUser, @Param('id', ParseUUIDPipe) id: string) {
-    if (!user.employeeId) throw new BadRequestException('No employee record linked');
+  getMyAppraisal(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (!user.employeeId)
+      throw new BadRequestException('No employee record linked');
     return this.appraisalSvc.findOne(id);
   }
 
@@ -352,9 +360,11 @@ export class EssController {
   submitSelfReview(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { items: { itemId: string; rating: number; remarks?: string }[] },
+    @Body()
+    body: { items: { itemId: string; rating: number; remarks?: string }[] },
   ) {
-    if (!user.employeeId) throw new BadRequestException('No employee record linked');
+    if (!user.employeeId)
+      throw new BadRequestException('No employee record linked');
     return this.appraisalSvc.selfReview(id, body.items, user.employeeId);
   }
 }

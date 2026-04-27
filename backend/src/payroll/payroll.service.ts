@@ -148,7 +148,10 @@ export class PayrollService {
         });
         let accrued = 0;
         for (const entry of elEntries) {
-          if (entry.refType === 'EL_ACCRUAL' && entry.remarks?.includes(monthStr)) {
+          if (
+            entry.refType === 'EL_ACCRUAL' &&
+            entry.remarks?.includes(monthStr)
+          ) {
             accrued += Math.abs(Number(entry.qty) || 0);
           }
         }
@@ -177,13 +180,17 @@ export class PayrollService {
         });
         let paidLeaveDays = 0;
         for (const entry of elEntries) {
-          if (entry.refType === 'EL_PAID_LEAVE' && entry.remarks?.includes(monthStr)) {
+          if (
+            entry.refType === 'EL_PAID_LEAVE' &&
+            entry.remarks?.includes(monthStr)
+          ) {
             paidLeaveDays += Math.abs(Number(entry.qty) || 0);
           }
         }
         cv['EL_PAID_LEAVE_DAYS'] = paidLeaveDays;
       } catch {
-        if (cv['EL_PAID_LEAVE_DAYS'] === undefined) cv['EL_PAID_LEAVE_DAYS'] = 0;
+        if (cv['EL_PAID_LEAVE_DAYS'] === undefined)
+          cv['EL_PAID_LEAVE_DAYS'] = 0;
       }
 
       // ── EL_BALANCE: read from leave_balances ──
@@ -203,7 +210,9 @@ export class PayrollService {
     // ── HOLIDAYS: always recompute from attendance ──
     try {
       const summaries = await this.attendanceService.getMonthlySummary({
-        clientId, year, month,
+        clientId,
+        year,
+        month,
       });
       if (employeeId) {
         const empSummary = summaries.find((s) => s.employeeId === employeeId);
@@ -406,8 +415,11 @@ export class PayrollService {
       allowBranchPayrollAccess: s.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: s.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: s.allowBranchSalaryRegisters === true,
-      payrollBranchScope: s.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
-      payrollAllowedBranchIds: Array.isArray(s.payrollAllowedBranchIds) ? s.payrollAllowedBranchIds : [],
+      payrollBranchScope:
+        s.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+      payrollAllowedBranchIds: Array.isArray(s.payrollAllowedBranchIds)
+        ? s.payrollAllowedBranchIds
+        : [],
     };
   }
 
@@ -437,10 +449,14 @@ export class PayrollService {
       allowBranchPayrollAccess: dto?.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: dto?.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: dto?.allowBranchSalaryRegisters === true,
-      payrollBranchScope: dto?.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
-      payrollAllowedBranchIds: dto?.payrollBranchScope === 'SELECTED'
-        ? (Array.isArray(dto?.payrollAllowedBranchIds) ? dto.payrollAllowedBranchIds : [])
-        : [],
+      payrollBranchScope:
+        dto?.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+      payrollAllowedBranchIds:
+        dto?.payrollBranchScope === 'SELECTED'
+          ? Array.isArray(dto?.payrollAllowedBranchIds)
+            ? dto.payrollAllowedBranchIds
+            : []
+          : [],
     };
 
     const row = existing
@@ -1093,21 +1109,20 @@ export class PayrollService {
     });
 
     if (masterEmployees.length) {
-      const seedEntities =
-        masterEmployees.map((emp) =>
-          this.runEmployeeRepo.create({
-            runId: savedRun.id,
-            clientId: savedRun.clientId,
-            branchId: emp.branchId ?? savedRun.branchId ?? null,
-            employeeId: emp.id,
-            employeeCode: emp.employeeCode,
-            employeeName: emp.name,
-            designation: emp.designation ?? null,
-            uan: emp.uan ?? null,
-            esic: emp.esic ?? null,
-            stateCode: emp.stateCode ?? null,
-          }),
-        );
+      const seedEntities = masterEmployees.map((emp) =>
+        this.runEmployeeRepo.create({
+          runId: savedRun.id,
+          clientId: savedRun.clientId,
+          branchId: emp.branchId ?? savedRun.branchId ?? null,
+          employeeId: emp.id,
+          employeeCode: emp.employeeCode,
+          employeeName: emp.name,
+          designation: emp.designation ?? null,
+          uan: emp.uan ?? null,
+          esic: emp.esic ?? null,
+          stateCode: emp.stateCode ?? null,
+        }),
+      );
 
       await this.runEmployeeRepo.save(seedEntities);
     }
@@ -1216,8 +1231,18 @@ export class PayrollService {
     ]);
     // Intentionally do not match generic "ctc" / "total ctc" to avoid ingesting annual CTC.
     const colEmployerCost = colMonthlyCtc || colEmployerContribution;
-    const colPfEmployee = findCol(['pf employee', 'employee pf', 'pf emp', 'pf deduction']);
-    const colEsiEmployee = findCol(['esi employee', 'employee esi', 'esi emp', 'esi deduction']);
+    const colPfEmployee = findCol([
+      'pf employee',
+      'employee pf',
+      'pf emp',
+      'pf deduction',
+    ]);
+    const colEsiEmployee = findCol([
+      'esi employee',
+      'employee esi',
+      'esi emp',
+      'esi deduction',
+    ]);
     const colPt = findCol(['professional tax', 'prof tax', 'pt']);
     const colPfEmployer = findCol(['pf employer', 'employer pf', 'pf er']);
     const colEsiEmployer = findCol(['esi employer', 'employer esi', 'esi er']);
@@ -1277,9 +1302,7 @@ export class PayrollService {
       const esiEmployee = colEsiEmployee
         ? this.numberFromCell(row.getCell(colEsiEmployee).value)
         : null;
-      const pt = colPt
-        ? this.numberFromCell(row.getCell(colPt).value)
-        : null;
+      const pt = colPt ? this.numberFromCell(row.getCell(colPt).value) : null;
       const pfEmployer = colPfEmployer
         ? this.numberFromCell(row.getCell(colPfEmployer).value)
         : null;
@@ -1329,9 +1352,15 @@ export class PayrollService {
       'employeeCode',
     ]);
 
-    const cvRepo = this.runEmployeeRepo.manager.getRepository(PayrollRunComponentValueEntity);
-    const runEmployees = await this.runEmployeeRepo.find({ where: { runId: run.id } });
-    const runEmpByCode = new Map(runEmployees.map((re) => [re.employeeCode, re.id]));
+    const cvRepo = this.runEmployeeRepo.manager.getRepository(
+      PayrollRunComponentValueEntity,
+    );
+    const runEmployees = await this.runEmployeeRepo.find({
+      where: { runId: run.id },
+    });
+    const runEmpByCode = new Map(
+      runEmployees.map((re) => [re.employeeCode, re.id]),
+    );
     const componentValues: Partial<PayrollRunComponentValueEntity>[] = [];
 
     for (const row of componentRows) {
@@ -2593,8 +2622,12 @@ export class PayrollService {
       : null;
 
     // Fetch component values for detailed breakdown
-    const cvRepo = this.runEmployeeRepo.manager.getRepository(PayrollRunComponentValueEntity);
-    const compValues = await cvRepo.find({ where: { runId, runEmployeeId: emp.id } });
+    const cvRepo = this.runEmployeeRepo.manager.getRepository(
+      PayrollRunComponentValueEntity,
+    );
+    const compValues = await cvRepo.find({
+      where: { runId, runEmployeeId: emp.id },
+    });
     const componentValues: Record<string, number> = {};
     for (const v of compValues) {
       componentValues[v.componentCode] = Number(v.amount) || 0;
@@ -2602,7 +2635,11 @@ export class PayrollService {
 
     // Enrich with leave/attendance data if missing
     await this.enrichLeaveAttendanceValues(
-      componentValues, emp.employeeId ?? null, run.clientId, run.periodYear, run.periodMonth,
+      componentValues,
+      emp.employeeId ?? null,
+      run.clientId,
+      run.periodYear,
+      run.periodMonth,
     );
 
     // Load client logo
@@ -2686,8 +2723,12 @@ export class PayrollService {
         : null;
 
       // Fetch component values for detailed breakdown
-      const cvRepo = this.runEmployeeRepo.manager.getRepository(PayrollRunComponentValueEntity);
-      const compValues = await cvRepo.find({ where: { runId, runEmployeeId: emp.id } });
+      const cvRepo = this.runEmployeeRepo.manager.getRepository(
+        PayrollRunComponentValueEntity,
+      );
+      const compValues = await cvRepo.find({
+        where: { runId, runEmployeeId: emp.id },
+      });
       const componentValues: Record<string, number> = {};
       for (const v of compValues) {
         componentValues[v.componentCode] = Number(v.amount) || 0;
@@ -2695,7 +2736,11 @@ export class PayrollService {
 
       // Enrich with leave/attendance data
       await this.enrichLeaveAttendanceValues(
-        componentValues, emp.employeeId ?? null, run.clientId, run.periodYear, run.periodMonth,
+        componentValues,
+        emp.employeeId ?? null,
+        run.clientId,
+        run.periodYear,
+        run.periodMonth,
       );
 
       const buffer = await generatePayslipPdfBuffer({
@@ -3189,10 +3234,9 @@ export class PayrollService {
     if (q?.status) qb.andWhere('f.status = :st', { st: q.status });
     if (q?.clientId) qb.andWhere('f.client_id = :cid', { cid: q.clientId });
     if (q?.search) {
-      qb.andWhere(
-        '(e.name ILIKE :s OR e.employee_code ILIKE :s)',
-        { s: `%${q.search}%` },
-      );
+      qb.andWhere('(e.name ILIKE :s OR e.employee_code ILIKE :s)', {
+        s: `%${q.search}%`,
+      });
     }
 
     const total = await qb.getCount();
@@ -3363,9 +3407,7 @@ export class PayrollService {
 
     return {
       ...fnf,
-      employeeName: emp
-        ? emp.name
-        : 'Unknown',
+      employeeName: emp ? emp.name : 'Unknown',
       employeeCode: emp?.employeeCode || '',
       clientName: client?.clientName || 'Unknown',
       history: history.map((event) => ({
@@ -3400,7 +3442,12 @@ export class PayrollService {
   async uploadFnfDocument(
     user: ReqUser,
     fnfId: string,
-    file: { fileName: string; filePath: string; fileSize: number; mimeType?: string },
+    file: {
+      fileName: string;
+      filePath: string;
+      fileSize: number;
+      mimeType?: string;
+    },
     docType: string,
     docName: string,
     remarks?: string,
@@ -3539,7 +3586,13 @@ export class PayrollService {
     // Get all employees in this run
     const runEmps = await this.runEmployeeRepo.find({ where: { runId } });
 
-    const results: { empCode: string; action: string; elAccrued?: number; paidLeave?: number; balance?: number }[] = [];
+    const results: {
+      empCode: string;
+      action: string;
+      elAccrued?: number;
+      paidLeave?: number;
+      balance?: number;
+    }[] = [];
 
     for (const re of runEmps) {
       const empCode = re.employeeCode;
@@ -3639,11 +3692,27 @@ export class PayrollService {
                                AND EXTRACT(YEAR FROM entry_date::date) = $3
                            ), 0), 0),
                        last_updated_at = NOW()`,
-        [re.employeeId, run.clientId, year, elAccrued, paidLeave, Math.max(elAccrued - paidLeave, 0)],
+        [
+          re.employeeId,
+          run.clientId,
+          year,
+          elAccrued,
+          paidLeave,
+          Math.max(elAccrued - paidLeave, 0),
+        ],
       );
 
-      const balance = Math.max(Math.round((elAccrued - paidLeave) * 100) / 100, 0);
-      results.push({ empCode, action: 'SEEDED', elAccrued, paidLeave, balance });
+      const balance = Math.max(
+        Math.round((elAccrued - paidLeave) * 100) / 100,
+        0,
+      );
+      results.push({
+        empCode,
+        action: 'SEEDED',
+        elAccrued,
+        paidLeave,
+        balance,
+      });
     }
 
     return { runId, month: monthStr, results };
@@ -3662,9 +3731,14 @@ export class PayrollService {
     for (const re of runEmps) {
       if (!MARCH_2026_SHEET_DATA[re.employeeCode]) {
         // Delete archive record
-        await this.payslipArchiveRepo.delete({ runId, employeeCode: re.employeeCode });
+        await this.payslipArchiveRepo.delete({
+          runId,
+          employeeCode: re.employeeCode,
+        });
         // Delete component values
-        const cvRepo = this.runEmployeeRepo.manager.getRepository(PayrollRunComponentValueEntity);
+        const cvRepo = this.runEmployeeRepo.manager.getRepository(
+          PayrollRunComponentValueEntity,
+        );
         await cvRepo.delete({ runId, runEmployeeId: re.id });
         // Delete from run employees
         await this.runEmployeeRepo.delete({ id: re.id });

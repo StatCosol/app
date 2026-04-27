@@ -6,7 +6,6 @@ import { AiCoreService } from './ai-core.service';
 
 @Injectable()
 export class AiPayrollAnomalyService {
-
   constructor(
     @InjectRepository(AiPayrollAnomalyEntity)
     private readonly anomalyRepo: Repository<AiPayrollAnomalyEntity>,

@@ -1,6 +1,10 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { DbService } from '../common/db/db.service';
-import { normalizeDateFilters, normalizePaging, FilterQuery } from '../common/utils/filters';
+import {
+  normalizeDateFilters,
+  normalizePaging,
+  FilterQuery,
+} from '../common/utils/filters';
 import { AUDIT_TAB, AuditorAuditTab } from '../common/utils/enums';
 import {
   AUDITOR_SUMMARY_SQL,

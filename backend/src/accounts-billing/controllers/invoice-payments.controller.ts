@@ -1,6 +1,12 @@
 import {
-  Controller, Get, Post, Param, Body, Query,
-  ParseUUIDPipe, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -25,7 +31,11 @@ export class InvoicePaymentsController {
     @Body() dto: RecordPaymentDto,
     @CurrentUser() user: any,
   ) {
-    return this.paymentsService.recordPayment(id, dto, user?.userId ?? user?.id);
+    return this.paymentsService.recordPayment(
+      id,
+      dto,
+      user?.userId ?? user?.id,
+    );
   }
 
   @ApiOperation({ summary: 'Get payments for an invoice' })
@@ -36,10 +46,7 @@ export class InvoicePaymentsController {
 
   @ApiOperation({ summary: 'List all payments' })
   @Get('payments')
-  async findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
+  async findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
     return this.paymentsService.findAll({
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,

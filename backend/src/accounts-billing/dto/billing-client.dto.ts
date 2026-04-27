@@ -1,116 +1,157 @@
 import {
-  IsString, IsOptional, IsBoolean, IsNumber, IsEnum, IsEmail, IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsEnum,
+  IsEmail,
+  IsNotEmpty,
 } from 'class-validator';
 import { BillingFrequency } from '../enums';
 
 export class CreateBillingClientDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   legalName: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   tradeName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   contactPerson?: string;
 
   @IsEmail()
   billingEmail: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   ccEmail?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   mobile?: string;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   gstApplicable?: boolean;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   gstin?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   pan?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   placeOfSupply?: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   stateName: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   stateCode: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   defaultGstRate?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   defaultSacCode?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   paymentTermsDays?: number;
 
-  @IsOptional() @IsEnum(BillingFrequency)
+  @IsOptional()
+  @IsEnum(BillingFrequency)
   billingFrequency?: BillingFrequency;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   billingAddress: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   clientId?: string;
 }
 
 export class UpdateBillingClientDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   legalName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   tradeName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   contactPerson?: string;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   billingEmail?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   ccEmail?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   mobile?: string;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   gstApplicable?: boolean;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   gstin?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   pan?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   placeOfSupply?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   stateName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   stateCode?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   defaultGstRate?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   defaultSacCode?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   paymentTermsDays?: number;
 
-  @IsOptional() @IsEnum(BillingFrequency)
+  @IsOptional()
+  @IsEnum(BillingFrequency)
   billingFrequency?: BillingFrequency;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   billingAddress?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   status?: string;
 }

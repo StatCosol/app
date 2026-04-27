@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -29,26 +24,24 @@ export class ClientCtcSummaryController {
     @Query('year') year: string,
     @Query('month') month?: string,
   ) {
-    return this.svc.getClientCtcSummary(user, +year, month ? +month : undefined);
+    return this.svc.getClientCtcSummary(
+      user,
+      +year,
+      month ? +month : undefined,
+    );
   }
 
   /** Year-to-date totals for the client */
   @ApiOperation({ summary: 'Client YTD CTC' })
   @Get('ytd')
-  getYtd(
-    @CurrentUser() user: ReqUser,
-    @Query('year') year: string,
-  ) {
+  getYtd(@CurrentUser() user: ReqUser, @Query('year') year: string) {
     return this.svc.getClientYtd(user, +year);
   }
 
   /** Month-wise trend for the selected year */
   @ApiOperation({ summary: 'Client Monthly Trend' })
   @Get('trend')
-  getTrend(
-    @CurrentUser() user: ReqUser,
-    @Query('year') year: string,
-  ) {
+  getTrend(@CurrentUser() user: ReqUser, @Query('year') year: string) {
     return this.svc.getClientMonthlyTrend(user, +year);
   }
 }
@@ -70,26 +63,24 @@ export class BranchCtcController {
     @Query('year') year: string,
     @Query('month') month?: string,
   ) {
-    return this.svc.getBranchCtcSummary(user, +year, month ? +month : undefined);
+    return this.svc.getBranchCtcSummary(
+      user,
+      +year,
+      month ? +month : undefined,
+    );
   }
 
   /** Year-to-date totals for the branch */
   @ApiOperation({ summary: 'Branch YTD CTC' })
   @Get('ytd')
-  getYtd(
-    @CurrentUser() user: ReqUser,
-    @Query('year') year: string,
-  ) {
+  getYtd(@CurrentUser() user: ReqUser, @Query('year') year: string) {
     return this.svc.getBranchYtd(user, +year);
   }
 
   /** Month-wise trend for the selected year */
   @ApiOperation({ summary: 'Branch Monthly Trend' })
   @Get('trend')
-  getTrend(
-    @CurrentUser() user: ReqUser,
-    @Query('year') year: string,
-  ) {
+  getTrend(@CurrentUser() user: ReqUser, @Query('year') year: string) {
     return this.svc.getBranchMonthlyTrend(user, +year);
   }
 }

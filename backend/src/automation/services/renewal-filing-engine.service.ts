@@ -81,7 +81,10 @@ export class RenewalFilingEngineService {
         .toISOString()
         .substring(0, 10);
 
-      const periodLabel = `Renewal — ${reg.registration_name}`.substring(0, 200);
+      const periodLabel = `Renewal — ${reg.registration_name}`.substring(
+        0,
+        200,
+      );
 
       const inserted = await this.dataSource.query(
         `INSERT INTO compliance_returns

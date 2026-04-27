@@ -23,7 +23,12 @@ export class ClraContractor {
   @Column({ name: 'trade_name', type: 'varchar', length: 255, nullable: true })
   tradeName: string | null;
 
-  @Column({ name: 'contact_person', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'contact_person',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   contactPerson: string | null;
 
   @Column({ type: 'varchar', length: 30, nullable: true })
@@ -38,10 +43,20 @@ export class ClraContractor {
   @Column({ type: 'varchar', length: 30, nullable: true })
   gstin: string | null;
 
-  @Column({ name: 'address_line1', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'address_line1',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   addressLine1: string | null;
 
-  @Column({ name: 'address_line2', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'address_line2',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   addressLine2: string | null;
 
   @Column({ type: 'varchar', length: 120, nullable: true })

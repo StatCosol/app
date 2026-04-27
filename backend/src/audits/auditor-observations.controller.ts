@@ -17,9 +17,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuditorObservationsService } from './auditor-observations.service';
 import { UpdateObservationDto } from './dto/update-observation.dto';
-import {
-  AuditorAssignmentGuard,
-} from '../assignments/auditor-assignment.guard';
+import { AuditorAssignmentGuard } from '../assignments/auditor-assignment.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CacheControl } from '../common/decorators/cache-control.decorator';

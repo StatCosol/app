@@ -249,7 +249,14 @@ export class ClientsService {
     // Return only ACTIVE & not deleted clients by default
     const where = includeDeleted ? {} : { isDeleted: false };
     const clients = await this.repo.find({
-      select: ['id', 'clientName', 'clientCode', 'status', 'logoUrl', 'crmOnBehalfEnabled'],
+      select: [
+        'id',
+        'clientName',
+        'clientCode',
+        'status',
+        'logoUrl',
+        'crmOnBehalfEnabled',
+      ],
       where,
       order: { id: 'DESC' },
     });
@@ -524,7 +531,14 @@ export class ClientsService {
 
   async findById(id: string, includeDeleted = false) {
     return this.repo.findOne({
-      select: ['id', 'clientName', 'clientCode', 'status', 'logoUrl', 'crmOnBehalfEnabled'],
+      select: [
+        'id',
+        'clientName',
+        'clientCode',
+        'status',
+        'logoUrl',
+        'crmOnBehalfEnabled',
+      ],
       where: includeDeleted ? { id } : { id, isDeleted: false },
     });
   }

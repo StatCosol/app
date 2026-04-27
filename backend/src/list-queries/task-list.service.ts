@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, SelectQueryBuilder } from 'typeorm';
-import {
-  AccessScopeService,
-  ReqUser,
-} from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { ScopedListQueryDto } from '../common/dto/scoped-list-query.dto';
 import { Page } from '../common/types/page.type';
 import {

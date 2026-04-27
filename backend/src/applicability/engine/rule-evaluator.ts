@@ -42,7 +42,11 @@ function dig(obj: Record<string, unknown> | undefined, path: string): unknown {
   if (!path) return obj;
   return path
     .split('.')
-    .reduce<unknown>((acc, k) => (acc == null ? undefined : (acc as Record<string, unknown>)[k]), obj);
+    .reduce<unknown>(
+      (acc, k) =>
+        acc == null ? undefined : (acc as Record<string, unknown>)[k],
+      obj,
+    );
 }
 
 function resolveByPath(ctx: EngineContext, path: string): unknown {

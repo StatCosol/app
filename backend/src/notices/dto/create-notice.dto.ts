@@ -1,25 +1,37 @@
-import { IsString, IsOptional, IsNotEmpty, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateNoticeDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   clientId: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   branchId?: string | null;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   noticeType?: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   departmentName: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   referenceNo?: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   subject: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @IsDateString()
@@ -28,12 +40,15 @@ export class CreateNoticeDto {
   @IsDateString()
   receivedDate: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   responseDueDate?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   severity?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   assignedToUserId?: string;
 }

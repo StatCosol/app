@@ -104,7 +104,9 @@ export class PayrollSetupService {
       where: { componentId },
       order: { priority: 'ASC', createdAt: 'ASC' },
     });
-    const result: Array<PayrollComponentRuleEntity & { slabs: PayrollComponentSlabEntity[] }> = [];
+    const result: Array<
+      PayrollComponentRuleEntity & { slabs: PayrollComponentSlabEntity[] }
+    > = [];
     for (const rule of rules) {
       const slabs = await this.slabRepo.find({
         where: { ruleId: rule.id },

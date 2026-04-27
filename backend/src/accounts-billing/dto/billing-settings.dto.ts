@@ -1,75 +1,99 @@
 import { IsString, IsOptional, IsNumber, IsEmail } from 'class-validator';
 
 export class UpdateBillingSettingsDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   legalName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   tradeName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   gstin?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   pan?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   address?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   stateCode?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   stateName?: string;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   email?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   bankAccountName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   bankName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   accountNumber?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   ifscCode?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   branchName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   invoicePrefix?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   proformaPrefix?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   creditNotePrefix?: string;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   defaultGstRate?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   defaultPaymentTermsDays?: number;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   defaultSacCode?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   authorizedSignatoryName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   authorizedSignatoryDesignation?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   termsAndConditions?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   notesFooter?: string;
 }

@@ -1,10 +1,22 @@
-import { Controller, Get, Post, Put, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Query,
+  Body,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
 import { AppraisalCyclesService } from '../services/appraisal-cycles.service';
-import { CreateAppraisalCycleDto, UpdateAppraisalCycleDto } from '../dto/appraisal-cycle.dto';
+import {
+  CreateAppraisalCycleDto,
+  UpdateAppraisalCycleDto,
+} from '../dto/appraisal-cycle.dto';
 
 @ApiTags('Appraisal Cycles')
 @ApiBearerAuth('JWT')
@@ -36,7 +48,10 @@ export class AppraisalCyclesController {
   @Put(':id')
   @Roles('CLIENT', 'ADMIN')
   @ApiOperation({ summary: 'Update appraisal cycle' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAppraisalCycleDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAppraisalCycleDto,
+  ) {
     return this.cyclesService.update(id, dto);
   }
 

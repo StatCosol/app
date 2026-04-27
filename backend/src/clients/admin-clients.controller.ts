@@ -165,7 +165,11 @@ export class AdminClientsController {
           cb(null, `${clientId}${ext}`);
         },
       }),
-      fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+      fileFilter: (
+        _req: unknown,
+        file: { mimetype: string },
+        cb: (err: Error | null, accept: boolean) => void,
+      ) => {
         const allowed = [
           'image/png',
           'image/jpeg',

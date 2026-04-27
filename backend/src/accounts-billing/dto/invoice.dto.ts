@@ -1,24 +1,36 @@
 import {
-  IsString, IsOptional, IsNumber, IsEnum, IsDateString,
-  IsNotEmpty, IsArray, ValidateNested, IsBoolean,
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  IsDateString,
+  IsNotEmpty,
+  IsArray,
+  ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InvoiceType } from '../enums';
 
 export class CreateInvoiceItemDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   serviceCode?: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   serviceDescription: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   sacCode?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   periodFrom?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   periodTo?: string;
 
   @IsNumber()
@@ -27,21 +39,26 @@ export class CreateInvoiceItemDto {
   @IsNumber()
   rate: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   discountAmount?: number;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   gstRate?: number;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   isReimbursement?: boolean;
 
-  @IsOptional() @IsNumber()
+  @IsOptional()
+  @IsNumber()
   sequence?: number;
 }
 
 export class CreateInvoiceDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   billingClientId: string;
 
   @IsEnum(InvoiceType)
@@ -50,13 +67,16 @@ export class CreateInvoiceDto {
   @IsDateString()
   invoiceDate: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   dueDate?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   placeOfSupply?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   remarks?: string;
 
   @IsArray()

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { ClraPeEstablishment } from './entities/clra-pe-establishment.entity';
@@ -56,13 +60,18 @@ export class ClraAssignmentsService {
 
   // ─────────────── PE Establishments ───────────────
 
-  async createPeEstablishment(dto: CreateClraPeEstablishmentDto): Promise<ClraPeEstablishment> {
+  async createPeEstablishment(
+    dto: CreateClraPeEstablishmentDto,
+  ): Promise<ClraPeEstablishment> {
     const entity = this.peRepo.create({ ...dto });
     return this.peRepo.save(entity);
   }
 
   async listPeEstablishments(clientId: string): Promise<ClraPeEstablishment[]> {
-    return this.peRepo.find({ where: { clientId, active: true }, order: { establishmentName: 'ASC' } });
+    return this.peRepo.find({
+      where: { clientId, active: true },
+      order: { establishmentName: 'ASC' },
+    });
   }
 
   async getPeEstablishment(id: string): Promise<ClraPeEstablishment> {
@@ -71,7 +80,10 @@ export class ClraAssignmentsService {
     return entity;
   }
 
-  async updatePeEstablishment(id: string, dto: Partial<CreateClraPeEstablishmentDto>): Promise<ClraPeEstablishment> {
+  async updatePeEstablishment(
+    id: string,
+    dto: Partial<CreateClraPeEstablishmentDto>,
+  ): Promise<ClraPeEstablishment> {
     await this.getPeEstablishment(id);
     await this.peRepo.update(id, dto as any);
     return this.getPeEstablishment(id);
@@ -79,15 +91,25 @@ export class ClraAssignmentsService {
 
   // ─────────────── Contractors ───────────────
 
-  async createContractor(dto: CreateClraContractorDto): Promise<ClraContractor> {
-    const existing = await this.contractorRepo.findOne({ where: { contractorCode: dto.contractorCode } });
-    if (existing) throw new ConflictException(`Contractor code ${dto.contractorCode} already exists`);
+  async createContractor(
+    dto: CreateClraContractorDto,
+  ): Promise<ClraContractor> {
+    const existing = await this.contractorRepo.findOne({
+      where: { contractorCode: dto.contractorCode },
+    });
+    if (existing)
+      throw new ConflictException(
+        `Contractor code ${dto.contractorCode} already exists`,
+      );
     const entity = this.contractorRepo.create({ ...dto });
     return this.contractorRepo.save(entity);
   }
 
   async listContractors(): Promise<ClraContractor[]> {
-    return this.contractorRepo.find({ where: { active: true }, order: { legalName: 'ASC' } });
+    return this.contractorRepo.find({
+      where: { active: true },
+      order: { legalName: 'ASC' },
+    });
   }
 
   async getContractor(id: string): Promise<ClraContractor> {
@@ -96,7 +118,10 @@ export class ClraAssignmentsService {
     return entity;
   }
 
-  async updateContractor(id: string, dto: Partial<CreateClraContractorDto>): Promise<ClraContractor> {
+  async updateContractor(
+    id: string,
+    dto: Partial<CreateClraContractorDto>,
+  ): Promise<ClraContractor> {
     await this.getContractor(id);
     await this.contractorRepo.update(id, dto as any);
     return this.getContractor(id);
@@ -104,14 +129,24 @@ export class ClraAssignmentsService {
 
   // ─────────────── Assignments ───────────────
 
-  async createAssignment(dto: CreateClraAssignmentDto): Promise<ClraContractorAssignment> {
-    const existing = await this.assignmentRepo.findOne({ where: { assignmentCode: dto.assignmentCode } });
-    if (existing) throw new ConflictException(`Assignment code ${dto.assignmentCode} already exists`);
+  async createAssignment(
+    dto: CreateClraAssignmentDto,
+  ): Promise<ClraContractorAssignment> {
+    const existing = await this.assignmentRepo.findOne({
+      where: { assignmentCode: dto.assignmentCode },
+    });
+    if (existing)
+      throw new ConflictException(
+        `Assignment code ${dto.assignmentCode} already exists`,
+      );
     const entity = this.assignmentRepo.create({ ...dto });
     return this.assignmentRepo.save(entity);
   }
 
-  async listAssignments(contractorId?: string, peEstablishmentId?: string): Promise<ClraContractorAssignment[]> {
+  async listAssignments(
+    contractorId?: string,
+    peEstablishmentId?: string,
+  ): Promise<ClraContractorAssignment[]> {
     const where: any = {};
     if (contractorId) where.contractorId = contractorId;
     if (peEstablishmentId) where.peEstablishmentId = peEstablishmentId;
@@ -131,7 +166,10 @@ export class ClraAssignmentsService {
     return entity;
   }
 
-  async updateAssignment(id: string, dto: Partial<CreateClraAssignmentDto>): Promise<ClraContractorAssignment> {
+  async updateAssignment(
+    id: string,
+    dto: Partial<CreateClraAssignmentDto>,
+  ): Promise<ClraContractorAssignment> {
     await this.getAssignment(id);
     await this.assignmentRepo.update(id, dto as any);
     return this.getAssignment(id);
@@ -143,7 +181,10 @@ export class ClraAssignmentsService {
     const existing = await this.workerRepo.findOne({
       where: { contractorId: dto.contractorId, workerCode: dto.workerCode },
     });
-    if (existing) throw new ConflictException(`Worker code ${dto.workerCode} already exists for this contractor`);
+    if (existing)
+      throw new ConflictException(
+        `Worker code ${dto.workerCode} already exists for this contractor`,
+      );
     const entity = this.workerRepo.create({ ...dto });
     return this.workerRepo.save(entity);
   }
@@ -161,7 +202,10 @@ export class ClraAssignmentsService {
     return entity;
   }
 
-  async updateWorker(id: string, dto: Partial<CreateClraWorkerDto>): Promise<ClraContractorWorker> {
+  async updateWorker(
+    id: string,
+    dto: Partial<CreateClraWorkerDto>,
+  ): Promise<ClraContractorWorker> {
     await this.getWorker(id);
     await this.workerRepo.update(id, dto as any);
     return this.getWorker(id);
@@ -169,7 +213,9 @@ export class ClraAssignmentsService {
 
   // ─────────────── Deployments ───────────────
 
-  async createDeployment(dto: CreateClraDeploymentDto): Promise<ClraWorkerDeployment> {
+  async createDeployment(
+    dto: CreateClraDeploymentDto,
+  ): Promise<ClraWorkerDeployment> {
     const entity = this.deploymentRepo.create({ ...dto });
     return this.deploymentRepo.save(entity);
   }
@@ -183,12 +229,18 @@ export class ClraAssignmentsService {
   }
 
   async getDeployment(id: string): Promise<ClraWorkerDeployment> {
-    const entity = await this.deploymentRepo.findOne({ where: { id }, relations: ['worker', 'assignment'] });
+    const entity = await this.deploymentRepo.findOne({
+      where: { id },
+      relations: ['worker', 'assignment'],
+    });
     if (!entity) throw new NotFoundException('Deployment not found');
     return entity;
   }
 
-  async updateDeployment(id: string, dto: Partial<CreateClraDeploymentDto>): Promise<ClraWorkerDeployment> {
+  async updateDeployment(
+    id: string,
+    dto: Partial<CreateClraDeploymentDto>,
+  ): Promise<ClraWorkerDeployment> {
     await this.getDeployment(id);
     await this.deploymentRepo.update(id, dto as any);
     return this.getDeployment(id);
@@ -196,7 +248,9 @@ export class ClraAssignmentsService {
 
   // ─────────────── Wage Periods ───────────────
 
-  async createWagePeriod(dto: CreateClraWagePeriodDto): Promise<ClraWagePeriod> {
+  async createWagePeriod(
+    dto: CreateClraWagePeriodDto,
+  ): Promise<ClraWagePeriod> {
     const entity = this.wagePeriodRepo.create({ ...dto });
     return this.wagePeriodRepo.save(entity);
   }
@@ -222,13 +276,20 @@ export class ClraAssignmentsService {
 
   // ─────────────── Attendance ───────────────
 
-  async upsertAttendance(dto: UpsertClraAttendanceDto): Promise<ClraAttendance> {
+  async upsertAttendance(
+    dto: UpsertClraAttendanceDto,
+  ): Promise<ClraAttendance> {
     const existing = await this.attendanceRepo.findOne({
-      where: { workerDeploymentId: dto.workerDeploymentId, attendanceDate: dto.attendanceDate },
+      where: {
+        workerDeploymentId: dto.workerDeploymentId,
+        attendanceDate: dto.attendanceDate,
+      },
     });
     if (existing) {
       await this.attendanceRepo.update(existing.id, { ...dto } as any);
-      return this.attendanceRepo.findOne({ where: { id: existing.id } }) as Promise<ClraAttendance>;
+      return this.attendanceRepo.findOne({
+        where: { id: existing.id },
+      }) as Promise<ClraAttendance>;
     }
     const entity = this.attendanceRepo.create({ ...dto });
     return this.attendanceRepo.save(entity);
@@ -246,11 +307,16 @@ export class ClraAssignmentsService {
 
   async upsertWage(dto: UpsertClraWageDto): Promise<ClraWage> {
     const existing = await this.wageRepo.findOne({
-      where: { wagePeriodId: dto.wagePeriodId, workerDeploymentId: dto.workerDeploymentId },
+      where: {
+        wagePeriodId: dto.wagePeriodId,
+        workerDeploymentId: dto.workerDeploymentId,
+      },
     });
     if (existing) {
       await this.wageRepo.update(existing.id, { ...dto } as any);
-      return this.wageRepo.findOne({ where: { id: existing.id } }) as Promise<ClraWage>;
+      return this.wageRepo.findOne({
+        where: { id: existing.id },
+      }) as Promise<ClraWage>;
     }
     const entity = this.wageRepo.create({ ...dto });
     return this.wageRepo.save(entity);

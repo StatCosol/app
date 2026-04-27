@@ -121,11 +121,12 @@ export class ClientBranchesController {
       .getRawMany();
 
     const docMap = new Map<string, { total: number; approved: number }>();
-    docCounts.forEach((r: { branchId: string; total: string; approved: string }) =>
-      docMap.set(r.branchId, {
-        total: Number(r.total),
-        approved: Number(r.approved),
-      }),
+    docCounts.forEach(
+      (r: { branchId: string; total: string; approved: string }) =>
+        docMap.set(r.branchId, {
+          total: Number(r.total),
+          approved: Number(r.approved),
+        }),
     );
 
     return branches.map((b) => {
@@ -284,7 +285,9 @@ export class ClientBranchesController {
     const monthEnd = new Date(Date.UTC(year, mo, 1));
 
     // Get contractors for this branch
-    const contractors = await this.dataSource.query<{ contractor_user_id: string; contractor_name: string }[]>(
+    const contractors = await this.dataSource.query<
+      { contractor_user_id: string; contractor_name: string }[]
+    >(
       `SELECT bc.contractor_user_id, u.name AS contractor_name
        FROM branch_contractor bc
        JOIN users u ON u.id = bc.contractor_user_id
@@ -297,7 +300,9 @@ export class ClientBranchesController {
     // Required doc counts per contractor
     const requiredMap = new Map<string, number>();
     if (contractorIds.length) {
-      const reqRows = await this.dataSource.query<{ contractor_user_id: string; cnt: string }[]>(
+      const reqRows = await this.dataSource.query<
+        { contractor_user_id: string; cnt: string }[]
+      >(
         `SELECT contractor_user_id, COUNT(*) AS cnt
          FROM contractor_required_documents
          WHERE client_id = $1
@@ -318,7 +323,14 @@ export class ClientBranchesController {
       { uploaded: number; rejected: number; expired: number }
     >();
     if (contractorIds.length) {
-      const docRows = await this.dataSource.query<{ contractor_user_id: string; uploaded_distinct: string; rejected_count: string; expired_count: string }[]>(
+      const docRows = await this.dataSource.query<
+        {
+          contractor_user_id: string;
+          uploaded_distinct: string;
+          rejected_count: string;
+          expired_count: string;
+        }[]
+      >(
         `SELECT
            contractor_user_id,
            COUNT(DISTINCT doc_type) AS uploaded_distinct,

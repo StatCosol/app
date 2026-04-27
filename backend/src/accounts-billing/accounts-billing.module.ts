@@ -3,15 +3,26 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailModule } from '../email/email.module';
 
 import {
-  BillingSetting, BillingClient, Invoice, InvoiceItem,
-  InvoicePayment, InvoiceEmailLog, InvoiceAuditLog, RecurringInvoiceConfig,
+  BillingSetting,
+  BillingClient,
+  Invoice,
+  InvoiceItem,
+  InvoicePayment,
+  InvoiceEmailLog,
+  InvoiceAuditLog,
+  RecurringInvoiceConfig,
 } from './entities';
 
 import {
-  BillingCalculationService, BillingNumberService,
-  InvoicesService, InvoicePaymentsService,
-  InvoiceTemplateService, InvoicePdfService, InvoiceEmailService,
-  BillingClientsService, BillingSettingsService,
+  BillingCalculationService,
+  BillingNumberService,
+  InvoicesService,
+  InvoicePaymentsService,
+  InvoiceTemplateService,
+  InvoicePdfService,
+  InvoiceEmailService,
+  BillingClientsService,
+  BillingSettingsService,
 } from './services';
 
 import { InvoicesController } from './controllers/invoices.controller';

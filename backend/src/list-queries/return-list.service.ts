@@ -142,7 +142,10 @@ export class ReturnListService {
     };
   }
 
-  private applyCategory(qb: SelectQueryBuilder<ComplianceReturnEntity>, category?: string) {
+  private applyCategory(
+    qb: SelectQueryBuilder<ComplianceReturnEntity>,
+    category?: string,
+  ) {
     if (!category) return;
     const cat = category.toUpperCase();
 
@@ -238,7 +241,10 @@ export class ReturnListService {
     return status;
   }
 
-  private applyTab(qb: SelectQueryBuilder<ComplianceReturnEntity>, tab: string) {
+  private applyTab(
+    qb: SelectQueryBuilder<ComplianceReturnEntity>,
+    tab: string,
+  ) {
     const today = new Date().toISOString().slice(0, 10);
     switch (tab.toUpperCase()) {
       case 'OVERDUE':

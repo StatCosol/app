@@ -93,7 +93,11 @@ const allowedMimes = [
 
 const commonUploadOptions = (folder: string) => ({
   storage: makeStorage(folder),
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     if (!allowedMimes.includes(file.mimetype)) {
       return cb(new BadRequestException('File type not allowed'), false);
     }
@@ -512,10 +516,7 @@ export class PayrollController {
   @Roles('PAYROLL', 'ADMIN', 'CRM')
   @ApiOperation({ summary: 'List Queries' })
   @Get('queries')
-  listQueries(
-    @CurrentUser() user: ReqUser,
-    @Query() q: QueriesListQueryDto,
-  ) {
+  listQueries(@CurrentUser() user: ReqUser, @Query() q: QueriesListQueryDto) {
     return this.svc.listQueries(user, q);
   }
 
@@ -619,7 +620,10 @@ export class PayrollController {
         },
         filename: (_req, file, cb) => {
           const ext = path.extname(file.originalname).toLowerCase();
-          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+          cb(
+            null,
+            `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
+          );
         },
       }),
       limits: { fileSize: 10 * 1024 * 1024 },
@@ -635,12 +639,19 @@ export class PayrollController {
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     if (!docType) throw new BadRequestException('docType is required');
-    return this.svc.uploadFnfDocument(user, fnfId, {
-      fileName: file.filename,
-      filePath: file.path,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-    }, docType, docName || file.originalname, remarks);
+    return this.svc.uploadFnfDocument(
+      user,
+      fnfId,
+      {
+        fileName: file.filename,
+        filePath: file.path,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+      },
+      docType,
+      docName || file.originalname,
+      remarks,
+    );
   }
 
   @Roles('PAYROLL', 'ADMIN', 'CRM')
@@ -764,7 +775,8 @@ export class ClientPayrollMonitoringController {
     if (Array.isArray(payload)) return payload as Record<string, unknown>[];
     if (payload && typeof payload === 'object') {
       const obj = payload as Record<string, unknown>;
-      if (Array.isArray(obj.items)) return obj.items as Record<string, unknown>[];
+      if (Array.isArray(obj.items))
+        return obj.items as Record<string, unknown>[];
       if (Array.isArray(obj.data)) return obj.data as Record<string, unknown>[];
     }
     return [];
@@ -772,7 +784,10 @@ export class ClientPayrollMonitoringController {
 
   @ApiOperation({ summary: 'List Client Payroll Runs' })
   @Get('runs')
-  async runs(@CurrentUser() user: ReqUser, @Query() q: ClientPayrollPeriodQueryDto) {
+  async runs(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ClientPayrollPeriodQueryDto,
+  ) {
     return this.svc.clientListPayrollRuns(user, q);
   }
 

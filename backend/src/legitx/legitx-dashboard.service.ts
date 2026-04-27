@@ -34,7 +34,13 @@ export class LegitxDashboardService {
 
   async getSummary(
     _userId: string,
-    query: { month?: number; year?: number; branchId?: string; contractorId?: string; toggle?: string },
+    query: {
+      month?: number;
+      year?: number;
+      branchId?: string;
+      contractorId?: string;
+      toggle?: string;
+    },
     clientId?: string | null,
   ): Promise<LegitxDashboardResponse> {
     const scope = this.parseScope(query, clientId);
@@ -108,7 +114,13 @@ export class LegitxDashboardService {
   }
 
   private parseScope(
-    query: { month?: number; year?: number; branchId?: string; contractorId?: string; toggle?: string },
+    query: {
+      month?: number;
+      year?: number;
+      branchId?: string;
+      contractorId?: string;
+      toggle?: string;
+    },
     clientId?: string | null,
   ): LegitxDashboardScope {
     const now = new Date();
@@ -122,9 +134,10 @@ export class LegitxDashboardService {
       query.contractorId && query.contractorId !== 'ALL'
         ? String(query.contractorId)
         : null;
-    const toggle = query.toggle && ['ALL', 'CRITICAL', 'PENDING'].includes(query.toggle)
-      ? (query.toggle as LegitxToggle)
-      : 'ALL';
+    const toggle =
+      query.toggle && ['ALL', 'CRITICAL', 'PENDING'].includes(query.toggle)
+        ? (query.toggle as LegitxToggle)
+        : 'ALL';
     return {
       month,
       year,
@@ -135,7 +148,10 @@ export class LegitxDashboardService {
     };
   }
 
-  private toInt(value: string | number | null | undefined, fallback: number): number {
+  private toInt(
+    value: string | number | null | undefined,
+    fallback: number,
+  ): number {
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
   }

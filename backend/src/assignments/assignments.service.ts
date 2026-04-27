@@ -4,7 +4,13 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull, EntityManager, FindOptionsWhere } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  IsNull,
+  EntityManager,
+  FindOptionsWhere,
+} from 'typeorm';
 import {
   ClientAssignmentCurrentEntity,
   AssignmentType,
@@ -98,7 +104,9 @@ export class AssignmentsService {
 
   async getHistory(clientId: string, assignmentType?: AssignmentType) {
     try {
-      const where: FindOptionsWhere<ClientAssignmentHistoryEntity> = { clientId };
+      const where: FindOptionsWhere<ClientAssignmentHistoryEntity> = {
+        clientId,
+      };
       if (assignmentType) where.assignmentType = assignmentType;
       return await this.historyRepo.find({
         where,

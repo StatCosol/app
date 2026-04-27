@@ -125,7 +125,15 @@ export class CalendarService {
       sql += ` AND r.branch_id = ANY($${params.length}::uuid[])`;
     }
 
-    const rows: { id: string; type: string; registration_number: string | null; authority: string | null; expiry_date: string; branch_id: string; status: string }[] = await this.ds.query(sql, params);
+    const rows: {
+      id: string;
+      type: string;
+      registration_number: string | null;
+      authority: string | null;
+      expiry_date: string;
+      branch_id: string;
+      status: string;
+    }[] = await this.ds.query(sql, params);
     const now = new Date();
 
     return rows.map((r) => {
@@ -165,7 +173,10 @@ export class CalendarService {
       branchParams.push(branchIds);
       branchSql += ` AND id = ANY($${branchParams.length}::uuid[])`;
     }
-    const branchRows: { id: string }[] = await this.ds.query(branchSql, branchParams);
+    const branchRows: { id: string }[] = await this.ds.query(
+      branchSql,
+      branchParams,
+    );
 
     // Get months in range
     const months = this.monthsBetween(start, end);

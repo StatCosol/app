@@ -72,7 +72,6 @@ interface BranchAction {
 
 /** Branch-level compliance data for risk scoring */
 export interface BranchRiskData {
-
   branchId: string;
   branchName: string;
   clientId: string;
@@ -684,7 +683,21 @@ export class AiRiskEngineService {
   }
 
   /** Get high-risk clients across the platform */
-  async getHighRiskClients(limit = 20): Promise<Array<{ id: string; client_id: string; risk_score: number; risk_level: string; summary: string; inspection_probability: number; penalty_exposure_min: number; penalty_exposure_max: number; created_at: Date; client_name: string; client_code: string }>> {
+  async getHighRiskClients(limit = 20): Promise<
+    Array<{
+      id: string;
+      client_id: string;
+      risk_score: number;
+      risk_level: string;
+      summary: string;
+      inspection_probability: number;
+      penalty_exposure_min: number;
+      penalty_exposure_max: number;
+      created_at: Date;
+      client_name: string;
+      client_code: string;
+    }>
+  > {
     // Get the latest assessment per client ordered by risk score
     const results = await this.dataSource.query(
       `
@@ -755,7 +768,9 @@ export class AiRiskEngineService {
 
     return {
       ...(summary[0] || {}),
-      activeInsights: (insightCounts as Array<{ severity: string; cnt: string }>).reduce<Record<string, number>>(
+      activeInsights: (
+        insightCounts as Array<{ severity: string; cnt: string }>
+      ).reduce<Record<string, number>>(
         (acc, r) => ({ ...acc, [r.severity]: Number(r.cnt) }),
         {},
       ),
@@ -1254,7 +1269,10 @@ export class AiRiskEngineService {
   }
 
   /** Generate recommended actions from branch data */
-  private generateBranchActions(data: BranchRiskData, _factors: BranchRiskFactorEntry[]): BranchAction[] {
+  private generateBranchActions(
+    data: BranchRiskData,
+    _factors: BranchRiskFactorEntry[],
+  ): BranchAction[] {
     const actions: BranchAction[] = [];
     let priority = 1;
 

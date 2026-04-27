@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { AppraisalTemplateEntity } from './appraisal-template.entity';
 
 @Entity({ name: 'appraisal_cycles' })
@@ -19,7 +28,12 @@ export class AppraisalCycleEntity {
   @Column({ name: 'financial_year', type: 'varchar', length: 20 })
   financialYear: string;
 
-  @Column({ name: 'appraisal_type', type: 'varchar', length: 30, default: 'ANNUAL' })
+  @Column({
+    name: 'appraisal_type',
+    type: 'varchar',
+    length: 30,
+    default: 'ANNUAL',
+  })
   appraisalType: string;
 
   @Column({ name: 'review_period_from', type: 'date' })

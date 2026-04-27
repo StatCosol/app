@@ -34,7 +34,7 @@ export class RiskService {
          AND expiry_date IS NOT NULL
          AND expiry_date < $2`,
       [branchId, monthEnd],
-    ) as { cnt: number }[];
+    );
     const expiredCount = expiredRows[0]?.cnt || 0;
 
     // 2) Overdue SLA tasks (weight 35%)
@@ -46,7 +46,7 @@ export class RiskService {
          AND status <> 'CLOSED'
          AND due_date < $2`,
       [branchId, monthEnd],
-    ) as { cnt: number }[];
+    );
     const overdueCount = overdueRows[0]?.cnt || 0;
 
     // 3) Total registrations to compute ratio (weight 25%)
@@ -55,7 +55,7 @@ export class RiskService {
        FROM branch_registrations
        WHERE branch_id = $1 AND status <> 'DELETED'`,
       [branchId],
-    ) as { cnt: number }[];
+    );
     const totalRegs = totalRegRows[0]?.cnt || 1; // avoid div by zero
 
     // Score calculation (0-100)
@@ -94,7 +94,7 @@ export class RiskService {
 
     sql += ` ORDER BY statecode, branchname`;
 
-    const rows = await this.ds.query(sql, sqlParams) as { id: string; branchname: string | null; statecode: string | null; city: string | null }[];
+    const rows = await this.ds.query(sql, sqlParams);
 
     const result: BranchRiskItem[] = [];
 

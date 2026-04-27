@@ -1,5 +1,9 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
 import { BillingFrequency } from '../enums';
@@ -55,7 +59,13 @@ export class BillingClient {
   @Column({ name: 'state_code', length: 10 })
   stateCode: string;
 
-  @Column({ name: 'default_gst_rate', type: 'numeric', precision: 5, scale: 2, default: 18 })
+  @Column({
+    name: 'default_gst_rate',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 18,
+  })
   defaultGstRate: number;
 
   @Column({ name: 'default_sac_code', length: 20, nullable: true })
@@ -64,7 +74,13 @@ export class BillingClient {
   @Column({ name: 'payment_terms_days', type: 'int', default: 30 })
   paymentTermsDays: number;
 
-  @Column({ name: 'billing_frequency', type: 'enum', enum: BillingFrequency, enumName: 'billing_frequency', default: BillingFrequency.MONTHLY })
+  @Column({
+    name: 'billing_frequency',
+    type: 'enum',
+    enum: BillingFrequency,
+    enumName: 'billing_frequency',
+    default: BillingFrequency.MONTHLY,
+  })
   billingFrequency: BillingFrequency;
 
   @Column({ name: 'billing_address', type: 'text' })

@@ -1,6 +1,13 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query,
-  ParseUUIDPipe, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -39,7 +46,12 @@ export class InvoicesController {
     return this.invoicesService.findAll({
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,
-      status, paymentStatus, clientId, search, fromDate, toDate,
+      status,
+      paymentStatus,
+      clientId,
+      search,
+      fromDate,
+      toDate,
     });
   }
 
@@ -66,7 +78,10 @@ export class InvoicesController {
 
   @ApiOperation({ summary: 'Approve a draft invoice' })
   @Post(':id/approve')
-  async approve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+  async approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: any,
+  ) {
     return this.invoicesService.approve(id, user?.userId ?? user?.id);
   }
 

@@ -13,17 +13,20 @@ export class BillingSettingsService {
 
   async getSettings() {
     const settings = await this.repo.findOne({ where: {} });
-    if (!settings) throw new NotFoundException('Billing settings not configured');
+    if (!settings)
+      throw new NotFoundException('Billing settings not configured');
     return settings;
   }
 
   async updateSettings(dto: UpdateBillingSettingsDto) {
-    let settings: BillingSetting | null = await this.repo.findOne({ where: {} });
+    let settings: BillingSetting | null = await this.repo.findOne({
+      where: {},
+    });
     if (!settings) {
       settings = this.repo.create({
         tenantId: '00000000-0000-0000-0000-000000000000',
         ...dto,
-      } as Partial<BillingSetting>) as BillingSetting;
+      } as Partial<BillingSetting>);
     } else {
       Object.assign(settings, dto);
     }

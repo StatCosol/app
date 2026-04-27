@@ -15,7 +15,8 @@ export class PreviewEmployeeDto {
   @IsOptional() @IsString() employeeId?: string;
   @IsOptional() @IsString() branchId?: string;
   @Type(() => Number)
-  @IsNumber() grossAmount: number;
+  @IsNumber()
+  grossAmount: number;
   @IsString() asOfDate: string;
 }
 

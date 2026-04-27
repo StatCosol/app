@@ -138,6 +138,9 @@ export class InvoiceTemplateService {
   private fmt(n: number | string): string {
     const num = typeof n === 'string' ? parseFloat(n) : n;
     if (isNaN(num)) return '0.00';
-    return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return num.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 }

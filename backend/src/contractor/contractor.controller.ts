@@ -96,7 +96,9 @@ export class ContractorController {
 
     const rows = Array.isArray(result?.data) ? result.data : [];
     const filteredRows = wantsOpen
-      ? rows.filter((row: { status?: string }) => this.isOpenTaskStatus(String(row?.status || '')))
+      ? rows.filter((row: { status?: string }) =>
+          this.isOpenTaskStatus(String(row?.status || '')),
+        )
       : rows;
 
     return {
@@ -148,7 +150,8 @@ export class ContractorController {
     const result = await this.complianceService.contractorListTasks(user, q);
     const rows = Array.isArray(result?.data) ? result.data : [];
     const overdue = rows.filter(
-      (row: { status?: string }) => String(row?.status || '').toUpperCase() === 'OVERDUE',
+      (row: { status?: string }) =>
+        String(row?.status || '').toUpperCase() === 'OVERDUE',
     );
 
     return {
@@ -166,7 +169,8 @@ export class ContractorController {
     const result = await this.complianceService.contractorListTasks(user, q);
     const rows = Array.isArray(result?.data) ? result.data : [];
     const rejected = rows.filter(
-      (row: { status?: string }) => String(row?.status || '').toUpperCase() === 'REJECTED',
+      (row: { status?: string }) =>
+        String(row?.status || '').toUpperCase() === 'REJECTED',
     );
 
     return {

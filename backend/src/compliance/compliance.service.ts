@@ -562,7 +562,9 @@ export class ComplianceService {
       [user.userId],
     );
     const rejectedDocs = Number(docCountRows?.[0]?.rejected_docs ?? 0);
-    const pendingReviewDocs = Number(docCountRows?.[0]?.pending_review_docs ?? 0);
+    const pendingReviewDocs = Number(
+      docCountRows?.[0]?.pending_review_docs ?? 0,
+    );
 
     return {
       dueToday,
@@ -2058,7 +2060,12 @@ export class ComplianceService {
     try {
       // Use a transaction with advisory lock to prevent race conditions
       return await this.tasks.manager.transaction(async (em) => {
-        const lockKey = this.computeAutoGenLockKey(clientId, branchId, year, month);
+        const lockKey = this.computeAutoGenLockKey(
+          clientId,
+          branchId,
+          year,
+          month,
+        );
         await em.query('SELECT pg_advisory_xact_lock($1)', [lockKey]);
 
         // Check no tasks exist (safe under advisory lock)
@@ -2076,9 +2083,13 @@ export class ComplianceService {
         if (existingTasks.length > 0) {
           let backfilled = 0;
           for (const task of existingTasks) {
-            const itemCount = await em.count(ComplianceMcdItem, { where: { taskId: task.id } });
+            const itemCount = await em.count(ComplianceMcdItem, {
+              where: { taskId: task.id },
+            });
             if (itemCount === 0) {
-              const master = await em.findOne(ComplianceMasterEntity, { where: { id: task.complianceId } });
+              const master = await em.findOne(ComplianceMasterEntity, {
+                where: { id: task.complianceId },
+              });
               const mcdTemplate = this.getMcdTemplate(master?.code || '');
               for (const tmpl of mcdTemplate) {
                 const item = em.create(ComplianceMcdItem, {
@@ -2126,7 +2137,9 @@ export class ComplianceService {
             [clientId],
           );
           if (crmRow?.length) assignedByUserId = crmRow[0].assigned_to_user_id;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         // Fallback: find any admin user
         if (!assignedByUserId) {
@@ -2145,7 +2158,8 @@ export class ComplianceService {
 
         const periodLabel = `${year}-${String(month).padStart(2, '0')}`;
         const window = this.computeUploadWindow(year, month);
-        const dueDate = window?.endDate || `${year}-${String(month).padStart(2, '0')}-28`;
+        const dueDate =
+          window?.endDate || `${year}-${String(month).padStart(2, '0')}-28`;
 
         let created = 0;
         for (const cm of monthlyMasters) {
@@ -2210,34 +2224,78 @@ export class ComplianceService {
       Array<{ key: string; label: string; unitType?: string }>
     > = {
       PF: [
-        { key: 'PF_CHALLAN', label: 'PF Challan (Monthly)', unitType: 'CHALLAN' },
+        {
+          key: 'PF_CHALLAN',
+          label: 'PF Challan (Monthly)',
+          unitType: 'CHALLAN',
+        },
         { key: 'PF_ECR', label: 'PF ECR Filing', unitType: 'RETURN' },
-        { key: 'PF_PAYMENT_RECEIPT', label: 'PF Payment Receipt', unitType: 'RECEIPT' },
+        {
+          key: 'PF_PAYMENT_RECEIPT',
+          label: 'PF Payment Receipt',
+          unitType: 'RECEIPT',
+        },
       ],
       ESI: [
-        { key: 'ESI_CHALLAN', label: 'ESI Challan (Monthly)', unitType: 'CHALLAN' },
+        {
+          key: 'ESI_CHALLAN',
+          label: 'ESI Challan (Monthly)',
+          unitType: 'CHALLAN',
+        },
         { key: 'ESI_RETURN', label: 'ESI Monthly Return', unitType: 'RETURN' },
-        { key: 'ESI_PAYMENT_RECEIPT', label: 'ESI Payment Receipt', unitType: 'RECEIPT' },
+        {
+          key: 'ESI_PAYMENT_RECEIPT',
+          label: 'ESI Payment Receipt',
+          unitType: 'RECEIPT',
+        },
       ],
       PT: [
-        { key: 'PT_CHALLAN', label: 'Professional Tax Challan', unitType: 'CHALLAN' },
+        {
+          key: 'PT_CHALLAN',
+          label: 'Professional Tax Challan',
+          unitType: 'CHALLAN',
+        },
         { key: 'PT_RETURN', label: 'PT Monthly Return', unitType: 'RETURN' },
       ],
       LWF: [
-        { key: 'LWF_CHALLAN', label: 'Labour Welfare Fund Challan', unitType: 'CHALLAN' },
-        { key: 'LWF_RECEIPT', label: 'LWF Payment Receipt', unitType: 'RECEIPT' },
+        {
+          key: 'LWF_CHALLAN',
+          label: 'Labour Welfare Fund Challan',
+          unitType: 'CHALLAN',
+        },
+        {
+          key: 'LWF_RECEIPT',
+          label: 'LWF Payment Receipt',
+          unitType: 'RECEIPT',
+        },
       ],
       TDS: [
-        { key: 'TDS_CHALLAN', label: 'TDS Challan (26QB/26QC)', unitType: 'CHALLAN' },
+        {
+          key: 'TDS_CHALLAN',
+          label: 'TDS Challan (26QB/26QC)',
+          unitType: 'CHALLAN',
+        },
         { key: 'TDS_RETURN', label: 'TDS Monthly Return', unitType: 'RETURN' },
       ],
       GST: [
         { key: 'GST_3B', label: 'GSTR-3B Filing', unitType: 'RETURN' },
-        { key: 'GST_CHALLAN', label: 'GST Payment Challan', unitType: 'CHALLAN' },
+        {
+          key: 'GST_CHALLAN',
+          label: 'GST Payment Challan',
+          unitType: 'CHALLAN',
+        },
       ],
       MCD: [
-        { key: 'MCD_UPLOAD', label: 'Monthly Compliance Document Upload', unitType: 'DOCUMENT' },
-        { key: 'MCD_SUMMARY', label: 'MCD Summary Sheet', unitType: 'DOCUMENT' },
+        {
+          key: 'MCD_UPLOAD',
+          label: 'Monthly Compliance Document Upload',
+          unitType: 'DOCUMENT',
+        },
+        {
+          key: 'MCD_SUMMARY',
+          label: 'MCD Summary Sheet',
+          unitType: 'DOCUMENT',
+        },
       ],
     };
 
@@ -2252,8 +2310,16 @@ export class ComplianceService {
 
     // Default generic template
     return [
-      { key: `${upper}_UPLOAD`, label: `${code} — Monthly Upload`, unitType: 'DOCUMENT' },
-      { key: `${upper}_RECEIPT`, label: `${code} — Payment Receipt`, unitType: 'RECEIPT' },
+      {
+        key: `${upper}_UPLOAD`,
+        label: `${code} — Monthly Upload`,
+        unitType: 'DOCUMENT',
+      },
+      {
+        key: `${upper}_RECEIPT`,
+        label: `${code} — Payment Receipt`,
+        unitType: 'RECEIPT',
+      },
     ];
   }
 
@@ -2276,7 +2342,16 @@ export class ComplianceService {
       // Fetch full evidence records (not just count)
       const evidenceRecords = await this.evidence
         .createQueryBuilder('e')
-        .select(['e.id', 'e.mcdItemId', 'e.fileName', 'e.filePath', 'e.fileType', 'e.fileSize', 'e.notes', 'e.createdAt'])
+        .select([
+          'e.id',
+          'e.mcdItemId',
+          'e.fileName',
+          'e.filePath',
+          'e.fileType',
+          'e.fileSize',
+          'e.notes',
+          'e.createdAt',
+        ])
         .where('e.mcdItemId IN (:...itemIds)', { itemIds })
         .orderBy('e.createdAt', 'DESC')
         .getMany();
@@ -2360,9 +2435,13 @@ export class ComplianceService {
       if (mcdItem.taskId !== taskIdNum)
         throw new ForbiddenException('Item not part of this task');
       if (mcdItem.uploadedByRole === 'CRM')
-        throw new BadRequestException('This item was uploaded by CRM and cannot be modified by client');
+        throw new BadRequestException(
+          'This item was uploaded by CRM and cannot be modified by client',
+        );
       if (mcdItem.status === 'APPROVED' || mcdItem.status === 'VERIFIED')
-        throw new BadRequestException('Cannot upload for an already approved/verified item');
+        throw new BadRequestException(
+          'Cannot upload for an already approved/verified item',
+        );
     }
 
     const ev = this.evidence.create({
@@ -3540,7 +3619,10 @@ export class ComplianceService {
   }
 
   // ---------- Helper: Sync task status after reupload decisions ----------
-  private async syncTaskStatusAfterReupload(taskId: number, approverUserId?: string) {
+  private async syncTaskStatusAfterReupload(
+    taskId: number,
+    approverUserId?: string,
+  ) {
     // Find all reupload requests linked to evidence of this task
     const taskEvidence = await this.evidence.find({
       where: { taskId },

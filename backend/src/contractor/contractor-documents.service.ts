@@ -12,7 +12,7 @@ export type ContractorDocumentCreateDto = {
   branchId: string;
   docType: string;
   title: string;
-  month?: string | null;  // YYYY-MM — which month this document belongs to
+  month?: string | null; // YYYY-MM — which month this document belongs to
   auditId?: string | null;
   observationId?: string | null;
 };
@@ -42,9 +42,14 @@ export class ContractorDocumentsService {
   ) {}
 
   /** Throws if the audit has an active upload lock window today */
-  private async assertUploadNotLocked(auditId: string | null | undefined): Promise<void> {
+  private async assertUploadNotLocked(
+    auditId: string | null | undefined,
+  ): Promise<void> {
     if (!auditId) return;
-    const audit = await this.auditRepo.findOne({ where: { id: auditId }, select: ['id', 'uploadLockFrom', 'uploadLockUntil'] });
+    const audit = await this.auditRepo.findOne({
+      where: { id: auditId },
+      select: ['id', 'uploadLockFrom', 'uploadLockUntil'],
+    });
     if (!audit) return; // unknown audit — let the upload proceed
     const { uploadLockFrom, uploadLockUntil } = audit;
     if (!uploadLockFrom || !uploadLockUntil) return;

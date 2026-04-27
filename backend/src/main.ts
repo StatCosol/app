@@ -230,9 +230,13 @@ async function bootstrap() {
       await ds.query(`
         UPDATE clients SET crm_on_behalf_enabled = true WHERE crm_on_behalf_enabled = false
       `);
-      logger.log('Schema patch: clients.crm_on_behalf_enabled OK (all clients enabled)');
+      logger.log(
+        'Schema patch: clients.crm_on_behalf_enabled OK (all clients enabled)',
+      );
     } catch (e: any) {
-      logger.warn(`Schema patch clients.crm_on_behalf_enabled skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch clients.crm_on_behalf_enabled skipped: ${e?.message}`,
+      );
     }
 
     try {
@@ -244,7 +248,9 @@ async function bootstrap() {
       `);
       logger.log('Schema patch: compliance_documents CRM on-behalf columns OK');
     } catch (e: any) {
-      logger.warn(`Schema patch compliance_documents on-behalf columns skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch compliance_documents on-behalf columns skipped: ${e?.message}`,
+      );
     }
 
     try {
@@ -265,10 +271,18 @@ async function bootstrap() {
         WHERE en.employee_id = e.id
           AND en.client_id IS NULL
       `);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_client   ON employee_nominations (client_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_branch   ON employee_nominations (branch_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_status   ON employee_nominations (status)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_approver ON employee_nominations (approved_by_user_id)`);
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_emp_nom_client   ON employee_nominations (client_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_emp_nom_branch   ON employee_nominations (branch_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_emp_nom_status   ON employee_nominations (status)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_emp_nom_approver ON employee_nominations (approved_by_user_id)`,
+      );
       logger.log('Schema patch: employee_nominations workflow columns OK');
     } catch (e: any) {
       logger.warn(`Schema patch employee_nominations skipped: ${e?.message}`);
@@ -280,9 +294,13 @@ async function bootstrap() {
           ADD COLUMN IF NOT EXISTS guardian_relationship VARCHAR(60)  DEFAULT NULL,
           ADD COLUMN IF NOT EXISTS guardian_address      TEXT         DEFAULT NULL
       `);
-      logger.log('Schema patch: employee_nomination_members guardian columns OK');
+      logger.log(
+        'Schema patch: employee_nomination_members guardian columns OK',
+      );
     } catch (e: any) {
-      logger.warn(`Schema patch employee_nomination_members guardian columns skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch employee_nomination_members guardian columns skipped: ${e?.message}`,
+      );
     }
 
     try {
@@ -292,7 +310,9 @@ async function bootstrap() {
       `);
       logger.log('Schema patch: employees.marital_status OK');
     } catch (e: any) {
-      logger.warn(`Schema patch employees.marital_status skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch employees.marital_status skipped: ${e?.message}`,
+      );
     }
 
     try {
@@ -303,7 +323,9 @@ async function bootstrap() {
       `);
       logger.log('Schema patch: employees PF service columns OK');
     } catch (e: any) {
-      logger.warn(`Schema patch employees PF service columns skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch employees PF service columns skipped: ${e?.message}`,
+      );
     }
 
     // ── ESS Leave tables (created here so they exist even if the
@@ -329,8 +351,12 @@ async function bootstrap() {
           updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lp_client      ON leave_policies (client_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lp_client_type ON leave_policies (client_id, leave_type)`);
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_lp_client      ON leave_policies (client_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_lp_client_type ON leave_policies (client_id, leave_type)`,
+      );
       logger.log('Schema patch: leave_policies table OK');
     } catch (e: any) {
       logger.warn(`Schema patch leave_policies skipped: ${e?.message}`);
@@ -354,8 +380,12 @@ async function bootstrap() {
           UNIQUE (employee_id, year, leave_type)
         )
       `);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lb_employee ON leave_balances (employee_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lb_client   ON leave_balances (client_id)`);
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_lb_employee ON leave_balances (employee_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_lb_client   ON leave_balances (client_id)`,
+      );
       logger.log('Schema patch: leave_balances table OK');
     } catch (e: any) {
       logger.warn(`Schema patch leave_balances skipped: ${e?.message}`);
@@ -383,10 +413,18 @@ async function bootstrap() {
           updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_employee ON leave_applications (employee_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_client   ON leave_applications (client_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_branch   ON leave_applications (branch_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_approver ON leave_applications (approver_user_id)`);
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_la_employee ON leave_applications (employee_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_la_client   ON leave_applications (client_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_la_branch   ON leave_applications (branch_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_la_approver ON leave_applications (approver_user_id)`,
+      );
       logger.log('Schema patch: leave_applications table OK');
     } catch (e: any) {
       logger.warn(`Schema patch leave_applications skipped: ${e?.message}`);
@@ -407,8 +445,12 @@ async function bootstrap() {
           created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_ll_employee ON leave_ledger (employee_id)`);
-      await ds.query(`CREATE INDEX IF NOT EXISTS idx_ll_client   ON leave_ledger (client_id)`);
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_ll_employee ON leave_ledger (employee_id)`,
+      );
+      await ds.query(
+        `CREATE INDEX IF NOT EXISTS idx_ll_client   ON leave_ledger (client_id)`,
+      );
       logger.log('Schema patch: leave_ledger table OK');
     } catch (e: any) {
       logger.warn(`Schema patch leave_ledger skipped: ${e?.message}`);

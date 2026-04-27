@@ -165,8 +165,7 @@ export class CeoController {
       auditRows.find((row) => row.status === 'COMPLETED')?.count || 0,
     );
     const avgScore =
-      auditRows.find((row) => row.status === 'COMPLETED')?.avgScore ??
-      null;
+      auditRows.find((row) => row.status === 'COMPLETED')?.avgScore ?? null;
 
     const totalTasks = taskRows.reduce(
       (sum, row) => sum + Number(row.count || 0),

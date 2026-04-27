@@ -107,16 +107,30 @@ export class AdminApplicabilityConfigService {
     return this.complianceRepo.save(item);
   }
 
-  async updateComplianceItem(id: string, dto: Partial<{ code: string; name: string; category: string; stateCode: string; frequency: string; appliesTo: string; isActive: boolean }>) {
+  async updateComplianceItem(
+    id: string,
+    dto: Partial<{
+      code: string;
+      name: string;
+      category: string;
+      stateCode: string;
+      frequency: string;
+      appliesTo: string;
+      isActive: boolean;
+    }>,
+  ) {
     const item = await this.complianceRepo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Compliance item not found');
 
     if (dto.code !== undefined) item.code = dto.code;
     if (dto.name !== undefined) item.name = dto.name;
-    if (dto.category !== undefined) item.category = dto.category as ComplianceCategory;
+    if (dto.category !== undefined)
+      item.category = dto.category as ComplianceCategory;
     if (dto.stateCode !== undefined) item.stateCode = dto.stateCode;
-    if (dto.frequency !== undefined) item.frequency = dto.frequency as ComplianceFrequency;
-    if (dto.appliesTo !== undefined) item.appliesTo = dto.appliesTo as AppliesTo;
+    if (dto.frequency !== undefined)
+      item.frequency = dto.frequency as ComplianceFrequency;
+    if (dto.appliesTo !== undefined)
+      item.appliesTo = dto.appliesTo as AppliesTo;
     if (dto.isActive !== undefined) item.isActive = dto.isActive;
 
     return this.complianceRepo.save(item);
@@ -296,7 +310,16 @@ export class AdminApplicabilityConfigService {
     return this.packageRepo.save(pkg);
   }
 
-  async updatePackage(id: string, dto: Partial<{ code: string; name: string; stateCode: string; appliesTo: string; isActive: boolean }>) {
+  async updatePackage(
+    id: string,
+    dto: Partial<{
+      code: string;
+      name: string;
+      stateCode: string;
+      appliesTo: string;
+      isActive: boolean;
+    }>,
+  ) {
     const pkg = await this.packageRepo.findOne({ where: { id } });
     if (!pkg) throw new NotFoundException('Package not found');
 
@@ -429,7 +452,18 @@ export class AdminApplicabilityConfigService {
     }
   }
 
-  async updateRule(id: string, dto: Partial<{ name: string; stateCode: string; priority: number; targetComplianceId: string; effect: string; conditionsJson: Record<string, unknown>; isActive: boolean }>) {
+  async updateRule(
+    id: string,
+    dto: Partial<{
+      name: string;
+      stateCode: string;
+      priority: number;
+      targetComplianceId: string;
+      effect: string;
+      conditionsJson: Record<string, unknown>;
+      isActive: boolean;
+    }>,
+  ) {
     const rule = await this.ruleRepo.findOne({ where: { id } });
     if (!rule) throw new NotFoundException('Rule not found');
 

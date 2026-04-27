@@ -228,7 +228,8 @@ export class ComplianceMetricsService {
         const stateCode = branch.stateCode ?? null;
 
         // Count applicable MONTHLY return master items for this branch type/state
-        const excludeAppliesTo = branchType === 'FACTORY' ? 'OFFICE' : 'FACTORY';
+        const excludeAppliesTo =
+          branchType === 'FACTORY' ? 'OFFICE' : 'FACTORY';
         const masterCountResult = await this.dataSource.query(
           `SELECT COUNT(*) AS total
            FROM compliance_return_master

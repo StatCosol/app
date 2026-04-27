@@ -218,9 +218,7 @@ export class PayrollProcessingService {
           );
         }
 
-        const fullName = masterEmp
-          ? masterEmp.name
-          : pr.empName;
+        const fullName = masterEmp ? masterEmp.name : pr.empName;
 
         if (!existingRunEmp) {
           newRunEmps.push({
@@ -418,7 +416,12 @@ export class PayrollProcessingService {
             (c) => c.componentType === 'EARNING',
           );
           if (firstEarning) {
-            await this.upsertValue(runId, emp.id, firstEarning.code, Math.round(gross));
+            await this.upsertValue(
+              runId,
+              emp.id,
+              firstEarning.code,
+              Math.round(gross),
+            );
             valueMap.set(firstEarning.code, Math.round(gross));
           }
         }
@@ -622,7 +625,7 @@ export class PayrollProcessingService {
       employees = await this.runEmpRepo.find({ where: { runId } });
     }
 
-    const empMap = new Map<string, typeof employees[0]>();
+    const empMap = new Map<string, (typeof employees)[0]>();
     for (const e of employees) {
       empMap.set(e.employeeCode.toLowerCase(), e);
     }
@@ -647,32 +650,42 @@ export class PayrollProcessingService {
     // Find required columns
     let codeCol = -1;
     let workingDaysCol = -1;
-  let payableDaysCol = -1;
-  let otHoursCol = -1;
-  let otherEarningsCol = -1;
-  let arrearAttBonusCol = -1;
-  let otherDeductionsCol = -1;
+    let payableDaysCol = -1;
+    let otHoursCol = -1;
+    let otherEarningsCol = -1;
+    let arrearAttBonusCol = -1;
+    let otherDeductionsCol = -1;
 
-  for (const [col, h] of Object.entries(headers)) {
-    const c = Number(col);
-    if (/employee.*(code|id)|emp.*(code|id)/.test(h)) codeCol = c;
-    else if (/working.*days|work.*days|days.*worked/.test(h)) workingDaysCol = c;
-    else if (/payable.*days|pay.*days/.test(h)) payableDaysCol = c;
-    else if (/ot.*hours|overtime/.test(h)) otHoursCol = c;
-    else if (/other.*earning|arrear(?!.*bonus)/.test(h)) otherEarningsCol = c;
-    else if (/arrears.*(?:attendance.*)?bonus|bonus.*arrear|arrear.*att/.test(h)) arrearAttBonusCol = c;
-    else if (/other.*deduction/.test(h)) otherDeductionsCol = c;
+    for (const [col, h] of Object.entries(headers)) {
+      const c = Number(col);
+      if (/employee.*(code|id)|emp.*(code|id)/.test(h)) codeCol = c;
+      else if (/working.*days|work.*days|days.*worked/.test(h))
+        workingDaysCol = c;
+      else if (/payable.*days|pay.*days/.test(h)) payableDaysCol = c;
+      else if (/ot.*hours|overtime/.test(h)) otHoursCol = c;
+      else if (/other.*earning|arrear(?!.*bonus)/.test(h)) otherEarningsCol = c;
+      else if (
+        /arrears.*(?:attendance.*)?bonus|bonus.*arrear|arrear.*att/.test(h)
+      )
+        arrearAttBonusCol = c;
+      else if (/other.*deduction/.test(h)) otherDeductionsCol = c;
     }
 
-    if (codeCol < 0) throw new BadRequestException('Column "Employee Code" / "Employee ID" not found in header');
-    if (workingDaysCol < 0) throw new BadRequestException('Column "Working Days" not found in header');
+    if (codeCol < 0)
+      throw new BadRequestException(
+        'Column "Employee Code" / "Employee ID" not found in header',
+      );
+    if (workingDaysCol < 0)
+      throw new BadRequestException(
+        'Column "Working Days" not found in header',
+      );
 
     const daysInMonth = new Date(run.periodYear, run.periodMonth, 0).getDate();
     const skipped: string[] = [];
     let matched = 0;
     let maxPayableDays = 0;
     const parsedAttendance: Array<{
-      emp: typeof employees[0];
+      emp: (typeof employees)[0];
       workingDays: number;
       payableDays: number;
       otHours: number;
@@ -693,21 +706,49 @@ export class PayrollProcessingService {
       }
 
       const workingDays = this.cellNum(row.getCell(workingDaysCol).value) ?? 0;
-      const payableDays = payableDaysCol > 0 ? (this.cellNum(row.getCell(payableDaysCol).value) ?? workingDays) : workingDays;
-      const otHours = otHoursCol > 0 ? (this.cellNum(row.getCell(otHoursCol).value) ?? 0) : 0;
-      const otherEarnings = otherEarningsCol > 0 ? (this.cellNum(row.getCell(otherEarningsCol).value) ?? 0) : 0;
-      const arrearAttBonus = arrearAttBonusCol > 0 ? (this.cellNum(row.getCell(arrearAttBonusCol).value) ?? 0) : 0;
-      const otherDeductions = otherDeductionsCol > 0 ? (this.cellNum(row.getCell(otherDeductionsCol).value) ?? 0) : 0;
+      const payableDays =
+        payableDaysCol > 0
+          ? (this.cellNum(row.getCell(payableDaysCol).value) ?? workingDays)
+          : workingDays;
+      const otHours =
+        otHoursCol > 0 ? (this.cellNum(row.getCell(otHoursCol).value) ?? 0) : 0;
+      const otherEarnings =
+        otherEarningsCol > 0
+          ? (this.cellNum(row.getCell(otherEarningsCol).value) ?? 0)
+          : 0;
+      const arrearAttBonus =
+        arrearAttBonusCol > 0
+          ? (this.cellNum(row.getCell(arrearAttBonusCol).value) ?? 0)
+          : 0;
+      const otherDeductions =
+        otherDeductionsCol > 0
+          ? (this.cellNum(row.getCell(otherDeductionsCol).value) ?? 0)
+          : 0;
 
       if (payableDays > maxPayableDays) maxPayableDays = payableDays;
-      parsedAttendance.push({ emp, workingDays, payableDays, otHours, otherEarnings, arrearAttBonus, otherDeductions });
+      parsedAttendance.push({
+        emp,
+        workingDays,
+        payableDays,
+        otHours,
+        otherEarnings,
+        arrearAttBonus,
+        otherDeductions,
+      });
       matched++;
     }
 
     // Second pass: compute LOP using max payable days as the month total
     const totalPayable = maxPayableDays > 0 ? maxPayableDays : daysInMonth;
     for (const att of parsedAttendance) {
-      const { emp, payableDays, otHours, otherEarnings, arrearAttBonus, otherDeductions } = att;
+      const {
+        emp,
+        payableDays,
+        otHours,
+        otherEarnings,
+        arrearAttBonus,
+        otherDeductions,
+      } = att;
       const lopDays = Math.max(0, totalPayable - payableDays);
 
       emp.totalDays = totalPayable;
@@ -724,8 +765,10 @@ export class PayrollProcessingService {
       ];
       if (otHours > 0) upserts.push({ code: 'OT_HOURS', amount: otHours });
       upserts.push({ code: 'OTHER_EARNINGS', amount: otherEarnings });
-      if (arrearAttBonus > 0) upserts.push({ code: 'ARREAR_ATT_BONUS', amount: arrearAttBonus });
-      if (otherDeductions > 0) upserts.push({ code: 'OTHER_DEDUCTIONS', amount: otherDeductions });
+      if (arrearAttBonus > 0)
+        upserts.push({ code: 'ARREAR_ATT_BONUS', amount: arrearAttBonus });
+      if (otherDeductions > 0)
+        upserts.push({ code: 'OTHER_DEDUCTIONS', amount: otherDeductions });
 
       for (const { code, amount } of upserts) {
         await this.compValRepo

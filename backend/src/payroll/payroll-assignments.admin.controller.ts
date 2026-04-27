@@ -38,10 +38,7 @@ export class PayrollAssignmentsAdminController {
 
   @ApiOperation({ summary: 'Assign' })
   @Post()
-  assign(
-    @Body() body: AssignPayrollDto,
-    @CurrentUser() user: ReqUser,
-  ) {
+  assign(@Body() body: AssignPayrollDto, @CurrentUser() user: ReqUser) {
     return this.payroll.assignPayrollToClient({
       clientId: body.clientId,
       payrollUserId: body.payrollUserId,

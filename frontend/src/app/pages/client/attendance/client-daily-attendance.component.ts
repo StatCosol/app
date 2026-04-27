@@ -16,7 +16,6 @@ import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
   PageHeaderComponent,
-  StatusBadgeComponent,
 } from '../../../shared/ui';
 import {
   ClientAttendanceService,
@@ -51,7 +50,6 @@ const ATTENDANCE_STATUSES = [
     ActionButtonComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
-    StatusBadgeComponent,
   ],
   template: `
     <div class="page">

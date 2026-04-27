@@ -46,19 +46,49 @@ export class PayrollRunEmployeeEntity {
   @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
   stateCode: string | null;
 
-  @Column({ name: 'total_days', type: 'numeric', precision: 5, scale: 1, default: 0 })
+  @Column({
+    name: 'total_days',
+    type: 'numeric',
+    precision: 5,
+    scale: 1,
+    default: 0,
+  })
   totalDays: number;
 
-  @Column({ name: 'days_present', type: 'numeric', precision: 5, scale: 1, default: 0 })
+  @Column({
+    name: 'days_present',
+    type: 'numeric',
+    precision: 5,
+    scale: 1,
+    default: 0,
+  })
   daysPresent: number;
 
-  @Column({ name: 'lop_days', type: 'numeric', precision: 5, scale: 1, default: 0 })
+  @Column({
+    name: 'lop_days',
+    type: 'numeric',
+    precision: 5,
+    scale: 1,
+    default: 0,
+  })
   lopDays: number;
 
-  @Column({ name: 'ncp_days', type: 'numeric', precision: 5, scale: 1, default: 0 })
+  @Column({
+    name: 'ncp_days',
+    type: 'numeric',
+    precision: 5,
+    scale: 1,
+    default: 0,
+  })
   ncpDays: number;
 
-  @Column({ name: 'ot_hours', type: 'numeric', precision: 6, scale: 2, default: 0 })
+  @Column({
+    name: 'ot_hours',
+    type: 'numeric',
+    precision: 6,
+    scale: 2,
+    default: 0,
+  })
   otHours: number;
 
   @Column({
@@ -97,22 +127,58 @@ export class PayrollRunEmployeeEntity {
   })
   netPay: string;
 
-  @Column({ name: 'pf_employee', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'pf_employee',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   pfEmployee: string | null;
 
-  @Column({ name: 'esi_employee', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'esi_employee',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   esiEmployee: string | null;
 
-  @Column({ name: 'pt', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'pt',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   pt: string | null;
 
-  @Column({ name: 'pf_employer', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'pf_employer',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   pfEmployer: string | null;
 
-  @Column({ name: 'esi_employer', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'esi_employer',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   esiEmployer: string | null;
 
-  @Column({ name: 'bonus', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  @Column({
+    name: 'bonus',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+  })
   bonus: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

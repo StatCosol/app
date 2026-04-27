@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { AppraisalTemplateEntity } from './appraisal-template.entity';
 
 @Entity({ name: 'appraisal_template_sections' })
@@ -26,7 +33,13 @@ export class AppraisalTemplateSectionEntity {
   @Column({ name: 'sequence', type: 'int', default: 0 })
   sequence: number;
 
-  @Column({ name: 'weightage', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'weightage',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
   weightage: number;
 
   @Column({ name: 'is_required', type: 'boolean', default: true })

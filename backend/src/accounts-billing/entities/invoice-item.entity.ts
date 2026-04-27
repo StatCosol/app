@@ -1,5 +1,9 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Invoice } from './invoice.entity';
 
@@ -39,19 +43,49 @@ export class InvoiceItem {
   @Column({ type: 'numeric', precision: 14, scale: 2, default: 0 })
   amount: number;
 
-  @Column({ name: 'discount_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'discount_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   discountAmount: number;
 
-  @Column({ name: 'taxable_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'taxable_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   taxableAmount: number;
 
-  @Column({ name: 'gst_rate', type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({
+    name: 'gst_rate',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
   gstRate: number;
 
-  @Column({ name: 'gst_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'gst_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   gstAmount: number;
 
-  @Column({ name: 'line_total', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'line_total',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   lineTotal: number;
 
   @Column({ name: 'is_reimbursement', type: 'boolean', default: false })

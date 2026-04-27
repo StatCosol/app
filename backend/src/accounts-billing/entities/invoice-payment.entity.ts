@@ -1,6 +1,10 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { PaymentMode } from '../enums';
 import { Invoice } from './invoice.entity';
@@ -23,19 +27,48 @@ export class InvoicePayment {
   @Column({ name: 'payment_date', type: 'date' })
   paymentDate: string;
 
-  @Column({ name: 'amount_received', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'amount_received',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   amountReceived: number;
 
-  @Column({ name: 'tds_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'tds_amount',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   tdsAmount: number;
 
-  @Column({ name: 'other_deduction', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'other_deduction',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   otherDeduction: number;
 
-  @Column({ name: 'net_received', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  @Column({
+    name: 'net_received',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
   netReceived: number;
 
-  @Column({ name: 'payment_mode', type: 'enum', enum: PaymentMode, enumName: 'payment_mode' })
+  @Column({
+    name: 'payment_mode',
+    type: 'enum',
+    enum: PaymentMode,
+    enumName: 'payment_mode',
+  })
   paymentMode: PaymentMode;
 
   @Column({ name: 'reference_number', length: 100, nullable: true })

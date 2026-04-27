@@ -244,7 +244,9 @@ export class AuditorAuditsController {
     return this.svc.getAuditorRecentSubmitted(user);
   }
 
-  @ApiOperation({ summary: 'Auditor dashboard audits table (with progressPct)' })
+  @ApiOperation({
+    summary: 'Auditor dashboard audits table (with progressPct)',
+  })
   @Get('dashboard/audits')
   async dashboardAudits(
     @CurrentUser() user: ReqUser,
@@ -364,7 +366,12 @@ export class AuditorAuditsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { lockFrom?: string | null; lockUntil?: string | null },
   ) {
-    return this.svc.setUploadLock(user, id, body?.lockFrom ?? null, body?.lockUntil ?? null);
+    return this.svc.setUploadLock(
+      user,
+      id,
+      body?.lockFrom ?? null,
+      body?.lockUntil ?? null,
+    );
   }
 
   @ApiOperation({ summary: 'Get document upload lock window for an audit' })
@@ -751,7 +758,9 @@ export class ContractorAuditsController {
     return this.svc.listForContractor(user, q);
   }
 
-  @ApiOperation({ summary: 'Get document upload lock window for an audit (contractor view)' })
+  @ApiOperation({
+    summary: 'Get document upload lock window for an audit (contractor view)',
+  })
   @Get(':id/upload-lock')
   async getUploadLock(
     @CurrentUser() user: ReqUser,

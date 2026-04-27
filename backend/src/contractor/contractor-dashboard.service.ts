@@ -155,12 +155,18 @@ export class ContractorDashboardService {
     }
     const rows = await qb.groupBy('d.contractor_user_id').getRawMany();
     const map = new Map<string, DocStats>();
-    rows.forEach((r: { contractorId: string; uploadedDistinct: string; rejectedCount: string; expiredCount: string }) =>
-      map.set(String(r.contractorId), {
-        uploadedDistinct: Number(r.uploadedDistinct || 0),
-        rejectedCount: Number(r.rejectedCount || 0),
-        expiredCount: Number(r.expiredCount || 0),
-      }),
+    rows.forEach(
+      (r: {
+        contractorId: string;
+        uploadedDistinct: string;
+        rejectedCount: string;
+        expiredCount: string;
+      }) =>
+        map.set(String(r.contractorId), {
+          uploadedDistinct: Number(r.uploadedDistinct || 0),
+          rejectedCount: Number(r.rejectedCount || 0),
+          expiredCount: Number(r.expiredCount || 0),
+        }),
     );
     return map;
   }
@@ -210,16 +216,26 @@ export class ContractorDashboardService {
 
     const rows = await qb.groupBy('d.contractor_user_id').getRawMany();
     const map = new Map<string, MonthlyDocStats>();
-    rows.forEach((r: { contractorId: string; totalDocs: string; approvedDocs: string; rejectedDocs: string; pendingReviewDocs: string; uploadedDocs: string; expiredDocs: string; uploadedDistinct: string }) =>
-      map.set(String(r.contractorId), {
-        totalDocs: Number(r.totalDocs || 0),
-        approvedDocs: Number(r.approvedDocs || 0),
-        rejectedDocs: Number(r.rejectedDocs || 0),
-        pendingReviewDocs: Number(r.pendingReviewDocs || 0),
-        uploadedDocs: Number(r.uploadedDocs || 0),
-        expiredDocs: Number(r.expiredDocs || 0),
-        uploadedDistinct: Number(r.uploadedDistinct || 0),
-      }),
+    rows.forEach(
+      (r: {
+        contractorId: string;
+        totalDocs: string;
+        approvedDocs: string;
+        rejectedDocs: string;
+        pendingReviewDocs: string;
+        uploadedDocs: string;
+        expiredDocs: string;
+        uploadedDistinct: string;
+      }) =>
+        map.set(String(r.contractorId), {
+          totalDocs: Number(r.totalDocs || 0),
+          approvedDocs: Number(r.approvedDocs || 0),
+          rejectedDocs: Number(r.rejectedDocs || 0),
+          pendingReviewDocs: Number(r.pendingReviewDocs || 0),
+          uploadedDocs: Number(r.uploadedDocs || 0),
+          expiredDocs: Number(r.expiredDocs || 0),
+          uploadedDistinct: Number(r.uploadedDistinct || 0),
+        }),
     );
     return map;
   }
@@ -576,12 +592,18 @@ export class ContractorDashboardService {
       .getRawMany();
 
     const statMap = new Map<string, DocStats>();
-    rows.forEach((r: { month: string; uploadedDistinct: string; rejectedCount: string; expiredCount: string }) =>
-      statMap.set(String(r.month), {
-        uploadedDistinct: Number(r.uploadedDistinct || 0),
-        rejectedCount: Number(r.rejectedCount || 0),
-        expiredCount: Number(r.expiredCount || 0),
-      }),
+    rows.forEach(
+      (r: {
+        month: string;
+        uploadedDistinct: string;
+        rejectedCount: string;
+        expiredCount: string;
+      }) =>
+        statMap.set(String(r.month), {
+          uploadedDistinct: Number(r.uploadedDistinct || 0),
+          rejectedCount: Number(r.rejectedCount || 0),
+          expiredCount: Number(r.expiredCount || 0),
+        }),
     );
 
     // Audit risk points per month for this contractor
@@ -639,8 +661,9 @@ export class ContractorDashboardService {
   ): Promise<Map<string, number>> {
     if (!contractorIds.length) return new Map();
 
-    const rows: Array<{ contractorId: string; riskPoints: string }> = await this.docRepo.manager.query(
-      `SELECT a.contractor_user_id AS "contractorId",
+    const rows: Array<{ contractorId: string; riskPoints: string }> =
+      await this.docRepo.manager.query(
+        `SELECT a.contractor_user_id AS "contractorId",
               SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 4
                        WHEN ao.risk = 'HIGH' THEN 3
                        WHEN ao.risk = 'MEDIUM' THEN 2
@@ -653,8 +676,8 @@ export class ContractorDashboardService {
          AND ao.created_at >= $3
          AND ao.created_at < $4
        GROUP BY a.contractor_user_id`,
-      [clientId, contractorIds, start, end],
-    );
+        [clientId, contractorIds, start, end],
+      );
 
     const map = new Map<string, number>();
     rows.forEach((r) =>
@@ -673,8 +696,9 @@ export class ContractorDashboardService {
     start: Date,
     end: Date,
   ): Promise<Map<string, number>> {
-    const rows: Array<{ month: string; riskPoints: string }> = await this.docRepo.manager.query(
-      `SELECT to_char(date_trunc('month', ao.created_at), 'YYYY-MM') AS "month",
+    const rows: Array<{ month: string; riskPoints: string }> =
+      await this.docRepo.manager.query(
+        `SELECT to_char(date_trunc('month', ao.created_at), 'YYYY-MM') AS "month",
               SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 4
                        WHEN ao.risk = 'HIGH' THEN 3
                        WHEN ao.risk = 'MEDIUM' THEN 2
@@ -687,8 +711,8 @@ export class ContractorDashboardService {
          AND ao.created_at >= $3
          AND ao.created_at < $4
        GROUP BY to_char(date_trunc('month', ao.created_at), 'YYYY-MM')`,
-      [clientId, contractorId, start, end],
-    );
+        [clientId, contractorId, start, end],
+      );
 
     const map = new Map<string, number>();
     rows.forEach((r) => map.set(String(r.month), Number(r.riskPoints || 0)));

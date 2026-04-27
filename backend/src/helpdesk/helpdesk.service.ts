@@ -269,7 +269,9 @@ export class HelpdeskService {
         `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`,
         [c.table],
       );
-      const set = new Set((cols || []).map((r: { column_name: string }) => r.column_name));
+      const set = new Set(
+        (cols || []).map((r: { column_name: string }) => r.column_name),
+      );
 
       if (set.has(c.crmCol) && set.has(c.clientCol)) {
         // assignment_type is optional but present in your table
@@ -307,7 +309,9 @@ export class HelpdeskService {
     `;
 
     const rows = await this.dataSource.query(sql, params);
-    return (rows || []).map((r: { clientId: string }) => r.clientId).filter(Boolean);
+    return (rows || [])
+      .map((r: { clientId: string }) => r.clientId)
+      .filter(Boolean);
   }
 
   async crmListTickets(user: ReqUser, q: Record<string, string>) {

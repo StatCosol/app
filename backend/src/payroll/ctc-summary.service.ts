@@ -29,7 +29,6 @@ export interface BranchRow {
 
 @Injectable()
 export class CtcSummaryService {
-
   constructor(
     @InjectRepository(PayrollRunEntity)
     private readonly runRepo: Repository<PayrollRunEntity>,
@@ -48,7 +47,10 @@ export class CtcSummaryService {
     const runFilter = this.buildRunFilter(clientId, year, month);
 
     // Branch-wise aggregation
-    const branches = await this.queryBranchWise(runFilter.where, runFilter.params);
+    const branches = await this.queryBranchWise(
+      runFilter.where,
+      runFilter.params,
+    );
 
     // Consolidate
     const consolidated = this.consolidate(branches);
@@ -105,8 +107,7 @@ export class CtcSummaryService {
   private requireClientId(user: ReqUser): string {
     if (user.roleCode !== 'CLIENT')
       throw new ForbiddenException('Client role required');
-    if (!user.clientId)
-      throw new BadRequestException('No clientId on token');
+    if (!user.clientId) throw new BadRequestException('No clientId on token');
     return user.clientId;
   }
 
@@ -151,12 +152,12 @@ export class CtcSummaryService {
   ): Promise<BranchRow[]> {
     // Individual components: read directly from payroll_run_employees columns (populated on upload).
     // Falls back to payroll_run_component_values / payroll_run_items for runs processed via engine.
-    const pfEmployeeExpr  = `COALESCE(e.pf_employee::numeric,  ${this.sumRunComponentAmountByCodesSql('e', ['PF', 'PF_EMP', 'PF_EMPLOYEE', 'PF_EE', 'EPF_EMPLOYEE'])})`;
+    const pfEmployeeExpr = `COALESCE(e.pf_employee::numeric,  ${this.sumRunComponentAmountByCodesSql('e', ['PF', 'PF_EMP', 'PF_EMPLOYEE', 'PF_EE', 'EPF_EMPLOYEE'])})`;
     const esiEmployeeExpr = `COALESCE(e.esi_employee::numeric, ${this.sumRunComponentAmountByCodesSql('e', ['ESI', 'ESI_EMP', 'ESI_EMPLOYEE', 'ESI_EE'])})`;
-    const ptExpr          = `COALESCE(e.pt::numeric,           ${this.sumRunComponentAmountByCodesSql('e', ['PT', 'PROFESSIONAL_TAX', 'PROFESSIONAL TAX'])})`;
-    const pfEmployerExpr  = `COALESCE(e.pf_employer::numeric,  ${this.sumRunComponentAmountByCodesSql('e', ['EMPLOYER_PF', 'PF_ER', 'PF_EMPLOYER', 'EPF_EMPLOYER'])})`;
+    const ptExpr = `COALESCE(e.pt::numeric,           ${this.sumRunComponentAmountByCodesSql('e', ['PT', 'PROFESSIONAL_TAX', 'PROFESSIONAL TAX'])})`;
+    const pfEmployerExpr = `COALESCE(e.pf_employer::numeric,  ${this.sumRunComponentAmountByCodesSql('e', ['EMPLOYER_PF', 'PF_ER', 'PF_EMPLOYER', 'EPF_EMPLOYER'])})`;
     const esiEmployerExpr = `COALESCE(e.esi_employer::numeric, ${this.sumRunComponentAmountByCodesSql('e', ['EMPLOYER_ESI', 'ESI_ER', 'ESI_EMPLOYER'])})`;
-    const bonusExpr       = `COALESCE(e.bonus::numeric,        ${this.sumRunComponentAmountByCodesSql('e', ['BONUS', 'STATUTORY_BONUS', 'EMPLOYER_BONUS', 'BONUS_PROVISION'])})`;
+    const bonusExpr = `COALESCE(e.bonus::numeric,        ${this.sumRunComponentAmountByCodesSql('e', ['BONUS', 'STATUTORY_BONUS', 'EMPLOYER_BONUS', 'BONUS_PROVISION'])})`;
 
     // Prefer explicit employer component breakup when present.
     // For legacy runs without breakup, use employer_cost only when it looks plausible.
@@ -204,7 +205,10 @@ export class CtcSummaryService {
     return qb.getRawMany();
   }
 
-  private sumRunComponentAmountByCodesSql(employeeAlias: string, componentCodes: string[]): string {
+  private sumRunComponentAmountByCodesSql(
+    employeeAlias: string,
+    componentCodes: string[],
+  ): string {
     const normalizedCodeList = componentCodes
       .map((code) => code.toUpperCase().replace(/[^A-Z0-9]/g, ''))
       .filter((code) => !!code)
@@ -220,7 +224,10 @@ export class CtcSummaryService {
     )`;
   }
 
-  private hasRunComponentByCodesSql(employeeAlias: string, componentCodes: string[]): string {
+  private hasRunComponentByCodesSql(
+    employeeAlias: string,
+    componentCodes: string[],
+  ): string {
     const normalizedCodeList = componentCodes
       .map((code) => code.toUpperCase().replace(/[^A-Z0-9]/g, ''))
       .filter((code) => !!code)
@@ -233,7 +240,11 @@ export class CtcSummaryService {
       OR EXISTS (SELECT 1 FROM payroll_run_items i WHERE i.run_employee_id = ${employeeAlias}.id AND ${normalizedComponentExpr} IN (${normalizedCodeList})))`;
   }
 
-  private computedPfEmployeeSql(employeeAlias: string, employeeMasterAlias: string, setupAlias: string): string {
+  private computedPfEmployeeSql(
+    employeeAlias: string,
+    employeeMasterAlias: string,
+    setupAlias: string,
+  ): string {
     const grossExpr = `COALESCE(${employeeAlias}.gross_earnings, 0)::numeric`;
     const thresholdExpr = `COALESCE(${setupAlias}.pf_gross_threshold, 0)::numeric`;
     const rateExpr = `COALESCE(${setupAlias}.pf_employee_rate, 12.0)::numeric`;
@@ -246,7 +257,11 @@ export class CtcSummaryService {
     END`;
   }
 
-  private computedEsiEmployeeSql(employeeAlias: string, employeeMasterAlias: string, setupAlias: string): string {
+  private computedEsiEmployeeSql(
+    employeeAlias: string,
+    employeeMasterAlias: string,
+    setupAlias: string,
+  ): string {
     const grossExpr = `COALESCE(${employeeAlias}.gross_earnings, 0)::numeric`;
     const ceilingExpr = `COALESCE(NULLIF(${setupAlias}.esi_wage_ceiling::numeric, 0), 21000)::numeric`;
     const rateExpr = `COALESCE(${setupAlias}.esi_employee_rate, 0.75)::numeric`;
@@ -258,7 +273,12 @@ export class CtcSummaryService {
     END`;
   }
 
-  private computedPtSql(runAlias: string, employeeAlias: string, employeeMasterAlias: string, setupAlias: string): string {
+  private computedPtSql(
+    runAlias: string,
+    employeeAlias: string,
+    employeeMasterAlias: string,
+    setupAlias: string,
+  ): string {
     const grossExpr = `COALESCE(${employeeAlias}.gross_earnings, 0)::numeric`;
     const stateExpr = `COALESCE(NULLIF(${employeeMasterAlias}.state_code, ''), NULLIF(${employeeAlias}.state_code, ''), 'ALL')`;
 
@@ -291,7 +311,11 @@ export class CtcSummaryService {
     END`;
   }
 
-  private computedEmployerShareSql(employeeShareExpr: string, employeeRateExpr: string, employerRateExpr: string): string {
+  private computedEmployerShareSql(
+    employeeShareExpr: string,
+    employeeRateExpr: string,
+    employerRateExpr: string,
+  ): string {
     return `CASE
       WHEN COALESCE(${employeeRateExpr}, 0)::numeric > 0 AND (${employeeShareExpr}) > 0
         THEN ROUND(((${employeeShareExpr}) / COALESCE(${employeeRateExpr}, 0)::numeric) * COALESCE(${employerRateExpr}, 0)::numeric, 2)
@@ -353,18 +377,24 @@ export class CtcSummaryService {
       qb.andWhere('r.branch_id = :branchId', { branchId });
     }
 
-    return qb
-      .groupBy('r.period_month')
-      .orderBy('r.period_month')
-      .getRawMany();
+    return qb.groupBy('r.period_month').orderBy('r.period_month').getRawMany();
   }
 
   /** Consolidate branch rows into totals */
   private consolidate(rows: BranchRow[]) {
     const n = (v: any) => Number(v) || 0;
-    let totalEmployees = 0, grossTotal = 0, pfEmployee = 0, pfEmployer = 0;
-    let esiEmployee = 0, esiEmployer = 0, ptTotal = 0, bonusTotal = 0;
-    let otherEmployerCost = 0, employerCostTotal = 0, netPayTotal = 0, monthlyCTC = 0;
+    let totalEmployees = 0,
+      grossTotal = 0,
+      pfEmployee = 0,
+      pfEmployer = 0;
+    let esiEmployee = 0,
+      esiEmployer = 0,
+      ptTotal = 0,
+      bonusTotal = 0;
+    let otherEmployerCost = 0,
+      employerCostTotal = 0,
+      netPayTotal = 0,
+      monthlyCTC = 0;
 
     for (const r of rows) {
       totalEmployees += n(r.total_employees);

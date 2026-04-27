@@ -21,7 +21,12 @@ import { JwtStrategy } from './jwt.strategy';
   imports: [
     UsersModule,
     EmailModule,
-    TypeOrmModule.forFeature([UserEntity, RoleEntity, RefreshTokenEntity, UserLoginLogEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      RoleEntity,
+      RefreshTokenEntity,
+      UserLoginLogEntity,
+    ]),
     PassportModule,
     ConfigModule,
     JwtModule.registerAsync({

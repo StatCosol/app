@@ -50,7 +50,11 @@ const breakupUploadOptions = {
       cb(null, `${Date.now()}_${safe}`);
     },
   }),
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
@@ -185,7 +189,10 @@ export class PayrollProcessingController {
     // Process the newly added employees through the payroll engine
     let engineResult: any = null;
     if (added.length) {
-      engineResult = await this.engineSvc.processSpecificEmployees(runId, added);
+      engineResult = await this.engineSvc.processSpecificEmployees(
+        runId,
+        added,
+      );
     }
 
     return { runId, added, skipped, engineResult };
@@ -274,7 +281,8 @@ export class PayrollProcessingController {
   @Post('seed-config')
   @Roles('ADMIN')
   async seedConfig(@Query('clientId') clientId: string) {
-    if (!clientId) throw new BadRequestException('clientId query param required');
+    if (!clientId)
+      throw new BadRequestException('clientId query param required');
     const sql = `
 DO $$
 DECLARE
@@ -375,7 +383,11 @@ END $$;
   @Post('fix-employee-gross')
   @Roles('ADMIN')
   async fixEmployeeGross(
-    @Body() body: { clientId: string; fixes: Array<{ empCode: string; monthlyGross: number }> },
+    @Body()
+    body: {
+      clientId: string;
+      fixes: Array<{ empCode: string; monthlyGross: number }>;
+    },
   ) {
     let updated = 0;
     const notFound: string[] = [];
@@ -402,7 +414,10 @@ END $$;
        FROM payroll_run_employees WHERE run_id = $1 AND employee_code = $2 LIMIT 1`,
       [runId, empCode],
     );
-    const run = await this.ds.query(`SELECT client_id FROM payroll_runs WHERE id = $1`, [runId]);
+    const run = await this.ds.query(
+      `SELECT client_id FROM payroll_runs WHERE id = $1`,
+      [runId],
+    );
     const clientId = run[0]?.client_id;
     const setup = await this.ds.query(
       `SELECT pf_enabled, esi_enabled, pt_enabled, pf_employer_rate, pf_employee_rate, pf_wage_ceiling, pf_gross_threshold, esi_employer_rate, esi_employee_rate, esi_wage_ceiling
@@ -417,14 +432,27 @@ END $$;
       `SELECT component_code, amount, source FROM payroll_run_component_values WHERE run_employee_id = $1 ORDER BY component_code`,
       [emp[0]?.id],
     );
-    return { employee: emp[0], setup: setup[0], trace: trace[0]?.trace, componentValues: compValues };
+    return {
+      employee: emp[0],
+      setup: setup[0],
+      trace: trace[0]?.trace,
+      componentValues: compValues,
+    };
   }
 
   // Update employee PF/ESI applicability flags from attached data
   @Post('update-employee-statutory-flags')
   @Roles('ADMIN')
   async updateEmployeeStatutoryFlags(
-    @Body() body: { clientId: string; flags: Array<{ empCode: string; pfApplicable: boolean; esiApplicable: boolean }> },
+    @Body()
+    body: {
+      clientId: string;
+      flags: Array<{
+        empCode: string;
+        pfApplicable: boolean;
+        esiApplicable: boolean;
+      }>;
+    },
   ) {
     const { clientId, flags } = body;
     let updated = 0;
@@ -449,7 +477,8 @@ END $$;
   @Roles('ADMIN')
   async patchAttendance(
     @Param('runId') runId: string,
-    @Body() body: {
+    @Body()
+    body: {
       totalPayable: number;
       data: Array<{
         empCode: string;

@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  Res,
-  Version,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, Version } from '@nestjs/common';
 import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { PdfReportService } from './pdf-report.service';

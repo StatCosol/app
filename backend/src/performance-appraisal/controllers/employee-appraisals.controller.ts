@@ -1,10 +1,23 @@
-import { Controller, Get, Post, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
 import { EmployeeAppraisalsService } from '../services/employee-appraisals.service';
-import { ManagerReviewDto, BranchReviewDto, ClientApproveDto, AppraisalFilterDto } from '../dto/employee-appraisal.dto';
+import {
+  ManagerReviewDto,
+  BranchReviewDto,
+  ClientApproveDto,
+  AppraisalFilterDto,
+} from '../dto/employee-appraisal.dto';
 
 @ApiTags('Employee Appraisals')
 @ApiBearerAuth('JWT')
@@ -17,15 +30,22 @@ export class EmployeeAppraisalsController {
   @ApiOperation({ summary: 'List employee appraisals with filters' })
   findAll(@Query() filter: AppraisalFilterDto, @CurrentUser() user: ReqUser) {
     if (!filter.clientId) filter.clientId = user.clientId ?? undefined;
-    if (user.roleCode === 'BRANCH' && user.branchIds?.length) filter.branchId = user.branchIds[0];
+    if (user.roleCode === 'BRANCH' && user.branchIds?.length)
+      filter.branchId = user.branchIds[0];
     return this.appraisalsService.findAll(filter);
   }
 
   @Get('dashboard')
   @Roles('CLIENT', 'ADMIN', 'BRANCH')
   @ApiOperation({ summary: 'Appraisal dashboard summary' })
-  dashboard(@CurrentUser() user: ReqUser, @Query('branchId') branchId?: string) {
-    const bId = user.roleCode === 'BRANCH' && user.branchIds?.length ? user.branchIds[0] : branchId;
+  dashboard(
+    @CurrentUser() user: ReqUser,
+    @Query('branchId') branchId?: string,
+  ) {
+    const bId =
+      user.roleCode === 'BRANCH' && user.branchIds?.length
+        ? user.branchIds[0]
+        : branchId;
     return this.appraisalsService.getDashboard(user.clientId!, bId);
   }
 

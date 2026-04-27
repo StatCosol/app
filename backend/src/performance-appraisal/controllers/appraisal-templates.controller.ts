@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Param, Body, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -15,7 +22,10 @@ export class AppraisalTemplatesController {
   @Post()
   @Roles('CLIENT', 'ADMIN')
   @ApiOperation({ summary: 'Create appraisal template' })
-  create(@Body() dto: CreateAppraisalTemplateDto, @CurrentUser() user: ReqUser) {
+  create(
+    @Body() dto: CreateAppraisalTemplateDto,
+    @CurrentUser() user: ReqUser,
+  ) {
     return this.templatesService.createTemplate(user.clientId!, dto, user.id);
   }
 

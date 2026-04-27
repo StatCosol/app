@@ -3,7 +3,6 @@ import { DataSource } from 'typeorm';
 
 @Injectable()
 export class ExpiryTaskService {
-
   constructor(private readonly dataSource: DataSource) {}
 
   /**

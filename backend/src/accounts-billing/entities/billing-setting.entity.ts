@@ -1,5 +1,8 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('billing_settings')
@@ -64,7 +67,13 @@ export class BillingSetting {
   @Column({ name: 'financial_year_format', length: 30, default: 'YYYY-YY' })
   financialYearFormat: string;
 
-  @Column({ name: 'default_gst_rate', type: 'numeric', precision: 5, scale: 2, default: 18 })
+  @Column({
+    name: 'default_gst_rate',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 18,
+  })
   defaultGstRate: number;
 
   @Column({ name: 'default_payment_terms_days', type: 'int', default: 30 })
@@ -76,7 +85,11 @@ export class BillingSetting {
   @Column({ name: 'authorized_signatory_name', length: 150, nullable: true })
   authorizedSignatoryName: string;
 
-  @Column({ name: 'authorized_signatory_designation', length: 100, nullable: true })
+  @Column({
+    name: 'authorized_signatory_designation',
+    length: 100,
+    nullable: true,
+  })
   authorizedSignatoryDesignation: string;
 
   @Column({ name: 'terms_and_conditions', type: 'text', nullable: true })

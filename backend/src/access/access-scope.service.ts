@@ -177,7 +177,13 @@ export class AccessScopeService {
 
     const qb = this.branchRepo
       .createQueryBuilder('b')
-      .select(['b.id', 'b.branchName', 'b.branchType', 'b.stateCode', 'b.clientId'])
+      .select([
+        'b.id',
+        'b.branchName',
+        'b.branchType',
+        'b.stateCode',
+        'b.clientId',
+      ])
       .where('b.isActive = :active', { active: true })
       .andWhere('b.isDeleted = :del', { del: false });
 

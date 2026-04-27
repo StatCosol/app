@@ -37,12 +37,20 @@ export class BillingCalculationService {
     intraState: boolean,
   ) {
     const subTotal = +items.reduce((s, i) => s + i.amount, 0).toFixed(2);
-    const discountTotal = +items.reduce((s, i) => s + i.discountAmount, 0).toFixed(2);
-    const taxableValue = +items.reduce((s, i) => s + i.taxableAmount, 0).toFixed(2);
+    const discountTotal = +items
+      .reduce((s, i) => s + i.discountAmount, 0)
+      .toFixed(2);
+    const taxableValue = +items
+      .reduce((s, i) => s + i.taxableAmount, 0)
+      .toFixed(2);
     const totalGst = +items.reduce((s, i) => s + i.gstAmount, 0).toFixed(2);
 
-    let cgstRate = 0, cgstAmount = 0, sgstRate = 0, sgstAmount = 0;
-    let igstRate = 0, igstAmount = 0;
+    let cgstRate = 0,
+      cgstAmount = 0,
+      sgstRate = 0,
+      sgstAmount = 0;
+    let igstRate = 0,
+      igstAmount = 0;
 
     if (intraState) {
       cgstRate = +(gstRate / 2).toFixed(2);
@@ -59,9 +67,17 @@ export class BillingCalculationService {
     const roundOff = +(grandTotal - rawTotal).toFixed(2);
 
     return {
-      subTotal, discountTotal, taxableValue,
-      cgstRate, cgstAmount, sgstRate, sgstAmount,
-      igstRate, igstAmount, roundOff, grandTotal,
+      subTotal,
+      discountTotal,
+      taxableValue,
+      cgstRate,
+      cgstAmount,
+      sgstRate,
+      sgstAmount,
+      igstRate,
+      igstAmount,
+      roundOff,
+      grandTotal,
       balanceOutstanding: grandTotal,
     };
   }

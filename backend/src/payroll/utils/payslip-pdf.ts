@@ -7,7 +7,9 @@ import * as path from 'path';
  * Handles SVG files that wrap embedded JPEG/PNG base64 data.
  * Returns null if the file doesn't exist or can't be parsed.
  */
-export function loadLogoBuffer(logoUrl: string | null | undefined): Buffer | null {
+export function loadLogoBuffer(
+  logoUrl: string | null | undefined,
+): Buffer | null {
   if (!logoUrl) return null;
   try {
     const filePath = logoUrl.startsWith('/')
@@ -17,7 +19,10 @@ export function loadLogoBuffer(logoUrl: string | null | undefined): Buffer | nul
     const raw = fs.readFileSync(filePath);
     const str = raw.toString('utf-8', 0, Math.min(raw.length, 500));
     // If it's an SVG wrapping a base64 image, extract the image data
-    if (str.trimStart().startsWith('<svg') || str.trimStart().startsWith('<?xml')) {
+    if (
+      str.trimStart().startsWith('<svg') ||
+      str.trimStart().startsWith('<?xml')
+    ) {
       const full = raw.toString('utf-8');
       const m = full.match(/href="data:image\/(jpeg|png|webp);base64,([^"]+)"/);
       if (m) {
@@ -49,8 +54,18 @@ export type PayslipPdfInput = {
 };
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 function formatCurrency(n: number): string {
@@ -89,25 +104,41 @@ export async function generatePayslipPdfBuffer(
         }
       }
 
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#000000').text(
-        (input.header.clientName ?? 'Company').toUpperCase(),
-        startX, doc.y, { align: 'center', width: pageWidth },
-      );
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .fillColor('#000000')
+        .text(
+          (input.header.clientName ?? 'Company').toUpperCase(),
+          startX,
+          doc.y,
+          { align: 'center', width: pageWidth },
+        );
       doc.moveDown(0.2);
 
       if (input.header.clientAddress) {
-        doc.fontSize(8).font('Helvetica').fillColor('#333333').text(
-          input.header.clientAddress,
-          startX, doc.y, { align: 'center', width: pageWidth },
-        );
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#333333')
+          .text(input.header.clientAddress, startX, doc.y, {
+            align: 'center',
+            width: pageWidth,
+          });
         doc.moveDown(0.4);
       }
 
       // ── Title: PAYSLIP ──
       doc.moveDown(0.3);
-      doc.fontSize(14).font('Helvetica-Bold').fillColor('#000000').text(
-        'PAYSLIP', startX, doc.y, { align: 'center', width: pageWidth, underline: true },
-      );
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#000000')
+        .text('PAYSLIP', startX, doc.y, {
+          align: 'center',
+          width: pageWidth,
+          underline: true,
+        });
       doc.moveDown(1);
 
       // ── Employee Info ──
@@ -118,16 +149,31 @@ export async function generatePayslipPdfBuffer(
       const infoFontSize = 10;
 
       // Row 1: Employee Name
-      doc.fontSize(infoFontSize).font('Helvetica').fillColor('#000000')
+      doc
+        .fontSize(infoFontSize)
+        .font('Helvetica')
+        .fillColor('#000000')
         .text('Employee Name:', leftCol, infoY);
-      doc.text(input.header.employeeName || '_______________', leftCol + infoLabelWidth, infoY);
+      doc.text(
+        input.header.employeeName || '_______________',
+        leftCol + infoLabelWidth,
+        infoY,
+      );
       infoY += 18;
 
       // Row 2: Employee ID + Designation
       doc.text('Employee ID:', leftCol, infoY);
-      doc.text(input.header.empCode || '_______________', leftCol + infoLabelWidth, infoY);
+      doc.text(
+        input.header.empCode || '_______________',
+        leftCol + infoLabelWidth,
+        infoY,
+      );
       doc.text('Designation:', rightCol, infoY);
-      doc.text(input.header.designation || '_______________', rightCol + 100, infoY);
+      doc.text(
+        input.header.designation || '_______________',
+        rightCol + 100,
+        infoY,
+      );
       infoY += 18;
 
       // Row 3: Month + Date of Joining
@@ -144,7 +190,11 @@ export async function generatePayslipPdfBuffer(
       // Row 4: UAN + ESIC
       if (input.header.uan || input.header.esic) {
         doc.text('UAN:', leftCol, infoY);
-        doc.text(input.header.uan || '_______________', leftCol + infoLabelWidth, infoY);
+        doc.text(
+          input.header.uan || '_______________',
+          leftCol + infoLabelWidth,
+          infoY,
+        );
         doc.text('ESIC:', rightCol, infoY);
         doc.text(input.header.esic || '_______________', rightCol + 100, infoY);
         infoY += 18;
@@ -189,7 +239,10 @@ export async function generatePayslipPdfBuffer(
       const attBonus = cv['ATT_BONUS'] ?? 0;
       const gross = cv['GROSS'] ?? 0;
       // Other Earnings = everything in gross not covered by the four named components
-      const otherEarningsRow = Math.max(0, gross - basic - hra - others - attBonus);
+      const otherEarningsRow = Math.max(
+        0,
+        gross - basic - hra - others - attBonus,
+      );
 
       // ── Compute deductions summary ──
       const pfAmt = cv['PF_EMP'] ?? 0;
@@ -197,7 +250,7 @@ export async function generatePayslipPdfBuffer(
       const ptAmt = cv['PT'] ?? 0;
       const pfErFromEmpAmt = cv['PF_ER_FROM_EMP'] ?? 0;
       const totalDeduction = pfAmt + esiAmt + ptAmt + pfErFromEmpAmt;
-      const netPay = cv['NET_PAY'] ?? (gross - totalDeduction);
+      const netPay = cv['NET_PAY'] ?? gross - totalDeduction;
 
       // ── Draw Table ──
       const tableX = startX;
@@ -215,9 +268,12 @@ export async function generatePayslipPdfBuffer(
       };
 
       const drawRow = (
-        label1: string, val1: string,
-        label2: string, val2: string,
-        y: number, bold = false,
+        label1: string,
+        val1: string,
+        label2: string,
+        val2: string,
+        y: number,
+        bold = false,
       ) => {
         const labelW = halfWidth - 80;
         const amtW = 80;
@@ -229,10 +285,20 @@ export async function generatePayslipPdfBuffer(
         const fs = bold ? 10 : 9;
         doc.fontSize(fs).fillColor('#000000');
         doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
-        doc.text(label1, col1X + cellPadX, y + cellPadY, { width: labelW - cellPadX * 2 });
-        doc.text(val1, col1X + labelW + cellPadX, y + cellPadY, { width: amtW - cellPadX * 2, align: 'right' });
-        doc.text(label2, col3X + cellPadX, y + cellPadY, { width: labelW - cellPadX * 2 });
-        doc.text(val2, col3X + labelW + cellPadX, y + cellPadY, { width: amtW - cellPadX * 2, align: 'right' });
+        doc.text(label1, col1X + cellPadX, y + cellPadY, {
+          width: labelW - cellPadX * 2,
+        });
+        doc.text(val1, col1X + labelW + cellPadX, y + cellPadY, {
+          width: amtW - cellPadX * 2,
+          align: 'right',
+        });
+        doc.text(label2, col3X + cellPadX, y + cellPadY, {
+          width: labelW - cellPadX * 2,
+        });
+        doc.text(val2, col3X + labelW + cellPadX, y + cellPadY, {
+          width: amtW - cellPadX * 2,
+          align: 'right',
+        });
         doc.font('Helvetica');
       };
 
@@ -246,14 +312,22 @@ export async function generatePayslipPdfBuffer(
       drawRow('HRA', formatCurrency(hra), 'ESI', formatCurrency(esiAmt), tY);
       tY += rowHeight;
       // Others / PT
-      drawRow('Others', formatCurrency(others), 'PT', formatCurrency(ptAmt), tY);
+      drawRow(
+        'Others',
+        formatCurrency(others),
+        'PT',
+        formatCurrency(ptAmt),
+        tY,
+      );
       tY += rowHeight;
 
       // Att. Bonus row — paired with PF Employer if applicable
       if (attBonus > 0 || pfErFromEmpAmt > 0) {
         drawRow(
-          attBonus > 0 ? 'Att. Bonus' : '', attBonus > 0 ? formatCurrency(attBonus) : '',
-          pfErFromEmpAmt > 0 ? 'PF Employer' : '', pfErFromEmpAmt > 0 ? formatCurrency(pfErFromEmpAmt) : '',
+          attBonus > 0 ? 'Att. Bonus' : '',
+          attBonus > 0 ? formatCurrency(attBonus) : '',
+          pfErFromEmpAmt > 0 ? 'PF Employer' : '',
+          pfErFromEmpAmt > 0 ? formatCurrency(pfErFromEmpAmt) : '',
           tY,
         );
         tY += rowHeight;
@@ -266,7 +340,14 @@ export async function generatePayslipPdfBuffer(
       }
 
       // Gross / Total Deduction
-      drawRow('Gross', formatCurrency(gross), 'Total Deduction', formatCurrency(totalDeduction), tY, true);
+      drawRow(
+        'Gross',
+        formatCurrency(gross),
+        'Total Deduction',
+        formatCurrency(totalDeduction),
+        tY,
+        true,
+      );
       tY += rowHeight;
 
       // Net Pay row
@@ -275,11 +356,22 @@ export async function generatePayslipPdfBuffer(
       drawCellBorders(col1X, tY, netLabelW, rowHeight);
       drawCellBorders(col1X + netLabelW, tY, netAmtW, rowHeight);
       drawCellBorders(col3X, tY, halfWidth, rowHeight);
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
-        .text('Net Pay', col1X + cellPadX, tY + cellPadY, { width: netLabelW - cellPadX * 2 });
-      doc.text(formatCurrency(netPay), col1X + netLabelW + cellPadX, tY + cellPadY, {
-        width: netAmtW - cellPadX * 2, align: 'right',
-      });
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#000000')
+        .text('Net Pay', col1X + cellPadX, tY + cellPadY, {
+          width: netLabelW - cellPadX * 2,
+        });
+      doc.text(
+        formatCurrency(netPay),
+        col1X + netLabelW + cellPadX,
+        tY + cellPadY,
+        {
+          width: netAmtW - cellPadX * 2,
+          align: 'right',
+        },
+      );
       doc.font('Helvetica');
       tY += rowHeight;
       doc.y = tY + 20;
@@ -292,22 +384,32 @@ export async function generatePayslipPdfBuffer(
       const pfErFromEmp = cv['PF_ER_FROM_EMP'] ?? 0;
       const showPfEr = pfEr > 0 && pfErFromEmp === 0;
       if (showPfEr || esiEr > 0) {
-        doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .fillColor('#000000')
           .text('Employer Contributions:', startX, doc.y);
         doc.font('Helvetica').moveDown(0.4);
         if (showPfEr) {
-          doc.fontSize(10).text(`PF Employer: ${formatCurrency(pfEr)}`, startX, doc.y);
+          doc
+            .fontSize(10)
+            .text(`PF Employer: ${formatCurrency(pfEr)}`, startX, doc.y);
           doc.moveDown(0.3);
         }
         if (esiEr > 0) {
-          doc.fontSize(10).text(`ESI Employer: ${formatCurrency(esiEr)}`, startX, doc.y);
+          doc
+            .fontSize(10)
+            .text(`ESI Employer: ${formatCurrency(esiEr)}`, startX, doc.y);
           doc.moveDown(0.3);
         }
       }
 
       // ── Authorized Signatory ──
       doc.moveDown(3);
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#000000')
         .text('Authorized Signatory', startX, doc.y);
       doc.font('Helvetica');
 

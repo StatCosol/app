@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AppraisalCycleEntity } from '../entities/appraisal-cycle.entity';
@@ -6,7 +10,10 @@ import { AppraisalCycleScopeEntity } from '../entities/appraisal-cycle-scope.ent
 import { EmployeeAppraisalEntity } from '../entities/employee-appraisal.entity';
 import { EmployeeAppraisalItemEntity } from '../entities/employee-appraisal-item.entity';
 import { AppraisalTemplateItemEntity } from '../entities/appraisal-template-item.entity';
-import { CreateAppraisalCycleDto, UpdateAppraisalCycleDto } from '../dto/appraisal-cycle.dto';
+import {
+  CreateAppraisalCycleDto,
+  UpdateAppraisalCycleDto,
+} from '../dto/appraisal-cycle.dto';
 import { CycleStatus } from '../enums/appraisal.enums';
 
 @Injectable()
@@ -42,13 +49,15 @@ export class AppraisalCyclesService {
     const saved = await this.cycleRepo.save(cycle);
 
     if (dto.scopes?.length) {
-      const scopes = dto.scopes.map(s => this.scopeRepo.create({
-        cycleId: saved.id,
-        branchId: s.branchId ?? null,
-        departmentId: s.departmentId ?? null,
-        designationId: s.designationId ?? null,
-        employmentType: s.employmentType ?? null,
-      }));
+      const scopes = dto.scopes.map((s) =>
+        this.scopeRepo.create({
+          cycleId: saved.id,
+          branchId: s.branchId ?? null,
+          departmentId: s.departmentId ?? null,
+          designationId: s.designationId ?? null,
+          employmentType: s.employmentType ?? null,
+        }),
+      );
       await this.scopeRepo.save(scopes);
     }
 
@@ -56,7 +65,8 @@ export class AppraisalCyclesService {
   }
 
   async findAll(clientId: string, branchId?: string) {
-    const qb = this.cycleRepo.createQueryBuilder('c')
+    const qb = this.cycleRepo
+      .createQueryBuilder('c')
       .where('c.client_id = :clientId', { clientId })
       .orderBy('c.created_at', 'DESC');
 
@@ -73,7 +83,12 @@ export class AppraisalCyclesService {
          FROM employee_appraisals WHERE cycle_id = $1`,
         [cycle.id],
       );
-      result.push({ ...cycle, eligibleCount: total, completedCount: completed, pendingCount: pending });
+      result.push({
+        ...cycle,
+        eligibleCount: total,
+        completedCount: completed,
+        pendingCount: pending,
+      });
     }
     return result;
   }
@@ -89,7 +104,8 @@ export class AppraisalCyclesService {
   async update(id: string, dto: UpdateAppraisalCycleDto) {
     const cycle = await this.cycleRepo.findOne({ where: { id } });
     if (!cycle) throw new NotFoundException('Cycle not found');
-    if (cycle.status === CycleStatus.CLOSED) throw new BadRequestException('Cannot modify closed cycle');
+    if (cycle.status === CycleStatus.CLOSED)
+      throw new BadRequestException('Cannot modify closed cycle');
 
     Object.assign(cycle, dto);
     return this.cycleRepo.save(cycle);
@@ -98,7 +114,8 @@ export class AppraisalCyclesService {
   async activate(id: string) {
     const cycle = await this.cycleRepo.findOne({ where: { id } });
     if (!cycle) throw new NotFoundException('Cycle not found');
-    if (cycle.status !== CycleStatus.DRAFT) throw new BadRequestException('Only draft cycles can be activated');
+    if (cycle.status !== CycleStatus.DRAFT)
+      throw new BadRequestException('Only draft cycles can be activated');
 
     cycle.status = CycleStatus.ACTIVE;
     return this.cycleRepo.save(cycle);
@@ -115,9 +132,12 @@ export class AppraisalCyclesService {
   async generateEmployees(id: string) {
     const cycle = await this.cycleRepo.findOne({ where: { id } });
     if (!cycle) throw new NotFoundException('Cycle not found');
-    if (cycle.status === CycleStatus.CLOSED) throw new BadRequestException('Cycle is closed');
+    if (cycle.status === CycleStatus.CLOSED)
+      throw new BadRequestException('Cycle is closed');
 
-    const scopes = await this.scopeRepo.find({ where: { cycleId: id, isActive: true } });
+    const scopes = await this.scopeRepo.find({
+      where: { cycleId: id, isActive: true },
+    });
 
     let query = `
       SELECT id, client_id, branch_id, employee_code, name, department_id, designation_id
@@ -127,19 +147,19 @@ export class AppraisalCyclesService {
     const params: any[] = [cycle.clientId];
 
     // Filter by scope branches if specified
-    const branchIds = scopes.map(s => s.branchId).filter(Boolean);
+    const branchIds = scopes.map((s) => s.branchId).filter(Boolean);
     if (branchIds.length) {
       query += ` AND branch_id = ANY($${params.length + 1})`;
       params.push(branchIds);
     }
 
-    const deptIds = scopes.map(s => s.departmentId).filter(Boolean);
+    const deptIds = scopes.map((s) => s.departmentId).filter(Boolean);
     if (deptIds.length) {
       query += ` AND department_id = ANY($${params.length + 1})`;
       params.push(deptIds);
     }
 
-    const desigIds = scopes.map(s => s.designationId).filter(Boolean);
+    const desigIds = scopes.map((s) => s.designationId).filter(Boolean);
     if (desigIds.length) {
       query += ` AND designation_id = ANY($${params.length + 1})`;
       params.push(desigIds);
@@ -176,20 +196,26 @@ export class AppraisalCyclesService {
 
       // Pre-populate items from template
       if (templateItems.length) {
-        const items = templateItems.map(ti => this.appraisalItemRepo.create({
-          employeeAppraisalId: appraisal.id,
-          sectionId: ti.sectionId,
-          templateItemId: ti.id,
-          itemName: ti.itemName,
-          weightage: ti.weightage,
-          sequence: ti.sequence,
-        }));
+        const items = templateItems.map((ti) =>
+          this.appraisalItemRepo.create({
+            employeeAppraisalId: appraisal.id,
+            sectionId: ti.sectionId,
+            templateItemId: ti.id,
+            itemName: ti.itemName,
+            weightage: ti.weightage,
+            sequence: ti.sequence,
+          }),
+        );
         await this.appraisalItemRepo.save(items);
       }
 
       created++;
     }
 
-    return { generated: created, total: employees.length, alreadyExisted: employees.length - created };
+    return {
+      generated: created,
+      total: employees.length,
+      alreadyExisted: employees.length - created,
+    };
   }
 }

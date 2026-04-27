@@ -235,9 +235,7 @@ export class ClientContractorsController {
     if (allowed !== 'ALL') {
       const contractors =
         await this.usersService.findContractorsByBranchIds(allowed);
-      const ok = contractors.some(
-        (c) => String(c.id) === String(contractorId),
-      );
+      const ok = contractors.some((c) => String(c.id) === String(contractorId));
       if (!ok)
         throw new ForbiddenException(
           'You do not have access to this contractor',

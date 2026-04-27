@@ -132,28 +132,38 @@ export class RegisterGenerator {
   }
 
   /** Check PF/ESI applicability from master employees table */
-  private async getBranchApplicability(branchId: string): Promise<{ hasPf: boolean; hasEsi: boolean }> {
-    const rows: { hasPf: boolean; hasEsi: boolean }[] = await this.runRepo.manager.query(
-      `SELECT
+  private async getBranchApplicability(
+    branchId: string,
+  ): Promise<{ hasPf: boolean; hasEsi: boolean }> {
+    const rows: { hasPf: boolean; hasEsi: boolean }[] =
+      await this.runRepo.manager.query(
+        `SELECT
          EXISTS(SELECT 1 FROM employees WHERE branch_id = $1 AND pf_applicable = true AND is_active = true) AS "hasPf",
          EXISTS(SELECT 1 FROM employees WHERE branch_id = $1 AND esi_applicable = true AND is_active = true) AS "hasEsi"`,
-      [branchId],
-    );
+        [branchId],
+      );
     return rows[0] || { hasPf: false, hasEsi: false };
   }
 
   /** Filter templates by applicability conditions */
   private filterByApplicability(
     templates: RegisterTemplateEntity[],
-    meta: { employeeCount: number; contractorCount: number; hasPf: boolean; hasEsi: boolean },
+    meta: {
+      employeeCount: number;
+      contractorCount: number;
+      hasPf: boolean;
+      hasEsi: boolean;
+    },
   ): RegisterTemplateEntity[] {
     return templates.filter((t) => {
-      const cond = t.appliesWhen as Record<string, any> | null;
+      const cond = t.appliesWhen;
       if (!cond || Object.keys(cond).length === 0) return true;
       if (cond.requires_pf && !meta.hasPf) return false;
       if (cond.requires_esi && !meta.hasEsi) return false;
-      if (cond.min_contractors && meta.contractorCount < cond.min_contractors) return false;
-      if (cond.min_employees && meta.employeeCount < cond.min_employees) return false;
+      if (cond.min_contractors && meta.contractorCount < cond.min_contractors)
+        return false;
+      if (cond.min_employees && meta.employeeCount < cond.min_employees)
+        return false;
       return true;
     });
   }
@@ -182,7 +192,10 @@ export class RegisterGenerator {
     for (const t of allTemplates) {
       const key = `${t.establishmentType}:${t.registerType}`;
       const existing = map.get(key);
-      if (!existing || (existing.stateCode === 'ALL' && t.stateCode !== 'ALL')) {
+      if (
+        !existing ||
+        (existing.stateCode === 'ALL' && t.stateCode !== 'ALL')
+      ) {
         map.set(key, t);
       }
     }
@@ -310,7 +323,8 @@ export class RegisterGenerator {
       if (col.key === 'serial') totalRow[col.key] = '';
       else if (col.key === 'employee_name' || col.key === 'employee_code')
         totalRow[col.key] = col.key === 'employee_name' ? 'TOTAL' : '';
-      else if (numericKeys.has(col.key)) totalRow[col.key] = totals[col.key] || 0;
+      else if (numericKeys.has(col.key))
+        totalRow[col.key] = totals[col.key] || 0;
       else totalRow[col.key] = '';
     }
     const footerExcelRow = sheet.addRow(totalRow);
@@ -437,7 +451,9 @@ export class RegisterGenerator {
         );
       }
     }
-    templates = templates.filter((t) => PAYROLL_LINKED_REGISTERS.has(t.registerType));
+    templates = templates.filter((t) =>
+      PAYROLL_LINKED_REGISTERS.has(t.registerType),
+    );
 
     if (templates.length === 0) {
       throw new NotFoundException(
@@ -537,7 +553,12 @@ export class RegisterGenerator {
         continue;
       }
 
-      const { workbook } = this.buildExcel(template, employees, valuesByEmp, extraFieldsByEmp);
+      const { workbook } = this.buildExcel(
+        template,
+        employees,
+        valuesByEmp,
+        extraFieldsByEmp,
+      );
 
       const stCode = branch.stateCode || 'XX';
       const fileName = `${template.registerType}_${stCode}_${branchCode}_${period}.xlsx`;

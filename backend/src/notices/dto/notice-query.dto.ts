@@ -1,21 +1,27 @@
 import { IsOptional, IsString } from 'class-validator';
 
 export class NoticeQueryDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   clientId?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   branchId?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   status?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   severity?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   noticeType?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   search?: string;
 }

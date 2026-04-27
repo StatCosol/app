@@ -100,7 +100,9 @@ export class StatutoryCalculatorService {
         const epsContrib = epsExcluded ? 0 : (epsWage * 8.33) / 100;
 
         const totalErPf = (cappedPfWage * erRate) / 100;
-        const pfDiff = epsExcluded ? totalErPf : Math.max(0, totalErPf - epsContrib);
+        const pfDiff = epsExcluded
+          ? totalErPf
+          : Math.max(0, totalErPf - epsContrib);
 
         result['PF_WAGES'] = pfWage;
         result['PF_EMP'] = pfEmp;
@@ -114,7 +116,8 @@ export class StatutoryCalculatorService {
         // the employee's salary.
         const actualGross = result['ACTUAL_GROSS'] ?? 0;
         if (pfGrossThreshold > 0) {
-          result['PF_ER_FROM_EMP'] = actualGross >= pfGrossThreshold ? totalErPf : 0;
+          result['PF_ER_FROM_EMP'] =
+            actualGross >= pfGrossThreshold ? totalErPf : 0;
         } else {
           result['PF_ER_FROM_EMP'] = actualGross > 25000 ? totalErPf : 0;
         }

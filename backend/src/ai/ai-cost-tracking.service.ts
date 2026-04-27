@@ -15,7 +15,6 @@ const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {
 
 @Injectable()
 export class AiCostTrackingService {
-
   constructor(
     @InjectRepository(AiUsageLogEntity)
     private readonly usageRepo: Repository<AiUsageLogEntity>,

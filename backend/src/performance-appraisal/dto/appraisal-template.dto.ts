@@ -1,67 +1,97 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, IsBoolean, IsArray, ValidateNested, IsNumber } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsBoolean,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateAppraisalTemplateDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   templateCode: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   templateName: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   description?: string;
 
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   ratingScaleId?: string;
 
-  @IsBoolean() @IsOptional()
+  @IsBoolean()
+  @IsOptional()
   isDefault?: boolean;
 
-  @IsArray() @IsOptional()
-  @ValidateNested({ each: true }) @Type(() => TemplateSectionDto)
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => TemplateSectionDto)
   sections?: TemplateSectionDto[];
 }
 
 export class TemplateSectionDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   sectionCode: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   sectionName: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   sectionType?: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   sequence?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   weightage?: number;
 
-  @IsArray() @IsOptional()
-  @ValidateNested({ each: true }) @Type(() => TemplateItemDto)
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => TemplateItemDto)
   items?: TemplateItemDto[];
 }
 
 export class TemplateItemDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   itemCode: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   itemName: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   description?: string;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   weightage?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   maxScore?: number;
 
-  @IsNumber() @IsOptional()
+  @IsNumber()
+  @IsOptional()
   sequence?: number;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   inputType?: string;
 }

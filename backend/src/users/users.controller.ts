@@ -234,28 +234,74 @@ export class UsersController {
       `SELECT id, client_id FROM employees WHERE employee_code = $1`,
       [code],
     );
-    if (!rows.length) throw new BadRequestException(`Employee ${code} not found`);
+    if (!rows.length)
+      throw new BadRequestException(`Employee ${code} not found`);
     const { id, client_id: _clientId } = rows[0];
     await this.ds.transaction(async (mgr) => {
-      await mgr.query(`DELETE FROM employee_nomination_members WHERE nomination_id IN (SELECT id FROM employee_nominations WHERE employee_id = $1)`, [id]);
-      await mgr.query(`DELETE FROM employee_nominations WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_generated_forms WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_documents WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_statutory WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM employee_salary_revisions WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM attendance_records WHERE employee_id = $1`, [id]);
+      await mgr.query(
+        `DELETE FROM employee_nomination_members WHERE nomination_id IN (SELECT id FROM employee_nominations WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM employee_nominations WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM employee_generated_forms WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM employee_documents WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM employee_statutory WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM employee_salary_revisions WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM attendance_records WHERE employee_id = $1`, [
+        id,
+      ]);
       await mgr.query(`DELETE FROM leave_ledger WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM leave_balances WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM leave_applications WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM payroll_run_component_values WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`, [id]);
-      await mgr.query(`DELETE FROM payroll_run_items WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`, [id]);
-      await mgr.query(`DELETE FROM pay_calc_traces WHERE employee_id = $1`, [id]);
-      await mgr.query(`DELETE FROM payroll_run_employees WHERE employee_id = $1`, [id]);
+      await mgr.query(`DELETE FROM leave_balances WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM leave_applications WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM payroll_run_component_values WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM payroll_run_items WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM pay_calc_traces WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM payroll_run_employees WHERE employee_id = $1`,
+        [id],
+      );
       await mgr.query(`DELETE FROM payroll_fnf WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE pay_salary_structures SET employee_id = NULL WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE payroll_queries SET employee_id = NULL WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE ai_payroll_anomalies SET employee_id = NULL WHERE employee_id = $1`, [id]);
-      await mgr.query(`UPDATE users SET employee_id = NULL WHERE employee_id = $1`, [id]);
+      await mgr.query(
+        `UPDATE pay_salary_structures SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE payroll_queries SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE ai_payroll_anomalies SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE users SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
       await mgr.query(`DELETE FROM employees WHERE id = $1`, [id]);
     });
     return { deleted: true, employeeCode: code, employeeId: id };

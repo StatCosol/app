@@ -28,16 +28,36 @@ export class ClraPeEstablishment {
   @Column({ name: 'establishment_name', length: 255 })
   establishmentName: string;
 
-  @Column({ name: 'establishment_code', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'establishment_code',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   establishmentCode: string | null;
 
-  @Column({ name: 'registration_certificate_no', type: 'varchar', length: 150, nullable: true })
+  @Column({
+    name: 'registration_certificate_no',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
   registrationCertificateNo: string | null;
 
-  @Column({ name: 'address_line1', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'address_line1',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   addressLine1: string | null;
 
-  @Column({ name: 'address_line2', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'address_line2',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   addressLine2: string | null;
 
   @Column({ type: 'varchar', length: 120, nullable: true })

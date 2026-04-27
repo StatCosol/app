@@ -38,17 +38,35 @@ export class ClraAttendance {
   @Column({ name: 'out_time', type: 'time', nullable: true })
   outTime: string | null;
 
-  @Column({ name: 'normal_hours', type: 'numeric', precision: 6, scale: 2, default: 0, transformer: { to: (v) => v, from: (v) => v != null ? parseFloat(v) : 0 } })
+  @Column({
+    name: 'normal_hours',
+    type: 'numeric',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v) => v, from: (v) => (v != null ? parseFloat(v) : 0) },
+  })
   normalHours: number;
 
-  @Column({ name: 'ot_hours', type: 'numeric', precision: 6, scale: 2, default: 0, transformer: { to: (v) => v, from: (v) => v != null ? parseFloat(v) : 0 } })
+  @Column({
+    name: 'ot_hours',
+    type: 'numeric',
+    precision: 6,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v) => v, from: (v) => (v != null ? parseFloat(v) : 0) },
+  })
   otHours: number;
 
-  @ManyToOne(() => ClraWagePeriod, (p) => p.attendanceRows, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ClraWagePeriod, (p) => p.attendanceRows, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'wage_period_id' })
   wagePeriod: ClraWagePeriod;
 
-  @ManyToOne(() => ClraWorkerDeployment, (d) => d.attendanceRows, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ClraWorkerDeployment, (d) => d.attendanceRows, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'worker_deployment_id' })
   workerDeployment: ClraWorkerDeployment;
 

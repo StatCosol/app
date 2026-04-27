@@ -26,7 +26,6 @@ type ReminderRow = {
  */
 @Injectable()
 export class ClientVisibilityService {
-
   constructor(private readonly dataSource: DataSource) {}
 
   /**

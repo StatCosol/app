@@ -83,14 +83,22 @@ export class CrmComplianceTrackerController {
            AND ($2::uuid IS NULL OR b.clientid = $2)`,
         [crmUserId, clientId],
       );
-      this.logger.log(`MCD auto-gen: found ${branches.length} branches for CRM user=${crmUserId} clientId=${clientId}`);
+      this.logger.log(
+        `MCD auto-gen: found ${branches.length} branches for CRM user=${crmUserId} clientId=${clientId}`,
+      );
       for (const br of branches) {
         try {
           await this.complianceService.autoGenerateMonthlyTasks(
-            br.client_id, br.branch_id, year, month,
+            br.client_id,
+            br.branch_id,
+            year,
+            month,
           );
         } catch (e) {
-          this.logger.error(`MCD auto-gen failed for branch=${br.branch_id}: ${(e as Error).message}`, (e as Error).stack);
+          this.logger.error(
+            `MCD auto-gen failed for branch=${br.branch_id}: ${(e as Error).message}`,
+            (e as Error).stack,
+          );
         }
       }
       this.autoGenDone.add(genKey);
@@ -168,8 +176,7 @@ export class CrmComplianceTrackerController {
        WHERE b.id = $2::uuid`,
       [crmUserId, branchId],
     );
-    if (!scope.length)
-      return { data: [] };
+    if (!scope.length) return { data: [] };
 
     const items = await this.db.many(
       `SELECT
@@ -230,7 +237,9 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Upload MCD Item Evidence' })
   @Post('mcd/item/:itemId/upload')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
   async uploadMcdItem(
     @CurrentUser() user: ReqUser,
     @Param('itemId') itemId: string,
@@ -246,7 +255,9 @@ export class CrmComplianceTrackerController {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ]);
     if (!allowedMimes.has(file.mimetype)) {
-      throw new BadRequestException('File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX');
+      throw new BadRequestException(
+        'File type not allowed. Accepted: PDF, PNG, JPEG, XLS/XLSX',
+      );
     }
 
     const crmUserId = user.id;
@@ -272,13 +283,18 @@ export class CrmComplianceTrackerController {
 
     const item = itemRows[0] as any;
     if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
-      throw new BadRequestException('Cannot upload for an already approved/verified item');
+      throw new BadRequestException(
+        'Cannot upload for an already approved/verified item',
+      );
     }
 
     // Save file to disk
     const dir = path.join(
-      process.cwd(), 'uploads', 'mcd-evidence',
-      item.client_id, item.branch_id,
+      process.cwd(),
+      'uploads',
+      'mcd-evidence',
+      item.client_id,
+      item.branch_id,
     );
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const ext = path.extname(file.originalname) || '.pdf';
@@ -292,7 +308,16 @@ export class CrmComplianceTrackerController {
       `INSERT INTO compliance_evidence (task_id, mcd_item_id, uploaded_by_user_id, file_name, file_path, file_type, file_size, notes, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
        RETURNING id`,
-      [item.task_id, parseInt(itemId, 10), crmUserId, file.originalname, fileUrl, file.mimetype, file.size, 'Uploaded by CRM'],
+      [
+        item.task_id,
+        parseInt(itemId, 10),
+        crmUserId,
+        file.originalname,
+        fileUrl,
+        file.mimetype,
+        file.size,
+        'Uploaded by CRM',
+      ],
     );
 
     // Update MCD item status to SUBMITTED, mark as CRM-uploaded
@@ -339,7 +364,9 @@ export class CrmComplianceTrackerController {
       throw new BadRequestException('Item is already approved/verified');
     }
     if (item.status === 'PENDING') {
-      throw new BadRequestException('Cannot approve an item that has not been submitted');
+      throw new BadRequestException(
+        'Cannot approve an item that has not been submitted',
+      );
     }
 
     await this.db.many(
@@ -392,7 +419,9 @@ export class CrmComplianceTrackerController {
 
     const item = itemRows[0] as any;
     if (item.status === 'APPROVED' || item.status === 'VERIFIED') {
-      throw new BadRequestException('Cannot reject an already approved/verified item');
+      throw new BadRequestException(
+        'Cannot reject an already approved/verified item',
+      );
     }
 
     await this.db.many(
@@ -618,14 +647,15 @@ export class CrmComplianceTrackerController {
     );
 
     const sum = (st: string, role?: string) =>
-      (statusRows as { status: string; targetRole?: string; count?: number | string }[])
-        .filter(
-          (r) => r.status === st && (!role || r.targetRole === role),
-        )
-        .reduce(
-          (acc, r) => acc + Number(r.count || 0),
-          0,
-        );
+      (
+        statusRows as {
+          status: string;
+          targetRole?: string;
+          count?: number | string;
+        }[]
+      )
+        .filter((r) => r.status === st && (!role || r.targetRole === role))
+        .reduce((acc, r) => acc + Number(r.count || 0), 0);
 
     const byTargetRole = ['CONTRACTOR', 'CLIENT', 'BRANCH'].map((role) => ({
       targetRole: role,

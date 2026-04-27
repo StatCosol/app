@@ -275,10 +275,17 @@ export class ReturnsService {
     }
   }
 
-  private isTypeApplicableForState(masterStateCode: string | null | undefined, branchStateCode: string | null): boolean {
+  private isTypeApplicableForState(
+    masterStateCode: string | null | undefined,
+    branchStateCode: string | null,
+  ): boolean {
     if (!branchStateCode) return true;
     const normalizedMasterState = this.normalizeStateCode(masterStateCode);
-    return !normalizedMasterState || normalizedMasterState === 'ALL' || normalizedMasterState === branchStateCode;
+    return (
+      !normalizedMasterState ||
+      normalizedMasterState === 'ALL' ||
+      normalizedMasterState === branchStateCode
+    );
   }
 
   private async ensureCombinedReturnMasters(): Promise<void> {
@@ -411,7 +418,9 @@ export class ReturnsService {
       select: ['id', 'clientId', 'stateCode'],
     });
     if (!branch || branch.clientId !== clientId) {
-      throw new ForbiddenException('Branch does not belong to the specified client');
+      throw new ForbiddenException(
+        'Branch does not belong to the specified client',
+      );
     }
     return branch;
   }
@@ -432,16 +441,18 @@ export class ReturnsService {
     });
 
     return rows
-      .filter((r) => this.isTypeApplicableForState(r.stateCode, branchStateCode))
+      .filter((r) =>
+        this.isTypeApplicableForState(r.stateCode, branchStateCode),
+      )
       .map((r) => ({
-      code: r.returnCode,
-      label: r.returnName,
-      lawType: r.lawArea,
-      frequency: r.frequency,
-      category: r.category ?? null,
-      stateCode: r.stateCode,
-      dueDay: r.dueDay,
-    }));
+        code: r.returnCode,
+        label: r.returnName,
+        lawType: r.lawArea,
+        frequency: r.frequency,
+        category: r.category ?? null,
+        stateCode: r.stateCode,
+        dueDay: r.dueDay,
+      }));
   }
 
   // --------- Client-facing ---------
@@ -586,9 +597,10 @@ export class ReturnsService {
         performedBy: user.userId ?? user.id,
         performedRole: user.roleCode ?? 'CRM',
         afterJson: { kind, fileName: file.originalname },
-        meta: user?.roleCode === 'CRM'
-          ? { actingOnBehalf: true, originalOwnerRole: 'BRANCH' }
-          : undefined,
+        meta:
+          user?.roleCode === 'CRM'
+            ? { actingOnBehalf: true, originalOwnerRole: 'BRANCH' }
+            : undefined,
       })
       .catch((e) =>
         this.logger.warn('Audit-log (doc upload) failed', e?.message),
@@ -709,7 +721,7 @@ export class ReturnsService {
     // Exclude register-type items (e.g. attendance registers, safety registers).
     // Only actual returns, renewals, and statutory filings should appear in the CRM Returns Queue.
     qb.andWhere(
-      "(master.category IS NULL OR master.category NOT IN (:...regCategories))",
+      '(master.category IS NULL OR master.category NOT IN (:...regCategories))',
       { regCategories: ['FACTORY', 'LABOUR', 'SAFETY', 'ATTENDANCE_WAGE'] },
     );
 
@@ -1021,7 +1033,10 @@ export class ReturnsService {
     return rec;
   }
 
-  private applyFilters(qb: SelectQueryBuilder<ComplianceReturnEntity>, q: Record<string, string>) {
+  private applyFilters(
+    qb: SelectQueryBuilder<ComplianceReturnEntity>,
+    q: Record<string, string>,
+  ) {
     qb.andWhere('r.isDeleted = false').andWhere('r.deletedAt IS NULL');
     if (!q) return;
     if (q.clientId)
@@ -1052,7 +1067,10 @@ export class ReturnsService {
       qb.andWhere('r.periodMonth = :pm', { pm: Number(q.periodMonth) });
   }
 
-  private async applyBranchScope(qb: SelectQueryBuilder<ComplianceReturnEntity>, user: ReqUser) {
+  private async applyBranchScope(
+    qb: SelectQueryBuilder<ComplianceReturnEntity>,
+    user: ReqUser,
+  ) {
     const allowed = await this.branchAccess.getAllowedBranchIds(
       user.userId,
       user.clientId!,

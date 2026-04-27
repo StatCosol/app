@@ -31,7 +31,12 @@ export class NoticeDocumentEntity {
   @JoinColumn({ name: 'notice_id' })
   notice?: NoticeEntity;
 
-  @Column({ name: 'document_type', type: 'varchar', length: 30, default: 'NOTICE_COPY' })
+  @Column({
+    name: 'document_type',
+    type: 'varchar',
+    length: 30,
+    default: 'NOTICE_COPY',
+  })
   documentType: NoticeDocumentType;
 
   @Column({ name: 'file_name', type: 'varchar', length: 255 })

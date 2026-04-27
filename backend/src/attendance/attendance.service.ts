@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
@@ -454,7 +451,7 @@ export class AttendanceService {
   async getApprovalStats(clientId: string, date: string, branchId?: string) {
     const qb = this.repo
       .createQueryBuilder('a')
-      .select("a.approval_status", 'status')
+      .select('a.approval_status', 'status')
       .addSelect('COUNT(*)::int', 'count')
       .where('a.client_id = :clientId', { clientId })
       .andWhere('a.date = :date', { date })

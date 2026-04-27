@@ -1,6 +1,13 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query,
-  ParseUUIDPipe, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -20,7 +27,10 @@ export class BillingClientsController {
   @ApiOperation({ summary: 'Create a billing client' })
   @Post()
   async create(@Body() dto: CreateBillingClientDto) {
-    return this.clientsService.create(dto, '00000000-0000-0000-0000-000000000000');
+    return this.clientsService.create(
+      dto,
+      '00000000-0000-0000-0000-000000000000',
+    );
   }
 
   @ApiOperation({ summary: 'List billing clients' })
@@ -34,7 +44,8 @@ export class BillingClientsController {
     return this.clientsService.findAll({
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,
-      search, status,
+      search,
+      status,
     });
   }
 

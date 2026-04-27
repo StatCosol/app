@@ -93,7 +93,9 @@ export class FilesController {
         'CONTRACTOR',
       ].includes(roleCode)
     ) {
-      throw new ForbiddenException('You do not have permission to access files');
+      throw new ForbiddenException(
+        'You do not have permission to access files',
+      );
     }
 
     return {

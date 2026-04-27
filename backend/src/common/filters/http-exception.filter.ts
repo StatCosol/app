@@ -54,7 +54,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const fieldMatch = detail.match(/Key \(([^)]+)\)=/);
         const fieldName = fieldMatch ? fieldMatch[1] : null;
         if (fieldName === 'email') {
-          message = 'Email already in use. Please use a different email address.';
+          message =
+            'Email already in use. Please use a different email address.';
         } else if (fieldName === 'client_code' || fieldName === 'clientCode') {
           message = 'Client code already exists. Please use a unique code.';
         } else if (fieldName) {

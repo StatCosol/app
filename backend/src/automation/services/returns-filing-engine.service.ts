@@ -413,10 +413,7 @@ export class ReturnsFilingEngineService {
     state_code: string;
     applicable_for: string;
   }): Promise<{ id: string; client_id: string }[]> {
-    const conditions: string[] = [
-      'b.isactive = true',
-      'b.deletedat IS NULL',
-    ];
+    const conditions: string[] = ['b.isactive = true', 'b.deletedat IS NULL'];
     const params: (string | null)[] = [];
     let paramIdx = 1;
 

@@ -102,7 +102,6 @@ interface ChecklistRow {
     EmptyStateComponent,
     StatusBadgeComponent,
     ActionButtonComponent,
-    ComplianceAdvancedFiltersComponent,
   ],
   templateUrl: './crm-returns-filings.component.html',
   styleUrls: ['./crm-returns-filings.component.scss'],

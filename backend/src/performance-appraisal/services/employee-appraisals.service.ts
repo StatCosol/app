@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { EmployeeAppraisalEntity } from '../entities/employee-appraisal.entity';
@@ -7,7 +11,12 @@ import { AppraisalApprovalEntity } from '../entities/appraisal-approval.entity';
 import { AppraisalAuditLogEntity } from '../entities/appraisal-audit-log.entity';
 import { AppraisalRatingScaleItemEntity } from '../entities/appraisal-rating-scale-item.entity';
 import { AppraisalCycleEntity } from '../entities/appraisal-cycle.entity';
-import { ManagerReviewDto, BranchReviewDto, ClientApproveDto, AppraisalFilterDto } from '../dto/employee-appraisal.dto';
+import {
+  ManagerReviewDto,
+  BranchReviewDto,
+  ClientApproveDto,
+  AppraisalFilterDto,
+} from '../dto/employee-appraisal.dto';
 
 @Injectable()
 export class EmployeeAppraisalsService {
@@ -45,27 +54,33 @@ export class EmployeeAppraisalsService {
     let paramIdx = 0;
 
     if (filter.clientId) {
-      params.push(filter.clientId); paramIdx++;
+      params.push(filter.clientId);
+      paramIdx++;
       query += ` AND ea.client_id = $${paramIdx}`;
     }
     if (filter.branchId) {
-      params.push(filter.branchId); paramIdx++;
+      params.push(filter.branchId);
+      paramIdx++;
       query += ` AND ea.branch_id = $${paramIdx}`;
     }
     if (filter.cycleId) {
-      params.push(filter.cycleId); paramIdx++;
+      params.push(filter.cycleId);
+      paramIdx++;
       query += ` AND ea.cycle_id = $${paramIdx}`;
     }
     if (filter.status) {
-      params.push(filter.status); paramIdx++;
+      params.push(filter.status);
+      paramIdx++;
       query += ` AND ea.status = $${paramIdx}`;
     }
     if (filter.recommendation) {
-      params.push(filter.recommendation); paramIdx++;
+      params.push(filter.recommendation);
+      paramIdx++;
       query += ` AND ea.recommendation = $${paramIdx}`;
     }
     if (filter.search) {
-      params.push(`%${filter.search}%`); paramIdx++;
+      params.push(`%${filter.search}%`);
+      paramIdx++;
       query += ` AND (e.name ILIKE $${paramIdx} OR e.employee_code ILIKE $${paramIdx})`;
     }
 
@@ -75,9 +90,11 @@ export class EmployeeAppraisalsService {
 
     // Paginate
     query += ` ORDER BY ea.created_at DESC`;
-    params.push(pageSize); paramIdx++;
+    params.push(pageSize);
+    paramIdx++;
     query += ` LIMIT $${paramIdx}`;
-    params.push((page - 1) * pageSize); paramIdx++;
+    params.push((page - 1) * pageSize);
+    paramIdx++;
     query += ` OFFSET $${paramIdx}`;
 
     const rows = await this.dataSource.query(query, params);
@@ -86,7 +103,8 @@ export class EmployeeAppraisalsService {
   }
 
   async findOne(id: string) {
-    const appraisal = await this.dataSource.query(`
+    const appraisal = await this.dataSource.query(
+      `
       SELECT ea.*, e.employee_code, e.name AS employee_name, e.department, e.designation,
              e.date_of_joining, e.ctc, e.monthly_gross, e.phone, e.email, e.gender,
              e.branch_id, b.branchname AS branch_name, ac.cycle_name, ac.financial_year,
@@ -96,7 +114,9 @@ export class EmployeeAppraisalsService {
       LEFT JOIN client_branches b ON ea.branch_id = b.id
       JOIN appraisal_cycles ac ON ea.cycle_id = ac.id
       WHERE ea.id = $1
-    `, [id]);
+    `,
+      [id],
+    );
 
     if (!appraisal.length) throw new NotFoundException('Appraisal not found');
 
@@ -116,17 +136,21 @@ export class EmployeeAppraisalsService {
   async managerReview(id: string, dto: ManagerReviewDto, userId: string) {
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
-    if (appraisal.lockedAt) throw new BadRequestException('Appraisal is locked');
+    if (appraisal.lockedAt)
+      throw new BadRequestException('Appraisal is locked');
 
     // Update item ratings
     for (const item of dto.items) {
       if (item.itemId) {
-        await this.itemRepo.update({ id: item.itemId }, {
-          managerRating: item.rating ?? null,
-          managerRemarks: item.remarks ?? null,
-          targetValue: item.targetValue ?? undefined,
-          achievementValue: item.achievementValue ?? undefined,
-        });
+        await this.itemRepo.update(
+          { id: item.itemId },
+          {
+            managerRating: item.rating ?? null,
+            managerRemarks: item.remarks ?? null,
+            targetValue: item.targetValue ?? undefined,
+            achievementValue: item.achievementValue ?? undefined,
+          },
+        );
       }
     }
 
@@ -137,14 +161,22 @@ export class EmployeeAppraisalsService {
     appraisal.managerStatus = 'REVIEWED';
     appraisal.status = 'MANAGER_REVIEWED';
     appraisal.recommendation = dto.recommendation ?? appraisal.recommendation;
-    appraisal.recommendedIncrementPercent = dto.recommendedIncrementPercent ?? appraisal.recommendedIncrementPercent;
-    appraisal.recommendedNewCtc = dto.recommendedNewCtc ?? appraisal.recommendedNewCtc;
+    appraisal.recommendedIncrementPercent =
+      dto.recommendedIncrementPercent ?? appraisal.recommendedIncrementPercent;
+    appraisal.recommendedNewCtc =
+      dto.recommendedNewCtc ?? appraisal.recommendedNewCtc;
     appraisal.pipRequired = dto.pipRequired ?? appraisal.pipRequired;
     appraisal.finalRemarks = dto.remarks ?? appraisal.finalRemarks;
     await this.appraisalRepo.save(appraisal);
 
     await this.logApproval(id, 'MANAGER', userId, 'REVIEWED', dto.remarks);
-    await this.logAudit(id, 'MANAGER_REVIEW', oldStatus, appraisal.status, userId);
+    await this.logAudit(
+      id,
+      'MANAGER_REVIEW',
+      oldStatus,
+      appraisal.status,
+      userId,
+    );
 
     return this.findOne(id);
   }
@@ -152,14 +184,18 @@ export class EmployeeAppraisalsService {
   async branchReview(id: string, dto: BranchReviewDto, userId: string) {
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
-    if (appraisal.lockedAt) throw new BadRequestException('Appraisal is locked');
+    if (appraisal.lockedAt)
+      throw new BadRequestException('Appraisal is locked');
 
     for (const item of dto.items) {
       if (item.itemId) {
-        await this.itemRepo.update({ id: item.itemId }, {
-          branchRating: item.rating ?? null,
-          branchRemarks: item.remarks ?? null,
-        });
+        await this.itemRepo.update(
+          { id: item.itemId },
+          {
+            branchRating: item.rating ?? null,
+            branchRemarks: item.remarks ?? null,
+          },
+        );
       }
     }
 
@@ -169,14 +205,22 @@ export class EmployeeAppraisalsService {
     appraisal.branchStatus = 'REVIEWED';
     appraisal.status = 'BRANCH_REVIEWED';
     appraisal.recommendation = dto.recommendation ?? appraisal.recommendation;
-    appraisal.recommendedIncrementPercent = dto.recommendedIncrementPercent ?? appraisal.recommendedIncrementPercent;
-    appraisal.recommendedNewCtc = dto.recommendedNewCtc ?? appraisal.recommendedNewCtc;
+    appraisal.recommendedIncrementPercent =
+      dto.recommendedIncrementPercent ?? appraisal.recommendedIncrementPercent;
+    appraisal.recommendedNewCtc =
+      dto.recommendedNewCtc ?? appraisal.recommendedNewCtc;
     appraisal.pipRequired = dto.pipRequired ?? appraisal.pipRequired;
     appraisal.finalRemarks = dto.remarks ?? appraisal.finalRemarks;
     await this.appraisalRepo.save(appraisal);
 
     await this.logApproval(id, 'BRANCH', userId, 'REVIEWED', dto.remarks);
-    await this.logAudit(id, 'BRANCH_REVIEW', oldStatus, appraisal.status, userId);
+    await this.logAudit(
+      id,
+      'BRANCH_REVIEW',
+      oldStatus,
+      appraisal.status,
+      userId,
+    );
 
     return this.findOne(id);
   }
@@ -184,7 +228,8 @@ export class EmployeeAppraisalsService {
   async clientApprove(id: string, dto: ClientApproveDto, userId: string) {
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
-    if (appraisal.lockedAt) throw new BadRequestException('Appraisal is locked');
+    if (appraisal.lockedAt)
+      throw new BadRequestException('Appraisal is locked');
 
     const oldStatus = appraisal.status;
 
@@ -192,8 +237,11 @@ export class EmployeeAppraisalsService {
       appraisal.clientStatus = 'APPROVED';
       appraisal.status = 'CLIENT_APPROVED';
       appraisal.recommendation = dto.recommendation ?? appraisal.recommendation;
-      appraisal.recommendedIncrementPercent = dto.recommendedIncrementPercent ?? appraisal.recommendedIncrementPercent;
-      appraisal.recommendedNewCtc = dto.recommendedNewCtc ?? appraisal.recommendedNewCtc;
+      appraisal.recommendedIncrementPercent =
+        dto.recommendedIncrementPercent ??
+        appraisal.recommendedIncrementPercent;
+      appraisal.recommendedNewCtc =
+        dto.recommendedNewCtc ?? appraisal.recommendedNewCtc;
 
       // Resolve final rating from scale
       await this.resolveFinalRating(appraisal);
@@ -208,7 +256,13 @@ export class EmployeeAppraisalsService {
     await this.appraisalRepo.save(appraisal);
 
     await this.logApproval(id, 'CLIENT', userId, dto.action, dto.remarks);
-    await this.logAudit(id, `CLIENT_${dto.action}`, oldStatus, appraisal.status, userId);
+    await this.logAudit(
+      id,
+      `CLIENT_${dto.action}`,
+      oldStatus,
+      appraisal.status,
+      userId,
+    );
 
     return this.findOne(id);
   }
@@ -230,7 +284,8 @@ export class EmployeeAppraisalsService {
   async lock(id: string, userId: string) {
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
-    if (appraisal.status !== 'CLIENT_APPROVED') throw new BadRequestException('Only approved appraisals can be locked');
+    if (appraisal.status !== 'CLIENT_APPROVED')
+      throw new BadRequestException('Only approved appraisals can be locked');
 
     appraisal.lockedAt = new Date();
     appraisal.status = 'LOCKED';
@@ -255,7 +310,8 @@ export class EmployeeAppraisalsService {
       params.push(branchId);
     }
 
-    const [summary] = await this.dataSource.query(`
+    const [summary] = await this.dataSource.query(
+      `
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE ea.status = 'INITIATED')::int AS initiated,
@@ -272,30 +328,39 @@ export class EmployeeAppraisalsService {
         COUNT(*) FILTER (WHERE ea.pip_required = true)::int AS pip_count
       FROM employee_appraisals ea
       WHERE ${where}
-    `, params);
+    `,
+      params,
+    );
 
     // Top performers
-    const topPerformers = await this.dataSource.query(`
+    const topPerformers = await this.dataSource.query(
+      `
       SELECT ea.total_score, ea.final_rating_label, e.name, e.employee_code, b.branchname AS branch_name
       FROM employee_appraisals ea
       JOIN employees e ON ea.employee_id = e.id
       LEFT JOIN client_branches b ON ea.branch_id = b.id
       WHERE ${where} AND ea.total_score IS NOT NULL
       ORDER BY ea.total_score DESC LIMIT 10
-    `, params);
+    `,
+      params,
+    );
 
     // Low performers
-    const lowPerformers = await this.dataSource.query(`
+    const lowPerformers = await this.dataSource.query(
+      `
       SELECT ea.total_score, ea.final_rating_label, e.name, e.employee_code, b.branchname AS branch_name
       FROM employee_appraisals ea
       JOIN employees e ON ea.employee_id = e.id
       LEFT JOIN client_branches b ON ea.branch_id = b.id
       WHERE ${where} AND ea.total_score IS NOT NULL
       ORDER BY ea.total_score ASC LIMIT 10
-    `, params);
+    `,
+      params,
+    );
 
     // Branch-wise summary
-    const branchSummary = await this.dataSource.query(`
+    const branchSummary = await this.dataSource.query(
+      `
       SELECT b.branchname AS branch_name, COUNT(*)::int AS total,
              ROUND(AVG(ea.total_score)::numeric, 2) AS avg_score,
              COUNT(*) FILTER (WHERE ea.status IN ('CLIENT_APPROVED','LOCKED','CLOSED'))::int AS completed
@@ -303,7 +368,9 @@ export class EmployeeAppraisalsService {
       LEFT JOIN client_branches b ON ea.branch_id = b.id
       WHERE ${where.replace('ea.branch_id = $2', '1=1')}
       GROUP BY b.branchname ORDER BY avg_score DESC NULLS LAST
-    `, [clientId]);
+    `,
+      [clientId],
+    );
 
     return { summary, topPerformers, lowPerformers, branchSummary };
   }
@@ -311,7 +378,8 @@ export class EmployeeAppraisalsService {
   // ── ESS Self-Review ──
 
   async findByEmployee(employeeId: string) {
-    const rows = await this.dataSource.query(`
+    const rows = await this.dataSource.query(
+      `
       SELECT ea.*, e.employee_code, e.name AS employee_name, e.department, e.designation,
              e.date_of_joining, b.branchname AS branch_name, ac.cycle_name, ac.financial_year
       FROM employee_appraisals ea
@@ -320,24 +388,37 @@ export class EmployeeAppraisalsService {
       JOIN appraisal_cycles ac ON ea.cycle_id = ac.id
       WHERE ea.employee_id = $1
       ORDER BY ea.created_at DESC
-    `, [employeeId]);
+    `,
+      [employeeId],
+    );
     return rows;
   }
 
-  async selfReview(id: string, items: { itemId: string; rating: number; remarks?: string }[], employeeId: string) {
+  async selfReview(
+    id: string,
+    items: { itemId: string; rating: number; remarks?: string }[],
+    employeeId: string,
+  ) {
     const appraisal = await this.appraisalRepo.findOne({ where: { id } });
     if (!appraisal) throw new NotFoundException('Appraisal not found');
-    if (appraisal.employeeId !== employeeId) throw new BadRequestException('This appraisal does not belong to you');
-    if (appraisal.lockedAt) throw new BadRequestException('Appraisal is locked');
+    if (appraisal.employeeId !== employeeId)
+      throw new BadRequestException('This appraisal does not belong to you');
+    if (appraisal.lockedAt)
+      throw new BadRequestException('Appraisal is locked');
     if (!['INITIATED', 'SENT_BACK'].includes(appraisal.status))
-      throw new BadRequestException('Self-review is not allowed in current status');
+      throw new BadRequestException(
+        'Self-review is not allowed in current status',
+      );
 
     for (const item of items) {
       if (item.itemId) {
-        await this.itemRepo.update({ id: item.itemId, employeeAppraisalId: id }, {
-          selfRating: item.rating ?? null,
-          employeeRemarks: item.remarks ?? null,
-        });
+        await this.itemRepo.update(
+          { id: item.itemId, employeeAppraisalId: id },
+          {
+            selfRating: item.rating ?? null,
+            employeeRemarks: item.remarks ?? null,
+          },
+        );
       }
     }
 
@@ -346,53 +427,85 @@ export class EmployeeAppraisalsService {
     appraisal.status = 'SELF_SUBMITTED';
     await this.appraisalRepo.save(appraisal);
 
-    await this.logApproval(id, 'SELF', employeeId, 'SUBMITTED', 'Self-review submitted');
-    await this.logAudit(id, 'SELF_REVIEW', oldStatus, appraisal.status, employeeId);
+    await this.logApproval(
+      id,
+      'SELF',
+      employeeId,
+      'SUBMITTED',
+      'Self-review submitted',
+    );
+    await this.logAudit(
+      id,
+      'SELF_REVIEW',
+      oldStatus,
+      appraisal.status,
+      employeeId,
+    );
 
     return this.findOne(id);
   }
 
   // ── Private helpers ──
 
-  private async recalculateScores(appraisalId: string, level: 'manager' | 'branch') {
+  private async recalculateScores(
+    appraisalId: string,
+    level: 'manager' | 'branch',
+  ) {
     const ratingCol = level === 'manager' ? 'manager_rating' : 'branch_rating';
-    await this.dataSource.query(`
+    await this.dataSource.query(
+      `
       UPDATE employee_appraisal_items
       SET weighted_score = CASE WHEN weightage > 0 AND ${ratingCol} IS NOT NULL
                                 THEN ROUND((${ratingCol} * weightage / 100)::numeric, 2)
                                 ELSE NULL END,
           final_rating = ${ratingCol}
       WHERE employee_appraisal_id = $1
-    `, [appraisalId]);
+    `,
+      [appraisalId],
+    );
 
     // Update totals on parent
-    const [scores] = await this.dataSource.query(`
+    const [scores] = await this.dataSource.query(
+      `
       SELECT ROUND(SUM(weighted_score)::numeric, 2) AS total_score
       FROM employee_appraisal_items
       WHERE employee_appraisal_id = $1 AND weighted_score IS NOT NULL
-    `, [appraisalId]);
+    `,
+      [appraisalId],
+    );
 
-    await this.appraisalRepo.update({ id: appraisalId }, {
-      totalScore: scores?.total_score ?? null,
-    });
+    await this.appraisalRepo.update(
+      { id: appraisalId },
+      {
+        totalScore: scores?.total_score ?? null,
+      },
+    );
   }
 
   private async resolveFinalRating(appraisal: EmployeeAppraisalEntity) {
     if (!appraisal.totalScore) return;
 
     // Find matching rating scale item via the cycle's template
-    const cycle = await this.cycleRepo.findOne({ where: { id: appraisal.cycleId } });
+    const cycle = await this.cycleRepo.findOne({
+      where: { id: appraisal.cycleId },
+    });
     if (!cycle?.templateId) return;
 
-    const scaleItems = await this.dataSource.query(`
+    const scaleItems = await this.dataSource.query(
+      `
       SELECT rsi.* FROM appraisal_rating_scale_items rsi
       JOIN appraisal_templates t ON t.rating_scale_id = rsi.scale_id
       WHERE t.id = $1
       ORDER BY rsi.min_score ASC
-    `, [cycle.templateId]);
+    `,
+      [cycle.templateId],
+    );
 
     for (const si of scaleItems) {
-      if (appraisal.totalScore >= Number(si.min_score) && appraisal.totalScore <= Number(si.max_score)) {
+      if (
+        appraisal.totalScore >= Number(si.min_score) &&
+        appraisal.totalScore <= Number(si.max_score)
+      ) {
         appraisal.finalRatingCode = si.rating_code;
         appraisal.finalRatingLabel = si.rating_label;
         break;
@@ -400,7 +513,13 @@ export class EmployeeAppraisalsService {
     }
   }
 
-  private async logApproval(appraisalId: string, level: string, userId: string, action: string, remarks?: string) {
+  private async logApproval(
+    appraisalId: string,
+    level: string,
+    userId: string,
+    action: string,
+    remarks?: string,
+  ) {
     await this.approvalRepo.save({
       employeeAppraisalId: appraisalId,
       approvalLevel: level,
@@ -410,7 +529,13 @@ export class EmployeeAppraisalsService {
     });
   }
 
-  private async logAudit(appraisalId: string, action: string, oldStatus: string, newStatus: string, userId: string) {
+  private async logAudit(
+    appraisalId: string,
+    action: string,
+    oldStatus: string,
+    newStatus: string,
+    userId: string,
+  ) {
     await this.auditRepo.save({
       employeeAppraisalId: appraisalId,
       action,

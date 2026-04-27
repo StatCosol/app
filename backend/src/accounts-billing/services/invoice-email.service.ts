@@ -22,7 +22,11 @@ export class InvoiceEmailService {
     private readonly pdfService: InvoicePdfService,
   ) {}
 
-  async sendInvoice(invoiceId: string, dto: SendInvoiceEmailDto, userId: string) {
+  async sendInvoice(
+    invoiceId: string,
+    dto: SendInvoiceEmailDto,
+    userId: string,
+  ) {
     const invoice = await this.invoicesService.findOne(invoiceId);
 
     let pdfPath = invoice.pdfPath;
@@ -30,8 +34,11 @@ export class InvoiceEmailService {
       pdfPath = await this.pdfService.generatePdf(invoiceId);
     }
 
-    const subject = dto.subject || `Invoice ${invoice.invoiceNumber} from StatCo Solutions`;
-    const body = dto.body || `Dear ${invoice.billingClient?.contactPerson || 'Sir/Madam'},\n\nPlease find attached invoice ${invoice.invoiceNumber} dated ${invoice.invoiceDate}.\n\nAmount: ₹${invoice.grandTotal}\nDue Date: ${invoice.dueDate}\n\nRegards,\nStatCo Solutions`;
+    const subject =
+      dto.subject || `Invoice ${invoice.invoiceNumber} from StatCo Solutions`;
+    const body =
+      dto.body ||
+      `Dear ${invoice.billingClient?.contactPerson || 'Sir/Madam'},\n\nPlease find attached invoice ${invoice.invoiceNumber} dated ${invoice.invoiceDate}.\n\nAmount: ₹${invoice.grandTotal}\nDue Date: ${invoice.dueDate}\n\nRegards,\nStatCo Solutions`;
 
     const log = this.emailLogRepo.create({
       invoiceId,
@@ -84,7 +91,9 @@ export class InvoiceEmailService {
       .orderBy('log.sentAt', 'DESC');
 
     if (query.invoiceId) {
-      qb.andWhere('log.invoice_id = :invoiceId', { invoiceId: query.invoiceId });
+      qb.andWhere('log.invoice_id = :invoiceId', {
+        invoiceId: query.invoiceId,
+      });
     }
 
     const [data, total] = await qb

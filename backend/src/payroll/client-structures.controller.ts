@@ -68,10 +68,7 @@ export class ClientStructuresController {
 
   /** Preview payroll calculation for a given gross + LOP + state. */
   @Post(':id/calculate')
-  async calculate(
-    @Param('id') id: string,
-    @Body() dto: CalculatePayrollDto,
-  ) {
+  async calculate(@Param('id') id: string, @Body() dto: CalculatePayrollDto) {
     const structure = await this.structures.findOne(id);
     if (!structure) {
       throw new NotFoundException('Payroll structure not found');

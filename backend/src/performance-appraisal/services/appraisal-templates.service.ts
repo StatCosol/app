@@ -23,7 +23,11 @@ export class AppraisalTemplatesService {
     private readonly scaleItemRepo: Repository<AppraisalRatingScaleItemEntity>,
   ) {}
 
-  async createTemplate(clientId: string, dto: CreateAppraisalTemplateDto, userId: string) {
+  async createTemplate(
+    clientId: string,
+    dto: CreateAppraisalTemplateDto,
+    userId: string,
+  ) {
     const template = await this.templateRepo.save({
       clientId,
       templateCode: dto.templateCode,
@@ -46,17 +50,19 @@ export class AppraisalTemplatesService {
         });
 
         if (sec.items?.length) {
-          const items = sec.items.map(item => this.itemRepo.create({
-            templateId: template.id,
-            sectionId: section.id,
-            itemCode: item.itemCode,
-            itemName: item.itemName,
-            description: item.description ?? null,
-            weightage: item.weightage ?? 0,
-            maxScore: item.maxScore ?? 5,
-            sequence: item.sequence ?? 0,
-            inputType: item.inputType ?? 'RATING',
-          }));
+          const items = sec.items.map((item) =>
+            this.itemRepo.create({
+              templateId: template.id,
+              sectionId: section.id,
+              itemCode: item.itemCode,
+              itemName: item.itemName,
+              description: item.description ?? null,
+              weightage: item.weightage ?? 0,
+              maxScore: item.maxScore ?? 5,
+              sequence: item.sequence ?? 0,
+              inputType: item.inputType ?? 'RATING',
+            }),
+          );
           await this.itemRepo.save(items);
         }
       }
@@ -87,9 +93,9 @@ export class AppraisalTemplatesService {
     });
 
     // Group items by section
-    const sectionsWithItems = sections.map(s => ({
+    const sectionsWithItems = sections.map((s) => ({
       ...s,
-      items: items.filter(i => i.sectionId === s.id),
+      items: items.filter((i) => i.sectionId === s.id),
     }));
 
     return { ...template, sections: sectionsWithItems };
@@ -102,19 +108,37 @@ export class AppraisalTemplatesService {
     });
   }
 
-  async createScale(clientId: string, data: { scaleName: string; items: { ratingCode: string; ratingLabel: string; minScore: number; maxScore: number; colorCode?: string; sequence: number }[] }) {
-    const scale = await this.scaleRepo.save({ clientId, scaleName: data.scaleName });
+  async createScale(
+    clientId: string,
+    data: {
+      scaleName: string;
+      items: {
+        ratingCode: string;
+        ratingLabel: string;
+        minScore: number;
+        maxScore: number;
+        colorCode?: string;
+        sequence: number;
+      }[];
+    },
+  ) {
+    const scale = await this.scaleRepo.save({
+      clientId,
+      scaleName: data.scaleName,
+    });
 
     if (data.items?.length) {
-      const items = data.items.map(i => this.scaleItemRepo.create({
-        scaleId: scale.id,
-        ratingCode: i.ratingCode,
-        ratingLabel: i.ratingLabel,
-        minScore: i.minScore,
-        maxScore: i.maxScore,
-        colorCode: i.colorCode ?? null,
-        sequence: i.sequence,
-      }));
+      const items = data.items.map((i) =>
+        this.scaleItemRepo.create({
+          scaleId: scale.id,
+          ratingCode: i.ratingCode,
+          ratingLabel: i.ratingLabel,
+          minScore: i.minScore,
+          maxScore: i.maxScore,
+          colorCode: i.colorCode ?? null,
+          sequence: i.sequence,
+        }),
+      );
       await this.scaleItemRepo.save(items);
     }
 

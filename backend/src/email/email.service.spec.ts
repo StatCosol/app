@@ -12,7 +12,9 @@ describe('EmailService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
+            get: jest.fn(
+              (_key: string, defaultValue?: unknown) => defaultValue,
+            ),
           },
         },
       ],

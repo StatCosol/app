@@ -1,29 +1,44 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID, IsIn, IsDateString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsIn,
+  IsDateString,
+} from 'class-validator';
 import { AppraisalType, CycleStatus } from '../enums/appraisal.enums';
 
 export class CreateAppraisalCycleDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   cycleCode: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   cycleName: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   financialYear: string;
 
-  @IsString() @IsIn(Object.values(AppraisalType))
+  @IsString()
+  @IsIn(Object.values(AppraisalType))
   appraisalType: string;
 
-  @IsDateString() @IsNotEmpty()
+  @IsDateString()
+  @IsNotEmpty()
   reviewPeriodFrom: string;
 
-  @IsDateString() @IsNotEmpty()
+  @IsDateString()
+  @IsNotEmpty()
   reviewPeriodTo: string;
 
-  @IsDateString() @IsOptional()
+  @IsDateString()
+  @IsOptional()
   effectiveDate?: string;
 
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   templateId?: string;
 
   @IsOptional()
@@ -36,27 +51,37 @@ export class CreateAppraisalCycleDto {
 }
 
 export class UpdateAppraisalCycleDto {
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   cycleName?: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   financialYear?: string;
 
-  @IsString() @IsIn(Object.values(AppraisalType)) @IsOptional()
+  @IsString()
+  @IsIn(Object.values(AppraisalType))
+  @IsOptional()
   appraisalType?: string;
 
-  @IsDateString() @IsOptional()
+  @IsDateString()
+  @IsOptional()
   reviewPeriodFrom?: string;
 
-  @IsDateString() @IsOptional()
+  @IsDateString()
+  @IsOptional()
   reviewPeriodTo?: string;
 
-  @IsDateString() @IsOptional()
+  @IsDateString()
+  @IsOptional()
   effectiveDate?: string;
 
-  @IsUUID() @IsOptional()
+  @IsUUID()
+  @IsOptional()
   templateId?: string;
 
-  @IsString() @IsIn(Object.values(CycleStatus)) @IsOptional()
+  @IsString()
+  @IsIn(Object.values(CycleStatus))
+  @IsOptional()
   status?: string;
 }

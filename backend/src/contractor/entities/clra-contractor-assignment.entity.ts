@@ -34,13 +34,23 @@ export class ClraContractorAssignment {
   @Column({ name: 'contract_no', type: 'varchar', length: 150, nullable: true })
   contractNo: string | null;
 
-  @Column({ name: 'work_order_no', type: 'varchar', length: 150, nullable: true })
+  @Column({
+    name: 'work_order_no',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
   workOrderNo: string | null;
 
   @Column({ name: 'nature_of_work', length: 255 })
   natureOfWork: string;
 
-  @Column({ name: 'work_location_name', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'work_location_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   workLocationName: string | null;
 
   @Column({ name: 'work_location_address', type: 'text', nullable: true })
@@ -73,11 +83,15 @@ export class ClraContractorAssignment {
   @Column({ length: 30, default: 'ACTIVE' })
   status: string;
 
-  @ManyToOne(() => ClraContractor, (c) => c.assignments, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => ClraContractor, (c) => c.assignments, {
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'contractor_id' })
   contractor: ClraContractor;
 
-  @ManyToOne(() => ClraPeEstablishment, (p) => p.assignments, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => ClraPeEstablishment, (p) => p.assignments, {
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'pe_establishment_id' })
   peEstablishment: ClraPeEstablishment;
 

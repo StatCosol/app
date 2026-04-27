@@ -12,7 +12,6 @@ export interface OpenMonthlyCycleResult {
 
 @Injectable()
 export class MonthlyCycleEngineService {
-
   constructor(
     private readonly dataSource: DataSource,
     private readonly taskEngine: TaskEngineService,

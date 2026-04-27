@@ -67,8 +67,14 @@ export class AdminReportsController {
       // If download parameter is true, export to Excel
       if (download === 'true' && res) {
         const buffer = await jsonToExcelBuffer(rows, 'User Activity');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=user-activity.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=user-activity.xlsx',
+        );
         res.send(buffer);
         return;
       }
@@ -121,8 +127,14 @@ export class AdminReportsController {
 
       if (download === 'true' && res) {
         const buffer = await jsonToExcelBuffer(rows, 'User Registrations');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=user-registrations.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=user-registrations.xlsx',
+        );
         res.send(buffer);
         return;
       }
@@ -173,8 +185,14 @@ export class AdminReportsController {
 
       if (download === 'true' && res) {
         const buffer = await jsonToExcelBuffer(rows, 'User Deletions');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=user-deletions.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=user-deletions.xlsx',
+        );
         res.send(buffer);
         return;
       }
@@ -225,8 +243,14 @@ export class AdminReportsController {
 
       if (download === 'true' && res) {
         const buffer = await jsonToExcelBuffer(rows, 'Access Logs');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=access-logs.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=access-logs.xlsx',
+        );
         res.send(buffer);
         return;
       }
@@ -308,8 +332,14 @@ export class AdminReportsController {
 
       if (download === 'true' && res) {
         const buffer = await jsonToExcelBuffer(rows, 'Assignments');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=assignments.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=assignments.xlsx',
+        );
         res.send(buffer);
         return;
       }
@@ -410,8 +440,14 @@ export class AdminReportsController {
 
       if (download === 'true' && res) {
         const buffer = await jsonToExcelBuffer(rows, 'Audit Reports');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=audit-reports.xlsx');
+        res.setHeader(
+          'Content-Type',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+          'Content-Disposition',
+          'attachment; filename=audit-reports.xlsx',
+        );
         res.send(buffer);
         return;
       }

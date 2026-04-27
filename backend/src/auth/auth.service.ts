@@ -91,20 +91,47 @@ export class AuthService implements OnModuleInit {
       .getOne();
 
     if (!user) {
-      this.logLoginEvent(email, null, null, null, ip, userAgent, 'FAILED', 'NOT_FOUND');
+      this.logLoginEvent(
+        email,
+        null,
+        null,
+        null,
+        ip,
+        userAgent,
+        'FAILED',
+        'NOT_FOUND',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Block login for inactive or soft-deleted users
     if (!user.isActive || user.deletedAt) {
-      this.logLoginEvent(email, user.id, null, user.clientId, ip, userAgent, 'FAILED', user.deletedAt ? 'DELETED' : 'INACTIVE');
+      this.logLoginEvent(
+        email,
+        user.id,
+        null,
+        user.clientId,
+        ip,
+        userAgent,
+        'FAILED',
+        user.deletedAt ? 'DELETED' : 'INACTIVE',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
-      this.logLoginEvent(email, user.id, null, user.clientId, ip, userAgent, 'FAILED', 'BAD_PASSWORD');
+      this.logLoginEvent(
+        email,
+        user.id,
+        null,
+        user.clientId,
+        ip,
+        userAgent,
+        'FAILED',
+        'BAD_PASSWORD',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -132,13 +159,21 @@ export class AuthService implements OnModuleInit {
     const tokens = await this.issueTokens(user.id, role.code, user, branchIds);
 
     // Record last login timestamp (fire-and-forget)
-    this.dataSource.query(
-      `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
-      [user.id],
-    ).catch(() => {});
+    this.dataSource
+      .query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id])
+      .catch(() => {});
 
     // Log successful login event
-    this.logLoginEvent(email, user.id, role.code, user.clientId, ip, userAgent, 'SUCCESS', null);
+    this.logLoginEvent(
+      email,
+      user.id,
+      role.code,
+      user.clientId,
+      ip,
+      userAgent,
+      'SUCCESS',
+      null,
+    );
 
     return {
       accessToken: tokens.accessToken,
@@ -243,10 +278,9 @@ export class AuthService implements OnModuleInit {
     const tokens = await this.issueTokens(user.id, role.code, user);
 
     // Record last login timestamp (fire-and-forget)
-    this.dataSource.query(
-      `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
-      [user.id],
-    ).catch(() => {});
+    this.dataSource
+      .query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id])
+      .catch(() => {});
 
     return {
       accessToken: tokens.accessToken,
@@ -299,7 +333,10 @@ export class AuthService implements OnModuleInit {
     }
 
     // Revoke the current token (one-time use / rotation)
-    await this.refreshTokenRepo.update({ id: stored.id }, { revokedAt: new Date() });
+    await this.refreshTokenRepo.update(
+      { id: stored.id },
+      { revokedAt: new Date() },
+    );
 
     const user = await this.usersRepo.findOne({ where: { id: payload.sub } });
     if (!user || !user.isActive || user.deletedAt) {
@@ -319,7 +356,13 @@ export class AuthService implements OnModuleInit {
     }
 
     // Issue new tokens in the same family
-    const tokens = await this.issueTokens(user.id, roleCode, user, branchIds, stored.family);
+    const tokens = await this.issueTokens(
+      user.id,
+      roleCode,
+      user,
+      branchIds,
+      stored.family,
+    );
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -333,7 +376,9 @@ export class AuthService implements OnModuleInit {
         const payload = await this.jwt.verifyAsync<any>(dto.refreshToken);
         const jti = payload?.jti;
         if (jti) {
-          const stored = await this.refreshTokenRepo.findOne({ where: { jti } });
+          const stored = await this.refreshTokenRepo.findOne({
+            where: { jti },
+          });
           if (stored) {
             // Revoke the entire token family
             await this.refreshTokenRepo.update(

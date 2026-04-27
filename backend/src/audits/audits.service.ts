@@ -38,14 +38,12 @@ export interface BranchAuditKpiItem {
 @Injectable()
 export class AuditsService implements OnModuleInit {
   private readonly logger = new Logger(AuditsService.name);
-  private auditReportColumnsCache:
-    | {
-        scope: boolean;
-        methodology: boolean;
-        selectedObservationIds: boolean;
-        finalizedAt: boolean;
-      }
-    | null = null;
+  private auditReportColumnsCache: {
+    scope: boolean;
+    methodology: boolean;
+    selectedObservationIds: boolean;
+    finalizedAt: boolean;
+  } | null = null;
 
   constructor(
     @InjectRepository(AuditEntity)
@@ -232,7 +230,17 @@ export class AuditsService implements OnModuleInit {
   }
 
   // ─── CRM: list audits for assigned clients ──────────────────────
-  async listForCrm(user: ReqUser, q: { page?: number | string; pageSize?: number | string; status?: string; year?: number | string; clientId?: string; auditType?: string }) {
+  async listForCrm(
+    user: ReqUser,
+    q: {
+      page?: number | string;
+      pageSize?: number | string;
+      status?: string;
+      year?: number | string;
+      clientId?: string;
+      auditType?: string;
+    },
+  ) {
     this.assertCrm(user);
 
     // Get all clients assigned to this CRM
@@ -243,9 +251,7 @@ export class AuditsService implements OnModuleInit {
       return { data: [], total: 0 };
     }
 
-    const clientIds = assignedClientIds.map(
-      (c) => c.id,
-    );
+    const clientIds = assignedClientIds.map((c) => c.id);
 
     const page = Math.max(1, Number(q?.page) || 1);
     const pageSize = Math.min(250, Math.max(1, Number(q?.pageSize) || 25));
@@ -721,7 +727,19 @@ export class AuditsService implements OnModuleInit {
     };
   }
 
-  async listForAuditor(user: ReqUser, q: { page?: number | string; pageSize?: number | string; frequency?: string; status?: string; year?: number | string; clientId?: string; contractorUserId?: string; branchId?: string }) {
+  async listForAuditor(
+    user: ReqUser,
+    q: {
+      page?: number | string;
+      pageSize?: number | string;
+      frequency?: string;
+      status?: string;
+      year?: number | string;
+      clientId?: string;
+      contractorUserId?: string;
+      branchId?: string;
+    },
+  ) {
     this.assertAuditor(user);
 
     const page = Math.max(1, Number(q?.page) || 1);
@@ -805,7 +823,9 @@ export class AuditsService implements OnModuleInit {
     if (q.status) {
       qb.andWhere('a.status = :st', { st: q.status });
     } else {
-      qb.andWhere("a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')");
+      qb.andWhere(
+        "a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')",
+      );
     }
 
     if (q.year) {
@@ -963,12 +983,18 @@ export class AuditsService implements OnModuleInit {
       }
 
       if (availableCols.selectedObservationIds) {
-        const idx = 5 + Number(availableCols.scope) + Number(availableCols.methodology);
+        const idx =
+          5 + Number(availableCols.scope) + Number(availableCols.methodology);
         insertColumns.splice(idx, 0, 'selected_observation_ids');
         insertValues.splice(idx, 0, JSON.stringify(selectedObservationIds));
       }
 
-      insertColumns.push('status', 'prepared_by_user_id', 'prepared_date', 'updated_at');
+      insertColumns.push(
+        'status',
+        'prepared_by_user_id',
+        'prepared_date',
+        'updated_at',
+      );
       insertValues.push('DRAFT', userId || null);
 
       const placeholders = insertColumns.map((col, i) => {
@@ -1199,7 +1225,10 @@ export class AuditsService implements OnModuleInit {
     });
   }
 
-  async listForClient(user: ReqUser, q: { frequency?: string; status?: string; year?: number | string }) {
+  async listForClient(
+    user: ReqUser,
+    q: { frequency?: string; status?: string; year?: number | string },
+  ) {
     if (!user || user.roleCode !== 'CLIENT') {
       throw new ForbiddenException('CLIENT access only');
     }
@@ -1354,7 +1383,11 @@ export class AuditsService implements OnModuleInit {
     };
   }
 
-  private async getLatestReportRow(auditId: string): Promise<{ status?: string; updated_at?: string | null; finalized_at?: string | null } | null> {
+  private async getLatestReportRow(auditId: string): Promise<{
+    status?: string;
+    updated_at?: string | null;
+    finalized_at?: string | null;
+  } | null> {
     const rows = await this.dataSource.query(
       `SELECT *
        FROM audit_reports
@@ -1810,7 +1843,14 @@ export class AuditsService implements OnModuleInit {
 
     // ── Auto-link checklist item ──────────────────────────────────
     try {
-      await this.autoLinkChecklistItem(auditId, docId, tbl, decision, remarks, user.userId);
+      await this.autoLinkChecklistItem(
+        auditId,
+        docId,
+        tbl,
+        decision,
+        remarks,
+        user.userId,
+      );
     } catch {
       // Non-critical: don't fail the review if checklist sync fails
     }
@@ -1818,7 +1858,14 @@ export class AuditsService implements OnModuleInit {
     // ── Auto-create observation when rejecting a document ─────────
     if (decision === 'NON_COMPLIED') {
       try {
-        await this.autoCreateObservationFromRejection(auditId, docId, tbl, remarks || '', user.userId, audit);
+        await this.autoCreateObservationFromRejection(
+          auditId,
+          docId,
+          tbl,
+          remarks || '',
+          user.userId,
+          audit,
+        );
       } catch {
         // Non-critical
       }
@@ -1860,9 +1907,14 @@ export class AuditsService implements OnModuleInit {
     });
     if (!pendingItems.length) return;
 
-    const normalize = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
-    const wordsOf = (s: string) => s.split(/\s+/).filter(w => w.length > 1);
-    const stem = (w: string) => w.endsWith('s') && w.length > 3 ? w.slice(0, -1) : w;
+    const normalize = (s: string) =>
+      String(s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ' ')
+        .trim();
+    const wordsOf = (s: string) => s.split(/\s+/).filter((w) => w.length > 1);
+    const stem = (w: string) =>
+      w.endsWith('s') && w.length > 3 ? w.slice(0, -1) : w;
     const docTypeNorm = normalize(docType);
     const fileNameNorm = normalize(fileName);
 
@@ -1871,27 +1923,39 @@ export class AuditsService implements OnModuleInit {
       const labelNorm = normalize(item.itemLabel);
       const itemDocTypeNorm = normalize(item.docType ?? '');
       // 1. Exact docType match (works when checklist item has docType set)
-      if (itemDocTypeNorm && docTypeNorm && itemDocTypeNorm === docTypeNorm) return true;
+      if (itemDocTypeNorm && docTypeNorm && itemDocTypeNorm === docTypeNorm)
+        return true;
       // 2. All words of docType found individually in label words (e.g. "pf challan" ⊆ words of "pf monthly challan")
       const dtWords = wordsOf(docTypeNorm).map(stem);
       const lblWordSet = new Set(wordsOf(labelNorm).map(stem));
-      if (dtWords.length > 0 && dtWords.every(w => lblWordSet.has(w))) return true;
+      if (dtWords.length > 0 && dtWords.every((w) => lblWordSet.has(w)))
+        return true;
       // 3. All words of label found in docType words (handles short labels that are subsets of docType)
       const lblWords = wordsOf(labelNorm).map(stem);
       const dtWordSet = new Set(wordsOf(docTypeNorm).map(stem));
-      if (lblWords.length > 0 && lblWords.every(w => dtWordSet.has(w))) return true;
+      if (lblWords.length > 0 && lblWords.every((w) => dtWordSet.has(w)))
+        return true;
       // 4. All significant label words appear in the uploaded filename
-      if (fileNameNorm && wordsOf(labelNorm).filter(w => w.length > 3).every(w => fileNameNorm.includes(w))) return true;
+      if (
+        fileNameNorm &&
+        wordsOf(labelNorm)
+          .filter((w) => w.length > 3)
+          .every((w) => fileNameNorm.includes(w))
+      )
+        return true;
       return false;
     });
 
     if (!matched) return;
 
-    const checklistStatus = decision === 'COMPLIED' ? 'COMPLIED' : 'NON_COMPLIED';
+    const checklistStatus =
+      decision === 'COMPLIED' ? 'COMPLIED' : 'NON_COMPLIED';
     matched.status = checklistStatus;
     matched.remarks = remarks
       ? remarks.slice(0, 500)
-      : (decision === 'COMPLIED' ? 'Document approved by auditor' : matched.remarks);
+      : decision === 'COMPLIED'
+        ? 'Document approved by auditor'
+        : matched.remarks;
     matched.reviewedBy = reviewerUserId;
     matched.reviewedAt = new Date();
     matched.linkedDocId = docId;
@@ -1930,7 +1994,8 @@ export class AuditsService implements OnModuleInit {
 
     // Derive a brief, meaningful observation text
     const docLabel = docType || fileName || 'Document';
-    const observationText = `${docLabel} found Non-Compliant. ${remarks}`.trim();
+    const observationText =
+      `${docLabel} found Non-Compliant. ${remarks}`.trim();
 
     // Map audit type → likely act reference for context
     const actMap: Record<string, string> = {
@@ -2010,7 +2075,10 @@ export class AuditsService implements OnModuleInit {
     const audit = await this.repo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
     // allow if this contractor is assigned OR if they share the same client
-    if (audit.contractorUserId !== user.userId && audit.clientId !== user.clientId) {
+    if (
+      audit.contractorUserId !== user.userId &&
+      audit.clientId !== user.clientId
+    ) {
       throw new ForbiddenException('Access denied');
     }
     return {
@@ -2021,7 +2089,11 @@ export class AuditsService implements OnModuleInit {
   }
 
   // ─── Auditor: Force-Complete Audit (bypasses pending docs/NCs) ─
-  async forceCompleteAudit(user: ReqUser, auditId: string, finalRemark?: string) {
+  async forceCompleteAudit(
+    user: ReqUser,
+    auditId: string,
+    finalRemark?: string,
+  ) {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
@@ -2045,7 +2117,8 @@ export class AuditsService implements OnModuleInit {
       id: audit.id,
       status: audit.status,
       score: obsScore.score,
-      message: 'Audit finalized by auditor. Pending documents/NCs were overridden.',
+      message:
+        'Audit finalized by auditor. Pending documents/NCs were overridden.',
     };
   }
 
@@ -2379,7 +2452,10 @@ export class AuditsService implements OnModuleInit {
       LABOUR_EMPLOYMENT: [
         ['Labour License', 'LABOUR_LICENSE'],
         ['Standing Orders', 'STANDING_ORDERS'],
-        ['Employment Exchange Quarterly Returns', 'EMPLOYMENT_EXCHANGE_RETURNS'],
+        [
+          'Employment Exchange Quarterly Returns',
+          'EMPLOYMENT_EXCHANGE_RETURNS',
+        ],
         ['Minimum Wages Register', 'MINIMUM_WAGES_RETURNS'],
         ['Equal Remuneration Register', 'EQUAL_REMUNERATION_REGISTER'],
         ['Maternity Benefit Records', 'MATERNITY_BENEFIT_RECORDS'],
@@ -2434,7 +2510,8 @@ export class AuditsService implements OnModuleInit {
     // For CONTRACTOR audits with a linked contractor, derive checklist from their
     // actual required document types so docType codes match uploaded documents
     // and auto-linking fires correctly.
-    let entries: Array<[string, string?]> = typeChecklistMap[audit.auditType] || [];
+    let entries: Array<[string, string?]> =
+      typeChecklistMap[audit.auditType] || [];
 
     if (audit.auditType === 'CONTRACTOR' && audit.contractorUserId) {
       const CONTRACTOR_DOC_LABELS: Record<string, string> = {
@@ -2860,11 +2937,19 @@ export class AuditsService implements OnModuleInit {
   async getDashboardAudits(
     user: ReqUser,
     tab: string,
-    filters: { clientId?: string; auditType?: string; fromDate?: string; toDate?: string },
+    filters: {
+      clientId?: string;
+      auditType?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
   ): Promise<{ items: any[] }> {
     this.assertAuditor(user);
 
-    const clauses: string[] = ['a.assigned_auditor_id = $1', "a.status != 'CANCELLED'"];
+    const clauses: string[] = [
+      'a.assigned_auditor_id = $1',
+      "a.status != 'CANCELLED'",
+    ];
     const params: any[] = [user.userId];
 
     const p = () => `$${params.length + 1}`;
@@ -2876,13 +2961,17 @@ export class AuditsService implements OnModuleInit {
       clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
     } else if (tab === 'DUE_SOON') {
       clauses.push(`a.due_date >= '${today}'`);
-      clauses.push(`a.due_date <= '${new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}'`);
+      clauses.push(
+        `a.due_date <= '${new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}'`,
+      );
       clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
     } else if (tab === 'COMPLETED') {
       clauses.push("a.status IN ('COMPLETED','SUBMITTED','CLOSED')");
     } else {
       // ACTIVE (default)
-      clauses.push("a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')");
+      clauses.push(
+        "a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')",
+      );
     }
 
     if (filters.clientId) {

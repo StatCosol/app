@@ -129,17 +129,26 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
 
-    const allowed = await this.branchAccess.getAllowedBranchIds(user.userId, clientId);
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      clientId,
+    );
     let branchId = query.branchId || undefined;
     if (allowed !== 'ALL') {
-      if (branchId && !allowed.includes(branchId)) return res.json({ data: [] });
+      if (branchId && !allowed.includes(branchId))
+        return res.json({ data: [] });
       if (!branchId) branchId = allowed.length === 1 ? allowed[0] : undefined;
     }
 
     const { data } = await this.svc.list(clientId, {
       branchId,
       branchIds: allowed !== 'ALL' && !branchId ? allowed : undefined,
-      isActive: query.isActive === 'true' ? true : query.isActive === 'false' ? false : undefined,
+      isActive:
+        query.isActive === 'true'
+          ? true
+          : query.isActive === 'false'
+            ? false
+            : undefined,
       approvalStatus: query.approvalStatus || undefined,
       search: query.search,
       limit: 10000,
@@ -150,38 +159,82 @@ export class ClientEmployeesController {
     const ws = wb.addWorksheet('Employees');
 
     const headers = [
-      'Employee Code', 'Name', 'Date of Birth', 'Gender', 'Father Name',
-      'Phone', 'Email', 'Aadhaar', 'PAN', 'UAN', 'ESIC',
-      'PF Applicable', 'ESI Applicable', 'Bank Name', 'Bank Account', 'IFSC',
-      'Designation', 'Department', 'Date of Joining', 'Date of Exit',
-      'State Code', 'Status', 'Approval',
+      'Employee Code',
+      'Name',
+      'Date of Birth',
+      'Gender',
+      'Father Name',
+      'Phone',
+      'Email',
+      'Aadhaar',
+      'PAN',
+      'UAN',
+      'ESIC',
+      'PF Applicable',
+      'ESI Applicable',
+      'Bank Name',
+      'Bank Account',
+      'IFSC',
+      'Designation',
+      'Department',
+      'Date of Joining',
+      'Date of Exit',
+      'State Code',
+      'Status',
+      'Approval',
     ];
     ws.addRow(headers);
     const headerRow = ws.getRow(1);
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4F46E5' },
+    };
     headerRow.alignment = { horizontal: 'center' };
-    ws.columns = headers.map(h => ({ width: Math.max(h.length + 4, 15) }));
+    ws.columns = headers.map((h) => ({ width: Math.max(h.length + 4, 15) }));
 
     for (const e of data) {
       ws.addRow([
-        e.employeeCode, e.name, e.dateOfBirth || '', e.gender || '', e.fatherName || '',
-        e.phone || '', e.email || '', e.aadhaar || '', e.pan || '', e.uan || '', e.esic || '',
-        e.pfApplicable ? 'Yes' : 'No', e.esiApplicable ? 'Yes' : 'No',
-        e.bankName || '', e.bankAccount || '', e.ifsc || '',
-        e.designation || '', e.department || '', e.dateOfJoining || '', e.dateOfExit || '',
-        e.stateCode || '', e.isActive ? 'Active' : 'Inactive', e.approvalStatus || '',
+        e.employeeCode,
+        e.name,
+        e.dateOfBirth || '',
+        e.gender || '',
+        e.fatherName || '',
+        e.phone || '',
+        e.email || '',
+        e.aadhaar || '',
+        e.pan || '',
+        e.uan || '',
+        e.esic || '',
+        e.pfApplicable ? 'Yes' : 'No',
+        e.esiApplicable ? 'Yes' : 'No',
+        e.bankName || '',
+        e.bankAccount || '',
+        e.ifsc || '',
+        e.designation || '',
+        e.department || '',
+        e.dateOfJoining || '',
+        e.dateOfExit || '',
+        e.stateCode || '',
+        e.isActive ? 'Active' : 'Inactive',
+        e.approvalStatus || '',
       ]);
     }
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', 'attachment; filename=employees.xlsx');
     await wb.xlsx.write(res);
     res.end();
   }
 
   // ── Bulk Appointment Letters (ZIP) ────────────────────
-  @ApiOperation({ summary: 'Download appointment letters for all employees as ZIP' })
+  @ApiOperation({
+    summary: 'Download appointment letters for all employees as ZIP',
+  })
   @Get('appointment-letters-bulk')
   async appointmentLettersBulk(
     @CurrentUser() user: ReqUser,
@@ -191,16 +244,22 @@ export class ClientEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
 
-    const allowed = await this.branchAccess.getAllowedBranchIds(user.userId, clientId);
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      clientId,
+    );
     const filters: any = { isActive: true, limit: 10000, offset: 0 };
     if (allowed !== 'ALL') {
       filters.branchIds = allowed;
     }
 
     const { data: employees } = await this.svc.list(clientId, filters);
-    if (!employees.length) throw new NotFoundException('No active employees found');
+    if (!employees.length)
+      throw new NotFoundException('No active employees found');
 
-    const client = await this.ds.getRepository(ClientEntity).findOne({ where: { id: clientId } });
+    const client = await this.ds
+      .getRepository(ClientEntity)
+      .findOne({ where: { id: clientId } });
     if (!client) throw new NotFoundException('Client not found');
 
     const companyName = client.clientName || 'The Company';
@@ -224,10 +283,20 @@ export class ClientEmployeesController {
       const clauses = this.getAppointmentClauses(doj);
 
       if (isDocx) {
-        const buf = await this.generateAppointmentDocx(companyName, empName, designation, clauses);
+        const buf = await this.generateAppointmentDocx(
+          companyName,
+          empName,
+          designation,
+          clauses,
+        );
         archive.append(buf, { name: fileName });
       } else {
-        const buf = await this.generateAppointmentPdf(companyName, empName, designation, clauses);
+        const buf = await this.generateAppointmentPdf(
+          companyName,
+          empName,
+          designation,
+          clauses,
+        );
         archive.append(buf, { name: fileName });
       }
     }
@@ -378,7 +447,11 @@ export class ClientEmployeesController {
     };
   }
 
-  private generateDefaultPassword(emp: { name?: string; phone?: string | null; aadhaar?: string | null }): string {
+  private generateDefaultPassword(emp: {
+    name?: string;
+    phone?: string | null;
+    aadhaar?: string | null;
+  }): string {
     // Default: first 4 chars of name (uppercase) + last 4 digits of phone/aadhaar + @123
     const prefix = (emp.name || 'USER').substring(0, 4).toUpperCase();
     const suffix = (emp.phone || emp.aadhaar || '0000').slice(-4);
@@ -428,20 +501,20 @@ export class ClientEmployeesController {
 
     // Generate actual PDF using employee + nomination data
     const nominations = await this.svc.listNominations(id);
-    const typeNominations = (nominations as Array<{
-      nominationType?: string;
-      declarationDate?: string | null;
-      status?: string;
-      members?: Array<{
-        name?: string;
-        relationship?: string;
-        dateOfBirth?: string;
-        sharePct?: number | null;
-        address?: string;
-      }>;
-    }>).filter(
-      (n) => n.nominationType === (formType || '').toUpperCase(),
-    );
+    const typeNominations = (
+      nominations as Array<{
+        nominationType?: string;
+        declarationDate?: string | null;
+        status?: string;
+        members?: Array<{
+          name?: string;
+          relationship?: string;
+          dateOfBirth?: string;
+          sharePct?: number | null;
+          address?: string;
+        }>;
+      }>
+    ).filter((n) => n.nominationType === (formType || '').toUpperCase());
 
     const doc = createDoc();
 
@@ -656,13 +729,8 @@ export class ClientEmployeesController {
 
     // ── Word (docx) format ──────────────────────────────────
     if (format === 'docx') {
-      const {
-        Document,
-        Packer,
-        Paragraph,
-        TextRun,
-        AlignmentType,
-      } = await import('docx');
+      const { Document, Packer, Paragraph, TextRun, AlignmentType } =
+        await import('docx');
 
       const SPACING_AFTER = 200;
       const LINE_SPACING = 300;
@@ -675,7 +743,13 @@ export class ClientEmployeesController {
           alignment: AlignmentType.CENTER,
           spacing: { after: SPACING_AFTER, line: LINE_SPACING },
           children: [
-            new TextRun({ text: 'APPOINTMENT LETTER', bold: true, size: 28, color: '0a2656', font: 'Calibri' }),
+            new TextRun({
+              text: 'APPOINTMENT LETTER',
+              bold: true,
+              size: 28,
+              color: '0a2656',
+              font: 'Calibri',
+            }),
           ],
         }),
       );
@@ -684,7 +758,13 @@ export class ClientEmployeesController {
       children.push(
         new Paragraph({
           spacing: { after: SPACING_AFTER, line: LINE_SPACING },
-          children: [new TextRun({ text: `Date: ${new Date().toLocaleDateString('en-IN')}`, size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: `Date: ${new Date().toLocaleDateString('en-IN')}`,
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
 
@@ -698,7 +778,13 @@ export class ClientEmployeesController {
       children.push(
         new Paragraph({
           spacing: { after: SPACING_AFTER, line: LINE_SPACING },
-          children: [new TextRun({ text: `Mr./Ms. ${empName}`, size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: `Mr./Ms. ${empName}`,
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
 
@@ -707,7 +793,13 @@ export class ClientEmployeesController {
         new Paragraph({
           spacing: { after: SPACING_AFTER, line: LINE_SPACING },
           children: [
-            new TextRun({ text: `Subject: Appointment as ${designation}`, bold: true, underline: {}, size: 22, font: 'Calibri' }),
+            new TextRun({
+              text: `Subject: Appointment as ${designation}`,
+              bold: true,
+              underline: {},
+              size: 22,
+              font: 'Calibri',
+            }),
           ],
         }),
       );
@@ -716,7 +808,13 @@ export class ClientEmployeesController {
       children.push(
         new Paragraph({
           spacing: { after: 120, line: LINE_SPACING },
-          children: [new TextRun({ text: `Dear Mr./Ms. ${empName},`, size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: `Dear Mr./Ms. ${empName},`,
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
 
@@ -739,13 +837,23 @@ export class ClientEmployeesController {
         children.push(
           new Paragraph({
             spacing: { after: 60, line: LINE_SPACING },
-            children: [new TextRun({ text: clause.title, bold: true, size: 22, color: '0a2656', font: 'Calibri' })],
+            children: [
+              new TextRun({
+                text: clause.title,
+                bold: true,
+                size: 22,
+                color: '0a2656',
+                font: 'Calibri',
+              }),
+            ],
           }),
         );
         children.push(
           new Paragraph({
             spacing: { after: SPACING_AFTER, line: LINE_SPACING },
-            children: [new TextRun({ text: clause.body, size: 22, font: 'Calibri' })],
+            children: [
+              new TextRun({ text: clause.body, size: 22, font: 'Calibri' }),
+            ],
           }),
         );
       }
@@ -755,7 +863,11 @@ export class ClientEmployeesController {
         new Paragraph({
           spacing: { after: 120, line: LINE_SPACING },
           children: [
-            new TextRun({ text: 'Kindly sign and return a copy of this letter as a token of your acceptance.', size: 22, font: 'Calibri' }),
+            new TextRun({
+              text: 'Kindly sign and return a copy of this letter as a token of your acceptance.',
+              size: 22,
+              font: 'Calibri',
+            }),
           ],
         }),
       );
@@ -763,7 +875,11 @@ export class ClientEmployeesController {
         new Paragraph({
           spacing: { after: SPACING_AFTER * 2, line: LINE_SPACING },
           children: [
-            new TextRun({ text: 'We welcome you to the organization and wish you a successful career with us.', size: 22, font: 'Calibri' }),
+            new TextRun({
+              text: 'We welcome you to the organization and wish you a successful career with us.',
+              size: 22,
+              font: 'Calibri',
+            }),
           ],
         }),
       );
@@ -772,25 +888,50 @@ export class ClientEmployeesController {
       children.push(
         new Paragraph({
           spacing: { after: 60, line: LINE_SPACING },
-          children: [new TextRun({ text: `For ${companyName}`, bold: true, size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: `For ${companyName}`,
+              bold: true,
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
       children.push(
         new Paragraph({
           spacing: { after: 80, line: LINE_SPACING },
-          children: [new TextRun({ text: 'Authorized Signatory', size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: 'Authorized Signatory',
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
       children.push(
         new Paragraph({
           spacing: { after: 60, line: LINE_SPACING },
-          children: [new TextRun({ text: 'Name: __________________', size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: 'Name: __________________',
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
       children.push(
         new Paragraph({
           spacing: { after: SPACING_AFTER * 2, line: LINE_SPACING },
-          children: [new TextRun({ text: 'Designation: _____________', size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: 'Designation: _____________',
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
 
@@ -798,7 +939,15 @@ export class ClientEmployeesController {
       children.push(
         new Paragraph({
           spacing: { after: 120, line: LINE_SPACING },
-          children: [new TextRun({ text: 'Employee Acceptance', bold: true, size: 22, color: '0a2656', font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: 'Employee Acceptance',
+              bold: true,
+              size: 22,
+              color: '0a2656',
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
       children.push(
@@ -816,13 +965,25 @@ export class ClientEmployeesController {
       children.push(
         new Paragraph({
           spacing: { after: 60, line: LINE_SPACING },
-          children: [new TextRun({ text: 'Signature: __________________', size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: 'Signature: __________________',
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
       children.push(
         new Paragraph({
           spacing: { after: 0, line: LINE_SPACING },
-          children: [new TextRun({ text: 'Date: ______________________', size: 22, font: 'Calibri' })],
+          children: [
+            new TextRun({
+              text: 'Date: ______________________',
+              size: 22,
+              font: 'Calibri',
+            }),
+          ],
         }),
       );
 
@@ -842,7 +1003,8 @@ export class ClientEmployeesController {
       const docxBuffer = await Packer.toBuffer(docxDoc);
       const docxFileName = `Appointment_Letter_${emp.employeeCode}.docx`;
       res.set({
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="${docxFileName}"`,
         'Content-Length': docxBuffer.length,
       });
@@ -891,7 +1053,10 @@ export class ClientEmployeesController {
       .font('Helvetica')
       .fontSize(BODY_FONT_SIZE)
       .fillColor(TEXT_COLOR)
-      .text(`Date: ${new Date().toLocaleDateString('en-IN')}`, { align: 'left', lineGap: LINE_GAP });
+      .text(`Date: ${new Date().toLocaleDateString('en-IN')}`, {
+        align: 'left',
+        lineGap: LINE_GAP,
+      });
 
     doc.moveDown(0.5);
 
@@ -904,7 +1069,10 @@ export class ClientEmployeesController {
     doc
       .font('Helvetica-Bold')
       .fontSize(BODY_FONT_SIZE)
-      .text(`Subject: Appointment as ${designation}`, { underline: true, lineGap: LINE_GAP });
+      .text(`Subject: Appointment as ${designation}`, {
+        underline: true,
+        lineGap: LINE_GAP,
+      });
 
     doc.font('Helvetica').moveDown(0.5);
 
@@ -962,10 +1130,7 @@ export class ClientEmployeesController {
       .fontSize(BODY_FONT_SIZE)
       .text(`For ${companyName}`);
 
-    doc
-      .font('Helvetica')
-      .fontSize(BODY_FONT_SIZE)
-      .text('Authorized Signatory');
+    doc.font('Helvetica').fontSize(BODY_FONT_SIZE).text('Authorized Signatory');
 
     doc.moveDown(0.4);
     doc.text('Name: __________________');
@@ -1007,32 +1172,83 @@ export class ClientEmployeesController {
 
   // ── Private helpers for appointment letter generation ──
 
-  private getAppointmentClauses(doj: string): { title: string; body: string }[] {
+  private getAppointmentClauses(
+    doj: string,
+  ): { title: string; body: string }[] {
     return [
-      { title: '1. Date of Joining', body: `Your date of joining shall be ${doj}.` },
-      { title: '2. Place of Posting & Transferability', body: `You will be posted at the Company's unit/office. However, your services are transferable to any of the Company's units, branches, or client locations based on business requirements.` },
-      { title: '3. Nature of Employment', body: `Your employment is full-time and will be governed by the rules, policies, and procedures of the Company as amended from time to time.` },
-      { title: '4. Probation Period', body: `You will be on probation for a period of six (6) months from the date of joining. The Company reserves the right to extend the probation period or confirm your services based on performance.` },
-      { title: '5. Compensation & Benefits', body: `Your compensation shall be as mutually agreed and communicated separately. All statutory deductions such as PF, ESI, PT, etc., will be applicable as per law.` },
-      { title: '6. Working Hours & Shift', body: `You shall adhere to the working hours, shifts, and attendance policies of the Company. You may be required to work in rotational shifts, overtime, or extended hours depending on operational requirements.` },
-      { title: '7. Leave & Holidays', body: `You shall be entitled to leave and holidays as per Company policy and applicable labour laws.` },
-      { title: '8. Code of Conduct & Discipline', body: `You are required to maintain discipline, integrity, and follow all Company policies, including workplace behavior, ethics, and compliance standards.` },
-      { title: '9. Safety & Statutory Compliance', body: `You must strictly comply with all safety rules, use of PPE, and operational guidelines as per the Factories Act and applicable safety regulations.` },
-      { title: '10. Confidentiality & Non-Disclosure (NDA)', body: `You shall maintain strict confidentiality of all Company information, including but not limited to business data, client information, processes, and trade secrets. You shall not disclose any such information during or after your employment without prior written consent of the Company.` },
-      { title: '11. Non-Compete & Conflict of Interest', body: `During your employment, you shall not engage in any other business or employment that conflicts with the interests of the Company.` },
-      { title: '12. Termination of Employment', body: `Either party may terminate this employment by giving 30 (thirty) days' notice or salary in lieu thereof. The Company reserves the right to terminate employment without notice in case of misconduct or violation of Company policies.` },
-      { title: '13. Retirement / Separation', body: `Your retirement age and separation conditions shall be as per Company policy and applicable laws.` },
-      { title: '14. Documents Submission', body: `You are required to submit the following documents at the time of joining: Aadhaar Card, PAN Card, Educational Certificates, Bank Account Details, and Passport Size Photographs.` },
-      { title: '15. Governing Laws & Jurisdiction', body: `This appointment shall be governed by applicable labour laws including the Factories Act, PF Act, ESI Act, and other statutory provisions. Jurisdiction shall be as per the location of the Company establishment.` },
+      {
+        title: '1. Date of Joining',
+        body: `Your date of joining shall be ${doj}.`,
+      },
+      {
+        title: '2. Place of Posting & Transferability',
+        body: `You will be posted at the Company's unit/office. However, your services are transferable to any of the Company's units, branches, or client locations based on business requirements.`,
+      },
+      {
+        title: '3. Nature of Employment',
+        body: `Your employment is full-time and will be governed by the rules, policies, and procedures of the Company as amended from time to time.`,
+      },
+      {
+        title: '4. Probation Period',
+        body: `You will be on probation for a period of six (6) months from the date of joining. The Company reserves the right to extend the probation period or confirm your services based on performance.`,
+      },
+      {
+        title: '5. Compensation & Benefits',
+        body: `Your compensation shall be as mutually agreed and communicated separately. All statutory deductions such as PF, ESI, PT, etc., will be applicable as per law.`,
+      },
+      {
+        title: '6. Working Hours & Shift',
+        body: `You shall adhere to the working hours, shifts, and attendance policies of the Company. You may be required to work in rotational shifts, overtime, or extended hours depending on operational requirements.`,
+      },
+      {
+        title: '7. Leave & Holidays',
+        body: `You shall be entitled to leave and holidays as per Company policy and applicable labour laws.`,
+      },
+      {
+        title: '8. Code of Conduct & Discipline',
+        body: `You are required to maintain discipline, integrity, and follow all Company policies, including workplace behavior, ethics, and compliance standards.`,
+      },
+      {
+        title: '9. Safety & Statutory Compliance',
+        body: `You must strictly comply with all safety rules, use of PPE, and operational guidelines as per the Factories Act and applicable safety regulations.`,
+      },
+      {
+        title: '10. Confidentiality & Non-Disclosure (NDA)',
+        body: `You shall maintain strict confidentiality of all Company information, including but not limited to business data, client information, processes, and trade secrets. You shall not disclose any such information during or after your employment without prior written consent of the Company.`,
+      },
+      {
+        title: '11. Non-Compete & Conflict of Interest',
+        body: `During your employment, you shall not engage in any other business or employment that conflicts with the interests of the Company.`,
+      },
+      {
+        title: '12. Termination of Employment',
+        body: `Either party may terminate this employment by giving 30 (thirty) days' notice or salary in lieu thereof. The Company reserves the right to terminate employment without notice in case of misconduct or violation of Company policies.`,
+      },
+      {
+        title: '13. Retirement / Separation',
+        body: `Your retirement age and separation conditions shall be as per Company policy and applicable laws.`,
+      },
+      {
+        title: '14. Documents Submission',
+        body: `You are required to submit the following documents at the time of joining: Aadhaar Card, PAN Card, Educational Certificates, Bank Account Details, and Passport Size Photographs.`,
+      },
+      {
+        title: '15. Governing Laws & Jurisdiction',
+        body: `This appointment shall be governed by applicable labour laws including the Factories Act, PF Act, ESI Act, and other statutory provisions. Jurisdiction shall be as per the location of the Company establishment.`,
+      },
     ];
   }
 
   private async generateAppointmentPdf(
-    companyName: string, empName: string, designation: string,
+    companyName: string,
+    empName: string,
+    designation: string,
     clauses: { title: string; body: string }[],
   ): Promise<Buffer> {
     const LETTERHEAD_TOP = 100;
-    const pageOptions = { margins: { top: 40 + LETTERHEAD_TOP, bottom: 40, left: 42, right: 42 } };
+    const pageOptions = {
+      margins: { top: 40 + LETTERHEAD_TOP, bottom: 40, left: 42, right: 42 },
+    };
     const doc = createDoc(pageOptions);
     const TEXT_COLOR = '#1e293b';
     const HEADING_COLOR = '#0a2656';
@@ -1042,45 +1258,96 @@ export class ClientEmployeesController {
     const LINE_GAP = 4;
 
     const ensureSpace = (h: number) => {
-      if (doc.page.height - doc.page.margins.bottom - doc.y < h) doc.addPage(pageOptions);
+      if (doc.page.height - doc.page.margins.bottom - doc.y < h)
+        doc.addPage(pageOptions);
     };
 
-    doc.font('Helvetica-Bold').fontSize(TITLE_SIZE).fillColor(HEADING_COLOR).text('APPOINTMENT LETTER', { align: 'center' });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(TITLE_SIZE)
+      .fillColor(HEADING_COLOR)
+      .text('APPOINTMENT LETTER', { align: 'center' });
     doc.moveDown(0.8);
-    doc.font('Helvetica').fontSize(BODY_FONT_SIZE).fillColor(TEXT_COLOR).text(`Date: ${new Date().toLocaleDateString('en-IN')}`, { align: 'left', lineGap: LINE_GAP });
+    doc
+      .font('Helvetica')
+      .fontSize(BODY_FONT_SIZE)
+      .fillColor(TEXT_COLOR)
+      .text(`Date: ${new Date().toLocaleDateString('en-IN')}`, {
+        align: 'left',
+        lineGap: LINE_GAP,
+      });
     doc.moveDown(0.5);
     doc.text('To,');
     doc.text(`Mr./Ms. ${empName}`);
     doc.moveDown(0.6);
-    doc.font('Helvetica-Bold').fontSize(BODY_FONT_SIZE).text(`Subject: Appointment as ${designation}`, { underline: true, lineGap: LINE_GAP });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(BODY_FONT_SIZE)
+      .text(`Subject: Appointment as ${designation}`, {
+        underline: true,
+        lineGap: LINE_GAP,
+      });
     doc.font('Helvetica').moveDown(0.5);
     doc.text(`Dear Mr./Ms. ${empName},`, { lineGap: LINE_GAP });
     doc.moveDown(0.4);
-    doc.text(`We are pleased to appoint you as ${designation} with ${companyName} ("the Company") on the following terms and conditions:`, { lineGap: LINE_GAP });
+    doc.text(
+      `We are pleased to appoint you as ${designation} with ${companyName} ("the Company") on the following terms and conditions:`,
+      { lineGap: LINE_GAP },
+    );
     doc.moveDown(0.6);
 
     for (const clause of clauses) {
       ensureSpace(42);
-      doc.font('Helvetica-Bold').fontSize(CLAUSE_TITLE_SIZE).fillColor(HEADING_COLOR).text(clause.title, { lineGap: LINE_GAP });
-      doc.font('Helvetica').fontSize(BODY_FONT_SIZE).fillColor(TEXT_COLOR).text(clause.body, { lineGap: LINE_GAP });
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(CLAUSE_TITLE_SIZE)
+        .fillColor(HEADING_COLOR)
+        .text(clause.title, { lineGap: LINE_GAP });
+      doc
+        .font('Helvetica')
+        .fontSize(BODY_FONT_SIZE)
+        .fillColor(TEXT_COLOR)
+        .text(clause.body, { lineGap: LINE_GAP });
       doc.moveDown(0.6);
     }
 
     ensureSpace(100);
     doc.moveDown(0.5);
-    doc.font('Helvetica').fontSize(BODY_FONT_SIZE).fillColor(TEXT_COLOR)
-      .text('Kindly sign and return a copy of this letter as a token of your acceptance.', { lineGap: LINE_GAP })
-      .text('We welcome you to the organization and wish you a successful career with us.', { lineGap: LINE_GAP });
+    doc
+      .font('Helvetica')
+      .fontSize(BODY_FONT_SIZE)
+      .fillColor(TEXT_COLOR)
+      .text(
+        'Kindly sign and return a copy of this letter as a token of your acceptance.',
+        { lineGap: LINE_GAP },
+      )
+      .text(
+        'We welcome you to the organization and wish you a successful career with us.',
+        { lineGap: LINE_GAP },
+      );
     doc.moveDown(1.0);
-    doc.font('Helvetica-Bold').fontSize(BODY_FONT_SIZE).text(`For ${companyName}`);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(BODY_FONT_SIZE)
+      .text(`For ${companyName}`);
     doc.font('Helvetica').fontSize(BODY_FONT_SIZE).text('Authorized Signatory');
     doc.moveDown(0.4);
     doc.text('Name: __________________');
     doc.text('Designation: _____________');
     doc.moveDown(1.0);
-    doc.font('Helvetica-Bold').fontSize(BODY_FONT_SIZE).fillColor(HEADING_COLOR).text('Employee Acceptance');
-    doc.font('Helvetica').fontSize(BODY_FONT_SIZE).fillColor(TEXT_COLOR)
-      .text(`I, ${empName}, hereby accept the terms and conditions of this appointment.`, { lineGap: LINE_GAP });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(BODY_FONT_SIZE)
+      .fillColor(HEADING_COLOR)
+      .text('Employee Acceptance');
+    doc
+      .font('Helvetica')
+      .fontSize(BODY_FONT_SIZE)
+      .fillColor(TEXT_COLOR)
+      .text(
+        `I, ${empName}, hereby accept the terms and conditions of this appointment.`,
+        { lineGap: LINE_GAP },
+      );
     doc.moveDown(0.4);
     doc.text('Signature: __________________');
     doc.text('Date: ______________________');
@@ -1090,40 +1357,259 @@ export class ClientEmployeesController {
   }
 
   private async generateAppointmentDocx(
-    companyName: string, empName: string, designation: string,
+    companyName: string,
+    empName: string,
+    designation: string,
     clauses: { title: string; body: string }[],
   ): Promise<Buffer> {
-    const { Document, Packer, Paragraph, TextRun, AlignmentType } = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, AlignmentType } =
+      await import('docx');
     const SPACING_AFTER = 200;
     const LINE_SPACING = 300;
     const children: any[] = [];
 
-    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: 'APPOINTMENT LETTER', bold: true, size: 28, color: '0a2656', font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: `Date: ${new Date().toLocaleDateString('en-IN')}`, size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 60, line: LINE_SPACING }, children: [new TextRun({ text: 'To,', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: `Mr./Ms. ${empName}`, size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: `Subject: Appointment as ${designation}`, bold: true, underline: {}, size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 120, line: LINE_SPACING }, children: [new TextRun({ text: `Dear Mr./Ms. ${empName},`, size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: `We are pleased to appoint you as ${designation} with ${companyName} ("the Company") on the following terms and conditions:`, size: 22, font: 'Calibri' })] }));
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'APPOINTMENT LETTER',
+            bold: true,
+            size: 28,
+            color: '0a2656',
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `Date: ${new Date().toLocaleDateString('en-IN')}`,
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 60, line: LINE_SPACING },
+        children: [new TextRun({ text: 'To,', size: 22, font: 'Calibri' })],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `Mr./Ms. ${empName}`,
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `Subject: Appointment as ${designation}`,
+            bold: true,
+            underline: {},
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 120, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `Dear Mr./Ms. ${empName},`,
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `We are pleased to appoint you as ${designation} with ${companyName} ("the Company") on the following terms and conditions:`,
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
 
     for (const clause of clauses) {
-      children.push(new Paragraph({ spacing: { after: 60, line: LINE_SPACING }, children: [new TextRun({ text: clause.title, bold: true, size: 22, color: '0a2656', font: 'Calibri' })] }));
-      children.push(new Paragraph({ spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: clause.body, size: 22, font: 'Calibri' })] }));
+      children.push(
+        new Paragraph({
+          spacing: { after: 60, line: LINE_SPACING },
+          children: [
+            new TextRun({
+              text: clause.title,
+              bold: true,
+              size: 22,
+              color: '0a2656',
+              font: 'Calibri',
+            }),
+          ],
+        }),
+      );
+      children.push(
+        new Paragraph({
+          spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+          children: [
+            new TextRun({ text: clause.body, size: 22, font: 'Calibri' }),
+          ],
+        }),
+      );
     }
 
-    children.push(new Paragraph({ spacing: { after: 120, line: LINE_SPACING }, children: [new TextRun({ text: 'Kindly sign and return a copy of this letter as a token of your acceptance.', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER * 2, line: LINE_SPACING }, children: [new TextRun({ text: 'We welcome you to the organization and wish you a successful career with us.', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 60, line: LINE_SPACING }, children: [new TextRun({ text: `For ${companyName}`, bold: true, size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 80, line: LINE_SPACING }, children: [new TextRun({ text: 'Authorized Signatory', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 60, line: LINE_SPACING }, children: [new TextRun({ text: 'Name: __________________', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER * 2, line: LINE_SPACING }, children: [new TextRun({ text: 'Designation: _____________', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 120, line: LINE_SPACING }, children: [new TextRun({ text: 'Employee Acceptance', bold: true, size: 22, color: '0a2656', font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: SPACING_AFTER, line: LINE_SPACING }, children: [new TextRun({ text: `I, ${empName}, hereby accept the terms and conditions of this appointment.`, size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 60, line: LINE_SPACING }, children: [new TextRun({ text: 'Signature: __________________', size: 22, font: 'Calibri' })] }));
-    children.push(new Paragraph({ spacing: { after: 0, line: LINE_SPACING }, children: [new TextRun({ text: 'Date: ______________________', size: 22, font: 'Calibri' })] }));
+    children.push(
+      new Paragraph({
+        spacing: { after: 120, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Kindly sign and return a copy of this letter as a token of your acceptance.',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER * 2, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'We welcome you to the organization and wish you a successful career with us.',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 60, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `For ${companyName}`,
+            bold: true,
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 80, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Authorized Signatory',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 60, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Name: __________________',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER * 2, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Designation: _____________',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 120, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Employee Acceptance',
+            bold: true,
+            size: 22,
+            color: '0a2656',
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: SPACING_AFTER, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: `I, ${empName}, hereby accept the terms and conditions of this appointment.`,
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 60, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Signature: __________________',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 0, line: LINE_SPACING },
+        children: [
+          new TextRun({
+            text: 'Date: ______________________',
+            size: 22,
+            font: 'Calibri',
+          }),
+        ],
+      }),
+    );
 
     const docxDoc = new Document({
-      sections: [{ properties: { page: { margin: { top: 1440, bottom: 720, left: 720, right: 720 } } }, children }],
+      sections: [
+        {
+          properties: {
+            page: { margin: { top: 1440, bottom: 720, left: 720, right: 720 } },
+          },
+          children,
+        },
+      ],
     });
     return Buffer.from(await Packer.toBuffer(docxDoc));
   }

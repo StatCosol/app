@@ -14,9 +14,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import {
-  HelpdeskService,
-} from './helpdesk.service';
+import { HelpdeskService } from './helpdesk.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
@@ -81,7 +79,11 @@ const storage = diskStorage({
 
 const uploadOptions = {
   storage,
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = [
       'application/pdf',
       'image/png',

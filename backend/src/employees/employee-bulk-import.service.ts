@@ -47,7 +47,6 @@ import { EmployeesService } from './employees.service';
 
 @Injectable()
 export class EmployeeBulkImportService {
-
   constructor(
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
@@ -125,7 +124,9 @@ export class EmployeeBulkImportService {
       if (!name) continue; // skip empty rows
 
       try {
-        const empCode = colMap.employeeCode ? this.cellStr(row, colMap.employeeCode) : null;
+        const empCode = colMap.employeeCode
+          ? this.cellStr(row, colMap.employeeCode)
+          : null;
         const data: EmployeeImportRow = {
           clientId,
           employeeCode: empCode,
@@ -134,7 +135,9 @@ export class EmployeeBulkImportService {
           dateOfBirth: colMap.dateOfBirth
             ? this.cellDate(row, colMap.dateOfBirth)
             : null,
-          gender: colMap.gender ? this.normalizeGender(this.cellStr(row, colMap.gender)) : null,
+          gender: colMap.gender
+            ? this.normalizeGender(this.cellStr(row, colMap.gender))
+            : null,
           fatherName: colMap.fatherName
             ? this.cellStr(row, colMap.fatherName)
             : null,
@@ -142,8 +145,12 @@ export class EmployeeBulkImportService {
           email: colMap.email ? this.cellStr(row, colMap.email) : null,
           aadhaar: colMap.aadhaar ? this.cellStr(row, colMap.aadhaar) : null,
           pan: colMap.pan ? this.cellStr(row, colMap.pan) : null,
-          uan: EmployeesService.sanitizeRegNumber(colMap.uan ? this.cellStr(row, colMap.uan) : null),
-          esic: EmployeesService.sanitizeRegNumber(colMap.esic ? this.cellStr(row, colMap.esic) : null),
+          uan: EmployeesService.sanitizeRegNumber(
+            colMap.uan ? this.cellStr(row, colMap.uan) : null,
+          ),
+          esic: EmployeesService.sanitizeRegNumber(
+            colMap.esic ? this.cellStr(row, colMap.esic) : null,
+          ),
           pfApplicable: colMap.pfApplicable
             ? this.cellBool(row, colMap.pfApplicable)
             : false,
@@ -167,9 +174,7 @@ export class EmployeeBulkImportService {
           stateCode: colMap.stateCode
             ? this.cellStr(row, colMap.stateCode)
             : null,
-          ctc: colMap.ctc
-            ? this.cellNum(row, colMap.ctc)
-            : null,
+          ctc: colMap.ctc ? this.cellNum(row, colMap.ctc) : null,
           monthlyGross: colMap.monthlyGross
             ? this.cellNum(row, colMap.monthlyGross)
             : null,
@@ -203,8 +208,16 @@ export class EmployeeBulkImportService {
         if (data.department) {
           let dept = deptByName.get(data.department.toLowerCase());
           if (!dept) {
-            const code = data.department.toUpperCase().replace(/[^A-Z0-9]/g, '_').substring(0, 50);
-            dept = this.deptRepo.create({ clientId, code, name: data.department, isActive: true });
+            const code = data.department
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, '_')
+              .substring(0, 50);
+            dept = this.deptRepo.create({
+              clientId,
+              code,
+              name: data.department,
+              isActive: true,
+            });
             dept = await this.deptRepo.save(dept);
             deptByName.set(data.department.toLowerCase(), dept);
           }
@@ -213,8 +226,16 @@ export class EmployeeBulkImportService {
         if (data.designation) {
           let desig = desigByName.get(data.designation.toLowerCase());
           if (!desig) {
-            const code = data.designation.toUpperCase().replace(/[^A-Z0-9]/g, '_').substring(0, 50);
-            desig = this.desigRepo.create({ clientId, code, name: data.designation, isActive: true });
+            const code = data.designation
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, '_')
+              .substring(0, 50);
+            desig = this.desigRepo.create({
+              clientId,
+              code,
+              name: data.designation,
+              isActive: true,
+            });
             desig = await this.desigRepo.save(desig);
             desigByName.set(data.designation.toLowerCase(), desig);
           }
@@ -249,10 +270,12 @@ export class EmployeeBulkImportService {
 
         // 4. Match by name (case-insensitive) + DOB
         if (!existing) {
-          const qb = this.empRepo.createQueryBuilder('e')
+          const qb = this.empRepo
+            .createQueryBuilder('e')
             .where('e.clientId = :clientId', { clientId })
             .andWhere('LOWER(e.name) = LOWER(:name)', { name: data.name });
-          if (data.dateOfBirth) qb.andWhere('e.dateOfBirth = :dob', { dob: data.dateOfBirth });
+          if (data.dateOfBirth)
+            qb.andWhere('e.dateOfBirth = :dob', { dob: data.dateOfBirth });
           existing = await qb.getOne();
         }
 
@@ -263,35 +286,51 @@ export class EmployeeBulkImportService {
           if (data.fatherName) updateFields.fatherName = data.fatherName;
           if (data.phone) updateFields.phone = data.phone.replace(/\s+/g, '');
           if (data.email) updateFields.email = data.email;
-          if (data.aadhaar) updateFields.aadhaar = data.aadhaar.replace(/\s+/g, '');
+          if (data.aadhaar)
+            updateFields.aadhaar = data.aadhaar.replace(/\s+/g, '');
           if (data.pan) updateFields.pan = data.pan;
           if (data.uan) updateFields.uan = data.uan;
           if (data.esic) updateFields.esic = data.esic;
           if (data.pfApplicable) updateFields.pfApplicable = data.pfApplicable;
-          if (data.esiApplicable) updateFields.esiApplicable = data.esiApplicable;
+          if (data.esiApplicable)
+            updateFields.esiApplicable = data.esiApplicable;
           if (data.bankName) updateFields.bankName = data.bankName;
           if (data.bankAccount) updateFields.bankAccount = data.bankAccount;
           if (data.ifsc) updateFields.ifsc = data.ifsc;
-          if (data.dateOfJoining) updateFields.dateOfJoining = data.dateOfJoining;
+          if (data.dateOfJoining)
+            updateFields.dateOfJoining = data.dateOfJoining;
           if (data.designation) updateFields.designation = data.designation;
           if (data.department) updateFields.department = data.department;
           if (data.departmentId) updateFields.departmentId = data.departmentId;
-          if (data.designationId) updateFields.designationId = data.designationId;
+          if (data.designationId)
+            updateFields.designationId = data.designationId;
           if (data.dateOfBirth) updateFields.dateOfBirth = data.dateOfBirth;
           if (data.ctc != null) updateFields.ctc = data.ctc;
-          if (data.monthlyGross != null) updateFields.monthlyGross = data.monthlyGross;
+          if (data.monthlyGross != null)
+            updateFields.monthlyGross = data.monthlyGross;
           if (data.pfRegistered) updateFields.pfRegistered = data.pfRegistered;
-          if (data.pfApplicableFrom) updateFields.pfApplicableFrom = data.pfApplicableFrom as any;
-          if (data.esiRegistered) updateFields.esiRegistered = data.esiRegistered;
-          if (data.esiApplicableFrom) updateFields.esiApplicableFrom = data.esiApplicableFrom as any;
-          if (data.pfServiceStartDate) updateFields.pfServiceStartDate = data.pfServiceStartDate as any;
-          if (data.basicAtPfStart != null) updateFields.basicAtPfStart = data.basicAtPfStart as any;
+          if (data.pfApplicableFrom)
+            updateFields.pfApplicableFrom = data.pfApplicableFrom as any;
+          if (data.esiRegistered)
+            updateFields.esiRegistered = data.esiRegistered;
+          if (data.esiApplicableFrom)
+            updateFields.esiApplicableFrom = data.esiApplicableFrom as any;
+          if (data.pfServiceStartDate)
+            updateFields.pfServiceStartDate = data.pfServiceStartDate as any;
+          if (data.basicAtPfStart != null)
+            updateFields.basicAtPfStart = data.basicAtPfStart as any;
           if (data.dateOfExit) updateFields.dateOfExit = data.dateOfExit as any;
           if (data.exitReason) updateFields.exitReason = data.exitReason;
 
           // Auto-set registration flags when numbers are present
-          if (EmployeesService.isValidRegistrationNumber(updateFields.uan)) { updateFields.pfApplicable = true; updateFields.pfRegistered = true; }
-          if (EmployeesService.isValidRegistrationNumber(updateFields.esic)) { updateFields.esiApplicable = true; updateFields.esiRegistered = true; }
+          if (EmployeesService.isValidRegistrationNumber(updateFields.uan)) {
+            updateFields.pfApplicable = true;
+            updateFields.pfRegistered = true;
+          }
+          if (EmployeesService.isValidRegistrationNumber(updateFields.esic)) {
+            updateFields.esiApplicable = true;
+            updateFields.esiRegistered = true;
+          }
 
           if (Object.keys(updateFields).length > 0) {
             Object.assign(existing, updateFields);
@@ -361,7 +400,13 @@ export class EmployeeBulkImportService {
           dateOfExit: data.dateOfExit ?? undefined,
           exitReason: data.exitReason ?? undefined,
         };
-        await this.empService.create(clientId, data.branchId || defaultBranchId || null, createDto, false, true);
+        await this.empService.create(
+          clientId,
+          data.branchId || defaultBranchId || null,
+          createDto,
+          false,
+          true,
+        );
         imported++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -430,15 +475,81 @@ export class EmployeeBulkImportService {
       ],
       stateCode: ['state code', 'statecode', 'state'],
       ctc: ['ctc', 'cost to company', 'annual ctc', 'ctc amount'],
-      monthlyGross: ['monthly gross', 'monthlygross', 'gross salary', 'gross', 'monthly_gross', 'gross wages', 'gross wage', 'gross pay', 'monthly salary', 'salary', 'wages', 'monthly pay', 'gross amount'],
-      pfRegistered: ['pf registered', 'pfregistered', 'pf_registered', 'pf reg'],
-      pfApplicableFrom: ['pf applicable from', 'pfapplicablefrom', 'pf_applicable_from', 'pf from', 'pf date', 'pf start date'],
-      esiRegistered: ['esi registered', 'esiregistered', 'esi_registered', 'esi reg'],
-      esiApplicableFrom: ['esi applicable from', 'esiapplicablefrom', 'esi_applicable_from', 'esi from', 'esi date', 'esi start date'],
-      pfServiceStartDate: ['pf service start date', 'pfservicestartdate', 'pf_service_start_date', 'pf service date', 'eps start date', 'pf membership date'],
-      basicAtPfStart: ['basic at pf start', 'basicatpfstart', 'basic_at_pf_start', 'basic salary at pf start', 'basic at joining'],
-      dateOfExit: ['date of exit', 'dateofexit', 'exit date', 'doe', 'date_of_exit', 'leaving date', 'last working date'],
-      exitReason: ['exit reason', 'exitreason', 'exit_reason', 'reason for exit', 'reason', 'leaving reason'],
+      monthlyGross: [
+        'monthly gross',
+        'monthlygross',
+        'gross salary',
+        'gross',
+        'monthly_gross',
+        'gross wages',
+        'gross wage',
+        'gross pay',
+        'monthly salary',
+        'salary',
+        'wages',
+        'monthly pay',
+        'gross amount',
+      ],
+      pfRegistered: [
+        'pf registered',
+        'pfregistered',
+        'pf_registered',
+        'pf reg',
+      ],
+      pfApplicableFrom: [
+        'pf applicable from',
+        'pfapplicablefrom',
+        'pf_applicable_from',
+        'pf from',
+        'pf date',
+        'pf start date',
+      ],
+      esiRegistered: [
+        'esi registered',
+        'esiregistered',
+        'esi_registered',
+        'esi reg',
+      ],
+      esiApplicableFrom: [
+        'esi applicable from',
+        'esiapplicablefrom',
+        'esi_applicable_from',
+        'esi from',
+        'esi date',
+        'esi start date',
+      ],
+      pfServiceStartDate: [
+        'pf service start date',
+        'pfservicestartdate',
+        'pf_service_start_date',
+        'pf service date',
+        'eps start date',
+        'pf membership date',
+      ],
+      basicAtPfStart: [
+        'basic at pf start',
+        'basicatpfstart',
+        'basic_at_pf_start',
+        'basic salary at pf start',
+        'basic at joining',
+      ],
+      dateOfExit: [
+        'date of exit',
+        'dateofexit',
+        'exit date',
+        'doe',
+        'date_of_exit',
+        'leaving date',
+        'last working date',
+      ],
+      exitReason: [
+        'exit reason',
+        'exitreason',
+        'exit_reason',
+        'reason for exit',
+        'reason',
+        'leaving reason',
+      ],
     };
 
     for (const [key, aliases] of Object.entries(mappings)) {
@@ -468,13 +579,24 @@ export class EmployeeBulkImportService {
     if (typeof value === 'object' && value !== null) {
       if ('richText' in (value as Record<string, unknown>)) {
         const rt = (value as { richText: Array<{ text: string }> }).richText;
-        return rt.map((r) => r.text || '').join('').replace(/\s+/g, ' ').trim().toLowerCase();
+        return rt
+          .map((r) => r.text || '')
+          .join('')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
       }
       if ('text' in (value as Record<string, unknown>)) {
-        return String((value as { text: unknown }).text).replace(/\s+/g, ' ').trim().toLowerCase();
+        return String((value as { text: unknown }).text)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
       }
       if ('result' in (value as Record<string, unknown>)) {
-        return String((value as { result: unknown }).result).replace(/\s+/g, ' ').trim().toLowerCase();
+        return String((value as { result: unknown }).result)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
       }
     }
     return String(value).replace(/\s+/g, ' ').trim().toLowerCase();
@@ -487,7 +609,12 @@ export class EmployeeBulkImportService {
     if (typeof value === 'object' && value !== null) {
       if ('richText' in (value as Record<string, unknown>)) {
         const rt = (value as { richText: Array<{ text: string }> }).richText;
-        return rt.map((r) => r.text || '').join('').trim() || null;
+        return (
+          rt
+            .map((r) => r.text || '')
+            .join('')
+            .trim() || null
+        );
       }
     }
 

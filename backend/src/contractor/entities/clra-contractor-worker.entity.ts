@@ -29,7 +29,12 @@ export class ClraContractorWorker {
   @Column({ name: 'full_name', length: 255 })
   fullName: string;
 
-  @Column({ name: 'father_or_spouse_name', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'father_or_spouse_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   fatherOrSpouseName: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
@@ -44,7 +49,12 @@ export class ClraContractorWorker {
   @Column({ type: 'varchar', length: 120, nullable: true })
   designation: string | null;
 
-  @Column({ name: 'aadhaar_masked', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'aadhaar_masked',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   aadhaarMasked: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
@@ -53,7 +63,12 @@ export class ClraContractorWorker {
   @Column({ name: 'esi_no', type: 'varchar', length: 50, nullable: true })
   esiNo: string | null;
 
-  @Column({ name: 'bank_account_masked', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'bank_account_masked',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   bankAccountMasked: string | null;
 
   @Column({ type: 'varchar', length: 30, nullable: true })

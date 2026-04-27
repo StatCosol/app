@@ -2,9 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { SlaComplianceResolverService } from '../compliances/sla-compliance-resolver.service';
-import {
-  SlaComplianceScheduleService,
-} from '../compliances/sla-compliance-schedule.service';
+import { SlaComplianceScheduleService } from '../compliances/sla-compliance-schedule.service';
 
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -69,14 +67,15 @@ export class SlaAutogenCronService {
     branchId: string,
     today: Date,
   ): Promise<number> {
-    const regs: { id: string; type: string; expiry_date: string }[] = await this.ds.query(
-      `SELECT id, type, expiry_date
+    const regs: { id: string; type: string; expiry_date: string }[] =
+      await this.ds.query(
+        `SELECT id, type, expiry_date
        FROM branch_registrations
        WHERE client_id = $1 AND branch_id = $2
          AND status <> 'DELETED'
          AND expiry_date IS NOT NULL`,
-      [clientId, branchId],
-    );
+        [clientId, branchId],
+      );
 
     let count = 0;
     for (const r of regs) {

@@ -58,13 +58,23 @@ export class NoticeEntity {
   @JoinColumn({ name: 'branch_id' })
   branch?: BranchEntity | null;
 
-  @Column({ name: 'notice_type', type: 'varchar', length: 30, default: 'GENERAL' })
+  @Column({
+    name: 'notice_type',
+    type: 'varchar',
+    length: 30,
+    default: 'GENERAL',
+  })
   noticeType: NoticeType;
 
   @Column({ name: 'department_name', type: 'varchar', length: 150 })
   departmentName: string;
 
-  @Column({ name: 'reference_no', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'reference_no',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   referenceNo: string | null;
 
   @Column({ type: 'varchar', length: 255 })
@@ -95,7 +105,11 @@ export class NoticeEntity {
   @JoinColumn({ name: 'assigned_to_user_id' })
   assignedTo?: UserEntity | null;
 
-  @Column({ name: 'linked_compliance_instance_id', type: 'uuid', nullable: true })
+  @Column({
+    name: 'linked_compliance_instance_id',
+    type: 'uuid',
+    nullable: true,
+  })
   linkedComplianceInstanceId: string | null;
 
   @Column({ name: 'response_summary', type: 'text', nullable: true })

@@ -1,42 +1,55 @@
 import { IsString, IsOptional, IsDateString } from 'class-validator';
 
 export class UpdateNoticeDto {
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   noticeType?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   departmentName?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   referenceNo?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   subject?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   description?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   responseDueDate?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   severity?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   assignedToUserId?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   status?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   responseSummary?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsDateString()
   responseDate?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   closureRemarks?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   remarks?: string;
 }

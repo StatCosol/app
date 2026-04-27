@@ -28,7 +28,12 @@ export class BillingClientsService {
     return this.repo.save(client);
   }
 
-  async findAll(query: { page?: number; limit?: number; search?: string; status?: string }) {
+  async findAll(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) {
     const page = query.page || 1;
     const limit = Math.min(query.limit || 25, 100);
 

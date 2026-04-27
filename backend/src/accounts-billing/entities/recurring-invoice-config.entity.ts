@@ -1,6 +1,11 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
-  ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { BillingFrequency } from '../enums';
 import { BillingClient } from './billing-client.entity';
@@ -20,7 +25,12 @@ export class RecurringInvoiceConfig {
   @Column({ name: 'invoice_name', length: 150 })
   invoiceName: string;
 
-  @Column({ type: 'enum', enum: BillingFrequency, enumName: 'billing_frequency', default: BillingFrequency.MONTHLY })
+  @Column({
+    type: 'enum',
+    enum: BillingFrequency,
+    enumName: 'billing_frequency',
+    default: BillingFrequency.MONTHLY,
+  })
   frequency: BillingFrequency;
 
   @Column({ name: 'service_description', type: 'text' })
@@ -29,7 +39,13 @@ export class RecurringInvoiceConfig {
   @Column({ name: 'default_amount', type: 'numeric', precision: 14, scale: 2 })
   defaultAmount: number;
 
-  @Column({ name: 'default_gst_rate', type: 'numeric', precision: 5, scale: 2, default: 18 })
+  @Column({
+    name: 'default_gst_rate',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    default: 18,
+  })
   defaultGstRate: number;
 
   @Column({ name: 'start_date', type: 'date' })

@@ -58,7 +58,11 @@ const storage = diskStorage({
 
 const fileUploadOptions = {
   storage,
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = [
       'application/pdf',
       'image/png',
@@ -89,7 +93,11 @@ const registrationStorage = diskStorage({
 
 const registrationUploadOptions = {
   storage: registrationStorage,
-  fileFilter: (_req: unknown, file: { mimetype: string }, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
     if (!allowed.includes(file.mimetype)) {
       return cb(
