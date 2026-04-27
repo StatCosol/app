@@ -506,6 +506,7 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
         items: [
           { label: 'Compliance Tracker', route: '/crm/compliance-tracker', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Returns / Filings', route: '/crm/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Registrations & Licenses', route: '/crm/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h2M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Document Review Center', route: '/crm/branch-docs-review', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Compliance Calendar', route: '/crm/calendar', icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'SLA Tracker', route: '/crm/sla', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },

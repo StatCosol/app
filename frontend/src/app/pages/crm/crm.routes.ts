@@ -42,6 +42,10 @@ const CrmComplianceDocsComponent = () =>
   import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
 const CrmRegistrationsComponent = () =>
   import('./registrations/crm-registrations.component').then((m) => m.CrmRegistrationsComponent);
+const CrmRegistrationsLandingComponent = () =>
+  import('./registrations/crm-registrations-landing.component').then(
+    (m) => m.CrmRegistrationsLandingComponent,
+  );
 const CrmUnitDocumentsComponent = () =>
   import('./unit-documents/crm-unit-documents.component').then((m) => m.CrmUnitDocumentsComponent);
 const CrmSafetyComponent = () =>
@@ -118,6 +122,7 @@ export const CRM_ROUTES: Routes = [
       { path: 'audit-monitoring', loadComponent: CrmAuditMonitoringComponent },
       { path: 'expiry-tasks', loadComponent: CrmExpiryTasksComponent },
       { path: 'returns', loadComponent: CrmReturnsWorkspacePageComponent },
+      { path: 'registrations', loadComponent: CrmRegistrationsLandingComponent },
       { path: 'renewals', loadComponent: CrmRenewalsWorkspacePageComponent },
       { path: 'amendments', loadComponent: CrmAmendmentsWorkspacePageComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
