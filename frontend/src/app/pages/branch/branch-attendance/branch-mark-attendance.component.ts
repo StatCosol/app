@@ -10,6 +10,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
+import * as XLSX from 'xlsx';
 import { environment } from '../../../../environments/environment';
 import { ToastService } from '../../../shared/toast/toast.service';
 
@@ -76,6 +77,23 @@ const STANDARD_HOURS = 9;
           </p>
         </div>
         <div class="head-actions">
+          <input
+            type="month"
+            class="month-picker"
+            name="exportMonth"
+            [(ngModel)]="exportMonth"
+            [max]="todayMonthStr"
+            title="Month to export"
+          />
+          <button
+            type="button"
+            class="btn ghost"
+            (click)="downloadMonthlyExcel()"
+            [disabled]="exporting"
+            title="Download monthly attendance as Excel"
+          >
+            {{ exporting ? 'Exporting…' : 'Download Excel' }}
+          </button>
           <button type="button" class="btn ghost" (click)="load()" [disabled]="loading">
             Refresh
           </button>
@@ -238,6 +256,7 @@ const STANDARD_HOURS = 9;
     .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #64748b; font-weight: 600; }
     .toolbar input, .toolbar select { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; font-size: 13px; min-width: 160px; background: #fff; }
+    .month-picker { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; font-size: 13px; background: #fff; color: #0f172a; }
     .toolbar-actions { display: flex; gap: 8px; margin-left: auto; }
     .btn { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; background: #fff; color: #0f172a; }
     .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -273,8 +292,11 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
 
   loading = false;
   saving = false;
+  exporting = false;
   selectedDate = this.todayIso();
   todayStr = this.todayIso();
+  todayMonthStr = this.todayIso().slice(0, 7);
+  exportMonth = this.todayIso().slice(0, 7);
   search = '';
   defaultStatus: AttendanceStatus = 'PRESENT';
   rows: EmployeeRow[] = [];
@@ -472,6 +494,214 @@ export class BranchMarkAttendanceComponent implements OnInit, OnDestroy {
             err?.error?.message || 'Failed to save attendance.',
           );
         },
+      });
+  }
+
+  // ── Monthly Excel Export ─────────────────────────────────────────────
+  downloadMonthlyExcel(): void {
+    const monthStr = this.exportMonth;
+    if (!/^\d{4}-\d{2}$/.test(monthStr)) {
+      this.toast.error('Pick a valid month to export.');
+      return;
+    }
+    const [yearStr, monStr] = monthStr.split('-');
+    const year = Number(yearStr);
+    const month = Number(monStr); // 1-12
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const from = `${monthStr}-01`;
+    const to = `${monthStr}-${String(daysInMonth).padStart(2, '0')}`;
+
+    this.exporting = true;
+    this.cdr.markForCheck();
+
+    const empParams = new HttpParams()
+      .set('isActive', 'true')
+      .set('limit', '1000');
+    const attParams = new HttpParams().set('from', from).set('to', to);
+
+    forkJoin({
+      employees: this.http
+        .get<any>(`${this.base}/employees`, { params: empParams })
+        .pipe(catchError(() => of({ data: [] }))),
+      attendance: this.http
+        .get<any>(`${this.base}/attendance`, { params: attParams })
+        .pipe(catchError(() => of([]))),
+    })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe(({ employees, attendance }) => {
+        try {
+          const empList: ApiEmployee[] = Array.isArray(employees)
+            ? employees
+            : employees?.data ?? [];
+          const attList: any[] = Array.isArray(attendance)
+            ? attendance
+            : attendance?.data ?? [];
+
+          // Group attendance by employeeId then by date
+          const byEmp = new Map<string, Map<string, any>>();
+          attList.forEach((a) => {
+            const eid = a.employeeId;
+            const d = (a.date || '').slice(0, 10);
+            if (!eid || !d) return;
+            if (!byEmp.has(eid)) byEmp.set(eid, new Map());
+            byEmp.get(eid)!.set(d, a);
+          });
+
+          const sortedEmps = empList
+            .filter((e) => e.isActive !== false)
+            .map((e) => ({
+              ...e,
+              displayName:
+                e.fullName ||
+                [e.firstName, e.lastName].filter(Boolean).join(' ') ||
+                e.employeeCode,
+            }))
+            .sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+          const dayCols: string[] = [];
+          for (let d = 1; d <= daysInMonth; d++) {
+            dayCols.push(String(d));
+          }
+
+          // Sheet 1: Status grid (one cell per day with status code)
+          const statusHeader = [
+            'Code',
+            'Employee',
+            'Designation',
+            ...dayCols,
+            'Present',
+            'Absent',
+            'Half Day',
+            'Leave',
+            'Week Off',
+            'Holiday',
+            'Worked Hrs',
+            'OT Hrs',
+          ];
+          const statusRows: (string | number)[][] = [statusHeader];
+
+          // Sheet 2: Detailed rows (one row per attendance record)
+          const detailHeader = [
+            'Date',
+            'Code',
+            'Employee',
+            'Designation',
+            'Status',
+            'In Time',
+            'Out Time',
+            'Worked Hrs',
+            'OT Hrs',
+            'Remarks',
+          ];
+          const detailRows: (string | number)[][] = [detailHeader];
+
+          const codeFor = (s: string): string => {
+            switch (s) {
+              case 'PRESENT': return 'P';
+              case 'ABSENT': return 'A';
+              case 'HALF_DAY': return 'H';
+              case 'ON_LEAVE': return 'L';
+              case 'WEEK_OFF': return 'WO';
+              case 'HOLIDAY': return 'HO';
+              default: return '';
+            }
+          };
+
+          for (const emp of sortedEmps) {
+            const empAtt = byEmp.get(emp.id) || new Map();
+            let cP = 0, cA = 0, cHD = 0, cL = 0, cWO = 0, cHO = 0;
+            let totWorked = 0;
+            let totOt = 0;
+            const dayCells: string[] = [];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+              const dateStr = `${monthStr}-${String(d).padStart(2, '0')}`;
+              const rec = empAtt.get(dateStr);
+              if (!rec) {
+                dayCells.push('');
+                continue;
+              }
+              const st = String(rec.status || '');
+              dayCells.push(codeFor(st));
+              switch (st) {
+                case 'PRESENT': cP++; break;
+                case 'ABSENT': cA++; break;
+                case 'HALF_DAY': cHD++; break;
+                case 'ON_LEAVE': cL++; break;
+                case 'WEEK_OFF': cWO++; break;
+                case 'HOLIDAY': cHO++; break;
+              }
+              const wh = Number(rec.workedHours ?? 0) || 0;
+              const oh = Number(rec.overtimeHours ?? 0) || 0;
+              totWorked += wh;
+              totOt += oh;
+
+              detailRows.push([
+                dateStr,
+                emp.employeeCode || '',
+                emp.displayName,
+                emp.designation || '',
+                st,
+                this.normalizeTime(rec.checkIn) || '',
+                this.normalizeTime(rec.checkOut) || '',
+                Number(wh.toFixed(2)),
+                Number(oh.toFixed(2)),
+                rec.remarks || '',
+              ]);
+            }
+
+            statusRows.push([
+              emp.employeeCode || '',
+              emp.displayName,
+              emp.designation || '',
+              ...dayCells,
+              cP,
+              cA,
+              cHD,
+              cL,
+              cWO,
+              cHO,
+              Number(totWorked.toFixed(2)),
+              Number(totOt.toFixed(2)),
+            ]);
+          }
+
+          // Legend rows on Sheet 1
+          statusRows.push([]);
+          statusRows.push(['Legend:', 'P = Present', 'A = Absent', 'H = Half Day', 'L = On Leave', 'WO = Week Off', 'HO = Holiday']);
+
+          const wb = XLSX.utils.book_new();
+          const ws1 = XLSX.utils.aoa_to_sheet(statusRows);
+          // Column widths
+          const widths = [
+            { wch: 12 }, { wch: 28 }, { wch: 18 },
+            ...dayCols.map(() => ({ wch: 4 })),
+            { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 8 }, { wch: 9 }, { wch: 9 },
+            { wch: 11 }, { wch: 9 },
+          ];
+          (ws1 as any)['!cols'] = widths;
+          (ws1 as any)['!freeze'] = { xSplit: 3, ySplit: 1 };
+          XLSX.utils.book_append_sheet(wb, ws1, 'Monthly Grid');
+
+          const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
+          (ws2 as any)['!cols'] = [
+            { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 18 },
+            { wch: 12 }, { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 9 }, { wch: 30 },
+          ];
+          XLSX.utils.book_append_sheet(wb, ws2, 'Daily Detail');
+
+          const fname = `attendance-${monthStr}.xlsx`;
+          XLSX.writeFile(wb, fname);
+          this.toast.success(`Exported ${sortedEmps.length} employee(s) for ${monthStr}.`);
+        } catch (err: any) {
+          this.toast.error(err?.message || 'Failed to export Excel.');
+        }
       });
   }
 
