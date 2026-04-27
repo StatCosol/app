@@ -74,6 +74,10 @@ const BranchDailyAttendanceComponent = () =>
   import('../client/attendance/client-daily-attendance-page.component').then(
     (m) => m.ClientDailyAttendancePage,
   );
+const BranchMarkAttendanceComponent = () =>
+  import('./branch-attendance/branch-mark-attendance.component').then(
+    (m) => m.BranchMarkAttendanceComponent,
+  );
 const BranchNoticesComponent = () =>
   import('./notices/branch-notices.component').then((m) => m.BranchNoticesComponent);
 const BranchCtcComponent = () =>
@@ -127,6 +131,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'payroll', loadComponent: BranchPayrollComponent, canActivate: [branchPayrollAccessGuard] },
       { path: 'branch-ctc', loadComponent: BranchCtcComponent },
       { path: 'attendance', loadComponent: BranchAttendanceReviewComponent },
+      { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent },
       { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },

@@ -89,6 +89,16 @@ export class BulkAttendanceEntryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsNumber()
+  workedHours?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  overtimeHours?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   remarks?: string;
 }

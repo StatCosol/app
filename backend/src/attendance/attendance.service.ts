@@ -77,6 +77,8 @@ export class AttendanceService {
         status: AttendanceEntity['status'];
         checkIn?: string;
         checkOut?: string;
+        workedHours?: number;
+        overtimeHours?: number;
         remarks?: string;
       }[];
     },
