@@ -229,13 +229,15 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             </div>
             <div *ngIf="nom.members && nom.members.length" class="nom-members">
               <div class="nom-member-row header">
-                <span>Name</span><span>Relationship</span><span>Share %</span><span>Minor</span>
+                <span>Name</span><span>Relationship</span><span>DOB</span><span>Share %</span><span>Address</span><span>Minor / Guardian</span>
               </div>
               <div *ngFor="let m of nom.members" class="nom-member-row">
                 <span>{{ m.memberName }}</span>
                 <span>{{ m.relationship || '-' }}</span>
+                <span>{{ m.dateOfBirth || '-' }}</span>
                 <span>{{ m.sharePct }}%</span>
-                <span>{{ m.isMinor ? 'Yes (' + (m.guardianName || '-') + ')' : 'No' }}</span>
+                <span>{{ m.address || '-' }}</span>
+                <span>{{ m.isMinor ? 'Yes — ' + (m.guardianName || '-') + (m.guardianRelationship ? ' (' + m.guardianRelationship + ')' : '') : 'No' }}</span>
               </div>
             </div>
             <div *ngIf="nom.witnessName" class="text-xs text-gray-500 mt-2">
@@ -265,15 +267,24 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <div *ngFor="let m of nomForm.members; let i = index" class="member-row">
                 <ui-form-input label="Name *" [(ngModel)]="m.memberName"></ui-form-input>
                 <ui-form-input label="Relationship" [(ngModel)]="m.relationship"></ui-form-input>
+                <div class="form-field">
+                  <label class="form-label" [attr.for]="'ced-nom-dob-' + i">Date of Birth</label>
+                  <input autocomplete="off" [id]="'ced-nom-dob-' + i" [name]="'nomDob' + i" type="date" class="form-date-input" [(ngModel)]="m.dateOfBirth" />
+                </div>
                 <ui-form-input label="Share %" type="number" [(ngModel)]="m.sharePct"></ui-form-input>
-                <div class="flex items-end gap-2">
-                  <label class="flex items-center gap-1 text-xs mt-5">
-                    <input autocomplete="off" id="ced-is-minor" name="isMinor" type="checkbox" [(ngModel)]="m.isMinor"> Minor
+                <ui-form-input class="full" label="Address" [(ngModel)]="m.address"></ui-form-input>
+                <div class="member-actions">
+                  <label class="flex items-center gap-1 text-xs">
+                    <input autocomplete="off" [id]="'ced-is-minor-' + i" [name]="'isMinor' + i" type="checkbox" [(ngModel)]="m.isMinor"> Minor (under 18)
                   </label>
                   <button *ngIf="nomForm.members.length > 1"
-                    class="text-xs text-red-600 hover:underline mt-5" (click)="removeNomMember(i)">Remove</button>
+                    class="text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)">Remove</button>
                 </div>
-                <ui-form-input *ngIf="m.isMinor" label="Guardian Name" [(ngModel)]="m.guardianName"></ui-form-input>
+                <div *ngIf="m.isMinor" class="guardian-block">
+                  <ui-form-input label="Guardian Name" [(ngModel)]="m.guardianName"></ui-form-input>
+                  <ui-form-input label="Guardian Relationship" [(ngModel)]="m.guardianRelationship"></ui-form-input>
+                  <ui-form-input class="full" label="Guardian Address" [(ngModel)]="m.guardianAddress"></ui-form-input>
+                </div>
               </div>
             </div>
 
@@ -494,18 +505,40 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
       }
       .nom-header { display: flex; align-items: center; margin-bottom: 0.5rem; }
       .nom-members { font-size: 0.9rem; margin-top: 0.75rem; }
-      .nom-member-row { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1.5fr; gap: 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid #f3f4f6; }
+      .nom-member-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 0.7fr 1.6fr 1.6fr; gap: 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid #f3f4f6; font-size: 0.85rem; }
       .nom-member-row.header { font-weight: 600; color: #374151; border-bottom-color: #d1d5db; }
       .nom-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
       .member-row {
         display: grid;
-        grid-template-columns: 1fr 1fr 0.5fr 0.75fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        margin-bottom: 0.75rem;
+      }
+      .member-row .full { grid-column: 1 / -1; }
+      .member-row .member-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-top: 0.25rem;
+        border-top: 1px dashed #e5e7eb;
+      }
+      .member-row .guardian-block {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         gap: 0.5rem;
         padding: 0.5rem;
-        background: #f9fafb;
+        margin-top: 0.25rem;
+        background: #ffffff;
+        border: 1px dashed #d1d5db;
         border-radius: 0.375rem;
-        margin-bottom: 0.5rem;
       }
+      .member-row .guardian-block .full { grid-column: 1 / -1; }
       .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
       .form-label { font-size: 0.875rem; font-weight: 500; color: #374151; }
       .form-date-input {
@@ -858,13 +891,27 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
       declarationDate: '',
       witnessName: '',
       witnessAddress: '',
-      members: [{ memberName: '', relationship: '', sharePct: 100, isMinor: false, guardianName: '' }],
+      members: [this.blankNomMember(100)],
     };
     this.showNomModal = true;
   }
 
   addNomMember(): void {
-    this.nomForm.members.push({ memberName: '', relationship: '', sharePct: 0, isMinor: false, guardianName: '' });
+    this.nomForm.members.push(this.blankNomMember(0));
+  }
+
+  private blankNomMember(sharePct: number): any {
+    return {
+      memberName: '',
+      relationship: '',
+      dateOfBirth: '',
+      sharePct,
+      address: '',
+      isMinor: false,
+      guardianName: '',
+      guardianRelationship: '',
+      guardianAddress: '',
+    };
   }
 
   removeNomMember(i: number): void {

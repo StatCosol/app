@@ -52,6 +52,8 @@ export type NominationMember = {
   address: string | null;
   isMinor: boolean;
   guardianName: string | null;
+  guardianRelationship: string | null;
+  guardianAddress: string | null;
 };
 
 @Injectable({ providedIn: 'root' })
