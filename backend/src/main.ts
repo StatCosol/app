@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
+import { ValidationPipe, VersioningType, Logger, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -111,8 +111,14 @@ async function bootstrap() {
     ],
   });
 
-  // Global prefix for REST APIs; versioning adds /v1, /v2, ... on top
-  app.setGlobalPrefix('api');
+  // Global prefix for REST APIs; versioning adds /v1, /v2, ... on top.
+  // /iclock/* is reserved for eSSL/ZKTeco device push (no prefix, no version).
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: 'iclock', method: RequestMethod.ALL },
+      { path: 'iclock/(.*)', method: RequestMethod.ALL },
+    ],
+  });
 
   // Nest versioning (URI based) with default v1; controllers without explicit versions remain accessible
   app.enableVersioning({
@@ -127,6 +133,8 @@ async function bootstrap() {
 
   // Payload limits
   app.use(bodyParser.json({ limit: '2mb' }));
+  // eSSL/ZKTeco devices POST attendance logs as plain text (TSV) to /iclock/cdata
+  app.use('/iclock', bodyParser.text({ type: '*/*', limit: '2mb' }));
 
   // Serve uploaded files behind JWT authentication.
   // Previously: app.useStaticAssets('uploads/') — unauthenticated (SECURITY FIX)
