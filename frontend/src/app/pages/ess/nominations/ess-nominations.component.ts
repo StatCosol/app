@@ -152,7 +152,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 </div>
                 <!-- Guardian section: shown only when isMinor -->
                 <div *ngIf="m.isMinor" class="guardian-section mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p class="text-xs font-semibold text-blue-700 mb-2">Guardian Details (required for Dependable nominee)</p>
+                  <p class="text-xs font-semibold text-blue-700 mb-2">Guardian Details (required for Dependent nominee)</p>
                   <div class="grid grid-cols-2 gap-3">
                     <div>
                       <label class="field-label" [attr.for]="'guardian-name-' + i">Guardian Name *</label>
@@ -435,8 +435,8 @@ export class EssNominationsComponent implements OnInit, OnDestroy {
     for (const m of validMembers) {
       if (!m.dateOfBirth) { this.formError = `Date of birth is required for ${m.memberName || 'nominee'}`; return; }
       if (!m.address?.trim()) { this.formError = `Address is required for ${m.memberName || 'nominee'}`; return; }
-      if (m.isMinor && !m.guardianName?.trim()) { this.formError = `Guardian name is required for dependable nominee ${m.memberName || ''}`; return; }
-      if (m.isMinor && !m.guardianAddress?.trim()) { this.formError = `Guardian address is required for dependable nominee ${m.memberName || ''}`; return; }
+      if (m.isMinor && !m.guardianName?.trim()) { this.formError = `Guardian name is required for dependent nominee ${m.memberName || ''}`; return; }
+      if (m.isMinor && !m.guardianAddress?.trim()) { this.formError = `Guardian address is required for dependent nominee ${m.memberName || ''}`; return; }
     }
     this.saving = true;
     this.formError = '';
@@ -546,8 +546,8 @@ export class EssNominationsComponent implements OnInit, OnDestroy {
     for (const m of validMembers) {
       if (!m.dateOfBirth) { this.formError = `Date of birth is required for ${m.memberName || 'nominee'}`; return; }
       if (!m.address?.trim()) { this.formError = `Address is required for ${m.memberName || 'nominee'}`; return; }
-      if (m.isMinor && !m.guardianName?.trim()) { this.formError = `Guardian name is required for dependable nominee ${m.memberName || ''}`; return; }
-      if (m.isMinor && !m.guardianAddress?.trim()) { this.formError = `Guardian address is required for dependable nominee ${m.memberName || ''}`; return; }
+      if (m.isMinor && !m.guardianName?.trim()) { this.formError = `Guardian name is required for dependent nominee ${m.memberName || ''}`; return; }
+      if (m.isMinor && !m.guardianAddress?.trim()) { this.formError = `Guardian address is required for dependent nominee ${m.memberName || ''}`; return; }
     }
     this.saving = true;
     this.formError = '';
