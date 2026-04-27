@@ -455,10 +455,14 @@ export class PayrollEngineService {
         if (values['NCP_DAYS'] === undefined) {
           values['NCP_DAYS'] = attendance.lopDays; // NCP = LOP for govt returns
         }
+        if (values['OT_HOURS'] === undefined) {
+          values['OT_HOURS'] = (attendance as any).totalOvertimeHours ?? 0;
+        }
         emp.totalDays = attendance.totalDays;
         emp.daysPresent = attendance.effectivePresent;
         emp.lopDays = values['LOP_DAYS'];
         emp.ncpDays = values['NCP_DAYS'];
+        emp.otHours = values['OT_HOURS'];
       } else {
         // No attendance data — use uploaded or default to 0
         emp.totalDays = daysInMonth;
