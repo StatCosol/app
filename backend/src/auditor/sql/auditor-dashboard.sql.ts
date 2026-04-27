@@ -57,17 +57,17 @@ WITH my_audits AS (
     AND ($4::date IS NULL OR a.due_date <= $4)
 )
 SELECT
-  a.id AS audit_id,
-  a.client_id,
-  c.client_name AS client_name,
-  a.branch_id,
-  b.branchname AS branch_name,
-  a.audit_type,
-  a.audit_code AS audit_name,
-  a.due_date,
+  a.id AS "auditId",
+  a.client_id AS "clientId",
+  c.client_name AS "clientName",
+  a.branch_id AS "branchId",
+  COALESCE(b.branchname, '') AS "branchName",
+  a.audit_type AS "auditType",
+  CONCAT(a.audit_type, ' – ', a.period_code) AS "auditName",
+  a.due_date AS "dueDate",
   a.status,
-  a.score AS progress_pct,
-  a.updated_at AS last_updated_at
+  COALESCE(a.score, 0) AS "progressPct",
+  a.updated_at AS "lastUpdatedAt"
 FROM my_audits a
 LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id
@@ -127,14 +127,15 @@ LIMIT $5 OFFSET $6;
  */
 export const AUDITOR_REPORTS_SQL = `
 SELECT
-  a.id AS audit_id,
-  a.client_id,
-  c.client_name AS client_name,
-  a.branch_id,
-  b.branchname AS branch_name,
-  a.due_date,
+  a.id             AS "auditId",
+  a.audit_code     AS "auditCode",
+  a.client_id      AS "clientId",
+  c.client_name    AS "clientName",
+  a.branch_id      AS "branchId",
+  b.branchname     AS "branchName",
+  a.due_date       AS "dueDate",
   a.status,
-  a.updated_at AS last_updated_at
+  a.updated_at     AS "lastUpdatedAt"
 FROM audits a
 LEFT JOIN clients c ON c.id = a.client_id
 LEFT JOIN client_branches b ON b.id = a.branch_id

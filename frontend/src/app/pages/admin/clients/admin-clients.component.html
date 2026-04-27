@@ -740,13 +740,18 @@
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Contractors for {{ branchForContractors.branchName }}</h3>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-      <ui-form-select
-        label="Select Contractor User"
-        [(ngModel)]="selectedContractorUserId"
-        [options]="contractorSelectOptions"
-        placeholder="Select contractor"
-        [disabled]="loading || availableContractors.length === 0">
-      </ui-form-select>
+      <div>
+        <ui-form-select
+          label="Select Contractor User"
+          [(ngModel)]="selectedContractorUserId"
+          [options]="contractorSelectOptions"
+          placeholder="Select contractor"
+          [disabled]="loading || availableContractors.length === 0">
+        </ui-form-select>
+        <p *ngIf="availableContractors.length === 0 && !loading" class="text-xs text-amber-600 mt-1">
+          No contractor users found for this client. Create users with the Contractor role first.
+        </p>
+      </div>
 
       <div class="flex items-end">
         <ui-button variant="primary" [fullWidth]="true" (clicked)="linkContractorToBranch()" [disabled]="loading || !selectedContractorUserId">

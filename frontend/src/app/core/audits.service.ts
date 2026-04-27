@@ -241,6 +241,22 @@ export class AuditsService {
     return this.http.post(`${this.auditorBase}/${auditId}/submit`, { finalRemark });
   }
 
+  auditorForceCompleteAudit(auditId: string, finalRemark?: string): Observable<any> {
+    return this.http.post(`${this.auditorBase}/${auditId}/force-complete`, { finalRemark });
+  }
+
+  auditorGetUploadLock(auditId: string): Observable<any> {
+    return this.http.get(`${this.auditorBase}/${auditId}/upload-lock`);
+  }
+
+  auditorSetUploadLock(auditId: string, lockFrom: string | null, lockUntil: string | null): Observable<any> {
+    return this.http.post(`${this.auditorBase}/${auditId}/upload-lock`, { lockFrom, lockUntil });
+  }
+
+  contractorGetUploadLock(auditId: string): Observable<any> {
+    return this.http.get(`${this.contractorBase}/${auditId}/upload-lock`);
+  }
+
   auditorGetNonCompliances(auditId: string): Observable<any> {
     return this.http.get(`${this.auditorBase}/${auditId}/non-compliances`);
   }

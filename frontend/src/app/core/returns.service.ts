@@ -24,8 +24,10 @@ export class ReturnsService {
     return this.http.get(`${this.baseUrl}/api/v1/client/returns/filings`, { params });
   }
 
-  listTypes(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/v1/client/returns/types`);
+  listTypes(branchId?: string): Observable<any> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get(`${this.baseUrl}/api/v1/client/returns/types`, { params });
   }
 
   createFiling(payload: any): Observable<any> {

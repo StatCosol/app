@@ -37,7 +37,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
                 {{ r.completionPercent }}%
               </span>
             </td>
-            <td class="lb-muted">{{ r.uploaded }}/{{ r.totalApplicableCodes }}</td>
+            <td class="lb-muted">{{ r.uploaded }}/{{ r.totalApplicable }}</td>
           </tr>
         </tbody>
       </table>

@@ -52,7 +52,7 @@
     <div class="flex flex-wrap gap-3 items-end">
       <div class="w-full sm:w-52">
         <label class="form-label" for="cr-branch-id-2">Branch (upload)</label>
-        <select id="cr-branch-id-2" name="branchId" class="form-select" [(ngModel)]="newFiling.branchId">
+        <select id="cr-branch-id-2" name="branchId" class="form-select" [(ngModel)]="newFiling.branchId" (ngModelChange)="onCreateBranchChange()">
           <option value="" disabled>Select branch</option>
           <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
         </select>

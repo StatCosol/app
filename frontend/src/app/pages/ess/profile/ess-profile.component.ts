@@ -46,6 +46,19 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row"><span class="label">DOB as per Aadhaar</span><span class="value">{{ emp.dateOfBirth || '-' }}</span></div>
             <div class="info-row"><span class="label">Father's Name</span><span class="value">{{ emp.fatherName || '-' }}</span></div>
             <div class="info-row">
+              <span class="label">Marital Status</span>
+              <span class="value" *ngIf="!editing">{{ emp.maritalStatus || '-' }}</span>
+              <div *ngIf="editing" class="edit-field">
+                <select id="ess-marital" name="maritalStatus" [(ngModel)]="editForm.maritalStatus" class="edit-input">
+                  <option value="">- Select -</option>
+                  <option value="MARRIED">Married</option>
+                  <option value="UNMARRIED">Unmarried</option>
+                  <option value="WIDOW">Widow</option>
+                  <option value="WIDOWER">Widower</option>
+                </select>
+              </div>
+            </div>
+            <div class="info-row">
               <span class="label">Phone</span>
               <span class="value" *ngIf="!editing">{{ emp.phone || '-' }}</span>
               <div *ngIf="editing" class="edit-field">
@@ -91,6 +104,8 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row"><span class="label">ESIC Number</span><span class="value font-mono">{{ emp.esic || '-' }}</span></div>
             <div class="info-row"><span class="label">PF Applicable</span><span class="value">{{ emp.pfApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">PF Registered</span><span class="value">{{ emp.pfRegistered ? 'Yes' : 'No' }}</span></div>
+            <div *ngIf="emp.pfServiceStartDate" class="info-row"><span class="label">PF Service Start Date</span><span class="value font-mono">{{ emp.pfServiceStartDate | date:'dd/MM/yyyy' }}</span></div>
+            <div *ngIf="emp.basicAtPfStart != null" class="info-row"><span class="label">Basic Salary at PF Start</span><span class="value">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span></div>
             <div class="info-row"><span class="label">ESI Applicable</span><span class="value">{{ emp.esiApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">ESI Registered</span><span class="value">{{ emp.esiRegistered ? 'Yes' : 'No' }}</span></div>
           </div>
@@ -208,6 +223,7 @@ export class EssProfileComponent implements OnInit, OnDestroy {
       bankName: this.emp.bankName || '',
       bankAccount: this.emp.bankAccount || '',
       ifsc: this.emp.ifsc || '',
+      maritalStatus: this.emp.maritalStatus || '',
     };
   }
 

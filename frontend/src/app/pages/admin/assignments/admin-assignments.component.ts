@@ -148,6 +148,12 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
         
         // Build name maps for template performance
         this.buildNameMaps();
+
+        // Re-resolve history assignee names now that user maps are populated
+        this.assignmentHistory = this.assignmentHistory.map(row => ({
+          ...row,
+          assigneeName: this.userNameById[(row as any).assigneeId ?? ''] || (row as any).assigneeId || '—',
+        }));
       },
       error: () => {
         this.loading = false;
@@ -342,7 +348,8 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
       return {
         clientId: row?.clientId ?? row?.client_id ?? row?.client?.id ?? '',
         assignmentType: assignmentType ?? '—',
-        assigneeName: assignedId,
+        assigneeId: assignedId,
+        assigneeName: this.userNameById[assignedId ?? ''] || assignedId || '—',
         crmId: assignmentType === 'CRM' ? assignedId : null,
         auditorId: assignmentType === 'AUDITOR' ? assignedId : null,
         crm: assignmentType === 'CRM' ? assignedId : null,

@@ -153,6 +153,78 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
   ) {}
 
+  get activeFilterSummary(): string {
+    const parts: string[] = [];
+
+    if (this.filter.clientId) {
+      const client = this.clientOptions.find((option) => option.value === this.filter.clientId);
+      parts.push(client?.label || 'selected client');
+    }
+
+    if (this.filter.auditType) {
+      const type = this.auditTypeOptions.find((option) => option.value === this.filter.auditType);
+      parts.push(type?.label || 'selected audit type');
+    }
+
+    if (this.filter.fromDate || this.filter.toDate) {
+      const from = this.filter.fromDate || 'start';
+      const to = this.filter.toDate || 'today';
+      parts.push(`${from} to ${to}`);
+    }
+
+    return parts.length ? `Filtered by ${parts.join(', ')}.` : 'Showing all assigned audit work.';
+  }
+
+  get priorityAction(): { title: string; detail: string; route: string; queryParams?: Record<string, string> } {
+    if (this.summary.reverificationPending > 0) {
+      return {
+        title: 'Corrections are waiting for you',
+        detail: `${this.summary.reverificationPending} audit(s) need reverification before they can move forward.`,
+        route: '/auditor/audits',
+        queryParams: { status: 'REVERIFICATION_PENDING' },
+      };
+    }
+
+    if (this.summary.inProgress > 0) {
+      return {
+        title: 'Continue audits already in progress',
+        detail: `${this.summary.inProgress} audit(s) are underway and need follow-through.`,
+        route: '/auditor/audits',
+        queryParams: { status: 'IN_PROGRESS' },
+      };
+    }
+
+    if (this.summary.pending > 0) {
+      return {
+        title: 'Start planned audits',
+        detail: `${this.summary.pending} audit(s) are assigned and ready to begin.`,
+        route: '/auditor/audits',
+        queryParams: { status: 'PLANNED' },
+      };
+    }
+
+    if (this.observations.length > 0) {
+      return {
+        title: 'Close open observations',
+        detail: `${this.observations.length} observation(s) still need follow-up or closure.`,
+        route: '/auditor/observations',
+      };
+    }
+
+    return {
+      title: 'Dashboard is clear right now',
+      detail: 'Use the audit queue to review assigned work or check recent submissions.',
+      route: '/auditor/audits',
+    };
+  }
+
+  get totalUrgentItems(): number {
+    return Number(this.summary.reverificationPending || 0)
+      + Number(this.summary.inProgress || 0)
+      + Number(this.observations.length || 0)
+      + Number(this.evidence.length || 0);
+  }
+
   ngOnInit(): void {
     this.loadReferenceData();
     this.loadAllData();
@@ -354,6 +426,55 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     if (id) this.router.navigate(['/auditor/audits', id, 'workspace']);
   }
 
+  openPriorityAction(): void {
+    this.router.navigate([this.priorityAction.route], {
+      queryParams: this.priorityAction.queryParams,
+    });
+  }
+
+  getAuditActionLabel(audit: AuditorAuditItem): string {
+    const status = this.statusKey(audit.status);
+    if (status === 'NOT_STARTED') return 'Start Audit';
+    if (status === 'IN_PROGRESS') return 'Continue Audit';
+    if (status === 'SUBMITTED') return 'View Submission';
+    return 'Open Workspace';
+  }
+
+  getAuditHint(audit: AuditorAuditItem): string {
+    const status = this.statusKey(audit.status);
+    if (status === 'NOT_STARTED') return 'Ready to begin review.';
+    if (status === 'IN_PROGRESS') return 'Continue document review and findings.';
+    if (status === 'SUBMITTED') return 'Submitted and waiting for downstream review.';
+    if (status === 'COMPLETED') return 'Audit cycle is complete.';
+    return 'Open the workspace for details.';
+  }
+
+  formatStatus(value: string | null | undefined): string {
+    const key = this.statusKey(value);
+    if (!key) return '-';
+    if (key === 'NOT_STARTED') return 'Planned';
+    return key
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  formatAuditType(value: string | null | undefined): string {
+    const key = this.statusKey(value);
+    const labels: Record<string, string> = {
+      CONTRACTOR: 'Contractor Audit',
+      FACTORY: 'Factory Audit',
+      SHOPS_ESTABLISHMENT: 'Branch Compliance Audit',
+      LABOUR_EMPLOYMENT: 'Labour Law Audit',
+      FSSAI: 'FSSAI Audit',
+      HR: 'HR Audit',
+      PAYROLL: 'Payroll Audit',
+      GAP: 'Other Audit',
+    };
+    return labels[key] || this.formatStatus(key);
+  }
+
   /** Follow-up on observation */
   followUpObservation(obs: AuditorObservationPending): void {
     this.observationsService.update(obs.observationId, { status: 'FOLLOW_UP' }).pipe(
@@ -434,7 +555,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   }
 
   drillReverification() {
-    this.router.navigate(['/auditor/observations']);
+    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'REVERIFICATION_PENDING' } });
   }
 
   drillClosed() {
@@ -489,5 +610,9 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
       overdueAuditsCount: reverificationPending,
       reportsPendingCount: Number(data?.reportsPendingCount ?? submitted),
     };
+  }
+
+  private statusKey(value: string | null | undefined): string {
+    return String(value || '').trim().toUpperCase();
   }
 }

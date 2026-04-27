@@ -92,8 +92,6 @@ interface SidebarItem {
         <ng-template #expandedNav>
           <div
             *ngFor="let group of navGroups"
-            (mouseenter)="openGroupOnHover(group)"
-            (mouseleave)="closeGroupOnLeave(group)"
           >
             <div
               class="sidebar-section"
@@ -459,22 +457,6 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
     group.expanded = willExpand;
   }
 
-  openGroupOnHover(group: SidebarGroup): void {
-    if (!this.isDesktop()) return;
-    this.navGroups.forEach(g => g.expanded = false);
-    group.expanded = true;
-  }
-
-  closeGroupOnLeave(group: SidebarGroup): void {
-    if (!this.isDesktop()) return;
-    // Keep it open while pointer moves into submenu; collapse handled on container leave
-    group.expanded = false;
-  }
-
-  private isDesktop(): boolean {
-    return typeof window !== 'undefined' && window.innerWidth >= 1024;
-  }
-
   onNavClick(): void {
     this.navGroups.forEach(g => g.expanded = false);
     if (this.mobileOpen) {
@@ -516,25 +498,22 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
 
   /** Remove the Payroll group from sidebar (called when branch user lacks payroll access) */
   private hidePayrollSection(): void {
-    this.navGroups = this.navGroups.filter(g => g.label !== 'Payroll');
-    this.collapsedLinks = this.collapsedLinks.filter(i => i.label !== 'Payroll');
+    this.navGroups = this.navGroups.filter(g =>
+      !g.items.some(i => i.route === '/client/payroll')
+    );
+    this.collapsedLinks = this.collapsedLinks.filter(i => i.route !== '/client/payroll');
   }
 
   private defaultCollapsedLinks(): SidebarItem[] {
     return [
-      { label: 'Dashboard', route: '/client/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
+      { label: 'Overview', route: '/client/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
       { label: 'Compliance', route: '/client/compliance/status', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
+      { label: 'Risk', route: '/client/heatmap', icon: this.svg('M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z') },
       { label: 'Payroll', route: '/client/payroll', icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
-      { label: 'Attendance', route: '/client/attendance', icon: this.svg('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
-      { label: 'Daily Att.', route: '/client/attendance/daily', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
       { label: 'Company', route: '/client/branches', icon: this.svg('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4') },
+      { label: 'Governance', route: '/client/approvals', icon: this.svg('M3 7h18M6 3h12a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 012-2z') },
       { label: 'Support', route: '/client/queries', icon: this.svg('M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z') },
-      { label: 'Account', route: '/client/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
-      { label: 'Calendar', route: '/client/calendar', icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
-      { label: 'Heatmap', route: '/client/heatmap', icon: this.svg('M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z') },
-      { label: 'SLA', route: '/client/sla', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
-      { label: 'Escalations', route: '/client/escalations', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
-      { label: 'Appraisals', route: '/client/appraisal-dashboard', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
+      { label: 'Accounts', route: '/client/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
     ];
   }
 
@@ -553,34 +532,16 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         items: [
           { label: 'Compliance Status', route: '/client/compliance/status', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Branch Compliance', route: '/client/branch-compliance', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
-          { label: 'Compliance Upload Center', route: '/client/compliance/mcd', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Safety', route: '/client/safety', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
-        ],
-      },
-      {
-        label: 'Returns & Renewals',
-        expanded: false,
-        items: [
           { label: 'Returns / Filings', route: '/client/compliance/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Returns Summary', route: '/client/returns-summary', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
           { label: 'Returns Status', route: '/client/returns-status', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01') },
           { label: 'Registrations & Licenses', route: '/client/compliance/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Renewals', route: '/client/renewals', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
           { label: 'Renewals Status', route: '/client/renewals-status', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
-        ],
-      },
-      {
-        label: 'Documents',
-        expanded: false,
-        items: [
           { label: 'Unit Documents', route: '/client/unit-documents', icon: this.svg('M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z') },
+          { label: 'Compliance Upload Center', route: '/client/compliance/mcd', icon: this.svg('M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12') },
           { label: 'Document Repository', route: '/client/compliance/library', icon: this.svg('M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4') },
-        ],
-      },
-      {
-        label: 'Audits',
-        expanded: false,
-        items: [
           { label: 'Audits', route: '/client/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Audit Summaries', route: '/client/audit-summaries', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
         ],
@@ -599,7 +560,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         ],
       },
       {
-        label: 'Payroll',
+        label: 'Payroll & Workforce',
         expanded: false,
         items: [
           { label: 'Payroll', route: '/client/payroll', icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
@@ -620,16 +581,10 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         ],
       },
       {
-        label: 'Approvals',
+        label: 'Governance',
         expanded: false,
         items: [
           { label: 'Approvals Center', route: '/client/approvals', icon: this.svg('M3 7h18M6 3h12a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 012-2z') },
-        ],
-      },
-      {
-        label: 'Performance',
-        expanded: false,
-        items: [
           { label: 'Dashboard',  route: '/client/appraisal-dashboard', icon: this.svg('M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z') },
           { label: 'Appraisals', route: '/client/appraisals',          icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2') },
           { label: 'Cycles',     route: '/client/appraisal-cycles',    icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
@@ -644,7 +599,7 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
         ],
       },
       {
-        label: 'Account',
+        label: 'Accounts',
         expanded: false,
         items: [
           { label: 'Profile', route: '/client/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },

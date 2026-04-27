@@ -220,12 +220,26 @@
             placeholder="Type task name, branch, or reason..." />
       </label>
 
-      <label class="filter-field" *ngIf="typeFilter !== 'AUDIT'">
+      <label class="filter-field">
         <span>Work Type</span>
         <select id="ct-type" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">{{ rowTypeLabel('ALL') }}</option>
           <option value="TASK">{{ rowTypeLabel('TASK') }}</option>
+          <option value="AUDIT">{{ rowTypeLabel('AUDIT') }}</option>
           <option value="REUPLOAD">{{ rowTypeLabel('REUPLOAD') }}</option>
+        </select>
+      </label>
+
+      <label class="filter-field" *ngIf="typeFilter === 'AUDIT'">
+        <span>Frequency</span>
+        <select id="ct-freq" name="freqFilter" [(ngModel)]="freqFilter" (ngModelChange)="applyFilters()">
+          <option value="ALL">All Frequencies</option>
+          <option value="MONTHLY">Monthly</option>
+          <option value="BI_MONTHLY">Bi-Monthly</option>
+          <option value="QUARTERLY">Quarterly</option>
+          <option value="HALF_YEARLY">Half-Yearly</option>
+          <option value="YEARLY">Annual</option>
+          <option value="EVENT">Event-Based</option>
         </select>
       </label>
 
@@ -491,13 +505,23 @@
         <div class="alert alert--info">
           <strong>What to do:</strong> Upload all required compliance documents. If any document is rejected, upload corrected version below.
         </div>
+
+        <!-- Upload lock banner -->
+        <div class="alert alert--warning" *ngIf="isAuditUploadLocked"
+          style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:16px;">&#128274;</span>
+          <span>
+            Document uploads are <strong>locked by the auditor</strong> until <strong>{{ auditUploadLockUntil }}</strong>.
+            You cannot upload or re-upload documents during this period. Uploads will re-open after the lock date.
+          </span>
+        </div>
         <div class="entity-head">
           <h4>{{ selectedRow.title }}</h4>
           <ui-status-badge [status]="selectedRow.status"></ui-status-badge>
         </div>
 
-        <!-- Audit score -->
-        <div class="audit-score-block" *ngIf="selectedRow.score !== null && selectedRow.score !== undefined; else noScore">
+        <!-- Audit score — only show after audit has been conducted (not while still Planned) -->
+        <div class="audit-score-block" *ngIf="selectedRow.score !== null && selectedRow.score !== undefined && selectedRow.status !== 'PLANNED'; else noScore">
           <div class="audit-score-circle"
                [ngClass]="{
                  'audit-score-circle--green': selectedRow.score >= 80,
@@ -517,7 +541,7 @@
           <span>Client: {{ selectedRow.clientName || '-' }}</span>
           <span>Branch: {{ selectedRow.branchName || '-' }}</span>
           <span>Period: {{ selectedRow.periodCode || '-' }}</span>
-          <span>Frequency: {{ selectedRow.frequency || '-' }}</span>
+          <span>Frequency: {{ frequencyLabel(selectedRow.frequency) }}</span>
           <span>Scheduled: {{ selectedRow.scheduledDate ? (selectedRow.scheduledDate | date: 'mediumDate') : '-' }}</span>
           <span>Due: {{ selectedRow.dueDate ? (selectedRow.dueDate | date: 'mediumDate') : '-' }}</span>
           <span>Auditor: {{ selectedRow.auditorName || '-' }}</span>
@@ -534,63 +558,121 @@
 
         <!-- Upload audit compliance documents -->
         <div class="action-card action-card--wizard">
-          <h5>Upload Audit Documents</h5>
-          <p class="text-sm text-gray-600" style="margin-bottom: 0.25rem;">
-            Upload the documents requested by the auditor's checklist. Use the quick-picks below or type a custom document type.
-          </p>
-
-          <div class="wizard-step">
-            <div class="wizard-step__title">Step 1: Pick from audit document quick-list</div>
-            <div *ngFor="let section of auditDocSections" class="wizard-doc-section">
-              <div class="wizard-doc-section__label">{{ section }}</div>
-              <div class="wizard-doc-grid">
-                <button
-                  type="button"
-                  class="wizard-doc-card"
-                  *ngFor="let item of auditDocTemplatesBySection(section)"
-                  (click)="useAuditDocTemplate(item)">
-                  <div class="wizard-doc-card__head">{{ item.label }}</div>
-                  <div class="wizard-doc-card__text">{{ item.helpText }}</div>
-                  <div class="wizard-doc-card__hint">Use this</div>
-                </button>
+          <div class="wizard-header">
+            <div>
+              <h5>Upload Audit Documents</h5>
+              <p class="wizard-header__sub">Pick a document type from the quick-list, fill in details, then upload.</p>
+            </div>
+            <!-- Progress summary -->
+            <div class="wizard-progress" *ngIf="!auditUploadedDocsLoading">
+              <span class="wizard-progress__label">
+                <strong>{{ auditDocProgress.uploaded }}</strong> of <strong>{{ auditDocProgress.total }}</strong> uploaded
+              </span>
+              <div class="wizard-progress__bar">
+                <div class="wizard-progress__fill"
+                  [style.width.%]="auditDocProgress.total ? (auditDocProgress.uploaded / auditDocProgress.total) * 100 : 0">
+                </div>
               </div>
+              <span class="wizard-progress__rejected" *ngIf="auditDocProgress.rejected > 0">
+                {{ auditDocProgress.rejected }} rejected
+              </span>
+              <span class="wizard-progress__pending" *ngIf="auditDocProgress.total - auditDocProgress.uploaded > 0">
+                {{ auditDocProgress.total - auditDocProgress.uploaded }} pending
+              </span>
+              <span class="wizard-progress__done" *ngIf="auditDocProgress.uploaded > 0 && auditDocProgress.uploaded === auditDocProgress.total && auditDocProgress.rejected === 0">
+                ✓ All done
+              </span>
             </div>
           </div>
 
-          <div class="wizard-step">
-            <div class="wizard-step__title">Step 2: Fill details and select file</div>
-            <div class="form-group">
+          <!-- Rejection alert -->
+          <div class="wizard-rejection-alert" *ngIf="auditRejectedDocs.length > 0">
+            <div class="wizard-rejection-alert__icon">⚠</div>
+            <div class="wizard-rejection-alert__body">
+              <strong>{{ auditRejectedDocs.length }} document{{ auditRejectedDocs.length > 1 ? 's' : '' }} rejected</strong> — please re-upload with corrections.
+              <ul class="wizard-rejection-alert__list">
+                <li *ngFor="let doc of auditRejectedDocs">
+                  <span class="wizard-rejection-alert__doctype">{{ doc.docType }}</span>
+                  <span class="wizard-rejection-alert__title" *ngIf="doc.title"> — {{ doc.title }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Quick-pick panel -->
+          <div class="wizard-picker">
+            <!-- Section tab bar -->
+            <div class="wizard-tabs" role="tablist">
+              <button
+                type="button"
+                class="wizard-tab"
+                role="tab"
+                *ngFor="let section of visibleAuditDocSections"
+                [class.wizard-tab--active]="(auditDocActiveSection || visibleAuditDocSections[0]) === section"
+                (click)="auditDocActiveSection = section">
+                {{ section.replace(/^[IVX]+\.\s*/, '') }}
+              </button>
+            </div>
+            <!-- Active section's doc chips -->
+            <div class="wizard-chips">
+              <button
+                type="button"
+                class="wizard-chip"
+                *ngFor="let item of visibleAuditDocTemplatesBySection(auditDocActiveSection || visibleAuditDocSections[0])"
+                [class.wizard-chip--active]="auditDocType === item.docType"
+                [class.wizard-chip--uploaded]="auditDocIsUploaded(item.docType) && auditDocStatus(item.docType) !== 'REJECTED'"
+                [class.wizard-chip--rejected]="auditDocStatus(item.docType) === 'REJECTED'"
+                [class.wizard-chip--approved]="auditDocStatus(item.docType) === 'APPROVED'"
+                [title]="item.helpText"
+                (click)="useAuditDocTemplate(item)">
+                <span class="wizard-chip__label">{{ item.label }}</span>
+                <span class="wizard-chip__check" *ngIf="auditDocType === item.docType">✓</span>
+                <span class="wizard-chip__status" *ngIf="auditDocType !== item.docType && auditDocStatus(item.docType) === 'REJECTED'">✗</span>
+                <span class="wizard-chip__status" *ngIf="auditDocType !== item.docType && auditDocStatus(item.docType) === 'APPROVED'">✓</span>
+                <span class="wizard-chip__uploaded" *ngIf="auditDocType !== item.docType && auditDocStatus(item.docType) === 'PENDING_REVIEW'">↑</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Selected doc badge -->
+          <div class="wizard-selected" *ngIf="auditDocType">
+            <span class="wizard-selected__label">Selected:</span>
+            <span class="wizard-selected__badge">{{ auditDocType }}</span>
+            <button type="button" class="wizard-selected__clear" (click)="auditDocType=''; auditDocTitle=''">✕</button>
+          </div>
+
+          <!-- Details + upload row -->
+          <div class="wizard-form">
+            <div class="form-group wizard-form__group">
               <label class="form-label">Document Type <span class="required">*</span></label>
               <input
                 type="text"
                 class="form-control"
-                placeholder="Example: WAGE_REGISTER / PF_CHALLAN"
+                placeholder="e.g. WAGE_REGISTER"
                 [(ngModel)]="auditDocType" />
             </div>
-            <div class="form-group">
+            <div class="form-group wizard-form__group">
               <label class="form-label">Document Title <span class="required">*</span></label>
               <input
                 type="text"
                 class="form-control"
-                placeholder="Example: PF Challan - Apr 2026"
+                placeholder="e.g. PF Challan - Apr 2026"
                 [(ngModel)]="auditDocTitle" />
             </div>
-            <div class="wizard-file-row">
-              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onAuditDocFileSelected($event)" />
-              <div class="wizard-file-help">Allowed files: PDF, PNG, JPG, JPEG, XLSX</div>
-            </div>
-          </div>
-
-          <div class="wizard-step">
-            <div class="wizard-step__title">Step 3: Upload</div>
-            <div class="action-row">
-              <button
-                type="button"
-                class="btn btn--primary"
-                [disabled]="auditDocUploading || !auditDocFile || !auditDocType.trim() || !auditDocTitle.trim()"
-                (click)="uploadAuditDocument()">
-                {{ auditDocUploading ? 'Uploading…' : 'Upload Document Now' }}
-              </button>
+            <div class="form-group wizard-form__group wizard-form__group--file">
+              <label class="form-label">File <span class="required">*</span></label>
+              <div class="wizard-file-row">
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onAuditDocFileSelected($event)" />
+                <button
+                  type="button"
+                  class="btn btn--primary wizard-upload-btn"
+                  [disabled]="auditDocUploading || !auditDocFile || !auditDocType.trim() || !auditDocTitle.trim()"
+                  (click)="uploadAuditDocument()">
+                  <span *ngIf="!auditDocUploading">↑ Upload</span>
+                  <span *ngIf="auditDocUploading">Uploading…</span>
+                </button>
+              </div>
+              <div class="wizard-file-help">PDF, PNG, JPG, JPEG, XLSX</div>
             </div>
           </div>
         </div>

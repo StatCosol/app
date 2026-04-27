@@ -89,8 +89,6 @@ interface SidebarItem {
         <ng-template #expandedNav>
           <div
             *ngFor="let group of navGroups"
-            (mouseenter)="openGroupOnHover(group)"
-            (mouseleave)="closeGroupOnLeave(group)"
           >
             <div
               class="sidebar-section"

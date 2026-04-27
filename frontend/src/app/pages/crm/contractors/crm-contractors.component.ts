@@ -22,12 +22,12 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   contractors: any[] = [];
 
   readonly contractorColumns: TableColumn[] = [
-    { key: 'userCode', header: 'User Code' },
-    { key: 'name', header: 'Name' },
-    { key: 'email', header: 'Email' },
-    { key: 'mobile', header: 'Mobile' },
-    { key: 'clientName', header: 'Client' },
-    { key: 'status', header: 'Status' },
+    { key: 'userCode', header: 'User Code', width: '12%' },
+    { key: 'name', header: 'Name', width: '16%' },
+    { key: 'email', header: 'Email', width: '20%' },
+    { key: 'mobile', header: 'Mobile', width: '16%' },
+    { key: 'clientName', header: 'Client', width: '24%' },
+    { key: 'status', header: 'Status', width: '12%' },
   ];
   myClients: any[] = [];
   showForm = false;
@@ -74,7 +74,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
 
   loadContractors() {
     this.loading = true;
-    this.contractorApi.listMyContractors().pipe(
+    this.contractorApi.listMyContractors(this.clientId).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),

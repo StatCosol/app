@@ -71,7 +71,10 @@ export class PfEcrGenerator {
 
       // ECR fields derived from stored values
       const epfWages = Math.min(pfWages, pfCeiling);
-      const epsWages = Math.min(pfWages, 15000); // EPS statutory ceiling always 15000
+      // EPS wages: use stored EPS_WAGES (0 when employee is EPS-excluded)
+      const epsWages = valMap.has('EPS_WAGES')
+        ? this.num(valMap.get('EPS_WAGES'))
+        : Math.min(pfWages, 15000);
       const edliWages = epfWages;
 
       const ncpDays = this.num(valMap.get('NCP_DAYS') ?? 0);

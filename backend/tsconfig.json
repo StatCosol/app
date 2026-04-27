@@ -4,7 +4,7 @@
     // Using NodeNext here causes runtime/import issues during build and execution.
     "module": "commonjs",
     "moduleResolution": "node10",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "esModuleInterop": true,
     "isolatedModules": false,
     "declaration": true,

@@ -11,7 +11,13 @@ import {
   Query,
   Res,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { BranchAccessService } from '../auth/branch-access.service';
@@ -23,6 +29,7 @@ import {
   SubmitShortWorkReasonDto,
   CreateEssNominationDto,
   ResubmitNominationDto,
+  UpdateEssNominationDto,
   ApplyLeaveDto,
   CreateLeavePolicyDto,
   UpdateLeavePolicyDto,
@@ -186,6 +193,16 @@ export class EssController {
     return this.svc.resubmitNomination(user, id, body);
   }
 
+  @ApiOperation({ summary: 'Update Nomination (DRAFT or APPROVED)' })
+  @Put('nominations/:id')
+  updateNomination(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Body() body: UpdateEssNominationDto,
+  ) {
+    return this.svc.updateNomination(user, id, body);
+  }
+
   // ── Leave Balances ─────────────────────────────────────
   @ApiOperation({ summary: 'Get Leave Balances' })
   @Get('leave/balances')
@@ -252,6 +269,44 @@ export class EssController {
       category,
       year: year ? parseInt(year, 10) : undefined,
       q,
+    });
+  }
+
+  @ApiOperation({ summary: 'Upload Document (self)' })
+  @Post('documents/upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const dir = path.join(process.cwd(), 'uploads', 'employee-documents');
+          fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = path.extname(file.originalname).toLowerCase();
+          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  async uploadDocument(
+    @CurrentUser() user: ReqUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('docType') docType: string,
+    @Body('docName') docName: string,
+    @Body('expiryDate') expiryDate?: string,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    if (!docType) throw new BadRequestException('docType is required');
+    return this.svc.uploadSelfDocument(user, {
+      docType,
+      docName: docName || file.originalname,
+      fileName: file.filename,
+      filePath: file.path,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+      expiryDate: expiryDate || undefined,
     });
   }
 
@@ -325,7 +380,8 @@ export class BranchApprovalsController {
     if (branchId) {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
-    const clientId = user.clientId!;
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
     return this.svc.listPendingNominations(clientId, branchId);
   }
 
@@ -355,7 +411,8 @@ export class BranchApprovalsController {
     if (branchId) {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
-    const clientId = user.clientId!;
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
     return this.svc.listPendingLeaves(clientId, branchId);
   }
 

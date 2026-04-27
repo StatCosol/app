@@ -28,6 +28,118 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
+type ReturnMasterSeed = {
+  returnCode: string;
+  returnName: string;
+  lawArea: string;
+  frequency: string;
+  scopeDefault: string;
+  applicableFor: string;
+  dueDay: number | null;
+  category: string | null;
+  stateCode: string;
+  appliesTo: string;
+  uploadRequired: boolean;
+  dueDateRule: string | null;
+  riskLevel: string;
+  responsibleRole: string;
+  remarks: string | null;
+  isActive?: boolean;
+};
+
+const STATE_COMBINED_RETURN_SEEDS: ReturnMasterSeed[] = [
+  {
+    returnCode: 'TS_INTEGRATED_ANNUAL',
+    returnName: 'Telangana Integrated Annual Return',
+    lawArea: 'Multiple Labour Laws (TS)',
+    frequency: 'YEARLY',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    dueDay: 31,
+    category: 'COMBINED_RETURN',
+    stateCode: 'TS',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    remarks:
+      'Single combined annual return covering: Minimum Wages, Payment of Wages, Bonus, Maternity Benefit, Equal Remuneration. Does NOT cover PF, ESI, CLRA, Factories Act',
+  },
+  {
+    returnCode: 'AP_COMBINED_ANNUAL',
+    returnName: 'Andhra Pradesh Combined Annual Return',
+    lawArea: 'Multiple Labour Laws (AP)',
+    frequency: 'YEARLY',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    dueDay: 31,
+    category: 'COMBINED_RETURN',
+    stateCode: 'AP',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    remarks:
+      'Combined annual return covering Minimum Wages, Payment of Wages, Bonus, Maternity Benefit, Equal Remuneration. Format differs from Telangana but scope is similar',
+  },
+  {
+    returnCode: 'KA_UNIFIED_ANNUAL',
+    returnName: 'Karnataka Unified Annual Return',
+    lawArea: 'Multiple Labour Laws (KA)',
+    frequency: 'YEARLY',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    dueDay: 31,
+    category: 'COMBINED_RETURN',
+    stateCode: 'KA',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    remarks:
+      'Karnataka state combined annual return under the Simplified Compliance Act',
+  },
+  {
+    returnCode: 'MH_COMBINED_ANNUAL',
+    returnName: 'Maharashtra Combined Annual Return',
+    lawArea: 'Multiple Labour Laws (MH)',
+    frequency: 'YEARLY',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    dueDay: 31,
+    category: 'COMBINED_RETURN',
+    stateCode: 'MH',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    remarks:
+      'Maharashtra state combined annual return under the Labour Laws (Exemption) Act',
+  },
+  {
+    returnCode: 'TN_CONSOLIDATED_ANNUAL',
+    returnName: 'Tamil Nadu Consolidated Annual Return',
+    lawArea: 'Multiple Labour Laws (TN)',
+    frequency: 'YEARLY',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    dueDay: 31,
+    category: 'COMBINED_RETURN',
+    stateCode: 'TN',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    remarks:
+      'Tamil Nadu state consolidated annual return covering applicable labour laws',
+  },
+];
+
 @Injectable()
 export class BranchComplianceService {
   private readonly allowedMimeTypes = new Set([
@@ -48,9 +160,105 @@ export class BranchComplianceService {
     private readonly auditLogs: AuditLogsService,
   ) {}
 
+  private normalizeStateCode(value: string | null | undefined): string | undefined {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '');
+
+    if (!normalized) return undefined;
+
+    switch (normalized) {
+      case 'TG':
+      case 'TS':
+      case 'TELANGANA':
+      case 'TELANGANASTATE':
+        return 'TS';
+      case 'AP':
+      case 'ANDHRAPRADESH':
+      case 'ANDHRA':
+        return 'AP';
+      case 'TN':
+      case 'TAMILNADU':
+      case 'TAMILNADUSTATE':
+        return 'TN';
+      case 'KA':
+      case 'KARNATAKA':
+        return 'KA';
+      case 'MH':
+      case 'MAHARASHTRA':
+        return 'MH';
+      case 'GJ':
+      case 'GUJARAT':
+        return 'GJ';
+      case 'KL':
+      case 'KERALA':
+        return 'KL';
+      case 'DL':
+      case 'DELHI':
+      case 'NEWDELHI':
+      case 'NCR':
+        return 'DL';
+      case 'RJ':
+      case 'RAJASTHAN':
+        return 'RJ';
+      case 'UP':
+      case 'UTTARPRADESH':
+        return 'UP';
+      case 'MP':
+      case 'MADHYAPRADESH':
+        return 'MP';
+      case 'WB':
+      case 'WESTBENGAL':
+        return 'WB';
+      case 'OD':
+      case 'OR':
+      case 'ORISSA':
+      case 'ODISHA':
+        return 'OD';
+      case 'HR':
+      case 'HARYANA':
+        return 'HR';
+      case 'PB':
+      case 'PUNJAB':
+        return 'PB';
+      case 'BR':
+      case 'BIHAR':
+        return 'BR';
+      case 'JH':
+      case 'JHARKHAND':
+        return 'JH';
+      case 'CG':
+      case 'CT':
+      case 'CHHATTISGARH':
+      case 'CHHATTISGAR':
+        return 'CG';
+      case 'UK':
+      case 'UT':
+      case 'UTTARAKHAND':
+      case 'UTTARANCHAL':
+        return 'UK';
+      default:
+        return normalized;
+    }
+  }
+
+  private async ensureCombinedReturnMasters(): Promise<void> {
+    for (const seed of STATE_COMBINED_RETURN_SEEDS) {
+      await this.masterRepo.save(
+        this.masterRepo.create({
+          ...seed,
+          isActive: seed.isActive ?? true,
+        }),
+      );
+    }
+  }
+
   // ─── Return Master CRUD ────────────────────────────────────
 
   async getReturnMaster(q: ReturnMasterQueryDto) {
+    await this.ensureCombinedReturnMasters();
+
     const qb = this.masterRepo.createQueryBuilder('m');
 
     if (q.frequency) qb.andWhere('m.frequency = :freq', { freq: q.frequency });
@@ -64,9 +272,10 @@ export class BranchComplianceService {
       qb.andWhere("(m.applies_to = :at OR m.applies_to = 'BOTH')", {
         at: q.appliesTo,
       });
-    if (q.stateCode)
-      qb.andWhere("(m.state_code = 'ALL' OR m.state_code LIKE :sc)", {
-        sc: `%${q.stateCode}%`,
+    const normalizedStateCode = this.normalizeStateCode(q.stateCode);
+    if (normalizedStateCode)
+      qb.andWhere("(m.state_code = 'ALL' OR m.state_code = :sc)", {
+        sc: normalizedStateCode,
       });
     if (q.responsibleRole)
       qb.andWhere('m.responsible_role = :rr', { rr: q.responsibleRole });
@@ -155,9 +364,9 @@ export class BranchComplianceService {
       };
     }
 
-    let branchStateCode: string | undefined = q.stateCode;
+    let branchStateCode: string | undefined = this.normalizeStateCode(q.stateCode);
     if (!branchStateCode && branchRow?.statecode) {
-      branchStateCode = branchRow.statecode;
+      branchStateCode = this.normalizeStateCode(branchRow.statecode);
     }
 
     // Get master list filtered by branch type and state
@@ -450,7 +659,7 @@ export class BranchComplianceService {
 
     // Verify CRM is assigned to this client
     const assignment = await this.dataSource.query(
-      `SELECT 1 FROM client_assignment_current
+      `SELECT 1 FROM client_assignments_current
        WHERE client_id = $1 AND assignment_type = 'CRM'
          AND assigned_to_user_id = $2 LIMIT 1`,
       [companyId, user.userId],
@@ -630,7 +839,8 @@ export class BranchComplianceService {
     // CRM sees documents belonging to their assigned clients
     const qb = this.docRepo
       .createQueryBuilder('d')
-      .leftJoinAndSelect('d.branch', 'branch');
+      .leftJoinAndSelect('d.branch', 'branch')
+      .leftJoinAndSelect('d.company', 'company');
 
     if (q.companyId)
       qb.andWhere('d.company_id = :companyId', { companyId: q.companyId });

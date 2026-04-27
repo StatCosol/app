@@ -344,6 +344,27 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     return 'text-red-700';
   }
 
+  get latestVendorScore(): number {
+    if (!this.scoreTrend.length) return 0;
+    return this.scoreTrend[this.scoreTrend.length - 1].score;
+  }
+
+  get vendorScoreTrend(): 'up' | 'down' | 'flat' {
+    if (this.scoreTrend.length < 2) return 'flat';
+    const last = this.scoreTrend[this.scoreTrend.length - 1].score;
+    const prev = this.scoreTrend[this.scoreTrend.length - 2].score;
+    if (last > prev) return 'up';
+    if (last < prev) return 'down';
+    return 'flat';
+  }
+
+  get vendorScoreLabel(): string {
+    if (!this.scoreTrend.length) return 'No Data';
+    if (this.latestVendorScore >= 85) return 'Good Standing';
+    if (this.latestVendorScore >= 70) return 'Needs Attention';
+    return 'At Risk';
+  }
+
   formatMonth(month: string): string {
     const [y, m] = month.split('-');
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -364,11 +385,28 @@ export class ContractorDashboardComponent implements OnInit, OnDestroy {
     const pendingUploads = this.tasks.filter((t) =>
       ['PENDING', 'IN_PROGRESS', 'REJECTED', 'OVERDUE'].includes(t.status),
     );
-    this.pendingUploadsCount = pendingUploads.length;
-    this.pendingUploadsPreview = pendingUploads.slice(0, 6);
+    // Include reupload requests the contractor still needs to act on
+    const openReuploads: ContractorTaskListItem[] = this.reuploads
+      .filter((r: any) => ['OPEN', 'REJECTED'].includes(String(r?.status || '').toUpperCase()))
+      .map((r: any): ContractorTaskListItem => ({
+        id: r.id,
+        title: r.documentType
+          ? `Reupload required: ${r.documentType}`
+          : (r.reason || 'Reupload required'),
+        branchName: '-',
+        clientName: '-',
+        dueDate: r.deadlineDate || r.deadline_date || null,
+        status: 'PENDING',
+      }));
+    // Add pending contractor_documents (awaiting auditor review) from dashboard API
+    const pendingReviewDocs: number = Number(this.data?.pendingReviewDocs ?? 0);
+    this.pendingUploadsCount = pendingUploads.length + openReuploads.length + pendingReviewDocs;
+    this.pendingUploadsPreview = [...pendingUploads, ...openReuploads].slice(0, 6);
 
     const rejectedItems = this.tasks.filter((t) => t.status === 'REJECTED');
-    this.rejectedDocsCount = rejectedItems.length;
+    // Add contractor_documents rejected by auditor (AuditXpert) from dashboard API
+    const apiRejectedDocs: number = Number(this.data?.rejectedDocs ?? 0);
+    this.rejectedDocsCount = rejectedItems.length + apiRejectedDocs;
     this.rejectedItemsPreview = rejectedItems.slice(0, 6);
 
     const expiringLicenses = this.tasks

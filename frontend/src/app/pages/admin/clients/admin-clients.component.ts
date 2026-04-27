@@ -153,6 +153,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     { key: 'status', header: 'Status' },
     { key: 'branchesCount', header: 'Branches' },
     { key: 'totalEmployees', header: 'Total Employees' },
+    { key: 'contractorsCount', header: 'Contract Employees' },
     { key: 'actions', header: 'Actions', align: 'right' },
   ];
 
@@ -834,12 +835,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       timeout(8000),
       catchError(() => {
         this.error = 'Failed to load branch contractors';
+        this.cdr.detectChanges();
         return of([] as BranchContractorLink[]);
       }),
       takeUntil(this.destroy$),
     ).subscribe({
       next: (links) => {
         this.branchContractors = links || [];
+        this.cdr.detectChanges();
       },
     });
   }
@@ -847,7 +850,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loadAvailableContractors(clientId: string) {
     this.service.getContractorUsers(clientId).pipe(
       timeout(8000),
-      catchError(() => {
+      catchError((err) => {
+        this.error = err?.error?.message || 'Failed to load contractor users';
+        this.cdr.detectChanges();
         return of([] as ContractorOption[]);
       }),
       takeUntil(this.destroy$),
@@ -855,6 +860,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       next: (users) => {
         this.availableContractors = users || [];
         this.rebuildContractorSelectOptions();
+        this.cdr.detectChanges();
       },
     });
   }

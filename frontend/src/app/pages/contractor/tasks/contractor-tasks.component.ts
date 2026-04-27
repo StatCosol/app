@@ -75,6 +75,8 @@ interface AuditDocTemplate {
   titleHint: string;
   helpText: string;
   section?: string;
+  /** Minimum audit frequency for this doc to be required. If absent → always shown. */
+  minFrequency?: 'MONTHLY' | 'BI_MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY' | 'EVENT';
 }
 
 interface ChecklistItem {
@@ -125,6 +127,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   search = '';
   typeFilter: 'ALL' | RowType = 'ALL';
+  freqFilter = 'ALL';
   statusFilter = 'ALL';
   branchFilter = '';
   dueFilter: 'ALL' | 'OVERDUE' | 'DUE_TODAY' | 'DUE_7_DAYS' = 'ALL';
@@ -221,6 +224,21 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   auditDocType = '';
   auditDocTitle = '';
   auditDocUploading = false;
+  auditDocActiveSection = '';
+
+  // Already-uploaded docs for the selected audit
+  auditUploadedDocs: { id: string; docType: string; title: string; status: string; uploadedAt: string }[] = [];
+  auditUploadedDocsLoading = false;
+
+  // Upload lock for the selected audit
+  auditUploadLockFrom: string | null = null;
+  auditUploadLockUntil: string | null = null;
+
+  get isAuditUploadLocked(): boolean {
+    if (!this.auditUploadLockFrom || !this.auditUploadLockUntil) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return today >= this.auditUploadLockFrom && today <= this.auditUploadLockUntil;
+  }
 
   private static readonly MONTHLY_DOC_META: Record<string, { label: string; desc: string }> = {
     WAGE_REGISTER:  { label: 'Wage Register',            desc: 'Monthly wage sheet for all contract workers' },
@@ -232,7 +250,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   };
 
   readonly auditDocTemplates: AuditDocTemplate[] = [
-    // Section I – License Details
+    // Section I – License Details (always required)
     {
       section: 'I. License Details',
       label: 'CLRA License',
@@ -240,7 +258,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       titleHint: 'CLRA License – Validity & Workcentre Address',
       helpText: 'Valid CLRA license showing validity period and workcentre address.',
     },
-    // Section II – Agreement
+    // Section II – Agreement (always required)
     {
       section: 'II. Agreement',
       label: 'Work Order / Contract Agreement',
@@ -255,6 +273,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'MUSTER_ROLL_REGISTER',
       titleHint: 'Register of Muster Roll',
       helpText: 'Attendance muster roll maintained for all contract employees.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -262,6 +281,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'WAGE_REGISTER',
       titleHint: 'Register of Wages',
       helpText: 'Monthly wage register for all contract employees.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -269,6 +289,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'REGISTER_OF_FINES',
       titleHint: 'Register of Fines',
       helpText: 'Register recording all fines imposed on contract workers.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -276,6 +297,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'REGISTER_OF_DEDUCTIONS',
       titleHint: 'Register of Deductions for Damage or Loss',
       helpText: 'Register of deductions made for damage or loss caused by workers.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -283,6 +305,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'REGISTER_OF_ADVANCES',
       titleHint: 'Register of Advances',
       helpText: 'Register of salary / wage advances given to contract workers.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -290,6 +313,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'OT_REGISTER',
       titleHint: 'Register of Overtime',
       helpText: 'Register recording overtime hours and payments for contract employees.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -304,6 +328,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'HALF_YEARLY_RETURNS_F14',
       titleHint: 'Half Yearly Returns – Form XIV under CLRA',
       helpText: 'Half-yearly returns submitted under the Contract Labour (R&A) Act.',
+      minFrequency: 'HALF_YEARLY',
     },
     {
       section: 'III. Registers',
@@ -311,6 +336,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'WAGE_SLIPS',
       titleHint: 'Wages Slips for Contract Employees',
       helpText: 'Individual pay slips issued to each contract employee.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -318,6 +344,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'EMPLOYMENT_CARDS',
       titleHint: 'Employment Cards',
       helpText: 'Employment cards issued to each contract worker.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'III. Registers',
@@ -325,6 +352,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'FORM_6A',
       titleHint: 'Form 6A – Commencement / Completion of Contract Work',
       helpText: 'Notice of commencement/completion of contract work filed with the authority.',
+      minFrequency: 'EVENT',
     },
     // Section IV – Minimum Wages
     {
@@ -333,6 +361,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'MINIMUM_WAGES_RETURNS',
       titleHint: 'Annual Returns – Payment of Minimum Wages',
       helpText: 'Annual returns under the Minimum Wages Act confirming statutory wages are paid.',
+      minFrequency: 'YEARLY',
     },
     // Section V – Weekly Off
     {
@@ -341,6 +370,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'WEEKLY_OFF_RECORD',
       titleHint: 'Weekly Off Roster / Record',
       helpText: 'Record showing that weekly off is being given to all contract employees.',
+      minFrequency: 'MONTHLY',
     },
     // Section VI – Provident Fund
     {
@@ -349,6 +379,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'PF_ALLOTMENT_CODE',
       titleHint: 'PF Allotment Code Number',
       helpText: 'PF code allotment letter / establishment registration under EPFO.',
+      minFrequency: 'YEARLY',
     },
     {
       section: 'VI. Provident Fund (PF)',
@@ -356,6 +387,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'PF_CHALLAN',
       titleHint: 'PF Challans – Month Wise',
       helpText: 'Monthly Provident Fund payment challans deposited with EPFO.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'VI. Provident Fund (PF)',
@@ -363,6 +395,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'PF_INDIVIDUAL_NUMBERS',
       titleHint: 'PF Individual Numbers – Location Wise',
       helpText: 'List of PF account numbers assigned to each contract employee.',
+      minFrequency: 'QUARTERLY',
     },
     {
       section: 'VI. Provident Fund (PF)',
@@ -370,6 +403,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'PF_ECR',
       titleHint: 'PF ECR / Payment Receipt / Acknowledgement Copy – Month Wise',
       helpText: 'Electronic Challan cum Return (ECR), payment proof, and EPFO acknowledgement.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'VI. Provident Fund (PF)',
@@ -377,6 +411,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'PF_NOMINATION',
       titleHint: 'PF Nomination & Declaration Forms',
       helpText: 'Nomination forms (Form 2) and declaration forms for all contract employees.',
+      minFrequency: 'YEARLY',
     },
     // Section VII – ESI
     {
@@ -385,6 +420,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'ESI_CODE',
       titleHint: 'ESI Code / Sub Code Allotment Letter',
       helpText: 'ESIC code or sub-code allotment letter for the contractor.',
+      minFrequency: 'YEARLY',
     },
     {
       section: 'VII. ESI',
@@ -392,6 +428,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'ESI_EMPLOYEE_CARDS',
       titleHint: 'ESI Insurance Numbers & Cards',
       helpText: 'ESI insurance numbers and cards issued to all eligible contract workers.',
+      minFrequency: 'QUARTERLY',
     },
     {
       section: 'VII. ESI',
@@ -399,6 +436,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'ESI_CHALLAN',
       titleHint: 'ESIC Challans – Month Wise',
       helpText: 'Monthly ESIC contribution challans deposited with ESIC.',
+      minFrequency: 'MONTHLY',
     },
     {
       section: 'VII. ESI',
@@ -406,6 +444,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'ESI_FORM7',
       titleHint: 'ESIC Form 7 – Register of Employees',
       helpText: 'Form 7 register of insured contract employees maintained under ESIC.',
+      minFrequency: 'QUARTERLY',
     },
     {
       section: 'VII. ESI',
@@ -413,6 +452,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'ACCIDENT_REGISTER',
       titleHint: 'Register of Accidents',
       helpText: 'Register recording workplace accidents involving contract employees.',
+      minFrequency: 'QUARTERLY',
     },
     {
       section: 'VII. ESI',
@@ -420,6 +460,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'ESI_CARDS_SIGNED',
       titleHint: 'ESI Permanent/Temporary Cards – Signed by Employee & Employer',
       helpText: 'ESI cards duly signed by both employee and employer.',
+      minFrequency: 'QUARTERLY',
     },
     // Section VIII – Bonus
     {
@@ -428,6 +469,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'BONUS_FORM_C',
       titleHint: 'Register of Form C – Payment of Bonus',
       helpText: 'Form C register showing bonus paid to each eligible contract employee.',
+      minFrequency: 'YEARLY',
     },
     {
       section: 'VIII. Payment of Bonus',
@@ -435,8 +477,68 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       docType: 'BONUS_FORM_D',
       titleHint: 'Form D – Annual Returns under Payment of Bonus Act',
       helpText: 'Annual returns filed under the Payment of Bonus Act.',
+      minFrequency: 'YEARLY',
+    },
+    // Section IX – Separation Docs
+    {
+      section: 'IX. Separation Docs',
+      label: 'Service Certificates',
+      docType: 'SERVICE_CERTIFICATE',
+      titleHint: 'Service Certificates for Separated Employees',
+      helpText: 'Service certificates issued to contract employees who have left during the period.',
+      minFrequency: 'MONTHLY',
+    },
+    {
+      section: 'IX. Separation Docs',
+      label: 'Full & Final Settlement',
+      docType: 'FULL_FINAL_SETTLEMENT',
+      titleHint: 'Full & Final Settlement Records',
+      helpText: 'Full and final settlement statements for contract employees who have separated.',
+      minFrequency: 'MONTHLY',
     },
   ];
+
+  private static readonly FREQ_RANK: Record<string, number> = {
+    MONTHLY: 1,
+    BI_MONTHLY: 2,
+    QUARTERLY: 3,
+    HALF_YEARLY: 4,
+    YEARLY: 5,
+  };
+
+  /** Docs visible for the currently selected audit's frequency. */
+  get visibleAuditDocTemplates(): AuditDocTemplate[] {
+    const freq = this.selectedRow?.frequency;
+    if (!freq) return this.auditDocTemplates;
+
+    if (freq === 'EVENT') {
+      // Event audits: always-shown docs (no minFrequency) + EVENT-specific
+      return this.auditDocTemplates.filter(
+        (t) => !t.minFrequency || t.minFrequency === 'EVENT',
+      );
+    }
+
+    const rank = ContractorTasksComponent.FREQ_RANK[freq] ?? 5;
+    return this.auditDocTemplates.filter((t) => {
+      if (!t.minFrequency) return true;          // always shown
+      if (t.minFrequency === 'EVENT') return false; // event-only, not in periodic audits
+      return (ContractorTasksComponent.FREQ_RANK[t.minFrequency] ?? 1) <= rank;
+    });
+  }
+
+  get visibleAuditDocSections(): string[] {
+    const seen = new Set<string>();
+    const sections: string[] = [];
+    for (const t of this.visibleAuditDocTemplates) {
+      const s = t.section ?? '';
+      if (!seen.has(s)) { seen.add(s); sections.push(s); }
+    }
+    return sections;
+  }
+
+  visibleAuditDocTemplatesBySection(section: string): AuditDocTemplate[] {
+    return this.visibleAuditDocTemplates.filter((t) => (t.section ?? '') === section);
+  }
 
   get auditDocSections(): string[] {
     const seen = new Set<string>();
@@ -450,6 +552,52 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
 
   auditDocTemplatesBySection(section: string): AuditDocTemplate[] {
     return this.auditDocTemplates.filter((t) => (t.section ?? '') === section);
+  }
+
+  /** True if a docType has been uploaded (any status) for the current audit */
+  auditDocIsUploaded(docType: string): boolean {
+    return this.auditUploadedDocs.some((d) => d.docType === docType);
+  }
+
+  /** Returns the latest status for a given docType ('PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | null) */
+  auditDocStatus(docType: string): string | null {
+    const docs = this.auditUploadedDocs.filter((d) => d.docType === docType);
+    if (!docs.length) return null;
+    // Priority: REJECTED > PENDING_REVIEW > APPROVED (show worst state)
+    if (docs.some((d) => d.status === 'REJECTED')) return 'REJECTED';
+    if (docs.some((d) => d.status === 'PENDING_REVIEW')) return 'PENDING_REVIEW';
+    return 'APPROVED';
+  }
+
+  /** Returns all rejected uploaded docs for the current audit */
+  get auditRejectedDocs(): { id: string; docType: string; title: string; uploadedAt: string }[] {
+    return this.auditUploadedDocs.filter((d) => d.status === 'REJECTED');
+  }
+
+  /** Progress for the current audit: { uploaded, total, rejected } based on visible required templates */
+  get auditDocProgress(): { uploaded: number; total: number; rejected: number } {
+    const total = this.visibleAuditDocTemplates.length;
+    const uploaded = this.visibleAuditDocTemplates.filter((t) =>
+      this.auditDocIsUploaded(t.docType),
+    ).length;
+    const rejected = this.visibleAuditDocTemplates.filter((t) =>
+      this.auditDocStatus(t.docType) === 'REJECTED',
+    ).length;
+    return { uploaded, total, rejected };
+  }
+
+  /** Human-readable label for a Frequency enum value. */
+  frequencyLabel(freq: string | undefined | null): string {
+    if (!freq) return '-';
+    const map: Record<string, string> = {
+      MONTHLY: 'Monthly',
+      BI_MONTHLY: 'Bi-Monthly',
+      QUARTERLY: 'Quarterly',
+      HALF_YEARLY: 'Half-Yearly',
+      YEARLY: 'Annual',
+      EVENT: 'Event-Based',
+    };
+    return map[freq] ?? freq;
   }
 
   private pendingTaskIdFromRoute: string | null = null;
@@ -548,6 +696,10 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       if (this.typeFilter !== 'ALL' && row.rowType !== this.typeFilter) {
         return false;
       }
+
+      if (this.freqFilter !== 'ALL' && row.rowType === 'AUDIT') {
+        if ((row.frequency ?? '') !== this.freqFilter) return false;
+      }
       // My Workboard shows only TASK and REUPLOAD — audits are on the dedicated Audits page
       if (this.typeFilter === 'ALL' && row.rowType === 'AUDIT') {
         return false;
@@ -566,7 +718,11 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         const rowBranch = row.branchName && row.branchName !== '-'
           ? row.branchName
           : this.availableBranches.find((b) => b.id === row.branchId)?.name || '-';
-        if (rowBranch !== this.branchFilter) {
+
+        // Client-level audits have no branchId — show them under every branch the contractor belongs to
+        const isUnlinkedAudit = row.rowType === 'AUDIT' && !row.branchId && rowBranch === '-';
+
+        if (!isUnlinkedAudit && rowBranch !== this.branchFilter) {
           return false;
         }
       }
@@ -622,7 +778,16 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.selectedTaskDetail = null;
       this.relatedReuploads = [];
       this.selectedTaskHistory = [];
+      this.auditDocActiveSection = '';
+      this.auditDocType = '';
+      this.auditDocTitle = '';
+      this.auditDocFile = null;
+      this.auditUploadedDocs = [];
+      this.auditUploadLockFrom = null;
+      this.auditUploadLockUntil = null;
       this.loadAuditNonCompliances(row.id);
+      this.loadAuditUploadedDocs(row.id);
+      this.loadAuditUploadLock(row.id);
       return;
     }
 
@@ -900,8 +1065,14 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.toast.error('Document title is required');
       return;
     }
-    if (!row.branchId) {
-      this.toast.error('Audit has no branch linked — cannot upload');
+    // Resolve branchId: prefer the one on the audit row; fall back to the
+    // contractor's only branch (audits scheduled at client level have no branch).
+    const resolvedBranchId: string | null =
+      row.branchId ||
+      (this.availableBranches.length === 1 ? this.availableBranches[0].id : null);
+
+    if (!resolvedBranchId) {
+      this.toast.error('Cannot determine branch — please contact admin to link this audit to a branch');
       return;
     }
 
@@ -909,7 +1080,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
     this.contractorProfileApi.uploadAuditDocument({
       auditId: row.id,
-      branchId: row.branchId,
+      branchId: resolvedBranchId,
       docType: this.auditDocType.trim(),
       title: this.auditDocTitle.trim(),
       file: this.auditDocFile,
@@ -925,6 +1096,9 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         this.auditDocFile = null;
         this.auditDocType = '';
         this.auditDocTitle = '';
+        if (this.selectedRow?.rowType === 'AUDIT') {
+          this.loadAuditUploadedDocs(this.selectedRow.id);
+        }
         this.cdr.markForCheck();
       },
       error: (err: any) =>
@@ -1106,6 +1280,49 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
           );
         },
       });
+  }
+
+  private loadAuditUploadedDocs(auditId: string): void {
+    this.auditUploadedDocsLoading = true;
+    this.cdr.markForCheck();
+    this.contractorProfileApi
+      .getContractorDocuments({ auditId })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.auditUploadedDocsLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          const rows = this.toArray(res?.data ?? res);
+          this.auditUploadedDocs = rows.map((d: any) => ({
+            id: d.id,
+            docType: d.docType ?? d.doc_type ?? '',
+            title: d.title ?? '',
+            status: d.status ?? 'PENDING_REVIEW',
+            uploadedAt: d.createdAt ?? d.created_at ?? '',
+          }));
+        },
+        error: () => {
+          this.auditUploadedDocs = [];
+        },
+      });
+  }
+
+  private loadAuditUploadLock(auditId: string): void {
+    this.auditsApi.contractorGetUploadLock(auditId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.auditUploadLockFrom = res?.lockFrom ?? res?.uploadLockFrom ?? null;
+        this.auditUploadLockUntil = res?.lockUntil ?? res?.uploadLockUntil ?? null;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.auditUploadLockFrom = null;
+        this.auditUploadLockUntil = null;
+      },
+    });
   }
 
   private buildReuploadTimeline(row: UnifiedWorkRow): TimelineEvent[] {
@@ -1400,6 +1617,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
     // Recompute from URL each time query params change to avoid stale view state.
     this.statusFilter = 'ALL';
     this.typeFilter = 'ALL';
+    this.freqFilter = 'ALL';
     this.dueFilter = 'ALL';
 
     const qStatus = (this.route.snapshot.queryParamMap.get('status') || '')

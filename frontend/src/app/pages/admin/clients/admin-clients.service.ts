@@ -10,6 +10,7 @@ export interface Client {
   status?: string;
   branchesCount?: number;
   totalEmployees?: number;
+  contractorsCount?: number;
   registeredAddress?: string;
   state?: string;
   industry?: string;

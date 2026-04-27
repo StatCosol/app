@@ -552,11 +552,25 @@ export class ComplianceService {
       }
     }
 
+    // Count rejected and pending contractor_documents (from AuditXpert reviews)
+    const docCountRows = await this.tasks.manager.query(
+      `SELECT
+         SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_docs,
+         SUM(CASE WHEN status IN ('UPLOADED','PENDING_REVIEW') THEN 1 ELSE 0 END) AS pending_review_docs
+       FROM contractor_documents
+       WHERE contractor_user_id = $1`,
+      [user.userId],
+    );
+    const rejectedDocs = Number(docCountRows?.[0]?.rejected_docs ?? 0);
+    const pendingReviewDocs = Number(docCountRows?.[0]?.pending_review_docs ?? 0);
+
     return {
       dueToday,
       overdue,
       inProgress,
       submitted,
+      rejectedDocs,
+      pendingReviewDocs,
     };
   }
 

@@ -20,7 +20,9 @@ export class CrmContractorsService {
     return this.http.post(`${this.baseUrl}/api/v1/crm/contractors/register`, data);
   }
 
-  listMyContractors(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/v1/crm/contractors/my-contractors`);
+  listMyContractors(clientId?: string): Observable<any> {
+    const params: Record<string, string> = {};
+    if (clientId) params['clientId'] = clientId;
+    return this.http.get(`${this.baseUrl}/api/v1/crm/contractors/my-contractors`, { params });
   }
 }

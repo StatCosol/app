@@ -397,6 +397,8 @@ export class PayrollService {
     allowBranchPayrollAccess: boolean;
     allowBranchWageRegisters: boolean;
     allowBranchSalaryRegisters: boolean;
+    payrollBranchScope: 'ALL' | 'SELECTED';
+    payrollAllowedBranchIds: string[];
   }> {
     const row = await this.clientSettingsRepo.findOne({ where: { clientId } });
     const s = row?.settings || {};
@@ -404,6 +406,8 @@ export class PayrollService {
       allowBranchPayrollAccess: s.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: s.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: s.allowBranchSalaryRegisters === true,
+      payrollBranchScope: s.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+      payrollAllowedBranchIds: Array.isArray(s.payrollAllowedBranchIds) ? s.payrollAllowedBranchIds : [],
     };
   }
 
@@ -433,6 +437,10 @@ export class PayrollService {
       allowBranchPayrollAccess: dto?.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: dto?.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: dto?.allowBranchSalaryRegisters === true,
+      payrollBranchScope: dto?.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+      payrollAllowedBranchIds: dto?.payrollBranchScope === 'SELECTED'
+        ? (Array.isArray(dto?.payrollAllowedBranchIds) ? dto.payrollAllowedBranchIds : [])
+        : [],
     };
 
     const row = existing

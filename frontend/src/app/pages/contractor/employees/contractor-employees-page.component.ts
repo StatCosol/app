@@ -14,6 +14,10 @@ import {
   ContractorEmployeesApiService,
   CreateEmployeeDto,
 } from '../../../core/contractor-employees-api.service';
+import {
+  ContractorBranchItem,
+  ContractorProfileApiService,
+} from '../../../core/contractor-profile-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   EmptyStateComponent,
@@ -37,6 +41,7 @@ interface EmployeeForm {
   esic: string;
   pfApplicable: boolean;
   esiApplicable: boolean;
+  branchId: string;
 }
 
 function emptyForm(): EmployeeForm {
@@ -56,6 +61,7 @@ function emptyForm(): EmployeeForm {
     esic: '',
     pfApplicable: false,
     esiApplicable: false,
+    branchId: '',
   };
 }
 
@@ -100,6 +106,16 @@ function emptyForm(): EmployeeForm {
       <!-- Toolbar -->
       <div class="flex flex-wrap gap-3 items-center justify-between">
         <div class="flex gap-2 flex-wrap items-center">
+          <!-- Branch filter -->
+          <select
+            *ngIf="availableBranches.length > 1"
+            [(ngModel)]="selectedBranchId"
+            (change)="onBranchChange()"
+            class="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-rose-400 focus:border-rose-400"
+          >
+            <option value="">All Branches</option>
+            <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name || b.branchName }}</option>
+          </select>
           <!-- Search -->
           <div class="relative">
             <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,6 +176,7 @@ function emptyForm(): EmployeeForm {
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                <th *ngIf="availableBranches.length >= 1" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Branch</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Gender</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Designation</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Dept</th>
@@ -176,6 +193,7 @@ function emptyForm(): EmployeeForm {
                   <div class="font-medium text-sm text-gray-900">{{ emp.name }}</div>
                   <div *ngIf="emp.phone" class="text-xs text-gray-400 mt-0.5">{{ emp.phone }}</div>
                 </td>
+                <td *ngIf="availableBranches.length >= 1" class="px-4 py-3 text-sm text-gray-500">{{ branchName(emp.branchId) || '—' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">
                   <span *ngIf="emp.gender" [class]="genderClass(emp.gender)" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
                     {{ emp.gender | uppercase }}
@@ -243,6 +261,20 @@ function emptyForm(): EmployeeForm {
 
         <!-- Form -->
         <form (ngSubmit)="saveEmployee()" #empForm="ngForm" class="flex-1 px-6 py-5 space-y-5" novalidate>
+
+          <!-- Branch (shown whenever branches are loaded) -->
+          <div *ngIf="availableBranches.length >= 1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Branch <span class="text-red-500">*</span></label>
+            <select
+              [(ngModel)]="form.branchId"
+              name="branchId"
+              required
+              class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+            >
+              <option value="">Select branch…</option>
+              <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name || b.branchName }}</option>
+            </select>
+          </div>
 
           <!-- Section: Basic Info -->
           <div>
@@ -514,6 +546,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   searchTerm = '';
   statusFilter: 'active' | 'inactive' | 'all' = 'active';
+  selectedBranchId = '';
+  availableBranches: ContractorBranchItem[] = [];
 
   drawerOpen = false;
   editingId: string | null = null;
@@ -541,12 +575,30 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: ContractorEmployeesApiService,
+    private profileApi: ContractorProfileApiService,
     private toast: ToastService,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.load();
+    this.loadBranches();
+  }
+
+  loadBranches(): void {
+    this.profileApi.getContractorBranches().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        this.availableBranches = res.branches || [];
+        // Auto-select if only one branch
+        if (this.availableBranches.length === 1) {
+          this.selectedBranchId = this.availableBranches[0].id;
+        }
+        this.load();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.load();
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -554,11 +606,21 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  onBranchChange(): void {
+    this.load();
+  }
+
+  branchName(branchId: string | null): string {
+    if (!branchId) return '';
+    const b = this.availableBranches.find((x) => x.id === branchId);
+    return b ? (b.name || b.branchName || '') : '';
+  }
+
   load(): void {
     this.loading = true;
     this.errorMsg = null;
     this.api
-      .list()
+      .list({ branchId: this.selectedBranchId || undefined })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -591,6 +653,8 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   openAdd(): void {
     this.editingId = null;
     this.form = emptyForm();
+    // Pre-select branch from the current filter or the only available branch
+    this.form.branchId = this.selectedBranchId || (this.availableBranches.length >= 1 ? this.availableBranches[0].id : '');
     this.formError = null;
     this.drawerOpen = true;
     this.cdr.markForCheck();
@@ -600,6 +664,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.editingId = emp.id;
     this.form = {
       name: emp.name || '',
+      branchId: emp.branchId || '',
       gender: emp.gender || '',
       dateOfBirth: emp.dateOfBirth || '',
       fatherName: emp.fatherName || '',
@@ -635,8 +700,14 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     this.formError = null;
     this.saving = true;
 
+    if (this.availableBranches.length >= 1 && !this.form.branchId) {
+      this.formError = 'Please select a branch.';
+      return;
+    }
+
     const dto: CreateEmployeeDto = {
       name: this.form.name.trim(),
+      branchId: this.form.branchId || undefined,
       gender: this.form.gender || null,
       dateOfBirth: this.form.dateOfBirth || null,
       fatherName: this.form.fatherName || null,

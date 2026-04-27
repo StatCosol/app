@@ -76,10 +76,24 @@ import {
                             name="gender"></ui-form-select>
             <div class="form-field">
               <label class="form-label" for="emp-dob">DOB as per Aadhaar</label>
-              <input autocomplete="off" id="emp-dob" type="date" class="form-date-input" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" />
+              <input autocomplete="off" id="emp-dob" type="date" class="form-date-input" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" (change)="onDobChange()" />
+              <div *ngIf="dobWarning" class="mt-1 flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 text-xs font-medium">
+                <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {{ dobWarning }}
+              </div>
             </div>
             <ui-form-input label="Father's / Husband's Name" [(ngModel)]="form.fatherName" name="fatherName"
                            placeholder="Enter father's name"></ui-form-input>
+            <div class="form-field">
+              <label class="form-label" for="bef-marital-status">Marital Status</label>
+              <select id="bef-marital-status" name="maritalStatus" [(ngModel)]="form.maritalStatus" class="form-input">
+                <option value="">- Select -</option>
+                <option value="MARRIED">Married</option>
+                <option value="UNMARRIED">Unmarried</option>
+                <option value="WIDOW">Widow</option>
+                <option value="WIDOWER">Widower</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -265,6 +279,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   saving = false;
   formError = '';
   successMsg = '';
+  dobWarning = '';
   form: any = { phone: '+91' };
   submitted = false;
 
@@ -390,6 +405,22 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
     return '';
   }
 
+  onDobChange(): void {
+    this.dobWarning = this.calcDobWarning(this.form.dateOfBirth);
+  }
+
+  private calcDobWarning(dob: string): string {
+    if (!dob) return '';
+    const d = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    if (age < 18) return `Warning: Employee age is ${age} years — below 18.`;
+    if (age > 58) return `Warning: Employee age is ${age} years — above 58.`;
+    return '';
+  }
+
   save(): void {
     this.submitted = true;
     if (!this.form.name?.trim()) {
@@ -421,15 +452,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.form.dateOfBirth) {
-      const dob = new Date(this.form.dateOfBirth);
-      const today = new Date();
-      let age = today.getFullYear() - dob.getFullYear();
-      const m = today.getMonth() - dob.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-      if (age < 18) {
-        this.formError = `Employee must be at least 18 years old. Date of birth indicates age ${age}.`;
-        return;
-      }
+      this.dobWarning = this.calcDobWarning(this.form.dateOfBirth);
     }
     this.saving = true;
     this.formError = '';

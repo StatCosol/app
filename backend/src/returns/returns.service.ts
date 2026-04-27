@@ -28,6 +28,123 @@ import { ReqUser } from '../access/access-scope.service';
 
 export type ReturnKind = 'ack' | 'challan';
 
+type ReturnMasterSeed = {
+  returnCode: string;
+  returnName: string;
+  lawArea: string;
+  frequency: string;
+  category: string;
+  stateCode: string;
+  appliesTo: string;
+  uploadRequired: boolean;
+  dueDay: number | null;
+  dueDateRule: string | null;
+  riskLevel: string;
+  responsibleRole: string;
+  scopeDefault: string;
+  applicableFor: string;
+  remarks: string;
+  isActive: boolean;
+};
+
+const STATE_COMBINED_RETURN_SEEDS: ReturnMasterSeed[] = [
+  {
+    returnCode: 'TS_INTEGRATED_ANNUAL',
+    returnName: 'Telangana Integrated Annual Return',
+    lawArea: 'Multiple Labour Laws (TS)',
+    frequency: 'YEARLY',
+    category: 'COMBINED_RETURN',
+    stateCode: 'TS',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDay: 31,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    remarks:
+      'Single combined annual return covering: Minimum Wages, Payment of Wages, Bonus, Maternity Benefit, Equal Remuneration. Does NOT cover PF, ESI, CLRA, Factories Act',
+    isActive: true,
+  },
+  {
+    returnCode: 'AP_COMBINED_ANNUAL',
+    returnName: 'Andhra Pradesh Combined Annual Return',
+    lawArea: 'Multiple Labour Laws (AP)',
+    frequency: 'YEARLY',
+    category: 'COMBINED_RETURN',
+    stateCode: 'AP',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDay: 31,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    remarks:
+      'Combined annual return covering Minimum Wages, Payment of Wages, Bonus, Maternity Benefit, Equal Remuneration. Format differs from Telangana but scope is similar',
+    isActive: true,
+  },
+  {
+    returnCode: 'KA_UNIFIED_ANNUAL',
+    returnName: 'Karnataka Unified Annual Return',
+    lawArea: 'Multiple Labour Laws (KA)',
+    frequency: 'YEARLY',
+    category: 'COMBINED_RETURN',
+    stateCode: 'KA',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDay: 31,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    remarks:
+      'Karnataka state combined annual return under the Simplified Compliance Act',
+    isActive: true,
+  },
+  {
+    returnCode: 'MH_COMBINED_ANNUAL',
+    returnName: 'Maharashtra Combined Annual Return',
+    lawArea: 'Multiple Labour Laws (MH)',
+    frequency: 'YEARLY',
+    category: 'COMBINED_RETURN',
+    stateCode: 'MH',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDay: 31,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    remarks:
+      'Maharashtra state combined annual return under the Labour Laws (Exemption) Act',
+    isActive: true,
+  },
+  {
+    returnCode: 'TN_CONSOLIDATED_ANNUAL',
+    returnName: 'Tamil Nadu Consolidated Annual Return',
+    lawArea: 'Multiple Labour Laws (TN)',
+    frequency: 'YEARLY',
+    category: 'COMBINED_RETURN',
+    stateCode: 'TN',
+    appliesTo: 'BOTH',
+    uploadRequired: true,
+    dueDay: 31,
+    dueDateRule: 'BEFORE_31_JAN',
+    riskLevel: 'HIGH',
+    responsibleRole: 'CRM',
+    scopeDefault: 'CLIENT',
+    applicableFor: 'BOTH',
+    remarks:
+      'Tamil Nadu state consolidated annual return covering applicable labour laws',
+    isActive: true,
+  },
+];
+
 @Injectable()
 export class ReturnsService {
   private readonly logger = new Logger(ReturnsService.name);
@@ -75,17 +192,254 @@ export class ReturnsService {
     private readonly notifCenter: ComplianceNotificationCenterService,
   ) {}
 
+  private normalizeStateCode(value: string | null | undefined): string | null {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '');
+
+    if (!normalized) return null;
+
+    switch (normalized) {
+      case 'TG':
+      case 'TS':
+      case 'TELANGANA':
+      case 'TELANGANASTATE':
+        return 'TS';
+      case 'AP':
+      case 'ANDHRAPRADESH':
+      case 'ANDHRA':
+        return 'AP';
+      case 'TN':
+      case 'TAMILNADU':
+      case 'TAMILNADUSTATE':
+        return 'TN';
+      case 'KA':
+      case 'KARNATAKA':
+        return 'KA';
+      case 'MH':
+      case 'MAHARASHTRA':
+        return 'MH';
+      case 'GJ':
+      case 'GUJARAT':
+        return 'GJ';
+      case 'KL':
+      case 'KERALA':
+        return 'KL';
+      case 'DL':
+      case 'DELHI':
+      case 'NEWDELHI':
+      case 'NCR':
+        return 'DL';
+      case 'RJ':
+      case 'RAJASTHAN':
+        return 'RJ';
+      case 'UP':
+      case 'UTTARPRADESH':
+        return 'UP';
+      case 'MP':
+      case 'MADHYAPRADESH':
+        return 'MP';
+      case 'WB':
+      case 'WESTBENGAL':
+        return 'WB';
+      case 'OD':
+      case 'OR':
+      case 'ORISSA':
+      case 'ODISHA':
+        return 'OD';
+      case 'HR':
+      case 'HARYANA':
+        return 'HR';
+      case 'PB':
+      case 'PUNJAB':
+        return 'PB';
+      case 'BR':
+      case 'BIHAR':
+        return 'BR';
+      case 'JH':
+      case 'JHARKHAND':
+        return 'JH';
+      case 'CG':
+      case 'CT':
+      case 'CHHATTISGARH':
+      case 'CHHATTISGAR':
+        return 'CG';
+      case 'UK':
+      case 'UT':
+      case 'UTTARAKHAND':
+      case 'UTTARANCHAL':
+        return 'UK';
+      default:
+        return normalized;
+    }
+  }
+
+  private isTypeApplicableForState(masterStateCode: string | null | undefined, branchStateCode: string | null): boolean {
+    if (!branchStateCode) return true;
+    const normalizedMasterState = this.normalizeStateCode(masterStateCode);
+    return !normalizedMasterState || normalizedMasterState === 'ALL' || normalizedMasterState === branchStateCode;
+  }
+
+  private async ensureCombinedReturnMasters(): Promise<void> {
+    for (const seed of STATE_COMBINED_RETURN_SEEDS) {
+      await this.masterRepo.save(this.masterRepo.create(seed));
+    }
+  }
+
+  private async resolveBranchForScopedTypes(
+    branchId: string,
+    user?: ReqUser,
+  ): Promise<Pick<BranchEntity, 'id' | 'clientId' | 'stateCode'>> {
+    const branch = await this.branchRepo.findOne({
+      where: { id: branchId },
+      select: ['id', 'clientId', 'stateCode'],
+    });
+
+    if (!branch) {
+      throw new BadRequestException('Branch not found');
+    }
+
+    if (user?.clientId && branch.clientId !== user.clientId) {
+      throw new ForbiddenException('Branch does not belong to your client');
+    }
+
+    if (user?.roleCode === 'CLIENT') {
+      await this.branchAccess.assertBranchAccess(user.userId, branchId);
+    }
+
+    if (user?.roleCode === 'CRM') {
+      const assignment = await this.assignmentsRepo.findOne({
+        where: {
+          clientId: branch.clientId,
+          assignmentType: 'CRM',
+          assignedToUserId: user.userId,
+        },
+      });
+      if (!assignment) {
+        throw new ForbiddenException('Client not assigned to you');
+      }
+    }
+
+    return branch;
+  }
+
+  private buildAnnualPeriodLabel(periodYear: number): string {
+    return `FY${periodYear}-${String((periodYear + 1) % 100).padStart(2, '0')}`;
+  }
+
+  private resolveAnnualMasterDueDate(
+    master: Pick<ComplianceReturnMasterEntity, 'dueDay' | 'dueDateRule'>,
+    periodYear: number,
+  ): string {
+    const dueDay = master.dueDay ?? 31;
+    switch (master.dueDateRule) {
+      case 'BEFORE_31_JAN':
+        return `${periodYear + 1}-01-${String(Math.min(dueDay, 31)).padStart(2, '0')}`;
+      case 'BEFORE_15_FEB':
+        return `${periodYear + 1}-02-${String(Math.min(dueDay, 28)).padStart(2, '0')}`;
+      case 'BEFORE_30_APR':
+        return `${periodYear + 1}-04-${String(Math.min(dueDay, 30)).padStart(2, '0')}`;
+      case 'END_OF_YEAR':
+        return `${periodYear}-12-${String(Math.min(dueDay, 31)).padStart(2, '0')}`;
+      default:
+        return `${periodYear + 1}-03-${String(Math.min(dueDay, 31)).padStart(2, '0')}`;
+    }
+  }
+
+  private async ensureCombinedFilingsForBranch(
+    clientId: string,
+    branchId: string,
+    periodYear: number,
+  ): Promise<void> {
+    if (!periodYear || Number.isNaN(periodYear)) return;
+
+    await this.ensureCombinedReturnMasters();
+    const branch = await this.assertBranchForBackfill(branchId, clientId);
+    const branchStateCode = this.normalizeStateCode(branch.stateCode);
+
+    if (!branchStateCode) return;
+
+    const masters = await this.masterRepo.find({
+      where: {
+        isActive: true,
+        category: 'COMBINED_RETURN',
+      },
+      order: { returnCode: 'ASC' },
+    });
+
+    for (const master of masters) {
+      if (!this.isTypeApplicableForState(master.stateCode, branchStateCode)) {
+        continue;
+      }
+
+      const existing = await this.returnsRepo.findOne({
+        where: {
+          clientId,
+          branchId,
+          returnType: master.returnCode,
+          periodYear,
+          isDeleted: false,
+        },
+      });
+
+      if (existing) continue;
+
+      const filing = this.returnsRepo.create({
+        clientId,
+        branchId,
+        lawType: master.lawArea,
+        returnType: master.returnCode,
+        periodYear,
+        periodMonth: null,
+        periodLabel: this.buildAnnualPeriodLabel(periodYear),
+        dueDate: this.resolveAnnualMasterDueDate(master, periodYear),
+        status: 'PENDING',
+        createdByRole: 'SYSTEM',
+      });
+
+      await this.returnsRepo.save(filing);
+    }
+  }
+
+  private async assertBranchForBackfill(
+    branchId: string,
+    clientId: string,
+  ): Promise<Pick<BranchEntity, 'id' | 'clientId' | 'stateCode'>> {
+    const branch = await this.branchRepo.findOne({
+      where: { id: branchId },
+      select: ['id', 'clientId', 'stateCode'],
+    });
+    if (!branch || branch.clientId !== clientId) {
+      throw new ForbiddenException('Branch does not belong to the specified client');
+    }
+    return branch;
+  }
+
   // --------- Lookups ----------
-  async getReturnTypes() {
+  async getReturnTypes(user?: ReqUser, branchId?: string) {
+    await this.ensureCombinedReturnMasters();
+
+    let branchStateCode: string | null = null;
+    if (branchId) {
+      const branch = await this.resolveBranchForScopedTypes(branchId, user);
+      branchStateCode = this.normalizeStateCode(branch.stateCode);
+    }
+
     const rows = await this.masterRepo.find({
       where: { isActive: true },
       order: { lawArea: 'ASC', returnCode: 'ASC' },
     });
-    return rows.map((r) => ({
+
+    return rows
+      .filter((r) => this.isTypeApplicableForState(r.stateCode, branchStateCode))
+      .map((r) => ({
       code: r.returnCode,
       label: r.returnName,
       lawType: r.lawArea,
       frequency: r.frequency,
+      category: r.category ?? null,
+      stateCode: r.stateCode,
       dueDay: r.dueDay,
     }));
   }
@@ -98,6 +452,15 @@ export class ReturnsService {
       );
       return [];
     }
+
+    if (q?.branchId && q?.periodYear) {
+      await this.ensureCombinedFilingsForBranch(
+        user.clientId,
+        q.branchId,
+        Number(q.periodYear),
+      );
+    }
+
     const qb = this.returnsRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.client', 'client')
@@ -310,16 +673,45 @@ export class ReturnsService {
   }
 
   async listForCrm(user: ReqUser, q: Record<string, string>) {
+    if (q?.clientId && q?.branchId && q?.periodYear) {
+      const assignment = await this.assignmentsRepo.findOne({
+        where: {
+          clientId: q.clientId,
+          assignmentType: 'CRM',
+          assignedToUserId: user.userId,
+        },
+      });
+      if (assignment) {
+        await this.ensureCombinedFilingsForBranch(
+          q.clientId,
+          q.branchId,
+          Number(q.periodYear),
+        );
+      }
+    }
+
     const qb = this.returnsRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.client', 'client')
       .leftJoinAndSelect('r.branch', 'branch')
+      .leftJoin(
+        ComplianceReturnMasterEntity,
+        'master',
+        'master.returnCode = r.returnType',
+      )
       .innerJoin(
         ClientAssignmentCurrentEntity,
         'ac',
         'ac.clientId = r.clientId AND ac.assignmentType = :type AND ac.assignedToUserId = :crmId',
         { type: 'CRM', crmId: user.userId },
       );
+
+    // Exclude register-type items (e.g. attendance registers, safety registers).
+    // Only actual returns, renewals, and statutory filings should appear in the CRM Returns Queue.
+    qb.andWhere(
+      "(master.category IS NULL OR master.category NOT IN (:...regCategories))",
+      { regCategories: ['FACTORY', 'LABOUR', 'SAFETY', 'ATTENDANCE_WAGE'] },
+    );
 
     this.applyFilters(qb, q);
     qb.orderBy('r.dueDate', 'DESC', 'NULLS LAST').addOrderBy(
@@ -687,6 +1079,14 @@ export class ReturnsService {
     }
 
     if (!dto.periodYear || !dto.periodMonth) {
+      if (
+        master.frequency === 'ANNUAL' ||
+        master.frequency === 'YEARLY' ||
+        master.category === 'COMBINED_RETURN'
+      ) {
+        return this.resolveAnnualMasterDueDate(master, dto.periodYear);
+      }
+
       // Non-monthly returns: use end of fiscal year as a fallback due date
       // so these filings still appear in overdue tracking.
       if (dto.periodYear) {
@@ -696,6 +1096,14 @@ export class ReturnsService {
         return d.toISOString().substring(0, 10);
       }
       return null;
+    }
+
+    if (
+      master.frequency === 'ANNUAL' ||
+      master.frequency === 'YEARLY' ||
+      master.category === 'COMBINED_RETURN'
+    ) {
+      return this.resolveAnnualMasterDueDate(master, dto.periodYear);
     }
 
     const dueDay = master.dueDay ?? 20;

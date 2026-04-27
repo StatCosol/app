@@ -1,4 +1,4 @@
-﻿import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -109,6 +109,46 @@ import {
 
       <div *ngIf="error" class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
 
+      <!-- Self-Upload Section -->
+      <div class="card p-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Upload Document</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="dv-upload-type">Document Type *</label>
+            <select id="dv-upload-type" name="uploadDocType" class="input-sm w-full" [(ngModel)]="uploadForm.docType">
+              <option value="">- Select -</option>
+              <option value="AADHAAR">Aadhaar Card</option>
+              <option value="PAN">PAN Card</option>
+              <option value="PASSPORT">Passport</option>
+              <option value="VOTER_ID">Voter ID</option>
+              <option value="DRIVING_LICENSE">Driving License</option>
+              <option value="UAN">UAN Card</option>
+              <option value="BANK">Bank Document</option>
+              <option value="CANCELLED_CHEQUE">Cancelled Cheque</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="dv-upload-name">Document Name</label>
+            <input autocomplete="off" id="dv-upload-name" name="uploadDocName" type="text" class="input-sm w-full" [(ngModel)]="uploadForm.docName" placeholder="e.g. Aadhaar Card" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="dv-upload-expiry">Expiry Date (optional)</label>
+            <input autocomplete="off" id="dv-upload-expiry" name="uploadExpiry" type="date" class="input-sm w-full" [(ngModel)]="uploadForm.expiryDate" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1" for="dv-upload-file">File (max 10 MB)</label>
+            <input id="dv-upload-file" type="file" (change)="onUploadFileSelected($event)" class="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white w-full" />
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <button class="btn-primary" [disabled]="!uploadForm.file || uploadingDoc || !uploadForm.docType" (click)="uploadDocument()">
+            {{ uploadingDoc ? 'Uploading...' : 'Upload' }}
+          </button>
+          <span *ngIf="uploadMsg" class="text-sm" [class.text-green-600]="!uploadError" [class.text-red-600]="uploadError">{{ uploadMsg }}</span>
+        </div>
+      </div>
+
       <div class="card overflow-hidden">
         <div *ngIf="loading" class="p-6 text-sm text-gray-500">Loading documents...</div>
 
@@ -218,6 +258,13 @@ export class EssDocumentVaultComponent implements OnInit, OnDestroy {
   downloadingId = '';
   previewingId = '';
 
+  uploadForm: { docType: string; docName: string; expiryDate: string; file: File | null } = {
+    docType: '', docName: '', expiryDate: '', file: null,
+  };
+  uploadingDoc = false;
+  uploadMsg = '';
+  uploadError = false;
+
   previewOpen = false;
   previewDoc: EssDocument | null = null;
   previewFile: SharedFilePreviewData | null = null;
@@ -226,6 +273,7 @@ export class EssDocumentVaultComponent implements OnInit, OnDestroy {
   constructor(
     private readonly api: EssApiService,
     private readonly toast: ToastService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -299,6 +347,39 @@ export class EssDocumentVaultComponent implements OnInit, OnDestroy {
     this.loadDocuments();
   }
 
+  onUploadFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.uploadForm.file = input.files?.[0] ?? null;
+  }
+
+  uploadDocument(): void {
+    if (!this.uploadForm.file || !this.uploadForm.docType) return;
+    this.uploadingDoc = true;
+    this.uploadMsg = '';
+    this.uploadError = false;
+    const fd = new FormData();
+    fd.append('file', this.uploadForm.file);
+    fd.append('docType', this.uploadForm.docType);
+    fd.append('docName', this.uploadForm.docName || this.uploadForm.file.name);
+    if (this.uploadForm.expiryDate) fd.append('expiryDate', this.uploadForm.expiryDate);
+    this.api.uploadDocument(fd).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.uploadingDoc = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: () => {
+        this.uploadMsg = 'Document uploaded successfully.';
+        this.uploadForm = { docType: '', docName: '', expiryDate: '', file: null };
+        const fileInput = document.getElementById('dv-upload-file') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+        this.loadDocuments();
+      },
+      error: (e) => {
+        this.uploadError = true;
+        this.uploadMsg = e?.error?.message || 'Upload failed. Please try again.';
+      },
+    });
+  }
+
   loadDocuments(): void {
     this.loading = true;
     this.error = '';
@@ -313,6 +394,7 @@ export class EssDocumentVaultComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({

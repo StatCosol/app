@@ -12,6 +12,19 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; }
+    .page-title { font-size: 1.2rem; font-weight: 800; color: #111827; margin: 0; }
+    .page-subtitle { font-size: 0.82rem; color: #6b7280; margin-top: 0.25rem; }
+    .spinner { width: 2rem; height: 2rem; border: 3px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.75s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.825rem; }
+    .data-table th { padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #475569; background: #f8fafc; border-bottom: 1px solid #e5e7eb; white-space: nowrap; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .data-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
+    .data-row:hover td { background: #f8fafc; }
+  `],
   template: `
     <div class="page-container">
       <div class="page-header">

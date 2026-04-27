@@ -221,6 +221,199 @@ async function bootstrap() {
       logger.warn(`Schema patch payroll_run_employees skipped: ${e?.message}`);
     }
 
+    try {
+      await ds.query(`
+        ALTER TABLE clients
+          ADD COLUMN IF NOT EXISTS crm_on_behalf_enabled BOOLEAN NOT NULL DEFAULT true
+      `);
+      // Enable for all existing clients (column may have been added with DEFAULT false)
+      await ds.query(`
+        UPDATE clients SET crm_on_behalf_enabled = true WHERE crm_on_behalf_enabled = false
+      `);
+      logger.log('Schema patch: clients.crm_on_behalf_enabled OK (all clients enabled)');
+    } catch (e: any) {
+      logger.warn(`Schema patch clients.crm_on_behalf_enabled skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE compliance_documents
+          ADD COLUMN IF NOT EXISTS uploaded_by_role    VARCHAR(20)  DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS acting_on_behalf    BOOLEAN      NOT NULL DEFAULT false,
+          ADD COLUMN IF NOT EXISTS original_owner_role VARCHAR(20)  DEFAULT NULL
+      `);
+      logger.log('Schema patch: compliance_documents CRM on-behalf columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch compliance_documents on-behalf columns skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE employee_nominations
+          ADD COLUMN IF NOT EXISTS client_id           UUID,
+          ADD COLUMN IF NOT EXISTS branch_id           UUID,
+          ADD COLUMN IF NOT EXISTS submitted_at        TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS approved_at         TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS approved_by_user_id UUID,
+          ADD COLUMN IF NOT EXISTS rejection_reason    TEXT
+      `);
+      await ds.query(`
+        UPDATE employee_nominations en
+        SET client_id = e.client_id,
+            branch_id = e.branch_id
+        FROM employees e
+        WHERE en.employee_id = e.id
+          AND en.client_id IS NULL
+      `);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_client   ON employee_nominations (client_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_branch   ON employee_nominations (branch_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_status   ON employee_nominations (status)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_emp_nom_approver ON employee_nominations (approved_by_user_id)`);
+      logger.log('Schema patch: employee_nominations workflow columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch employee_nominations skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE employee_nomination_members
+          ADD COLUMN IF NOT EXISTS guardian_relationship VARCHAR(60)  DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS guardian_address      TEXT         DEFAULT NULL
+      `);
+      logger.log('Schema patch: employee_nomination_members guardian columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch employee_nomination_members guardian columns skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE employees
+          ADD COLUMN IF NOT EXISTS marital_status VARCHAR(20) DEFAULT NULL
+      `);
+      logger.log('Schema patch: employees.marital_status OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch employees.marital_status skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE employees
+          ADD COLUMN IF NOT EXISTS pf_service_start_date DATE         DEFAULT NULL,
+          ADD COLUMN IF NOT EXISTS basic_at_pf_start     NUMERIC(12,2) DEFAULT NULL
+      `);
+      logger.log('Schema patch: employees PF service columns OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch employees PF service columns skipped: ${e?.message}`);
+    }
+
+    // ── ESS Leave tables (created here so they exist even if the
+    //    20260320_schema_reconciliation_v2 migration was not manually run) ──
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS leave_policies (
+          id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          client_id             UUID NOT NULL,
+          branch_id             UUID,
+          leave_type            VARCHAR(30) NOT NULL,
+          leave_name            VARCHAR(100) NOT NULL,
+          accrual_method        VARCHAR(20) NOT NULL DEFAULT 'MONTHLY',
+          accrual_rate          NUMERIC(5,2) NOT NULL DEFAULT 0,
+          carry_forward_limit   NUMERIC(5,2) NOT NULL DEFAULT 0,
+          yearly_limit          NUMERIC(5,2) NOT NULL DEFAULT 0,
+          allow_negative        BOOLEAN NOT NULL DEFAULT FALSE,
+          min_notice_days       INT NOT NULL DEFAULT 0,
+          max_days_per_request  NUMERIC(5,2) NOT NULL DEFAULT 0,
+          requires_document     BOOLEAN NOT NULL DEFAULT FALSE,
+          is_active             BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lp_client      ON leave_policies (client_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lp_client_type ON leave_policies (client_id, leave_type)`);
+      logger.log('Schema patch: leave_policies table OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch leave_policies skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS leave_balances (
+          id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          employee_id     UUID NOT NULL,
+          client_id       UUID NOT NULL,
+          year            INT NOT NULL,
+          leave_type      VARCHAR(30) NOT NULL,
+          opening         NUMERIC(5,2) NOT NULL DEFAULT 0,
+          accrued         NUMERIC(5,2) NOT NULL DEFAULT 0,
+          used            NUMERIC(5,2) NOT NULL DEFAULT 0,
+          lapsed          NUMERIC(5,2) NOT NULL DEFAULT 0,
+          available       NUMERIC(5,2) NOT NULL DEFAULT 0,
+          last_updated_at TIMESTAMPTZ,
+          created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (employee_id, year, leave_type)
+        )
+      `);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lb_employee ON leave_balances (employee_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_lb_client   ON leave_balances (client_id)`);
+      logger.log('Schema patch: leave_balances table OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch leave_balances skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS leave_applications (
+          id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          employee_id      UUID NOT NULL,
+          client_id        UUID NOT NULL,
+          branch_id        UUID,
+          leave_type       VARCHAR(30) NOT NULL,
+          from_date        DATE NOT NULL,
+          to_date          DATE NOT NULL,
+          total_days       NUMERIC(5,2) NOT NULL,
+          reason           TEXT,
+          status           VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+          approver_user_id UUID,
+          applied_at       TIMESTAMPTZ,
+          actioned_at      TIMESTAMPTZ,
+          rejection_reason TEXT,
+          attachment_path  TEXT,
+          created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_employee ON leave_applications (employee_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_client   ON leave_applications (client_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_branch   ON leave_applications (branch_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_la_approver ON leave_applications (approver_user_id)`);
+      logger.log('Schema patch: leave_applications table OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch leave_applications skipped: ${e?.message}`);
+    }
+
+    try {
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS leave_ledger (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          employee_id UUID NOT NULL,
+          client_id   UUID NOT NULL,
+          leave_type  VARCHAR(30) NOT NULL,
+          entry_date  DATE NOT NULL,
+          qty         NUMERIC(5,2) NOT NULL,
+          ref_type    VARCHAR(30) NOT NULL,
+          ref_id      UUID,
+          remarks     TEXT,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_ll_employee ON leave_ledger (employee_id)`);
+      await ds.query(`CREATE INDEX IF NOT EXISTS idx_ll_client   ON leave_ledger (client_id)`);
+      logger.log('Schema patch: leave_ledger table OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch leave_ledger skipped: ${e?.message}`);
+    }
+
     const CRITICAL_TABLES = [
       'users',
       'roles',

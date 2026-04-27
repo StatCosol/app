@@ -330,7 +330,7 @@ export class BranchComplianceComponent implements OnInit {
         if (row) {
           this.completionPercent = row.completionPercent ?? 0;
           this.uploaded = row.uploaded ?? 0;
-          this.totalApplicableCodes = row.totalApplicableCodes ?? 0;
+          this.totalApplicableCodes = row.totalApplicable ?? row.totalApplicableCodes ?? 0;
         } else {
           this.completionPercent = 0;
           this.uploaded = 0;

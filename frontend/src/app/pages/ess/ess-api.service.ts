@@ -12,6 +12,7 @@ export interface EssProfile {
   dateOfBirth: string | null;
   gender: string | null;
   fatherName: string | null;
+  maritalStatus: string | null;
   phone: string | null;
   email: string | null;
   aadhaar: string | null;
@@ -20,6 +21,8 @@ export interface EssProfile {
   esic: string | null;
   pfApplicable: boolean;
   pfRegistered: boolean;
+  pfServiceStartDate: string | null;
+  basicAtPfStart: number | null;
   esiApplicable: boolean;
   esiRegistered: boolean;
   bankName: string | null;
@@ -95,9 +98,13 @@ export interface EssNominationMember {
   id: string;
   memberName: string;
   relationship: string | null;
+  dateOfBirth: string | null;
+  address: string | null;
   sharePct: number;
   isMinor: boolean;
   guardianName: string | null;
+  guardianRelationship: string | null;
+  guardianAddress: string | null;
 }
 
 export interface LeaveBalance {
@@ -150,6 +157,7 @@ export interface EssAttendanceRecord {
   checkOut: string | null;
   workedHours: string | null;
   overtimeHours: string | null;
+  shortWorkReason: string | null;
   remarks: string | null;
   source: string | null;
   captureMethod: string | null;
@@ -309,6 +317,10 @@ export class EssApiService {
     return this.http.put(`${this.base}/nominations/${id}/resubmit`, body);
   }
 
+  updateNomination(id: string, body: any): Observable<any> {
+    return this.http.put(`${this.base}/nominations/${id}`, body);
+  }
+
   // Leave
   getLeaveBalances(year?: number): Observable<LeaveBalance[]> {
     const params = year ? `?year=${year}` : '';
@@ -409,6 +421,10 @@ export class EssApiService {
     return this.http.get(`${this.base}/documents/${id}/download`, {
       responseType: 'blob',
     });
+  }
+
+  uploadDocument(formData: FormData): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/documents/upload`, formData);
   }
 
   // ── Helpdesk ────────────────────────────────────────────

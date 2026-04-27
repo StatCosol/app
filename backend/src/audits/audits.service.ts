@@ -4,9 +4,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { AuditEntity, AuditStatus } from './entities/audit.entity';
 import { AuditObservationEntity } from './entities/audit-observation.entity';
 import { AuditChecklistItemEntity } from './entities/audit-checklist-item.entity';
@@ -35,7 +36,7 @@ export interface BranchAuditKpiItem {
 }
 
 @Injectable()
-export class AuditsService {
+export class AuditsService implements OnModuleInit {
   private readonly logger = new Logger(AuditsService.name);
   private auditReportColumnsCache:
     | {
@@ -67,6 +68,19 @@ export class AuditsService {
     private readonly ncEngine: NonComplianceEngineService,
     private readonly auditOutputEngine: AuditOutputEngineService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      await this.dataSource.query(`
+        ALTER TABLE audits
+          ADD COLUMN IF NOT EXISTS upload_lock_from DATE NULL,
+          ADD COLUMN IF NOT EXISTS upload_lock_until DATE NULL
+      `);
+      this.logger.log('upload_lock columns ensured on audits table');
+    } catch (e: any) {
+      this.logger.error('Failed to ensure upload_lock columns: ' + e.message);
+    }
+  }
 
   private assertCrm(user: ReqUser) {
     if (!user || user.roleCode !== 'CRM') {
@@ -1794,6 +1808,22 @@ export class AuditsService {
       );
     }
 
+    // ── Auto-link checklist item ──────────────────────────────────
+    try {
+      await this.autoLinkChecklistItem(auditId, docId, tbl, decision, remarks, user.userId);
+    } catch {
+      // Non-critical: don't fail the review if checklist sync fails
+    }
+
+    // ── Auto-create observation when rejecting a document ─────────
+    if (decision === 'NON_COMPLIED') {
+      try {
+        await this.autoCreateObservationFromRejection(auditId, docId, tbl, remarks || '', user.userId, audit);
+      } catch {
+        // Non-critical
+      }
+    }
+
     return {
       docId,
       status: newStatus,
@@ -1803,7 +1833,222 @@ export class AuditsService {
     };
   }
 
+  /**
+   * When a document is reviewed, find a matching checklist item by docType or
+   * label similarity and auto-update its status to COMPLIED or NON_COMPLIED.
+   */
+  private async autoLinkChecklistItem(
+    auditId: string,
+    docId: string,
+    sourceTable: string,
+    decision: 'COMPLIED' | 'NON_COMPLIED',
+    remarks: string | undefined,
+    reviewerUserId: string,
+  ): Promise<void> {
+    // Fetch the document's docType / fileName for matching
+    const docQuery =
+      sourceTable === 'branch_documents'
+        ? `SELECT doc_type AS "docType", file_name AS "fileName", category FROM branch_documents WHERE id = $1`
+        : `SELECT doc_type AS "docType", COALESCE(title, file_name) AS "fileName", NULL AS category FROM contractor_documents WHERE id = $1`;
+    const docRows = await this.dataSource.query(docQuery, [docId]);
+    if (!docRows.length) return;
+    const { docType, fileName } = docRows[0];
+
+    // Find checklist items not yet reviewed (PENDING = no doc uploaded yet, UPLOADED = doc uploaded but not reviewed)
+    const pendingItems = await this.checklistRepo.find({
+      where: { auditId, status: In(['PENDING', 'UPLOADED']) },
+    });
+    if (!pendingItems.length) return;
+
+    const normalize = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+    const wordsOf = (s: string) => s.split(/\s+/).filter(w => w.length > 1);
+    const stem = (w: string) => w.endsWith('s') && w.length > 3 ? w.slice(0, -1) : w;
+    const docTypeNorm = normalize(docType);
+    const fileNameNorm = normalize(fileName);
+
+    // Match: exact docType, word-by-word overlap (handles "PF_CHALLAN" → "pf monthly challan"), or filename
+    const matched = pendingItems.find((item) => {
+      const labelNorm = normalize(item.itemLabel);
+      const itemDocTypeNorm = normalize(item.docType ?? '');
+      // 1. Exact docType match (works when checklist item has docType set)
+      if (itemDocTypeNorm && docTypeNorm && itemDocTypeNorm === docTypeNorm) return true;
+      // 2. All words of docType found individually in label words (e.g. "pf challan" ⊆ words of "pf monthly challan")
+      const dtWords = wordsOf(docTypeNorm).map(stem);
+      const lblWordSet = new Set(wordsOf(labelNorm).map(stem));
+      if (dtWords.length > 0 && dtWords.every(w => lblWordSet.has(w))) return true;
+      // 3. All words of label found in docType words (handles short labels that are subsets of docType)
+      const lblWords = wordsOf(labelNorm).map(stem);
+      const dtWordSet = new Set(wordsOf(docTypeNorm).map(stem));
+      if (lblWords.length > 0 && lblWords.every(w => dtWordSet.has(w))) return true;
+      // 4. All significant label words appear in the uploaded filename
+      if (fileNameNorm && wordsOf(labelNorm).filter(w => w.length > 3).every(w => fileNameNorm.includes(w))) return true;
+      return false;
+    });
+
+    if (!matched) return;
+
+    const checklistStatus = decision === 'COMPLIED' ? 'COMPLIED' : 'NON_COMPLIED';
+    matched.status = checklistStatus;
+    matched.remarks = remarks
+      ? remarks.slice(0, 500)
+      : (decision === 'COMPLIED' ? 'Document approved by auditor' : matched.remarks);
+    matched.reviewedBy = reviewerUserId;
+    matched.reviewedAt = new Date();
+    matched.linkedDocId = docId;
+    matched.linkedDocTable = sourceTable;
+    await this.checklistRepo.save(matched);
+  }
+
+  /**
+   * When a document is rejected, auto-create a structured observation so the
+   * auditor doesn't have to re-enter the same finding in the Observation Builder.
+   * Skips creation if an identical observation already exists for this audit+document.
+   */
+  private async autoCreateObservationFromRejection(
+    auditId: string,
+    docId: string,
+    sourceTable: string,
+    remarks: string,
+    auditorUserId: string,
+    audit: AuditEntity,
+  ): Promise<void> {
+    // Fetch doc name and docType for the observation text
+    const docQuery =
+      sourceTable === 'branch_documents'
+        ? `SELECT doc_type AS "docType", file_name AS "fileName", category FROM branch_documents WHERE id = $1`
+        : `SELECT doc_type AS "docType", COALESCE(title, file_name) AS "fileName", NULL AS category FROM contractor_documents WHERE id = $1`;
+    const docRows = await this.dataSource.query(docQuery, [docId]);
+    if (!docRows.length) return;
+    const { docType, fileName } = docRows[0];
+
+    // Avoid duplicate observation for the same document in this audit
+    const existing = await this.dataSource.query(
+      `SELECT id FROM audit_observations WHERE audit_id = $1 AND observation ILIKE $2 LIMIT 1`,
+      [auditId, `%${docType || fileName}%`],
+    );
+    if (existing.length) return;
+
+    // Derive a brief, meaningful observation text
+    const docLabel = docType || fileName || 'Document';
+    const observationText = `${docLabel} found Non-Compliant. ${remarks}`.trim();
+
+    // Map audit type → likely act reference for context
+    const actMap: Record<string, string> = {
+      CONTRACTOR: 'CLRA Act, 1970',
+      FACTORY: 'Factories Act, 1948',
+      SHOPS_ESTABLISHMENT: 'Shops & Establishments Act',
+      LABOUR_EMPLOYMENT: 'Labour Laws',
+      PAYROLL: 'PF Act / ESI Act',
+      FSSAI: 'Food Safety and Standards Act, 2006',
+      HR: 'Industrial Employment (Standing Orders) Act',
+    };
+    const actRef = actMap[audit.auditType] || 'Applicable Labour Laws';
+
+    const obs = this.observationRepo.create({
+      auditId,
+      observation: observationText,
+      complianceRequirements: actRef,
+      recommendation: `Ensure ${docLabel} is obtained, renewed, and maintained as required.`,
+      risk: 'LOW',
+      status: 'OPEN',
+      recordedByUserId: auditorUserId,
+    });
+    await this.observationRepo.save(obs);
+  }
+
   // ─── Auditor: Submit Audit ─────────────────────────────────────
+  // ─── Auditor: Set / Clear Upload Lock Window ──────────────────
+  async setUploadLock(
+    user: ReqUser,
+    auditId: string,
+    lockFrom: string | null,
+    lockUntil: string | null,
+  ) {
+    this.assertAuditor(user);
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    if (audit.assignedAuditorId !== user.userId) {
+      throw new ForbiddenException('Not your audit');
+    }
+
+    // Validate dates: must be YYYY-MM-DD or null
+    const dateRe = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    if (lockFrom && !dateRe.test(lockFrom))
+      throw new BadRequestException('lockFrom must be YYYY-MM-DD');
+    if (lockUntil && !dateRe.test(lockUntil))
+      throw new BadRequestException('lockUntil must be YYYY-MM-DD');
+    if (lockFrom && lockUntil && lockFrom > lockUntil)
+      throw new BadRequestException('lockFrom must be on or before lockUntil');
+
+    audit.uploadLockFrom = lockFrom ?? null;
+    audit.uploadLockUntil = lockUntil ?? null;
+    await this.repo.save(audit);
+
+    return {
+      auditId: audit.id,
+      uploadLockFrom: audit.uploadLockFrom,
+      uploadLockUntil: audit.uploadLockUntil,
+    };
+  }
+
+  async getUploadLock(user: ReqUser, auditId: string) {
+    this.assertAuditor(user);
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    if (audit.assignedAuditorId !== user.userId) {
+      throw new ForbiddenException('Not your audit');
+    }
+    return {
+      auditId: audit.id,
+      uploadLockFrom: audit.uploadLockFrom ?? null,
+      uploadLockUntil: audit.uploadLockUntil ?? null,
+    };
+  }
+
+  async getUploadLockForContractor(user: ReqUser, auditId: string) {
+    this.assertContractor(user);
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    // allow if this contractor is assigned OR if they share the same client
+    if (audit.contractorUserId !== user.userId && audit.clientId !== user.clientId) {
+      throw new ForbiddenException('Access denied');
+    }
+    return {
+      auditId: audit.id,
+      uploadLockFrom: audit.uploadLockFrom ?? null,
+      uploadLockUntil: audit.uploadLockUntil ?? null,
+    };
+  }
+
+  // ─── Auditor: Force-Complete Audit (bypasses pending docs/NCs) ─
+  async forceCompleteAudit(user: ReqUser, auditId: string, finalRemark?: string) {
+    this.assertAuditor(user);
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    if (audit.assignedAuditorId !== user.userId) {
+      throw new ForbiddenException('Not your audit');
+    }
+    if (audit.status === 'COMPLETED' || audit.status === 'CLOSED') {
+      throw new BadRequestException('Audit already completed/closed');
+    }
+
+    const obsScore = await this.calculateScore(auditId);
+    audit.score = obsScore.score;
+    audit.scoreCalculatedAt = new Date();
+    audit.submittedAt = new Date();
+    audit.status = 'SUBMITTED';
+    if (finalRemark) audit.finalRemark = finalRemark;
+    await this.repo.save(audit);
+    await this.updateScheduleStatusOnSubmit(auditId);
+
+    return {
+      id: audit.id,
+      status: audit.status,
+      score: obsScore.score,
+      message: 'Audit finalized by auditor. Pending documents/NCs were overridden.',
+    };
+  }
+
   async submitAudit(user: ReqUser, auditId: string, finalRemark?: string) {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });
@@ -2082,109 +2327,171 @@ export class AuditsService {
     }
 
     // Auto-generate checklist items based on audit type
-    const typeChecklistMap: Record<string, string[]> = {
+    // Each entry: [label, docType?] — docType enables exact matching in autoLinkChecklistItem
+    const typeChecklistMap: Record<string, Array<[string, string?]>> = {
       FACTORY: [
-        'Factory License',
-        'Building Stability Certificate',
-        'Fire Safety Certificate',
-        'Pollution Control Board Consent',
-        'Hazardous Waste Authorization',
-        'Boiler Certificate',
-        'Factory Plan Approval',
-        'Annual Return (Form 21)',
-        'Half-Yearly Return (Form 22)',
-        'Register of Workers',
-        'Leave Register',
-        'Overtime Register',
-        'Health & Safety Policy',
-        'First Aid Box',
-        'Canteen License',
-        'Creche Facility (if applicable)',
+        ['Factory License', 'FACTORY_LICENSE'],
+        ['Building Stability Certificate', 'BUILDING_STABILITY_CERT'],
+        ['Fire Safety Certificate', 'FIRE_SAFETY_CERT'],
+        ['Pollution Control Board Consent', 'PCB_CONSENT'],
+        ['Hazardous Waste Authorization', 'HAZARDOUS_WASTE_AUTH'],
+        ['Boiler Certificate', 'BOILER_CERTIFICATE'],
+        ['Factory Plan Approval', 'FACTORY_PLAN_APPROVAL'],
+        ['Annual Return (Form 21)', 'ANNUAL_RETURN_F21'],
+        ['Half-Yearly Return (Form 22)', 'HALF_YEARLY_RETURN_F22'],
+        ['Register of Workers', 'WORKERS_REGISTER'],
+        ['Leave Register', 'LEAVE_REGISTER'],
+        ['Overtime Register', 'OT_REGISTER'],
+        ['Health & Safety Policy', 'HEALTH_SAFETY_POLICY'],
+        ['First Aid Box', 'FIRST_AID_BOX'],
+        ['Canteen License', 'CANTEEN_LICENSE'],
+        ['Creche Facility (if applicable)', 'CRECHE_FACILITY'],
       ],
       SHOPS_ESTABLISHMENT: [
-        'Shops & Establishment Registration',
-        'Trade License',
-        'Professional Tax Registration',
-        'Employment Exchange Returns',
-        'Register of Employees',
-        'Attendance Register',
-        'Wage Register',
-        'Leave Register',
-        'Annual Return',
+        ['Shops & Establishment Registration', 'SHOPS_EST_REGISTRATION'],
+        ['Trade License', 'TRADE_LICENSE'],
+        ['Professional Tax Registration', 'PT_REGISTRATION'],
+        ['Employment Exchange Returns', 'EMPLOYMENT_EXCHANGE_RETURNS'],
+        ['Register of Employees', 'EMPLOYMENT_REGISTER_F13'],
+        ['Attendance Register', 'MUSTER_ROLL_REGISTER'],
+        ['Wage Register', 'WAGE_REGISTER'],
+        ['Leave Register', 'LEAVE_REGISTER'],
+        ['Annual Return', 'ANNUAL_RETURN'],
       ],
       CONTRACTOR: [
-        'CLRA License',
-        'PF Registration',
-        'ESI Registration',
-        'PF Monthly Challan',
-        'ESI Monthly Challan',
-        'Professional Tax Challan',
-        'Wage Register',
-        'Attendance Register',
-        'Muster Roll',
-        'Form V – Register of Workmen',
-        'Form XII – Wage Slip',
-        'Form XIII – Register of Wages',
-        'Bonus Register (Form C)',
-        'CLRA Annual Return (Form XXV)',
+        ['CLRA License', 'CLRA_LICENSE'],
+        ['PF Registration', 'PF_REGISTRATION'],
+        ['ESI Registration', 'ESI_REGISTRATION'],
+        ['PF Monthly Challan', 'PF_CHALLAN'],
+        ['ESI Monthly Challan', 'ESI_CHALLAN'],
+        ['Professional Tax Challan', 'PT_CHALLAN'],
+        ['Wage Register', 'WAGE_REGISTER'],
+        ['Muster Roll / Attendance Register', 'MUSTER_ROLL_REGISTER'],
+        ['Register of Fines', 'REGISTER_OF_FINES'],
+        ['Register of Deductions', 'REGISTER_OF_DEDUCTIONS'],
+        ['Service Certificates', 'SERVICE_CERTIFICATE'],
+        ['Employment Cards', 'EMPLOYMENT_CARDS'],
+        ['Wage Slips', 'WAGE_SLIPS'],
+        ['Register of Employment (Form-13)', 'EMPLOYMENT_REGISTER_F13'],
+        ['Bonus Register (Form C)', 'BONUS_FORM_C'],
+        ['CLRA Annual Return', 'HALF_YEARLY_RETURNS_F14'],
       ],
       LABOUR_EMPLOYMENT: [
-        'Labour License',
-        'Standing Orders',
-        'Employment Exchange Quarterly Returns',
-        'Minimum Wages Register',
-        'Equal Remuneration Register',
-        'Maternity Benefit Records',
-        'Gratuity Records',
-        'Industrial Disputes Records',
+        ['Labour License', 'LABOUR_LICENSE'],
+        ['Standing Orders', 'STANDING_ORDERS'],
+        ['Employment Exchange Quarterly Returns', 'EMPLOYMENT_EXCHANGE_RETURNS'],
+        ['Minimum Wages Register', 'MINIMUM_WAGES_RETURNS'],
+        ['Equal Remuneration Register', 'EQUAL_REMUNERATION_REGISTER'],
+        ['Maternity Benefit Records', 'MATERNITY_BENEFIT_RECORDS'],
+        ['Gratuity Records', 'GRATUITY_RECORDS'],
+        ['Industrial Disputes Records', 'INDUSTRIAL_DISPUTES_RECORDS'],
       ],
       FSSAI: [
-        'FSSAI License',
-        'Food Handler Medical Certificate',
-        'Water Testing Report',
-        'Pest Control Records',
-        'Temperature Log (Cold Storage)',
-        'Hygiene & Sanitation Records',
-        'Raw Material Inspection Records',
-        'FSSAI Annual Return',
+        ['FSSAI License', 'FSSAI_LICENSE'],
+        ['Food Handler Medical Certificate', 'FOOD_HANDLER_CERT'],
+        ['Water Testing Report', 'WATER_TESTING_REPORT'],
+        ['Pest Control Records', 'PEST_CONTROL_RECORDS'],
+        ['Temperature Log (Cold Storage)', 'TEMPERATURE_LOG'],
+        ['Hygiene & Sanitation Records', 'HYGIENE_SANITATION_RECORDS'],
+        ['Raw Material Inspection Records', 'RAW_MATERIAL_INSPECTION'],
+        ['FSSAI Annual Return', 'FSSAI_ANNUAL_RETURN'],
       ],
       PAYROLL: [
-        'PF Challan',
-        'ESI Challan',
-        'Professional Tax Challan',
-        'TDS Challan',
-        'Payroll Register',
-        'Salary Slips',
-        'Bank Statement (Salary A/c)',
-        'Bonus Computation Sheet',
-        'Leave Encashment Records',
-        'Full & Final Settlement Records',
+        ['PF Challan', 'PF_CHALLAN'],
+        ['ESI Challan', 'ESI_CHALLAN'],
+        ['Professional Tax Challan', 'PT_CHALLAN'],
+        ['TDS Challan', 'TDS_CHALLAN'],
+        ['Payroll Register', 'PAYROLL_REGISTER'],
+        ['Salary Slips', 'WAGE_SLIPS'],
+        ['Bank Statement (Salary A/c)', 'BANK_STATEMENT_SALARY'],
+        ['Bonus Computation Sheet', 'BONUS_FORM_C'],
+        ['Leave Encashment Records', 'LEAVE_ENCASHMENT_RECORDS'],
+        ['Full & Final Settlement Records', 'FULL_FINAL_SETTLEMENT'],
       ],
       HR: [
-        'Appointment Letters',
-        'ID Cards Issued',
-        'Employee Handbook Acknowledgement',
-        'Background Verification Records',
-        'Training Records',
-        'Performance Appraisal Records',
-        'Employee Grievance Register',
-        'Sexual Harassment Committee (ICC) Records',
-        'Exit Interview Records',
-        'Succession Planning Documents',
+        ['Appointment Letters', 'APPOINTMENT_LETTERS'],
+        ['ID Cards Issued', 'ID_CARDS'],
+        ['Employee Handbook Acknowledgement', 'EMPLOYEE_HANDBOOK'],
+        ['Background Verification Records', 'BACKGROUND_VERIFICATION'],
+        ['Training Records', 'TRAINING_RECORDS'],
+        ['Performance Appraisal Records', 'APPRAISAL_RECORDS'],
+        ['Employee Grievance Register', 'GRIEVANCE_REGISTER'],
+        ['Sexual Harassment Committee (ICC) Records', 'ICC_RECORDS'],
+        ['Exit Interview Records', 'EXIT_INTERVIEW_RECORDS'],
+        ['Succession Planning Documents', 'SUCCESSION_PLANNING'],
       ],
       GAP: [
-        'Process Documentation',
-        'SOP Compliance Check',
-        'Internal Audit Reports',
-        'Gap Analysis Report',
-        'Corrective Action Plan',
-        'Risk Assessment Records',
-        'Management Review Minutes',
+        ['Process Documentation', 'PROCESS_DOCUMENTATION'],
+        ['SOP Compliance Check', 'SOP_COMPLIANCE'],
+        ['Internal Audit Reports', 'INTERNAL_AUDIT_REPORT'],
+        ['Gap Analysis Report', 'GAP_ANALYSIS_REPORT'],
+        ['Corrective Action Plan', 'CORRECTIVE_ACTION_PLAN'],
+        ['Risk Assessment Records', 'RISK_ASSESSMENT'],
+        ['Management Review Minutes', 'MANAGEMENT_REVIEW'],
       ],
     };
 
-    const labels = typeChecklistMap[audit.auditType] || [];
-    if (labels.length === 0) {
+    // For CONTRACTOR audits with a linked contractor, derive checklist from their
+    // actual required document types so docType codes match uploaded documents
+    // and auto-linking fires correctly.
+    let entries: Array<[string, string?]> = typeChecklistMap[audit.auditType] || [];
+
+    if (audit.auditType === 'CONTRACTOR' && audit.contractorUserId) {
+      const CONTRACTOR_DOC_LABELS: Record<string, string> = {
+        WAGE_REGISTER: 'Wage Register',
+        MUSTER_ROLL: 'Muster Roll',
+        OT_REGISTER: 'Overtime (OT) Register',
+        PF_CHALLAN: 'PF Challan',
+        ESI_CHALLAN: 'ESI Challan',
+        PT_CHALLAN: 'Professional Tax (PT) Challan',
+        CLRA_LICENSE: 'CLRA License',
+        PF_REGISTRATION: 'PF Registration',
+        ESI_REGISTRATION: 'ESI Registration',
+        WORK_ORDER: 'Work Order / Contract Agreement',
+        REGISTER_OF_FINES: 'Register of Fines',
+        REGISTER_OF_DEDUCTIONS: 'Register of Deductions',
+        REGISTER_OF_ADVANCES: 'Register of Advances',
+        EMPLOYMENT_REGISTER_F13: 'Register of Employment (Form-13)',
+        HALF_YEARLY_RETURNS_F14: 'Half Yearly Returns (Form XIV)',
+        SERVICE_CERTIFICATE: 'Service Certificates',
+        EMPLOYMENT_CARDS: 'Employment Cards',
+        WAGE_SLIPS: 'Wage Slips',
+        BONUS_FORM_C: 'Bonus Register (Form C)',
+        MUSTER_ROLL_REGISTER: 'Muster Roll Register',
+      };
+      const toLabel = (dt: string) =>
+        CONTRACTOR_DOC_LABELS[dt] ??
+        dt.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+      // Standard monthly types always required
+      const standardTypes = [
+        'WAGE_REGISTER',
+        'MUSTER_ROLL',
+        'OT_REGISTER',
+        'PF_CHALLAN',
+        'ESI_CHALLAN',
+        'PT_CHALLAN',
+      ];
+
+      // CRM-configured extras for this contractor
+      const dbRows = await this.dataSource.query(
+        `SELECT DISTINCT doc_type FROM contractor_required_documents
+         WHERE contractor_user_id = $1 AND client_id = $2 AND is_required = true`,
+        [audit.contractorUserId, audit.clientId],
+      );
+      const extraTypes: string[] = (dbRows as { doc_type: string }[]).map(
+        (r) => r.doc_type,
+      );
+
+      const allTypes = [...standardTypes];
+      for (const dt of extraTypes) {
+        if (!allTypes.includes(dt)) allTypes.push(dt);
+      }
+
+      entries = allTypes.map((dt) => [toLabel(dt), dt] as [string, string]);
+    }
+
+    if (entries.length === 0) {
       throw new BadRequestException(
         `No default checklist defined for audit type: ${audit.auditType}`,
       );
@@ -2198,10 +2505,11 @@ export class AuditsService {
       );
     }
 
-    const items = labels.map((label, idx) =>
+    const items = entries.map(([label, docType], idx) =>
       this.checklistRepo.create({
         auditId,
         itemLabel: label,
+        docType: docType ?? null,
         isRequired: true,
         sortOrder: idx + 1,
         status: 'PENDING',
@@ -2546,6 +2854,84 @@ export class AuditsService {
        LIMIT 20`,
       [user.userId],
     );
+  }
+
+  /** Dashboard "Today / Upcoming Scheduled Audits" table — paginated */
+  async getDashboardAudits(
+    user: ReqUser,
+    tab: string,
+    filters: { clientId?: string; auditType?: string; fromDate?: string; toDate?: string },
+  ): Promise<{ items: any[] }> {
+    this.assertAuditor(user);
+
+    const clauses: string[] = ['a.assigned_auditor_id = $1', "a.status != 'CANCELLED'"];
+    const params: any[] = [user.userId];
+
+    const p = () => `$${params.length + 1}`;
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (tab === 'OVERDUE') {
+      clauses.push(`a.due_date < '${today}'`);
+      clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
+    } else if (tab === 'DUE_SOON') {
+      clauses.push(`a.due_date >= '${today}'`);
+      clauses.push(`a.due_date <= '${new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}'`);
+      clauses.push("a.status NOT IN ('COMPLETED','SUBMITTED','CLOSED')");
+    } else if (tab === 'COMPLETED') {
+      clauses.push("a.status IN ('COMPLETED','SUBMITTED','CLOSED')");
+    } else {
+      // ACTIVE (default)
+      clauses.push("a.status IN ('PLANNED','IN_PROGRESS','CORRECTION_PENDING','REVERIFICATION_PENDING')");
+    }
+
+    if (filters.clientId) {
+      params.push(filters.clientId);
+      clauses.push(`a.client_id = ${p()}`);
+    }
+    if (filters.auditType) {
+      params.push(filters.auditType);
+      clauses.push(`a.audit_type = ${p()}`);
+    }
+    if (filters.fromDate) {
+      params.push(filters.fromDate);
+      clauses.push(`a.due_date >= ${p()}`);
+    }
+    if (filters.toDate) {
+      params.push(filters.toDate);
+      clauses.push(`a.due_date <= ${p()}`);
+    }
+
+    const where = clauses.map((c) => `(${c})`).join(' AND ');
+
+    const rows = await this.dataSource.query(
+      `SELECT a.id AS "auditId",
+              a.client_id AS "clientId",
+              c.client_name AS "clientName",
+              a.branch_id AS "branchId",
+              COALESCE(cb.branchname, '') AS "branchName",
+              CONCAT(a.audit_type, ' – ', a.period_code) AS "auditName",
+              a.due_date AS "dueDate",
+              a.status AS "status",
+              CASE
+                WHEN (SELECT COUNT(*) FROM audit_checklist_items ci WHERE ci.audit_id = a.id) = 0 THEN 0
+                ELSE ROUND(
+                  100.0 * (SELECT COUNT(*) FROM audit_checklist_items ci WHERE ci.audit_id = a.id AND ci.status IN ('REVIEWED','APPROVED'))
+                  / (SELECT COUNT(*) FROM audit_checklist_items ci WHERE ci.audit_id = a.id)
+                )
+              END::int AS "progressPct"
+       FROM audits a
+       JOIN clients c ON c.id = a.client_id
+       LEFT JOIN client_branches cb ON cb.id = a.branch_id
+       WHERE ${where}
+       ORDER BY
+         CASE WHEN a.status = 'IN_PROGRESS' THEN 0 ELSE 1 END,
+         a.due_date ASC NULLS LAST
+       LIMIT 50`,
+      params,
+    );
+
+    return { items: rows };
   }
 
   // ═══════════════════════════════════════════════════════════════

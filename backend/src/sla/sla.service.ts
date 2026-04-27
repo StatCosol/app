@@ -85,14 +85,22 @@ export class SlaService {
   }
 
   async update(
-    clientId: string,
+    clientId: string | null,
     user: ReqUser,
     id: string,
     body: { status?: string; assignedToUserId?: string; dueDate?: string },
   ): Promise<SlaTaskEntity> {
-    const row = await this.repo.findOne({
-      where: { id, clientId, deletedAt: IsNull() },
-    });
+    let row: SlaTaskEntity | null;
+    if (clientId) {
+      row = await this.repo.findOne({
+        where: { id, clientId, deletedAt: IsNull() },
+      });
+    } else {
+      // Admin/CRM/CCO/CEO — find by id only, no client scoping
+      row = await this.repo.findOne({
+        where: { id, deletedAt: IsNull() },
+      });
+    }
     if (!row) throw new NotFoundException('SLA task not found');
 
     // Branch user restriction

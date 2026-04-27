@@ -244,6 +244,24 @@ export class AuditorAuditsController {
     return this.svc.getAuditorRecentSubmitted(user);
   }
 
+  @ApiOperation({ summary: 'Auditor dashboard audits table (with progressPct)' })
+  @Get('dashboard/audits')
+  async dashboardAudits(
+    @CurrentUser() user: ReqUser,
+    @Query('tab') tab: string,
+    @Query('clientId') clientId: string,
+    @Query('auditType') auditType: string,
+    @Query('fromDate') fromDate: string,
+    @Query('toDate') toDate: string,
+  ) {
+    return this.svc.getDashboardAudits(user, tab || 'ACTIVE', {
+      clientId,
+      auditType,
+      fromDate,
+      toDate,
+    });
+  }
+
   @ApiOperation({ summary: 'Reverification list (all re-uploaded NCs)' })
   @Get('reverification/list')
   async reverificationList(@CurrentUser() user: ReqUser) {
@@ -327,6 +345,35 @@ export class AuditorAuditsController {
     @Body() body: { finalRemark?: string },
   ) {
     return this.svc.submitAudit(user, id, body?.finalRemark);
+  }
+
+  @ApiOperation({ summary: 'Force-complete audit (bypasses pending docs/NCs)' })
+  @Post(':id/force-complete')
+  async forceCompleteAudit(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { finalRemark?: string },
+  ) {
+    return this.svc.forceCompleteAudit(user, id, body?.finalRemark);
+  }
+
+  @ApiOperation({ summary: 'Set document upload lock window for an audit' })
+  @Post(':id/upload-lock')
+  async setUploadLock(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { lockFrom?: string | null; lockUntil?: string | null },
+  ) {
+    return this.svc.setUploadLock(user, id, body?.lockFrom ?? null, body?.lockUntil ?? null);
+  }
+
+  @ApiOperation({ summary: 'Get document upload lock window for an audit' })
+  @Get(':id/upload-lock')
+  async getUploadLock(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getUploadLock(user, id);
   }
 
   @ApiOperation({ summary: 'Re-open audit for re-audit' })
@@ -702,6 +749,15 @@ export class ContractorAuditsController {
   @Get()
   async list(@CurrentUser() user: ReqUser, @Query() q: AuditListQueryDto) {
     return this.svc.listForContractor(user, q);
+  }
+
+  @ApiOperation({ summary: 'Get document upload lock window for an audit (contractor view)' })
+  @Get(':id/upload-lock')
+  async getUploadLock(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getUploadLockForContractor(user, id);
   }
 }
 

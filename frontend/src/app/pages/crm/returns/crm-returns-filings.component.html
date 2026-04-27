@@ -135,7 +135,41 @@
         <label for="nf-type">Return Type *</label>
         <select id="nf-type" class="field" [(ngModel)]="newFiling.returnType" name="nfReturnType" (change)="onReturnTypeChange()">
           <option value="">-- Select Return --</option>
-          <option *ngFor="let t of returnTypes" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+          <optgroup label="📅 Monthly">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.frequency === 'MONTHLY'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+            </ng-container>
+          </optgroup>
+          <optgroup label="📅 Quarterly">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.frequency === 'QUARTERLY'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+            </ng-container>
+          </optgroup>
+          <optgroup label="📅 Half-Yearly">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.frequency === 'HALF_YEARLY'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+            </ng-container>
+          </optgroup>
+          <optgroup label="📅 Annual">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.frequency === 'YEARLY' && t.category !== 'COMBINED_RETURN'" [value]="t.code">{{ t.label }} ({{ t.lawType }})</option>
+            </ng-container>
+          </optgroup>
+          <optgroup label="🗺️ State Combined Annual">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.category === 'COMBINED_RETURN'" [value]="t.code">{{ t.label }}</option>
+            </ng-container>
+          </optgroup>
+          <optgroup label="⚡ Event-Based">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.frequency === 'EVENT_BASED'" [value]="t.code">{{ t.label }}</option>
+            </ng-container>
+          </optgroup>
+          <optgroup label="📅 Other">
+            <ng-container *ngFor="let t of returnTypes">
+              <option *ngIf="t.frequency !== 'MONTHLY' && t.frequency !== 'QUARTERLY' && t.frequency !== 'HALF_YEARLY' && t.frequency !== 'YEARLY' && t.frequency !== 'EVENT_BASED' && t.category !== 'COMBINED_RETURN'" [value]="t.code">{{ t.label }} ({{ t.frequency }})</option>
+            </ng-container>
+          </optgroup>
         </select>
       </div>
       <div class="form-field">

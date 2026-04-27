@@ -590,7 +590,7 @@ export class BranchesService {
     // Find existing branch codes with same prefix for this client
     const existing: { branch_code: string }[] = await this.dataSource.query(
       `SELECT branch_code FROM client_branches
-       WHERE client_id = $1 AND branch_code LIKE $2
+       WHERE clientid = $1 AND branch_code LIKE $2
        ORDER BY branch_code DESC LIMIT 1`,
       [clientId, `${short}-%`],
     );

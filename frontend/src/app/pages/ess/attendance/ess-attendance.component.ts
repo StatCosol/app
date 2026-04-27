@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, Subject } from 'rxjs';
@@ -23,6 +23,8 @@ interface CalendarDay {
   status: string;
   checkIn: string | null;
   checkOut: string | null;
+  workedHours: string | null;
+  shortWorkReason: string | null;
   remarks: string | null;
 }
 
@@ -230,7 +232,7 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       <div *ngIf="showShortReasonModal" class="modal-overlay" (click)="showShortReasonModal = false">
         <div class="modal-box" (click)="$event.stopPropagation()">
           <h3 class="text-lg font-bold text-gray-900 mb-2">Short Work Day</h3>
-          <p class="text-sm text-gray-600 mb-3">You worked less than 9 hours today. Please provide a reason.</p>
+          <p class="text-sm text-gray-600 mb-3">You worked less than 9 hours on <strong>{{ shortReasonDate | date:'d MMM y' }}</strong>. Please provide a reason.</p>
           <textarea autocomplete="off"
             id="short-reason"
             name="shortReasonText"
@@ -270,7 +272,11 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
           </div>
 
           <div class="grid grid-cols-7 gap-2">
-            <div *ngFor="let day of calendarDays" class="day-cell" [ngClass]="statusClass(day.status)">
+            <div *ngFor="let day of calendarDays" class="day-cell"
+              [ngClass]="statusClass(day.status)"
+              [class.short-pending]="isShortDayPending(day)"
+              (click)="onDayCellClick(day)"
+              [title]="isShortDayPending(day) ? 'Click to submit short work day reason for ' + day.date : ''">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-semibold">{{ day.day }}</span>
                 <span class="text-[10px] status-pill">{{ statusShort(day.status) }}</span>
@@ -352,6 +358,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
       .day-cell.state-absent { background: #fef2f2; border-color: #fecaca; }
       .day-cell.state-half_day, .day-cell.state-on_leave { background: #fffbeb; border-color: #fde68a; }
       .day-cell.state-holiday, .day-cell.state-week_off { background: #eff6ff; border-color: #bfdbfe; }
+      .day-cell.short-pending { outline: 2px solid #f97316; cursor: pointer; }
+      .day-cell.short-pending:hover { background: #fff7ed !important; }
       .status-pill { border-radius: 9999px; padding: 2px 6px; background: #f3f4f6; color: #374151; }
       .holiday-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid #f3f4f6; padding: 10px 0; }
       .holiday-row:first-of-type { border-top: 0; }
@@ -510,6 +518,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   constructor(
     private readonly api: EssApiService,
     private readonly toast: ToastService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -649,6 +658,21 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     });
   }
 
+  isShortDayPending(day: CalendarDay): boolean {
+    return day.status === 'PRESENT' &&
+           day.workedHours !== null &&
+           parseFloat(day.workedHours) < 9 &&
+           !day.shortWorkReason;
+  }
+
+  onDayCellClick(day: CalendarDay): void {
+    if (this.isShortDayPending(day)) {
+      this.shortReasonDate = day.date;
+      this.shortReasonText = '';
+      this.showShortReasonModal = true;
+    }
+  }
+
   submitShortReason(): void {
     if (!this.shortReasonText.trim() || this.shortReasonText.trim().length < 5) {
       this.toast.error('Please provide a valid reason (at least 5 characters)');
@@ -715,6 +739,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
@@ -818,6 +843,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         status: rec?.status || 'UNMARKED',
         checkIn: rec?.checkIn || null,
         checkOut: rec?.checkOut || null,
+        workedHours: rec?.workedHours || null,
+        shortWorkReason: rec?.shortWorkReason || null,
         remarks: rec?.remarks || null,
       });
     }

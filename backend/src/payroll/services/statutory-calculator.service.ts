@@ -31,6 +31,8 @@ export class StatutoryCalculatorService {
     components: PayrollComponentEntity[];
     pfApplicable?: boolean;
     esiApplicable?: boolean;
+    pfServiceStartDate?: string | null;
+    basicAtPfStart?: number | null;
   }): { values: Record<string, number> } {
     const { values, setup, components } = params;
     const empPfApplicable = params.pfApplicable;
@@ -85,18 +87,27 @@ export class StatutoryCalculatorService {
 
         const pfEmp = (cappedPfWage * eeRate) / 100;
 
+        // EPS exclusion rule: joined after September 2014 with basic > ₹15,000
+        // → not covered under EPS; full employer PF goes to EPF (diff), pension = 0
+        const EPS_CUTOFF = new Date('2014-10-01');
+        const epsExcluded =
+          !!params.pfServiceStartDate &&
+          new Date(params.pfServiceStartDate) >= EPS_CUTOFF &&
+          (params.basicAtPfStart ?? 0) > 15000;
+
         // EPS: statutory ceiling always ₹15,000
-        const epsWage = Math.min(pfWage, 15000);
-        const epsContrib = (epsWage * 8.33) / 100;
+        const epsWage = epsExcluded ? 0 : Math.min(pfWage, 15000);
+        const epsContrib = epsExcluded ? 0 : (epsWage * 8.33) / 100;
 
         const totalErPf = (cappedPfWage * erRate) / 100;
-        const pfDiff = Math.max(0, totalErPf - epsContrib);
+        const pfDiff = epsExcluded ? totalErPf : Math.max(0, totalErPf - epsContrib);
 
         result['PF_WAGES'] = pfWage;
         result['PF_EMP'] = pfEmp;
         result['PF_ER'] = totalErPf;
         result['PF_EPS'] = epsContrib;
         result['PF_DIFF'] = pfDiff;
+        result['EPS_WAGES'] = epsWage;
 
         // When the employee's registered gross (ACTUAL_GROSS) meets or exceeds the PF gross
         // threshold (or > 25 000 when no threshold is set), employer PF is also deducted from
@@ -113,6 +124,7 @@ export class StatutoryCalculatorService {
         result['PF_ER'] = 0;
         result['PF_EPS'] = 0;
         result['PF_DIFF'] = 0;
+        result['EPS_WAGES'] = 0;
         result['PF_ER_FROM_EMP'] = 0;
       }
     } else {
@@ -122,6 +134,7 @@ export class StatutoryCalculatorService {
       result['PF_ER'] = 0;
       result['PF_EPS'] = 0;
       result['PF_DIFF'] = 0;
+      result['EPS_WAGES'] = 0;
       result['PF_ER_FROM_EMP'] = 0;
     }
 

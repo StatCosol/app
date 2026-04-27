@@ -73,8 +73,13 @@ export class SlaController {
     }
 
     const clientId = user.clientId || body.clientId;
-    if (!clientId) throw new ForbiddenException('Client not mapped');
+    // Non-client roles (admin/CRM/CCO/CEO) may not have a clientId in JWT;
+    // allow them to update by task ID only, without client scoping.
+    const nonClientRoles = ['ADMIN', 'CCO', 'CEO', 'CRM'];
+    if (!clientId && !nonClientRoles.includes(user.roleCode)) {
+      throw new ForbiddenException('Client not mapped');
+    }
 
-    return this.slaService.update(clientId, user, id, body);
+    return this.slaService.update(clientId ?? null, user, id, body);
   }
 }

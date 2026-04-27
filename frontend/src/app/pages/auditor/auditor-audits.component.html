@@ -1,13 +1,53 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <ui-page-header
-    title="AuditXpert Audits"
-    description="Open only CRM-scheduled audits assigned to you. AuditXpert is an execution workspace, not a free audit creation module."
+    title="My Assigned Audits"
+    description="Use this queue to start reviews, continue audits in progress, and return for corrections when stakeholders re-upload documents."
     icon="clipboard-check">
   </ui-page-header>
 
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+    <div class="card">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Total Assigned</div>
+      <div class="mt-2 text-2xl font-semibold text-gray-900">{{ totalAssignedCount }}</div>
+      <div class="mt-1 text-sm text-gray-500">All audits currently in your queue</div>
+    </div>
+
+    <div class="card">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Needs Auditor Action</div>
+      <div class="mt-2 text-2xl font-semibold text-amber-700">{{ readyForAuditorCount }}</div>
+      <div class="mt-1 text-sm text-gray-500">Planned, in progress, or ready for reverification</div>
+    </div>
+
+    <div class="card">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Waiting For Correction</div>
+      <div class="mt-2 text-2xl font-semibold text-orange-600">{{ waitingForStakeholderCount }}</div>
+      <div class="mt-1 text-sm text-gray-500">Rejected items that still need a corrected upload</div>
+    </div>
+
+    <div class="card">
+      <div class="text-xs uppercase tracking-wide text-gray-500">Submitted Or Closed</div>
+      <div class="mt-2 text-2xl font-semibold text-emerald-700">{{ submittedOrClosedCount }}</div>
+      <div class="mt-1 text-sm text-gray-500">Audits that are mostly done from your side</div>
+    </div>
+  </div>
+
+  <div class="card mb-6 bg-amber-50 border-amber-200">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h3 class="text-base font-semibold text-gray-900">How to use this queue</h3>
+        <p class="mt-1 text-sm text-gray-600">
+          Start with audits marked planned or in progress. If an audit is in reverification, open it and review the corrected uploads before submitting again.
+        </p>
+      </div>
+      <div class="text-sm text-gray-600">
+        {{ activeFilterSummary }}
+      </div>
+    </div>
+  </div>
+
   <div class="card mb-6">
     <div class="mb-4 text-sm text-gray-600">
-      Assigned audits appear here automatically. Use filters only to narrow the queue, then open the workspace directly from the relevant audit row.
+      Assigned audits appear here automatically. Use filters to narrow the list, then open the right workspace directly from the row.
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
@@ -48,11 +88,17 @@
 
   <div class="card">
     <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-      <h3 class="text-lg font-semibold text-gray-900">Assigned Scheduled Audits</h3>
-      <div class="text-sm text-gray-500">{{ filteredAudits.length }} audit(s)</div>
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900">Assigned Audits</h3>
+        <div class="text-sm text-gray-500">{{ activeFilterSummary }}</div>
+      </div>
+      <div class="text-sm text-gray-500" *ngIf="!loading">{{ filteredAudits.length }} audit(s)</div>
     </div>
 
-    <div *ngIf="loading" class="text-center py-8 text-gray-500">Loading scheduled audits...</div>
+    <div *ngIf="loading" class="flex items-center justify-center gap-3 py-10 text-gray-500">
+      <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-amber-500 rounded-full animate-spin"></span>
+      <span class="text-sm">Loading assigned audits...</span>
+    </div>
 
     <ui-data-table
       *ngIf="!loading && filteredAudits.length > 0"
@@ -63,6 +109,7 @@
         <button type="button" class="text-amber-700 hover:underline font-mono text-sm" (click)="openWorkspace(row)">
           {{ row.auditCode || row.id?.substring(0, 8) }}
         </button>
+        <div class="mt-1 text-xs text-gray-500">{{ getAuditNextStep(row) }}</div>
       </ng-template>
 
       <ng-template uiTableCell="clientName" let-row>
@@ -82,7 +129,10 @@
       </ng-template>
 
       <ng-template uiTableCell="scheduledDate" let-row>
-        {{ formatDate(row.dueDate || row.createdAt) }}
+        <div>{{ formatDate(row.dueDate || row.createdAt) }}</div>
+        <div class="mt-1 text-xs text-gray-500">
+          {{ row.dueDate ? 'Due date' : 'Created date' }}
+        </div>
       </ng-template>
 
       <ng-template uiTableCell="status" let-row>
@@ -91,15 +141,15 @@
 
       <ng-template uiTableCell="action" let-row>
         <ui-button variant="primary" size="sm" (clicked)="openWorkspace(row)">
-          Open Workspace
+          {{ getWorkspaceActionLabel(row) }}
         </ui-button>
       </ng-template>
     </ui-data-table>
 
     <ui-empty-state
       *ngIf="!loading && filteredAudits.length === 0"
-      title="No assigned audits found"
-      description="CRM-scheduled audits assigned to you will appear here. Auditors cannot create independent audits from AuditXpert.">
+      title="No audits match these filters"
+      description="Try clearing the filters or wait for new assigned audits to arrive from the CRM schedule.">
     </ui-empty-state>
   </div>
 </div>

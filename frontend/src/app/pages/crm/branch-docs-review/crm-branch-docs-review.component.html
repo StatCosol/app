@@ -73,6 +73,7 @@
       <ui-data-table [columns]="docColumns" [data]="documents" [loading]="loading"
         emptyMessage="No documents to review.">
         <ng-template uiTableCell="branch" let-row>
+          <div class="text-xs text-gray-500 font-medium">{{ row.company?.clientName || '—' }}</div>
           <div class="font-medium">{{ row.branch?.branchName || '—' }}</div>
           <div class="text-xs text-gray-400">{{ row.lawArea }}</div>
         </ng-template>

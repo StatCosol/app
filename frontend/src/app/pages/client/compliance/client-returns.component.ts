@@ -113,7 +113,6 @@ export class ClientReturnsComponent implements OnDestroy {
       this.filters.returnType = this.focusCode;
       this.newFiling.returnType = this.focusCode;
     }
-    this.loadTypes();
     this.loadBranches();
   }
 
@@ -123,11 +122,15 @@ export class ClientReturnsComponent implements OnDestroy {
   }
 
   loadTypes() {
-    this.returnsSvc.listTypes().pipe(takeUntil(this.destroy$)).subscribe({
+    const scopedBranchId = this.newFiling.branchId || this.filters.branchId || undefined;
+    this.returnsSvc.listTypes(scopedBranchId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.types = res?.data || res || [];
         if (this.focusCode && !this.types.some((t) => t.code === this.focusCode)) {
           this.focusCode = '';
+        }
+        if (this.newFiling.returnType && !this.types.some((t) => t.code === this.newFiling.returnType)) {
+          this.newFiling.returnType = '';
         }
         this.cdr.detectChanges();
       },
@@ -150,7 +153,12 @@ export class ClientReturnsComponent implements OnDestroy {
           this.singleBranch = true;
         } else if (!this.isMasterUser && !this.filters.branchId && this.branches.length) {
           this.filters.branchId = this.branches[0].id;
+          this.newFiling.branchId = this.branches[0].id;
         }
+        if (!this.newFiling.branchId && this.filters.branchId) {
+          this.newFiling.branchId = this.filters.branchId;
+        }
+        this.loadTypes();
         this.cdr.detectChanges();
         this.loadFilings();
       },
@@ -204,7 +212,7 @@ export class ClientReturnsComponent implements OnDestroy {
       returnType: chosen?.code || this.newFiling.returnType,
       lawType: chosen?.lawType || this.newFiling.lawType || 'GENERAL',
       periodYear: Number(this.newFiling.periodYear),
-      periodMonth: Number(this.newFiling.periodMonth),
+      periodMonth: this.requiresPeriodMonth(chosen?.frequency) ? Number(this.newFiling.periodMonth) : null,
     };
     this.creating = true;
     this.returnsSvc
@@ -317,6 +325,14 @@ export class ClientReturnsComponent implements OnDestroy {
   hasFocusedFiling(): boolean {
     if (!this.focusCode) return false;
     return this.filings.some((filing) => this.isFocusedFiling(filing));
+  }
+
+  onCreateBranchChange() {
+    this.loadTypes();
+  }
+
+  private requiresPeriodMonth(frequency?: string | null): boolean {
+    return ['MONTHLY', 'MONTHLY_RETURN', 'QUARTERLY', 'HALF_YEARLY'].includes(String(frequency || '').toUpperCase());
   }
 
   private normalizeReturnCode(value: unknown): string {

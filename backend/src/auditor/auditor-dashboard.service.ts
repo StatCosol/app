@@ -19,17 +19,17 @@ export interface AuditorSummaryDto {
 }
 
 export interface AuditorAuditDto {
-  audit_id: string;
-  client_id: string;
-  client_name: string;
-  branch_id: string;
-  branch_name: string;
-  audit_type: string;
-  audit_name: string;
-  due_date: Date;
+  auditId: string;
+  clientId: string;
+  clientName: string;
+  branchId: string;
+  branchName: string;
+  auditType: string;
+  auditName: string;
+  dueDate: Date;
   status: string;
-  progress_pct: number;
-  last_updated_at: Date;
+  progressPct: number;
+  lastUpdatedAt: Date;
 }
 
 export interface AuditorObservationDto {
@@ -49,14 +49,15 @@ export interface AuditorObservationDto {
 }
 
 export interface AuditorReportDto {
-  audit_id: string;
-  client_id: string;
-  client_name: string;
-  branch_id: string;
-  branch_name: string;
-  due_date: Date;
+  auditId: string;
+  auditCode: string;
+  clientId: string;
+  clientName: string;
+  branchId: string;
+  branchName: string;
+  dueDate: Date;
   status: string;
-  last_updated_at: Date;
+  lastUpdatedAt: Date;
 }
 
 /**

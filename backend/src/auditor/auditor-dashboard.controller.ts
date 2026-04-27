@@ -143,13 +143,14 @@ export class AuditorDashboardController {
       const items = await this.dataSource.query(
         `SELECT
            ce.id,
-           ce.task_id       AS "taskId",
-           COALESCE(cm.law_family, cm.law_name, 'GENERAL') AS category,
+           ct.client_id     AS "clientId",
+           ct.branch_id     AS "branchId",
+           COALESCE(cm.law_family, cm.law_name, 'Document') AS "evidenceName",
            c.client_name    AS "clientName",
-           b.branchname    AS "branchName",
+           b.branchname     AS "branchName",
            ct.status,
-           ce.created_at    AS "uploadedAt",
-           ct.due_date      AS "dueDate"
+           ce.created_at::date                              AS "requestedOn",
+           GREATEST(0, (CURRENT_DATE - ce.created_at::date)::int) AS "pendingDays"
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
          LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
@@ -179,11 +180,9 @@ export class AuditorDashboardController {
       const items = await this.dataSource.query(
         `SELECT
            al.id,
-           al.action,
-           al.entity_type   AS "entityType",
-           al.entity_id     AS "entityId",
-           al.snapshot       AS "details",
-           al.created_at    AS "createdAt"
+           'OTHER'           AS "activityType",
+           al.action         AS "description",
+           al.created_at     AS "timestamp"
          FROM audit_logs al
          WHERE al.performed_by = $1
          ORDER BY al.created_at DESC

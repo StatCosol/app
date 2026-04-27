@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { Subject, combineLatest, of } from 'rxjs';
+import { Subject, combineLatest, of, forkJoin } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { AuditsService } from '../../core/audits.service';
@@ -55,6 +55,22 @@ interface GuardrailItem {
   label: string;
   passed: boolean;
   detail: string;
+}
+
+type WorkspaceTabKey =
+  | 'info'
+  | 'documents'
+  | 'checklist'
+  | 'history'
+  | 'submit'
+  | 'corrected';
+
+interface WorkspaceTabItem {
+  key: WorkspaceTabKey;
+  label: string;
+  meta: string;
+  show?: boolean;
+  attention?: boolean;
 }
 
 @Component({
@@ -110,7 +126,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   correctedRemarks: Record<string, string> = {};
 
   // ─── Workspace Tabs ───────────────────────────
-  activeTab: 'info' | 'documents' | 'checklist' | 'history' | 'submit' | 'corrected' = 'documents';
+  activeTab: WorkspaceTabKey = 'documents';
   auditInfo: any = null;
   loadingInfo = false;
   submissionHistory: any[] = [];
@@ -126,6 +142,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   loadingChecklist = false;
   newChecklistLabel = '';
   addingChecklistItem = false;
+  private checklistAutoGenAttempted = false;
+
+  // ─── Upload Lock ────────────────────────────────
+  uploadLockFrom: string = '';
+  uploadLockUntil: string = '';
+  uploadLockLoading = false;
+  uploadLockSaving = false;
 
   readonly riskOptions = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
@@ -179,6 +202,103 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       { label: 'Report draft finalized', done: this.isReportFinalized },
       { label: 'Audit marked completed', done: this.statusKey(this.audit?.status) === 'COMPLETED' },
     ];
+  }
+
+  get workspaceTabs(): WorkspaceTabItem[] {
+    const tabs: WorkspaceTabItem[] = [
+      {
+        key: 'documents',
+        label: '1. Review Documents',
+        meta: this.pendingReviewCount > 0
+          ? `${this.pendingReviewCount} pending`
+          : `${this.reviewedDocumentCount} reviewed`,
+        attention: this.pendingReviewCount > 0,
+      },
+      {
+        key: 'corrected',
+        label: '2. Review Corrections',
+        meta: this.correctedPendingReviewCount > 0
+          ? `${this.correctedPendingReviewCount} waiting`
+          : `${this.unresolvedCorrectionCount} open`,
+        show:
+          this.statusKey(this.audit?.status) === 'CORRECTION_PENDING' ||
+          this.statusKey(this.audit?.status) === 'REVERIFICATION_PENDING' ||
+          this.nonCompliances.length > 0,
+        attention: this.correctedPendingReviewCount > 0,
+      },
+      {
+        key: 'checklist',
+        label: '3. Checklist',
+        meta: `${this.checklistSummary.pending || 0} pending`,
+      },
+      {
+        key: 'submit',
+        label: '4. Finish Audit',
+        meta: this.canSubmitReviewRound ? 'Ready' : 'Blocked',
+        attention: !this.canSubmitReviewRound,
+      },
+      {
+        key: 'info',
+        label: 'Overview',
+        meta: this.formatLabel(this.audit?.status),
+      },
+      {
+        key: 'history',
+        label: 'Review History',
+        meta: `${this.submissionHistory.length} rounds`,
+      },
+    ];
+
+    return tabs.filter((tab) => tab.show !== false);
+  }
+
+  get reviewedDocumentCount(): number {
+    return this.compliedCount + this.nonCompliedCount;
+  }
+
+  get currentFocus(): { title: string; detail: string; tab: WorkspaceTabKey; button: string } {
+    if (this.pendingReviewCount > 0) {
+      return {
+        title: 'Review uploaded documents',
+        detail: `${this.pendingReviewCount} document(s) still need an approve or reject decision.`,
+        tab: 'documents',
+        button: 'Open document review',
+      };
+    }
+
+    if (this.correctedPendingReviewCount > 0) {
+      return {
+        title: 'Reverify corrected uploads',
+        detail: `${this.correctedPendingReviewCount} corrected document(s) are ready for review.`,
+        tab: 'corrected',
+        button: 'Open corrections',
+      };
+    }
+
+    if (this.unresolvedCorrectionCount > 0) {
+      return {
+        title: 'Wait for stakeholder corrections',
+        detail: `${this.unresolvedCorrectionCount} rejected item(s) are still waiting for a corrected upload.`,
+        tab: 'corrected',
+        button: 'View correction queue',
+      };
+    }
+
+    if (!this.hasScore) {
+      return {
+        title: 'Calculate the severity score',
+        detail: 'All document reviews are complete. Calculate the score before final submission.',
+        tab: 'submit',
+        button: 'Open finish audit',
+      };
+    }
+
+    return {
+      title: 'Audit is ready for final review',
+      detail: 'You can add a final remark and submit the audit now.',
+      tab: 'submit',
+      button: 'Open finish audit',
+    };
   }
 
   get progressSteps(): ProgressStep[] {
@@ -344,7 +464,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     if (tab === 'info') this.loadAuditInfo();
     if (tab === 'history') this.loadSubmissionHistory();
     if (tab === 'corrected') this.loadNonCompliances();
+    if (tab === 'checklist') this.loadChecklist();
+    if (tab === 'documents') this.loadAuditDocuments();
     this.cdr.markForCheck();
+  }
+
+  jumpToTab(tab: WorkspaceTabKey): void {
+    this.switchTab(tab);
   }
 
   loadAuditInfo(): void {
@@ -401,9 +527,82 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
           this.toast.success('Audit submitted successfully! Score: ' + (res.score ?? '-'));
         }
         this.finalRemark = '';
+        // Sync new score immediately before cockpit refresh
+        if (res.score !== undefined) {
+          if (this.audit) this.audit.score = res.score;
+          if (this.auditInfo) this.auditInfo = { ...this.auditInfo, score: res.score };
+        }
         this.refreshCockpit();
       },
       error: (err) => this.toast.error(err?.error?.message || 'Failed to submit audit'),
+    });
+  }
+
+  forceCompleteAudit(): void {
+    if (!this.auditId || this.busy) return;
+    if (!confirm('Finalize this audit? Pending documents and non-compliances will be overridden. This cannot be undone.')) return;
+    this.busy = true;
+    this.auditsApi.auditorForceCompleteAudit(this.auditId, this.finalRemark || undefined).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.busy = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: (res: any) => {
+        this.toast.success('Audit finalized. ' + (res.message || ''));
+        this.finalRemark = '';
+        this.refreshCockpit();
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to finalize audit'),
+    });
+  }
+
+  loadUploadLock(): void {
+    if (!this.auditId) return;
+    this.uploadLockLoading = true;
+    this.auditsApi.auditorGetUploadLock(this.auditId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.uploadLockLoading = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: (res: any) => {
+        this.uploadLockFrom = res?.uploadLockFrom ?? '';
+        this.uploadLockUntil = res?.uploadLockUntil ?? '';
+      },
+      error: () => {},
+    });
+  }
+
+  saveUploadLock(): void {
+    if (!this.auditId || this.uploadLockSaving) return;
+    if (!this.uploadLockFrom || !this.uploadLockUntil) {
+      this.toast.warning('Please set both lock start and end dates.');
+      return;
+    }
+    if (this.uploadLockFrom > this.uploadLockUntil) {
+      this.toast.warning('Lock start must be on or before lock end date.');
+      return;
+    }
+    this.uploadLockSaving = true;
+    this.auditsApi.auditorSetUploadLock(this.auditId, this.uploadLockFrom, this.uploadLockUntil).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.uploadLockSaving = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: () => this.toast.success('Upload lock window saved.'),
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to save lock'),
+    });
+  }
+
+  clearUploadLock(): void {
+    if (!this.auditId || this.uploadLockSaving) return;
+    this.uploadLockSaving = true;
+    this.auditsApi.auditorSetUploadLock(this.auditId, null, null).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.uploadLockSaving = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: () => {
+        this.uploadLockFrom = '';
+        this.uploadLockUntil = '';
+        this.toast.success('Upload lock cleared.');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to clear lock'),
     });
   }
 
@@ -458,8 +657,12 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res: any) => {
+          const newScore = Number(res?.score ?? 0);
           if (this.audit) {
-            this.audit.score = Number(res?.score ?? this.audit.score ?? 0);
+            this.audit.score = newScore;
+          }
+          if (this.auditInfo) {
+            this.auditInfo = { ...this.auditInfo, score: newScore };
           }
           this.toast.success(`Score calculated: ${res?.score ?? '-'}`);
         },
@@ -556,10 +759,27 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
 
   statusClass(status: string | null | undefined): string {
     const key = this.statusKey(status);
-    if (key === 'COMPLETED' || key === 'CLOSED' || key === 'RESOLVED') return 'badge badge--good';
-    if (key === 'IN_PROGRESS' || key === 'ACKNOWLEDGED') return 'badge badge--info';
-    if (key === 'REJECTED' || key === 'CANCELLED') return 'badge badge--bad';
+    if (['COMPLETED', 'CLOSED', 'RESOLVED', 'COMPLIED', 'APPROVED', 'ACCEPTED', 'SUBMITTED'].includes(key)) {
+      return 'badge badge--good';
+    }
+    if (['IN_PROGRESS', 'ACKNOWLEDGED', 'REVERIFICATION_PENDING'].includes(key)) {
+      return 'badge badge--info';
+    }
+    if (['REJECTED', 'CANCELLED', 'NON_COMPLIED'].includes(key)) {
+      return 'badge badge--bad';
+    }
+    if (key === 'NOT_APPLICABLE') return 'badge badge--muted';
     return 'badge badge--warn';
+  }
+
+  formatLabel(value: string | null | undefined): string {
+    const key = this.statusKey(value);
+    if (!key) return '-';
+    return key
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 
   formatDate(input?: string | Date | null): string {
@@ -677,6 +897,8 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
           );
           this.loadAuditDocuments();
           this.loadNonCompliances();
+          this.loadChecklist();
+          this.loadObservations();
         },
         error: (err) =>
           this.toast.error(err?.error?.message || 'Failed to review document'),
@@ -777,8 +999,30 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           this.checklistItems = res?.items || [];
           this.checklistSummary = res?.summary || {};
+          // Auto-generate checklist on first load when empty
+          if (this.checklistItems.length === 0 && !this.checklistAutoGenAttempted
+              && this.statusKey(this.audit?.status) !== 'COMPLETED'
+              && this.statusKey(this.audit?.status) !== 'CLOSED') {
+            this.checklistAutoGenAttempted = true;
+            this.autoGenerateChecklist();
+          }
         },
         error: () => { this.checklistItems = []; },
+      });
+  }
+
+  private autoGenerateChecklist(): void {
+    if (!this.auditId) return;
+    this.auditsApi.auditorGenerateChecklist(this.auditId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: any) => {
+          if (res?.created > 0) {
+            this.toast.success(`Checklist auto-generated: ${res.created} items`);
+            this.loadChecklist();
+          }
+        },
+        error: () => { /* silently ignore — audit type may have no default checklist */ },
       });
   }
 
@@ -836,6 +1080,19 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
+  markAllPendingNA(): void {
+    if (!this.auditId) return;
+    const pendingItems = this.checklistItems.filter((i: any) => i.status === 'PENDING');
+    if (!pendingItems.length) return;
+    const calls = pendingItems.map((item: any) =>
+      this.auditsApi.auditorUpdateChecklistItem(this.auditId!, item.id, { status: 'NOT_APPLICABLE' })
+    );
+    forkJoin(calls).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.loadChecklist(); },
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to update'),
+    });
+  }
+
   private loadAuditDocuments(): void {
     if (!this.auditId) return;
     this.loadingDocs = true;
@@ -876,6 +1133,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.reportStage = null;
     this.reportUpdatedAt = null;
     this.aiDraft = null;
+    this.checklistAutoGenAttempted = false;
+    this.uploadLockFrom = '';
+    this.uploadLockUntil = '';
     this.loading = true;
 
     this.loadCategories();
@@ -885,6 +1145,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
       return;
     }
     this.loadCockpit(auditId);
+    this.loadUploadLock();
   }
 
   private loadAuditSelector(): void {

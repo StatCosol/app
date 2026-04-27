@@ -40,6 +40,7 @@ export class CreateEmployeeDto {
   @IsOptional() @IsString() gradeId?: string;
   @IsOptional() @IsString() gender?: string;
   @IsOptional() @IsString() fatherName?: string;
+  @IsOptional() @IsString() maritalStatus?: string;
   @IsOptional() @IsString() pan?: string;
   @IsOptional() @IsString() uan?: string;
   @IsOptional() @IsString() esic?: string;
@@ -51,6 +52,9 @@ export class CreateEmployeeDto {
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
   @IsOptional() @IsNumber() monthlyGross?: number;
+  @IsOptional() @IsString() pfApplicableFrom?: string;
+  @IsOptional() @IsString() pfServiceStartDate?: string;
+  @IsOptional() @IsNumber() basicAtPfStart?: number;
 }
 
 export class UpdateEmployeeDto {
@@ -73,6 +77,7 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsString() gradeId?: string;
   @IsOptional() @IsString() gender?: string;
   @IsOptional() @IsString() fatherName?: string;
+  @IsOptional() @IsString() maritalStatus?: string;
   @IsOptional() @IsString() pan?: string;
   @IsOptional() @IsString() uan?: string;
   @IsOptional() @IsString() esic?: string;
@@ -84,6 +89,9 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
   @IsOptional() @IsNumber() monthlyGross?: number;
+  @IsOptional() @IsString() pfApplicableFrom?: string;
+  @IsOptional() @IsString() pfServiceStartDate?: string;
+  @IsOptional() @IsNumber() basicAtPfStart?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 

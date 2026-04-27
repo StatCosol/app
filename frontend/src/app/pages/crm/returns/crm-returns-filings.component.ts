@@ -150,7 +150,7 @@ export class CrmReturnsFilingsComponent implements OnInit, OnDestroy {
   // --- Create form state ---
   showCreateForm = false;
   creating = false;
-  returnTypes: { code: string; label: string; lawType: string }[] = [];
+  returnTypes: { code: string; label: string; lawType: string; frequency?: string; category?: string | null; stateCode?: string }[] = [];
   newFiling = {
     clientId: '',
     branchId: '',

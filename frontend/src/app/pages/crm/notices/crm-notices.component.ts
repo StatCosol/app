@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, finalize, takeUntil, timeout } from 'rxjs';
+import { Subject, of, finalize, catchError, takeUntil, timeout } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../../shared/ui/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
@@ -71,7 +71,10 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
   }
 
   loadClients() {
-    this.crmClientsApi.getAssignedClients().pipe(takeUntil(this.destroy$)).subscribe({
+    this.crmClientsApi.getAssignedClients().pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of([])),
+    ).subscribe({
       next: (data: any[]) => this.clients = data.map((c: any) => ({ id: c.id, clientName: c.clientName })),
     });
   }
@@ -88,6 +91,7 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
     this.noticesApi.crmList(filters).pipe(
       takeUntil(this.destroy$),
       timeout(15000),
+      catchError(() => of([] as Notice[])),
       finalize(() => this.loading = false),
     ).subscribe({
       next: (data) => {
@@ -98,8 +102,9 @@ export class CrmNoticesComponent implements OnInit, OnDestroy {
 
     this.noticesApi.crmKpis(this.clientFilter || undefined).pipe(
       takeUntil(this.destroy$),
+      catchError(() => of(null)),
     ).subscribe({
-      next: (k) => this.kpis = k,
+      next: (k) => { if (k) this.kpis = k; },
     });
   }
 

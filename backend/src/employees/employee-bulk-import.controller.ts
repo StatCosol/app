@@ -61,8 +61,8 @@ export class EmployeeBulkImportController {
       'PF Applicable From',
       'ESI Registered',
       'ESI Applicable From',
-      'Date of Exit',
-      'Exit Reason',
+      'PF Service Start Date',
+      'Basic at PF Start',
     ];
 
     ws.addRow(headers);
@@ -144,8 +144,8 @@ export class EmployeeBulkImportController {
       '2025-01-01',
       'Yes',
       '2025-01-01',
-      '',
-      '',
+      '2025-01-15',
+      '18000',
     ]);
 
     res.setHeader(

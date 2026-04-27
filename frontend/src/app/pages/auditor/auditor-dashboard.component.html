@@ -1,26 +1,42 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-  <!-- Loading State -->
   <ui-loading-spinner *ngIf="loading" text="Loading dashboard..."></ui-loading-spinner>
 
-  <!-- Main Content -->
   <ng-container *ngIf="!loading && summary">
-    <!-- Error Banner (non-blocking) -->
     <div *ngIf="errorMsg" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
       <span>{{ errorMsg }}</span>
       <button type="button" (click)="errorMsg = null; loadAllData()" class="text-red-800 font-semibold hover:underline ml-4">Retry</button>
     </div>
 
-    <ui-page-header 
-      title="AuditXpert Dashboard" 
-      description="Scheduled audit execution for CRM-assigned audits only" 
+    <ui-page-header
+      title="AuditXpert Workboard"
+      description="See what needs attention first, continue active audits, and return to corrections without hunting through multiple screens."
       icon="clipboard-check">
     </ui-page-header>
 
-    <!-- Filters -->
+    <div class="card dashboard-priority mb-6">
+      <div>
+        <div class="dashboard-priority__eyebrow">Recommended next step</div>
+        <h2>{{ priorityAction.title }}</h2>
+        <p>{{ priorityAction.detail }}</p>
+      </div>
+      <div class="dashboard-priority__actions">
+        <div class="dashboard-priority__meta">{{ totalUrgentItems }} active work item(s)</div>
+        <ui-button variant="primary" (clicked)="openPriorityAction()">Open Priority Queue</ui-button>
+      </div>
+    </div>
+
     <div class="card mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h3 class="card-title mb-1">Filters</h3>
+          <p class="text-sm text-gray-600">Narrow the dashboard by assigned client, audit type, or date range.</p>
+        </div>
+        <div class="text-sm text-gray-500">{{ activeFilterSummary }}</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mt-4">
         <ui-form-select
-          label="Client (Assigned)"
+          label="Client"
           [(ngModel)]="filter.clientId"
           [options]="clientOptions">
         </ui-form-select>
@@ -48,9 +64,7 @@
       </div>
     </div>
 
-    <!-- 6 KPI Cards (AuditXpert spec) -->
     <div class="kpi-cards-grid-6">
-      <!-- Total Assigned -->
       <div class="kpi-tile kpi-tile--blue cursor-pointer" (click)="drillAssignedAudits()">
         <div class="kpi-tile__icon" style="background:#dbeafe">
           <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
@@ -60,10 +74,10 @@
         <div class="kpi-tile__body">
           <div class="kpi-tile__label">Total Assigned</div>
           <div class="kpi-tile__value">{{ summary.totalAssigned }}</div>
+          <div class="kpi-tile__sub">All audits currently assigned to you</div>
         </div>
       </div>
 
-      <!-- Pending (PLANNED) -->
       <div class="kpi-tile kpi-tile--amber cursor-pointer" (click)="drillPending()">
         <div class="kpi-tile__icon" style="background:#fef3c7">
           <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
@@ -71,12 +85,12 @@
           </svg>
         </div>
         <div class="kpi-tile__body">
-          <div class="kpi-tile__label">Pending</div>
+          <div class="kpi-tile__label">Planned</div>
           <div class="kpi-tile__value">{{ summary.pending }}</div>
+          <div class="kpi-tile__sub">Assigned audits ready to start</div>
         </div>
       </div>
 
-      <!-- In Progress -->
       <div class="kpi-tile kpi-tile--blue cursor-pointer" (click)="drillInProgress()">
         <div class="kpi-tile__icon" style="background:#dbeafe">
           <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
@@ -86,10 +100,10 @@
         <div class="kpi-tile__body">
           <div class="kpi-tile__label">In Progress</div>
           <div class="kpi-tile__value">{{ summary.inProgress }}</div>
+          <div class="kpi-tile__sub">Audits that need continued review</div>
         </div>
       </div>
 
-      <!-- Submitted -->
       <div class="kpi-tile kpi-tile--green cursor-pointer" (click)="drillSubmitted()">
         <div class="kpi-tile__icon" style="background:#d1fae5">
           <svg width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24">
@@ -99,10 +113,10 @@
         <div class="kpi-tile__body">
           <div class="kpi-tile__label">Submitted</div>
           <div class="kpi-tile__value">{{ summary.submitted }}</div>
+          <div class="kpi-tile__sub">Already sent forward for review</div>
         </div>
       </div>
 
-      <!-- Reverification Pending -->
       <div class="kpi-tile kpi-tile--purple cursor-pointer" (click)="drillReverification()">
         <div class="kpi-tile__icon" style="background:#ede9fe">
           <svg width="24" height="24" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24">
@@ -112,10 +126,10 @@
         <div class="kpi-tile__body">
           <div class="kpi-tile__label">Reverification</div>
           <div class="kpi-tile__value">{{ summary.reverificationPending }}</div>
+          <div class="kpi-tile__sub">Corrections waiting for you</div>
         </div>
       </div>
 
-      <!-- Closed -->
       <div class="kpi-tile kpi-tile--green cursor-pointer" (click)="drillClosed()">
         <div class="kpi-tile__icon" style="background:#d1fae5">
           <svg width="24" height="24" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24">
@@ -125,15 +139,18 @@
         <div class="kpi-tile__body">
           <div class="kpi-tile__label">Closed</div>
           <div class="kpi-tile__value">{{ summary.closed }}</div>
+          <div class="kpi-tile__sub">Audit cycles fully wrapped up</div>
         </div>
       </div>
     </div>
 
-    <!-- Block 1: My Audits (Primary table) -->
     <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="card-title">Today / Upcoming Scheduled Audits</h3>
-        <div class="flex gap-2">
+      <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+        <div>
+          <h3 class="card-title mb-1">My Working Queue</h3>
+          <p class="text-sm text-gray-600">Use this list for the audits you should work on right now.</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
           <ui-button
             [variant]="auditTab === 'ACTIVE' ? 'primary' : 'secondary'"
             size="sm"
@@ -160,32 +177,33 @@
           </ui-button>
         </div>
       </div>
-      
+
       <ui-data-table
         *ngIf="myAudits.length > 0"
         [columns]="auditColumns"
         [data]="myAudits">
-        
+
         <ng-template uiTableCell="clientName" let-row>
           {{ row.clientName }}
         </ng-template>
-        
+
         <ng-template uiTableCell="branchName" let-row>
           {{ row.branchName }}
         </ng-template>
-        
+
         <ng-template uiTableCell="auditName" let-row>
-          <span class="font-medium">{{ row.auditName }}</span>
+          <div class="font-medium text-gray-900">{{ row.auditName }}</div>
+          <div class="mt-1 text-xs text-gray-500">{{ getAuditHint(row) }}</div>
         </ng-template>
-        
+
         <ng-template uiTableCell="dueDate" let-row>
           {{ row.dueDate }}
         </ng-template>
-        
+
         <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status"></ui-status-badge>
+          <ui-status-badge [status]="formatStatus(row.status)"></ui-status-badge>
         </ng-template>
-        
+
         <ng-template uiTableCell="progressPct" let-row>
           <div class="flex items-center justify-center gap-2">
             <div class="w-24 bg-gray-200 rounded-full h-2">
@@ -201,210 +219,251 @@
             <span class="text-sm text-gray-600">{{ row.progressPct }}%</span>
           </div>
         </ng-template>
-        
+
         <ng-template uiTableCell="actions" let-row>
           <ui-button
             variant="primary"
             size="sm"
-            [disabled]="row.status === 'SUBMITTED'"
             (clicked)="openAudit(row)">
-            Open Workspace
+            {{ getAuditActionLabel(row) }}
           </ui-button>
         </ng-template>
       </ui-data-table>
-      
+
       <ui-empty-state
         *ngIf="myAudits.length === 0"
-        title="No audits in this category"
-        description="No audits found for the selected filter">
+        title="No audits in this queue"
+        description="Try another tab or adjust the current dashboard filters.">
       </ui-empty-state>
     </div>
 
-    <!-- Block 1b: Upcoming Audits (from AuditXpert API) -->
-    <div class="card mb-6">
-      <h3 class="card-title mb-4">Upcoming Scheduled Audits</h3>
-      <div class="overflow-x-auto" *ngIf="upcomingAudits.length > 0">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contractor</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-              <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let a of upcomingAudits">
-              <td class="px-4 py-2 text-sm">{{ a.clientName }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.branchName }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.contractorName || '—' }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.auditType }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
-              <td class="px-4 py-2 text-center"><ui-status-badge [status]="a.status"></ui-status-badge></td>
-              <td class="px-4 py-2 text-center">
-                <ui-button variant="primary" size="sm" (clicked)="openAudit({ auditId: a.id })">Open</ui-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <ui-empty-state *ngIf="upcomingAudits.length === 0" title="No upcoming audits" description="All audits are complete or none assigned"></ui-empty-state>
-    </div>
-
-    <!-- Block 1c: Recent Submitted Audits -->
-    <div class="card mb-6">
-      <h3 class="card-title mb-4">Recent Submitted Audits</h3>
-      <div class="overflow-x-auto" *ngIf="recentSubmitted.length > 0">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-              <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let a of recentSubmitted">
-              <td class="px-4 py-2 text-sm">{{ a.clientName }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.branchName }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.auditType }}</td>
-              <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
-              <td class="px-4 py-2 text-sm font-medium">{{ a.score !== null && a.score !== undefined ? a.score + '%' : '-' }}</td>
-              <td class="px-4 py-2 text-center"><ui-status-badge [status]="a.status"></ui-status-badge></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <ui-empty-state *ngIf="recentSubmitted.length === 0" title="No recent submissions" description="No audits submitted yet"></ui-empty-state>
-    </div>
-
-    <!-- Block 2: Observations Pending Closure -->
-    <div class="card mb-6">
-      <h3 class="card-title mb-4">Observations Pending Closure</h3>
-      
-      <ui-data-table
-        *ngIf="observations.length > 0"
-        [columns]="observationColumns"
-        [data]="observations">
-        
-        <ng-template uiTableCell="clientName" let-row>
-          {{ row.clientName }}
-        </ng-template>
-        
-        <ng-template uiTableCell="branchName" let-row>
-          {{ row.branchName }}
-        </ng-template>
-        
-        <ng-template uiTableCell="title" let-row>
-          <span class="font-medium">{{ row.title }}</span>
-        </ng-template>
-        
-        <ng-template uiTableCell="risk" let-row>
-          <ui-status-badge [status]="row.risk"></ui-status-badge>
-        </ng-template>
-        
-        <ng-template uiTableCell="ageingDays" let-row>
-          <span
-            class="badge"
-            [ngClass]="{
-              'badge-danger': row.ageingDays > 10,
-              'badge-warning': row.ageingDays > 5 && row.ageingDays <= 10,
-              'badge-info': row.ageingDays <= 5
-            }">
-            {{ row.ageingDays }}d
-          </span>
-        </ng-template>
-        
-        <ng-template uiTableCell="owner" let-row>
-          <div class="font-medium">{{ row.ownerName || row.ownerRole }}</div>
-          <div class="text-xs text-gray-500">{{ row.ownerRole }}</div>
-        </ng-template>
-        
-        <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status"></ui-status-badge>
-        </ng-template>
-        
-        <ng-template uiTableCell="actions" let-row>
-          <div class="flex flex-col gap-1.5 w-24">
-            <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)">Follow-up</ui-button>
-            <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)">Update</ui-button>
-            <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)">Close</ui-button>
+    <div class="dashboard-grid-2 mb-6">
+      <div class="card">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 class="card-title mb-1">Upcoming Schedule</h3>
+            <p class="text-sm text-gray-600">Scheduled audits that are coming up next.</p>
           </div>
-        </ng-template>
-      </ui-data-table>
-      
-      <ui-empty-state
-        *ngIf="observations.length === 0"
-        title="No pending observations"
-        description="All observations have been addressed">
-      </ui-empty-state>
-    </div>
+          <div class="text-sm text-gray-500">{{ upcomingAudits.length }} audit(s)</div>
+        </div>
 
-    <!-- Block 3: Evidence & Documents Pending -->
-    <div class="card mb-6">
-      <h3 class="card-title mb-4">Evidence & Documents Pending</h3>
-      
-      <ui-data-table
-        *ngIf="evidence.length > 0"
-        [columns]="evidenceColumns"
-        [data]="evidence">
-        
-        <ng-template uiTableCell="clientName" let-row>
-          {{ row.clientName }}
-        </ng-template>
-        
-        <ng-template uiTableCell="branchName" let-row>
-          {{ row.branchName }}
-        </ng-template>
-        
-        <ng-template uiTableCell="evidenceName" let-row>
-          <span class="font-medium">{{ row.evidenceName }}</span>
-        </ng-template>
-        
-        <ng-template uiTableCell="requestedOn" let-row>
-          {{ row.requestedOn }}
-        </ng-template>
-        
-        <ng-template uiTableCell="pendingDays" let-row>
-          <span
-            class="badge"
-            [ngClass]="{
-              'badge-danger': row.pendingDays > 7,
-              'badge-warning': row.pendingDays > 3 && row.pendingDays <= 7,
-              'badge-info': row.pendingDays <= 3
-            }">
-            {{ row.pendingDays }}d
-          </span>
-        </ng-template>
-        
-        <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.status"></ui-status-badge>
-        </ng-template>
-        
-        <ng-template uiTableCell="actions" let-row>
-          <div class="flex gap-2 justify-center">
-            <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)">Remind</ui-button>
-            <ui-button variant="secondary" size="sm" (clicked)="markNotRequired(row)">Not Required</ui-button>
+        <div class="overflow-x-auto" *ngIf="upcomingAudits.length > 0">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contractor</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr *ngFor="let a of upcomingAudits">
+                <td class="px-4 py-2 text-sm">{{ a.clientName }}</td>
+                <td class="px-4 py-2 text-sm">{{ a.branchName }}</td>
+                <td class="px-4 py-2 text-sm">{{ a.contractorName || '-' }}</td>
+                <td class="px-4 py-2 text-sm">{{ formatAuditType(a.auditType) }}</td>
+                <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
+                <td class="px-4 py-2 text-center"><ui-status-badge [status]="formatStatus(a.status)"></ui-status-badge></td>
+                <td class="px-4 py-2 text-center">
+                  <ui-button variant="primary" size="sm" (clicked)="openAudit({ auditId: a.id })">Open</ui-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ui-empty-state
+          *ngIf="upcomingAudits.length === 0"
+          title="No upcoming audits"
+          description="All audits are complete or nothing new is assigned yet.">
+        </ui-empty-state>
+      </div>
+
+      <div class="card">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 class="card-title mb-1">Recently Submitted</h3>
+            <p class="text-sm text-gray-600">Audits already sent for downstream review.</p>
           </div>
-        </ng-template>
-      </ui-data-table>
-      
-      <ui-empty-state
-        *ngIf="evidence.length === 0"
-        title="No pending evidence"
-        description="All required evidence has been received">
-      </ui-empty-state>
+          <div class="text-sm text-gray-500">{{ recentSubmitted.length }} audit(s)</div>
+        </div>
+
+        <div class="overflow-x-auto" *ngIf="recentSubmitted.length > 0">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
+                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr *ngFor="let a of recentSubmitted">
+                <td class="px-4 py-2 text-sm">{{ a.clientName }}</td>
+                <td class="px-4 py-2 text-sm">{{ a.branchName }}</td>
+                <td class="px-4 py-2 text-sm">{{ formatAuditType(a.auditType) }}</td>
+                <td class="px-4 py-2 text-sm">{{ a.periodCode }}</td>
+                <td class="px-4 py-2 text-sm font-medium">{{ a.score !== null && a.score !== undefined ? a.score + '%' : '-' }}</td>
+                <td class="px-4 py-2 text-center"><ui-status-badge [status]="formatStatus(a.status)"></ui-status-badge></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ui-empty-state
+          *ngIf="recentSubmitted.length === 0"
+          title="No recent submissions"
+          description="Submitted audits will appear here after you complete a review round.">
+        </ui-empty-state>
+      </div>
     </div>
 
-    <!-- Block 4: Recent Activity Timeline (Optional) -->
+    <div class="dashboard-grid-2 mb-6">
+      <div class="card">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 class="card-title mb-1">Open Observations</h3>
+            <p class="text-sm text-gray-600">Issues that still need follow-up, ownership, or closure.</p>
+          </div>
+          <div class="text-sm text-gray-500">{{ observations.length }} observation(s)</div>
+        </div>
+
+        <ui-data-table
+          *ngIf="observations.length > 0"
+          [columns]="observationColumns"
+          [data]="observations">
+
+          <ng-template uiTableCell="clientName" let-row>
+            {{ row.clientName }}
+          </ng-template>
+
+          <ng-template uiTableCell="branchName" let-row>
+            {{ row.branchName }}
+          </ng-template>
+
+          <ng-template uiTableCell="title" let-row>
+            <span class="font-medium">{{ row.title }}</span>
+          </ng-template>
+
+          <ng-template uiTableCell="risk" let-row>
+            <ui-status-badge [status]="formatStatus(row.risk)"></ui-status-badge>
+          </ng-template>
+
+          <ng-template uiTableCell="ageingDays" let-row>
+            <span
+              class="badge"
+              [ngClass]="{
+                'badge-danger': row.ageingDays > 10,
+                'badge-warning': row.ageingDays > 5 && row.ageingDays <= 10,
+                'badge-info': row.ageingDays <= 5
+              }">
+              {{ row.ageingDays }}d
+            </span>
+          </ng-template>
+
+          <ng-template uiTableCell="owner" let-row>
+            <div class="font-medium">{{ row.ownerName || row.ownerRole }}</div>
+            <div class="text-xs text-gray-500">{{ row.ownerRole }}</div>
+          </ng-template>
+
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="formatStatus(row.status)"></ui-status-badge>
+          </ng-template>
+
+          <ng-template uiTableCell="actions" let-row>
+            <div class="flex flex-col gap-1.5 w-24">
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="followUpObservation(row)">Follow-up</ui-button>
+              <ui-button variant="primary" size="sm" [fullWidth]="true" (clicked)="updateObservation(row)">Update</ui-button>
+              <ui-button variant="secondary" size="sm" [fullWidth]="true" (clicked)="closeObservation(row)">Close</ui-button>
+            </div>
+          </ng-template>
+        </ui-data-table>
+
+        <ui-empty-state
+          *ngIf="observations.length === 0"
+          title="No pending observations"
+          description="All observations are addressed for the current filter set.">
+        </ui-empty-state>
+      </div>
+
+      <div class="card">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 class="card-title mb-1">Pending Evidence</h3>
+            <p class="text-sm text-gray-600">Evidence or documents still awaited from the process.</p>
+          </div>
+          <div class="text-sm text-gray-500">{{ evidence.length }} item(s)</div>
+        </div>
+
+        <ui-data-table
+          *ngIf="evidence.length > 0"
+          [columns]="evidenceColumns"
+          [data]="evidence">
+
+          <ng-template uiTableCell="clientName" let-row>
+            {{ row.clientName }}
+          </ng-template>
+
+          <ng-template uiTableCell="branchName" let-row>
+            {{ row.branchName }}
+          </ng-template>
+
+          <ng-template uiTableCell="evidenceName" let-row>
+            <span class="font-medium">{{ row.evidenceName }}</span>
+          </ng-template>
+
+          <ng-template uiTableCell="requestedOn" let-row>
+            {{ row.requestedOn }}
+          </ng-template>
+
+          <ng-template uiTableCell="pendingDays" let-row>
+            <span
+              class="badge"
+              [ngClass]="{
+                'badge-danger': row.pendingDays > 7,
+                'badge-warning': row.pendingDays > 3 && row.pendingDays <= 7,
+                'badge-info': row.pendingDays <= 3
+              }">
+              {{ row.pendingDays }}d
+            </span>
+          </ng-template>
+
+          <ng-template uiTableCell="status" let-row>
+            <ui-status-badge [status]="formatStatus(row.status)"></ui-status-badge>
+          </ng-template>
+
+          <ng-template uiTableCell="actions" let-row>
+            <div class="flex gap-2 justify-center flex-wrap">
+              <ui-button variant="secondary" size="sm" (clicked)="remindEvidence(row)">Remind</ui-button>
+              <ui-button variant="secondary" size="sm" (clicked)="markNotRequired(row)">Not Required</ui-button>
+            </div>
+          </ng-template>
+        </ui-data-table>
+
+        <ui-empty-state
+          *ngIf="evidence.length === 0"
+          title="No pending evidence"
+          description="All required evidence has been received for the current filter set.">
+        </ui-empty-state>
+      </div>
+    </div>
+
     <div class="card mb-6">
-      <h3 class="card-title mb-4">Recent Activity</h3>
+      <div class="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h3 class="card-title mb-1">Recent Activity</h3>
+          <p class="text-sm text-gray-600">A quick timeline of the latest changes across your audit work.</p>
+        </div>
+        <div class="text-sm text-gray-500">{{ recentActivities.length }} event(s)</div>
+      </div>
+
       <div class="space-y-4" *ngIf="recentActivities.length > 0">
         <div *ngFor="let activity of recentActivities" class="flex gap-4 border-l-2 border-gray-300 pl-4 pb-4">
           <div class="flex-shrink-0">
@@ -416,8 +475,7 @@
                 'bg-green-500': activity.activityType === 'EVIDENCE_RECEIVED',
                 'bg-indigo-500': activity.activityType === 'REPORT_SUBMITTED',
                 'bg-gray-500': activity.activityType === 'OTHER'
-              }"
-            >
+              }">
               <svg *ngIf="activity.activityType === 'AUDIT_STARTED'" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" />
               </svg>
@@ -435,7 +493,7 @@
           </div>
           <div class="flex-1">
             <p class="text-sm font-medium text-gray-900">{{ activity.description }}</p>
-            <div class="flex gap-3 text-xs text-gray-500 mt-1">
+            <div class="flex gap-3 text-xs text-gray-500 mt-1 flex-wrap">
               <span *ngIf="activity.clientName">{{ activity.clientName }}</span>
               <span *ngIf="activity.auditName">{{ activity.auditName }}</span>
               <span>{{ activity.timestamp ? (activity.timestamp | date:'short') : '' }}</span>
@@ -443,13 +501,12 @@
           </div>
         </div>
       </div>
-      
+
       <ui-empty-state
         *ngIf="recentActivities.length === 0"
         title="No recent activity"
-        description="Activity will appear here as you work on audits">
+        description="New activity will appear here as assigned audits move forward.">
       </ui-empty-state>
     </div>
   </ng-container>
 </div>
-

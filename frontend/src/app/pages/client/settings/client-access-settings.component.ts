@@ -1,11 +1,12 @@
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, forkJoin } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
 import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 import {
   PageHeaderComponent,
   LoadingSpinnerComponent,
@@ -13,6 +14,13 @@ import {
   ActionButtonComponent,
 } from '../../../shared/ui';
 import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../../../core/client-payroll-settings.service';
+
+interface BranchItem {
+  id: string;
+  branchname: string;
+  branchCode?: string;
+  selected: boolean;
+}
 
 @Component({
   standalone: true,
@@ -70,6 +78,50 @@ import { ClientPayrollSettingsService, ClientPayrollAccessSettings } from '../..
               </span>
             </label>
           </div>
+
+          <!-- Branch Scope Section -->
+          <div class="pt-2 border-t border-gray-100">
+            <div class="font-semibold text-gray-900 mb-1">Branch Payroll Data Scope</div>
+            <div class="text-xs text-gray-500 mb-3">Select which branches can see payroll data when payroll access is enabled. Restricting to specific branches ensures each branch user only sees data for their branch.</div>
+
+            <div class="flex flex-col gap-2 mb-3" [class.opacity-50]="!isMaster || saving">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input autocomplete="off" type="radio" name="payrollBranchScope" id="scope-all" value="ALL"
+                  [(ngModel)]="model.payrollBranchScope"
+                  [disabled]="!isMaster || saving" />
+                <span class="text-sm font-medium text-gray-800">All Branches</span>
+                <span class="text-xs text-gray-500 ml-1">(default — every branch user can access payroll data)</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input autocomplete="off" type="radio" name="payrollBranchScope" id="scope-selected" value="SELECTED"
+                  [(ngModel)]="model.payrollBranchScope"
+                  [disabled]="!isMaster || saving" />
+                <span class="text-sm font-medium text-gray-800">Specific Branches Only</span>
+                <span class="text-xs text-gray-500 ml-1">(only selected branches get payroll access)</span>
+              </label>
+            </div>
+
+            <!-- Branch checklist when SELECTED -->
+            <div *ngIf="model.payrollBranchScope === 'SELECTED'" class="ml-6 border border-gray-200 rounded-xl bg-gray-50 p-3">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Select Branches</span>
+                <div class="flex gap-2">
+                  <button type="button" class="text-xs text-blue-600 hover:underline" (click)="selectAllBranches()" [disabled]="!isMaster || saving">Select All</button>
+                  <span class="text-gray-300">|</span>
+                  <button type="button" class="text-xs text-blue-600 hover:underline" (click)="clearAllBranches()" [disabled]="!isMaster || saving">Clear All</button>
+                </div>
+              </div>
+              <div *ngIf="branches.length === 0" class="text-xs text-gray-400 py-2">No branches found.</div>
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                <label *ngFor="let b of branches" class="flex items-center gap-2 py-1 px-1 rounded hover:bg-white cursor-pointer">
+                  <input autocomplete="off" type="checkbox" [id]="'br-' + b.id" [(ngModel)]="b.selected" [name]="'br-' + b.id" [disabled]="!isMaster || saving" />
+                  <span class="text-sm text-gray-800">{{ b.branchname }}</span>
+                  <span *ngIf="b.branchCode" class="text-xs text-gray-400 font-mono">({{ b.branchCode }})</span>
+                </label>
+              </div>
+              <div class="mt-2 text-xs text-gray-500">{{ selectedBranchCount }} of {{ branches.length }} branches selected</div>
+            </div>
+          </div>
         </div>
 
         <div class="mt-6 flex items-center gap-3">
@@ -87,6 +139,7 @@ export class ClientAccessSettingsComponent implements OnInit, OnDestroy {
   saving = false;
   error = '';
   isMaster = false;
+  branches: BranchItem[] = [];
   private readonly destroy$ = new Subject<void>();
 
   model: ClientPayrollAccessSettings = {
@@ -94,11 +147,18 @@ export class ClientAccessSettingsComponent implements OnInit, OnDestroy {
     allowBranchPayrollAccess: false,
     allowBranchWageRegisters: false,
     allowBranchSalaryRegisters: false,
+    payrollBranchScope: 'ALL',
+    payrollAllowedBranchIds: [],
   };
+
+  get selectedBranchCount(): number {
+    return this.branches.filter((b) => b.selected).length;
+  }
 
   constructor(
     private readonly svc: ClientPayrollSettingsService,
     private readonly auth: AuthService,
+    private readonly branchesSvc: ClientBranchesService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
   ) {
@@ -112,17 +172,28 @@ export class ClientAccessSettingsComponent implements OnInit, OnDestroy {
   load() {
     this.loading = true;
     this.error = '';
-    this.svc
-      .get()
+    forkJoin({
+      settings: this.svc.get(),
+      branches: this.branchesSvc.list(),
+    })
       .pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }), takeUntil(this.destroy$))
       .subscribe({
-        next: (res) => {
+        next: ({ settings: res, branches }) => {
+          const allowedIds: string[] = Array.isArray(res?.payrollAllowedBranchIds) ? res.payrollAllowedBranchIds : [];
           this.model = {
             clientId: res?.clientId || this.auth.getUser()?.clientId || '',
             allowBranchPayrollAccess: res?.allowBranchPayrollAccess === true,
             allowBranchWageRegisters: res?.allowBranchWageRegisters === true,
             allowBranchSalaryRegisters: res?.allowBranchSalaryRegisters === true,
+            payrollBranchScope: res?.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+            payrollAllowedBranchIds: allowedIds,
           };
+          this.branches = (branches || []).map((b: any) => ({
+            id: b.id,
+            branchname: b.branchname || b.name || b.branchName || b.id,
+            branchCode: b.branchCode || b.branch_code || '',
+            selected: allowedIds.includes(b.id),
+          }));
           this.cdr.detectChanges();
         },
         error: (e) => {
@@ -132,13 +203,28 @@ export class ClientAccessSettingsComponent implements OnInit, OnDestroy {
       });
   }
 
+  selectAllBranches() {
+    this.branches.forEach((b) => (b.selected = true));
+  }
+
+  clearAllBranches() {
+    this.branches.forEach((b) => (b.selected = false));
+  }
+
   save() {
+    const payrollAllowedBranchIds =
+      this.model.payrollBranchScope === 'SELECTED'
+        ? this.branches.filter((b) => b.selected).map((b) => b.id)
+        : [];
+
     this.saving = true;
     this.svc
       .update({
         allowBranchPayrollAccess: this.model.allowBranchPayrollAccess,
         allowBranchWageRegisters: this.model.allowBranchWageRegisters,
         allowBranchSalaryRegisters: this.model.allowBranchSalaryRegisters,
+        payrollBranchScope: this.model.payrollBranchScope,
+        payrollAllowedBranchIds,
       })
       .pipe(finalize(() => { this.saving = false; this.cdr.detectChanges(); }), takeUntil(this.destroy$))
       .subscribe({

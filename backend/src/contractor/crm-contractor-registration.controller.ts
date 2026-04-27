@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  Query,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -53,7 +54,10 @@ export class CrmContractorRegistrationController {
 
   @ApiOperation({ summary: 'List My Contractors' })
   @Get('my-contractors')
-  async listMyContractors(@CurrentUser() user: ReqUser) {
-    return this.service.listContractorsForCrm(user);
+  async listMyContractors(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.service.listContractorsForCrm(user, clientId);
   }
 }

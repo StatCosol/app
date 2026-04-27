@@ -71,8 +71,11 @@ export class CrmReturnsController {
 
   @ApiOperation({ summary: 'Types' })
   @Get('types')
-  types() {
-    return this.returns.getReturnTypes();
+  types(
+    @CurrentUser() user: ReqUser,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.returns.getReturnTypes(user, branchId);
   }
 
   @ApiOperation({ summary: 'Create Filing' })

@@ -207,12 +207,26 @@ export class ContractorService {
     );
     const auditRiskPoints = Number(riskRow?.riskPoints || 0);
 
+    // All-time rejected and pending-review docs (not month-scoped) — for dashboard widgets
+    const [allTimeDocRow] = await this.contractorDocsRepo.manager.query(
+      `SELECT
+         SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS "rejectedDocs",
+         SUM(CASE WHEN status IN ('UPLOADED','PENDING_REVIEW') THEN 1 ELSE 0 END) AS "pendingReviewDocs"
+       FROM contractor_documents
+       WHERE contractor_user_id = $1`,
+      [userId],
+    );
+    const rejectedDocs = Number(allTimeDocRow?.rejectedDocs ?? 0);
+    const pendingReviewDocs = Number(allTimeDocRow?.pendingReviewDocs ?? 0);
+
     const clientEntity = await this.clientRepo.findOne({ where: { id: clientId } });
 
     return {
       clientId,
       clientName: clientEntity?.clientName ?? null,
       branches: Array.from(branchMap.values()),
+      rejectedDocs,
+      pendingReviewDocs,
       monthSummary: {
         month: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`,
         documentScore,

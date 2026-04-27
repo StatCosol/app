@@ -89,8 +89,6 @@ interface SidebarItem {
         <ng-template #expandedNav>
           <div
             *ngFor="let group of navGroups"
-            (mouseenter)="openGroupOnHover(group)"
-            (mouseleave)="closeGroupOnLeave(group)"
           >
             <div
               class="sidebar-section"
@@ -438,21 +436,6 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
     const willExpand = !group.expanded;
     this.navGroups.forEach(g => g.expanded = false);
     group.expanded = willExpand;
-  }
-
-  openGroupOnHover(group: SidebarGroup): void {
-    if (!this.isDesktop()) return;
-    this.navGroups.forEach(g => g.expanded = false);
-    group.expanded = true;
-  }
-
-  closeGroupOnLeave(group: SidebarGroup): void {
-    if (!this.isDesktop()) return;
-    group.expanded = false;
-  }
-
-  private isDesktop(): boolean {
-    return typeof window !== 'undefined' && window.innerWidth >= 1024;
   }
 
   onNavClick(): void {

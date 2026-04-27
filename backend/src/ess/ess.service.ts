@@ -25,6 +25,7 @@ import * as path from 'path';
 import {
   CreateEssNominationDto,
   ResubmitNominationDto,
+  UpdateEssNominationDto,
   ApplyLeaveDto,
   CreateLeavePolicyDto,
   UpdateLeavePolicyDto,
@@ -201,6 +202,7 @@ export class EssService {
       bankAccount?: string;
       ifsc?: string;
       fatherName?: string;
+      maritalStatus?: string;
     },
   ) {
     const empId = this.ensureEmployee(user);
@@ -215,6 +217,7 @@ export class EssService {
       'bankAccount',
       'ifsc',
       'fatherName',
+      'maritalStatus',
     ];
     for (const key of allowed) {
       if (body[key] !== undefined) {
@@ -393,6 +396,7 @@ export class EssService {
            a.check_out AS "checkOut",
            a.worked_hours AS "workedHours",
            a.overtime_hours AS "overtimeHours",
+           a.short_work_reason AS "shortWorkReason",
            a.remarks,
            a.source,
            a.capture_method AS "captureMethod",
@@ -842,6 +846,44 @@ export class EssService {
   }
 
   // -- Employee Document Vault ------------------------------------------------
+  async uploadSelfDocument(
+    user: EssUser,
+    params: {
+      docType: string;
+      docName: string;
+      fileName: string;
+      filePath: string;
+      fileSize: number;
+      mimeType?: string;
+      expiryDate?: string;
+    },
+  ) {
+    const empId = this.ensureEmployee(user);
+    const emp = await this.empRepo.findOne({ where: { id: empId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+    await this.ds.query(
+      `INSERT INTO employee_documents
+         (id, client_id, employee_id, doc_type, doc_name, file_name, file_path,
+          file_size, mime_type, uploaded_by_user_id, expiry_date, is_verified,
+          created_at, updated_at)
+       VALUES
+         (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, now(), now())`,
+      [
+        emp.clientId,
+        emp.id,
+        params.docType,
+        params.docName || params.fileName,
+        params.fileName,
+        params.filePath,
+        params.fileSize,
+        params.mimeType ?? null,
+        user.id,
+        params.expiryDate ?? null,
+      ],
+    );
+    return { ok: true };
+  }
+
   async listDocuments(
     user: EssUser,
     opts?: { category?: string; year?: number; q?: string },
@@ -1025,6 +1067,8 @@ export class EssService {
           address: m.address || null,
           isMinor: !!m.isMinor,
           guardianName: m.guardianName || null,
+          guardianRelationship: m.guardianRelationship || null,
+          guardianAddress: m.guardianAddress || null,
         }),
       );
       await this.nomMemberRepo.save(entities);
@@ -1093,12 +1137,63 @@ export class EssService {
           address: m.address || null,
           isMinor: !!m.isMinor,
           guardianName: m.guardianName || null,
+          guardianRelationship: m.guardianRelationship || null,
+          guardianAddress: m.guardianAddress || null,
         }),
       );
       await this.nomMemberRepo.save(entities);
     }
 
     return { ok: true, status: 'SUBMITTED' };
+  }
+
+  // Update a DRAFT or APPROVED nomination (e.g., employee married after joining)
+  async updateNomination(user: EssUser, nominationId: string, dto: UpdateEssNominationDto) {
+    const empId = this.ensureEmployee(user);
+    const nom = await this.nomRepo.findOne({
+      where: { id: nominationId, employeeId: empId },
+    });
+    if (!nom) throw new NotFoundException('Nomination not found');
+    if (!['DRAFT', 'APPROVED'].includes(nom.status)) {
+      throw new BadRequestException(
+        'Only DRAFT or APPROVED nominations can be edited',
+      );
+    }
+
+    if (dto.declarationDate !== undefined) nom.declarationDate = dto.declarationDate || null;
+    if (dto.witnessName !== undefined) nom.witnessName = dto.witnessName || null;
+    if (dto.witnessAddress !== undefined) nom.witnessAddress = dto.witnessAddress || null;
+
+    const asDraft = dto.asDraft !== false;
+    nom.status = asDraft ? 'DRAFT' : 'SUBMITTED';
+    nom.submittedAt = asDraft ? null : new Date();
+    if (!asDraft && nom.status === 'APPROVED') {
+      nom.approvedAt = null;
+      nom.approvedByUserId = null;
+    }
+    await this.nomRepo.save(nom);
+
+    const members = (dto.members ?? []).filter((m) => m.memberName?.trim());
+    if (members.length) {
+      await this.nomMemberRepo.delete({ nominationId });
+      const entities = members.map((m) =>
+        this.nomMemberRepo.create({
+          nominationId,
+          memberName: m.memberName!.trim(),
+          relationship: m.relationship || null,
+          dateOfBirth: m.dateOfBirth || null,
+          sharePct: m.sharePct ?? 0,
+          address: m.address || null,
+          isMinor: !!m.isMinor,
+          guardianName: m.guardianName || null,
+          guardianRelationship: m.guardianRelationship || null,
+          guardianAddress: m.guardianAddress || null,
+        }),
+      );
+      await this.nomMemberRepo.save(entities);
+    }
+
+    return { ok: true, status: nom.status };
   }
 
   // ── Leave Balances ───────────────────────────────────────

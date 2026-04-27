@@ -56,6 +56,9 @@ export class EmployeeEntity {
   @Column({ name: 'father_name', type: 'varchar', length: 200, nullable: true })
   fatherName: string | null;
 
+  @Column({ name: 'marital_status', type: 'varchar', length: 20, nullable: true })
+  maritalStatus: string | null;
+
   @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
@@ -82,6 +85,12 @@ export class EmployeeEntity {
 
   @Column({ name: 'pf_applicable_from', type: 'date', nullable: true })
   pfApplicableFrom: string | null;
+
+  @Column({ name: 'pf_service_start_date', type: 'date', nullable: true })
+  pfServiceStartDate: string | null;
+
+  @Column({ name: 'basic_at_pf_start', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  basicAtPfStart: number | null;
 
   @Column({ name: 'esi_applicable', type: 'boolean', default: false })
   esiApplicable: boolean;

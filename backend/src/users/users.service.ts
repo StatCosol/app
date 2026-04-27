@@ -780,11 +780,11 @@ export class UsersService implements OnModuleInit {
     });
     if (!clientRole) throw new NotFoundException('CLIENT role not found');
 
-    // Check duplicate email within the transaction
+    // Check duplicate email within the transaction (includes soft-deleted to avoid DB unique violation)
     const existingEmail = await manager.findOne(UserEntity, {
-      where: { email, deletedAt: IsNull() },
+      where: { email },
     });
-    if (existingEmail) throw new BadRequestException('Email already exists');
+    if (existingEmail) throw new BadRequestException('Email already in use. Please use a different email address.');
 
     // Enforce single MASTER per client
     const existingMaster = await manager.findOne(UserEntity, {

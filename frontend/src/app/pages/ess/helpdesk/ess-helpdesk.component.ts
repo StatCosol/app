@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EssApiService } from '../ess-api.service';
@@ -167,7 +167,7 @@ export class EssHelpdeskComponent implements OnInit {
   replyMessage = '';
   sendingReply = false;
 
-  constructor(private api: EssApiService) {}
+  constructor(private api: EssApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadTickets();
@@ -178,8 +178,9 @@ export class EssHelpdeskComponent implements OnInit {
       next: (data) => {
         this.tickets = data;
         this.applyFilter();
+        this.cdr.markForCheck();
       },
-      error: () => {},
+      error: () => { this.cdr.markForCheck(); },
     });
   }
 

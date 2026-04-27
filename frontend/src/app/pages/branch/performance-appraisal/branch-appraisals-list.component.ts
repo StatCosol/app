@@ -12,6 +12,47 @@ import { EmployeeAppraisal, AppraisalCycle, AppraisalPaginatedResult } from '../
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    .page-container { max-width: 1280px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; }
+    .page-title { font-size: 1.2rem; font-weight: 800; color: #111827; margin: 0; }
+    .page-subtitle { font-size: 0.82rem; color: #6b7280; margin-top: 0.25rem; }
+    .header-action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      padding: 0 0.9rem;
+      border-radius: 0.55rem;
+      border: 1px solid #c7d2fe;
+      background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%);
+      color: #3730a3;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      box-shadow: 0 1px 2px rgba(79, 70, 229, 0.12);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+    .header-action-btn:hover {
+      background: linear-gradient(180deg, #e0e7ff 0%, #c7d2fe 100%);
+      box-shadow: 0 4px 10px rgba(79, 70, 229, 0.18);
+      transform: translateY(-1px);
+    }
+    .header-action-btn:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 2px;
+    }
+    .filter-select, .search-input { height: 36px; border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0 0.6rem; font-size: 0.825rem; color: #1e293b; background: #fff; min-width: 150px; }
+    .filter-select:focus, .search-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.15); }
+    .spinner { width: 2rem; height: 2rem; border: 3px solid #e5e7eb; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.75s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.825rem; }
+    .data-table th { padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #475569; background: #f8fafc; border-bottom: 1px solid #e5e7eb; white-space: nowrap; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .data-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
+    .data-row:hover td { background: #f8fafc; }
+  `],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -19,7 +60,7 @@ import { EmployeeAppraisal, AppraisalCycle, AppraisalPaginatedResult } from '../
           <h1 class="page-title">Employee Appraisals</h1>
           <p class="page-subtitle">Review and manage employee performance appraisals</p>
         </div>
-        <a routerLink="/branch/appraisal-dashboard" class="btn-secondary">Dashboard</a>
+        <a routerLink="/branch/appraisal-dashboard" class="header-action-btn">Dashboard</a>
       </div>
 
       <!-- Filters -->

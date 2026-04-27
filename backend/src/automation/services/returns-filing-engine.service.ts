@@ -14,6 +14,89 @@ import { AutomationNotificationService } from './automation-notification.service
 export class ReturnsFilingEngineService {
   private readonly logger = new Logger(ReturnsFilingEngineService.name);
 
+  private normalizeStateCode(value: string | null | undefined): string | null {
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '');
+
+    if (!normalized) return null;
+
+    switch (normalized) {
+      case 'TG':
+      case 'TS':
+      case 'TELANGANA':
+      case 'TELANGANASTATE':
+        return 'TS';
+      case 'AP':
+      case 'ANDHRAPRADESH':
+      case 'ANDHRA':
+        return 'AP';
+      case 'TN':
+      case 'TAMILNADU':
+      case 'TAMILNADUSTATE':
+        return 'TN';
+      case 'KA':
+      case 'KARNATAKA':
+        return 'KA';
+      case 'MH':
+      case 'MAHARASHTRA':
+        return 'MH';
+      case 'GJ':
+      case 'GUJARAT':
+        return 'GJ';
+      case 'KL':
+      case 'KERALA':
+        return 'KL';
+      case 'DL':
+      case 'DELHI':
+      case 'NEWDELHI':
+      case 'NCR':
+        return 'DL';
+      case 'RJ':
+      case 'RAJASTHAN':
+        return 'RJ';
+      case 'UP':
+      case 'UTTARPRADESH':
+        return 'UP';
+      case 'MP':
+      case 'MADHYAPRADESH':
+        return 'MP';
+      case 'WB':
+      case 'WESTBENGAL':
+        return 'WB';
+      case 'OD':
+      case 'OR':
+      case 'ORISSA':
+      case 'ODISHA':
+        return 'OD';
+      case 'HR':
+      case 'HARYANA':
+        return 'HR';
+      case 'PB':
+      case 'PUNJAB':
+        return 'PB';
+      case 'BR':
+      case 'BIHAR':
+        return 'BR';
+      case 'JH':
+      case 'JHARKHAND':
+        return 'JH';
+      case 'CG':
+      case 'CT':
+      case 'CHHATTISGARH':
+      case 'CHHATTISGAR':
+        return 'CG';
+      case 'UK':
+      case 'UT':
+      case 'UTTARAKHAND':
+      case 'UTTARANCHAL':
+        return 'UK';
+      default:
+        return normalized;
+    }
+  }
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly taskEngine: TaskEngineService,
@@ -338,9 +421,33 @@ export class ReturnsFilingEngineService {
     let paramIdx = 1;
 
     // State filter
-    if (master.state_code && master.state_code !== 'ALL') {
-      conditions.push(`(b.statecode = $${paramIdx} OR b.statecode IS NULL)`);
-      params.push(master.state_code);
+    const normalizedState = this.normalizeStateCode(master.state_code);
+    if (normalizedState && normalizedState !== 'ALL') {
+      conditions.push(`(
+        CASE
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('TG','TS','TELANGANA','TELANGANASTATE') THEN 'TS'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('AP','ANDHRAPRADESH','ANDHRA') THEN 'AP'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('TN','TAMILNADU','TAMILNADUSTATE') THEN 'TN'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('KA','KARNATAKA') THEN 'KA'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('MH','MAHARASHTRA') THEN 'MH'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('GJ','GUJARAT') THEN 'GJ'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('KL','KERALA') THEN 'KL'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('DL','DELHI','NEWDELHI','NCR') THEN 'DL'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('RJ','RAJASTHAN') THEN 'RJ'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('UP','UTTARPRADESH') THEN 'UP'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('MP','MADHYAPRADESH') THEN 'MP'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('WB','WESTBENGAL') THEN 'WB'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('OD','OR','ORISSA','ODISHA') THEN 'OD'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('HR','HARYANA') THEN 'HR'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('PB','PUNJAB') THEN 'PB'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('BR','BIHAR') THEN 'BR'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('JH','JHARKHAND') THEN 'JH'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('CG','CT','CHHATTISGARH','CHHATTISGAR') THEN 'CG'
+          WHEN REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '') IN ('UK','UT','UTTARAKHAND','UTTARANCHAL') THEN 'UK'
+          ELSE REPLACE(TRIM(BOTH FROM UPPER(COALESCE(b.statecode, ''))), ' ', '')
+        END = $${paramIdx}
+      )`);
+      params.push(normalizedState);
       paramIdx++;
     }
 

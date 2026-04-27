@@ -8,6 +8,8 @@ export type ClientPayrollAccessSettings = {
   allowBranchPayrollAccess: boolean;
   allowBranchWageRegisters: boolean;
   allowBranchSalaryRegisters: boolean;
+  payrollBranchScope: 'ALL' | 'SELECTED';
+  payrollAllowedBranchIds: string[];
 };
 
 @Injectable({ providedIn: 'root' })

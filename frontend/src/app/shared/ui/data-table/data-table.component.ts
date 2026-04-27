@@ -36,8 +36,8 @@ export class TableCellDirective {
   template: `
     <div class="animate-fade-up">
       <!-- Table -->
-      <div>
-        <table class="w-full table-fixed">
+      <div class="overflow-x-auto">
+        <table class="w-full table-fixed min-w-[600px]">
           <thead>
             <tr>
               <th *ngFor="let col of columns"
@@ -204,7 +204,7 @@ export class DataTableComponent {
   }
 
   getCellClasses(col: TableColumn): string {
-    const base = 'px-4 py-4 text-sm text-gray-700';
+    const base = 'px-4 py-4 text-sm text-gray-700 truncate max-w-0';
     const align = col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left';
     return `${base} ${align}`;
   }

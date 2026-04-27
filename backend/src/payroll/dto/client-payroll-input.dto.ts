@@ -3,6 +3,8 @@ import {
   IsString,
   IsUUID,
   IsInt,
+  IsArray,
+  IsIn,
   Min,
   Max,
 } from 'class-validator';
@@ -72,4 +74,15 @@ export class ClientUpdatePayrollSettingsDto {
 
   @IsOptional()
   allowBranchSalaryRegisters?: boolean;
+
+  /** 'ALL' = every branch can access payroll data; 'SELECTED' = only listed branches */
+  @IsOptional()
+  @IsIn(['ALL', 'SELECTED'])
+  payrollBranchScope?: 'ALL' | 'SELECTED';
+
+  /** Branch UUIDs allowed when payrollBranchScope = 'SELECTED' */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  payrollAllowedBranchIds?: string[];
 }

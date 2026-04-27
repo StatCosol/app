@@ -211,13 +211,13 @@
       </div>
     </div>
 
-    <!-- Compliance Returns Table -->
-    <ui-loading-spinner *ngIf="complianceDocsLoading" text="Loading compliance returns..."></ui-loading-spinner>
+    <!-- Compliance Documents Table -->
+    <ui-loading-spinner *ngIf="complianceDocsLoading" text="Loading compliance documents..."></ui-loading-spinner>
 
     <div class="card" *ngIf="!complianceDocsLoading">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-gray-900">
-          Compliance Returns
+          Compliance Documents
           <span class="text-sm font-normal text-gray-500 ml-2">({{ complianceDocs.length }} records)</span>
         </h3>
         <button *ngIf="routeClientId" type="button"
@@ -362,7 +362,7 @@
               </td>
             </tr>
             <tr *ngIf="complianceDocs.length === 0 && !complianceDocsLoading">
-              <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No compliance returns found</td>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-sm">No compliance documents found</td>
             </tr>
           </tbody>
         </table>

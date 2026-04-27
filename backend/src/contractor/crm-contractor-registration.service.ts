@@ -113,15 +113,21 @@ export class CrmContractorRegistrationService {
     };
   }
 
-  async listContractorsForCrm(crmUser: ReqUser) {
+  async listContractorsForCrm(crmUser: ReqUser, clientId?: string) {
     // Get all clients assigned to this CRM
     const assignments =
       await this.assignmentsService.getActiveAssignmentsForCrm(crmUser.userId);
-    const clientIds = assignments.map((a) => a.clientId);
+    const assignedClientIds = assignments.map((a) => a.clientId);
 
-    if (clientIds.length === 0) {
+    if (assignedClientIds.length === 0) {
       return [];
     }
+
+    // If a specific clientId is provided, scope to that client only (must be assigned)
+    const clientIds =
+      clientId && assignedClientIds.includes(clientId)
+        ? [clientId]
+        : assignedClientIds;
 
     // Get all contractors for these clients
     const contractors = await this.userRepo

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AdminClientsService, Client, Branch } from '../clients/admin-clients.service';
@@ -11,6 +11,13 @@ import { AdminClientsService, Client, Branch } from '../clients/admin-clients.se
     <div class="p-6 max-w-6xl mx-auto">
       <h1 class="text-2xl font-bold text-slate-800 mb-1">Applicability Engine</h1>
       <p class="text-slate-500 mb-6">Configure compliance applicability rules per branch</p>
+
+      @if (error) {
+        <div class="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/></svg>
+          <span class="text-sm">{{ error }}</span>
+        </div>
+      }
 
       @if (loading) {
         <div class="flex items-center gap-2 text-slate-500">
@@ -79,9 +86,11 @@ import { AdminClientsService, Client, Branch } from '../clients/admin-clients.se
 })
 export class ApplicabilityListComponent implements OnInit {
   private readonly svc = inject(AdminClientsService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   clients: Client[] = [];
   loading = true;
+  error = '';
   expanded: Record<string, boolean> = {};
   branches: Record<string, Branch[]> = {};
   branchesLoading: Record<string, boolean> = {};
@@ -91,22 +100,32 @@ export class ApplicabilityListComponent implements OnInit {
       next: (list) => {
         this.clients = list;
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error: () => (this.loading = false),
+      error: () => {
+        this.loading = false;
+        this.error = 'Failed to load clients';
+        this.cdr.detectChanges();
+      },
     });
   }
 
   toggle(client: Client): void {
     const id = client.id;
     this.expanded[id] = !this.expanded[id];
+    this.cdr.detectChanges();
     if (this.expanded[id] && !this.branches[id]) {
       this.branchesLoading[id] = true;
       this.svc.getBranches(id).subscribe({
         next: (list) => {
           this.branches[id] = list;
           this.branchesLoading[id] = false;
+          this.cdr.detectChanges();
         },
-        error: () => (this.branchesLoading[id] = false),
+        error: () => {
+          this.branchesLoading[id] = false;
+          this.cdr.detectChanges();
+        },
       });
     }
   }

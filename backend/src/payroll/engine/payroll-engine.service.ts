@@ -433,6 +433,8 @@ export class PayrollEngineService {
       let gradeId: string | null = null;
       let empPfApplicable: boolean | undefined;
       let empEsiApplicable: boolean | undefined;
+      let empPfServiceStartDate: string | null = null;
+      let empBasicAtPfStart: number | null = null;
       if (emp.employeeId) {
         const masterEmp = await this.empRepo.findOne({
           where: { id: emp.employeeId },
@@ -442,6 +444,8 @@ export class PayrollEngineService {
           gradeId = masterEmp.gradeId ?? null;
           empPfApplicable = masterEmp.pfApplicable;
           empEsiApplicable = masterEmp.esiApplicable;
+          empPfServiceStartDate = masterEmp.pfServiceStartDate ?? null;
+          empBasicAtPfStart = masterEmp.basicAtPfStart ? Number(masterEmp.basicAtPfStart) : null;
 
           // Fallback: seed ACTUAL_GROSS from employee monthlyGross or CTC/12
           if (values['ACTUAL_GROSS'] === undefined || values['ACTUAL_GROSS'] === 0) {
@@ -681,6 +685,8 @@ export class PayrollEngineService {
         values, setup, components,
         pfApplicable: empPfApplicable,
         esiApplicable: empEsiApplicable,
+        pfServiceStartDate: empPfServiceStartDate,
+        basicAtPfStart: empBasicAtPfStart,
       });
       Object.assign(values, statResult.values);
 

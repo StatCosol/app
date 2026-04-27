@@ -16,6 +16,7 @@ export class UpdateEssProfileDto {
   @IsOptional() @IsString() bankAccount?: string;
   @IsOptional() @IsString() ifsc?: string;
   @IsOptional() @IsString() fatherName?: string;
+  @IsOptional() @IsString() maritalStatus?: string;
 }
 
 // ── Attendance ───────────────────────────────────────────
@@ -58,6 +59,14 @@ export class ResubmitNominationDto {
   @IsOptional() @IsString() witnessName?: string;
   @IsOptional() @IsString() witnessAddress?: string;
   @IsOptional() @IsString() declarationDate?: string;
+  @IsOptional() @IsArray() members?: any[];
+}
+
+export class UpdateEssNominationDto {
+  @IsOptional() @IsBoolean() asDraft?: boolean;
+  @IsOptional() @IsString() declarationDate?: string;
+  @IsOptional() @IsString() witnessName?: string;
+  @IsOptional() @IsString() witnessAddress?: string;
   @IsOptional() @IsArray() members?: any[];
 }
 

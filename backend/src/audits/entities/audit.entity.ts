@@ -114,6 +114,13 @@ export class AuditEntity {
   @JoinColumn({ name: 'scheduled_by_user_id' })
   scheduledBy?: UserEntity | null;
 
+  /** Upload lock window: contractor cannot upload/reupload docs while today is between these dates (inclusive) */
+  @Column({ name: 'upload_lock_from', type: 'date', nullable: true })
+  uploadLockFrom: string | null;
+
+  @Column({ name: 'upload_lock_until', type: 'date', nullable: true })
+  uploadLockUntil: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

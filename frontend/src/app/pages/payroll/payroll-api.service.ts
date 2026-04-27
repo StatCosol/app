@@ -114,6 +114,8 @@ export interface PayrollEmployeeDetail extends PayrollEmployee {
   stateCode?: string | null;
   pfApplicableFrom?: string | null;
   esiApplicableFrom?: string | null;
+  pfServiceStartDate?: string | null;
+  basicAtPfStart?: number | null;
   runHistory: PayrollRunHistoryItem[];
 }
 

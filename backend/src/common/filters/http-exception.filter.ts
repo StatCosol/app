@@ -48,7 +48,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const pg = exception.driverError as Record<string, unknown>;
       // Unique-violation (23505)
       if (pg?.code === '23505') {
-        message = 'A record with the same key already exists.';
+        // Try to extract the duplicate field name from the PostgreSQL detail string
+        // e.g. 'Key (email)=(foo@bar.com) already exists.'
+        const detail = typeof pg?.detail === 'string' ? pg.detail : '';
+        const fieldMatch = detail.match(/Key \(([^)]+)\)=/);
+        const fieldName = fieldMatch ? fieldMatch[1] : null;
+        if (fieldName === 'email') {
+          message = 'Email already in use. Please use a different email address.';
+        } else if (fieldName === 'client_code' || fieldName === 'clientCode') {
+          message = 'Client code already exists. Please use a unique code.';
+        } else if (fieldName) {
+          message = `A record with the same ${fieldName} already exists.`;
+        } else {
+          message = 'A record with the same key already exists.';
+        }
       } else if (pg?.code === '23503') {
         message = 'Cannot complete because related records exist.';
       } else if (pg?.code === '23502') {

@@ -33,6 +33,8 @@ type EmployeeImportRow = {
   pfApplicableFrom: string | null;
   esiRegistered: boolean;
   esiApplicableFrom: string | null;
+  pfServiceStartDate: string | null;
+  basicAtPfStart: number | null;
   dateOfExit: string | null;
   exitReason: string | null;
   departmentId?: string;
@@ -183,6 +185,12 @@ export class EmployeeBulkImportService {
           esiApplicableFrom: colMap.esiApplicableFrom
             ? this.cellDate(row, colMap.esiApplicableFrom)
             : null,
+          pfServiceStartDate: colMap.pfServiceStartDate
+            ? this.cellDate(row, colMap.pfServiceStartDate)
+            : null,
+          basicAtPfStart: colMap.basicAtPfStart
+            ? this.cellNum(row, colMap.basicAtPfStart)
+            : null,
           dateOfExit: colMap.dateOfExit
             ? this.cellDate(row, colMap.dateOfExit)
             : null,
@@ -276,6 +284,8 @@ export class EmployeeBulkImportService {
           if (data.pfApplicableFrom) updateFields.pfApplicableFrom = data.pfApplicableFrom as any;
           if (data.esiRegistered) updateFields.esiRegistered = data.esiRegistered;
           if (data.esiApplicableFrom) updateFields.esiApplicableFrom = data.esiApplicableFrom as any;
+          if (data.pfServiceStartDate) updateFields.pfServiceStartDate = data.pfServiceStartDate as any;
+          if (data.basicAtPfStart != null) updateFields.basicAtPfStart = data.basicAtPfStart as any;
           if (data.dateOfExit) updateFields.dateOfExit = data.dateOfExit as any;
           if (data.exitReason) updateFields.exitReason = data.exitReason;
 
@@ -342,6 +352,8 @@ export class EmployeeBulkImportService {
           stateCode: data.stateCode ?? undefined,
           ctc: data.ctc ?? undefined,
           monthlyGross: data.monthlyGross ?? undefined,
+          pfServiceStartDate: data.pfServiceStartDate ?? undefined,
+          basicAtPfStart: data.basicAtPfStart ?? undefined,
           pfRegistered: data.pfRegistered || undefined,
           pfApplicableFrom: data.pfApplicableFrom ?? undefined,
           esiRegistered: data.esiRegistered || undefined,
@@ -423,6 +435,8 @@ export class EmployeeBulkImportService {
       pfApplicableFrom: ['pf applicable from', 'pfapplicablefrom', 'pf_applicable_from', 'pf from', 'pf date', 'pf start date'],
       esiRegistered: ['esi registered', 'esiregistered', 'esi_registered', 'esi reg'],
       esiApplicableFrom: ['esi applicable from', 'esiapplicablefrom', 'esi_applicable_from', 'esi from', 'esi date', 'esi start date'],
+      pfServiceStartDate: ['pf service start date', 'pfservicestartdate', 'pf_service_start_date', 'pf service date', 'eps start date', 'pf membership date'],
+      basicAtPfStart: ['basic at pf start', 'basicatpfstart', 'basic_at_pf_start', 'basic salary at pf start', 'basic at joining'],
       dateOfExit: ['date of exit', 'dateofexit', 'exit date', 'doe', 'date_of_exit', 'leaving date', 'last working date'],
       exitReason: ['exit reason', 'exitreason', 'exit_reason', 'reason for exit', 'reason', 'leaving reason'],
     };

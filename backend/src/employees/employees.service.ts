@@ -134,20 +134,8 @@ export class EmployeesService {
         throw new BadRequestException('Aadhaar number is required');
     }
 
-    // Age validation: must be 18 or older
-    if (dto.dateOfBirth) {
-      const dob = new Date(dto.dateOfBirth);
-      const today = new Date();
-      let age = today.getFullYear() - dob.getFullYear();
-      const monthDiff = today.getMonth() - dob.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()))
-        age--;
-      if (age < 18) {
-        throw new BadRequestException(
-          `Employee must be at least 18 years old. Date of birth ${dto.dateOfBirth} indicates age ${age}.`,
-        );
-      }
-    }
+    // Age advisory check (non-blocking, validation is done on frontend)
+    // Previously was a hard block for < 18; now handled as a frontend warning only.
 
     // Check for duplicate phone within this client
     const phoneNorm = dto.phone?.replace(/\s+/g, '') || null;
