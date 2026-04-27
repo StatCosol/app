@@ -25,7 +25,7 @@ import { AuthService } from '../../../core/auth.service';
             <div class="logo-row">
               <img class="logo-img" src="assets/images/statco-logo.svg" alt="StatCo Solutions" />
               <div class="logo-text">
-                <h1 class="heading">Sign in</h1>
+                <h1 class="heading">Sign In</h1>
                 <p class="sub-heading">Your one-stop employee self-service portal.</p>
               </div>
             </div>

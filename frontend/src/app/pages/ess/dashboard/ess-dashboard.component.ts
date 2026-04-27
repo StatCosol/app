@@ -315,7 +315,7 @@ export class EssDashboardComponent implements OnInit, OnDestroy {
 
   get payslipMonth(): string {
     if (!this.payslips.length) return 'No payslips yet';
-    return 'Latest payslip available';
+    return 'Tap to view & download';
   }
 
   get lastPfContrib(): string {
