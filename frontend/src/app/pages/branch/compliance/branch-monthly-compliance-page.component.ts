@@ -11,6 +11,7 @@ import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component'
     <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
       <div class="flex gap-1 border-b border-gray-200 mb-4">
         <button
+          type="button"
           (click)="activeTab = 'uploads'"
           [class]="activeTab === 'uploads'
             ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
@@ -18,6 +19,7 @@ import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component'
           Monthly Uploads
         </button>
         <button
+          type="button"
           (click)="activeTab = 'reupload'"
           [class]="activeTab === 'reupload'
             ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
@@ -27,7 +29,7 @@ import { BranchReuploadInboxComponent } from './branch-reupload-inbox.component'
       </div>
     </div>
     <app-branch-mcd *ngIf="activeTab === 'uploads'"></app-branch-mcd>
-    <app-branch-reupload-inbox *ngIf="activeTab === 'reupload'"></app-branch-reupload-inbox>
+    <app-branch-reupload-inbox [hidden]="activeTab !== 'reupload'"></app-branch-reupload-inbox>
   `,
 })
 export class BranchMonthlyCompliancePageComponent {

@@ -8,6 +8,7 @@
   <!-- Tab switcher -->
   <div class="flex gap-1 border-b border-gray-200">
     <button
+      type="button"
       (click)="activeTab = 'uploads'"
       [class]="activeTab === 'uploads'
         ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
@@ -15,6 +16,7 @@
       Monthly Uploads
     </button>
     <button
+      type="button"
       (click)="activeTab = 'reupload'"
       [class]="activeTab === 'reupload'
         ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
@@ -23,8 +25,8 @@
     </button>
   </div>
 
-  <!-- Reupload inbox (shown when tab active) -->
-  <app-client-reupload-inbox *ngIf="activeTab === 'reupload'"></app-client-reupload-inbox>
+  <!-- Reupload inbox (always mounted; toggled via [hidden] so first tab click is instant) -->
+  <app-client-reupload-inbox [hidden]="activeTab !== 'reupload'"></app-client-reupload-inbox>
 
   <!-- Monthly uploads content (existing) -->
   <div *ngIf="activeTab === 'uploads'">
