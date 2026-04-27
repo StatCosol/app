@@ -51,6 +51,10 @@ interface NavItem {
             <span class="sb-foot-name">{{ userName }}</span>
             <span class="sb-foot-role">PF &amp; ESI Team</span>
           </div>
+          <div class="sb-foot-branding">
+            <span class="sb-foot-branding-text">Designed &amp; Developed by StatCo Solutions</span>
+            <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="sb-foot-branding-url">www.statcosol.com</a>
+          </div>
         </div>
       </aside>
 
@@ -160,6 +164,10 @@ interface NavItem {
     .sb-foot-info { display: flex; flex-direction: column; }
     .sb-foot-name { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sb-foot-role { color: rgba(255,255,255,.4); font-size: 11px; }
+    .sb-foot-branding { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+    .sb-foot-branding-text { color: rgba(255,255,255,.55); font-size: 10px; font-weight: 500; }
+    .sb-foot-branding-url { color: rgba(110,231,183,.85); font-size: 10px; text-decoration: none; }
+    .sb-foot-branding-url:hover { color: rgba(167,243,208,1); text-decoration: underline; }
     .sb-collapsed .sb-foot { display: none; }
 
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 35; }

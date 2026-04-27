@@ -138,6 +138,14 @@ import {
                            placeholder="PF UAN number"></ui-form-input>
             <ui-form-input label="ESIC Number" [(ngModel)]="form.esic" name="esic"
                            placeholder="ESI contribution number"></ui-form-input>
+            <div class="form-field">
+              <label class="form-label" for="cef-pf-service-start">PF Service Start Date</label>
+              <input autocomplete="off" id="cef-pf-service-start" type="date" class="form-date-input"
+                     [(ngModel)]="form.pfServiceStartDate" name="pfServiceStartDate" />
+            </div>
+            <ui-form-input label="Basic Salary at PF Start" type="number"
+                           [(ngModel)]="form.basicAtPfStart" name="basicAtPfStart"
+                           placeholder="e.g. 15000"></ui-form-input>
           </div>
         </div>
 

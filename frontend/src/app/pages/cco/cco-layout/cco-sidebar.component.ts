@@ -118,8 +118,10 @@ interface SidebarItem {
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center">
-        <span class="text-[10px] text-white/35">CCO v1.0</span>
+      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+        <div class="text-[10px] text-white/35">CCO v1.0</div>
+        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
     </aside>
   `,
