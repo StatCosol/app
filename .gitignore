@@ -31,3 +31,5 @@ _write_test.txt
 # Dev-only scripts output
 controller_inventory.txt
 controller_decorators.txt
+
+backend-build.log
