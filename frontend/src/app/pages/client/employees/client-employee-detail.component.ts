@@ -221,6 +221,11 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             <div class="nom-header">
               <ui-status-badge [status]="nom.nominationType"></ui-status-badge>
               <span *ngIf="nom.declarationDate" class="text-xs text-gray-500 ml-2">Declared: {{ nom.declarationDate }}</span>
+              <ui-button variant="outline" size="sm" class="ml-auto"
+                         [disabled]="printingNomination === nom.nominationType"
+                         (clicked)="printNomination(nom.nominationType)">
+                {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
+              </ui-button>
             </div>
             <div *ngIf="nom.members && nom.members.length" class="nom-members">
               <div class="nom-member-row header">
@@ -925,6 +930,27 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
           this.formGenError = true;
         },
       });
+  }
+
+  // Print/Download nomination form (streamed PDF)
+  printingNomination = '';
+  printNomination(formType: string): void {
+    if (this.printingNomination) return;
+    this.printingNomination = formType;
+    this.svc.printNominationForm(this.employeeId, formType).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.printingNomination = ''; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${formType}_Nomination_${this.emp?.employeeCode || 'employee'}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to download nomination form'),
+    });
   }
 
   // ── Documents ───────────────────────────────────────────────

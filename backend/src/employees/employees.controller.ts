@@ -637,6 +637,156 @@ export class ClientEmployeesController {
     return this.svc.listGeneratedForms(id);
   }
 
+  @ApiOperation({
+    summary: 'Print/Download Nomination Form (streamed PDF)',
+  })
+  @Get(':id/nominations/print')
+  async printNominationForm(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+    @Query('type') formType: string,
+    @Res() res: Response,
+  ) {
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const emp = await this.svc.findById(clientId, id);
+    if (emp.branchId)
+      await this.branchAccess.assertBranchAccess(user.userId, emp.branchId);
+
+    const upperType = (formType || '').toUpperCase();
+    if (!upperType) throw new BadRequestException('Form type is required');
+
+    const nominations = await this.svc.listNominations(id);
+    const typeNominations = (
+      nominations as Array<{
+        nominationType?: string;
+        declarationDate?: string | null;
+        status?: string;
+        witnessName?: string | null;
+        witnessAddress?: string | null;
+        members?: Array<{
+          name?: string;
+          memberName?: string;
+          relationship?: string;
+          dateOfBirth?: string;
+          sharePct?: number | null;
+          address?: string;
+          isMinor?: boolean;
+          guardianName?: string;
+          guardianRelationship?: string;
+          guardianAddress?: string;
+        }>;
+      }>
+    ).filter((n) => n.nominationType === upperType);
+
+    const doc = createDoc();
+
+    header(
+      doc,
+      `${upperType} Nomination Form`,
+      `Employee: ${emp.name} (${emp.employeeCode})`,
+    );
+
+    sectionTitle(doc, 'Employee Details');
+    table(
+      doc,
+      [
+        { header: 'Field', key: 'label', width: 180 },
+        { header: 'Value', key: 'value' },
+      ],
+      [
+        { label: 'Employee Code', value: emp.employeeCode },
+        { label: 'Name', value: emp.name },
+        { label: "Father's Name", value: emp.fatherName || '—' },
+        { label: 'Date of Birth', value: emp.dateOfBirth || '—' },
+        { label: 'Gender', value: emp.gender || '—' },
+        { label: 'Date of Joining', value: emp.dateOfJoining || '—' },
+        { label: 'Designation', value: emp.designation || '—' },
+        { label: 'Department', value: emp.department || '—' },
+        { label: 'PAN', value: emp.pan || '—' },
+        { label: 'Aadhaar', value: emp.aadhaar || '—' },
+        { label: 'UAN', value: emp.uan || '—' },
+        { label: 'ESIC No.', value: emp.esic || '—' },
+      ],
+    );
+
+    if (typeNominations.length > 0) {
+      sectionTitle(doc, `${upperType} Nominations`);
+      for (const nom of typeNominations) {
+        doc
+          .fontSize(9)
+          .fillColor('#1e293b')
+          .text(
+            `Declaration Date: ${nom.declarationDate || '—'}   |   Status: ${nom.status || '—'}`,
+          )
+          .moveDown(0.3);
+
+        if (nom.members && nom.members.length > 0) {
+          table(
+            doc,
+            [
+              { header: 'Name', key: 'name', width: 120 },
+              { header: 'Relation', key: 'relationship', width: 80 },
+              { header: 'DOB', key: 'dateOfBirth', width: 75 },
+              { header: 'Share %', key: 'sharePct', width: 55, align: 'right' },
+              { header: 'Minor', key: 'minor', width: 45 },
+              { header: 'Guardian', key: 'guardian' },
+            ],
+            nom.members.map((m) => ({
+              name: m.memberName || m.name || '—',
+              relationship: m.relationship || '—',
+              dateOfBirth: m.dateOfBirth || '—',
+              sharePct: m.sharePct != null ? `${m.sharePct}%` : '—',
+              minor: m.isMinor ? 'Yes' : 'No',
+              guardian: m.isMinor
+                ? `${m.guardianName || '—'}${m.guardianRelationship ? ' (' + m.guardianRelationship + ')' : ''}`
+                : '—',
+            })),
+          );
+        }
+
+        if (nom.witnessName) {
+          doc.moveDown(0.3);
+          doc
+            .fontSize(9)
+            .fillColor('#475569')
+            .text(
+              `Witness: ${nom.witnessName}${nom.witnessAddress ? ' — ' + nom.witnessAddress : ''}`,
+            );
+        }
+        doc.moveDown(0.5);
+      }
+    } else {
+      sectionTitle(doc, 'Nominations');
+      doc
+        .fontSize(9)
+        .fillColor('#64748b')
+        .text(`No ${upperType} nominations found for this employee.`)
+        .moveDown(1);
+    }
+
+    doc.moveDown(2);
+    doc
+      .fontSize(9)
+      .fillColor('#1e293b')
+      .text('______________________________', { align: 'left' })
+      .text('Employee Signature & Date', { align: 'left' })
+      .moveDown(1)
+      .text('______________________________', { align: 'right' })
+      .text('Authorized Signatory', { align: 'right' });
+
+    addPageNumbers(doc);
+    const buffer = await toBuffer(doc);
+
+    const fileName = `${upperType}_Nomination_${emp.employeeCode}.pdf`;
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
+  }
+
   // ── Appointment Letter ─────────────────────────────────
   @ApiOperation({ summary: 'Generate Appointment Letter (PDF or Word)' })
   @Get(':id/appointment-letter')

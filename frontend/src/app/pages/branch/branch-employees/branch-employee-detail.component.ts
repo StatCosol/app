@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
-import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
+import { ClientEmployeesService, Employee, EmployeeNomination } from '../../client/employees/client-employees.service';
 import {
   ActionButtonComponent,
   StatusBadgeComponent,
@@ -168,6 +168,32 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
             </div>
           </div>
         </div>
+
+        <!-- Nominations -->
+        <div class="nom-section">
+          <div class="nom-section-header">
+            <h4 class="info-section-title" style="margin:0">Nominations</h4>
+            <span class="text-xs text-gray-500" *ngIf="!loadingNoms && nominations.length">{{ nominations.length }} record(s)</span>
+          </div>
+          <ui-loading-spinner *ngIf="loadingNoms" text="Loading nominations..."></ui-loading-spinner>
+          <div *ngIf="!loadingNoms && nominations.length === 0" class="text-sm text-gray-500">
+            No nominations recorded for this employee yet.
+          </div>
+          <div *ngIf="!loadingNoms && nominations.length" class="nom-list">
+            <div *ngFor="let nom of nominations" class="nom-row">
+              <div class="nom-row-info">
+                <ui-status-badge [status]="nom.nominationType"></ui-status-badge>
+                <span class="text-xs text-gray-500" *ngIf="nom.declarationDate">Declared: {{ nom.declarationDate }}</span>
+                <span class="text-xs text-gray-500">{{ nom.members?.length || 0 }} nominee(s)</span>
+              </div>
+              <ui-button variant="outline" size="sm"
+                         [disabled]="printingNomination === nom.nominationType"
+                         (clicked)="printNomination(nom.nominationType)">
+                {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
+              </ui-button>
+            </div>
+          </div>
+        </div>
       </ng-container>
     </div>
   `,
@@ -257,6 +283,22 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
       color: #4f46e5;
       border-color: #4f46e5;
     }
+
+    .nom-section {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      margin-top: 1.25rem;
+    }
+    .nom-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .nom-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .nom-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.625rem 0.875rem; border: 1px solid #f1f5f9; border-radius: 0.5rem;
+      background: #f9fafb;
+    }
+    .nom-row-info { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
   `],
 })
 export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
@@ -269,6 +311,9 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
   downloadingDocx = false;
   provisioningEss = false;
   essResult: any = null;
+  nominations: EmployeeNomination[] = [];
+  loadingNoms = false;
+  printingNomination = '';
 
   constructor(
     private svc: ClientEmployeesService,
@@ -282,6 +327,7 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.employeeId = this.route.snapshot.paramMap.get('id') || '';
     this.loadEmployee();
+    this.loadNominations();
   }
 
   ngOnDestroy(): void {
@@ -402,5 +448,36 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.router.navigate(['/branch/employees']);
+  }
+
+  loadNominations(): void {
+    if (!this.employeeId) return;
+    this.loadingNoms = true;
+    this.svc.listNominations(this.employeeId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.loadingNoms = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (list) => { this.nominations = list || []; },
+      error: () => { this.nominations = []; },
+    });
+  }
+
+  printNomination(formType: string): void {
+    if (this.printingNomination) return;
+    this.printingNomination = formType;
+    this.svc.printNominationForm(this.employeeId, formType).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.printingNomination = ''; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${formType}_Nomination_${this.emp?.employeeCode || 'employee'}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to download nomination form'),
+    });
   }
 }

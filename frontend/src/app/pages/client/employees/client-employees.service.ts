@@ -114,6 +114,14 @@ export class ClientEmployeesService {
     return this.http.post(`${this.base}/${employeeId}/forms/generate?type=${formType}`, {});
   }
 
+  /** Print/download a nomination form PDF (PF / ESI / GRATUITY / INSURANCE / SALARY) */
+  printNominationForm(employeeId: string, formType: string): Observable<Blob> {
+    return this.http.get(
+      `${this.base}/${employeeId}/nominations/print?type=${encodeURIComponent(formType)}`,
+      { responseType: 'blob' },
+    );
+  }
+
   listForms(employeeId: string): Observable<any[]> {
     return this.http.get<any>(`${this.base}/${employeeId}/forms`).pipe(
       map((res) => (Array.isArray(res) ? res : res?.data ?? [])),
