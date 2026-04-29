@@ -132,55 +132,34 @@ jobs:
           echo "SMOKE_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
 
       - name: Apply SQL migrations
+        working-directory: backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: '5432'
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: statcompy
+          PGPASSWORD: postgres
         run: |
-          apply_sql() {
-            local f="$1"
-            echo "Applying $f"
-            PGPASSWORD=postgres psql \
-              -h localhost \
-              -p 5432 \
-              -U postgres \
-              -d statcompy \
-              -v ON_ERROR_STOP=1 \
-              -f "$f"
-          }
-
-          PGPASSWORD=postgres psql \
-            -h localhost \
-            -p 5432 \
-            -U postgres \
-            -d statcompy \
-            -v ON_ERROR_STOP=1 \
-            -f backend/migrations/statco_schema_final.sql
-
-          if [ -f backend/migrations/20260127_hrms_phase1_schema.sql ]; then
-            apply_sql backend/migrations/20260127_hrms_phase1_schema.sql
-          elif [ -f backend/migrations/obsolete/20260127_hrms_phase1_schema.sql ]; then
-            apply_sql backend/migrations/obsolete/20260127_hrms_phase1_schema.sql
-          else
-            echo "Skipping missing migration backend/migrations/20260127_hrms_phase1_schema.sql"
-          fi
-
-          for f in \
-            backend/migrations/20260201_payroll_runs_and_payslips.sql \
-            backend/migrations/20260210_user_type_master_branch.sql \
-            backend/migrations/20260217_payroll_statutory_engine.sql \
-            backend/migrations/20260218_statutory_services_refactor.sql \
-            backend/migrations/obsolete/20260220_ess_employee_self_service.sql \
-            backend/migrations/20260225_branch_compliance_documents.sql \
-            backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
-            if [ ! -f "$f" ]; then
-              echo "Skipping missing migration $f"
-              continue
+          # Apply obsolete migrations that the cross-platform runner skips
+          # (it only globs the top-level migrations dir). These create tables
+          # the active migrations + main.ts boot patches expect.
+          for obs in \
+            migrations/obsolete/20260127_hrms_phase1_schema.sql \
+            migrations/obsolete/20260220_ess_employee_self_service.sql; do
+            if [ -f "$obs" ]; then
+              echo "Applying $obs"
+              psql -h localhost -p 5432 -U postgres -d statcompy \
+                -v ON_ERROR_STOP=1 -f "$obs"
             fi
-            apply_sql "$f"
           done
 
-          PGPASSWORD=postgres psql \
-            -h localhost \
-            -p 5432 \
-            -U postgres \
-            -d statcompy \
+          # Use the cross-platform migration runner so CI mirrors prod and
+          # automatically picks up every chronologically-ordered SQL file
+          # (all migrations are idempotent: CREATE/ADD ... IF NOT EXISTS).
+          npm run db:migrate:sql
+
+          psql -h localhost -p 5432 -U postgres -d statcompy \
             -v ON_ERROR_STOP=1 <<'SQL'
           ALTER TABLE users
             ADD COLUMN IF NOT EXISTS user_type VARCHAR(10),
