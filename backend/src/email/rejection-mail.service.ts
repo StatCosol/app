@@ -94,7 +94,12 @@ export class RejectionMailService {
     `;
 
     try {
-      await this.emailService.send(recipients, subject, subject, bodyHtml);
+      await this.emailService.sendAuditMail(
+        recipients,
+        subject,
+        subject,
+        bodyHtml,
+      );
     } catch (e: any) {
       this.log.warn(`Audit rejection mail failed: ${e?.message || e}`);
     }

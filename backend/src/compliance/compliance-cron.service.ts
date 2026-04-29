@@ -616,7 +616,7 @@ export class ComplianceCronService {
         // Send email
         if (row.contractorEmail) {
           try {
-            await this.email.send(
+            await this.email.sendAuditMail(
               row.contractorEmail,
               `Action Required: ${row.nonCompliedCount} Non-Compliant Documents`,
               'Audit Non-Compliance Notice',

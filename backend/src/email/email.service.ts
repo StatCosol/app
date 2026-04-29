@@ -30,6 +30,7 @@ export class EmailService {
     subject: string,
     title: string,
     bodyHtml: string,
+    fromOverride?: { name?: string; email?: string },
   ) {
     if (!this.enabled) {
       const toStr = Array.isArray(to) ? to.join(',') : to;
@@ -37,11 +38,11 @@ export class EmailService {
       return { skipped: true } as const;
     }
 
-    const fromName = this.config.get<string>(
-      'SMTP_FROM_NAME',
-      'StatCo Solutions',
-    );
+    const fromName =
+      fromOverride?.name ||
+      this.config.get<string>('SMTP_FROM_NAME', 'StatCo Solutions');
     const fromEmail =
+      fromOverride?.email ||
       this.config.get<string>('SMTP_FROM_EMAIL') ||
       this.config.get<string>('SMTP_USER', '');
 
@@ -60,6 +61,28 @@ export class EmailService {
       this.log.error(`Email send failed: ${msg}`);
       return { ok: false, error: msg } as const;
     }
+  }
+
+  /**
+   * Send an audit-related email from the dedicated audit mailbox
+   * (defaults to crm_india@statcosol.com; override via AUDIT_FROM_EMAIL
+   * / AUDIT_FROM_NAME env vars). All audit notifications, NC alerts,
+   * upload-window updates, and final report distribution emails go
+   * through this helper so the From: address stays consistent.
+   */
+  async sendAuditMail(
+    to: string | string[],
+    subject: string,
+    title: string,
+    bodyHtml: string,
+  ) {
+    return this.send(to, subject, title, bodyHtml, {
+      name: this.config.get<string>('AUDIT_FROM_NAME', 'StatCo Audit Desk'),
+      email: this.config.get<string>(
+        'AUDIT_FROM_EMAIL',
+        'crm_india@statcosol.com',
+      ),
+    });
   }
 
   adminRecipients(): string[] {
