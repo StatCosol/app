@@ -43,6 +43,11 @@
         </select>
       </div>
       <div class="form-group md:col-span-2">
+        <label for="crm-contractor-sched" class="block text-sm font-medium text-gray-700 mb-2">Schedule of Employment</label>
+        <input type="text" id="crm-contractor-sched" name="scheduledEmployment" [(ngModel)]="form.scheduledEmployment" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" placeholder="e.g. Shops &amp; Establishments, Security Services, Construction" />
+        <p class="mt-1 text-xs text-gray-500">Used to pull the correct minimum wage for this contractor's workers.</p>
+      </div>
+      <div class="form-group md:col-span-2">
         <label for="crm-contractor-password" class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
         <div class="flex gap-2">
           <input type="password" id="crm-contractor-password" name="password" autocomplete="new-password" [(ngModel)]="form.password" class="flex-grow rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />

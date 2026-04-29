@@ -431,18 +431,16 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   getNextStatuses(status: AuditStatus): { label: string; value: AuditStatus; variant: 'primary' | 'danger' }[] {
+    // CRM is a scheduler, not an executor. Only Cancel is allowed here.
+    // Auditors start/complete audits from the AuditXpert (Auditor) portal.
     const map: Record<
       AuditStatus,
       { label: string; value: AuditStatus; variant: 'primary' | 'danger' }[]
     > = {
       PLANNED: [
-        { label: 'Start', value: 'IN_PROGRESS', variant: 'primary' },
         { label: 'Cancel', value: 'CANCELLED', variant: 'danger' },
       ],
-      IN_PROGRESS: [
-        { label: 'Complete', value: 'COMPLETED', variant: 'primary' },
-        { label: 'Cancel', value: 'CANCELLED', variant: 'danger' },
-      ],
+      IN_PROGRESS: [],
       COMPLETED: [],
       CANCELLED: [],
     };

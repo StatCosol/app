@@ -40,6 +40,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     password: '',
     clientId: '',
     branchIds: [] as string[],
+    scheduledEmployment: '',
   };
 
   registrationResult: any = null;
@@ -98,6 +99,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       password: this.generatePassword(),
       clientId: this.clientId || '',
       branchIds: [],
+      scheduledEmployment: '',
     };
   }
 
@@ -110,6 +112,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       password: '',
       clientId: this.clientId || '',
       branchIds: [],
+      scheduledEmployment: '',
     };
   }
 

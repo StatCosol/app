@@ -2,6 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export type SkillCategory =
+  | 'UNSKILLED'
+  | 'SEMI_SKILLED'
+  | 'SKILLED'
+  | 'HIGHLY_SKILLED';
+
+export type EmployeeStatus = 'ACTIVE' | 'LEFT' | 'INACTIVE';
+
 export interface ContractorEmployee {
   id: string;
   clientId: string;
@@ -25,6 +33,11 @@ export interface ContractorEmployee {
   dateOfExit: string | null;
   exitReason: string | null;
   isActive: boolean;
+  status: EmployeeStatus;
+  skillCategory: SkillCategory | null;
+  monthlySalary: number | null;
+  dailyWage: number | null;
+  stateCode: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +59,24 @@ export interface CreateEmployeeDto {
   department?: string | null;
   dateOfJoining?: string | null;
   branchId?: string;
+  skillCategory?: SkillCategory | null;
+  monthlySalary?: number | null;
+  dailyWage?: number | null;
+  stateCode?: string | null;
+}
+
+export interface BulkRowResult {
+  index: number;
+  ok: boolean;
+  id?: string;
+  name?: string;
+  error?: string;
+}
+
+export interface BulkUploadResponse {
+  created: number;
+  failed: number;
+  results: BulkRowResult[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -79,6 +110,23 @@ export class ContractorEmployeesApiService {
     return this.http.put<ContractorEmployee>(
       `/api/v1/contractor/employees/${id}/deactivate`,
       { exitReason: exitReason || null },
+    );
+  }
+
+  reactivate(id: string): Observable<ContractorEmployee> {
+    return this.http.put<ContractorEmployee>(
+      `/api/v1/contractor/employees/${id}/reactivate`,
+      {},
+    );
+  }
+
+  bulkUpload(
+    rows: CreateEmployeeDto[],
+    branchId?: string,
+  ): Observable<BulkUploadResponse> {
+    return this.http.post<BulkUploadResponse>(
+      '/api/v1/contractor/employees/bulk',
+      { branchId, rows },
     );
   }
 }

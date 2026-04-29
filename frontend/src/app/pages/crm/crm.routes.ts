@@ -80,6 +80,10 @@ const CrmNoticesComponent = () =>
   import('./notices/crm-notices.component').then(
     (m) => m.CrmNoticesComponent,
   );
+const CrmMinimumWagesComponent = () =>
+  import('./minimum-wages/crm-minimum-wages.component').then(
+    (m) => m.CrmMinimumWagesComponent,
+  );
 
 export const CRM_ROUTES: Routes = [
   {
@@ -127,6 +131,7 @@ export const CRM_ROUTES: Routes = [
       { path: 'amendments', loadComponent: CrmAmendmentsWorkspacePageComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
       { path: 'notices', loadComponent: CrmNoticesComponent },
+      { path: 'minimum-wages', loadComponent: CrmMinimumWagesComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },

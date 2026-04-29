@@ -13,6 +13,7 @@ import {
   ContractorEmployee,
   ContractorEmployeesApiService,
   CreateEmployeeDto,
+  SkillCategory,
 } from '../../../core/contractor-employees-api.service';
 import {
   ContractorBranchItem,
@@ -24,6 +25,11 @@ import {
   LoadingSpinnerComponent,
   PageHeaderComponent,
 } from '../../../shared/ui';
+import {
+  SKILL_CATEGORIES,
+  skillCategoryLabel,
+} from '../shared/skill-category';
+import * as XLSX from 'xlsx';
 
 interface EmployeeForm {
   name: string;
@@ -42,6 +48,9 @@ interface EmployeeForm {
   pfApplicable: boolean;
   esiApplicable: boolean;
   branchId: string;
+  skillCategory: SkillCategory | '';
+  monthlySalary: number | null;
+  dailyWage: number | null;
 }
 
 function emptyForm(): EmployeeForm {
@@ -62,7 +71,17 @@ function emptyForm(): EmployeeForm {
     pfApplicable: false,
     esiApplicable: false,
     branchId: '',
+    skillCategory: '',
+    monthlySalary: null,
+    dailyWage: null,
   };
+}
+
+interface BulkPreviewRow {
+  index: number;
+  raw: Record<string, any>;
+  dto: CreateEmployeeDto;
+  errors: string[];
 }
 
 @Component({
@@ -140,15 +159,26 @@ function emptyForm(): EmployeeForm {
             <option value="all">All</option>
           </select>
         </div>
-        <button
-          (click)="openAdd()"
-          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          Add Employee
-        </button>
+        <div class="flex gap-2 items-center">
+          <button
+            (click)="openBulkUpload()"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"/>
+            </svg>
+            Bulk Upload
+          </button>
+          <button
+            (click)="openAdd()"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add Employee
+          </button>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -179,6 +209,8 @@ function emptyForm(): EmployeeForm {
                 <th *ngIf="availableBranches.length >= 1" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Branch</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Gender</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Designation</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Skill</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Monthly Salary</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Dept</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Joined</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">PF</th>
@@ -201,6 +233,16 @@ function emptyForm(): EmployeeForm {
                   <span *ngIf="!emp.gender" class="text-gray-300 text-xs">—</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.designation || '—' }}</td>
+                <td class="px-4 py-3 text-sm">
+                  <span *ngIf="emp.skillCategory" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                    {{ skillLabel(emp.skillCategory) }}
+                  </span>
+                  <span *ngIf="!emp.skillCategory" class="text-gray-300 text-xs">—</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-right tabular-nums text-gray-700">
+                  <span *ngIf="emp.monthlySalary != null">₹ {{ emp.monthlySalary | number:'1.0-0' }}</span>
+                  <span *ngIf="emp.monthlySalary == null" class="text-gray-300">—</span>
+                </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.department || '—' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd MMM yy') : '—' }}</td>
                 <td class="px-4 py-3 text-center">
@@ -214,10 +256,16 @@ function emptyForm(): EmployeeForm {
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <span [class]="emp.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200'"
+                  <span [class]="statusBadgeClass(emp)"
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border">
-                    {{ emp.isActive ? 'Active' : 'Inactive' }}
+                    {{ statusLabel(emp) }}
                   </span>
+                  <div *ngIf="!emp.isActive && emp.dateOfExit" class="text-[10px] text-gray-400 mt-0.5">
+                    Exited {{ emp.dateOfExit | date:'dd MMM yy' }}
+                  </div>
+                  <div *ngIf="!emp.isActive && emp.exitReason" class="text-[10px] text-gray-400 italic" [title]="emp.exitReason">
+                    {{ emp.exitReason | slice:0:24 }}{{ (emp.exitReason.length > 24) ? '…' : '' }}
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-right">
                   <div class="flex items-center justify-end gap-2">
@@ -230,6 +278,12 @@ function emptyForm(): EmployeeForm {
                       (click)="confirmDeactivate(emp)"
                       class="text-xs font-medium text-red-500 hover:text-red-700 hover:underline"
                     >Deactivate</button>
+                    <button
+                      *ngIf="!emp.isActive"
+                      (click)="doReactivate(emp)"
+                      [disabled]="saving"
+                      class="text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline disabled:opacity-50"
+                    >Reactivate</button>
                   </div>
                 </td>
               </tr>
@@ -394,6 +448,34 @@ function emptyForm(): EmployeeForm {
                   class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
                 />
               </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Skill Category <span class="text-red-500">*</span>
+                  </label>
+                  <select
+                    [(ngModel)]="form.skillCategory"
+                    name="skillCategory"
+                    required
+                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                  >
+                    <option value="">Select skill…</option>
+                    <option *ngFor="let s of skillOptions" [value]="s.value">{{ s.label }}</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Salary (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    [(ngModel)]="form.monthlySalary"
+                    name="monthlySalary"
+                    placeholder="e.g. 12000"
+                    class="w-full rounded-lg border-gray-300 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                  />
+                </div>
+              </div>
               <div class="flex items-center gap-6">
                 <label class="flex items-center gap-2 cursor-pointer">
                   <input
@@ -497,6 +579,102 @@ function emptyForm(): EmployeeForm {
       </div>
     </div>
 
+    <!-- ── Bulk Upload Modal ───────────────────────────────────────── -->
+    <div *ngIf="bulkOpen" class="fixed inset-0 z-50 flex items-center justify-center px-4" (click)="closeBulk()">
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6" (click)="$event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-gray-900">Bulk Upload Employees</h2>
+          <button (click)="closeBulk()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-3">
+          Upload an Excel/CSV file. Required columns: <strong>name</strong>, <strong>skillCategory</strong>
+          (UNSKILLED / SEMI_SKILLED / SKILLED / HIGHLY_SKILLED).
+          Optional: gender, dateOfBirth, fatherName, phone, email, designation, department,
+          dateOfJoining, monthlySalary, dailyWage, aadhaar, pan, uan, esic, pfApplicable, esiApplicable, branchId, stateCode.
+        </p>
+
+        <div class="flex flex-wrap gap-3 items-center mb-4">
+          <button type="button" (click)="downloadTemplate()" class="text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-200">
+            ⬇ Download Template
+          </button>
+          <label class="text-xs text-gray-600">
+            Default Branch:
+            <select [(ngModel)]="bulkBranchId" class="ml-2 text-xs border border-gray-200 rounded px-2 py-1">
+              <option value="">(use row branchId)</option>
+              <option *ngFor="let b of availableBranches" [value]="b.id">{{ b.name || b.branchName }}</option>
+            </select>
+          </label>
+          <input #bulkFile type="file" accept=".xlsx,.xls,.csv" (change)="onBulkFile($event)" class="text-xs" />
+        </div>
+
+        <div *ngIf="bulkPreview.length > 0" class="border border-gray-100 rounded-lg overflow-hidden mb-4">
+          <div class="px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 flex justify-between">
+            <span>Preview — {{ bulkPreview.length }} row(s)</span>
+            <span [class]="bulkErrorCount > 0 ? 'text-red-600' : 'text-green-600'">
+              {{ bulkErrorCount }} error(s)
+            </span>
+          </div>
+          <div class="max-h-64 overflow-y-auto">
+            <table class="min-w-full text-xs">
+              <thead class="bg-gray-50 sticky top-0">
+                <tr>
+                  <th class="px-2 py-1.5 text-left">#</th>
+                  <th class="px-2 py-1.5 text-left">Name</th>
+                  <th class="px-2 py-1.5 text-left">Skill</th>
+                  <th class="px-2 py-1.5 text-right">Salary</th>
+                  <th class="px-2 py-1.5 text-left">Branch</th>
+                  <th class="px-2 py-1.5 text-left">Issues</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of bulkPreview" [class.bg-red-50]="r.errors.length > 0" class="border-t border-gray-100">
+                  <td class="px-2 py-1.5 text-gray-400">{{ r.index + 1 }}</td>
+                  <td class="px-2 py-1.5">{{ r.dto.name || '—' }}</td>
+                  <td class="px-2 py-1.5">{{ r.dto.skillCategory || '—' }}</td>
+                  <td class="px-2 py-1.5 text-right tabular-nums">{{ r.dto.monthlySalary ?? '—' }}</td>
+                  <td class="px-2 py-1.5">{{ branchName(r.dto.branchId || bulkBranchId) || '(default)' }}</td>
+                  <td class="px-2 py-1.5 text-red-600">{{ r.errors.join('; ') || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div *ngIf="bulkResult" class="text-sm rounded-lg p-3 mb-4"
+             [class.bg-green-50]="bulkResult.failed === 0"
+             [class.bg-amber-50]="bulkResult.failed > 0">
+          <strong>Created:</strong> {{ bulkResult.created }} ·
+          <strong>Failed:</strong> {{ bulkResult.failed }}
+          <ul *ngIf="bulkResult.failed > 0" class="mt-2 list-disc pl-5 text-xs text-red-700">
+            <li *ngFor="let r of bulkResult.results">
+              <span *ngIf="!r.ok">Row {{ r.index + 1 }}: {{ r.error }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            type="button"
+            (click)="submitBulk()"
+            [disabled]="bulkPreview.length === 0 || bulkUploading || bulkValidCount === 0"
+            class="flex-1 inline-flex justify-center items-center gap-2 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg"
+          >
+            <span *ngIf="bulkUploading" class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            {{ bulkUploading ? 'Uploading…' : 'Upload ' + bulkValidCount + ' valid row(s)' }}
+          </button>
+          <button type="button" (click)="closeBulk()" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Deactivate Confirm Modal ──────────────────────────────────────── -->
     <div *ngIf="deactivateTarget" class="fixed inset-0 z-50 flex items-center justify-center px-4" (click)="deactivateTarget = null">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
@@ -555,6 +733,21 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
 
   deactivateTarget: ContractorEmployee | null = null;
   exitReason = '';
+
+  // ── Bulk upload state ─────────────────────────────────
+  readonly skillOptions = SKILL_CATEGORIES;
+  bulkOpen = false;
+  bulkBranchId = '';
+  bulkPreview: BulkPreviewRow[] = [];
+  bulkUploading = false;
+  bulkResult: { created: number; failed: number; results: any[] } | null = null;
+
+  get bulkErrorCount(): number {
+    return this.bulkPreview.filter((r) => r.errors.length > 0).length;
+  }
+  get bulkValidCount(): number {
+    return this.bulkPreview.filter((r) => r.errors.length === 0).length;
+  }
 
   get totalActive(): number {
     return this.allRows.filter((e) => e.isActive).length;
@@ -679,6 +872,9 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       esic: emp.esic || '',
       pfApplicable: emp.pfApplicable ?? false,
       esiApplicable: emp.esiApplicable ?? false,
+      skillCategory: emp.skillCategory || '',
+      monthlySalary: emp.monthlySalary ?? null,
+      dailyWage: emp.dailyWage ?? null,
     };
     this.formError = null;
     this.drawerOpen = true;
@@ -722,6 +918,15 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
       esic: this.form.esic || null,
       pfApplicable: this.form.pfApplicable,
       esiApplicable: this.form.esiApplicable,
+      skillCategory: this.form.skillCategory || null,
+      monthlySalary:
+        this.form.monthlySalary == null || (this.form.monthlySalary as any) === ''
+          ? null
+          : Number(this.form.monthlySalary),
+      dailyWage:
+        this.form.dailyWage == null || (this.form.dailyWage as any) === ''
+          ? null
+          : Number(this.form.dailyWage),
     };
 
     const req$ = this.editingId
@@ -793,5 +998,246 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     if (g === 'm' || g === 'male') return 'bg-blue-50 text-blue-700';
     if (g === 'f' || g === 'female') return 'bg-rose-50 text-rose-700';
     return 'bg-gray-50 text-gray-500';
+  }
+
+  skillLabel(value: string | null): string {
+    return skillCategoryLabel(value);
+  }
+
+  statusLabel(emp: ContractorEmployee): string {
+    if (emp.isActive) return 'Active';
+    if (emp.status === 'LEFT') return 'Left';
+    if (emp.status === 'INACTIVE') return 'Inactive';
+    return 'Inactive';
+  }
+
+  statusBadgeClass(emp: ContractorEmployee): string {
+    if (emp.isActive) return 'bg-green-50 text-green-700 border-green-200';
+    if (emp.status === 'LEFT') return 'bg-amber-50 text-amber-800 border-amber-200';
+    return 'bg-gray-100 text-gray-500 border-gray-200';
+  }
+
+  doReactivate(emp: ContractorEmployee): void {
+    if (this.saving) return;
+    this.saving = true;
+    const empId = emp.id;
+    const empName = emp.name;
+    this.api
+      .reactivate(empId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.allRows = this.allRows.map((e) => (e.id === empId ? updated : e));
+          this.applyFilters();
+          this.toast.success('Reactivated', `${empName} marked active again.`);
+        },
+        error: (err: any) => {
+          this.toast.error('Error', err?.error?.message || 'Could not reactivate employee.');
+        },
+      });
+  }
+
+  // ────────────────────────── Bulk Upload ──────────────────────────
+  openBulkUpload(): void {
+    this.bulkOpen = true;
+    this.bulkPreview = [];
+    this.bulkResult = null;
+    this.bulkBranchId =
+      this.selectedBranchId ||
+      (this.availableBranches.length === 1
+        ? this.availableBranches[0].id
+        : '');
+    this.cdr.markForCheck();
+  }
+
+  closeBulk(): void {
+    this.bulkOpen = false;
+    this.bulkPreview = [];
+    this.bulkResult = null;
+    this.bulkUploading = false;
+    this.cdr.markForCheck();
+  }
+
+  downloadTemplate(): void {
+    const headers = [
+      'name',
+      'skillCategory',
+      'monthlySalary',
+      'gender',
+      'dateOfBirth',
+      'fatherName',
+      'phone',
+      'email',
+      'designation',
+      'department',
+      'dateOfJoining',
+      'dailyWage',
+      'aadhaar',
+      'pan',
+      'uan',
+      'esic',
+      'pfApplicable',
+      'esiApplicable',
+      'stateCode',
+      'branchId',
+    ];
+    const sample = {
+      name: 'Ravi Kumar',
+      skillCategory: 'SKILLED',
+      monthlySalary: 15000,
+      gender: 'M',
+      dateOfBirth: '1990-05-12',
+      fatherName: 'Suresh Kumar',
+      phone: '+919876543210',
+      email: 'ravi@example.com',
+      designation: 'Helper',
+      department: 'Production',
+      dateOfJoining: '2025-01-15',
+      dailyWage: 600,
+      aadhaar: '',
+      pan: '',
+      uan: '',
+      esic: '',
+      pfApplicable: true,
+      esiApplicable: true,
+      stateCode: 'KA',
+      branchId: '',
+    };
+    const ws = XLSX.utils.json_to_sheet([sample], { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+    XLSX.writeFile(wb, 'contractor-employees-template.xlsx');
+  }
+
+  onBulkFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, {
+          defval: null,
+          raw: true,
+        });
+        this.bulkPreview = this.validateBulkRows(rows);
+        this.bulkResult = null;
+        this.cdr.markForCheck();
+      } catch (err: any) {
+        this.toast.error('Parse error', err?.message || 'Could not read file.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    // Allow re-selecting the same file later
+    input.value = '';
+  }
+
+  private validateBulkRows(rows: Record<string, any>[]): BulkPreviewRow[] {
+    const allowedSkills = SKILL_CATEGORIES.map((s) => s.value);
+    return rows.map((raw, index) => {
+      const errors: string[] = [];
+      const name = String(raw['name'] ?? '').trim();
+      if (!name) errors.push('Name required');
+
+      const skillRaw = String(raw['skillCategory'] ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+      const skill = allowedSkills.includes(skillRaw as any)
+        ? (skillRaw as SkillCategory)
+        : null;
+      if (!skill) errors.push('skillCategory invalid');
+
+      const salaryNum = raw['monthlySalary'] == null || raw['monthlySalary'] === ''
+        ? null
+        : Number(raw['monthlySalary']);
+      if (salaryNum != null && (!Number.isFinite(salaryNum) || salaryNum < 0)) {
+        errors.push('monthlySalary invalid');
+      }
+      const dailyWageNum = raw['dailyWage'] == null || raw['dailyWage'] === ''
+        ? null
+        : Number(raw['dailyWage']);
+      if (dailyWageNum != null && (!Number.isFinite(dailyWageNum) || dailyWageNum < 0)) {
+        errors.push('dailyWage invalid');
+      }
+
+      const dto: CreateEmployeeDto = {
+        name,
+        skillCategory: skill,
+        monthlySalary: salaryNum,
+        dailyWage: dailyWageNum,
+        gender: raw['gender'] ? String(raw['gender']) : null,
+        dateOfBirth: raw['dateOfBirth'] ? String(raw['dateOfBirth']) : null,
+        fatherName: raw['fatherName'] ? String(raw['fatherName']) : null,
+        phone: raw['phone'] ? String(raw['phone']) : null,
+        email: raw['email'] ? String(raw['email']) : null,
+        designation: raw['designation'] ? String(raw['designation']) : null,
+        department: raw['department'] ? String(raw['department']) : null,
+        dateOfJoining: raw['dateOfJoining'] ? String(raw['dateOfJoining']) : null,
+        aadhaar: raw['aadhaar'] ? String(raw['aadhaar']) : null,
+        pan: raw['pan'] ? String(raw['pan']).toUpperCase() : null,
+        uan: raw['uan'] ? String(raw['uan']) : null,
+        esic: raw['esic'] ? String(raw['esic']) : null,
+        pfApplicable: this.toBool(raw['pfApplicable']),
+        esiApplicable: this.toBool(raw['esiApplicable']),
+        stateCode: raw['stateCode'] ? String(raw['stateCode']).toUpperCase() : null,
+        branchId: raw['branchId'] ? String(raw['branchId']) : undefined,
+      };
+      return { index, raw, dto, errors };
+    });
+  }
+
+  private toBool(v: any): boolean {
+    if (v === true || v === 1) return true;
+    const s = String(v ?? '').trim().toLowerCase();
+    return s === 'true' || s === 'yes' || s === 'y' || s === '1';
+  }
+
+  submitBulk(): void {
+    const valid = this.bulkPreview
+      .filter((r) => r.errors.length === 0)
+      .map((r) => r.dto);
+    if (valid.length === 0) {
+      this.toast.error('Nothing to upload', 'All rows have validation errors.');
+      return;
+    }
+    this.bulkUploading = true;
+    this.api
+      .bulkUpload(valid, this.bulkBranchId || undefined)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.bulkUploading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.bulkResult = res;
+          if (res.created > 0) {
+            this.toast.success(
+              'Uploaded',
+              `${res.created} employee(s) added` +
+                (res.failed > 0 ? `, ${res.failed} failed.` : '.'),
+            );
+            this.load();
+          }
+          if (res.failed > 0 && res.created === 0) {
+            this.toast.error('Upload failed', `${res.failed} row(s) rejected by server.`);
+          }
+        },
+        error: (err: any) => {
+          this.toast.error(
+            'Upload error',
+            err?.error?.message || err?.message || 'Server error.',
+          );
+        },
+      });
   }
 }

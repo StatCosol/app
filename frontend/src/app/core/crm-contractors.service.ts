@@ -16,6 +16,7 @@ export class CrmContractorsService {
     password: string;
     clientId: string;
     branchIds?: string[];
+    scheduledEmployment?: string | null;
   }): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/v1/crm/contractors/register`, data);
   }

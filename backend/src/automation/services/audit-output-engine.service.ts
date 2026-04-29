@@ -392,12 +392,13 @@ export class AuditOutputEngineService {
               COUNT(a.id)::int AS total_audits,
               COUNT(*) FILTER (WHERE a.status = 'COMPLETED')::int AS completed,
               COUNT(*) FILTER (WHERE a.status IN ('IN_PROGRESS','OPEN'))::int AS in_progress,
-              COUNT(*) FILTER (WHERE a.status = 'SCHEDULED')::int AS scheduled,
+              COUNT(*) FILTER (WHERE a.status = 'PLANNED')::int AS scheduled,
               ROUND(AVG(a.score) FILTER (WHERE a.score IS NOT NULL))::int AS avg_score
-       FROM client_assignments cac
+       FROM client_assignments_current cac
        JOIN clients c ON c.id = cac.client_id
        LEFT JOIN audits a ON a.client_id = c.id
-       WHERE cac.crm_user_id = $1
+       WHERE cac.assigned_to_user_id = $1
+         AND cac.assignment_type = 'CRM'
        GROUP BY c.id, c.client_name
        ORDER BY c.client_name`,
       [crmUserId],

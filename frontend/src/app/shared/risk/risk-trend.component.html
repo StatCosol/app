@@ -7,7 +7,30 @@
     </div>
 
     <div class="controls">
-      <select id="rt-branch-id" name="trendBranchId" [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1" class="ctrl-select">
+      <select
+        *ngIf="showClientPicker"
+        id="rt-client-id"
+        name="trendClientId"
+        [(ngModel)]="clientId"
+        (change)="onClientChange()"
+        [disabled]="clients.length === 0"
+        class="ctrl-select"
+        aria-label="Client"
+      >
+        <option value="" disabled>{{ clients.length ? 'Select client' : 'No clients' }}</option>
+        <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+      </select>
+
+      <select
+        id="rt-branch-id"
+        name="trendBranchId"
+        [(ngModel)]="branchId"
+        (change)="load()"
+        [disabled]="branches.length === 0"
+        class="ctrl-select"
+        aria-label="Branch"
+      >
+        <option value="" disabled>{{ branches.length ? 'Select branch' : 'No branches' }}</option>
         <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
       </select>
 

@@ -78,6 +78,44 @@ export class ContractorEmployeeEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  /** Worker employment lifecycle: ACTIVE | LEFT | INACTIVE. Replaces is_active for state semantics. */
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
+  status: 'ACTIVE' | 'LEFT' | 'INACTIVE';
+
+  /** Statutory skill category (Minimum Wages Act). */
+  @Column({ name: 'skill_category', type: 'varchar', length: 20, nullable: true })
+  skillCategory: 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED' | null;
+
+  @Column({
+    name: 'monthly_salary',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v: number | null | undefined) => (v == null ? null : v),
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
+  monthlySalary: number | null;
+
+  @Column({
+    name: 'daily_wage',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v: number | null | undefined) => (v == null ? null : v),
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
+  dailyWage: number | null;
+
+  /** State code for minimum-wage lookup (Phase 2). */
+  @Column({ name: 'state_code', type: 'varchar', length: 10, nullable: true })
+  stateCode: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

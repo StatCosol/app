@@ -25,6 +25,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ReqUser } from '../access/access-scope.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { RejectionMailService } from '../email/rejection-mail.service';
 
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
@@ -158,6 +159,7 @@ export class BranchComplianceService {
     private readonly branchAccess: BranchAccessService,
     private readonly dataSource: DataSource,
     private readonly auditLogs: AuditLogsService,
+    private readonly rejectionMail: RejectionMailService,
   ) {}
 
   private normalizeStateCode(
@@ -954,7 +956,53 @@ export class BranchComplianceService {
     doc.reviewedAt = new Date();
     doc.remarks = dto.remarks || null;
 
-    return this.docRepo.save(doc);
+    const saved = await this.docRepo.save(doc);
+
+    // ── Notify uploader on rejection (item #8: MCD rejection mail) ──
+    if (saved.status === ComplianceDocStatus.REUPLOAD_REQUIRED) {
+      this.notifyMcdRejection(saved, dto.remarks).catch(() => undefined);
+    }
+
+    return saved;
+  }
+
+  /** Best-effort: look up uploader email + branch name and send rejection mail. */
+  private async notifyMcdRejection(
+    doc: ComplianceDocumentEntity,
+    remarks: string | null | undefined,
+  ): Promise<void> {
+    if (!doc.uploadedByUserId) return;
+    try {
+      const rows = await this.dataSource.query(
+        `SELECT u.email AS email, b.branchname AS branch_name
+           FROM users u
+           LEFT JOIN branches b ON b.id = $2::uuid
+          WHERE u.id = $1::uuid AND u.deleted_at IS NULL
+          LIMIT 1`,
+        [doc.uploadedByUserId, doc.branchId],
+      );
+      const email = rows?.[0]?.email as string | undefined;
+      if (!email) return;
+
+      const month =
+        doc.periodMonth && doc.periodYear
+          ? `${String(doc.periodMonth).padStart(2, '0')}/${doc.periodYear}`
+          : doc.periodYear
+            ? String(doc.periodYear)
+            : null;
+
+      await this.rejectionMail.sendMcdRejection({
+        to: email,
+        docName: doc.returnCode || doc.uploadedFileName || 'Compliance document',
+        month,
+        branchName: rows?.[0]?.branch_name ?? null,
+        crmRemarks: remarks ?? null,
+        correctionRequired: remarks ?? null,
+        dueDate: doc.dueDate ? String(doc.dueDate) : null,
+      });
+    } catch {
+      // swallow — mail must never break the review tx
+    }
   }
 
   // ─── Client (Master Client) view ──────────────────────────

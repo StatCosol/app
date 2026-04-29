@@ -41,11 +41,23 @@ export class ContractorDocumentsService {
     private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
-  /** Throws if the audit has an active upload lock window today */
+  /**
+   * Throws if the audit has an active upload lock window today.
+   *
+   * @param auditId       Audit the document is tied to (null = no lock check).
+   * @param opts.allowRejectedReupload
+   *                      If true, the lock is bypassed (item #10:
+   *                      contractors may always re-upload a previously
+   *                      REJECTED document, even while the audit window
+   *                      is locked, so that auditor-flagged corrections
+   *                      can be addressed without unlocking everything).
+   */
   private async assertUploadNotLocked(
     auditId: string | null | undefined,
+    opts?: { allowRejectedReupload?: boolean },
   ): Promise<void> {
     if (!auditId) return;
+    if (opts?.allowRejectedReupload) return;
     const audit = await this.auditRepo.findOne({
       where: { id: auditId },
       select: ['id', 'uploadLockFrom', 'uploadLockUntil'],
@@ -316,8 +328,11 @@ export class ContractorDocumentsService {
       throw new BadRequestException('Contractor is not mapped to this branch');
     }
 
-    // Check upload lock window for this audit
-    await this.assertUploadNotLocked(doc.auditId);
+    // Item #10: re-uploads of REJECTED docs bypass the audit upload lock —
+    // contractors must always be able to address auditor-flagged corrections.
+    await this.assertUploadNotLocked(doc.auditId, {
+      allowRejectedReupload: doc.status === 'REJECTED',
+    });
 
     doc.fileName = file.originalname;
     doc.filePath = file.path;

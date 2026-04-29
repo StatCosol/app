@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
   ForbiddenException,
   UseGuards,
@@ -9,6 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RiskService } from './risk.service';
+import { RiskSnapshotCronService } from './risk-snapshot-cron.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -23,7 +25,21 @@ export class RiskController {
   constructor(
     private readonly riskService: RiskService,
     private readonly assignmentsService: AssignmentsService,
+    private readonly riskSnapshotCron: RiskSnapshotCronService,
   ) {}
+
+  /**
+   * POST /api/v1/risk/snapshot-now
+   * Admin-only manual trigger for the daily risk snapshot job.
+   * Useful to populate trend data on demand without waiting for the 1 AM cron.
+   */
+  @ApiOperation({ summary: 'Manually trigger daily risk snapshot (admin only)' })
+  @Post('snapshot-now')
+  @Roles('ADMIN', 'CCO', 'CEO')
+  async snapshotNow(): Promise<{ ok: true; message: string }> {
+    await this.riskSnapshotCron.snapshotDaily();
+    return { ok: true, message: 'Risk snapshot completed.' };
+  }
 
   /**
    * GET /api/v1/risk/heatmap?month=YYYY-MM&clientId=...

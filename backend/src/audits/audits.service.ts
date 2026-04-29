@@ -24,6 +24,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NonComplianceEngineService } from '../automation/services/non-compliance-engine.service';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { ReqUser } from '../access/access-scope.service';
+import { RejectionMailService } from '../email/rejection-mail.service';
 
 export interface BranchAuditKpiItem {
   periodCode: string;
@@ -65,6 +66,7 @@ export class AuditsService implements OnModuleInit {
     private readonly notificationsService: NotificationsService,
     private readonly ncEngine: NonComplianceEngineService,
     private readonly auditOutputEngine: AuditOutputEngineService,
+    private readonly rejectionMail: RejectionMailService,
   ) {}
 
   async onModuleInit() {
@@ -209,6 +211,13 @@ export class AuditsService implements OnModuleInit {
 
     const auditCode = await this.generateAuditCode(Number(dto.periodYear));
 
+    // Item #9: auto-derive the upload-lock window from the audit's due date.
+    // Convention: dueDate marks the day the audit is to be conducted, so we
+    // lock contractor uploads from that date until +7 days (the typical
+    // on-site review window). Auditor can override later via setUploadLock.
+    const { uploadLockFrom, uploadLockUntil } =
+      this.deriveUploadLockWindow(dto.dueDate ?? null);
+
     const entity = this.repo.create({
       auditCode,
       clientId: dto.clientId,
@@ -221,12 +230,129 @@ export class AuditsService implements OnModuleInit {
       assignedAuditorId: dto.assignedAuditorId,
       createdByUserId: user.userId,
       dueDate: dto.dueDate ?? null,
+      uploadLockFrom,
+      uploadLockUntil,
       notes: dto.notes?.trim() || null,
       status: 'PLANNED',
     });
 
     const saved = await this.repo.save(entity);
+
+    // Item #11: carry forward contractor docs from the most recent prior
+    // audit for this client/branch (best-effort; never fails creation).
+    this.carryForwardContractorDocuments(saved).catch((e) =>
+      this.logger.warn(`carry-forward failed for audit ${saved.id}: ${e?.message || e}`),
+    );
+
     return { id: saved.id, auditCode: saved.auditCode };
+  }
+
+  /**
+   * Item #9: compute the (uploadLockFrom, uploadLockUntil) window based on
+   * the audit's scheduled / due date.
+   *
+   * Convention:
+   *   - `dueDate` is the day on which the audit is to be conducted.
+   *   - Contractors may upload freely up to dueDate - 1.
+   *   - From dueDate to dueDate + 7 the upload window is locked so the
+   *     auditor sees a stable document set.
+   *   - Returns nulls (no lock) when no dueDate is provided. The auditor
+   *     can still set a lock manually via setUploadLock.
+   */
+  private deriveUploadLockWindow(
+    dueDate: string | null | undefined,
+  ): { uploadLockFrom: string | null; uploadLockUntil: string | null } {
+    if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+      return { uploadLockFrom: null, uploadLockUntil: null };
+    }
+    const start = new Date(`${dueDate}T00:00:00Z`);
+    if (Number.isNaN(start.getTime())) {
+      return { uploadLockFrom: null, uploadLockUntil: null };
+    }
+    const end = new Date(start.getTime());
+    end.setUTCDate(end.getUTCDate() + 7);
+    return {
+      uploadLockFrom: start.toISOString().slice(0, 10),
+      uploadLockUntil: end.toISOString().slice(0, 10),
+    };
+  }
+
+  /**
+   * Item #11 — copy contractor_documents from the previous audit of the
+   * same client + branch (+ contractor, if scoped) into the newly created
+   * audit, applying the carry-forward rules:
+   *
+   *   APPROVED         → cloned as APPROVED          (still valid)
+   *   REJECTED         → cloned as PENDING_REVIEW    (must be re-addressed)
+   *   PENDING_REVIEW   → cloned as PENDING_REVIEW    (corrected re-upload)
+   *   anything else    → skipped
+   *
+   * Non-blocking: callers MUST wrap in .catch() so audit creation never
+   * fails because of a carry-forward problem.
+   */
+  private async carryForwardContractorDocuments(
+    audit: AuditEntity,
+  ): Promise<void> {
+    if (!audit?.id || !audit.clientId) return;
+
+    // Find previous audit for same client + branch (+ contractor, if any),
+    // excluding this one. Prefer most recent createdAt.
+    const prevRows = await this.dataSource.query(
+      `SELECT id
+         FROM audits
+        WHERE client_id = $1::uuid
+          AND id <> $2::uuid
+          AND ($3::uuid IS NULL OR branch_id IS NOT DISTINCT FROM $3::uuid)
+          AND ($4::uuid IS NULL OR contractor_user_id IS NOT DISTINCT FROM $4::uuid)
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [
+        audit.clientId,
+        audit.id,
+        audit.branchId || null,
+        audit.contractorUserId || null,
+      ],
+    );
+    const prevAuditId = prevRows?.[0]?.id as string | undefined;
+    if (!prevAuditId) return;
+
+    // Clone matching rows. Status is rewritten per the rules above.
+    // review_notes is overwritten with a carry-forward marker so the
+    // contractor knows why the doc is showing up under a new audit.
+    await this.dataSource.query(
+      `INSERT INTO contractor_documents (
+          contractor_user_id, client_id, branch_id, doc_type, title,
+          audit_id, observation_id, file_name, file_path, file_type, file_size,
+          uploaded_by_user_id, status, doc_month, expiry_date,
+          reviewed_by_user_id, reviewed_at, review_notes,
+          uploaded_by_role, acting_on_behalf, original_owner_role
+       )
+       SELECT
+          contractor_user_id, client_id, branch_id, doc_type, title,
+          $1::uuid AS audit_id,
+          NULL::uuid AS observation_id,
+          file_name, file_path, file_type, file_size,
+          uploaded_by_user_id,
+          CASE
+            WHEN status = 'APPROVED' THEN 'APPROVED'
+            WHEN status IN ('REJECTED', 'PENDING_REVIEW') THEN 'PENDING_REVIEW'
+            ELSE status
+          END AS status,
+          doc_month, expiry_date,
+          CASE WHEN status = 'APPROVED' THEN reviewed_by_user_id ELSE NULL END,
+          CASE WHEN status = 'APPROVED' THEN reviewed_at ELSE NULL END,
+          CASE
+            WHEN status = 'APPROVED'      THEN 'Carried forward (previously approved)'
+            WHEN status = 'REJECTED'      THEN 'Carried forward as pending — was REJECTED in prior audit'
+            WHEN status = 'PENDING_REVIEW' THEN 'Carried forward — corrected re-upload pending review'
+            ELSE review_notes
+          END AS review_notes,
+          uploaded_by_role, acting_on_behalf, original_owner_role
+       FROM contractor_documents
+       WHERE audit_id = $2::uuid
+         AND status IN ('APPROVED', 'REJECTED', 'PENDING_REVIEW')`,
+      [audit.id, prevAuditId],
+    );
   }
 
   // ─── CRM: list audits for assigned clients ──────────────────────
@@ -663,6 +789,13 @@ export class AuditsService implements OnModuleInit {
         user.userId,
       );
       if (!ok) throw new ForbiddenException('Client not assigned to this CRM');
+      // CRM is the scheduler, not the executor.
+      // CRM may only cancel an audit; starting/completing is auditor-only.
+      if (targetStatus !== 'CANCELLED') {
+        throw new ForbiddenException(
+          'CRM can only cancel audits. Only the assigned auditor can start or complete an audit.',
+        );
+      }
     } else if (user.roleCode === 'AUDITOR') {
       if (audit.assignedAuditorId !== user.userId) {
         throw new ForbiddenException('Not your audit');
@@ -1807,6 +1940,9 @@ export class AuditsService implements OnModuleInit {
       } catch {
         // non-critical: task creation failure should not break the review
       }
+
+      // Item #7: notify the contractor with NC + Solution mail (best-effort).
+      this.notifyAuditRejection(audit, docName, remarks).catch(() => undefined);
     }
 
     // If previously NON_COMPLIED and now COMPLIED, close the NC + task
@@ -2085,6 +2221,9 @@ export class AuditsService implements OnModuleInit {
       auditId: audit.id,
       uploadLockFrom: audit.uploadLockFrom ?? null,
       uploadLockUntil: audit.uploadLockUntil ?? null,
+      // Item #10: even while locked, REJECTED docs can be re-uploaded so
+      // the frontend can surface a helpful banner instead of a hard block.
+      allowRejectedReupload: true,
     };
   }
 
@@ -3157,17 +3296,24 @@ export class AuditsService implements OnModuleInit {
     const auditCode = await this.generateAuditCode(now.getFullYear());
 
     const periodCode = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const { uploadLockFrom, uploadLockUntil } = this.deriveUploadLockWindow(
+      sch.due_date || null,
+    );
     const inserted = await this.dataSource.query(
       `INSERT INTO audits
        (audit_code, client_id, branch_id, contractor_user_id,
         frequency, audit_type, period_year, period_code,
         assigned_auditor_id, created_by_user_id,
-        due_date, status, schedule_id, created_at, updated_at)
+        due_date, status, schedule_id,
+        upload_lock_from, upload_lock_until,
+        created_at, updated_at)
        VALUES
        ($1, $2, $3, $4,
         'MONTHLY', $5, $6, $7,
         $8, $8,
-        $9, 'IN_PROGRESS', $10, NOW(), NOW())
+        $9, 'IN_PROGRESS', $10,
+        $11, $12,
+        NOW(), NOW())
        RETURNING id`,
       [
         auditCode,
@@ -3180,6 +3326,8 @@ export class AuditsService implements OnModuleInit {
         sch.auditor_user_id || userId,
         sch.due_date || null,
         scheduleId,
+        uploadLockFrom,
+        uploadLockUntil,
       ],
     );
 
@@ -3189,7 +3337,20 @@ export class AuditsService implements OnModuleInit {
       [scheduleId],
     );
 
-    return { auditId: inserted[0].id, created: true };
+    // Item #11: carry forward contractor docs into the freshly-created audit.
+    const newAuditId = inserted[0].id as string;
+    try {
+      const newAudit = await this.repo.findOne({ where: { id: newAuditId } });
+      if (newAudit) {
+        await this.carryForwardContractorDocuments(newAudit);
+      }
+    } catch (e: any) {
+      this.logger.warn(
+        `carry-forward (from schedule) failed for audit ${newAuditId}: ${e?.message || e}`,
+      );
+    }
+
+    return { auditId: newAuditId, created: true };
   }
 
   /**
@@ -3205,6 +3366,45 @@ export class AuditsService implements OnModuleInit {
       );
     } catch {
       // Non-critical
+    }
+  }
+
+  /**
+   * Item #7: notify the contractor when an audit doc is marked NON_COMPLIED.
+   * Best-effort; never throws.
+   */
+  private async notifyAuditRejection(
+    audit: AuditEntity,
+    docName: string,
+    remarks: string | null | undefined,
+  ): Promise<void> {
+    try {
+      if (!audit?.contractorUserId) return;
+      const rows = await this.dataSource.query(
+        `SELECT u.email AS email,
+                b.branchname AS branch_name
+           FROM users u
+           LEFT JOIN branches b ON b.id = $2::uuid
+          WHERE u.id = $1::uuid AND u.deleted_at IS NULL
+          LIMIT 1`,
+        [audit.contractorUserId, audit.branchId || null],
+      );
+      const email = rows?.[0]?.email as string | undefined;
+      if (!email) return;
+
+      const period = audit.periodCode || null;
+      await this.rejectionMail.sendAuditRejection({
+        to: email,
+        docName,
+        branchName: rows?.[0]?.branch_name ?? null,
+        auditPeriod: period,
+        nonCompliance: remarks ?? null,
+        applicableLaw: null,
+        impact: null,
+        solution: remarks ?? null,
+      });
+    } catch {
+      // swallow
     }
   }
 }

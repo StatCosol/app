@@ -41,6 +41,7 @@ export class CrmContractorRegistrationController {
       password: string;
       clientId: string;
       branchIds?: string[];
+      scheduledEmployment?: string | null;
     },
   ) {
     if (!dto.name || !dto.email || !dto.password || !dto.clientId) {

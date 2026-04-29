@@ -224,7 +224,6 @@
         <span>Work Type</span>
         <select id="ct-type" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">{{ rowTypeLabel('ALL') }}</option>
-          <option value="TASK">{{ rowTypeLabel('TASK') }}</option>
           <option value="AUDIT">{{ rowTypeLabel('AUDIT') }}</option>
           <option value="REUPLOAD">{{ rowTypeLabel('REUPLOAD') }}</option>
         </select>
@@ -513,6 +512,8 @@
           <span>
             Document uploads are <strong>locked by the auditor</strong> until <strong>{{ auditUploadLockUntil }}</strong>.
             You cannot upload or re-upload documents during this period. Uploads will re-open after the lock date.
+            <br />
+            <em>Exception:</em> documents already marked <strong>REJECTED</strong> can still be re-uploaded so you can address auditor-flagged corrections.
           </span>
         </div>
         <div class="entity-head">

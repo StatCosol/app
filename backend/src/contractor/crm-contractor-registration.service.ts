@@ -33,6 +33,7 @@ export class CrmContractorRegistrationService {
       password: string;
       clientId: string;
       branchIds?: string[];
+      scheduledEmployment?: string | null;
     },
   ) {
     // Verify CRM is assigned to this client
@@ -81,6 +82,7 @@ export class CrmContractorRegistrationService {
       passwordHash,
       clientId: dto.clientId,
       isActive: true,
+      scheduledEmployment: dto.scheduledEmployment?.trim() || null,
     });
 
     const savedContractor = await this.userRepo.save(contractor);
@@ -105,6 +107,7 @@ export class CrmContractorRegistrationService {
         name: savedContractor.name,
         email: savedContractor.email,
         mobile: savedContractor.mobile,
+        scheduledEmployment: savedContractor.scheduledEmployment,
       },
       credentials: {
         email: savedContractor.email,
@@ -145,6 +148,7 @@ export class CrmContractorRegistrationService {
         'u.mobile',
         'u.isActive',
         'u.clientId',
+        'u.scheduledEmployment',
         'c.clientName',
       ])
       .orderBy('u.name', 'ASC')

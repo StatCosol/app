@@ -27,6 +27,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AiModule } from '../ai/ai.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AutomationModule } from '../automation/automation.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AutomationModule } from '../automation/automation.module';
     AuthModule,
     AiModule,
     NotificationsModule,
+    EmailModule,
     forwardRef(() => AutomationModule),
   ],
   controllers: [

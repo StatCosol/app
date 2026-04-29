@@ -72,7 +72,7 @@ export class ContractorEmployeesController {
     return this.svc.update(id, user.userId, body);
   }
 
-  @ApiOperation({ summary: 'Deactivate employee' })
+  @ApiOperation({ summary: 'Deactivate employee (mark as LEFT)' })
   @Put(':id/deactivate')
   async deactivate(
     @CurrentUser() user: ReqUser,
@@ -80,6 +80,31 @@ export class ContractorEmployeesController {
     @Body() body: { exitReason?: string },
   ) {
     return this.svc.deactivate(id, user.userId, body.exitReason);
+  }
+
+  @ApiOperation({ summary: 'Reactivate previously exited employee' })
+  @Put(':id/reactivate')
+  async reactivate(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.reactivate(id, user.userId);
+  }
+
+  @ApiOperation({
+    summary: 'Bulk-create employees (Excel upload, parsed client-side)',
+  })
+  @Post('bulk')
+  async bulk(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { branchId?: string; rows: any[] },
+  ) {
+    const clientId = user.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    const defaultBranchId = body.branchId || user.branchIds?.[0];
+    return this.svc.bulkCreate(
+      clientId,
+      user.userId,
+      defaultBranchId,
+      body.rows || [],
+    );
   }
 }
 

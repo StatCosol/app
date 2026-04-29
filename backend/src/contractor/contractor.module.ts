@@ -42,6 +42,9 @@ import {
   ClientContractorEmployeesController,
 } from './contractor-employees/contractor-employees.controller';
 import { ContractorEmployeesService } from './contractor-employees/contractor-employees.service';
+import { MinimumWageEntity } from './contractor-employees/entities/minimum-wage.entity';
+import { MinimumWageService } from './contractor-employees/minimum-wage.service';
+import { MinimumWageController } from './contractor-employees/minimum-wage.controller';
 import { ClraAssignmentsController } from './clra-assignments.controller';
 import { ClraAssignmentsService } from './clra-assignments.service';
 import { ClraPeEstablishment } from './entities/clra-pe-establishment.entity';
@@ -67,6 +70,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
       ContractorDocumentEntity,
       ContractorRequiredDocumentEntity,
       ContractorEmployeeEntity,
+      MinimumWageEntity,
       AuditEntity,
       ClraPeEstablishment,
       ClraContractor,
@@ -99,6 +103,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
     ContractorListController,
     ContractorEmployeesController,
     ClientContractorEmployeesController,
+    MinimumWageController,
     ClraAssignmentsController,
   ],
   providers: [
@@ -108,6 +113,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
     ContractorDashboardService,
     ContractorRequiredDocumentsService,
     ContractorEmployeesService,
+    MinimumWageService,
     ClraAssignmentsService,
   ],
 })

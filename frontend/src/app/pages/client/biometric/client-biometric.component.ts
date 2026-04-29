@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -114,16 +114,16 @@ interface BranchOption { id: string; name: string }
       <ng-container *ngIf="tab === 'punches'">
         <div class="flex flex-wrap items-end gap-3 mb-4">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">From</label>
+            <label for="cmd-from-date" class="block text-xs font-medium text-gray-600 mb-1">From</label>
             <input autocomplete="off" id="cmd-from-date" name="fromDate" type="date" class="ui-input" [(ngModel)]="punchFrom">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">To</label>
+            <label for="cmd-to-date" class="block text-xs font-medium text-gray-600 mb-1">To</label>
             <input autocomplete="off" id="cmd-to-date" name="toDate" type="date" class="ui-input" [(ngModel)]="punchTo">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
-            <select class="ui-input" [(ngModel)]="punchBranchId">
+            <label for="cmd-punch-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
+            <select id="cmd-punch-branch" name="punchBranchId" class="ui-input" [(ngModel)]="punchBranchId">
               <option [ngValue]="''">All branches</option>
               <option *ngFor="let b of branches" [ngValue]="b.id">{{ b.name }}</option>
             </select>
@@ -244,16 +244,16 @@ interface BranchOption { id: string; name: string }
           </ui-form-input>
           <ui-form-input label="Label" [(ngModel)]="form.label" placeholder="e.g. Main Gate K90"></ui-form-input>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
-            <select class="ui-input w-full" [(ngModel)]="form.branchId">
+            <label for="cmd-form-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
+            <select id="cmd-form-branch" name="formBranchId" class="ui-input w-full" [(ngModel)]="form.branchId">
               <option [ngValue]="''">— None —</option>
               <option *ngFor="let b of branches" [ngValue]="b.id">{{ b.name }}</option>
             </select>
           </div>
           <div *ngIf="!editing" class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Vendor</label>
-              <select class="ui-input w-full" [(ngModel)]="form.vendor">
+              <label for="cmd-form-vendor" class="block text-xs font-medium text-gray-600 mb-1">Vendor</label>
+              <select id="cmd-form-vendor" name="formVendor" class="ui-input w-full" [(ngModel)]="form.vendor">
                 <option value="ESSL">eSSL</option>
                 <option value="ZKTECO">ZKTeco</option>
                 <option value="MATRIX">Matrix</option>
@@ -344,11 +344,10 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
   get pushHost(): string {
     try {
       const u = new URL((window as any).location?.origin || '');
-      // Backend host typically: api.<frontend host>
-      const host = u.hostname.replace(/^www\./, '');
-      return host.startsWith('api.') ? host : `api.${host}`;
+      // Devices push to the SAME host the app is served from (nginx proxies /iclock/* to backend).
+      return u.hostname.replace(/^www\./, '');
     } catch {
-      return 'api.statcosol.com';
+      return 'app.statcosol.com';
     }
   }
 
@@ -356,7 +355,18 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
     private svc: ClientBiometricService,
     private branchSvc: ClientBranchesService,
     private toast: ToastService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone,
   ) {}
+
+  /** Force re-render even if subscribe fired outside Angular zone */
+  private bump(): void {
+    if (NgZone.isInAngularZone()) {
+      this.cdr.detectChanges();
+    } else {
+      this.zone.run(() => this.cdr.detectChanges());
+    }
+  }
 
   ngOnInit(): void {
     const today = new Date();
@@ -382,10 +392,18 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
   loadDevices(): void {
     this.loadingDevices = true;
     this.svc.listDevices()
-      .pipe(takeUntil(this.destroy$), finalize(() => (this.loadingDevices = false)))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingDevices = false; this.bump(); }))
       .subscribe({
-        next: (rows) => (this.devices = rows || []),
-        error: (e) => this.toast.error(e?.error?.message || 'Failed to load devices'),
+        next: (rows) => {
+          this.devices = rows || [];
+          this.loadingDevices = false;
+          this.bump();
+        },
+        error: (e) => {
+          this.loadingDevices = false;
+          this.toast.error(e?.error?.message || 'Failed to load devices');
+          this.bump();
+        },
       });
   }
 
@@ -411,14 +429,23 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
       label: this.form.label || undefined,
     };
     this.svc.registerDevice(payload)
-      .pipe(takeUntil(this.destroy$), finalize(() => (this.saving = false)))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.saving = false; this.bump(); }))
       .subscribe({
-        next: () => {
-          this.toast.success('Device registered');
+        next: (created) => {
+          this.saving = false;
           this.showModal = false;
+          if (created && created.id) {
+            this.devices = [created, ...this.devices.filter((x) => x.id !== created.id)];
+          }
+          this.toast.success('Device registered');
+          this.bump();
           this.loadDevices();
         },
-        error: (e) => (this.formError = e?.error?.message || 'Failed to register device'),
+        error: (e) => {
+          this.saving = false;
+          this.formError = e?.error?.message || 'Failed to register device';
+          this.bump();
+        },
       });
   }
 
@@ -487,10 +514,18 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
       to: this.punchTo,
       branchId: this.punchBranchId || undefined,
     })
-      .pipe(takeUntil(this.destroy$), finalize(() => (this.loadingPunches = false)))
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingPunches = false; this.bump(); }))
       .subscribe({
-        next: (rows) => (this.punches = rows || []),
-        error: (e) => this.toast.error(e?.error?.message || 'Failed to load punches'),
+        next: (rows) => {
+          this.punches = rows || [];
+          this.loadingPunches = false;
+          this.bump();
+        },
+        error: (e) => {
+          this.loadingPunches = false;
+          this.toast.error(e?.error?.message || 'Failed to load punches');
+          this.bump();
+        },
       });
   }
 
@@ -520,9 +555,14 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
     this.branchSvc.list()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (rows: any[]) =>
-          (this.branches = (rows || []).map((b) => ({ id: b.id, name: b.name }))),
-        error: () => (this.branches = []),
+        next: (rows: any[]) => {
+          this.branches = (rows || []).map((b) => ({
+            id: b.id,
+            name: b.branchName || b.name || b.branch_name || b.label || `Branch ${String(b.id).slice(0, 6)}`,
+          }));
+          this.bump();
+        },
+        error: () => { this.branches = []; this.bump(); },
       });
   }
 
