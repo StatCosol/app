@@ -183,7 +183,9 @@ jobs:
             -v ON_ERROR_STOP=1 <<'SQL'
           ALTER TABLE users
             ADD COLUMN IF NOT EXISTS user_type VARCHAR(10),
-            ADD COLUMN IF NOT EXISTS employee_id UUID;
+            ADD COLUMN IF NOT EXISTS employee_id UUID,
+            ADD COLUMN IF NOT EXISTS scheduled_employment VARCHAR(120),
+            ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
           CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
           CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
           SQL
