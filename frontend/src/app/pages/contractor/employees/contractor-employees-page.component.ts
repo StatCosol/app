@@ -240,8 +240,8 @@ interface BulkPreviewRow {
                   <span *ngIf="!emp.skillCategory" class="text-gray-300 text-xs">—</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-right tabular-nums text-gray-700">
-                  <span *ngIf="emp.monthlySalary != null">₹ {{ emp.monthlySalary | number:'1.0-0' }}</span>
-                  <span *ngIf="emp.monthlySalary == null" class="text-gray-300">—</span>
+                  <span *ngIf="emp.monthlySalary !== null && emp.monthlySalary !== undefined">₹ {{ emp.monthlySalary | number:'1.0-0' }}</span>
+                  <span *ngIf="emp.monthlySalary === null || emp.monthlySalary === undefined" class="text-gray-300">—</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.department || '—' }}</td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd MMM yy') : '—' }}</td>

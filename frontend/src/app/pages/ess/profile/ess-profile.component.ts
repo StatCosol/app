@@ -105,7 +105,7 @@ import { EssApiService, EssProfile } from '../ess-api.service';
             <div class="info-row"><span class="label">PF Applicable</span><span class="value">{{ emp.pfApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">PF Registered</span><span class="value">{{ emp.pfRegistered ? 'Yes' : 'No' }}</span></div>
             <div *ngIf="emp.pfServiceStartDate" class="info-row"><span class="label">PF Service Start Date</span><span class="value font-mono">{{ emp.pfServiceStartDate | date:'dd/MM/yyyy' }}</span></div>
-            <div *ngIf="emp.basicAtPfStart != null" class="info-row"><span class="label">Basic Salary at PF Start</span><span class="value">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span></div>
+            <div *ngIf="emp.basicAtPfStart !== null && emp.basicAtPfStart !== undefined" class="info-row"><span class="label">Basic Salary at PF Start</span><span class="value">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span></div>
             <div class="info-row"><span class="label">ESI Applicable</span><span class="value">{{ emp.esiApplicable ? 'Yes' : 'No' }}</span></div>
             <div class="info-row"><span class="label">ESI Registered</span><span class="value">{{ emp.esiRegistered ? 'Yes' : 'No' }}</span></div>
           </div>

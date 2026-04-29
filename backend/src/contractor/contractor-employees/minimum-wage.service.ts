@@ -111,7 +111,8 @@ export class MinimumWageService {
       onDate,
       scheduledEmployment,
     } = params;
-    if (monthlySalary == null) return { ok: true, reason: 'no salary supplied' };
+    if (monthlySalary == null)
+      return { ok: true, reason: 'no salary supplied' };
     const lookup = await this.lookup(
       stateCode,
       skillCategory,

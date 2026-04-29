@@ -90,7 +90,10 @@ export class SafetyV2Controller {
           master?.document_name ||
           `Safety Document ${docMasterId || ''}`.trim(),
       ),
-      remarks: body?.remarks ? String(body.remarks) : undefined,
+      remarks:
+        typeof body?.remarks === 'string' || typeof body?.remarks === 'number'
+          ? String(body.remarks)
+          : undefined,
       category: body?.category || master?.category || undefined,
       frequency: body?.frequency || master?.frequency || undefined,
       applicableTo: body?.applicableTo || master?.applicable_to || undefined,

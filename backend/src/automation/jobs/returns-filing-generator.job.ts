@@ -28,7 +28,8 @@ export class ReturnsFilingGeneratorJob {
         `Monthly filings done: ${result.filingsCreated} created, ${result.tasksCreated} tasks`,
       );
     } catch (err) {
-      this.logger.error(`Monthly filing generation failed: ${err}`);
+      const errMsg = err instanceof Error ? err.message : 'unknown';
+      this.logger.error(`Monthly filing generation failed: ${errMsg}`);
     }
   }
 
@@ -45,7 +46,8 @@ export class ReturnsFilingGeneratorJob {
         `Renewal filings done: ${result.filingsCreated} created, ${result.tasksCreated} tasks`,
       );
     } catch (err) {
-      this.logger.error(`Renewal filing generation failed: ${err}`);
+      const errMsg = err instanceof Error ? err.message : 'unknown';
+      this.logger.error(`Renewal filing generation failed: ${errMsg}`);
     }
   }
 
@@ -60,7 +62,8 @@ export class ReturnsFilingGeneratorJob {
       const result = await this.filingEngine.generateOverdueAlerts();
       this.logger.log(`Overdue alerts: ${result.alertsSent} sent`);
     } catch (err) {
-      this.logger.error(`Overdue alert generation failed: ${err}`);
+      const errMsg = err instanceof Error ? err.message : 'unknown';
+      this.logger.error(`Overdue alert generation failed: ${errMsg}`);
     }
   }
 }

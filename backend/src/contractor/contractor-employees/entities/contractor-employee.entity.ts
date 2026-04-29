@@ -83,8 +83,18 @@ export class ContractorEmployeeEntity {
   status: 'ACTIVE' | 'LEFT' | 'INACTIVE';
 
   /** Statutory skill category (Minimum Wages Act). */
-  @Column({ name: 'skill_category', type: 'varchar', length: 20, nullable: true })
-  skillCategory: 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED' | null;
+  @Column({
+    name: 'skill_category',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  skillCategory:
+    | 'UNSKILLED'
+    | 'SEMI_SKILLED'
+    | 'SKILLED'
+    | 'HIGHLY_SKILLED'
+    | null;
 
   @Column({
     name: 'monthly_salary',

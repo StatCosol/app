@@ -146,7 +146,7 @@ type Tab = 'profile' | 'compliance' | 'history';
                   <span class="text-sm text-gray-500">PF Service Start Date</span>
                   <span class="text-sm font-medium">{{ emp.pfServiceStartDate | date:'dd/MM/yyyy' }}</span>
                 </div>
-                <div *ngIf="emp.basicAtPfStart != null" class="flex justify-between">
+                <div *ngIf="emp.basicAtPfStart !== null && emp.basicAtPfStart !== undefined" class="flex justify-between">
                   <span class="text-sm text-gray-500">Basic at PF Start</span>
                   <span class="text-sm font-medium">₹{{ emp.basicAtPfStart | number:'1.2-2' }}</span>
                 </div>

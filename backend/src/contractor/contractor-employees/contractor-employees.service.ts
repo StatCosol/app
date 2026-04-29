@@ -22,7 +22,10 @@ type EmployeeStatus = (typeof STATUSES)[number];
 
 function normalizeSkill(value: any): SkillCategory | null {
   if (value == null || value === '') return null;
-  const v = String(value).trim().toUpperCase().replace(/[\s-]+/g, '_');
+  const v = String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
   return (SKILL_CATEGORIES as readonly string[]).includes(v)
     ? (v as SkillCategory)
     : null;
@@ -73,7 +76,9 @@ export class ContractorEmployeesService {
   }
 
   /** Coerce DTO to entity-shape, normalizing enums & numbers. */
-  private prepare(dto: Partial<ContractorEmployeeEntity> & Record<string, any>) {
+  private prepare(
+    dto: Partial<ContractorEmployeeEntity> & Record<string, any>,
+  ) {
     const skill =
       dto.skillCategory !== undefined
         ? normalizeSkill(dto.skillCategory)
@@ -139,7 +144,9 @@ export class ContractorEmployeesService {
       throw new BadRequestException('No rows supplied');
     }
     if (rows.length > 1000) {
-      throw new BadRequestException('Bulk upload limited to 1000 rows per request');
+      throw new BadRequestException(
+        'Bulk upload limited to 1000 rows per request',
+      );
     }
 
     const results: BulkRowResult[] = [];

@@ -132,8 +132,9 @@ export class RenewalFilingEngineService {
           });
           tasksCreated++;
         } catch (err) {
+          const errMsg = err instanceof Error ? err.message : 'unknown';
           this.logger.warn(
-            `Failed to create renewal task for reg ${reg.reg_id}: ${err}`,
+            `Failed to create renewal task for reg ${reg.reg_id}: ${errMsg}`,
           );
         }
       }

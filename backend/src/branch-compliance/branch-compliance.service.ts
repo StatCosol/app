@@ -959,7 +959,7 @@ export class BranchComplianceService {
     const saved = await this.docRepo.save(doc);
 
     // ── Notify uploader on rejection (item #8: MCD rejection mail) ──
-    if (saved.status === ComplianceDocStatus.REUPLOAD_REQUIRED) {
+    if (saved.status === (ComplianceDocStatus.REUPLOAD_REQUIRED as string)) {
       this.notifyMcdRejection(saved, dto.remarks).catch(() => undefined);
     }
 
@@ -993,7 +993,8 @@ export class BranchComplianceService {
 
       await this.rejectionMail.sendMcdRejection({
         to: email,
-        docName: doc.returnCode || doc.uploadedFileName || 'Compliance document',
+        docName:
+          doc.returnCode || doc.uploadedFileName || 'Compliance document',
         month,
         branchName: rows?.[0]?.branch_name ?? null,
         crmRemarks: remarks ?? null,

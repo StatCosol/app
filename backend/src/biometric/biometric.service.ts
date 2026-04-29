@@ -116,7 +116,10 @@ export class BiometricService {
     });
 
     if (autoProcess && result.affectedDays.length) {
-      const proc = await this.processAffectedDays(clientId, result.affectedDays);
+      const proc = await this.processAffectedDays(
+        clientId,
+        result.affectedDays,
+      );
       result.attendanceUpserts = proc.attendanceUpserts;
     }
 
@@ -246,8 +249,7 @@ export class BiometricService {
 
       // If only one punch, treat it as check-in only (workedHours = 0)
       const checkInTime = earliest.punchTime;
-      const checkOutTime =
-        dayPunches.length > 1 ? latest.punchTime : null;
+      const checkOutTime = dayPunches.length > 1 ? latest.punchTime : null;
 
       let workedHours = 0;
       if (checkOutTime) {

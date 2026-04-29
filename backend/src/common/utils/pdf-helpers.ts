@@ -185,11 +185,19 @@ export function table(
     }
 
     columns.forEach((col, i) => {
-      const val = row[col.key] ?? '—';
+      const rawVal = row[col.key];
+      const val: string =
+        rawVal === null || rawVal === undefined
+          ? '—'
+          : typeof rawVal === 'string'
+            ? rawVal
+            : typeof rawVal === 'number' || typeof rawVal === 'boolean'
+              ? String(rawVal)
+              : '—';
       doc
         .fillColor(TEXT)
         .fontSize(8)
-        .text(String(val), x + 4, rowY + 1, {
+        .text(val, x + 4, rowY + 1, {
           width: widths[i] - 8,
           align: col.align || 'left',
         });

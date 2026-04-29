@@ -286,7 +286,7 @@ export class PayrollProcessingController {
     const sql = `
 DO $$
 DECLARE
-  v_cid  uuid := '${clientId.replace(/[^a-f0-9\-]/gi, '')}';
+  v_cid  uuid := '${clientId.replace(/[^a-f0-9-]/gi, '')}';
   v_rs_id   uuid;
   v_st_id   uuid;
   v_comp_ag uuid;

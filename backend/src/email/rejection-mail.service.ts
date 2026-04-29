@@ -36,9 +36,7 @@ export class RejectionMailService {
   }): Promise<void> {
     const recipients = this.normalize(params.to);
     if (!recipients.length) {
-      this.log.warn(
-        `MCD rejection: no recipient (doc=${params.docName})`,
-      );
+      this.log.warn(`MCD rejection: no recipient (doc=${params.docName})`);
       return;
     }
 
@@ -76,9 +74,7 @@ export class RejectionMailService {
   }): Promise<void> {
     const recipients = this.normalize(params.to);
     if (!recipients.length) {
-      this.log.warn(
-        `Audit rejection: no recipient (doc=${params.docName})`,
-      );
+      this.log.warn(`Audit rejection: no recipient (doc=${params.docName})`);
       return;
     }
 

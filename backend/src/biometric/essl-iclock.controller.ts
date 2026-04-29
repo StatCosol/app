@@ -84,7 +84,7 @@ export class EsslIclockController {
     let raw = '';
     if (typeof body === 'string') raw = body;
     else if (Buffer.isBuffer(body)) raw = body.toString('utf8');
-    else if (body && typeof body === 'object') raw = String(body);
+    else if (body && typeof body === 'object') raw = JSON.stringify(body);
     if (!raw && req?.rawBody) raw = req.rawBody.toString('utf8');
 
     const tableU = (table || '').toUpperCase();

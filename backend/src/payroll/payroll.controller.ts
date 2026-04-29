@@ -813,9 +813,22 @@ export class ClientPayrollMonitoringController {
     >();
 
     for (const row of rows) {
-      const branchId = String(row?.branchId || 'UNMAPPED');
-      const status = String(row?.status || '').toUpperCase();
-      const createdAt = row?.createdAt ? String(row.createdAt) : null;
+      const branchIdRaw = row?.branchId;
+      const branchId =
+        typeof branchIdRaw === 'string' && branchIdRaw
+          ? branchIdRaw
+          : 'UNMAPPED';
+      const statusRaw = row?.status;
+      const status = (
+        typeof statusRaw === 'string' ? statusRaw : ''
+      ).toUpperCase();
+      const createdAtRaw = row?.createdAt;
+      const createdAt =
+        typeof createdAtRaw === 'string'
+          ? createdAtRaw
+          : createdAtRaw instanceof Date
+            ? createdAtRaw.toISOString()
+            : null;
       const existing = map.get(branchId) || {
         branchId,
         totalInputs: 0,
@@ -840,7 +853,8 @@ export class ClientPayrollMonitoringController {
           createdAt.localeCompare(existing.latestCreatedAt) > 0)
       ) {
         existing.latestCreatedAt = createdAt;
-        existing.latestInputId = String(row?.id || '');
+        const idRaw = row?.id;
+        existing.latestInputId = typeof idRaw === 'string' ? idRaw : '';
       }
       map.set(branchId, existing);
     }
@@ -863,7 +877,7 @@ export class ClientPayrollMonitoringController {
     const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
     return rows.filter((row) =>
       ['NEEDS_CLARIFICATION', 'REJECTED'].includes(
-        String(row?.status || '').toUpperCase(),
+        (typeof row?.status === 'string' ? row.status : '').toUpperCase(),
       ),
     );
   }
@@ -877,7 +891,7 @@ export class ClientPayrollMonitoringController {
     const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
     return rows.filter((row) =>
       ['DRAFT', 'NEEDS_CLARIFICATION', 'REJECTED'].includes(
-        String(row?.status || '').toUpperCase(),
+        (typeof row?.status === 'string' ? row.status : '').toUpperCase(),
       ),
     );
   }
@@ -890,7 +904,9 @@ export class ClientPayrollMonitoringController {
   ) {
     const rows = this.toArray(await this.svc.clientListPayrollInputs(user, q));
     return rows.filter(
-      (row) => String(row?.status || '').toUpperCase() === 'SUBMITTED',
+      (row) =>
+        (typeof row?.status === 'string' ? row.status : '').toUpperCase() ===
+        'SUBMITTED',
     );
   }
 }

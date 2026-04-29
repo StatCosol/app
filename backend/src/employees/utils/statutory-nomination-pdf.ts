@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Statutory Nomination PDF renderers.
  *
@@ -124,7 +123,11 @@ function resetX(doc: any): void {
   doc.x = doc.page.margins.left;
 }
 
-function cellValue(c: { key: string }, row: NomineeRow | undefined, idx: number): string {
+function cellValue(
+  c: { key: string },
+  row: NomineeRow | undefined,
+  idx: number,
+): string {
   if (!row) return c.key === 'sno' ? `${idx + 1}.` : '';
   if (c.key === 'sno') return `${idx + 1}.`;
   const v = row[c.key as keyof NomineeRow];
@@ -149,7 +152,10 @@ function drawNomineeTable(
   // Compute header height from the tallest header cell
   let headerTextH = 0;
   cols.forEach((c) => {
-    const h = doc.heightOfString(c.header, { width: c.width - 6, align: 'center' });
+    const h = doc.heightOfString(c.header, {
+      width: c.width - 6,
+      align: 'center',
+    });
     if (h > headerTextH) headerTextH = h;
   });
   const headerH = headerTextH + headerPad * 2;
@@ -164,7 +170,10 @@ function drawNomineeTable(
       const val = cellValue(c, rows[r], r);
       if (!val) return;
       const h =
-        doc.heightOfString(val, { width: c.width - 6, align: c.key === 'sno' ? 'center' : 'left' }) +
+        doc.heightOfString(val, {
+          width: c.width - 6,
+          align: c.key === 'sno' ? 'center' : 'left',
+        }) +
         rowPad * 2;
       if (h > maxH) maxH = h;
     });
@@ -184,7 +193,10 @@ function drawNomineeTable(
   let cx = startX;
   cols.forEach((c, i) => {
     if (i > 0) {
-      doc.moveTo(cx, top).lineTo(cx, top + headerH + numH).stroke();
+      doc
+        .moveTo(cx, top)
+        .lineTo(cx, top + headerH + numH)
+        .stroke();
     }
     doc
       .fontSize(8)
@@ -219,7 +231,10 @@ function drawNomineeTable(
     cx = startX;
     cols.forEach((c, ci) => {
       if (ci > 0) {
-        doc.moveTo(cx, rowY).lineTo(cx, rowY + rH).stroke();
+        doc
+          .moveTo(cx, rowY)
+          .lineTo(cx, rowY + rH)
+          .stroke();
       }
       const val = cellValue(c, rows[r], r);
       if (val) {
@@ -285,7 +300,9 @@ function witnessBlock(
   });
   doc.text('             Signature of Witnesses');
 
-  const w1 = witnessName ? `1. ${witnessName}${witnessAddress ? ', ' + witnessAddress : ''}` : '1.';
+  const w1 = witnessName
+    ? `1. ${witnessName}${witnessAddress ? ', ' + witnessAddress : ''}`
+    : '1.';
   doc.moveDown(0.5).text(w1);
   dottedLine(doc, doc.page.margins.left, doc.y + 4, 480);
   doc.moveDown(0.8);
@@ -315,7 +332,9 @@ function employerCertificate(doc: any): void {
 
   doc.text("Employer's Reference No., if any: ____________________");
   doc.moveDown(0.5);
-  doc.text('Signature of the employer / Officer authorised: ____________________');
+  doc.text(
+    'Signature of the employer / Officer authorised: ____________________',
+  );
   doc.moveDown(0.4);
   doc.text('Designation: ____________________');
   doc.moveDown(0.4);
@@ -357,7 +376,9 @@ export function renderGratuityFormF(
   doc
     .fontSize(8)
     .fillColor(MUTED)
-    .text('(Give here name or description of the establishment with full address)');
+    .text(
+      '(Give here name or description of the establishment with full address)',
+    );
   dottedLine(doc, doc.page.margins.left, doc.y + 6, 480);
   doc.moveDown(1);
   dottedLine(doc, doc.page.margins.left, doc.y + 6, 480);
@@ -383,10 +404,9 @@ export function renderGratuityFormF(
     { align: 'justify' },
   );
   doc.moveDown(0.3);
-  doc.text(
-    '4. (a) My father/mother/parents is/are not dependent on me.',
-    { align: 'justify' },
-  );
+  doc.text('4. (a) My father/mother/parents is/are not dependent on me.', {
+    align: 'justify',
+  });
   doc.text(
     "    (b) My husband's father/mother/parents is/are not dependent on my husband.",
     { align: 'justify' },
@@ -397,10 +417,9 @@ export function renderGratuityFormF(
     { align: 'justify' },
   );
   doc.moveDown(0.3);
-  doc.text(
-    '6. Nomination made herein invalidates my previous nomination.',
-    { align: 'justify' },
-  );
+  doc.text('6. Nomination made herein invalidates my previous nomination.', {
+    align: 'justify',
+  });
   doc.moveDown(0.6);
 
   // Nominees table
@@ -410,15 +429,27 @@ export function renderGratuityFormF(
     .text('Nominee(s)', { align: 'center', underline: true })
     .moveDown(0.4);
 
-  const members = (nominations[0]?.members ?? []) as NomineeRow[];
+  const members = nominations[0]?.members ?? [];
   drawNomineeTable(
     doc,
     [
       { header: 'S.No.', width: 38, key: 'sno' },
-      { header: 'Name in full with full address of nominee(s)', width: 220, key: 'name' },
-      { header: 'Relationship with the employee', width: 90, key: 'relationship' },
+      {
+        header: 'Name in full with full address of nominee(s)',
+        width: 220,
+        key: 'name',
+      },
+      {
+        header: 'Relationship with the employee',
+        width: 90,
+        key: 'relationship',
+      },
       { header: 'Age of nominee', width: 60, key: 'age' },
-      { header: 'Proportion by which the gratuity will be shared', width: 107, key: 'sharePct' },
+      {
+        header: 'Proportion by which the gratuity will be shared',
+        width: 107,
+        key: 'sharePct',
+      },
     ],
     members,
     3,
@@ -438,8 +469,14 @@ export function renderGratuityFormF(
     { label: '2. Sex', value: emp.gender },
     { label: '3. Religion', value: '' },
     { label: '4. Whether unmarried/married/widow/widower', value: '' },
-    { label: '5. Department/Branch/Section where employed', value: emp.department },
-    { label: '6. Post held with Ticket No. or Serial No., if any', value: `${emp.designation || ''}${emp.employeeCode ? ' (' + emp.employeeCode + ')' : ''}` },
+    {
+      label: '5. Department/Branch/Section where employed',
+      value: emp.department,
+    },
+    {
+      label: '6. Post held with Ticket No. or Serial No., if any',
+      value: `${emp.designation || ''}${emp.employeeCode ? ' (' + emp.employeeCode + ')' : ''}`,
+    },
     { label: '7. Date of appointment', value: emp.dateOfJoining },
   ];
   stmt.forEach((row) => {
@@ -453,12 +490,17 @@ export function renderGratuityFormF(
   });
   doc.moveDown(0.3);
   doc.text('Permanent address:');
-  ['Village', 'Thana', 'Sub-division', 'Post Office', 'District', 'State'].forEach(
-    (lbl) => {
-      pageBreakIfNeeded(doc, 22);
-      doc.text(`    ${lbl}: ________________________________`);
-    },
-  );
+  [
+    'Village',
+    'Thana',
+    'Sub-division',
+    'Post Office',
+    'District',
+    'State',
+  ].forEach((lbl) => {
+    pageBreakIfNeeded(doc, 22);
+    doc.text(`    ${lbl}: ________________________________`);
+  });
 
   signatureBlock(doc);
   witnessBlock(
@@ -486,7 +528,10 @@ export function renderGratuityFormF(
   doc.text('Date: ____________________');
   doc.text('Signature of the Employee: ____________________');
   doc.moveDown(0.4);
-  doc.fontSize(8).fillColor(MUTED).text('Note.—Strike out the words/paragraphs not applicable.');
+  doc
+    .fontSize(8)
+    .fillColor(MUTED)
+    .text('Note.—Strike out the words/paragraphs not applicable.');
 }
 
 /* ───────────────────────── PF — Form 2 (Revised) ───────────────────────── */
@@ -502,27 +547,35 @@ export function renderEpfForm2(
     .text('FORM 2 (Revised)', { align: 'center' })
     .fontSize(10)
     .fillColor(MUTED)
-    .text('[See Paragraph 33 and 61(1) of the Employees\' Provident Funds Scheme, 1952 and', {
+    .text(
+      "[See Paragraph 33 and 61(1) of the Employees' Provident Funds Scheme, 1952 and",
+      {
+        align: 'center',
+      },
+    )
+    .text("Paragraph 18 of the Employees' Pension Scheme, 1995]", {
       align: 'center',
-    })
-    .text('Paragraph 18 of the Employees\' Pension Scheme, 1995]', { align: 'center' });
+    });
   doc
     .moveDown(0.4)
     .fontSize(12)
     .fillColor(TEXT)
-    .text('Nomination and Declaration Form for Unexempted/Exempted Establishments', {
-      align: 'center',
-      underline: true,
-    })
+    .text(
+      'Nomination and Declaration Form for Unexempted/Exempted Establishments',
+      {
+        align: 'center',
+        underline: true,
+      },
+    )
     .moveDown(0.2)
     .fontSize(10)
     .text('Declaration by a person taking up employment in an establishment', {
       align: 'center',
     })
-    .text('in which the Employees\' Provident Funds Scheme, 1952 and the', {
+    .text("in which the Employees' Provident Funds Scheme, 1952 and the", {
       align: 'center',
     })
-    .text('Employees\' Pension Scheme, 1995 are in force.', { align: 'center' })
+    .text("Employees' Pension Scheme, 1995 are in force.", { align: 'center' })
     .moveDown(0.6);
 
   const lbl = (l: string, v?: string | null) => {
@@ -544,7 +597,10 @@ export function renderEpfForm2(
   lbl('7. PAN:', emp.pan);
   lbl('8. Aadhaar:', emp.aadhaar);
   lbl('9. Date of Joining:', emp.dateOfJoining);
-  lbl('10. Designation / Department:', `${emp.designation || ''}${emp.department ? ' / ' + emp.department : ''}`);
+  lbl(
+    '10. Designation / Department:',
+    `${emp.designation || ''}${emp.department ? ' / ' + emp.department : ''}`,
+  );
   doc.moveDown(0.6);
 
   // Part A — EPF Nomination
@@ -558,7 +614,7 @@ export function renderEpfForm2(
     .fontSize(10)
     .fillColor(TEXT)
     .text(
-      'I hereby nominate the person(s) / cancel the nomination made by me previously and nominate the person(s) mentioned below to receive the amount standing to my credit in the Employees\' Provident Fund, in the event of my death.',
+      "I hereby nominate the person(s) / cancel the nomination made by me previously and nominate the person(s) mentioned below to receive the amount standing to my credit in the Employees' Provident Fund, in the event of my death.",
       { align: 'justify' },
     )
     .moveDown(0.4);
@@ -572,7 +628,11 @@ export function renderEpfForm2(
       { header: 'Address', width: 120, key: 'address' },
       { header: 'Relationship', width: 70, key: 'relationship' },
       { header: 'Date of Birth', width: 70, key: 'dateOfBirth' },
-      { header: 'Total amount or share of accumulation in P.F. to be paid', width: 87, key: 'sharePct' },
+      {
+        header: 'Total amount or share of accumulation in P.F. to be paid',
+        width: 87,
+        key: 'sharePct',
+      },
     ],
     pfNoms,
     3,
@@ -594,12 +654,18 @@ export function renderEpfForm2(
   if (minors.length) {
     minors.forEach((m, i) => {
       pageBreakIfNeeded(doc, 24);
-      doc.fontSize(10).fillColor(TEXT).text(
-        `${i + 1}. Minor: ${m.memberName || m.name || '—'}  |  Guardian: ${m.guardianName || '—'}${m.guardianRelationship ? ' (' + m.guardianRelationship + ')' : ''}${m.guardianAddress ? ' — ' + m.guardianAddress : ''}`,
-      );
+      doc
+        .fontSize(10)
+        .fillColor(TEXT)
+        .text(
+          `${i + 1}. Minor: ${m.memberName || m.name || '—'}  |  Guardian: ${m.guardianName || '—'}${m.guardianRelationship ? ' (' + m.guardianRelationship + ')' : ''}${m.guardianAddress ? ' — ' + m.guardianAddress : ''}`,
+        );
     });
   } else {
-    doc.fontSize(10).fillColor(MUTED).text('Not applicable (no minor nominees).');
+    doc
+      .fontSize(10)
+      .fillColor(MUTED)
+      .text('Not applicable (no minor nominees).');
   }
 
   doc.moveDown(0.6);
@@ -607,14 +673,13 @@ export function renderEpfForm2(
     .fontSize(9)
     .fillColor(MUTED)
     .text(
-      '* Certified that I have no family as defined in para 2(g) of the Employees\' Provident Funds Scheme, 1952 and should I acquire a family hereafter the above nomination should be deemed as cancelled.',
+      "* Certified that I have no family as defined in para 2(g) of the Employees' Provident Funds Scheme, 1952 and should I acquire a family hereafter the above nomination should be deemed as cancelled.",
       { align: 'justify' },
     )
     .moveDown(0.2)
-    .text(
-      '** Certified that my father/mother is/are dependent upon me.',
-      { align: 'justify' },
-    )
+    .text('** Certified that my father/mother is/are dependent upon me.', {
+      align: 'justify',
+    })
     .moveDown(0.2)
     .fontSize(8)
     .text('(* Strike out whichever is not applicable.)');
@@ -654,7 +719,7 @@ export function renderEpfForm2(
     .fontSize(9)
     .fillColor(MUTED)
     .text(
-      '*Certified that I have no family, as defined in para 2(vii) of the Employees\' Pension Scheme, 1995 and should I acquire a family hereafter, I shall furnish particulars thereon in the above form.',
+      "*Certified that I have no family, as defined in para 2(vii) of the Employees' Pension Scheme, 1995 and should I acquire a family hereafter, I shall furnish particulars thereon in the above form.",
       { align: 'justify' },
     );
 
@@ -680,9 +745,13 @@ export function renderEpfForm2(
   doc.text('Place: ____________________');
   doc.text('Date:  ____________________');
   doc.moveDown(0.4);
-  doc.text('Signature of the Employer / Authorised Officer: ____________________');
+  doc.text(
+    'Signature of the Employer / Authorised Officer: ____________________',
+  );
   doc.text('Designation: ____________________');
-  doc.text('Name & address of the Factory / Establishment or Rubber Stamp thereof:');
+  doc.text(
+    'Name & address of the Factory / Establishment or Rubber Stamp thereof:',
+  );
   dottedLine(doc, doc.page.margins.left, doc.y + 6, 480);
   doc.moveDown(1);
   dottedLine(doc, doc.page.margins.left, doc.y + 6, 480);
@@ -717,7 +786,10 @@ export function renderGenericNomination(
   lbl('4. Date of Birth:', emp.dateOfBirth);
   lbl('5. Gender:', emp.gender);
   lbl('6. Date of Joining:', emp.dateOfJoining);
-  lbl('7. Designation / Department:', `${emp.designation || ''}${emp.department ? ' / ' + emp.department : ''}`);
+  lbl(
+    '7. Designation / Department:',
+    `${emp.designation || ''}${emp.department ? ' / ' + emp.department : ''}`,
+  );
   doc.moveDown(0.4);
 
   doc

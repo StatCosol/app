@@ -215,8 +215,9 @@ export class AuditsService implements OnModuleInit {
     // Convention: dueDate marks the day the audit is to be conducted, so we
     // lock contractor uploads from that date until +7 days (the typical
     // on-site review window). Auditor can override later via setUploadLock.
-    const { uploadLockFrom, uploadLockUntil } =
-      this.deriveUploadLockWindow(dto.dueDate ?? null);
+    const { uploadLockFrom, uploadLockUntil } = this.deriveUploadLockWindow(
+      dto.dueDate ?? null,
+    );
 
     const entity = this.repo.create({
       auditCode,
@@ -241,7 +242,9 @@ export class AuditsService implements OnModuleInit {
     // Item #11: carry forward contractor docs from the most recent prior
     // audit for this client/branch (best-effort; never fails creation).
     this.carryForwardContractorDocuments(saved).catch((e) =>
-      this.logger.warn(`carry-forward failed for audit ${saved.id}: ${e?.message || e}`),
+      this.logger.warn(
+        `carry-forward failed for audit ${saved.id}: ${e?.message || e}`,
+      ),
     );
 
     return { id: saved.id, auditCode: saved.auditCode };
@@ -259,9 +262,10 @@ export class AuditsService implements OnModuleInit {
    *   - Returns nulls (no lock) when no dueDate is provided. The auditor
    *     can still set a lock manually via setUploadLock.
    */
-  private deriveUploadLockWindow(
-    dueDate: string | null | undefined,
-  ): { uploadLockFrom: string | null; uploadLockUntil: string | null } {
+  private deriveUploadLockWindow(dueDate: string | null | undefined): {
+    uploadLockFrom: string | null;
+    uploadLockUntil: string | null;
+  } {
     if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
       return { uploadLockFrom: null, uploadLockUntil: null };
     }
@@ -2652,7 +2656,10 @@ export class AuditsService implements OnModuleInit {
     let entries: Array<[string, string?]> =
       typeChecklistMap[audit.auditType] || [];
 
-    if (audit.auditType === 'CONTRACTOR' && audit.contractorUserId) {
+    if (
+      (audit.auditType as string) === 'CONTRACTOR' &&
+      audit.contractorUserId
+    ) {
       const CONTRACTOR_DOC_LABELS: Record<string, string> = {
         WAGE_REGISTER: 'Wage Register',
         MUSTER_ROLL: 'Muster Roll',

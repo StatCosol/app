@@ -81,6 +81,7 @@ describe('AuthService.login', () => {
     deletedAt: null,
     ownerCcoId: null,
     employeeId: null,
+    scheduledEmployment: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastLoginAt: null,

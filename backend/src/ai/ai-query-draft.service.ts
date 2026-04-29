@@ -135,7 +135,10 @@ Generate a professional draft reply, key clarifying questions, and confidence.`;
           confidence = 0.5;
         }
       } catch (aiErr) {
-        this.logger.warn(`AI call failed, using rule-based fallback: ${aiErr}`);
+        const aiErrMsg = aiErr instanceof Error ? aiErr.message : 'unknown';
+        this.logger.warn(
+          `AI call failed, using rule-based fallback: ${aiErrMsg}`,
+        );
         draftReply = this.fallbackReply(route, params.message);
         keyQuestions = this.fallbackQuestions(route);
         confidence = 0.5;

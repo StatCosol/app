@@ -202,8 +202,9 @@ export class ReturnsFilingEngineService {
             });
             tasksCreated++;
           } catch (err) {
+            const errMsg = err instanceof Error ? err.message : 'unknown';
             this.logger.warn(
-              `Failed to create task for filing ${filingId}: ${err}`,
+              `Failed to create task for filing ${filingId}: ${errMsg}`,
             );
           }
         }

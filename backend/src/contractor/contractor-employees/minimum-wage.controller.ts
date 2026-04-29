@@ -73,7 +73,12 @@ export class MinimumWageController {
     @Query('onDate') onDate?: string,
     @Query('scheduledEmployment') scheduledEmployment?: string,
   ) {
-    return this.svc.lookup(stateCode, skillCategory, onDate, scheduledEmployment);
+    return this.svc.lookup(
+      stateCode,
+      skillCategory,
+      onDate,
+      scheduledEmployment,
+    );
   }
 
   @Post()
@@ -98,15 +103,18 @@ export class MinimumWageController {
   async update(@Param('id') id: string, @Body() dto: Partial<UpsertWageDto>) {
     const row = await this.repo.findOne({ where: { id } });
     if (!row) return { error: 'not found' };
-    if (dto.stateCode !== undefined) row.stateCode = dto.stateCode.toUpperCase();
+    if (dto.stateCode !== undefined)
+      row.stateCode = dto.stateCode.toUpperCase();
     if (dto.skillCategory !== undefined) row.skillCategory = dto.skillCategory;
     if (dto.scheduledEmployment !== undefined)
       row.scheduledEmployment = dto.scheduledEmployment ?? null;
-    if (dto.monthlyWage !== undefined) row.monthlyWage = Number(dto.monthlyWage);
+    if (dto.monthlyWage !== undefined)
+      row.monthlyWage = Number(dto.monthlyWage);
     if (dto.dailyWage !== undefined)
       row.dailyWage = dto.dailyWage != null ? Number(dto.dailyWage) : null;
     if (dto.effectiveFrom !== undefined) row.effectiveFrom = dto.effectiveFrom;
-    if (dto.effectiveTo !== undefined) row.effectiveTo = dto.effectiveTo ?? null;
+    if (dto.effectiveTo !== undefined)
+      row.effectiveTo = dto.effectiveTo ?? null;
     if (dto.source !== undefined) row.source = dto.source ?? null;
     if (dto.notes !== undefined) row.notes = dto.notes ?? null;
     return this.repo.save(row);

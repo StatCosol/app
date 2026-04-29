@@ -139,8 +139,9 @@ Assess this document and provide additional issues and suggested fixes.`;
           suggestedFixes = this.fallbackFixes(issues);
         }
       } catch (aiErr) {
+        const aiErrMsg = aiErr instanceof Error ? aiErr.message : 'unknown';
         this.logger.warn(
-          `AI enhancement failed, using rule-only results: ${aiErr}`,
+          `AI enhancement failed, using rule-only results: ${aiErrMsg}`,
         );
         suggestedFixes = this.fallbackFixes(issues);
       }

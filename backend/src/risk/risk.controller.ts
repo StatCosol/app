@@ -33,7 +33,9 @@ export class RiskController {
    * Admin-only manual trigger for the daily risk snapshot job.
    * Useful to populate trend data on demand without waiting for the 1 AM cron.
    */
-  @ApiOperation({ summary: 'Manually trigger daily risk snapshot (admin only)' })
+  @ApiOperation({
+    summary: 'Manually trigger daily risk snapshot (admin only)',
+  })
   @Post('snapshot-now')
   @Roles('ADMIN', 'CCO', 'CEO')
   async snapshotNow(): Promise<{ ok: true; message: string }> {

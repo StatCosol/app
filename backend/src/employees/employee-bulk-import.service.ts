@@ -593,13 +593,21 @@ export class EmployeeBulkImportService {
           .toLowerCase();
       }
       if ('result' in (value as Record<string, unknown>)) {
-        return String((value as { result: unknown }).result)
+        const r = (value as { result: unknown }).result;
+        return (typeof r === 'string' || typeof r === 'number' ? String(r) : '')
           .replace(/\s+/g, ' ')
           .trim()
           .toLowerCase();
       }
     }
-    return String(value).replace(/\s+/g, ' ').trim().toLowerCase();
+    return (
+      typeof value === 'string' || typeof value === 'number'
+        ? String(value)
+        : ''
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
   }
 
   private stringFromCellValue(value: unknown): string | null {

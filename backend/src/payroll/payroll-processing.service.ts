@@ -791,15 +791,27 @@ export class PayrollProcessingService {
 
   private normalizeHeader(value: unknown): string {
     if (value === null || value === undefined) return '';
-    return String(value).replace(/\s+/g, ' ').trim().toLowerCase();
+    const s =
+      typeof value === 'string' || typeof value === 'number'
+        ? String(value)
+        : '';
+    return s.replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
   private cellStr(value: unknown): string {
     if (value && typeof value === 'object') {
-      if ('result' in value) return String(value.result);
-      if ('text' in value) return String(value.text);
+      if ('result' in value) {
+        const r = (value as { result: unknown }).result;
+        return typeof r === 'string' || typeof r === 'number' ? String(r) : '';
+      }
+      if ('text' in value) {
+        const t = (value as { text: unknown }).text;
+        return typeof t === 'string' || typeof t === 'number' ? String(t) : '';
+      }
     }
-    return value ? String(value).trim() : '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number') return String(value);
+    return '';
   }
 
   private cellNum(value: unknown): number | null {

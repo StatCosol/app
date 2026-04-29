@@ -105,7 +105,7 @@ interface FormState extends UpsertWagePayload {
       [data]="rows"
       emptyMessage="No minimum-wage rows found.">
       <ng-template uiTableCell="monthlyWage" let-row>₹{{ row.monthlyWage | number:'1.2-2' }}</ng-template>
-      <ng-template uiTableCell="dailyWage" let-row>{{ row.dailyWage != null ? '₹' + (row.dailyWage | number:'1.2-2') : '—' }}</ng-template>
+      <ng-template uiTableCell="dailyWage" let-row>{{ row.dailyWage !== null && row.dailyWage !== undefined ? '₹' + (row.dailyWage | number:'1.2-2') : '—' }}</ng-template>
       <ng-template uiTableCell="effectiveTo" let-row>{{ row.effectiveTo || '—' }}</ng-template>
       <ng-template uiTableCell="scheduledEmployment" let-row>{{ row.scheduledEmployment || 'Default' }}</ng-template>
       <ng-template uiTableCell="actions" let-row>
@@ -448,7 +448,7 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
     const s = String(v).trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
     // dd/mm/yyyy or dd-mm-yyyy
-    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
     if (m) {
       const dd = m[1].padStart(2, '0');
       const mm = m[2].padStart(2, '0');

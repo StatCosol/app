@@ -3,7 +3,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { ValidationPipe, VersioningType, Logger, RequestMethod } from '@nestjs/common';
+import {
+  ValidationPipe,
+  VersioningType,
+  Logger,
+  RequestMethod,
+} from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';

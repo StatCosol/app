@@ -94,7 +94,8 @@ export class DueRemindersJob {
           }
         }
       } catch (err) {
-        this.logger.warn(`Audit schedule reminder sub-step failed: ${err}`);
+        const errMsg = err instanceof Error ? err.message : 'unknown';
+        this.logger.warn(`Audit schedule reminder sub-step failed: ${errMsg}`);
       }
 
       this.logger.log(

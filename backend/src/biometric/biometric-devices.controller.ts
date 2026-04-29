@@ -17,10 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { BiometricDeviceEntity } from './entities/biometric-device.entity';
-import {
-  RegisterDeviceDto,
-  UpdateDeviceDto,
-} from './biometric-devices.dto';
+import { RegisterDeviceDto, UpdateDeviceDto } from './biometric-devices.dto';
 
 @ApiTags('Biometric Devices')
 @ApiBearerAuth('JWT')
@@ -75,7 +72,9 @@ export class BiometricDevicesController {
     return this.repo.save(device);
   }
 
-  @ApiOperation({ summary: 'Enable/disable a device or change its branch/label' })
+  @ApiOperation({
+    summary: 'Enable/disable a device or change its branch/label',
+  })
   @Patch(':id')
   async update(
     @CurrentUser() user: ReqUser,
@@ -94,7 +93,9 @@ export class BiometricDevicesController {
     return this.repo.save(device);
   }
 
-  @ApiOperation({ summary: 'Rotate the push token (invalidates current SN auth)' })
+  @ApiOperation({
+    summary: 'Rotate the push token (invalidates current SN auth)',
+  })
   @Post(':id/rotate-token')
   async rotate(@CurrentUser() user: ReqUser, @Param('id') id: string) {
     const clientId = user?.clientId;

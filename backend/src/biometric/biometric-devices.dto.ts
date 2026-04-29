@@ -11,16 +11,23 @@ export class RegisterDeviceDto {
   @MaxLength(80)
   serialNumber: string;
 
-  @IsOptional() @IsUUID()
+  @IsOptional()
+  @IsUUID()
   branchId?: string;
 
-  @IsOptional() @IsString() @MaxLength(40)
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
   vendor?: string;
 
-  @IsOptional() @IsString() @MaxLength(80)
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   model?: string;
 
-  @IsOptional() @IsString() @MaxLength(120)
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
   label?: string;
 }
 

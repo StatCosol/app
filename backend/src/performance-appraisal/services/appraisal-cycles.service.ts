@@ -104,7 +104,7 @@ export class AppraisalCyclesService {
   async update(id: string, dto: UpdateAppraisalCycleDto) {
     const cycle = await this.cycleRepo.findOne({ where: { id } });
     if (!cycle) throw new NotFoundException('Cycle not found');
-    if (cycle.status === CycleStatus.CLOSED)
+    if (cycle.status === (CycleStatus.CLOSED as string))
       throw new BadRequestException('Cannot modify closed cycle');
 
     Object.assign(cycle, dto);
@@ -114,7 +114,7 @@ export class AppraisalCyclesService {
   async activate(id: string) {
     const cycle = await this.cycleRepo.findOne({ where: { id } });
     if (!cycle) throw new NotFoundException('Cycle not found');
-    if (cycle.status !== CycleStatus.DRAFT)
+    if (cycle.status !== (CycleStatus.DRAFT as string))
       throw new BadRequestException('Only draft cycles can be activated');
 
     cycle.status = CycleStatus.ACTIVE;
@@ -132,7 +132,7 @@ export class AppraisalCyclesService {
   async generateEmployees(id: string) {
     const cycle = await this.cycleRepo.findOne({ where: { id } });
     if (!cycle) throw new NotFoundException('Cycle not found');
-    if (cycle.status === CycleStatus.CLOSED)
+    if (cycle.status === (CycleStatus.CLOSED as string))
       throw new BadRequestException('Cycle is closed');
 
     const scopes = await this.scopeRepo.find({

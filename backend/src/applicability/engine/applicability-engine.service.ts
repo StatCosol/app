@@ -343,8 +343,9 @@ export class ApplicabilityEngineService {
     tpl: Record<string, unknown>,
     actProfilesMap: Record<string, Record<string, unknown>>,
   ): Promise<number> {
-    const actCode = String(tpl.actCode ?? '');
-    const expiryField = String(tpl.expiryField ?? 'expiryDate');
+    const actCode: string = typeof tpl.actCode === 'string' ? tpl.actCode : '';
+    const expiryField: string =
+      typeof tpl.expiryField === 'string' ? tpl.expiryField : 'expiryDate';
     if (!actCode) return 0;
 
     const profile = actProfilesMap[actCode];

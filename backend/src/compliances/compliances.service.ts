@@ -384,7 +384,7 @@ export class CompliancesService {
         branchId: r.branchId as string,
         complianceId: String(r.complianceId),
         complianceName: r.complianceName as string,
-        ownerUserId: r.ownerUserId ? String(r.ownerUserId) : null,
+        ownerUserId: r.ownerUserId ? String(r.ownerUserId as string) : null,
         status: r.status as ChecklistStatus,
       })),
       total: rows.length,
