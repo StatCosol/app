@@ -20,6 +20,7 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/assets ./assets
 
 # Ensure uploads directory exists
 RUN mkdir -p uploads/news uploads/logos uploads/temp && chown -R statco:statco /app

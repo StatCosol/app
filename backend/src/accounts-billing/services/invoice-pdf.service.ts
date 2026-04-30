@@ -321,7 +321,32 @@ export class InvoicePdfService {
       width: 200,
       align: 'right',
     });
-    doc.y += 40;
+    doc.y += 6;
+    // Signature image (if present)
+    const sigCandidates = [
+      path.join(process.cwd(), 'assets', 'signature.png'),
+      path.join(__dirname, '..', '..', '..', '..', 'assets', 'signature.png'),
+      path.join(__dirname, '..', '..', '..', 'assets', 'signature.png'),
+    ];
+    const sigPath = sigCandidates.find((p) => {
+      try {
+        return fs.existsSync(p);
+      } catch {
+        return false;
+      }
+    });
+    if (sigPath) {
+      try {
+        const imgW = 110;
+        const imgH = 60;
+        doc.image(sigPath, sigX + 200 - imgW, doc.y, { width: imgW, height: imgH });
+        doc.y += imgH + 2;
+      } catch (e) {
+        doc.y += 40;
+      }
+    } else {
+      doc.y += 40;
+    }
     doc.font('Helvetica-Bold').text('Authorized Signatory', sigX, doc.y, {
       width: 200,
       align: 'right',

@@ -31,7 +31,16 @@ export class EmailService {
     title: string,
     bodyHtml: string,
     fromOverride?: { name?: string; email?: string },
-    extras?: { cc?: string | string[]; bcc?: string | string[] },
+    extras?: {
+      cc?: string | string[];
+      bcc?: string | string[];
+      attachments?: Array<{
+        filename: string;
+        content?: Buffer | string;
+        path?: string;
+        contentType?: string;
+      }>;
+    },
   ) {
     if (!this.enabled) {
       const toStr = Array.isArray(to) ? to.join(',') : to;
@@ -60,6 +69,7 @@ export class EmailService {
         bcc: extras?.bcc,
         subject,
         html,
+        attachments: extras?.attachments,
       });
       return { ok: true, messageId: info.messageId } as const;
     } catch (e: unknown) {

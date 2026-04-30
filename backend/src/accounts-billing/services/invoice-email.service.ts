@@ -1,8 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as fs from 'fs';
-import * as path from 'path';
 import { InvoiceEmailLog } from '../entities';
 import { EmailService } from '../../email/email.service';
 import { InvoicesService } from './invoices.service';
@@ -29,9 +27,15 @@ export class InvoiceEmailService {
   ) {
     const invoice = await this.invoicesService.findOne(invoiceId);
 
-    let pdfPath = invoice.pdfPath;
-    if (!pdfPath) {
-      pdfPath = await this.pdfService.generatePdf(invoiceId);
+    // Always generate fresh PDF buffer for the attachment
+    const { buffer: pdfBuffer, fileName: pdfFileName } =
+      await this.pdfService.generatePdfBuffer(invoiceId);
+    if (!invoice.pdfPath) {
+      try {
+        await this.pdfService.generatePdf(invoiceId);
+      } catch {
+        /* best effort persist */
+      }
     }
 
     const subject =
@@ -52,12 +56,22 @@ export class InvoiceEmailService {
     await this.emailLogRepo.save(log);
 
     try {
-      const absolutePath = path.join(process.cwd(), pdfPath.replace(/^\//, ''));
       const result = await this.emailService.send(
         dto.toEmail,
         subject,
         `Invoice ${invoice.invoiceNumber}`,
         `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        undefined,
+        {
+          cc: dto.ccEmail || undefined,
+          attachments: [
+            {
+              filename: pdfFileName,
+              content: pdfBuffer,
+              contentType: 'application/pdf',
+            },
+          ],
+        },
       );
 
       if ('ok' in result && result.ok) {
