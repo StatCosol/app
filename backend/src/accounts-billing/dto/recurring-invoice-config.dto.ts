@@ -52,6 +52,10 @@ export class CreateRecurringInvoiceConfigDto {
 
 export class UpdateRecurringInvoiceConfigDto {
   @IsOptional()
+  @IsUUID()
+  billingClientId?: string;
+
+  @IsOptional()
   @IsString()
   invoiceName?: string;
 
