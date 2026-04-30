@@ -334,10 +334,15 @@ export class InvoicePdfService {
     });
     if (sigPath) {
       try {
-        const imgW = 110;
-        const imgH = 60;
-        doc.image(sigPath, sigX + 200 - imgW, doc.y, { width: imgW, height: imgH });
-        doc.y += imgH + 2;
+        // Seal is circular - keep aspect ratio square to avoid stretching.
+        const imgSize = 75;
+        // Center the seal under the "For StatCo Solutions" line (sigX..sigX+200).
+        doc.image(sigPath, sigX + (200 - imgSize) / 2, doc.y, {
+          fit: [imgSize, imgSize],
+          align: 'center',
+          valign: 'center',
+        });
+        doc.y += imgSize + 2;
       } catch (e) {
         this.log.warn(`Signature image render failed: ${(e as Error).message}`);
         doc.y += 40;
