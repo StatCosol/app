@@ -63,8 +63,10 @@ export class RecurringInvoicesController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRecurringInvoiceConfigDto,
+    @Req() req: any,
   ) {
-    return this.service.update(id, dto);
+    const userId = req.user?.userId || req.user?.id;
+    return this.service.update(id, dto, userId);
   }
 
   @ApiOperation({ summary: 'Activate or deactivate a recurring config' })
@@ -72,14 +74,17 @@ export class RecurringInvoicesController {
   toggle(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { isActive: boolean },
+    @Req() req: any,
   ) {
-    return this.service.toggleActive(id, !!body.isActive);
+    const userId = req.user?.userId || req.user?.id;
+    return this.service.toggleActive(id, !!body.isActive, userId);
   }
 
   @ApiOperation({ summary: 'Delete a recurring config' })
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.remove(id);
+  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    const userId = req.user?.userId || req.user?.id;
+    return this.service.remove(id, userId);
   }
 
   @ApiOperation({

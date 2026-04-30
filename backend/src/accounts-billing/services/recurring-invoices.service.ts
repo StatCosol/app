@@ -6,6 +6,7 @@ import {
   CreateRecurringInvoiceConfigDto,
   UpdateRecurringInvoiceConfigDto,
 } from '../dto';
+import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 
 @Injectable()
 export class RecurringInvoicesService {
@@ -14,6 +15,7 @@ export class RecurringInvoicesService {
     private readonly repo: Repository<RecurringInvoiceConfig>,
     @InjectRepository(BillingClient)
     private readonly clientRepo: Repository<BillingClient>,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   private validateDates(
@@ -49,7 +51,15 @@ export class RecurringInvoicesService {
       isActive: dto.isActive ?? true,
       createdBy: userId,
     });
-    return this.repo.save(cfg);
+    const saved = await this.repo.save(cfg);
+    await this.auditLogs.log({
+      entityType: 'RECURRING_INVOICE',
+      entityId: saved.id,
+      action: 'CREATE',
+      performedBy: userId,
+      afterJson: saved as unknown as Record<string, unknown>,
+    });
+    return saved;
   }
 
   async findAll() {
@@ -68,26 +78,54 @@ export class RecurringInvoicesService {
     return cfg;
   }
 
-  async update(id: string, dto: UpdateRecurringInvoiceConfigDto) {
+  async update(id: string, dto: UpdateRecurringInvoiceConfigDto, userId?: string) {
     const cfg = await this.findOne(id);
+    const before = { ...cfg } as unknown as Record<string, unknown>;
     this.validateDates(
       dto.startDate ?? cfg.startDate,
       dto.endDate ?? cfg.endDate,
       dto.nextRunDate,
     );
     Object.assign(cfg, dto);
-    return this.repo.save(cfg);
+    const saved = await this.repo.save(cfg);
+    await this.auditLogs.log({
+      entityType: 'RECURRING_INVOICE',
+      entityId: id,
+      action: 'UPDATE',
+      performedBy: userId ?? null,
+      beforeJson: before,
+      afterJson: saved as unknown as Record<string, unknown>,
+    });
+    return saved;
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId?: string) {
     const cfg = await this.findOne(id);
+    const before = { ...cfg } as unknown as Record<string, unknown>;
     await this.repo.remove(cfg);
+    await this.auditLogs.log({
+      entityType: 'RECURRING_INVOICE',
+      entityId: id,
+      action: 'SOFT_DELETE',
+      performedBy: userId ?? null,
+      beforeJson: before,
+    });
     return { success: true };
   }
 
-  async toggleActive(id: string, isActive: boolean) {
+  async toggleActive(id: string, isActive: boolean, userId?: string) {
     const cfg = await this.findOne(id);
+    const previous = cfg.isActive;
     cfg.isActive = isActive;
-    return this.repo.save(cfg);
+    const saved = await this.repo.save(cfg);
+    await this.auditLogs.log({
+      entityType: 'RECURRING_INVOICE',
+      entityId: id,
+      action: 'STATUS_CHANGE',
+      performedBy: userId ?? null,
+      beforeJson: { isActive: previous },
+      afterJson: { isActive: saved.isActive },
+    });
+    return saved;
   }
 }

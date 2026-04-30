@@ -18,7 +18,8 @@ export type AuditEntityType =
   | 'DOCUMENT'
   | 'AUDIT_OBSERVATION'
   | 'MCD'
-  | 'NOTIFICATION';
+  | 'NOTIFICATION'
+  | 'RECURRING_INVOICE';
 
 export type AuditAction =
   | 'CREATE'
