@@ -79,6 +79,7 @@ export class RecurringInvoicesController {
   @ApiOperation({
     summary: 'Manually trigger the monthly recurring invoice run (admin only)',
   })
+  @Roles('ADMIN')
   @Post('run-now')
   async runNow() {
     await this.cron.runMonthly();
