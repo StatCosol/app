@@ -81,10 +81,15 @@ export class RecurringInvoicesService {
   async update(id: string, dto: UpdateRecurringInvoiceConfigDto, userId?: string) {
     const cfg = await this.findOne(id);
     const before = { ...cfg } as unknown as Record<string, unknown>;
+    // Only enforce "nextRunDate not in the past" when it's actually being
+    // changed to a different value. Editing other fields on an existing config
+    // whose nextRunDate is already in the past must remain allowed.
+    const nextRunChanged =
+      dto.nextRunDate !== undefined && dto.nextRunDate !== cfg.nextRunDate;
     this.validateDates(
       dto.startDate ?? cfg.startDate,
       dto.endDate ?? cfg.endDate,
-      dto.nextRunDate,
+      nextRunChanged ? dto.nextRunDate : undefined,
     );
     Object.assign(cfg, dto);
     const saved = await this.repo.save(cfg);
