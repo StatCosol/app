@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -27,6 +28,11 @@ import { RecurringInvoiceCron } from '../jobs/recurring-invoice.cron';
 @Roles('ADMIN', 'ACCOUNTS')
 @Controller({ path: 'billing/recurring', version: '1' })
 export class RecurringInvoicesController {
+  // Idempotency: prevent concurrent / repeated run-now within a short window
+  private static lastRunAt = 0;
+  private static runInFlight = false;
+  private static readonly RUN_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
   constructor(
     private readonly service: RecurringInvoicesService,
     private readonly cron: RecurringInvoiceCron,
@@ -82,7 +88,22 @@ export class RecurringInvoicesController {
   @Roles('ADMIN')
   @Post('run-now')
   async runNow() {
-    await this.cron.runMonthly();
-    return { success: true };
+    const now = Date.now();
+    if (RecurringInvoicesController.runInFlight) {
+      throw new ConflictException('A recurring run is already in progress');
+    }
+    if (now - RecurringInvoicesController.lastRunAt < RecurringInvoicesController.RUN_COOLDOWN_MS) {
+      throw new ConflictException(
+        'Recurring run was triggered recently; please wait before re-running',
+      );
+    }
+    RecurringInvoicesController.runInFlight = true;
+    try {
+      await this.cron.runMonthly();
+      RecurringInvoicesController.lastRunAt = Date.now();
+      return { success: true };
+    } finally {
+      RecurringInvoicesController.runInFlight = false;
+    }
   }
 }

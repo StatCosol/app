@@ -524,7 +524,7 @@ export class AuthService implements OnModuleInit {
         jti,
         family: tokenFamily,
       },
-      { expiresIn: '30d' },
+      { expiresIn: '14d' },
     );
 
     // Store the refresh token in the DB for revocation support
@@ -532,7 +532,7 @@ export class AuthService implements OnModuleInit {
       jti,
       userId,
       family: tokenFamily,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       revokedAt: null,
     });
 
