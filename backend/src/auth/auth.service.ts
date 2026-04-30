@@ -445,7 +445,7 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid reset token');
     }
 
-    const hashed = await bcrypt.hash(dto.newPassword, 10);
+    const hashed = await bcrypt.hash(dto.newPassword, 12);
     await this.usersRepo.update({ id: user.id }, { passwordHash: hashed });
 
     // Notify admin users about the password change

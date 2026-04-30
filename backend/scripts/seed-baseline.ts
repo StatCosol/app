@@ -6,7 +6,10 @@ const adminEmail = process.env.SMOKE_ADMIN_EMAIL ?? 'it_admin@statcosol.com';
 const adminPassword =
   process.env.DEFAULT_SEED_PASSWORD ??
   process.env.SMOKE_ADMIN_PASSWORD;
-const ceoPassword = process.env.SEED_CEO_PASSWORD ?? 'Statco@123';
+const ceoPassword = process.env.SEED_CEO_PASSWORD;
+if (!ceoPassword) {
+  throw new Error('SEED_CEO_PASSWORD must be set before seeding baseline users.');
+}
 
 if (!adminPassword) {
   throw new Error(

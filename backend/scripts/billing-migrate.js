@@ -1,5 +1,6 @@
 const {Client}=require("pg");
-const c=new Client({host:"statcompy-db.postgres.database.azure.com",user:"Statcocompy",password:"Statco@123",database:"statcompy",ssl:{rejectUnauthorized:false}});
+if(!process.env.DB_PASS){console.error("DB_PASS env var required");process.exit(1);}
+const c=new Client({host:process.env.DB_HOST||"statcompy-db.postgres.database.azure.com",user:process.env.DB_USER||"Statcocompy",password:process.env.DB_PASS,database:process.env.DB_NAME||"statcompy",ssl:{rejectUnauthorized:false}});
 const stmts=[
 "DO $$ BEGIN CREATE TYPE billing_frequency AS ENUM ('ONE_TIME','MONTHLY','QUARTERLY','HALF_YEARLY','YEARLY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$",
 "DO $$ BEGIN CREATE TYPE invoice_type AS ENUM ('PROFORMA','TAX_INVOICE','CREDIT_NOTE','DEBIT_NOTE','REIMBURSEMENT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$",

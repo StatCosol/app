@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -208,6 +209,11 @@ export class UsersController {
     @CurrentUser() user: ReqUser,
   ) {
     const actorUserId = user?.userId ?? user?.id;
+
+    // Prevent admin from deleting their own account (lockout / audit gap risk)
+    if (actorUserId && id === actorUserId) {
+      throw new ForbiddenException('You cannot delete your own account');
+    }
 
     // CRM deletion requires CCO approval; others delete immediately
     const roleCode = await this.service.getUserRoleCode(id);

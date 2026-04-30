@@ -95,13 +95,13 @@ properties:
       - name: DB_USER
         value: Statcocompy
       - name: DB_PASS
-        value: Statco@123
+        value: <REDACTED-ROTATE-IN-AZURE>
       - name: DB_NAME
         value: statcompy
       - name: DB_SSL
         value: 'true'
       - name: JWT_SECRET
-        value: MDQ0YmRhYzEtYjY4Ni00Yzk0LTg0ZWEtOTI5OTA0MTc4MzBmYTkzNmUxZjEtZDE3
+        value: <REDACTED-ROTATE-IN-AZURE>
       - name: JWT_EXPIRES_IN
         value: 12h
       - name: JWT_ACCESS_EXPIRES_SEC
@@ -117,7 +117,7 @@ properties:
       - name: UPLOADS_PATH
         value: /app/uploads
       - name: AI_ENCRYPTION_KEY
-        value: 3ad671a3965c95e405800ab3fd75813025f2d79b904fafe5d59682270d3308df
+        value: <REDACTED-ROTATE-IN-AZURE>
       - name: SMTP_HOST
         value: smtp.zoho.in
       - name: SMTP_PORT
@@ -125,7 +125,7 @@ properties:
       - name: SMTP_USER
         value: it_admin@statcosol.com
       - name: SMTP_PASS
-        value: SX8xUKrhXzwS
+        value: <REDACTED-ROTATE-IN-AZURE>
       - name: SMTP_FROM_EMAIL
         value: it_admin@statcosol.com
       image: statcompyacr001.azurecr.io/statcompy-backend:v202604051830

@@ -40,11 +40,17 @@ export class FilesController {
     // ownership check (DB-based)
     await this.filesService.assertCanDownload(user, p);
 
-    // prevent path traversal
-    const uploadsRoot = path.join(process.cwd(), 'uploads');
-    const resolved = path.resolve(p);
+    // prevent path traversal: reject any input containing parent-segment refs
+    if (/(^|[\\/])\.\.([\\/]|$)/.test(p) || path.isAbsolute(p)) {
+      throw new ForbiddenException('Invalid path');
+    }
+    const uploadsRoot = path.resolve(path.join(process.cwd(), 'uploads'));
+    const candidate = path.normalize(p);
+    const resolved = path.resolve(uploadsRoot, candidate);
 
-    if (!resolved.startsWith(uploadsRoot)) {
+    // belt-and-braces: ensure final path is still under uploadsRoot
+    const rel = path.relative(uploadsRoot, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       throw new ForbiddenException('Invalid path');
     }
 

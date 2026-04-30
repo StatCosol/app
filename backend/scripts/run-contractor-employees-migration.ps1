@@ -2,10 +2,11 @@
 # Phase 1: skill_category, monthly_salary, daily_wage, state_code, status on contractor_employees.
 # Runs each statement via az containerapp exec (mirrors billing-migration.ps1).
 
-$DB_HOST  = "statcompy-db.postgres.database.azure.com"
-$DB_USER  = "Statcocompy"
-$DB_PASS  = "Statco@123"
-$DB_NAME  = "statcompy"
+$DB_HOST  = if ($env:DB_HOST) { $env:DB_HOST } else { "statcompy-db.postgres.database.azure.com" }
+$DB_USER  = if ($env:DB_USER) { $env:DB_USER } else { "Statcocompy" }
+$DB_PASS  = $env:DB_PASS
+if (-not $DB_PASS) { throw "DB_PASS env var is required (do not hardcode credentials)" }
+$DB_NAME  = if ($env:DB_NAME) { $env:DB_NAME } else { "statcompy" }
 $APP_NAME = "statcompy-backend"
 $RG       = "statcompy-rg"
 

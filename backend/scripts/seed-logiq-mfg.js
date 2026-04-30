@@ -1,13 +1,17 @@
 // Seed payroll config for Logiq Mfg Services Pvt Ltd (LMSPL)
-// Run: node scripts/seed-logiq-mfg.js
+// Run: DB_PASS=... node scripts/seed-logiq-mfg.js
 const { Client } = require('pg');
 
+if (!process.env.DB_PASS) {
+  console.error('DB_PASS env var is required');
+  process.exit(1);
+}
 const client = new Client({
-  host: 'statcompy-db.postgres.database.azure.com',
-  port: 5432,
-  user: 'Statcocompy',
-  password: 'Statco@123',
-  database: 'statcompy',
+  host: process.env.DB_HOST || 'statcompy-db.postgres.database.azure.com',
+  port: Number(process.env.DB_PORT) || 5432,
+  user: process.env.DB_USER || 'Statcocompy',
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME || 'statcompy',
   ssl: { rejectUnauthorized: false },
 });
 

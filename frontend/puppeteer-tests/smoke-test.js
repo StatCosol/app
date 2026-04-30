@@ -36,7 +36,7 @@ const ROLES = [
   {
     role: 'CEO',
     email: 'madan@statcosol.com',
-    password: 'Statco@123',
+    password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()),
     landingPath: '/ceo',
     checkSelectors: ['ui-page-header', '.card'],
   },

@@ -576,10 +576,12 @@ async function bootstrap() {
     }
   }
 
-  // ── Production env-var validation warnings ─────────────────────
+  // ── Production env-var validation (fail-fast) ───────────────
   if (isProd) {
-    if (!config.get<string>('JWT_SECRET'))
-      logger.warn('⚠ JWT_SECRET not set — using insecure default');
+    if (!config.get<string>('JWT_SECRET')) {
+      logger.error('✗ JWT_SECRET is required in production');
+      throw new Error('JWT_SECRET is required in production');
+    }
     if (!config.get<string>('AI_ENCRYPTION_KEY'))
       logger.warn(
         '⚠ AI_ENCRYPTION_KEY not set — AI features will use dev fallback key',

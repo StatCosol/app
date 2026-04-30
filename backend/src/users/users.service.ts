@@ -76,7 +76,7 @@ export class UsersService implements OnModuleInit {
     });
     if (!user)
       throw new NotFoundException('Active CEO user not found with this email');
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
     await this.usersRepo.save(user);
     return { message: 'CEO password reset successfully' };
   }
@@ -237,7 +237,7 @@ export class UsersService implements OnModuleInit {
     if (existing) {
       // Recovery path: when explicitly configured, rotate/reset the admin password.
       if (explicitPass) {
-        const passwordHash = await bcrypt.hash(explicitPass, 10);
+        const passwordHash = await bcrypt.hash(explicitPass, 12);
         await this.usersRepo.update(
           { id: existing.id },
           { passwordHash, isActive: true, deletedAt: null },
@@ -258,7 +258,7 @@ export class UsersService implements OnModuleInit {
       const randomPass = require('crypto')
         .randomBytes(12)
         .toString('base64url');
-      const passwordHash = await bcrypt.hash(randomPass, 10);
+      const passwordHash = await bcrypt.hash(randomPass, 12);
       const admin = this.usersRepo.create({
         userCode: 'SAAD01',
         roleId: adminRole.id,
@@ -294,7 +294,7 @@ export class UsersService implements OnModuleInit {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(explicitPass, 10);
+    const passwordHash = await bcrypt.hash(explicitPass, 12);
 
     const admin = this.usersRepo.create({
       userCode: 'SAAD01', // System Admin - AD(min) - 01
@@ -648,7 +648,7 @@ export class UsersService implements OnModuleInit {
     const plainPassword =
       dto.password ||
       `Us@${Math.floor(1000 + Math.random() * 9000)}${new Date().getFullYear()}`;
-    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const passwordHash = await bcrypt.hash(plainPassword, 12);
 
     const userCode = await this.generateUserCode(
       role.code,
@@ -810,7 +810,7 @@ export class UsersService implements OnModuleInit {
       );
     }
 
-    const passwordHash = await bcrypt.hash(args.password, 10);
+    const passwordHash = await bcrypt.hash(args.password, 12);
     const userCode = await this.generateUserCode('CLIENT', name, args.clientId);
 
     const user = manager.create(UserEntity, {
@@ -1102,7 +1102,7 @@ export class UsersService implements OnModuleInit {
     // Auto-generate a password
     const newPassword = `Reset@${Math.floor(1000 + Math.random() * 9000)}`;
     const bcrypt = await import('bcryptjs');
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = await bcrypt.hash(newPassword, 12);
 
     user.passwordHash = hashed;
     await this.usersRepo.save(user);
@@ -1784,7 +1784,7 @@ export class UsersService implements OnModuleInit {
       );
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
     await this.usersRepo.save(user);
 
     return { ok: true };
@@ -1938,7 +1938,7 @@ export class UsersService implements OnModuleInit {
     }
 
     if (dto.password !== undefined && dto.password.trim()) {
-      const passwordHash = await bcrypt.hash(dto.password.trim(), 10);
+      const passwordHash = await bcrypt.hash(dto.password.trim(), 12);
       user.passwordHash = passwordHash;
     }
 

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Res,
@@ -74,7 +75,7 @@ export class CrmUnitDocumentsController {
   @ApiOperation({ summary: 'Download' })
   @Get(':id/download')
   async download(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
@@ -91,7 +92,7 @@ export class CrmUnitDocumentsController {
   /** Soft-delete a document (CRM can delete own uploads) */
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
-  async remove(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: ReqUser) {
     await this.svc.softDelete(id, user.id);
     return { deleted: true };
   }

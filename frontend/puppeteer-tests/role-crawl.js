@@ -21,13 +21,13 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.SMOKE_ADMIN_PAS
 
 const ROLES = [
   { role: 'ADMIN', email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  { role: 'CRM', email: 'compliance@statcosol.com', password: 'Statco@123' },
-  { role: 'CCO', email: 'crm_india@statcosol.com', password: 'Statco@123' },
-  { role: 'CEO', email: 'mkkallepalli@gmail.com', password: 'Statco@123' },
-  { role: 'AUDITOR', email: 'payroll_audit@statcosol.com', password: 'Statco@123' },
-  { role: 'CLIENT', email: 'ashok@logiqems.com', password: 'Statco@123' },
-  { role: 'CONTRACTOR', email: 'contractor@gmail.com', password: 'Statco@123' },
-  { role: 'PF_TEAM', email: 'statcosolutions@gmail.com', password: 'Statco@123' },
+  { role: 'CRM', email: 'compliance@statcosol.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  { role: 'CCO', email: 'crm_india@statcosol.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  { role: 'CEO', email: 'mkkallepalli@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  { role: 'AUDITOR', email: 'payroll_audit@statcosol.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  { role: 'CLIENT', email: 'ashok@logiqems.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  { role: 'CONTRACTOR', email: 'contractor@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  { role: 'PF_TEAM', email: 'statcosolutions@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
 ];
 
 const EXCLUDED_PATH_PATTERNS = [

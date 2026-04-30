@@ -1,2 +1,3 @@
-$DB_HOST="statcompy-db.postgres.database.azure.com"; $DB_USER="Statcocompy"; $DB_PASS="Statco@123"; $DB_NAME="statcompy"
+if (-not $env:DB_PASS) { throw "DB_PASS env var is required (do not hardcode credentials)" }
+$DB_HOST=if($env:DB_HOST){$env:DB_HOST}else{"statcompy-db.postgres.database.azure.com"}; $DB_USER=if($env:DB_USER){$env:DB_USER}else{"Statcocompy"}; $DB_PASS=$env:DB_PASS; $DB_NAME=if($env:DB_NAME){$env:DB_NAME}else{"statcompy"}
 $sql = "SELECT column_name||':'||data_type AS col FROM information_schema.columns WHERE table_name='contractor_employees' AND column_name IN ('skill_category','monthly_salary','daily_wage','state_code','status') ORDER BY column_

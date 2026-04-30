@@ -423,7 +423,7 @@ export class ClientEmployeesController {
 
     // Generate a password: use provided or default
     const rawPassword = body.password || this.generateDefaultPassword(emp);
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const passwordHash = await bcrypt.hash(rawPassword, 12);
 
     // Build user code
     const userCode = `ESS-${emp.employeeCode}`;

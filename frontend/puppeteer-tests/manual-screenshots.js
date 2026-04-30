@@ -27,19 +27,19 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.SMOKE_ADMIN_PAS
 
 const ROLE_CREDENTIALS = {
   ADMIN: { role: 'ADMIN', email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  CRM: { role: 'CRM', email: 'compliance@statcosol.com', password: 'Statco@123' },
-  CCO: { role: 'CCO', email: 'crm_india@statcosol.com', password: 'Statco@123' },
-  CEO: { role: 'CEO', email: 'mkkallepalli@gmail.com', password: 'Statco@123' },
-  AUDITOR: { role: 'AUDITOR', email: 'payroll_audit@statcosol.com', password: 'Statco@123' },
-  CLIENT: { role: 'CLIENT', email: 'ashok@logiqems.com', password: 'Statco@123' },
+  CRM: { role: 'CRM', email: 'compliance@statcosol.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  CCO: { role: 'CCO', email: 'crm_india@statcosol.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  CEO: { role: 'CEO', email: 'mkkallepalli@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  AUDITOR: { role: 'AUDITOR', email: 'payroll_audit@statcosol.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  CLIENT: { role: 'CLIENT', email: 'ashok@logiqems.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
   CLIENT_MASTER: {
     role: 'CLIENT',
     email: 'nikhil.r.chitnis@gmail.com',
     password: 'Logiq@123',
   },
-  CONTRACTOR: { role: 'CONTRACTOR', email: 'contractor@gmail.com', password: 'Statco@123' },
-  PAYROLL: { role: 'PAYROLL', email: 'kallepalli.madan@gmail.com', password: 'Statco@123' },
-  PF_TEAM: { role: 'PF_TEAM', email: 'statcosolutions@gmail.com', password: 'Statco@123' },
+  CONTRACTOR: { role: 'CONTRACTOR', email: 'contractor@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  PAYROLL: { role: 'PAYROLL', email: 'kallepalli.madan@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
+  PF_TEAM: { role: 'PF_TEAM', email: 'statcosolutions@gmail.com', password: (process.env.TEST_PASSWORD || (() => { throw new Error('TEST_PASSWORD env var required') })()) },
   EMPLOYEE: {
     role: 'EMPLOYEE',
     email: 'majjiprudhvi@gmail.com',

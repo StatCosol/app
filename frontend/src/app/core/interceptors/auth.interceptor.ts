@@ -39,8 +39,21 @@ export function authInterceptor(
 
   const accessToken = authService.getAccessToken();
 
+  // Only attach the bearer token to same-origin / own-API requests to avoid
+  // leaking it to any future third-party host the app might call.
+  const isOwnApi = (() => {
+    try {
+      // Relative URLs (no scheme) are always same-origin
+      if (!/^https?:\/\//i.test(req.url)) return true;
+      const u = new URL(req.url, window.location.origin);
+      return u.origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  })();
+
   let authReq = req;
-  if (accessToken) {
+  if (accessToken && isOwnApi) {
     authReq = req.clone({
       setHeaders: {
         Authorization: `Bearer ${accessToken}`,

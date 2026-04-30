@@ -1,5 +1,6 @@
 const {Client}=require("pg");
-const c=new Client({host:"statcompy-db.postgres.database.azure.com",user:"Statcocompy",password:"Statco@123",database:"statcompy",ssl:{rejectUnauthorized:false}});
+if(!process.env.DB_PASS){console.error("DB_PASS env var required");process.exit(1);}
+const c=new Client({host:process.env.DB_HOST||"statcompy-db.postgres.database.azure.com",user:process.env.DB_USER||"Statcocompy",password:process.env.DB_PASS,database:process.env.DB_NAME||"statcompy",ssl:{rejectUnauthorized:false}});
 const stmts=[
 "CREATE TABLE IF NOT EXISTS clra_pe_establishments (id UUID PRIMARY KEY DEFAULT gen_random_uuid(),client_id UUID NOT NULL,branch_id UUID,pe_name VARCHAR(255) NOT NULL,establishment_name VARCHAR(255) NOT NULL,establishment_code VARCHAR(100),registration_certificate_no VARCHAR(150),address_line1 VARCHAR(255),address_line2 VARCHAR(255),city VARCHAR(120),district VARCHAR(120),state_code VARCHAR(10) NOT NULL,pincode VARCHAR(20),unit_type VARCHAR(50) NOT NULL DEFAULT 'FACTORY',active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 "CREATE INDEX IF NOT EXISTS idx_clra_pe_client ON clra_pe_establishments(client_id)",

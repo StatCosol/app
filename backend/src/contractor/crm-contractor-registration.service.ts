@@ -70,7 +70,7 @@ export class CrmContractorRegistrationService {
     const userCode = `CONTR${String(lastNum + 1).padStart(4, '0')}`;
 
     // Hash password
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, 12);
 
     // Create contractor user
     const contractor = this.userRepo.create({
