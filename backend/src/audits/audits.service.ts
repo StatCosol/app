@@ -1818,6 +1818,7 @@ export class AuditsService implements OnModuleInit {
       contractorDocs = await this.dataSource.query(
         `SELECT cd.id, 'contractor_documents' AS "sourceTable",
                 cd.contractor_user_id AS "contractorUserId",
+                cd.branch_id AS "branchId",
                 cd.doc_type AS "docType", cd.title,
                 cd.file_name AS "fileName",
                 cd.file_path AS "filePath", cd.file_type AS "fileType",
@@ -1827,11 +1828,13 @@ export class AuditsService implements OnModuleInit {
                 cd.reviewed_at AS "reviewedAt",
                 cd.doc_month AS "docMonth", cd.expiry_date AS "expiryDate",
                 cd.created_at AS "createdAt",
-                u.name AS "contractorName", u.email AS "contractorEmail"
+                u.name AS "contractorName", u.email AS "contractorEmail",
+                cb.branchname AS "branchName"
          FROM contractor_documents cd
          LEFT JOIN users u ON u.id = cd.contractor_user_id
+         LEFT JOIN client_branches cb ON cb.id = cd.branch_id
          ${cWhere}
-         ORDER BY cd.created_at DESC`,
+         ORDER BY cb.branchname NULLS LAST, cd.created_at DESC`,
         cp,
       );
     }

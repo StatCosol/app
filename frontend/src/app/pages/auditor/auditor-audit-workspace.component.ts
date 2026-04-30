@@ -124,6 +124,9 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   reviewingDocId: string | null = null;
   docRemarks: Record<string, string> = {};
   correctedRemarks: Record<string, string> = {};
+  // Branch filter for the contractor documents review table.
+  // 'ALL' = show every branch; otherwise only docs whose branchId matches.
+  contractorDocBranchFilter: string = 'ALL';
 
   // ─── Workspace Tabs ───────────────────────────
   activeTab: WorkspaceTabKey = 'documents';
@@ -812,6 +815,40 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   // ─── Document Review Methods (AuditXpert) ──────
   get compliedCount(): number {
     return this.auditDocuments.filter((d) => d.status === 'APPROVED').length;
+  }
+
+  /**
+   * Distinct branches present in the contractor documents list, used to
+   * populate the branch filter dropdown above the review table. Only includes
+   * branches that actually appear in the loaded docs.
+   */
+  get contractorDocBranchOptions(): { id: string; name: string; count: number }[] {
+    const map = new Map<string, { id: string; name: string; count: number }>();
+    for (const d of this.contractorDocuments || []) {
+      const id = d?.branchId || '__NO_BRANCH__';
+      const name = d?.branchName || (d?.branchId ? 'Unknown branch' : 'No branch');
+      const ex = map.get(id);
+      if (ex) ex.count += 1;
+      else map.set(id, { id, name, count: 1 });
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Contractor documents filtered by the selected branch. When the filter is
+   * 'ALL', returns the full list. Used by the template to render the review
+   * table per branch instead of dumping every branch's docs together.
+   */
+  get filteredContractorDocuments(): any[] {
+    if (!this.contractorDocBranchFilter || this.contractorDocBranchFilter === 'ALL') {
+      return this.contractorDocuments;
+    }
+    if (this.contractorDocBranchFilter === '__NO_BRANCH__') {
+      return this.contractorDocuments.filter((d) => !d?.branchId);
+    }
+    return this.contractorDocuments.filter(
+      (d) => d?.branchId === this.contractorDocBranchFilter,
+    );
   }
 
   get nonCompliedCount(): number {
