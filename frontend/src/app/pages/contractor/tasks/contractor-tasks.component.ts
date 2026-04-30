@@ -223,6 +223,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
   auditDocFile: File | null = null;
   auditDocType = '';
   auditDocTitle = '';
+  auditDocBranchId = '';
   auditDocUploading = false;
   auditDocActiveSection = '';
 
@@ -782,6 +783,12 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.auditDocType = '';
       this.auditDocTitle = '';
       this.auditDocFile = null;
+      // Default upload branch: prefer the audit's own branch; else if the
+      // contractor only serves a single branch, auto-pick it; else require
+      // explicit user selection in the wizard.
+      this.auditDocBranchId =
+        row.branchId ||
+        (this.availableBranches.length === 1 ? this.availableBranches[0].id : '');
       this.auditUploadedDocs = [];
       this.auditUploadLockFrom = null;
       this.auditUploadLockUntil = null;
@@ -1065,14 +1072,15 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
       this.toast.error('Document title is required');
       return;
     }
-    // Resolve branchId: prefer the one on the audit row; fall back to the
-    // contractor's only branch (audits scheduled at client level have no branch).
+    // Resolve branchId: prefer the user's explicit selection in the wizard,
+    // then the audit row's branch, then the contractor's sole branch.
     const resolvedBranchId: string | null =
+      (this.auditDocBranchId && this.auditDocBranchId.trim()) ||
       row.branchId ||
       (this.availableBranches.length === 1 ? this.availableBranches[0].id : null);
 
     if (!resolvedBranchId) {
-      this.toast.error('Cannot determine branch — please contact admin to link this audit to a branch');
+      this.toast.error('Please select a branch for this document');
       return;
     }
 
@@ -1096,6 +1104,7 @@ export class ContractorTasksComponent implements OnInit, OnDestroy {
         this.auditDocFile = null;
         this.auditDocType = '';
         this.auditDocTitle = '';
+        // Keep auditDocBranchId so the next upload defaults to the same branch.
         if (this.selectedRow?.rowType === 'AUDIT') {
           this.loadAuditUploadedDocs(this.selectedRow.id);
         }
