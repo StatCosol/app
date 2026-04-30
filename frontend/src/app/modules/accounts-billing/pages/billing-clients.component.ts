@@ -12,7 +12,7 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Billing Clients</h1>
-        <button (click)="showForm = true; editClient = null; resetForm()"
+        <button (click)="showForm = true; editClient = null; saveError = ''; resetForm()"
                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
           + Add Client
         </button>
@@ -85,6 +85,9 @@ import { BillingClient, BILLING_FREQUENCIES, INDIAN_STATES } from '../models/bil
             <button (click)="showForm = false" class="text-slate-400 hover:text-slate-600">&times;</button>
           </div>
           <div class="p-6 space-y-4">
+            <div *ngIf="saveError" class="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg">
+              {{ saveError }}
+            </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Legal Name *</label>
@@ -164,6 +167,7 @@ export class BillingClientsComponent implements OnInit {
   totalPages = 0;
   showForm = false;
   saving = false;
+  saveError = '';
   editClient: BillingClient | null = null;
 
   states = INDIAN_STATES;
@@ -229,6 +233,17 @@ export class BillingClientsComponent implements OnInit {
   }
 
   onSave(): void {
+    this.saveError = '';
+    // Client-side required-field check (matches backend DTO @IsNotEmpty validators)
+    const missing: string[] = [];
+    if (!this.form.legalName) missing.push('Legal Name');
+    if (!this.form.billingEmail) missing.push('Billing Email');
+    if (!this.form.stateCode) missing.push('State');
+    if (!this.form.billingAddress) missing.push('Billing Address');
+    if (missing.length) {
+      this.saveError = 'Please fill required field(s): ' + missing.join(', ');
+      return;
+    }
     this.saving = true;
     const obs = this.editClient
       ? this.svc.updateClient(this.editClient.id, this.form)
@@ -239,7 +254,12 @@ export class BillingClientsComponent implements OnInit {
         this.saving = false;
         this.loadClients();
       },
-      error: () => (this.saving = false),
+      error: (e) => {
+        this.saving = false;
+        const msg = e?.error?.message;
+        this.saveError = Array.isArray(msg) ? msg.join(', ') : (msg || e?.message || 'Failed to save client');
+        console.error('[billing] save client failed', e);
+      },
     });
   }
 }
