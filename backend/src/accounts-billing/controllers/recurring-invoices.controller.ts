@@ -104,9 +104,9 @@ export class RecurringInvoicesController {
     }
     RecurringInvoicesController.runInFlight = true;
     try {
-      await this.cron.runMonthly();
+      const result = await this.cron.runMonthly();
       RecurringInvoicesController.lastRunAt = Date.now();
-      return { success: true };
+      return { success: true, ...result };
     } finally {
       RecurringInvoicesController.runInFlight = false;
     }

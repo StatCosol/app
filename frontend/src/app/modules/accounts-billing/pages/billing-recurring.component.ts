@@ -315,9 +315,20 @@ export class BillingRecurringComponent implements OnInit {
     if (!confirm('Run the recurring invoice job now? This will generate and email invoices for all due active configs.')) return;
     this.running = true;
     this.svc.runRecurringNow().subscribe({
-      next: () => {
+      next: (r: any) => {
         this.running = false;
-        this.flash('Run completed. Check Email Logs for results.');
+        const due = r?.due ?? 0;
+        const ok = r?.ok ?? 0;
+        const failed = r?.failed ?? 0;
+        const noEmail = r?.skippedNoEmail ?? 0;
+        if (due === 0) {
+          this.flash('Run completed: no configs were due today.');
+        } else {
+          const parts = [`due=${due}`, `sent=${ok}`];
+          if (noEmail) parts.push(`skipped (no email)=${noEmail}`);
+          if (failed) parts.push(`failed=${failed}`);
+          this.flash(`Run completed: ${parts.join(', ')}. Check Email Logs.`);
+        }
         this.load();
       },
       error: (e) => {

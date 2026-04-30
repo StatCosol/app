@@ -30,7 +30,7 @@ export class RecurringInvoiceCron {
   ) {}
 
   @Cron('0 0 9 1 * *')
-  async runMonthly(): Promise<void> {
+  async runMonthly(): Promise<{ due: number; ok: number; failed: number; skippedNoEmail: number }> {
     const today = new Date().toISOString().slice(0, 10);
     this.log.log(`Recurring invoice run starting for date=${today}`);
 
@@ -44,10 +44,12 @@ export class RecurringInvoiceCron {
 
     let ok = 0;
     let failed = 0;
+    let skippedNoEmail = 0;
     for (const cfg of configs) {
       try {
-        await this.processOne(cfg, today);
-        ok++;
+        const r = await this.processOne(cfg, today);
+        if (r === 'no_email') skippedNoEmail++;
+        else ok++;
       } catch (e) {
         failed++;
         this.log.error(
@@ -55,18 +57,21 @@ export class RecurringInvoiceCron {
         );
       }
     }
-    this.log.log(`Recurring invoice run done: ok=${ok} failed=${failed}`);
+    this.log.log(
+      `Recurring invoice run done: due=${configs.length} ok=${ok} failed=${failed} skippedNoEmail=${skippedNoEmail}`,
+    );
+    return { due: configs.length, ok, failed, skippedNoEmail };
   }
 
   private async processOne(
     cfg: RecurringInvoiceConfig,
     today: string,
-  ): Promise<void> {
+  ): Promise<'ok' | 'no_email' | 'skipped'> {
     if (cfg.endDate && cfg.endDate < today) {
       cfg.isActive = false;
       await this.configRepo.save(cfg);
       this.log.log(`Config ${cfg.id} past end date - deactivated`);
-      return;
+      return 'skipped';
     }
 
     const client = await this.clientRepo.findOne({
@@ -74,7 +79,7 @@ export class RecurringInvoiceCron {
     });
     if (!client) {
       this.log.warn(`Config ${cfg.id} client not found - skipping`);
-      return;
+      return 'skipped';
     }
 
     // 1) Create invoice
@@ -107,10 +112,12 @@ export class RecurringInvoiceCron {
 
     // 3) Email to client billingEmail (if available)
     const toEmail = client.billingEmail;
+    let result: 'ok' | 'no_email' = 'ok';
     if (!toEmail) {
       this.log.warn(
         `Config ${cfg.id} client has no billingEmail - invoice created but not emailed`,
       );
+      result = 'no_email';
     } else {
       await this.invoiceEmailService.sendInvoice(
         invoice.id,
@@ -125,6 +132,7 @@ export class RecurringInvoiceCron {
     // 4) Advance next_run_date
     cfg.nextRunDate = this.advance(cfg.nextRunDate, cfg.frequency);
     await this.configRepo.save(cfg);
+    return result;
   }
 
   private advance(fromIso: string, freq: BillingFrequency): string {
