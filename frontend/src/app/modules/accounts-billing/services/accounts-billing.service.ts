@@ -172,4 +172,10 @@ export class AccountsBillingService {
   pendingPaymentsCsvTemplateUrl(): string {
     return `${this.base}/pending-payments/template.csv`;
   }
+
+  downloadPendingPaymentsCsvTemplate(): Observable<Blob> {
+    return this.http.get(`${this.base}/pending-payments/template.csv`, {
+      responseType: 'blob',
+    });
+  }
 }

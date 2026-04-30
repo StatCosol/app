@@ -19,10 +19,10 @@ import { PendingPaymentFollowup } from '../models/billing.models';
           </p>
         </div>
         <div class="flex gap-2">
-          <a [href]="templateUrl" download
+          <button type="button" (click)="downloadTemplate()"
              class="px-3 py-2 text-sm border rounded text-slate-700 hover:bg-slate-50">
             Download CSV Template
-          </a>
+          </button>
         </div>
       </div>
 
@@ -184,6 +184,22 @@ export class BillingPendingPaymentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  downloadTemplate(): void {
+    this.svc.downloadPendingPaymentsCsvTemplate().subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pending-payments-template.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: (e) => this.flash('Template download failed: ' + (e.error?.message || e.message), true),
+    });
   }
 
   load(): void {
