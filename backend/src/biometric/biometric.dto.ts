@@ -29,6 +29,14 @@ export class IngestPunchItemDto {
   @IsOptional()
   @IsString()
   deviceId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Branch resolved from the registered device. Used for unknown employees until reconciliation.',
+  })
+  @IsOptional()
+  @IsString()
+  branchId?: string;
 }
 
 export class IngestPunchesDto {

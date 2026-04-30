@@ -7,6 +7,7 @@ import { AttendanceEntity } from '../attendance/entities/attendance.entity';
 import { IngestPunchItemDto } from './biometric.dto';
 
 const STANDARD_HOURS = 9;
+const DEFAULT_BUSINESS_TZ_OFFSET_MIN = 330;
 
 export interface IngestResult {
   received: number;
@@ -81,7 +82,7 @@ export class BiometricService {
 
       toInsert.push({
         clientId,
-        branchId: emp?.branchId ?? null,
+        branchId: emp?.branchId ?? it.branchId ?? null,
         employeeId: emp?.id ?? null,
         employeeCode: code,
         punchTime: ts,
@@ -92,7 +93,7 @@ export class BiometricService {
       });
 
       if (emp) {
-        affectedKeys.add(`${emp.id}|${this.toDateIso(ts)}`);
+        affectedKeys.add(`${emp.id}|${this.toBusinessDateIso(ts)}`);
       }
     }
 
@@ -140,8 +141,8 @@ export class BiometricService {
     if (params.employeeId) where.employeeId = params.employeeId;
     if (params.deviceId) where.deviceId = params.deviceId;
     where.punchTime = Between(
-      new Date(`${params.from}T00:00:00.000Z`),
-      new Date(`${params.to}T23:59:59.999Z`),
+      this.businessDateStartUtc(params.from),
+      this.businessDateEndUtc(params.to),
     );
     return this.punchRepo.find({
       where: where as any,
@@ -160,8 +161,8 @@ export class BiometricService {
     const where: Record<string, unknown> = {
       clientId,
       punchTime: Between(
-        new Date(`${from}T00:00:00.000Z`),
-        new Date(`${to}T23:59:59.999Z`),
+        this.businessDateStartUtc(from),
+        this.businessDateEndUtc(to),
       ),
     };
     if (!reprocess) where.processedAt = IsNull();
@@ -170,7 +171,7 @@ export class BiometricService {
     const keys = new Set<string>();
     for (const p of punches) {
       if (!p.employeeId) continue;
-      keys.add(`${p.employeeId}|${this.toDateIso(p.punchTime)}`);
+      keys.add(`${p.employeeId}|${this.toBusinessDateIso(p.punchTime)}`);
     }
     const affected = Array.from(keys).map((k) => {
       const [employeeId, date] = k.split('|');
@@ -205,7 +206,7 @@ export class BiometricService {
       if (!e) continue;
       p.employeeId = e.id;
       p.branchId = e.branchId ?? null;
-      affectedKeys.add(`${e.id}|${this.toDateIso(p.punchTime)}`);
+      affectedKeys.add(`${e.id}|${this.toBusinessDateIso(p.punchTime)}`);
       resolved++;
     }
     if (resolved) {
@@ -230,8 +231,8 @@ export class BiometricService {
 
     let upserts = 0;
     for (const { employeeId, date } of days) {
-      const dayStart = new Date(`${date}T00:00:00.000Z`);
-      const dayEnd = new Date(`${date}T23:59:59.999Z`);
+      const dayStart = this.businessDateStartUtc(date);
+      const dayEnd = this.businessDateEndUtc(date);
 
       const dayPunches = await this.punchRepo.find({
         where: {
@@ -320,18 +321,37 @@ export class BiometricService {
     return { attendanceUpserts: upserts };
   }
 
-  private toDateIso(d: Date): string {
-    // Use UTC date (matches how dayStart/dayEnd are computed)
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
+  private toBusinessDateIso(d: Date): string {
+    const local = new Date(
+      d.getTime() + DEFAULT_BUSINESS_TZ_OFFSET_MIN * 60 * 1000,
+    );
+    const y = local.getUTCFullYear();
+    const m = String(local.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(local.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   }
 
   private toTimeStr(d: Date): string {
-    const h = String(d.getUTCHours()).padStart(2, '0');
-    const m = String(d.getUTCMinutes()).padStart(2, '0');
-    const s = String(d.getUTCSeconds()).padStart(2, '0');
+    const local = new Date(
+      d.getTime() + DEFAULT_BUSINESS_TZ_OFFSET_MIN * 60 * 1000,
+    );
+    const h = String(local.getUTCHours()).padStart(2, '0');
+    const m = String(local.getUTCMinutes()).padStart(2, '0');
+    const s = String(local.getUTCSeconds()).padStart(2, '0');
     return `${h}:${m}:${s}`;
+  }
+
+  private businessDateStartUtc(date: string): Date {
+    return new Date(
+      new Date(`${date}T00:00:00.000Z`).getTime() -
+        DEFAULT_BUSINESS_TZ_OFFSET_MIN * 60 * 1000,
+    );
+  }
+
+  private businessDateEndUtc(date: string): Date {
+    return new Date(
+      new Date(`${date}T23:59:59.999Z`).getTime() -
+        DEFAULT_BUSINESS_TZ_OFFSET_MIN * 60 * 1000,
+    );
   }
 }

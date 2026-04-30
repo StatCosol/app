@@ -91,6 +91,7 @@ export class EsslService {
         punchTime: punchTime.toISOString(),
         direction: this.mapStatus(statusRaw),
         deviceId: device.serialNumber,
+        branchId: device.branchId ?? undefined,
       });
     }
 

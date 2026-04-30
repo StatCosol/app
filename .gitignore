@@ -17,7 +17,7 @@ tmp_job_*/
 tmp-*
 backend/tmp-check-*.js
 backend/tmp-*.txt
-{*
+[{]*
 
 # Test / smoke result files
 *_results*.txt
