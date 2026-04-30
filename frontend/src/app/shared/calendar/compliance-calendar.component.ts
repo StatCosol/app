@@ -10,6 +10,7 @@ import { FormsModule } from '@angular/forms';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
 import { CrmService } from '../../core/crm.service';
+import { CrmClientsApi } from '../../core/api/crm-clients.api';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -64,6 +65,7 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
     private api: ClientBranchesService,
     private auth: AuthService,
     private crmService: CrmService,
+    private crmClientsApi: CrmClientsApi,
   ) {}
 
   ngOnInit(): void {
@@ -102,6 +104,10 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
           }
           this.cdr.markForCheck();
         },
+        error: () => {
+          this.clients = [];
+          this.cdr.markForCheck();
+        },
       });
   }
 
@@ -120,6 +126,7 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
           this.branches = branchIds.map((id) => ({ id, name: nameMap.get(id) || 'Branch' }));
           this.cdr.markForCheck();
         },
+        error: () => this.cdr.markForCheck(),
       });
     } else {
       // Master user — load all branches
@@ -135,6 +142,7 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
             this.reload();
           },
+          error: () => this.cdr.markForCheck(),
         });
     }
   }
@@ -142,22 +150,23 @@ export class ComplianceCalendarComponent implements OnInit, OnDestroy {
   /** CRM: load branches for the selected client */
   loadBranchesForClient(): void {
     if (!this.selectedClientId) return;
-    // Use CRM branch listing
-    this.api
-      .crmListRegistrations('', this.selectedClientId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        // Fallback: just reload — branches come with calendar items via branchName
-        error: () => {
-          this.branches = [];
-          this.selectedBranchId = '';
-          this.reload();
-        },
-      });
-
-    // Actually, just reload the calendar — branch names come from backend
     this.branches = [];
     this.selectedBranchId = '';
+    this.crmClientsApi
+      .getBranchesForClient(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (b) => {
+          this.branches = (b || []).map((x) => ({
+            id: x.id,
+            name: x.branchName || 'Branch',
+          }));
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.branches = [];
+        },
+      });
     this.reload();
   }
 

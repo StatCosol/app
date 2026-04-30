@@ -117,7 +117,7 @@ export class LegitxComplianceService {
       });
 
     // Audits per branch (audit table has no branch_id; set null)
-    const auditRows = await this.db
+    await this.db
       .many<{
         audit_id: string;
         score_percent: number | null;

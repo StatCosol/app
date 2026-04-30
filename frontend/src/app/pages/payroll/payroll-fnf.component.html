@@ -4,24 +4,17 @@
       <h1>Full &amp; Final Lifecycle</h1>
       <p>Manage separation cases end-to-end: queue, review, approval, settlement, document issue, and closure timeline.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onFilterChange()">
-          <option value="">All assigned clients</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-
-      <label class="search-box">
-        Search
-        <input type="search" [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Employee / code / status" />
-      </label>
-
-      <button type="button" class="btn btn-primary" (click)="openCreateModal()">+ Initiate F&amp;F</button>
-    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </header>
+
+  <div class="head-controls">
+    <label class="search-box">
+      Search
+      <input autocomplete="off" id="pf-search-text" type="search" name="searchText" [(ngModel)]="searchText" (ngModelChange)="onFilterChange()" placeholder="Employee / code / status" />
+    </label>
+
+    <button type="button" class="btn btn-primary" (click)="openCreateModal()">+ Initiate F&amp;F</button>
+  </div>
 
   <section class="summary-grid">
     <article class="summary-card">
@@ -90,7 +83,7 @@
             >
               <td>
                 <div class="strong">{{ row.employeeName || '-' }}</div>
-                <div class="minor">{{ row.employeeCode || row.employeeId }}</div>
+                <div class="minor">{{ row.employeeCode || '-' }}</div>
               </td>
               <td>{{ row.clientName || '-' }}</td>
               <td>
@@ -123,12 +116,11 @@
           <div>
             <span>Employee</span>
             <strong>{{ detail.employeeName || '-' }}</strong>
-            <p>{{ detail.employeeCode || detail.employeeId }}</p>
+            <p>{{ detail.employeeCode || '-' }}</p>
           </div>
           <div>
             <span>Client</span>
             <strong>{{ detail.clientName || '-' }}</strong>
-            <p>{{ detail.clientId }}</p>
           </div>
           <div>
             <span>Separation Date</span>
@@ -145,7 +137,7 @@
         <div class="status-actions">
           <label>
             Decision Notes
-            <textarea [(ngModel)]="statusRemarks" rows="2" placeholder="Optional notes for this transition"></textarea>
+            <textarea autocomplete="off" id="pf-status-remarks" name="statusRemarks" [(ngModel)]="statusRemarks" rows="2" placeholder="Optional notes for this transition"></textarea>
           </label>
 
           <div class="action-row">
@@ -178,27 +170,27 @@
         <div class="breakup-grid">
           <label>
             Pending Salary
-            <input type="number" [(ngModel)]="settlementInputs.pendingSalary" />
+            <input autocomplete="off" id="pf-pending-salary" type="number" name="pendingSalary" [(ngModel)]="settlementInputs.pendingSalary" />
           </label>
           <label>
             Leave Encashment
-            <input type="number" [(ngModel)]="settlementInputs.leaveEncashment" />
+            <input autocomplete="off" id="pf-leave-encashment" type="number" name="leaveEncashment" [(ngModel)]="settlementInputs.leaveEncashment" />
           </label>
           <label>
             Bonus / Arrears
-            <input type="number" [(ngModel)]="settlementInputs.bonusArrears" />
+            <input autocomplete="off" id="pf-bonus-arrears" type="number" name="bonusArrears" [(ngModel)]="settlementInputs.bonusArrears" />
           </label>
           <label>
             Deductions
-            <input type="number" [(ngModel)]="settlementInputs.deductions" />
+            <input autocomplete="off" id="pf-deductions" type="number" name="deductions" [(ngModel)]="settlementInputs.deductions" />
           </label>
           <label>
             Recoveries
-            <input type="number" [(ngModel)]="settlementInputs.recoveries" />
+            <input autocomplete="off" id="pf-recoveries" type="number" name="recoveries" [(ngModel)]="settlementInputs.recoveries" />
           </label>
           <label>
             Settlement Amount
-            <input type="number" [(ngModel)]="settlementAmountInput" />
+            <input autocomplete="off" id="pf-settlement-amount-input" type="number" name="settlementAmountInput" [(ngModel)]="settlementAmountInput" />
           </label>
         </div>
 
@@ -216,7 +208,7 @@
 
         <div class="checklist" *ngIf="documentChecklistDraft.length; else noChecklist">
           <label *ngFor="let item of documentChecklistDraft; index as idx">
-            <input type="checkbox" [checked]="item.done" (change)="onChecklistToggle(idx, $any($event.target).checked)" />
+            <input type="checkbox" name="checklistItem" [checked]="item.done" (change)="onChecklistToggle(idx, $any($event.target).checked)" />
             <span>{{ item.label }}</span>
           </label>
         </div>
@@ -224,6 +216,60 @@
         <ng-template #noChecklist>
           <div class="empty-mini">No checklist available for this case.</div>
         </ng-template>
+      </article>
+
+      <!-- Settlement Documents Repository -->
+      <article class="card" *ngIf="selectedCase as detail">
+        <header class="section-head">
+          <h2>Settlement Documents</h2>
+          <span>{{ fnfDocuments.length }} file(s)</span>
+        </header>
+
+        <div class="fnf-doc-upload">
+          <div class="fnf-doc-upload-row">
+            <label>
+              Type
+              <select id="pf-fnf-doc-type" name="fnfDocType" [(ngModel)]="fnfDocType">
+                <option *ngFor="let opt of fnfDocTypeOptions" [value]="opt.value">{{ opt.label }}</option>
+              </select>
+            </label>
+            <label>
+              Name
+              <input autocomplete="off" id="pf-fnf-doc-name" type="text" name="fnfDocName" [(ngModel)]="fnfDocName" placeholder="Document label (optional)" />
+            </label>
+          </div>
+          <div class="fnf-doc-upload-row">
+            <label class="span-2">
+              Remarks
+              <input autocomplete="off" id="pf-fnf-doc-remarks" type="text" name="fnfDocRemarks" [(ngModel)]="fnfDocRemarks" placeholder="Optional notes" />
+            </label>
+          </div>
+          <label class="btn btn-secondary btn-sm upload-label" [class.disabled]="fnfDocUploading">
+            {{ fnfDocUploading ? 'Uploading...' : 'Choose & Upload File' }}
+            <input type="file" hidden (change)="onFnfDocFileSelected($event)" [disabled]="fnfDocUploading" />
+          </label>
+        </div>
+
+        <div *ngIf="fnfDocsLoading" class="empty-mini">Loading documents...</div>
+
+        <div class="fnf-doc-list" *ngIf="!fnfDocsLoading && fnfDocuments.length">
+          <div class="fnf-doc-item" *ngFor="let doc of fnfDocuments">
+            <div class="fnf-doc-info">
+              <strong>{{ doc.docName || doc.fileName }}</strong>
+              <span class="badge badge--muted">{{ doc.docType }}</span>
+              <span class="minor">{{ formatFileSize(doc.fileSize) }} &middot; {{ formatDate(doc.createdAt) }}</span>
+              <span class="minor" *ngIf="doc.remarks">{{ doc.remarks }}</span>
+            </div>
+            <div class="fnf-doc-actions">
+              <button type="button" class="link" (click)="downloadFnfDoc(doc)">Download</button>
+              <button type="button" class="link link--danger" (click)="deleteFnfDoc(doc)">Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!fnfDocsLoading && !fnfDocuments.length" class="empty-mini">
+          No settlement documents uploaded yet. Use the form above to attach files.
+        </div>
       </article>
 
       <article class="card" *ngIf="selectedCase">
@@ -261,7 +307,7 @@
     <div class="modal-grid">
       <label>
         Client
-        <select [(ngModel)]="createModel.clientId">
+        <select id="pf-client-id" name="createClientId" [(ngModel)]="createModel.clientId">
           <option value="">Select client</option>
           <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
         </select>
@@ -269,29 +315,29 @@
 
       <label>
         Employee ID
-        <input type="text" [(ngModel)]="createModel.employeeId" placeholder="Employee UUID" />
+        <input autocomplete="off" id="pf-employee-id" type="text" name="createEmployeeId" [(ngModel)]="createModel.employeeId" placeholder="Employee UUID" />
       </label>
 
       <label>
         Separation Date
-        <input type="date" [(ngModel)]="createModel.separationDate" />
+        <input autocomplete="off" id="pf-separation-date" type="date" name="separationDate" [(ngModel)]="createModel.separationDate" />
       </label>
 
       <label>
         Last Working Day
-        <input type="date" [(ngModel)]="createModel.lastWorkingDay" />
+        <input autocomplete="off" id="pf-last-working-day" type="date" name="lastWorkingDay" [(ngModel)]="createModel.lastWorkingDay" />
       </label>
 
       <label>
         Reason
-        <select [(ngModel)]="createModel.reason">
+        <select id="pf-reason" name="createReason" [(ngModel)]="createModel.reason">
           <option *ngFor="let opt of reasonOptions" [value]="opt.value">{{ opt.label }}</option>
         </select>
       </label>
 
       <label class="span-2">
         Notes
-        <textarea [(ngModel)]="createModel.remarks" rows="3" placeholder="Optional initiation remarks"></textarea>
+        <textarea autocomplete="off" id="pf-remarks" name="createRemarks" [(ngModel)]="createModel.remarks" rows="3" placeholder="Optional initiation remarks"></textarea>
       </label>
     </div>
 

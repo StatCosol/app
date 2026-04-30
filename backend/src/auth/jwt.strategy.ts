@@ -28,8 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         ExtractJwt.fromAuthHeaderAsBearerToken(),
-        // Also accept ?token= query param (for window.open / <a href> downloads)
-        ExtractJwt.fromUrlQueryParameter('token'),
       ]),
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
@@ -61,7 +59,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User is inactive');
     }
 
-    if ((user as any).deletedAt != null) {
+    if (user.deletedAt != null) {
       Logger.warn(`JwtStrategy: rejecting token - deleted user`, 'JwtStrategy');
       throw new UnauthorizedException('User is deleted');
     }
@@ -73,13 +71,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email ?? user.email,
       roleCode,
       clientId: payload.clientId ?? user.clientId ?? null,
-      userType: (user as any).userType ?? null,
-      employeeId: (user as any).employeeId ?? null,
+      userType: user.userType ?? null,
+      employeeId: user.employeeId ?? null,
       branchIds: payload.branchIds ?? [],
-    } as const;
+      assignedClientIds: [] as string[],
+    };
+
+    if (roleCode === 'CRM') {
+      normalized.assignedClientIds =
+        await this.usersService.getAssignedClientIds(payload.sub);
+    }
+
+    if (roleCode === 'PAYROLL') {
+      normalized.assignedClientIds =
+        await this.usersService.getPayrollAssignedClientIds(payload.sub);
+    }
 
     Logger.log(
-      `[JwtStrategy] validate done roleCode=${normalized.roleCode}`,
+      `[JwtStrategy] validate done roleCode=${normalized.roleCode} clientId=${this.maskId(normalized.clientId ?? undefined)}`,
       'JwtStrategy',
     );
 

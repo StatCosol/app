@@ -31,11 +31,11 @@ interface DocumentItem {
           <p class="page-subtitle">Branch document repository — upload, track, and manage compliance documents</p>
         </div>
         <div class="flex items-center gap-3">
-          <select [(ngModel)]="categoryFilter" (change)="applyFilter()" class="filter-select">
+          <select id="bd-category-filter" name="categoryFilter" [(ngModel)]="categoryFilter" (change)="applyFilter()" class="filter-select">
             <option value="all">All Categories</option>
             <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
           </select>
-          <select [(ngModel)]="statusFilter" (change)="applyFilter()" class="filter-select">
+          <select id="bd-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (change)="applyFilter()" class="filter-select">
             <option value="all">All Status</option>
             <option value="Uploaded">Uploaded</option>
             <option value="Pending">Pending</option>

@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 
@@ -17,6 +18,7 @@ import {
   LoadingSpinnerComponent,
   PageHeaderComponent,
 } from '../../shared/ui';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { ToastService } from '../../shared/toast/toast.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 
@@ -76,7 +78,7 @@ interface ExceptionBucket {
 }
 
 interface GuardrailItem {
-  key: 'IMPORT' | 'PROCESS' | 'SUBMIT' | 'APPROVE' | 'PUBLISH' | 'RERUN' | 'ROLLBACK';
+  key: 'IMPORT' | 'PROCESS' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'PUBLISH' | 'RERUN' | 'ROLLBACK';
   label: string;
   allowed: boolean;
   reason: string;
@@ -92,6 +94,7 @@ interface GuardrailItem {
     ActionButtonComponent,
     LoadingSpinnerComponent,
     EmptyStateComponent,
+    ClientContextStripComponent,
   ],
   templateUrl: './payroll-runs.component.html',
   styleUrls: ['./payroll-runs.component.scss'],
@@ -112,8 +115,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   actionBusy = false;
   importBusy = false;
   loadingApprovalStatus = false;
+  creatingRun = false;
 
   selectedClientId = '';
+  routeScoped = false;
   selectedMonth = 0;
   selectedYear = 0;
   statusFilter = '';
@@ -122,6 +127,18 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   importFile: File | null = null;
   selectedExceptionBucketKey = 'ALL';
   showFullHistory = false;
+
+  // Add Employee panel
+  showAddEmployeePanel = false;
+  addEmpSearch = '';
+  addEmpAvailable: { employeeCode: string; name: string }[] = [];
+  addEmpFiltered: { employeeCode: string; name: string }[] = [];
+  addEmpSelected = new Set<string>();
+  addEmpBusy = false;
+  addEmpLoading = false;
+  addEmpFile: File | null = null;
+  addEmpUploadBusy = false;
+  addEmpParsedCodes: string[] = [];
   private readonly runEventHistory: Record<string, RunEvent[]> = {};
   private readonly runApprovalStatusByRunId: Record<string, RunApprovalStatus> = {};
 
@@ -156,9 +173,15 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly toast: ToastService,
     private readonly payrollApi: PayrollApiService,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) {
+      this.selectedClientId = routeClientId;
+      this.routeScoped = true;
+    }
     this.loadClients();
     this.loadRuns();
   }
@@ -277,6 +300,43 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     this.loadRunWorkspaceData(run.id, true);
   }
 
+  createRun(): void {
+    if (this.creatingRun) return;
+    const clientId = this.selectedClientId;
+    if (!clientId) {
+      this.toast.error('No client selected.');
+      return;
+    }
+    const now = new Date();
+    const periodMonth = this.selectedMonth || now.getMonth() + 1;
+    const periodYear = this.selectedYear || now.getFullYear();
+    const monthName = this.monthOptions[periodMonth - 1] || '';
+
+    if (!confirm(`Create a new payroll run for ${monthName} ${periodYear}?`)) return;
+
+    this.creatingRun = true;
+    this.http
+      .post<any>('/api/v1/payroll/runs', { clientId, periodYear, periodMonth })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.creatingRun = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success(`Payroll run created for ${monthName} ${periodYear}.`);
+          this.selectedMonth = periodMonth;
+          this.selectedYear = periodYear;
+          this.loadRuns();
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Failed to create payroll run.');
+        },
+      });
+  }
+
   processRun(run: PayrollRunItem): void {
     if (this.isConsoleBusy()) return;
     const guard = this.actionGuardReason(run, 'PROCESS');
@@ -284,6 +344,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
+    if (!confirm('Are you sure you want to process this payroll run?')) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/process`, {})
@@ -311,6 +372,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
+    if (!confirm('Are you sure you want to submit this run for approval?')) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/submit`, {})
@@ -338,6 +400,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
+    if (!confirm('Are you sure you want to approve this payroll run?')) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/approve`, {})
@@ -388,8 +451,39 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
+    if (!confirm('Are you sure you want to rerun this payroll run? This will reprocess the data.')) return;
     this.addRunEvent(run.id, 'RERUN', 'Rerun requested', 'Run sent for reprocessing');
     this.processRun(run);
+  }
+
+  rejectRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    const guard = this.actionGuardReason(run, 'REJECT');
+    if (guard) {
+      this.toast.warning(`Action blocked: ${guard}`);
+      return;
+    }
+    const reason = prompt('Enter rejection reason:');
+    if (!reason) return;
+    this.actionBusy = true;
+    this.http
+      .post(`/api/v1/payroll/runs/${run.id}/reject`, { reason })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.addRunEvent(run.id, 'ROLLBACK', 'Run rejected', reason);
+          this.toast.success('Payroll run rejected.');
+          this.loadRuns();
+        },
+        error: (err) =>
+          this.toast.error(err?.error?.message || 'Could not reject payroll run.'),
+      });
   }
 
   rollbackRun(run: PayrollRunItem): void {
@@ -399,6 +493,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.toast.warning(`Action blocked: ${guard}`);
       return;
     }
+    if (!confirm('Are you sure you want to rollback this payroll run? This will revert it to draft.')) return;
     this.actionBusy = true;
     this.http
       .post(`/api/v1/payroll/runs/${run.id}/revert`, {})
@@ -417,6 +512,39 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         },
         error: (err) =>
           this.toast.error(err?.error?.message || 'Could not revert payroll run.'),
+      });
+  }
+
+  deleteRun(run: PayrollRunItem): void {
+    if (this.isConsoleBusy()) return;
+    if (!this.canDeleteRun(run)) {
+      this.toast.warning('Only draft runs can be deleted.');
+      return;
+    }
+    const period = `${this.monthLabel(run.periodMonth)} ${run.periodYear}`;
+    if (!confirm(`Delete draft payroll run for ${run.clientName || 'client'} (${period})? This cannot be undone.`)) return;
+
+    this.actionBusy = true;
+    this.http
+      .delete(`/api/v1/payroll/runs/${run.id}`)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Draft payroll run deleted.');
+          if (this.selectedRun?.id === run.id) {
+            this.selectedRun = null;
+            this.runEmployees = [];
+          }
+          this.loadRuns();
+        },
+        error: (err) =>
+          this.toast.error(err?.error?.message || 'Could not delete payroll run.'),
       });
   }
 
@@ -440,7 +568,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const fd = new FormData();
     fd.append('file', this.importFile);
     this.http
-      .post(`/api/v1/payroll/runs/${this.selectedRun.id}/employees/upload`, fd)
+      .post(`/api/v1/payroll/runs/${this.selectedRun.id}/upload-attendance`, fd)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -450,8 +578,8 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.addRunEvent(this.selectedRun!.id, 'IMPORT', 'Import uploaded', 'Input file imported');
-          this.toast.success('Run input file uploaded successfully.');
+          this.addRunEvent(this.selectedRun!.id, 'IMPORT', 'Attendance uploaded', 'Attendance data imported');
+          this.toast.success('Attendance uploaded successfully.');
           this.importFile = null;
           this.loadRuns();
           if (this.selectedRun) {
@@ -460,6 +588,25 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         },
         error: (err) => this.toast.error(err?.error?.message || 'Could not upload import file.'),
       });
+  }
+
+  downloadAttendanceTemplate(): void {
+    const headers = ['Employee Code', 'Employee Name', 'Working Days', 'Payable Days', 'OT Hours', 'Other Earnings', 'Arrears Attendance Bonus', 'Other Deductions'];
+    // Pre-fill employee codes/names from the run's employee list
+    const dataRows = this.runEmployees.map((emp) =>
+      [emp.empCode || '', emp.employeeName || '', '', '', '', '', '', ''].join(','),
+    );
+    const csv = [headers.join(','), ...dataRows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const run = this.selectedRun;
+    a.download = run
+      ? `attendance-template-${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}.csv`
+      : 'attendance-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   downloadPayslips(run: PayrollRunItem): void {
@@ -740,6 +887,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     return this.actionAllowed(run, 'ROLLBACK');
   }
 
+  canDeleteRun(run: PayrollRunItem | null): boolean {
+    if (!run) return false;
+    return this.statusKey(run) === 'DRAFT';
+  }
+
   actionGuardReason(
     run: PayrollRunItem | null,
     action: GuardrailItem['key'],
@@ -754,7 +906,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     const exceptions = this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
 
     if (action === 'IMPORT') {
-      if (status === 'APPROVED') return 'Published run is locked for import.';
       return null;
     }
 
@@ -800,8 +951,13 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       return null;
     }
 
+    if (action === 'REJECT') {
+      if (status !== 'SUBMITTED') return 'Only submitted runs can be rejected.';
+      return null;
+    }
+
     if (action === 'ROLLBACK') {
-      if (status !== 'REJECTED') return 'Only rejected runs can be rolled back.';
+      if (status !== 'REJECTED' && status !== 'APPROVED') return 'Only rejected or approved runs can be rolled back.';
       return null;
     }
 
@@ -833,7 +989,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         error: () => {
           this.runEmployees = [];
           if (toastOnError) {
-            this.toast.error('Could not load employee run preview.');
             this.toast.error('Could not load employee run preview.');
           }
         },
@@ -874,7 +1029,6 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
         error: () => {
           delete this.runApprovalStatusByRunId[runId];
           if (toastOnError) {
-            this.toast.error('Could not load approval status for this run.');
             this.toast.error('Could not load approval status for this run.');
           }
         },
@@ -939,5 +1093,168 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       this.loadingRuns ||
       this.loadingRunDetail
     );
+  }
+
+  // ── Add Employee to Run ─────────────────────────────────────────
+  toggleAddEmployeePanel(): void {
+    this.showAddEmployeePanel = !this.showAddEmployeePanel;
+    if (this.showAddEmployeePanel && this.selectedRun) {
+      this.loadAvailableEmployees();
+    } else {
+      this.addEmpAvailable = [];
+      this.addEmpFiltered = [];
+      this.addEmpSelected.clear();
+      this.addEmpSearch = '';
+    }
+  }
+
+  private loadAvailableEmployees(): void {
+    if (!this.selectedRun) return;
+    this.addEmpLoading = true;
+    const clientId = this.selectedRun.clientId || '';
+    this.http
+      .get<any>(`/api/v1/payroll/employees`, { params: { clientId, status: 'active', limit: '500' } })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.addEmpLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const all = (res?.data || res || []).map((e: any) => ({
+            employeeCode: e.employeeCode || e.emp_code || '',
+            name: e.name || e.employeeName || '',
+          }));
+          const inRun = new Set(this.runEmployees.map((r) => r.empCode));
+          this.addEmpAvailable = all.filter((e: any) => !inRun.has(e.employeeCode));
+          this.filterAddEmpList();
+        },
+        error: () => {
+          this.toast.error('Could not load employees.');
+          this.addEmpAvailable = [];
+          this.addEmpFiltered = [];
+        },
+      });
+  }
+
+  filterAddEmpList(): void {
+    const q = (this.addEmpSearch || '').toLowerCase();
+    this.addEmpFiltered = q
+      ? this.addEmpAvailable.filter(
+          (e) =>
+            e.employeeCode.toLowerCase().includes(q) ||
+            e.name.toLowerCase().includes(q),
+        )
+      : [...this.addEmpAvailable];
+  }
+
+  toggleAddEmpSelect(code: string): void {
+    if (this.addEmpSelected.has(code)) {
+      this.addEmpSelected.delete(code);
+    } else {
+      this.addEmpSelected.add(code);
+    }
+  }
+
+  onAddEmpFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.addEmpFile = input?.files?.[0] || null;
+    this.addEmpParsedCodes = [];
+    if (!this.addEmpFile) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string;
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      // Skip header row if it contains non-code-like text
+      const codes: string[] = [];
+      for (const line of lines) {
+        // Take first column (CSV)
+        const col = line.split(',')[0].trim().replace(/^"|"$/g, '');
+        if (!col) continue;
+        // Skip obvious header rows
+        if (/^(employee|emp|code|name|sr|sl|no)/i.test(col)) continue;
+        codes.push(col);
+      }
+      this.addEmpParsedCodes = [...new Set(codes)];
+      this.cdr.markForCheck();
+    };
+    reader.readAsText(this.addEmpFile);
+  }
+
+  uploadAddEmpFile(): void {
+    if (!this.selectedRun || !this.addEmpParsedCodes.length) return;
+    const codes = this.addEmpParsedCodes;
+    if (!confirm(`Add ${codes.length} employee(s) from file to this payroll run and compute their payroll?`)) return;
+
+    this.addEmpUploadBusy = true;
+    this.http
+      .post<any>(
+        `/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`,
+        { employeeCodes: codes },
+      )
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.addEmpUploadBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const added = res?.added?.length || 0;
+          const skipped = res?.skipped?.length || 0;
+          this.toast.success(`${added} employee(s) added from file${skipped ? `, ${skipped} skipped` : ''}.`);
+          this.addEmpFile = null;
+          this.addEmpParsedCodes = [];
+          this.showAddEmployeePanel = false;
+          this.addEmpSelected.clear();
+          this.addEmpSearch = '';
+          if (this.selectedRun) {
+            this.loadRunWorkspaceData(this.selectedRun.id, true);
+          }
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Failed to add employees from file.');
+        },
+      });
+  }
+
+  confirmAddEmployees(): void {
+    if (!this.selectedRun || !this.addEmpSelected.size) return;
+    const codes = Array.from(this.addEmpSelected);
+    if (!confirm(`Add ${codes.length} employee(s) to this payroll run and compute their payroll?`)) return;
+
+    this.addEmpBusy = true;
+    this.http
+      .post<any>(
+        `/api/v1/payroll/runs/${this.selectedRun.id}/add-employees`,
+        { employeeCodes: codes },
+      )
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.addEmpBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          const added = res?.added?.length || 0;
+          const skipped = res?.skipped?.length || 0;
+          this.toast.success(`${added} employee(s) added${skipped ? `, ${skipped} skipped` : ''}.`);
+          this.showAddEmployeePanel = false;
+          this.addEmpSelected.clear();
+          this.addEmpSearch = '';
+          if (this.selectedRun) {
+            this.loadRunWorkspaceData(this.selectedRun.id, true);
+          }
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Failed to add employees.');
+        },
+      });
   }
 }

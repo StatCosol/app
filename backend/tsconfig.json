@@ -3,7 +3,8 @@
     // NestJS app runs as CommonJS (package.json has no "type": "module").
     // Using NodeNext here causes runtime/import issues during build and execution.
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "5.0",
     "esModuleInterop": true,
     "isolatedModules": false,
     "declaration": true,
@@ -17,11 +18,11 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "strictPropertyInitialization": false,
     "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "strictBindCallApply": true,
+    "noFallthroughCasesInSwitch": true
   }
   ,
   "include": [

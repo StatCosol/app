@@ -19,8 +19,7 @@ export class EmployeeListService {
   ) {}
 
   private readonly searchFields = [
-    'e.firstName',
-    'e.lastName',
+    'e.name',
     'e.employeeCode',
     'e.uan',
     'e.esic',
@@ -29,14 +28,14 @@ export class EmployeeListService {
 
   private readonly sortConfig: SortConfig = {
     sortMap: {
-      employeeName: 'e.firstName',
+      employeeName: 'e.name',
       employeeCode: 'e.employeeCode',
       joinDate: 'e.dateOfJoining',
       pfStatus: 'e.pfRegistered',
       esiStatus: 'e.esiRegistered',
       updatedAt: 'e.updatedAt',
     },
-    defaultSort: 'e.firstName',
+    defaultSort: 'e.name',
     defaultOrder: 'ASC',
   };
 

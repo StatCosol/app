@@ -6,7 +6,11 @@ import { DataSource, Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { UserEntity } from '../users/entities/user.entity';
+import { RoleEntity } from '../users/entities/role.entity';
+import { UserLoginLogEntity } from '../users/entities/user-login-log.entity';
 import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
+import { RefreshTokenEntity } from './entities/refresh-token.entity';
 
 jest.mock('bcryptjs', () => ({ compare: jest.fn().mockResolvedValue(true) }));
 
@@ -34,9 +38,26 @@ describe('AuthService.login', () => {
         { provide: UsersService, useValue: { getRoleById: jest.fn() } },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
         { provide: getRepositoryToken(UserEntity), useValue: usersRepo },
+        { provide: getRepositoryToken(RoleEntity), useValue: {} },
+        {
+          provide: getRepositoryToken(UserLoginLogEntity),
+          useValue: { insert: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: getRepositoryToken(RefreshTokenEntity),
+          useValue: { save: jest.fn(), update: jest.fn(), findOne: jest.fn() },
+        },
         { provide: getDataSourceToken(), useValue: {} },
         { provide: DataSource, useValue: {} },
         { provide: EmailService, useValue: { sendMail: jest.fn() } },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(
+              (_key: string, defaultValue?: unknown) => defaultValue,
+            ),
+          },
+        },
       ],
     }).compile();
 
@@ -60,6 +81,7 @@ describe('AuthService.login', () => {
     deletedAt: null,
     ownerCcoId: null,
     employeeId: null,
+    scheduledEmployment: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastLoginAt: null,

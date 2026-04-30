@@ -1,8 +1,9 @@
 import { ClientDashboardService } from './client-dashboard.service';
 import { ClientDashboardQueryDto } from './dto/dashboard-query.dto';
+import { ReqUser } from '../access/access-scope.service';
 
 // Minimal chainable query builder mock
-const qb = <T>(options: { counts?: number[]; raws?: any[][] }) => {
+const qb = <_T>(options: { counts?: number[]; raws?: any[][] }) => {
   let countIdx = 0;
   let rawIdx = 0;
   const builder: any = {
@@ -31,6 +32,18 @@ const mockUsersService = {
 };
 
 describe('ClientDashboardService', () => {
+  const clientUser: ReqUser = {
+    id: 'u1',
+    userId: 'u1',
+    roleCode: 'CLIENT',
+    email: 'client@example.com',
+    clientId: 'c1',
+    userType: 'BRANCH',
+    employeeId: null,
+    branchIds: ['b1'],
+    assignedClientIds: ['c1'],
+  };
+
   it('computes PF/ESI summary with branch scoping', async () => {
     const employeesRepo: any = {
       createQueryBuilder: jest.fn(() =>
@@ -72,10 +85,7 @@ describe('ClientDashboardService', () => {
     );
 
     const dto: ClientDashboardQueryDto = { month: '2026-02' } as any;
-    const res: any = await svc.getPfEsiSummary(
-      { roleCode: 'CLIENT', userId: 'u1' },
-      dto,
-    );
+    const res: any = await svc.getPfEsiSummary(clientUser, dto);
 
     expect(res.pf.registered).toBe(2);
     expect(res.pf.notRegisteredApplicable).toBe(1);
@@ -112,10 +122,7 @@ describe('ClientDashboardService', () => {
     );
 
     const dto: ClientDashboardQueryDto = { month: '2026-02' } as any;
-    const res: any = await svc.getContractorUploadSummary(
-      { roleCode: 'CLIENT', userId: 'u1' },
-      dto,
-    );
+    const res: any = await svc.getContractorUploadSummary(clientUser, dto);
 
     expect(res.overallPercent).toBe(50);
     expect(res.contractors[0]).toMatchObject({

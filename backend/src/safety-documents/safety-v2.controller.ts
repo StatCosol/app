@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   Query,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -21,6 +20,8 @@ import { SafetyRequirementService } from './services/safety-requirement.service'
 import { SafetyDocumentsService } from './safety-documents.service';
 import { UploadSafetyDocumentDto } from './dto/upload-safety-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Safety Documents')
 @ApiBearerAuth('JWT')
@@ -62,37 +63,53 @@ export class SafetyV2Controller {
   )
   async upload(
     @Param('branchId') branchId: string,
-    @Body() body: any,
-    @UploadedFile() file: any,
-    @Req() req: any,
+    @Body() body: Record<string, unknown>,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: ReqUser,
   ) {
-    const userId = req?.user?.userId || req?.user?.id;
-    const clientId = req?.user?.clientId || null;
+    const userId = user.userId || user.id;
+    const clientId = user.clientId || null;
     if (!userId || !clientId) {
       throw new BadRequestException('Invalid auth context for upload');
     }
 
-    const docMasterId = Number(body?.docMasterId || body?.masterDocumentId || 0);
+    const docMasterId = Number(
+      body?.docMasterId || body?.masterDocumentId || 0,
+    );
     const master = await this.safetySvc.getMasterDocument(docMasterId);
 
     const dto: UploadSafetyDocumentDto = {
       branchId,
       documentType: String(
-        body?.documentType || master?.document_name || `SAFETY_DOC_${docMasterId || 'GENERIC'}`,
+        body?.documentType ||
+          master?.document_name ||
+          `SAFETY_DOC_${docMasterId || 'GENERIC'}`,
       ),
       documentName: String(
-        body?.documentName || master?.document_name || `Safety Document ${docMasterId || ''}`.trim(),
+        body?.documentName ||
+          master?.document_name ||
+          `Safety Document ${docMasterId || ''}`.trim(),
       ),
-      remarks: body?.remarks ? String(body.remarks) : undefined,
+      remarks:
+        typeof body?.remarks === 'string' || typeof body?.remarks === 'number'
+          ? String(body.remarks)
+          : undefined,
       category: body?.category || master?.category || undefined,
       frequency: body?.frequency || master?.frequency || undefined,
       applicableTo: body?.applicableTo || master?.applicable_to || undefined,
       periodMonth: body?.periodMonth ? Number(body.periodMonth) : undefined,
-      periodQuarter: body?.periodQuarter ? Number(body.periodQuarter) : undefined,
+      periodQuarter: body?.periodQuarter
+        ? Number(body.periodQuarter)
+        : undefined,
       periodYear: body?.periodYear ? Number(body.periodYear) : undefined,
       masterDocumentId: docMasterId > 0 ? docMasterId : undefined,
     };
 
-    return this.safetyDocsSvc.upload(dto, file, String(userId), String(clientId));
+    return this.safetyDocsSvc.upload(
+      dto,
+      file,
+      String(userId),
+      String(clientId),
+    );
   }
 }

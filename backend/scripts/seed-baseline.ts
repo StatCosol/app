@@ -1,5 +1,18 @@
-
 import dataSource from '../src/typeorm.datasource';
+
+const sqlEscape = (value: string) => value.replace(/'/g, "''");
+
+const adminEmail = process.env.SMOKE_ADMIN_EMAIL ?? 'it_admin@statcosol.com';
+const adminPassword =
+  process.env.DEFAULT_SEED_PASSWORD ??
+  process.env.SMOKE_ADMIN_PASSWORD;
+const ceoPassword = process.env.SEED_CEO_PASSWORD ?? 'Statco@123';
+
+if (!adminPassword) {
+  throw new Error(
+    'DEFAULT_SEED_PASSWORD or SMOKE_ADMIN_PASSWORD must be set before seeding baseline users.',
+  );
+}
 
 const seedSql = `
 -- Clean minimal seed for roles and admin user
@@ -29,9 +42,9 @@ SELECT
   r.id,
   'SSA-1',
   'Statco Admin',
-  'admin@statcosol.com',
+  '${sqlEscape(adminEmail)}',
   '9581003537',
-  crypt('Admin@123', gen_salt('bf'))
+  crypt('${sqlEscape(adminPassword)}', gen_salt('bf'))
 FROM roles r WHERE r.code='ADMIN'
 ON CONFLICT DO NOTHING;
 
@@ -43,7 +56,7 @@ SELECT
   'Ram kumar',
   'mkkallepalli@gmail.com',
   '9014291142',
-  crypt('Statco@123', gen_salt('bf'))
+  crypt('${sqlEscape(ceoPassword)}', gen_salt('bf'))
 FROM roles r WHERE r.code='CEO'
 ON CONFLICT DO NOTHING;
 

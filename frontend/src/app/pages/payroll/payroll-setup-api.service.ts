@@ -15,6 +15,7 @@ export type PayrollClientSetup = {
   esiEmployerRate: number;
   esiEmployeeRate: number;
   pfWageCeiling: number;
+  pfGrossThreshold: number;
   esiWageCeiling: number;
   payCycle: string;
   effectiveFrom: string;

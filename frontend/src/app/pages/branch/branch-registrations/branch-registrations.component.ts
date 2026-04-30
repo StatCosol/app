@@ -17,6 +17,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import { environment } from '../../../../environments/environment';
 import { SharedTimelineComponent } from '../../../shared/components/timeline';
 import { TimelineEvent as SharedTimelineEvent } from '../../../shared/components/timeline/timeline.model';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 
 type RegistrationStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED';
 type RequestAction = 'APPLY' | 'AMEND' | 'RENEW' | 'CLOSE';
@@ -140,6 +141,7 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
     private readonly helpdeskService: HelpdeskService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
@@ -432,7 +434,14 @@ export class BranchRegistrationsComponent implements OnInit, OnDestroy {
   openFile(pathOrUrl: string | null | undefined): void {
     if (!pathOrUrl) return;
     const resolved = this.resolveFileUrl(pathOrUrl);
-    window.open(this.auth.authenticateUrl(resolved), '_blank');
+    this.protectedFiles
+      .open(resolved)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to open file.');
+        },
+      });
   }
 
   exportSelectedSummary(): void {

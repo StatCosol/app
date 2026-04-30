@@ -1,9 +1,10 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, forkJoin } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
@@ -56,6 +57,11 @@ export class CcoEscalationsComponent implements OnInit, OnDestroy {
   assignTarget: any = null;
   assignRole: 'CRM' | 'AUDITOR' = 'CRM';
   assigneeId = '';
+  allUsers: UserDto[] = [];
+
+  get filteredUsers(): UserDto[] {
+    return this.allUsers.filter(u => u.roleCode === this.assignRole);
+  }
 
   // Notify modal
   showNotifyModal = false;
@@ -64,12 +70,28 @@ export class CcoEscalationsComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: ClientBranchesService,
+    private usersApi: AdminUsersApi,
     private toast: ToastService,
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
   ) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    forkJoin({
+      crms: this.usersApi.getCcoCrmUsers(),
+      auditors: this.usersApi.getCcoAuditorUsers(),
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: ({ crms, auditors }) => {
+        this.allUsers = [...(crms || []), ...(auditors || [])];
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.allUsers = [];
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();

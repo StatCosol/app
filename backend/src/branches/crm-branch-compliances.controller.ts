@@ -4,13 +4,12 @@ import {
   Post,
   Param,
   Body,
-  Req,
   UseGuards,
   ParseUUIDPipe,
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
 import { BranchApplicableComplianceEntity } from './entities/branch-applicable-compliance.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -19,6 +18,8 @@ import { Roles } from '../auth/roles.decorator';
 import { BranchesService } from './branches.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Branches')
 @ApiBearerAuth('JWT')
@@ -51,12 +52,12 @@ export class CrmBranchCompliancesController {
   @Get('branches/:branchId/applicable-compliances')
   async getBranchApplicableCompliances(
     @Param('branchId', ParseUUIDPipe) branchId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     const branch = await this.branchesService.findById(branchId);
     const isAssigned = await this.assignmentsService.isClientAssignedToCrm(
       branch.clientId,
-      req.user.userId,
+      user.userId,
     );
     if (!isAssigned) {
       throw new ForbiddenException(
@@ -76,12 +77,12 @@ export class CrmBranchCompliancesController {
   async saveBranchApplicableCompliances(
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Body('complianceIds') complianceIds: string[],
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     const branch = await this.branchesService.findById(branchId);
     const isAssigned = await this.assignmentsService.isClientAssignedToCrm(
       branch.clientId,
-      req.user.userId,
+      user.userId,
     );
     if (!isAssigned) {
       throw new ForbiddenException(
@@ -97,7 +98,7 @@ export class CrmBranchCompliancesController {
           branchId,
           complianceId,
           isApplicable: true,
-          createdBy: req.user.userId,
+          createdBy: user.userId,
         }),
       );
       await this.mappingRepo.save(mappings);

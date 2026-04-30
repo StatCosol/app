@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, forkJoin } from 'rxjs';
@@ -83,6 +84,7 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
   limit = 20;
   loading = false;
   actionBusy = false;
+  exportingXlsx = false;
 
   readonly tabs: DueTab[] = ['OVERDUE', 'DUE_SOON', 'THIS_MONTH', 'COMPLETED'];
 
@@ -90,11 +92,16 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
     private readonly svc: CrmDueItemsService,
     private readonly toast: ToastService,
     private readonly dialog: ConfirmDialogService,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.load();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/crm/dashboard']);
   }
 
   ngOnDestroy(): void {
@@ -158,6 +165,77 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
   selectItem(item: DueItemRow): void {
     this.selectedItem = item;
     this.selectedTimeline = this.buildTimeline(item);
+    this.fetchTimeline(item.id);
+  }
+
+  private fetchTimeline(itemId: string): void {
+    this.svc
+      .getRenewalTimeline(itemId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (events) => {
+          if (this.selectedItem?.id !== itemId) return;
+          this.selectedTimeline = (events || []).map((e: any) => ({
+            title: this.formatTimelineTitle(e),
+            timestamp: e.createdAt,
+            note: e.remarks || undefined,
+            kind: 'ACTION' as LocalEventKind,
+          }));
+          if (!this.selectedTimeline.length) {
+            this.selectedTimeline = this.buildTimeline(this.selectedItem!);
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => { /* keep local timeline on failure */ },
+      });
+  }
+
+  private formatTimelineTitle(e: any): string {
+    const actor = e.actorName || e.actorRole || '';
+    const prefix = actor ? `${actor}: ` : '';
+    const actionMap: Record<string, string> = {
+      CREATED: 'Renewal created',
+      UPDATE: 'Renewal updated',
+      SOFT_DELETE: 'Renewal deleted',
+      DOCUMENT_UPLOADED: 'Document uploaded',
+      RETURNED_FOR_CORRECTION: 'Returned for correction',
+      REMINDER_SENT: 'Reminder sent',
+      OWNER_CHANGED: 'Owner changed',
+      SUBMITTED: 'Submitted for review',
+      APPROVED: 'Approved',
+      REJECTED: 'Rejected',
+      BULK_ACTION: 'Bulk action applied',
+    };
+    const label = actionMap[e.action] || e.action || 'Activity';
+    return `${prefix}${label}`;
+  }
+
+  exportRenewalsXlsx(): void {
+    this.exportingXlsx = true;
+    const params: Record<string, string> = {};
+    if (this.clientId) params['clientId'] = this.clientId;
+    if (this.branchId) params['branchId'] = this.branchId;
+    if (this.month) params['month'] = this.month;
+
+    this.svc
+      .exportRenewalsXlsx(params)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.exportingXlsx = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'crm-renewals-export.xlsx';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        },
+        error: () => this.toast.error('Excel export failed'),
+      });
   }
 
   async approve(item: DueItemRow): Promise<void> {
@@ -456,7 +534,7 @@ export class CrmRenewalsComponent implements OnInit, OnDestroy {
   }
 
   branchLabel(row: BranchPendingRow): string {
-    return row.branchName || row.branchId || 'Unmapped';
+    return row.branchName || 'Unmapped';
   }
 
   private applyView(selectedId: string | null): void {

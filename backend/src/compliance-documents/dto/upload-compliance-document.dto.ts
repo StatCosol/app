@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   Max,
@@ -11,7 +12,7 @@ import {
 
 export class UploadComplianceDocumentDto {
   @IsNotEmpty()
-  @IsString()
+  @IsUUID()
   clientId!: string;
 
   @IsOptional()

@@ -1,6 +1,7 @@
 import { Component, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { PageHeaderComponent, EmptyStateComponent, LoadingSpinnerComponent, StatusBadgeComponent } from '../../../shared/ui';
@@ -8,6 +9,7 @@ import { ReturnsService } from '../../../core/returns.service';
 import { ClientComplianceService } from '../../../core/client-compliance.service';
 import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ComplianceContextService } from '../../../core/services/compliance-context.service';
 
 type Filing = {
   id: string;
@@ -38,6 +40,7 @@ export class ClientReturnsComponent implements OnDestroy {
   isMasterUser = false;
   singleBranch = false;
   loading = true;
+  focusCode = '';
   creating = false;
   submitting: Record<string, boolean> = {};
   uploading: Record<string, { ack?: boolean; challan?: boolean }> = {};
@@ -50,7 +53,7 @@ export class ClientReturnsComponent implements OnDestroy {
     branchId: '',
     status: '',
     periodYear: new Date().getFullYear(),
-    periodMonth: new Date().getMonth() + 1,
+    periodMonth: '',
     returnType: '',
   };
 
@@ -70,13 +73,46 @@ export class ClientReturnsComponent implements OnDestroy {
     private readonly complianceSvc: ClientComplianceService,
     private readonly auth: AuthService,
     private readonly toast: ToastService,
+    private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
+    private readonly complianceContext: ComplianceContextService,
   ) {
     this.isMasterUser = this.auth.isMasterUser();
+    const user = this.auth.getUser();
+    if (user) {
+      this.complianceContext.setContext({
+        role: 'CLIENT',
+        clientId: user.clientId || null,
+        clientCode: user.clientName || null,
+        branchId: null,
+        branchCode: null,
+      });
+    }
   }
 
   ngOnInit() {
-    this.loadTypes();
+    const params = this.route.snapshot.queryParamMap;
+    const branchId = params.get('branchId') || '';
+    const code = params.get('code') || '';
+    const month = Number(params.get('periodMonth') || params.get('month')?.split('-')[1] || '');
+    const year = Number(params.get('year') || params.get('month')?.split('-')[0] || '');
+    this.focusCode = this.normalizeReturnCode(code);
+    if (branchId) {
+      this.filters.branchId = branchId;
+      this.newFiling.branchId = branchId;
+    }
+    if (month >= 1 && month <= 12) {
+      this.filters.periodMonth = month;
+      this.newFiling.periodMonth = month;
+    }
+    if (year >= 2000) {
+      this.filters.periodYear = year;
+      this.newFiling.periodYear = year;
+    }
+    if (this.focusCode) {
+      this.filters.returnType = this.focusCode;
+      this.newFiling.returnType = this.focusCode;
+    }
     this.loadBranches();
   }
 
@@ -86,12 +122,23 @@ export class ClientReturnsComponent implements OnDestroy {
   }
 
   loadTypes() {
-    this.returnsSvc.listTypes().pipe(takeUntil(this.destroy$)).subscribe({
+    const scopedBranchId = this.newFiling.branchId || this.filters.branchId || undefined;
+    this.returnsSvc.listTypes(scopedBranchId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.types = res?.data || res || [];
+        if (this.focusCode && !this.types.some((t) => t.code === this.focusCode)) {
+          this.focusCode = '';
+        }
+        if (this.newFiling.returnType && !this.types.some((t) => t.code === this.newFiling.returnType)) {
+          this.newFiling.returnType = '';
+        }
         this.cdr.detectChanges();
       },
-      error: () => {},
+      error: () => {
+        this.types = [];
+        this.toast.error('Failed to load return types');
+        this.cdr.detectChanges();
+      },
     });
   }
 
@@ -104,14 +151,20 @@ export class ClientReturnsComponent implements OnDestroy {
           this.filters.branchId = userBranchIds[0];
           this.newFiling.branchId = userBranchIds[0];
           this.singleBranch = true;
-        } else if (!this.filters.branchId && this.branches.length) {
+        } else if (!this.isMasterUser && !this.filters.branchId && this.branches.length) {
           this.filters.branchId = this.branches[0].id;
+          this.newFiling.branchId = this.branches[0].id;
         }
+        if (!this.newFiling.branchId && this.filters.branchId) {
+          this.newFiling.branchId = this.filters.branchId;
+        }
+        this.loadTypes();
         this.cdr.detectChanges();
         this.loadFilings();
       },
       error: () => {
         this.branches = [];
+        this.toast.error('Failed to load branches');
         this.cdr.detectChanges();
         this.loadFilings();
       },
@@ -133,11 +186,15 @@ export class ClientReturnsComponent implements OnDestroy {
         next: (res: any) => {
           this.loading = false;
           this.filings = res?.data || res || [];
+          if (this.focusCode && !this.newFiling.returnType) {
+            this.newFiling.returnType = this.focusCode;
+          }
           this.cdr.detectChanges();
         },
         error: () => {
           this.loading = false;
           this.filings = [];
+          this.toast.error('Failed to load filings');
           this.cdr.detectChanges();
         },
       });
@@ -152,10 +209,10 @@ export class ClientReturnsComponent implements OnDestroy {
     const payload = {
       clientId: this.auth.getUser()?.clientId,
       branchId: this.newFiling.branchId,
-      returnType: chosen?.label || this.newFiling.returnType,
+      returnType: chosen?.code || this.newFiling.returnType,
       lawType: chosen?.lawType || this.newFiling.lawType || 'GENERAL',
       periodYear: Number(this.newFiling.periodYear),
-      periodMonth: Number(this.newFiling.periodMonth),
+      periodMonth: this.requiresPeriodMonth(chosen?.frequency) ? Number(this.newFiling.periodMonth) : null,
     };
     this.creating = true;
     this.returnsSvc
@@ -171,11 +228,15 @@ export class ClientReturnsComponent implements OnDestroy {
         next: () => {
           this.creating = false;
           this.toast.info('Return created');
+          // Sync list filters to match the newly created filing so it appears
+          if (this.newFiling.branchId) this.filters.branchId = this.newFiling.branchId;
+          if (this.newFiling.periodYear) this.filters.periodYear = this.newFiling.periodYear;
+          if (this.newFiling.periodMonth) this.filters.periodMonth = this.newFiling.periodMonth;
           this.loadFilings();
         },
-        error: () => {
+        error: (err) => {
           this.creating = false;
-          this.toast.info('Could not create return');
+          this.toast.error(err?.error?.message || 'Could not create return');
         },
       });
   }
@@ -205,7 +266,7 @@ export class ClientReturnsComponent implements OnDestroy {
           this.toast.info(`${kind === 'ack' ? 'Acknowledgement' : 'Challan'} uploaded`);
           this.loadFilings();
         },
-        error: () => { entry[kind] = false; this.toast.info('Upload failed'); },
+        error: (err) => { entry[kind] = false; this.toast.error(err?.error?.message || 'Upload failed'); },
       });
   }
 
@@ -226,7 +287,7 @@ export class ClientReturnsComponent implements OnDestroy {
           this.toast.info('Submitted for review');
           this.loadFilings();
         },
-        error: () => { this.submitting[filing.id] = false; this.toast.info('Submit failed'); },
+        error: (err) => { this.submitting[filing.id] = false; this.toast.error(err?.error?.message || 'Submit failed'); },
       });
   }
 
@@ -238,12 +299,53 @@ export class ClientReturnsComponent implements OnDestroy {
   }
 
   canUpload(): boolean {
-    return !this.isMasterUser;
+    return true;
   }
 
   branchName(f: Filing): string {
     if (f.branchName) return f.branchName;
     const branch = this.branches?.find((b) => b?.id === f.branchId);
     return branch?.branchName || branch?.name || 'Branch';
+  }
+
+  hasFocusTarget(): boolean {
+    return !!this.focusCode;
+  }
+
+  focusLabel(): string {
+    const match = this.types.find((t) => t.code === this.focusCode);
+    return match?.label || this.focusCode;
+  }
+
+  isFocusedFiling(filing: Filing): boolean {
+    if (!this.focusCode) return false;
+    return this.normalizeReturnCode(filing.returnType) === this.focusCode;
+  }
+
+  hasFocusedFiling(): boolean {
+    if (!this.focusCode) return false;
+    return this.filings.some((filing) => this.isFocusedFiling(filing));
+  }
+
+  onCreateBranchChange() {
+    this.loadTypes();
+  }
+
+  private requiresPeriodMonth(frequency?: string | null): boolean {
+    return ['MONTHLY', 'MONTHLY_RETURN', 'QUARTERLY', 'HALF_YEARLY'].includes(String(frequency || '').toUpperCase());
+  }
+
+  private normalizeReturnCode(value: unknown): string {
+    const normalized = String(value || '').trim().toUpperCase();
+    if (!normalized) return '';
+    const tokens = normalized
+      .replace(/&/g, 'AND')
+      .replace(/[^A-Z0-9]+/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const knownCodes = ['PF', 'ESI', 'PT', 'LWF', 'GST', 'TDS', 'ROC'];
+    const match = knownCodes.find((code) => tokens.includes(code));
+    return match || normalized.replace(/[^A-Z0-9]+/g, '');
   }
 }

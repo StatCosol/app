@@ -53,6 +53,7 @@
   font-size: 0.72rem;
   color: #6b7280;
   font-weight: 600;
+  margin-bottom: 0;
 }
 
 .summary-grid {
@@ -204,6 +205,27 @@ th {
   letter-spacing: 0.04em;
   font-weight: 700;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.section-header td {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.4rem 0.62rem;
+  border-bottom: none;
+}
+
+.subtotal-row td {
+  border-top: 1px dashed #d1d5db;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.76rem;
+  padding: 0.38rem 0.62rem;
+}
+
+.net-pay-row th {
+  font-size: 0.85rem;
+  color: #111827;
+  border-top: 2px solid #111827;
+  padding: 0.55rem 0.62rem;
 }
 
 tbody tr.selected {

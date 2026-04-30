@@ -4,3 +4,7 @@ export * from './timeline';
 export * from './thread';
 export * from './status';
 export * from './workspace';
+export { ComplianceCalendarWidgetComponent } from './compliance-calendar-widget/compliance-calendar-widget.component';
+export { ComplianceNotificationCenterComponent } from './compliance-notification-center/compliance-notification-center.component';
+export { ComplianceChartsComponent } from './compliance-charts/compliance-charts.component';
+export { ComplianceRiskTilesComponent } from './compliance-risk-tiles/compliance-risk-tiles.component';

@@ -7,7 +7,6 @@ import {
   Patch,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -20,6 +19,8 @@ import {
 } from '../assignments/crm-assignment.guard';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /* ──────────────────────────── CRM endpoints ──────────────────────────── */
 
@@ -128,23 +129,26 @@ export class ClientContractorRequiredDocumentsController {
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('contractorId') contractorId: string,
     @Query('branchId') branchId?: string,
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId!;
     if (branchId)
-      await this.branchAccess.assertBranchAccess(req.user.userId, branchId);
+      await this.branchAccess.assertBranchAccess(user.userId, branchId);
     return this.svc.list(clientId, contractorId, branchId);
   }
 
   /** GET /api/client/contractor-required-documents/all?branchId= */
   @ApiOperation({ summary: 'List All' })
   @Get('all')
-  async listAll(@Req() req: any, @Query('branchId') branchId?: string) {
-    const clientId = req.user.clientId;
+  async listAll(
+    @CurrentUser() user: ReqUser,
+    @Query('branchId') branchId?: string,
+  ) {
+    const clientId = user.clientId!;
     if (branchId)
-      await this.branchAccess.assertBranchAccess(req.user.userId, branchId);
+      await this.branchAccess.assertBranchAccess(user.userId, branchId);
     return this.svc.listByClient(clientId, branchId);
   }
 
@@ -152,12 +156,12 @@ export class ClientContractorRequiredDocumentsController {
   @ApiOperation({ summary: 'Add' })
   @Post()
   async add(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body() dto: { contractorId: string; branchId?: string; docType: string },
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId!;
     if (dto.branchId)
-      await this.branchAccess.assertBranchAccess(req.user.userId, dto.branchId);
+      await this.branchAccess.assertBranchAccess(user.userId, dto.branchId);
     return this.svc.add({
       clientId,
       contractorUserId: dto.contractorId,
@@ -170,13 +174,13 @@ export class ClientContractorRequiredDocumentsController {
   @ApiOperation({ summary: 'Add Bulk' })
   @Post('bulk')
   async addBulk(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body()
     dto: { contractorId: string; docTypes: string[]; branchId?: string },
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId!;
     if (dto.branchId)
-      await this.branchAccess.assertBranchAccess(req.user.userId, dto.branchId);
+      await this.branchAccess.assertBranchAccess(user.userId, dto.branchId);
     return this.svc.addBulk(
       clientId,
       dto.contractorId,
@@ -188,14 +192,14 @@ export class ClientContractorRequiredDocumentsController {
   /** PATCH toggle */
   @ApiOperation({ summary: 'Toggle' })
   @Patch(':id/toggle')
-  toggle(@Req() req: any, @Param('id') id: string) {
-    return this.svc.toggle(id, req.user.clientId);
+  toggle(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.toggle(id, user.clientId!);
   }
 
   /** DELETE */
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
-  remove(@Req() req: any, @Param('id') id: string) {
-    return this.svc.remove(id, req.user.clientId);
+  remove(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    return this.svc.remove(id, user.clientId!);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, StreamableFile } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   CompliancePctService,
   BranchPctRow,
@@ -13,10 +13,17 @@ import {
   kpiRow,
   table,
   divider,
-  riskColor,
-  pctColor,
   TableCol,
 } from '../common/utils/pdf-helpers';
+
+type DtssTaskRow = {
+  status: string;
+  dueDate: string | Date | null;
+  branchName?: string | null;
+  returnType?: string | null;
+  lawType?: string | null;
+  [key: string]: unknown;
+};
 
 @Injectable()
 export class PdfReportService {
@@ -215,9 +222,9 @@ export class PdfReportService {
    * ═══════════════════════════════════════════════════════════ */
 
   async dtssReport(
-    clientId: string,
+    _clientId: string,
     month: string,
-    tasks: any[],
+    tasks: DtssTaskRow[],
     clientName?: string,
   ): Promise<Buffer> {
     const doc = createDoc();

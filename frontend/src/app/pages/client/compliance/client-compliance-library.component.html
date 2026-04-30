@@ -4,9 +4,14 @@
     subtitle="View and download compliance documents uploaded by your CRM">
   </ui-page-header>
 
+  <div *ngIf="hasFocusContext()" class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sky-900">
+    <p class="text-sm font-semibold">Focused from Branch Compliance</p>
+    <p class="text-sm">{{ focusSummary() }}</p>
+  </div>
+
   <!-- Tabs -->
   <div class="tabs">
-    <button *ngFor="let tab of tabs"
+    <button type="button" *ngFor="let tab of tabs"
       class="tab-btn"
       [class.active]="activeTab === tab.code"
       (click)="switchTab(tab.code)">
@@ -17,10 +22,10 @@
 
   <!-- Filters -->
   <div class="filters-row">
-    <select class="filter-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()"
+    <select id="ccl-branch-id" name="branchId" class="filter-select" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()"
       *ngIf="branches.length > 1">
       <option value="">All Branches</option>
-      <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+      <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
     </select>
 
     <select class="filter-select" *ngIf="subCategories.length > 0" [(ngModel)]="filters.subCategory" (ngModelChange)="loadDocuments()">
@@ -28,17 +33,17 @@
       <option *ngFor="let sc of subCategories" [value]="sc.code">{{ sc.label }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="filters.periodYear" (ngModelChange)="loadDocuments()">
+    <select id="ccl-period-year" name="periodYear" class="filter-select" [(ngModel)]="filters.periodYear" (ngModelChange)="loadDocuments()">
       <option [ngValue]="null">All Years</option>
       <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
     </select>
 
-    <select class="filter-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="loadDocuments()">
+    <select id="ccl-period-month" name="periodMonth" class="filter-select" [(ngModel)]="filters.periodMonth" (ngModelChange)="loadDocuments()">
       <option [ngValue]="null">All Months</option>
       <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
     </select>
 
-    <input class="filter-input" type="text" placeholder="Search by title..."
+    <input autocomplete="off" id="ccl-search" name="search" class="filter-input" type="text" placeholder="Search by title..."
       [(ngModel)]="filters.search" (keyup.enter)="loadDocuments()" />
   </div>
 

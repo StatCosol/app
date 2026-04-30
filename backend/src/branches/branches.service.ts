@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
 import { BranchEntity } from './entities/branch.entity';
 import { BranchContractorEntity } from './entities/branch-contractor.entity';
 import { UsersService } from '../users/users.service';
@@ -15,6 +14,15 @@ import { ComplianceApplicabilityService } from '../compliances/compliance-applic
 import { BranchApplicableComplianceEntity } from './entities/branch-applicable-compliance.entity';
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
 import { ApprovalRequestEntity } from '../admin/entities/approval-request.entity';
+import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateBranchDto } from './dto/update-branch.dto';
+
+type CreateBranchInput = CreateBranchDto & {
+  branchUserName?: string;
+  branchUserEmail?: string;
+  branchUserMobile?: string;
+  branchUserPassword?: string;
+};
 
 @Injectable()
 export class BranchesService {
@@ -28,7 +36,7 @@ export class BranchesService {
     @InjectRepository(BranchApplicableComplianceEntity)
     private readonly branchApplicableComplianceRepo: Repository<BranchApplicableComplianceEntity>,
     @InjectRepository(ComplianceMasterEntity)
-    private readonly complianceMasterRepo: Repository<ComplianceMasterEntity>,
+    private readonly _complianceMasterRepo: Repository<ComplianceMasterEntity>,
     @InjectRepository(ApprovalRequestEntity)
     private readonly approvalRepo: Repository<ApprovalRequestEntity>,
     private readonly usersService: UsersService,
@@ -39,7 +47,7 @@ export class BranchesService {
 
   async create(
     clientid: string,
-    dto: any,
+    dto: CreateBranchInput,
     performedBy?: string,
     performedRole?: string,
   ) {
@@ -51,8 +59,11 @@ export class BranchesService {
         ? Number(dto.headcount) || 0
         : employeeCount + contractorCount;
 
+    const branchCode = await this.generateBranchCode(clientid, dto.branchName);
+
     const branch = this.branchRepo.create({
       clientId: clientid,
+      branchCode,
       branchName: dto.branchName,
       branchType: dto.branchType || 'HO',
       stateCode: dto.stateCode ?? null,
@@ -75,7 +86,7 @@ export class BranchesService {
       action: 'CREATE',
       performedBy: performedBy ?? null,
       performedRole: performedRole ?? null,
-      afterJson: saved as any,
+      afterJson: saved as unknown as Record<string, unknown>,
     });
 
     // Branch desk user is mandatory for branch-level supervision
@@ -100,7 +111,7 @@ export class BranchesService {
       dto.branchUserEmail.trim(),
       dto.branchUserMobile.trim(),
       dto.branchUserPassword,
-    ).catch((err: any) => {
+    ).catch((err: Error) => {
       branchUserError = err?.message || 'Failed to create branch user';
       this.logger.warn(
         `Branch created but branch user could not be created (branchId=${saved.id}): ${branchUserError}`,
@@ -125,7 +136,7 @@ export class BranchesService {
   ): Promise<{ email: string; password: string; userId: string }> {
     // Guard: ensure branch exists before linking
     const branchExists = await this.branchRepo.findOne({
-      where: { id: branchId },
+      where: { id: branchId, isActive: true, isDeleted: false },
     });
     if (!branchExists) {
       throw new BadRequestException(
@@ -162,7 +173,7 @@ export class BranchesService {
       clientId,
       userType: 'BRANCH',
       branchIds: [branchId],
-    } as any);
+    });
 
     return {
       email: email.toLowerCase(),
@@ -186,17 +197,11 @@ export class BranchesService {
     return branch;
   }
 
-  async update(id: string, dto: any) {
+  async update(id: string, dto: UpdateBranchDto) {
     const branch = await this.findById(id);
 
-    // Protect immutable fields
-    const {
-      id: _id,
-      clientId: _clientId,
-      createdAt: _createdAt,
-      ...safe
-    } = dto ?? {};
-    Object.assign(branch, safe);
+    // DTO excludes immutable fields, so assign directly.
+    Object.assign(branch, dto ?? {});
 
     // If headcount not provided, keep it in sync when employee/contractor counts change
     const employeeCount = branch.employeeCount ?? 0;
@@ -211,7 +216,7 @@ export class BranchesService {
     const saved = await this.branchRepo.save(branch);
     try {
       await this.complianceApplicabilityService.recomputeForBranch(saved.id);
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error(
         'recomputeForBranch failed (branch saved OK):',
         err?.message ?? err,
@@ -335,7 +340,7 @@ export class BranchesService {
       });
 
       return { message: 'Branch soft-deleted' };
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error('Error deleting branch:', err);
       throw new BadRequestException(err?.message || 'Failed to delete branch');
     }
@@ -540,7 +545,9 @@ export class BranchesService {
   ) {
     try {
       // Check if branch exists
-      const branch = await this.branchRepo.findOne({ where: { id: branchId } });
+      const branch = await this.branchRepo.findOne({
+        where: { id: branchId, isActive: true, isDeleted: false },
+      });
       if (!branch) {
         throw new NotFoundException(`Branch ${branchId} does not exist`);
       }
@@ -559,12 +566,43 @@ export class BranchesService {
         await this.branchApplicableComplianceRepo.save(mappings);
       }
       return { ok: true };
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error('Error saving applicable compliances:', err);
       if (err instanceof NotFoundException) throw err;
       throw new BadRequestException(
         err?.message || 'Failed to save applicable compliances',
       );
     }
+  }
+
+  /**
+   * Generate a meaningful branch code from the branch name + state code.
+   * E.g. "Hyderabad" + state "TS" → "HYD-TS-001"
+   * If "HYD-TS-001" already exists, increments to "HYD-TS-002", etc.
+   */
+  private async generateBranchCode(
+    clientId: string,
+    branchName: string,
+  ): Promise<string> {
+    const alpha = branchName.replace(/[^A-Za-z]/g, '').toUpperCase();
+    const short = alpha.substring(0, 3) || 'BRN';
+
+    // Find existing branch codes with same prefix for this client
+    const existing: { branch_code: string }[] = await this.dataSource.query(
+      `SELECT branch_code FROM client_branches
+       WHERE clientid = $1 AND branch_code LIKE $2
+       ORDER BY branch_code DESC LIMIT 1`,
+      [clientId, `${short}-%`],
+    );
+
+    let seq = 1;
+    if (existing.length > 0) {
+      const lastCode = existing[0].branch_code;
+      const parts = lastCode.split('-');
+      const lastNum = parseInt(parts[parts.length - 1], 10);
+      if (!isNaN(lastNum)) seq = lastNum + 1;
+    }
+
+    return `${short}-${String(seq).padStart(3, '0')}`;
   }
 }

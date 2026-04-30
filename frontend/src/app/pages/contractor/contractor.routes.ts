@@ -13,8 +13,6 @@ const ContractorNotificationsComponent = () =>
   );
 const ContractorSupportComponent = () =>
   import('./contractor-support.component').then((m) => m.ContractorSupportComponent);
-const ContractorComplianceComponent = () =>
-  import('./compliance/contractor-compliance.component').then((m) => m.ContractorComplianceComponent);
 const ContractorUnifiedTaskCenterPageComponent = () =>
   import('./tasks/contractor-unified-task-center-page.component').then(
     (m) => m.ContractorUnifiedTaskCenterPageComponent,
@@ -22,6 +20,12 @@ const ContractorUnifiedTaskCenterPageComponent = () =>
 const ContractorProfileIdentityPageComponent = () =>
   import('./contractor-profile-identity-page.component').then(
     (m) => m.ContractorProfileIdentityPageComponent,
+  );
+const NewsDetailComponent = () =>
+  import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
+const ContractorEmployeesPageComponent = () =>
+  import('./employees/contractor-employees-page.component').then(
+    (m) => m.ContractorEmployeesPageComponent,
   );
 
 export const CONTRACTOR_ROUTES: Routes = [
@@ -33,14 +37,15 @@ export const CONTRACTOR_ROUTES: Routes = [
       { path: 'dashboard', loadComponent: ContractorDashboardUpgradePageComponent },
       { path: 'notifications', loadComponent: ContractorNotificationsComponent },
       { path: 'support', loadComponent: ContractorSupportComponent },
-      { path: 'compliance', loadComponent: ContractorComplianceComponent },
+      { path: 'compliance', redirectTo: 'tasks', pathMatch: 'full' },
       { path: 'compliance/tasks', pathMatch: 'full', redirectTo: 'tasks' },
       { path: 'compliance/tasks/:id', pathMatch: 'full', redirectTo: 'tasks/:id' },
-      { path: 'compliance/reupload-requests', pathMatch: 'full', redirectTo: 'reupload-requests' },
-      { path: 'reupload-requests', loadComponent: ContractorUnifiedTaskCenterPageComponent },
       { path: 'tasks', loadComponent: ContractorUnifiedTaskCenterPageComponent },
       { path: 'tasks/:id', loadComponent: ContractorUnifiedTaskCenterPageComponent },
       { path: 'profile', loadComponent: ContractorProfileIdentityPageComponent },
+      { path: 'news', loadComponent: NewsDetailComponent },
+      { path: 'news/:newsId', loadComponent: NewsDetailComponent },
+      { path: 'employees', loadComponent: ContractorEmployeesPageComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

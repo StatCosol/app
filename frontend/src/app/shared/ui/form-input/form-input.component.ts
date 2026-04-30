@@ -1,10 +1,11 @@
-import { Component, Input, forwardRef } from '@angular/core';
+import { Component, Input, forwardRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'ui-form-input',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   providers: [
     {
@@ -25,10 +26,14 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
         </div>
         <input
           [id]="inputId"
+          [name]="name || inputId"
           [type]="type"
           [placeholder]="placeholder"
           [disabled]="disabled"
           [readonly]="readonly"
+          [attr.autocomplete]="autocomplete || null"
+          [attr.aria-invalid]="error ? 'true' : null"
+          [attr.aria-describedby]="error ? inputId + '-error' : hint ? inputId + '-hint' : null"
           [ngClass]="inputClasses"
           [value]="value"
           (input)="onInput($event)"
@@ -38,8 +43,8 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/f
           <ng-content select="[slot=suffix]"></ng-content>
         </div>
       </div>
-      <p *ngIf="hint && !error" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
-      <p *ngIf="error" class="mt-1.5 text-sm text-error-600">{{ error }}</p>
+      <p *ngIf="hint && !error" [id]="inputId + '-hint'" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
+      <p *ngIf="error" [id]="inputId + '-error'" role="alert" class="mt-1.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{{ error }}</p>
     </div>
   `
 })
@@ -55,6 +60,8 @@ export class FormInputComponent implements ControlValueAccessor {
   @Input() prefixIcon = false;
   @Input() suffixIcon = false;
   @Input() inputId = `input-${Math.random().toString(36).substr(2, 9)}`;
+  @Input() name = '';
+  @Input() autocomplete = '';
 
   value = '';
   onChange: (value: string) => void = () => {};
@@ -87,7 +94,7 @@ export class FormInputComponent implements ControlValueAccessor {
     const padding = this.prefixIcon ? 'pl-10 pr-3 py-2.5' : this.suffixIcon ? 'pl-3 pr-10 py-2.5' : 'px-3 py-2.5';
 
     const stateClasses = this.error
-      ? 'border-error-300 text-error-900 placeholder-error-300 focus:ring-error-500 focus:border-error-500'
+      ? 'border-red-500 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500'
       : this.disabled
         ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
         : 'border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-accent-400 focus:border-accent-400';

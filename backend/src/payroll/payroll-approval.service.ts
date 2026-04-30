@@ -2,7 +2,6 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -100,13 +99,13 @@ export class PayrollApprovalService {
     return { id: run.id, status: run.status, message: 'Run rejected', reason };
   }
 
-  /** Revert a rejected run to DRAFT so it can be reprocessed */
+  /** Revert a rejected or approved run to DRAFT so it can be reprocessed */
   async revertToDraft(runId: string) {
     const run = await this.findRun(runId);
 
-    if (run.status !== 'REJECTED') {
+    if (run.status !== 'REJECTED' && run.status !== 'APPROVED') {
       throw new BadRequestException(
-        `Cannot revert: run is "${run.status}". Only REJECTED runs can be reverted.`,
+        `Cannot revert: run is "${run.status}". Only REJECTED or APPROVED runs can be reverted.`,
       );
     }
 

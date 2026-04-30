@@ -18,40 +18,40 @@
   <div class="card mb-4">
     <div class="flex flex-wrap items-end gap-4 p-4">
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
-        <input type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-month">Month</label>
+        <input autocomplete="off" id="cb-month" name="month" type="month" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
           [(ngModel)]="month" (change)="load()" />
       </div>
       <div class="flex-grow max-w-sm">
-        <label class="block text-xs font-medium text-gray-600 mb-1">Search</label>
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-q">Search</label>
         <div class="relative">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input class="w-full pl-10 rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+          <input autocomplete="off" id="cb-q" name="q" class="w-full pl-10 rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
             placeholder="Search by branch, client, state..."
             [(ngModel)]="q" (keyup.enter)="load()" />
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">State</label>
-        <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-state-filter">State</label>
+        <select id="cb-state-filter" name="stateFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
           [(ngModel)]="stateFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All States</option>
           <option *ngFor="let state of stateOptions" [value]="state">{{ state }}</option>
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Client</label>
-        <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-client-filter">Client</label>
+        <select id="cb-client-filter" name="clientFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
           [(ngModel)]="clientFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All Clients</option>
           <option *ngFor="let client of clientOptions" [value]="client">{{ client }}</option>
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Risk Band</label>
-        <select class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
+        <label class="block text-xs font-medium text-gray-600 mb-1" for="cb-risk-band-filter">Risk Band</label>
+        <select id="cb-risk-band-filter" name="riskBandFilter" class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500"
           [(ngModel)]="riskBandFilter" (ngModelChange)="applyLocalFilters()">
           <option value="ALL">All Risk Bands</option>
           <option value="HIGH">High</option>
@@ -59,7 +59,7 @@
           <option value="LOW">Low</option>
         </select>
       </div>
-      <button (click)="clearFilters()" class="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
+      <button type="button" (click)="clearFilters()" class="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
     </div>
   </div>
 

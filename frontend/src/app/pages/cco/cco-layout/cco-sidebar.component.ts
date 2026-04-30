@@ -32,8 +32,7 @@ interface SidebarItem {
     <!-- Sidebar -->
     <aside
       [class]="sidebarClasses"
-      [class.translate-x-0]="mobileOpen"
-      [class.-translate-x-full]="!mobileOpen"
+      [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
       <div *ngIf="!collapsed" class="px-5 pt-6 pb-4 flex items-center gap-3">
@@ -80,9 +79,9 @@ interface SidebarItem {
               [routerLinkActiveOptions]="{ exact: true }"
               (click)="onNavClick()"
               class="collapsed-icon"
-              [title]="link.label"
             >
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
+              <span class="collapsed-tooltip">{{ link.label }}</span>
             </a>
           </div>
         </ng-container>
@@ -90,8 +89,6 @@ interface SidebarItem {
         <ng-template #expandedNav>
           <div
             *ngFor="let group of navGroups"
-            (mouseenter)="openGroupOnHover(group)"
-            (mouseleave)="closeGroupOnLeave(group)"
           >
             <div
               class="sidebar-section"
@@ -121,13 +118,43 @@ interface SidebarItem {
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center">
-        <span class="text-[10px] text-white/35">CCO v1.0</span>
+      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+        <div class="text-[10px] text-white/35">CCO v1.0</div>
+        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
     </aside>
   `,
   styles: [`
     :host { display: contents; }
+
+    .sidebar-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 50;
+      height: 100vh;
+      width: 16rem;
+      transform: translateX(-100%);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-panel.mobile-open {
+      transform: translateX(0);
+    }
+
+    @media (min-width: 1024px) {
+      .sidebar-panel {
+        position: sticky;
+        z-index: 30;
+        width: 15rem;
+        transform: none;
+      }
+      .sidebar-panel.is-collapsed {
+        width: 68px;
+      }
+    }
 
     .sidebar-nav {
       overflow-y: auto;
@@ -326,6 +353,39 @@ interface SidebarItem {
     .collapsed-active .sidebar-icon {
       color: #FFFFFF;
     }
+
+    .collapsed-tooltip {
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1E293B;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+    }
+
+    .collapsed-tooltip::before {
+      content: '';
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-right-color: #1E293B;
+    }
+
+    .collapsed-icon:hover .collapsed-tooltip {
+      opacity: 1;
+    }
   `]
 })
 export class CcoSidebarComponent implements OnChanges, OnDestroy {
@@ -370,9 +430,8 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
   }
 
   get sidebarClasses(): string {
-    const base = 'fixed lg:sticky top-0 left-0 z-50 lg:z-30 h-screen sidebar-dark flex flex-col transition-all duration-300 ease-in-out relative';
-    const width = this.collapsed ? 'lg:w-[68px]' : 'lg:w-60';
-    return `${base} w-64 ${width} lg:translate-x-0`;
+    const base = 'sidebar-panel sidebar-dark flex flex-col transition-all duration-300 ease-in-out';
+    return this.collapsed ? `${base} is-collapsed` : base;
   }
 
   toggleGroup(group: SidebarGroup): void {
@@ -397,6 +456,7 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
   }
 
   onNavClick(): void {
+    this.navGroups.forEach(g => g.expanded = false);
     if (this.mobileOpen) {
       this.mobileOpen = false;
       this.mobileOpenChange.emit(false);

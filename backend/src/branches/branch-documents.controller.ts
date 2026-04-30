@@ -10,8 +10,6 @@ import {
   Post,
   Put,
   Query,
-  Req,
-  Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -24,13 +22,19 @@ import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { BranchDocumentsService } from './branch-documents.service';
+import {
+  BranchDocumentsService,
+  UploadDocDto,
+} from './branch-documents.service';
 import { BranchRegistrationsService } from './branch-registrations.service';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { CreateBranchRegistrationDto } from './dto/create-branch-registration.dto';
 import { UpdateBranchRegistrationDto } from './dto/update-branch-registration.dto';
+import { UploadBranchDocumentDto } from './dto/upload-branch-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /* ── File upload config ───────────────────── */
 
@@ -41,12 +45,12 @@ function ensureDir(dir: string) {
 const MAX_MB = 10;
 
 const storage = diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const base = path.join(process.cwd(), 'uploads', 'branch-documents');
     ensureDir(base);
     cb(null, base);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     cb(null, `${Date.now()}_${safe}`);
   },
@@ -54,7 +58,11 @@ const storage = diskStorage({
 
 const fileUploadOptions = {
   storage,
-  fileFilter: (req: any, file: any, cb: any) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = [
       'application/pdf',
       'image/png',
@@ -72,12 +80,12 @@ const fileUploadOptions = {
 /* ── Registration upload config ──────────── */
 
 const registrationStorage = diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const base = path.join(process.cwd(), 'uploads', 'registrations');
     ensureDir(base);
     cb(null, base);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     cb(null, `${Date.now()}_${safe}`);
   },
@@ -85,7 +93,11 @@ const registrationStorage = diskStorage({
 
 const registrationUploadOptions = {
   storage: registrationStorage,
-  fileFilter: (req: any, file: any, cb: any) => {
+  fileFilter: (
+    _req: unknown,
+    file: { mimetype: string },
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
     if (!allowed.includes(file.mimetype)) {
       return cb(
@@ -119,14 +131,14 @@ export class ClientBranchDocumentsController {
   @Get(':id/documents')
   async listDocs(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('category') category?: string,
     @Query('status') status?: string,
     @Query('year') year?: string,
     @Query('month') month?: string,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
-    return this.svc.listByBranch(id, req.user.clientId, {
+    await this.branchAccess.assertBranchAccess(user.userId, id);
+    return this.svc.listByBranch(id, user.clientId!, {
       category,
       status,
       year: year ? Number(year) : undefined,
@@ -140,22 +152,22 @@ export class ClientBranchDocumentsController {
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async uploadDoc(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
-    @Body() dto: any,
-    @UploadedFile() file: any,
+    @CurrentUser() user: ReqUser,
+    @Body() dto: UploadBranchDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    await this.branchAccess.assertBranchUserOnly(req.user.userId, id);
+    await this.branchAccess.assertBranchUserOnly(user.userId, id);
     return this.svc.upload(
       id,
-      req.user.clientId,
+      user.clientId!,
       {
         category: dto.category,
         docType: dto.docType,
         periodYear: dto.periodYear ? Number(dto.periodYear) : undefined,
         periodMonth: dto.periodMonth ? Number(dto.periodMonth) : undefined,
-      },
+      } as UploadDocDto,
       file,
-      req.user.userId,
+      user.userId,
     );
   }
 
@@ -165,18 +177,18 @@ export class ClientBranchDocumentsController {
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   async reuploadDoc(
     @Param('docId', ParseUUIDPipe) docId: string,
-    @Req() req: any,
-    @UploadedFile() file: any,
+    @CurrentUser() user: ReqUser,
+    @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('File is required');
     // Master users cannot reupload documents
-    const isMaster = await this.branchAccess.isMasterUser(req.user.userId);
+    const isMaster = await this.branchAccess.isMasterUser(user.userId);
     if (isMaster) {
       throw new BadRequestException(
         'Master user cannot perform this action. Only branch users can upload.',
       );
     }
-    return this.svc.reupload(docId, req.user.clientId, file, req.user.userId);
+    return this.svc.reupload(docId, user.clientId!, file, user.userId);
   }
 
   /** GET /api/client/branches/:id/mcd?year=2026&month=1 — single month */
@@ -184,15 +196,15 @@ export class ClientBranchDocumentsController {
   @Get(':id/mcd')
   async mcdSchedule(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('year') year?: string,
     @Query('month') month?: string,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
     const now = new Date();
     const y = year ? Number(year) : now.getFullYear();
     const m = month ? Number(month) : now.getMonth() + 1;
-    return this.svc.getMcdSchedule(id, req.user.clientId, y, m);
+    return this.svc.getMcdSchedule(id, user.clientId!, y, m);
   }
 
   /** GET /api/v1/client/branches/:id/registrations — branch registrations */
@@ -200,10 +212,10 @@ export class ClientBranchDocumentsController {
   @Get(':id/registrations')
   async listRegistrations(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
-    return this.regSvc.listByBranch(id, req.user.clientId);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
+    return this.regSvc.listByBranch(id, user.clientId!);
   }
 
   /** GET /api/v1/client/branches/:id/registration-summary — summary + compliance score */
@@ -211,27 +223,27 @@ export class ClientBranchDocumentsController {
   @Get(':id/registration-summary')
   async registrationSummary(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
-    return this.regSvc.getRegistrationSummary(req.user.clientId, id);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
+    return this.regSvc.getRegistrationSummary(user.clientId!, id);
   }
 
   /** GET /api/v1/client/branches/registration-summary — client-wide summary */
   @ApiOperation({ summary: 'Client Registration Summary' })
   @Get('registration-summary')
-  async clientRegistrationSummary(@Req() req: any) {
-    return this.regSvc.getRegistrationSummary(req.user.clientId);
+  async clientRegistrationSummary(@CurrentUser() user: ReqUser) {
+    return this.regSvc.getRegistrationSummary(user.clientId!);
   }
 
   /** GET /api/v1/client/branches/registration-alerts — in-app alerts */
   @ApiOperation({ summary: 'Registration Alerts' })
   @Get('registration-alerts')
   async registrationAlerts(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
   ) {
-    return this.regSvc.getAlerts(req.user.clientId, branchId);
+    return this.regSvc.getAlerts(user.clientId!, branchId);
   }
 
   /** GET /api/v1/client/branches/:id/audit-observations — observations for branch */
@@ -239,10 +251,10 @@ export class ClientBranchDocumentsController {
   @Get(':id/audit-observations')
   async listAuditObservations(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
-    return this.regSvc.listAuditObservations(id, req.user.clientId);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
+    return this.regSvc.listAuditObservations(id, user.clientId!);
   }
 
   /** GET /api/client/branches/:id/mcd/overview — last 6 months */
@@ -250,13 +262,13 @@ export class ClientBranchDocumentsController {
   @Get(':id/mcd/overview')
   async mcdOverview(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('months') months?: string,
   ) {
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
     return this.svc.getMcdOverview(
       id,
-      req.user.clientId,
+      user.clientId!,
       months ? Number(months) : 6,
     );
   }
@@ -279,7 +291,7 @@ export class CrmBranchDocumentsController {
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
     @Query('clientId') clientId?: string,
     @Query('category') category?: string,
@@ -291,10 +303,10 @@ export class CrmBranchDocumentsController {
       throw new BadRequestException('branchId and clientId are required');
     }
     // CRM must be assigned to the client
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
@@ -311,7 +323,7 @@ export class CrmBranchDocumentsController {
   @Put(':docId/review')
   async review(
     @Param('docId', ParseUUIDPipe) docId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body() body: { status: 'APPROVED' | 'REJECTED'; remarks?: string },
   ) {
     if (!['APPROVED', 'REJECTED'].includes(body.status)) {
@@ -321,8 +333,8 @@ export class CrmBranchDocumentsController {
       docId,
       body.status,
       body.remarks ?? null,
-      req.user.userId,
-      req.user.roleCode,
+      user.userId,
+      user.roleCode,
     );
   }
 }
@@ -344,17 +356,17 @@ export class CrmBranchRegistrationsController {
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
     @Query('clientId') clientId?: string,
   ) {
     if (!branchId || !clientId) {
       throw new BadRequestException('branchId and clientId are required');
     }
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
@@ -364,11 +376,16 @@ export class CrmBranchRegistrationsController {
   /** POST /api/v1/crm/branch-registrations */
   @ApiOperation({ summary: 'Create' })
   @Post()
-  async create(@Body() dto: CreateBranchRegistrationDto, @Req() req: any) {
-    const clientId = req.user.clientId || dto.branchId; // CRM uses query context
-    // For CRM, clientId comes from the DTO context or the request body
+  async create(
+    @Body() dto: CreateBranchRegistrationDto,
+    @CurrentUser() user: ReqUser,
+  ) {
     // We trust that the service validates branch→client ownership
-    return this.regSvc.create(dto, clientId, req.user.userId);
+    void dto;
+    void user;
+    throw new BadRequestException(
+      'Use POST /api/v1/crm/branch-registrations/for-client/:clientId',
+    );
   }
 
   /** POST /api/v1/crm/branch-registrations/for-client/:clientId */
@@ -377,16 +394,16 @@ export class CrmBranchRegistrationsController {
   async createForClient(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Body() dto: CreateBranchRegistrationDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
-    return this.regSvc.create(dto, clientId, req.user.userId);
+    return this.regSvc.create(dto, clientId, user.userId);
   }
 
   /** PATCH /api/v1/crm/branch-registrations/:id/for-client/:clientId */
@@ -396,16 +413,16 @@ export class CrmBranchRegistrationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Body() dto: UpdateBranchRegistrationDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
-    return this.regSvc.update(id, dto, clientId, req.user.userId);
+    return this.regSvc.update(id, dto, clientId, user.userId);
   }
 
   /** DELETE /api/v1/crm/branch-registrations/:id/for-client/:clientId */
@@ -414,16 +431,16 @@ export class CrmBranchRegistrationsController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
-    return this.regSvc.remove(id, clientId, req.user.userId);
+    return this.regSvc.remove(id, clientId, user.userId);
   }
 
   /** POST /api/v1/crm/branch-registrations/:id/for-client/:clientId/upload */
@@ -433,26 +450,20 @@ export class CrmBranchRegistrationsController {
   async uploadRegistrationFile(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Req() req: any,
-    @UploadedFile() file: any,
+    @CurrentUser() user: ReqUser,
+    @UploadedFile() file: Express.Multer.File,
     @Query('field') field?: string,
   ) {
     if (!file) throw new BadRequestException('File is required');
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
     const uploadField = field === 'renewal' ? 'renewal' : 'document';
-    return this.regSvc.uploadFile(
-      id,
-      file,
-      clientId,
-      req.user.userId,
-      uploadField as any,
-    );
+    return this.regSvc.uploadFile(id, file, clientId, user.userId, uploadField);
   }
 
   /** GET /api/v1/crm/branch-registrations/summary/:clientId?branchId=... */
@@ -460,13 +471,13 @@ export class CrmBranchRegistrationsController {
   @Get('summary/:clientId')
   async summary(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
   ) {
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }
@@ -478,13 +489,13 @@ export class CrmBranchRegistrationsController {
   @Get('alerts/:clientId')
   async alerts(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
   ) {
-    if (req.user.roleCode === 'CRM') {
+    if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        req.user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned');
     }

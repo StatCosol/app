@@ -1,5 +1,6 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
@@ -8,6 +9,7 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirectiv
 @Component({
   selector: 'app-payroll-clients',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, PageHeaderComponent, DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent, StatusBadgeComponent],
   template: `
     <div class="page">
@@ -36,6 +38,8 @@ import { PageHeaderComponent, DataTableComponent, TableColumn, TableCellDirectiv
         [columns]="columns"
         [data]="clients"
         [loading]="loading"
+        [clickable]="true"
+        (rowClick)="openClient($event)"
         emptyMessage="No assigned clients found.">
         
         <ng-template uiTableCell="name" let-row>
@@ -68,7 +72,9 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
 
   constructor(
     private payrollApi: PayrollApiService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
@@ -83,6 +89,12 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.clients = list || [];
         this.cdr.detectChanges();
+
+        // If navigated with ?runId=..., auto-open the first client (or single client)
+        const runId = this.route.snapshot.queryParamMap.get('runId');
+        if (runId && this.clients.length >= 1) {
+          this.openClient({ row: this.clients[0], index: 0 }, runId);
+        }
       },
       error: (e) => {
         this.loading = false;
@@ -90,6 +102,18 @@ export class PayrollClientsComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  openClient(event: { row: PayrollClient; index: number }, runId?: string): void {
+    const client = event.row;
+    const id = client.id || (client as any).clientId;
+    if (id) {
+      const extras: any = {};
+      if (runId) {
+        extras.queryParams = { runId };
+      }
+      this.router.navigate(['/payroll/clients', id, 'runs'], extras);
+    }
   }
 
   ngOnDestroy(): void {

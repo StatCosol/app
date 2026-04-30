@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef, HostListener, ViewEncapsulation, OnInit, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectorRef, HostListener, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -25,7 +25,7 @@ import { AuthService } from '../../../core/auth.service';
             <div class="logo-row">
               <img class="logo-img" src="assets/images/statco-logo.svg" alt="StatCo Solutions" />
               <div class="logo-text">
-                <h1 class="heading">Sign in</h1>
+                <h1 class="heading">Sign In</h1>
                 <p class="sub-heading">Your one-stop employee self-service portal.</p>
               </div>
             </div>
@@ -33,10 +33,10 @@ import { AuthService } from '../../../core/auth.service';
             <form (ngSubmit)="submit()" autocomplete="on" class="frm">
               <!-- Company Code -->
               <div class="field" *ngIf="!companyCodeLocked">
-                <label class="lbl">Company Code</label>
+                <label class="lbl" for="ess-company-code">Company Code</label>
                 <div class="input-wrap" [class.input-err]="submitted && !companyCode.trim()">
                   <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01M8 14h.01M16 14h.01M12 14h.01"/></svg>
-                  <input type="text" [(ngModel)]="companyCode" name="companyCode"
+                  <input id="ess-company-code" type="text" [(ngModel)]="companyCode" name="companyCode"
                          placeholder="VEDHA" autocomplete="organization" />
                 </div>
                 <span class="field-hint">Provided by your HR / Company.</span>
@@ -51,10 +51,10 @@ import { AuthService } from '../../../core/auth.service';
 
               <!-- Email -->
               <div class="field">
-                <label class="lbl">Email Address</label>
+                <label class="lbl" for="ess-email">Email Address</label>
                 <div class="input-wrap" [class.input-err]="submitted && !email.trim()">
                   <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
-                  <input type="email" [(ngModel)]="email" name="email"
+                  <input id="ess-email" type="email" [(ngModel)]="email" name="email"
                          placeholder="you&#64;company.com" autocomplete="username" />
                 </div>
                 <span class="field-err" *ngIf="submitted && !email.trim()">Enter a valid email.</span>
@@ -63,12 +63,12 @@ import { AuthService } from '../../../core/auth.service';
               <!-- Password -->
               <div class="field">
                 <div class="lbl-row">
-                  <label class="lbl">Password</label>
-                  <a class="accent-link" href="javascript:void(0)">Forgot Password?</a>
+                  <label class="lbl" for="ess-password">Password</label>
+                  <a class="accent-link" (click)="goToForgotPassword()" href="javascript:void(0)">Forgot Password?</a>
                 </div>
                 <div class="input-wrap" [class.input-err]="submitted && !password">
                   <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                  <input [type]="showPassword ? 'text' : 'password'"
+                  <input id="ess-password" [type]="showPassword ? 'text' : 'password'"
                          [(ngModel)]="password" name="password"
                          placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password"
                          (keydown)="checkCapsLock($event)" />
@@ -389,20 +389,21 @@ import { AuthService } from '../../../core/auth.service';
     /* ── Submit button ── */
     .btn-sign-in {
       width: 100%; border: 0;
-      background: linear-gradient(135deg, #0a1628, #0e3a6e);
+      background: linear-gradient(135deg, #0a1628 0%, #1e40af 100%);
       color: #fff;
       font: inherit; font-weight: 800; font-size: 15px;
       padding: 14px 16px; border-radius: 14px;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 6px 20px rgba(14,58,110,.30);
-      transition: transform .15s, box-shadow .15s, opacity .15s;
+      box-shadow: 0 8px 28px rgba(14,58,110,.30);
+      transition: transform .2s, box-shadow .2s, opacity .15s;
     }
     .btn-sign-in:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 8px 28px rgba(14,58,110,.40);
+      box-shadow: 0 14px 40px rgba(14,58,110,.42);
+      background: linear-gradient(135deg, #0e2040 0%, #2563eb 100%);
     }
-    .btn-sign-in:active:not(:disabled) { transform: translateY(0); }
+    .btn-sign-in:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 20px rgba(14,58,110,.28); }
     .btn-sign-in:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-sign-in:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
 
@@ -644,7 +645,7 @@ import { AuthService } from '../../../core/auth.service';
     }
   `],
 })
-export class EssLoginComponent implements OnInit, OnDestroy {
+export class EssLoginComponent implements OnInit {
   companyCode = '';
   email = '';
   password = '';
@@ -655,8 +656,6 @@ export class EssLoginComponent implements OnInit, OnDestroy {
   capsLockOn = false;
   companyCodeLocked = false;
   currentYear = new Date().getFullYear();
-
-  private popstateHandler = this.onPopState.bind(this);
 
   constructor(
     private auth: AuthService,
@@ -675,20 +674,11 @@ export class EssLoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Prevent browser back-button from returning to the previous authenticated page
+    // Replace current history entry so Back doesn't return to a pre-login page.
+    // Using replaceState (not pushState) avoids adding a session history item
+    // without user interaction, which browsers now flag and skip.
     if (!this.auth.isLoggedIn()) {
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', this.popstateHandler);
-    }
-  }
-
-  ngOnDestroy(): void {
-    window.removeEventListener('popstate', this.popstateHandler);
-  }
-
-  private onPopState(): void {
-    if (!this.auth.isLoggedIn()) {
-      window.history.pushState(null, '', window.location.href);
+      window.history.replaceState(null, '', window.location.href);
     }
   }
 
@@ -699,6 +689,10 @@ export class EssLoginComponent implements OnInit, OnDestroy {
   @HostListener('window:keyup', ['$event'])
   clearCaps(e: KeyboardEvent): void {
     this.capsLockOn = e.getModifierState?.('CapsLock') ?? false;
+  }
+
+  goToForgotPassword(): void {
+    this.router.navigate(['/ess/forgot-password']);
   }
 
   submit(): void {

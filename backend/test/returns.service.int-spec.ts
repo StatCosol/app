@@ -103,6 +103,6 @@ describe('ReturnsService (integration) - soft delete / restore', () => {
 
     const listAfterRestore = await service.listForAdmin({});
     expect(listAfterRestore).toHaveLength(1);
-    expect(listAfterRestore[0].id).toBe(rec.id);
+    expect((listAfterRestore[0] as any).id).toBe(rec.id);
   });
 });

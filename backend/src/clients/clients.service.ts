@@ -17,10 +17,6 @@ import { UserEntity } from '../users/entities/user.entity';
 @Injectable()
 export class ClientsService {
   private readonly logger = new Logger(ClientsService.name);
-  // Returns client list with aggregates for controller
-  async listWithAggregates() {
-    return this.listClients();
-  }
   constructor(
     @InjectRepository(ClientEntity)
     private readonly repo: Repository<ClientEntity>,
@@ -154,8 +150,9 @@ export class ClientsService {
         let saved;
         try {
           saved = await clientRepo.save(client);
-        } catch (err: any) {
-          if (err.code === '23505' && err.detail?.includes('client_code')) {
+        } catch (err: unknown) {
+          const pgErr = err as { code?: string; detail?: string };
+          if (pgErr.code === '23505' && pgErr.detail?.includes('client_code')) {
             throw new BadRequestException(
               'Client code already exists. Please use a unique code.',
             );
@@ -219,12 +216,13 @@ export class ClientsService {
     let saved;
     try {
       saved = await this.repo.save(client);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string; detail?: string };
       // Handle duplicate client_code error
       if (
-        err.code === '23505' &&
-        err.detail &&
-        err.detail.includes('client_code')
+        pgErr.code === '23505' &&
+        pgErr.detail &&
+        pgErr.detail.includes('client_code')
       ) {
         throw new BadRequestException(
           'Client code already exists. Please use a unique code.',
@@ -251,7 +249,14 @@ export class ClientsService {
     // Return only ACTIVE & not deleted clients by default
     const where = includeDeleted ? {} : { isDeleted: false };
     const clients = await this.repo.find({
-      select: ['id', 'clientName', 'clientCode', 'status'],
+      select: [
+        'id',
+        'clientName',
+        'clientCode',
+        'status',
+        'logoUrl',
+        'crmOnBehalfEnabled',
+      ],
       where,
       order: { id: 'DESC' },
     });
@@ -264,7 +269,10 @@ export class ClientsService {
       .addSelect('COUNT(DISTINCT branch.id)', 'branchesCount')
       .addSelect('COALESCE(SUM(branch.employeecount), 0)', 'totalEmployees')
       .addSelect('COALESCE(SUM(branch.contractorcount), 0)', 'contractorsCount')
-      .where('branch.deletedat IS NULL')
+      .where('branch.isdeleted = :no AND branch.isactive = :yes', {
+        no: false,
+        yes: true,
+      })
       .groupBy('branch.clientid')
       .getRawMany();
 
@@ -341,6 +349,30 @@ export class ClientsService {
     return saved;
   }
 
+  async toggleCrmOnBehalf(
+    clientId: string,
+    enabled: boolean,
+    performedBy?: string,
+    performedRole?: string,
+  ) {
+    const client = await this.getOrFail(clientId);
+    const before = { crmOnBehalfEnabled: client.crmOnBehalfEnabled };
+    client.crmOnBehalfEnabled = enabled;
+    const saved = await this.repo.save(client);
+
+    await this.auditLogs.log({
+      entityType: 'CLIENT',
+      entityId: saved.id,
+      action: 'UPDATE',
+      performedBy: performedBy ?? null,
+      performedRole: performedRole ?? null,
+      beforeJson: before,
+      afterJson: { crmOnBehalfEnabled: saved.crmOnBehalfEnabled },
+    });
+
+    return saved;
+  }
+
   /**
    * Returns a readiness checklist for a given client — everything needed for
    * go-live, with pass/fail per item and detailed counts.
@@ -388,10 +420,8 @@ export class ClientsService {
 
     // 4) Payroll user exists?
     const payrollRows: Array<{ cnt: string }> = await this.dataSource.query(
-      `SELECT COUNT(*) AS cnt FROM users u
-       JOIN roles r ON r.id = u.role_id
-       WHERE u.client_id = $1 AND UPPER(r.code) = 'PAYROLL'
-         AND u.deleted_at IS NULL AND u.is_active = true`,
+      `SELECT COUNT(*) AS cnt FROM payroll_client_assignments
+       WHERE client_id = $1 AND status = 'ACTIVE'`,
       [clientId],
     );
     const payrollCount = Number(payrollRows[0]?.cnt ?? 0);
@@ -501,7 +531,14 @@ export class ClientsService {
 
   async findById(id: string, includeDeleted = false) {
     return this.repo.findOne({
-      select: ['id', 'clientName', 'clientCode', 'status'],
+      select: [
+        'id',
+        'clientName',
+        'clientCode',
+        'status',
+        'logoUrl',
+        'crmOnBehalfEnabled',
+      ],
       where: includeDeleted ? { id } : { id, isDeleted: false },
     });
   }
@@ -648,7 +685,7 @@ export class ClientsService {
   }
 
   async addClientUser(clientId: string, userId: string) {
-    const client = await this.getOrFail(clientId);
+    await this.getOrFail(clientId);
 
     // Validate user has CLIENT role
     const role = await this.usersService.getUserRoleCode(userId);

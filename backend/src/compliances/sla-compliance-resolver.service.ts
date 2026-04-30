@@ -47,12 +47,12 @@ export class SlaComplianceResolverService {
     applicable: ApplicableRule[];
   }> {
     const branch = await this.branchRepo.findOne({
-      where: { id: branchId } as any,
+      where: { id: branchId, isActive: true, isDeleted: false },
     });
     if (!branch) throw new NotFoundException('Branch not found');
 
-    const stateCode: string | null = (branch as any).stateCode ?? null;
-    const estType: string | null = (branch as any).establishmentType ?? null;
+    const stateCode: string | null = branch.stateCode ?? null;
+    const estType: string | null = branch.establishmentType ?? null;
 
     const items = await this.itemRepo.find({ where: { isActive: true } });
     const rules = await this.ruleRepo.find({ where: { isActive: true } });

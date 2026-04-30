@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'due-date-badge',
+  selector: 'ui-due-date-badge',
   standalone: true,
   imports: [CommonModule],
   template: `

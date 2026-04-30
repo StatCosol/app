@@ -60,7 +60,7 @@ import { CeoApiService, CeoEscalation } from '../../core/api/ceo.api';
         <!-- Filter Bar -->
         <div class="flex flex-wrap items-center gap-3 mb-6">
           <div class="relative w-56">
-            <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
+            <input autocomplete="off" id="ce-search-term" name="searchTerm" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilter()"
               placeholder="Search subject..."
               class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
             <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

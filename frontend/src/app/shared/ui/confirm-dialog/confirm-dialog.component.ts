@@ -3,7 +3,9 @@ import {
   OnInit,
   OnDestroy,
   ChangeDetectorRef,
+  ApplicationRef,
   HostListener,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,28 +21,36 @@ import {
 @Component({
   selector: 'app-confirm-dialog',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   template: `
-    <div *ngIf="open" class="fixed inset-0 z-[9999] flex items-center justify-center">
+    <div *ngIf="open" class="fixed inset-0 flex items-center justify-center" style="z-index: 9999;">
       <!-- Backdrop -->
       <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" (click)="cancel()"></div>
 
       <!-- Dialog -->
       <div
-        class="relative z-10 w-full max-w-md mx-4 bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        class="relative z-10 w-full max-w-md mx-4 bg-white rounded-xl shadow-2xl overflow-hidden"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-desc">
 
         <!-- Header -->
         <div class="px-6 pt-5 pb-2">
-          <h3 class="text-lg font-semibold text-gray-900">{{ config.title }}</h3>
+          <h3 id="confirm-dialog-title" class="text-lg font-semibold text-gray-900">{{ config.title }}</h3>
         </div>
 
         <!-- Body -->
         <div class="px-6 pb-4">
-          <p class="text-sm text-gray-600 whitespace-pre-line">{{ config.message }}</p>
+          <p id="confirm-dialog-desc" class="text-sm text-gray-600 whitespace-pre-line">{{ config.message }}</p>
 
           <div *ngIf="config.type === 'prompt'" class="mt-3">
-            <textarea
+            <label for="confirm-dialog-input" class="sr-only">{{ config.placeholder || 'Enter value' }}</label>
+            <textarea autocomplete="off"
               #promptInput
+              id="confirm-dialog-input"
+              name="confirmDialogInput"
               [(ngModel)]="inputValue"
               [placeholder]="config.placeholder || ''"
               rows="3"
@@ -84,6 +94,7 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
   constructor(
     private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
+    private appRef: ApplicationRef,
   ) {}
 
   ngOnInit(): void {
@@ -95,6 +106,7 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
         this.inputValue = req.config.defaultValue || '';
         this.open = true;
         this.cdr.detectChanges();
+        this.appRef.tick();
       });
   }
 

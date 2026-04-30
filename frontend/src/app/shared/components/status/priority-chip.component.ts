@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'priority-chip',
+  selector: 'ui-priority-chip',
   standalone: true,
   imports: [CommonModule],
   template: `<span class="chip" [ngClass]="klass">{{ priority || 'MEDIUM' }}</span>`,

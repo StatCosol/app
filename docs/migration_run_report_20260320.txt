@@ -1,0 +1,57 @@
+StatComPy migration run report — Post-reconciliation
+Date: 2026-03-20
+Database: statcompy
+
+== Prior state (2026-03-10 report) ==
+Applied successfully: 69
+Failed: 16 (all 16 moved to migrations/obsolete/)
+
+== New migrations since last report ==
+20260311_ci_payroll_smoke_schema_patch.sql — CI/smoke compatibility: payroll_component_rules, payroll_component_slabs, payroll_runs, payroll_client_setup
+20260314_news_items.sql — news_items table for admin ticker
+20260315_news_items_enhancements.sql — news_items: category, pinned, expires_at, soft delete
+20260320_schema_reconciliation_v2.sql — **22 missing tables + notification_messages fix**
+
+== Tables created by 20260320_schema_reconciliation_v2.sql ==
+ 1. notifications (central query/notification table)
+ 2. payroll_client_assignments
+ 3. payroll_inputs
+ 4. payroll_input_files
+ 5. registers_records
+ 6. contractor_documents
+ 7. helpdesk_tickets
+ 8. helpdesk_messages
+ 9. helpdesk_message_files
+10. payroll_templates
+11. payroll_template_components
+12. payroll_client_template
+13. payroll_client_payslip_layout
+14. payroll_input_status_history
+15. document_remarks
+16. document_reupload_requests
+17. document_versions
+18. contractor_required_documents
+19. leave_policies
+20. leave_balances
+21. leave_applications
+22. leave_ledger
++ ALTER notification_messages ADD notification_id
++ ALTER employee_nominations ADD workflow columns
++ FIX notification_reads FK → notifications
+
+== Why the 16 failed ==
+All 16 were written against an earlier schema shape:
+- 6 files referenced contractor_id (baseline uses contractor_user_id)
+- 5 files referenced columns/tables that evolved differently
+- 2 files assumed roles.is_system / roles.description columns
+- 1 file had crm_unit_documents with unit_id (fixed and re-applied separately)
+- 1 file had duplicate seed data
+- 1 file tried to rename a column that already had the target name
+All failures are archived in migrations/obsolete/ with a README explaining why.
+
+== Entity-to-table coverage ==
+143 entity files → 143 tables
+All covered by active migrations (0 gaps remaining)
+
+== To apply ==
+pwsh scripts/apply-all-migrations.ps1 -DbHost localhost -DbPort 5432 -Database statcompy -User postgres

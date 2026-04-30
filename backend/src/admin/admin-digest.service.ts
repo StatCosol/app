@@ -6,6 +6,40 @@ import { EmailService } from '../email/email.service';
 type DigestType = 'WEEKLY' | 'CRITICAL';
 type DigestRunStatus = 'SUCCESS' | 'FAILED' | 'SKIPPED';
 
+export interface OverdueAuditRow {
+  client: string;
+  branch_name: string | null;
+  audit_type: string;
+  days_overdue: number;
+}
+
+export interface AssignmentDueRow {
+  client: string;
+  assignment_type: string;
+  due_date: string;
+}
+
+export interface ComplianceRow {
+  client_name: string;
+  branch_name: string;
+  compliance_percent: number;
+}
+
+export interface CriticalAuditRow {
+  client: string;
+  branch_name: string | null;
+  audit_type: string;
+  due_date: string;
+  days_overdue: number;
+}
+
+export interface CriticalAssignmentRow {
+  client: string;
+  assignment_type: string;
+  due_date: string;
+  days_past_due: number;
+}
+
 @Injectable()
 export class AdminDigestService {
   private readonly logger = new Logger(AdminDigestService.name);
@@ -175,7 +209,11 @@ export class AdminDigestService {
         null,
       );
       this.logger.log('Weekly digest email sent');
-      return { status: 'ok', runId: run?.id ?? null, recipientsCount: to.length };
+      return {
+        status: 'ok',
+        runId: run?.id ?? null,
+        recipientsCount: to.length,
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await this.logRun(
@@ -216,7 +254,10 @@ export class AdminDigestService {
 
     try {
       const critical = await this.getCriticalData();
-      if (!critical.overdueAudits30.length && !critical.assignmentsPastDue.length) {
+      if (
+        !critical.overdueAudits30.length &&
+        !critical.assignmentsPastDue.length
+      ) {
         const run = await this.logRun(
           'CRITICAL',
           'SKIPPED',
@@ -225,7 +266,11 @@ export class AdminDigestService {
           { source, reason: 'NO_CRITICAL_ALERTS' },
           null,
         );
-        return { status: 'skipped', runId: run?.id ?? null, recipientsCount: to.length };
+        return {
+          status: 'skipped',
+          runId: run?.id ?? null,
+          recipientsCount: to.length,
+        };
       }
 
       const html = this.buildCriticalHtml(
@@ -251,7 +296,11 @@ export class AdminDigestService {
         null,
       );
       this.logger.log('Critical alerts email sent');
-      return { status: 'ok', runId: run?.id ?? null, recipientsCount: to.length };
+      return {
+        status: 'ok',
+        runId: run?.id ?? null,
+        recipientsCount: to.length,
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await this.logRun(
@@ -266,8 +315,12 @@ export class AdminDigestService {
     }
   }
 
-  private buildHtml(audits: any[], assigns: any[], compliance: any[]): string {
-    const row = (cols: any[]) =>
+  private buildHtml(
+    audits: OverdueAuditRow[],
+    assigns: AssignmentDueRow[],
+    compliance: ComplianceRow[],
+  ): string {
+    const row = (cols: (string | number | null)[]) =>
       `<tr>${cols.map((c) => `<td>${this.escapeHtml(c)}</td>`).join('')}</tr>`;
 
     return `
@@ -301,8 +354,11 @@ export class AdminDigestService {
     `;
   }
 
-  private buildCriticalHtml(audits: any[], assigns: any[]): string {
-    const row = (cols: any[]) =>
+  private buildCriticalHtml(
+    audits: CriticalAuditRow[],
+    assigns: CriticalAssignmentRow[],
+  ): string {
+    const row = (cols: (string | number | null)[]) =>
       `<tr>${cols.map((c) => `<td>${this.escapeHtml(c)}</td>`).join('')}</tr>`;
 
     const auditsTable = audits.length
@@ -351,7 +407,9 @@ export class AdminDigestService {
     `;
   }
 
-  private async getRecipients(): Promise<Array<{ email: string; roleCode: string }>> {
+  private async getRecipients(): Promise<
+    Array<{ email: string; roleCode: string }>
+  > {
     return this.ds.query(
       `
       SELECT u.email, r.code AS "roleCode"
@@ -366,11 +424,11 @@ export class AdminDigestService {
   }
 
   private async getWeeklyData(): Promise<{
-    overdueAudits: any[];
-    assignmentsDue: any[];
-    lowestCompliance: any[];
+    overdueAudits: OverdueAuditRow[];
+    assignmentsDue: AssignmentDueRow[];
+    lowestCompliance: ComplianceRow[];
   }> {
-    const overdueAudits = await this.safeQuery(
+    const overdueAudits = await this.safeQuery<OverdueAuditRow>(
       `
       SELECT
         c.client_name AS client,
@@ -387,7 +445,7 @@ export class AdminDigestService {
       'weekly.overdueAudits',
     );
 
-    const assignmentsDue = await this.safeQuery(
+    const assignmentsDue = await this.safeQuery<AssignmentDueRow>(
       `
       SELECT
         c.client_name AS client,
@@ -408,7 +466,7 @@ export class AdminDigestService {
       'weekly.assignmentsDue',
     );
 
-    const lowestCompliance = await this.safeQuery(
+    const lowestCompliance = await this.safeQuery<ComplianceRow>(
       `
       SELECT client_name, branch_name, compliance_percent
       FROM vw_compliance_coverage
@@ -423,10 +481,10 @@ export class AdminDigestService {
   }
 
   private async getCriticalData(): Promise<{
-    overdueAudits30: any[];
-    assignmentsPastDue: any[];
+    overdueAudits30: CriticalAuditRow[];
+    assignmentsPastDue: CriticalAssignmentRow[];
   }> {
-    const overdueAudits30 = await this.safeQuery(
+    const overdueAudits30 = await this.safeQuery<CriticalAuditRow>(
       `
       SELECT
         c.client_name AS client,
@@ -445,7 +503,7 @@ export class AdminDigestService {
       'critical.overdueAudits30',
     );
 
-    const assignmentsPastDue = await this.safeQuery(
+    const assignmentsPastDue = await this.safeQuery<CriticalAssignmentRow>(
       `
       SELECT
         c.client_name AS client,
@@ -474,7 +532,10 @@ export class AdminDigestService {
     return { overdueAudits30, assignmentsPastDue };
   }
 
-  private async safeQuery(sql: string, tag: string): Promise<any[]> {
+  private async safeQuery<T = Record<string, unknown>>(
+    sql: string,
+    tag: string,
+  ): Promise<T[]> {
     try {
       return (await this.ds.query(sql)) || [];
     } catch (err) {
@@ -492,6 +553,13 @@ export class AdminDigestService {
     errorMessage: string | null,
   ): Promise<{ id: number } | null> {
     try {
+      const sourceValue = summary?.['source'];
+      const source =
+        typeof sourceValue === 'string' ||
+        typeof sourceValue === 'number' ||
+        typeof sourceValue === 'boolean'
+          ? String(sourceValue)
+          : 'UNKNOWN';
       const rows = await this.ds.query(
         `
         INSERT INTO admin_digest_runs
@@ -503,7 +571,7 @@ export class AdminDigestService {
         [
           digestType,
           status,
-          String(summary?.['source'] || 'UNKNOWN'),
+          source,
           triggeredBy,
           recipientsCount,
           JSON.stringify(summary || {}),
@@ -517,7 +585,7 @@ export class AdminDigestService {
     }
   }
 
-  private escapeHtml(value: any): string {
+  private escapeHtml(value: string | number | null | undefined): string {
     const safe = value === null || value === undefined ? '-' : String(value);
     return safe.replace(/[&<>"']/g, (char) => {
       switch (char) {

@@ -21,13 +21,13 @@ describe('CeoDashboardComponent', () => {
   });
 
   it('should start in loading state', () => {
-    expect(component.loading).toBe(true);
+    expect(component.loading()).toBe(true);
   });
 
   it('should have default summary values', () => {
-    expect(component.summary.totalClients).toBe(0);
-    expect(component.summary.pendingApprovals).toBe(0);
-    expect(component.summary.overdueCompliances).toBe(0);
+    expect(component.summary().totalClients).toBe(0);
+    expect(component.summary().pendingApprovals).toBe(0);
+    expect(component.summary().overdueCompliances).toBe(0);
   });
 
   it('should have table column definitions', () => {

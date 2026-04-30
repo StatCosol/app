@@ -5,11 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { IsNull } from 'typeorm';
 import { PayrollInputFileEntity } from '../payroll/entities/payroll-input-file.entity';
 import { RegistersRecordEntity } from '../payroll/entities/registers-record.entity';
 import { HelpdeskMessageFileEntity } from '../helpdesk/entities/helpdesk-message-file.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { PayrollClientAssignmentEntity } from '../payroll/entities/payroll-client-assignment.entity';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class FilesService {
@@ -27,7 +29,7 @@ export class FilesService {
   ) {}
 
   // Determine if user can access a filePath (by checking known tables)
-  async assertCanDownload(user: any, filePath: string) {
+  async assertCanDownload(user: ReqUser, filePath: string) {
     // 1) contractor_documents
     const cd = await this.cdRepo.findOne({ where: { filePath } });
     if (cd) {
@@ -60,7 +62,7 @@ export class FilesService {
             payrollUserId: user.id,
             clientId: ownerClientId,
             status: 'ACTIVE',
-            endDate: null as any,
+            endDate: IsNull(),
           },
         });
         if (!assignment) throw new ForbiddenException();
@@ -82,7 +84,7 @@ export class FilesService {
             payrollUserId: user.id,
             clientId: rr.clientId,
             status: 'ACTIVE',
-            endDate: null as any,
+            endDate: IsNull(),
           },
         });
         if (!ok) throw new ForbiddenException();

@@ -6,6 +6,7 @@ import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { DashboardService } from '../../core/dashboard.service';
 import { CrmDueItemsService } from '../../core/crm-due-items.service';
+import { CrmReturnsService } from '../../core/crm-returns.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
   ActionButtonComponent,
@@ -14,6 +15,8 @@ import {
   PageHeaderComponent,
   StatusBadgeComponent,
 } from '../../shared/ui';
+import { ComplianceChartsComponent } from '../../shared/components/compliance-charts/compliance-charts.component';
+import { ComplianceRiskTilesComponent } from '../../shared/components/compliance-risk-tiles/compliance-risk-tiles.component';
 import {
   ComplianceDueItem,
   CrmKpis,
@@ -47,6 +50,16 @@ interface AgeingBucket {
   pct: number;
 }
 
+function coerceDateValue(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return '';
+}
+
 @Component({
   selector: 'app-crm-dashboard',
   standalone: true,
@@ -57,6 +70,8 @@ interface AgeingBucket {
     LoadingSpinnerComponent,
     EmptyStateComponent,
     StatusBadgeComponent,
+    ComplianceChartsComponent,
+    ComplianceRiskTilesComponent,
   ],
   templateUrl: './crm-dashboard.component.html',
   styleUrls: ['./crm-dashboard.component.scss'],
@@ -103,6 +118,9 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
   trend: TrendPoint[] = [];
   ageing: AgeingBucket[] = [];
 
+  returnTasksForDashboard: any[] = [];
+  expiryTasksForDashboard: any[] = [];
+
   readonly shortcuts: ActionShortcut[] = [
     { label: 'Open Review Queue', route: '/crm/branch-docs-review' },
     { label: 'Returns Workspace', route: '/crm/returns' },
@@ -115,6 +133,7 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
   constructor(
     private readonly dashboardSvc: DashboardService,
     private readonly dueItemsSvc: CrmDueItemsService,
+    private readonly crmReturnsSvc: CrmReturnsService,
     private readonly router: Router,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
@@ -161,17 +180,34 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: ({ kpis, due, lowCoverage, pendingDocs, queries, priority, risk, audits }) => {
           this.kpis = kpis || this.kpis;
-          this.dueItems = due?.items || [];
+          this.dueItems = (due?.items || []).map((row) => ({
+            ...row,
+            dueDate: coerceDateValue(row?.dueDate),
+          }));
           this.lowCoverage = lowCoverage?.items || [];
-          this.pendingDocs = pendingDocs?.items || [];
+          this.pendingDocs = (pendingDocs?.items || []).map((row) => ({
+            ...row,
+            requestedOn: coerceDateValue((row as any)?.requestedOn ?? (row as any)?.uploadedAt),
+          }));
           this.openQueries = queries?.items || [];
-          this.priorityItems = priority?.items || [];
+          this.priorityItems = (priority?.items || []).map((row) => ({
+            ...row,
+            branchName: row?.branchName ?? (row as any)?.branchname ?? '',
+          }));
           this.riskClients = risk?.items || [];
-          this.upcomingAudits = audits?.items || [];
+          this.upcomingAudits = (audits?.items || []).map((row) => ({
+            ...row,
+            dueDate: coerceDateValue(row?.dueDate),
+          }));
+
+          if (!kpis || !due?.items) {
+            this.errorMsg = 'Some dashboard widgets could not be loaded. Partial data shown.';
+          }
 
           this.computeAgeing();
           this.loadCrossWorkflowCounts();
           this.loadTrend();
+          this.loadComplianceDashboardData();
         },
         error: (err) => {
           this.errorMsg = err?.error?.message || 'Failed to load CRM dashboard.';
@@ -199,7 +235,10 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
-          this.dueItems = res?.items || [];
+          this.dueItems = (res?.items || []).map((row) => ({
+            ...row,
+            dueDate: coerceDateValue(row?.dueDate),
+          }));
         },
         error: () => {
           this.dueItems = [];
@@ -336,6 +375,21 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
     ];
   }
 
+  private loadComplianceDashboardData(): void {
+    this.crmReturnsSvc
+      .listFilings({})
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of([])),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.returnTasksForDashboard = rows || [];
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
   private currentMonth(): string {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -353,4 +407,3 @@ export class CrmDashboardComponent implements OnInit, OnDestroy {
     return out;
   }
 }
-

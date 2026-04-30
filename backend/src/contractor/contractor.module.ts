@@ -36,6 +36,26 @@ import { AiModule } from '../ai/ai.module';
 import { ContractorListController } from './contractor-list.controller';
 import { ListQueriesModule } from '../list-queries/list-queries.module';
 import { ComplianceModule } from '../compliance/compliance.module';
+import { ContractorEmployeeEntity } from './contractor-employees/entities/contractor-employee.entity';
+import {
+  ContractorEmployeesController,
+  ClientContractorEmployeesController,
+} from './contractor-employees/contractor-employees.controller';
+import { ContractorEmployeesService } from './contractor-employees/contractor-employees.service';
+import { MinimumWageEntity } from './contractor-employees/entities/minimum-wage.entity';
+import { MinimumWageService } from './contractor-employees/minimum-wage.service';
+import { MinimumWageController } from './contractor-employees/minimum-wage.controller';
+import { ClraAssignmentsController } from './clra-assignments.controller';
+import { ClraAssignmentsService } from './clra-assignments.service';
+import { ClraPeEstablishment } from './entities/clra-pe-establishment.entity';
+import { ClraContractor } from './entities/clra-contractor.entity';
+import { ClraContractorAssignment } from './entities/clra-contractor-assignment.entity';
+import { ClraContractorWorker } from './entities/clra-contractor-worker.entity';
+import { ClraWorkerDeployment } from './entities/clra-worker-deployment.entity';
+import { ClraWagePeriod } from './entities/clra-wage-period.entity';
+import { ClraAttendance } from './entities/clra-attendance.entity';
+import { ClraWage } from './entities/clra-wage.entity';
+import { ClraRegisterRun } from './entities/clra-register-run.entity';
 
 @Module({
   imports: [
@@ -49,7 +69,18 @@ import { ComplianceModule } from '../compliance/compliance.module';
       RoleEntity,
       ContractorDocumentEntity,
       ContractorRequiredDocumentEntity,
+      ContractorEmployeeEntity,
+      MinimumWageEntity,
       AuditEntity,
+      ClraPeEstablishment,
+      ClraContractor,
+      ClraContractorAssignment,
+      ClraContractorWorker,
+      ClraWorkerDeployment,
+      ClraWagePeriod,
+      ClraAttendance,
+      ClraWage,
+      ClraRegisterRun,
     ]),
     AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,
@@ -70,6 +101,10 @@ import { ComplianceModule } from '../compliance/compliance.module';
     CrmContractorRequiredDocumentsController,
     ClientContractorRequiredDocumentsController,
     ContractorListController,
+    ContractorEmployeesController,
+    ClientContractorEmployeesController,
+    MinimumWageController,
+    ClraAssignmentsController,
   ],
   providers: [
     ContractorService,
@@ -77,6 +112,9 @@ import { ComplianceModule } from '../compliance/compliance.module';
     CrmContractorRegistrationService,
     ContractorDashboardService,
     ContractorRequiredDocumentsService,
+    ContractorEmployeesService,
+    MinimumWageService,
+    ClraAssignmentsService,
   ],
 })
 export class ContractorModule {}

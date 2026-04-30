@@ -5,7 +5,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  Request,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
@@ -19,6 +18,8 @@ import { Roles } from '../auth/roles.decorator';
 import { UsersService } from '../users/users.service';
 import { ClientsService } from '../clients/clients.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Clients')
 @ApiBearerAuth('JWT')
@@ -33,19 +34,19 @@ export class ClientController {
 
   @ApiOperation({ summary: 'Get My Company' })
   @Get('me')
-  async getMyCompany(@Request() req) {
-    const userId = req.user.userId;
-    const user = await this.usersService.findById(userId);
+  async getMyCompany(@CurrentUser() user: ReqUser) {
+    const userId = user.userId;
+    const dbUser = await this.usersService.findById(userId);
 
-    if (!user) {
+    if (!dbUser) {
       throw new NotFoundException('User not found');
     }
 
-    if (!user.clientId) {
+    if (!dbUser.clientId) {
       throw new BadRequestException('User is not linked to any client company');
     }
 
-    const client = await this.clientsService.findById(user.clientId);
+    const client = await this.clientsService.findById(dbUser.clientId);
     if (!client) {
       throw new NotFoundException('Client company not found');
     }
@@ -83,11 +84,14 @@ export class ClientController {
       limits: { fileSize: 2 * 1024 * 1024 },
     }),
   )
-  async uploadLogo(@UploadedFile() file: any, @Request() req: any) {
+  async uploadLogo(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: ReqUser,
+  ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const user = await this.usersService.findById(req.user.userId);
-    if (!user?.clientId) throw new BadRequestException('No client linked');
+    const dbUser = await this.usersService.findById(user.userId);
+    if (!dbUser?.clientId) throw new BadRequestException('No client linked');
     const logoUrl = `/uploads/logos/${file.filename}`;
-    return this.clientsService.updateLogo(user.clientId, logoUrl);
+    return this.clientsService.updateLogo(dbUser.clientId, logoUrl);
   }
 }

@@ -17,6 +17,7 @@ import { AeUnitEntity } from './entities/ae-unit.entity';
 import { AeUnitFactsEntity } from './entities/ae-unit-facts.entity';
 import { AeUnitComplianceOverrideEntity } from './entities/ae-unit-compliance-override.entity';
 import { AeUnitTaskEntity } from './entities/ae-unit-task.entity';
+import { TaskStatus } from './entities/enums';
 
 import { CreateUnitDto } from './dto/create-unit.dto';
 import { UpsertFactsDto } from './dto/upsert-facts.dto';
@@ -26,7 +27,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Applicability')
 @ApiBearerAuth('JWT')
-@Controller({ path: 'units', version: '1' })
+@Controller({ path: 'ae/units', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'CRM')
 export class ApplicabilityController {
@@ -144,7 +145,7 @@ export class ApplicabilityController {
   @Post('tasks/:taskId/submit')
   async submitTask(@Param('taskId') taskId: string) {
     const repo = this.ds.getRepository(AeUnitTaskEntity);
-    await repo.update(taskId, { status: 'SUBMITTED' as any });
+    await repo.update(taskId, { status: TaskStatus.SUBMITTED });
     return { success: true };
   }
 
@@ -153,7 +154,7 @@ export class ApplicabilityController {
   @Roles('ADMIN', 'CRM')
   async approveTask(@Param('taskId') taskId: string) {
     const repo = this.ds.getRepository(AeUnitTaskEntity);
-    await repo.update(taskId, { status: 'APPROVED' as any });
+    await repo.update(taskId, { status: TaskStatus.APPROVED });
     return { success: true };
   }
 
@@ -162,7 +163,7 @@ export class ApplicabilityController {
   @Roles('ADMIN', 'CRM')
   async returnTask(@Param('taskId') taskId: string) {
     const repo = this.ds.getRepository(AeUnitTaskEntity);
-    await repo.update(taskId, { status: 'RETURNED' as any });
+    await repo.update(taskId, { status: TaskStatus.RETURNED });
     return { success: true };
   }
 }

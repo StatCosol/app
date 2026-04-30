@@ -27,12 +27,15 @@ export const branchPayrollAccessGuard: CanActivateFn = () => {
       if (settings?.allowBranchPayrollAccess) {
         return true;
       }
-      // Redirect to dashboard with a message
-      return router.createUrlTree(['/client/dashboard']);
+      // Redirect to appropriate dashboard
+      const currentUrl = router.routerState.snapshot.url;
+      const fallback = currentUrl.startsWith('/branch') ? '/branch/dashboard' : '/client/dashboard';
+      return router.createUrlTree([fallback]);
     }),
     catchError(() => {
-      // On error, block access
-      return of(router.createUrlTree(['/client/dashboard']));
+      const currentUrl = router.routerState.snapshot.url;
+      const fallback = currentUrl.startsWith('/branch') ? '/branch/dashboard' : '/client/dashboard';
+      return of(router.createUrlTree([fallback]));
     }),
   );
 };

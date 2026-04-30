@@ -2,10 +2,8 @@ import {
   Body,
   Controller,
   Get,
-  Param,
   Post,
   Query,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -18,9 +16,12 @@ import { Roles } from '../../auth/roles.decorator';
 import { BranchComplianceService } from '../branch-compliance.service';
 import {
   UploadComplianceDocDto,
+  MarkNotApplicableDto,
   ChecklistQueryDto,
 } from '../dto/branch-compliance.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
@@ -33,22 +34,22 @@ const uploadOptions = {
 @ApiBearerAuth('JWT')
 @Controller({ path: 'branch/compliance-docs', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('CLIENT')
+@Roles('CLIENT', 'BRANCH')
 export class BranchComplianceDocsController {
   constructor(private readonly svc: BranchComplianceService) {}
 
   /** Get checklist of required documents with current status */
   @ApiOperation({ summary: 'Get Checklist' })
   @Get('checklist')
-  getChecklist(@Req() req: any, @Query() q: ChecklistQueryDto) {
-    return this.svc.getChecklist(req.user, q);
+  getChecklist(@CurrentUser() user: ReqUser, @Query() q: ChecklistQueryDto) {
+    return this.svc.getChecklist(user, q);
   }
 
   /** List uploaded documents */
   @ApiOperation({ summary: 'List' })
   @Get()
-  list(@Req() req: any, @Query() q: ChecklistQueryDto) {
-    return this.svc.listForBranch(req.user, q);
+  list(@CurrentUser() user: ReqUser, @Query() q: ChecklistQueryDto) {
+    return this.svc.listForBranch(user, q);
   }
 
   /** Upload a compliance document */
@@ -56,76 +57,100 @@ export class BranchComplianceDocsController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', uploadOptions))
   upload(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body() dto: UploadComplianceDocDto,
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.svc.uploadDocument(req.user, dto, file);
+    return this.svc.uploadDocument(user, dto, file);
+  }
+
+  /** Mark a compliance item as Not Applicable */
+  @ApiOperation({ summary: 'Mark Not Applicable' })
+  @Post('mark-not-applicable')
+  markNotApplicable(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: MarkNotApplicableDto,
+  ) {
+    return this.svc.markNotApplicable(user, dto);
   }
 
   /** Get return master list (for dropdowns) */
   @ApiOperation({ summary: 'Return Master' })
   @Get('return-master')
-  returnMaster(@Query() q: any) {
+  returnMaster(@Query() q: Record<string, string>) {
     return this.svc.getReturnMaster(q);
   }
 
   /** Get branch dashboard KPIs for compliance docs */
   @ApiOperation({ summary: 'Dashboard Kpis' })
   @Get('dashboard-kpis')
-  async dashboardKpis(@Req() req: any, @Query() q: any) {
-    const branchId = await this.svc.resolveBranchId(req.user, q.branchId);
+  async dashboardKpis(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const branchId = await this.svc.resolveBranchId(user, q.branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     const month = q.month ? Number(q.month) : undefined;
-    return this.svc.getBranchDashboardKpis(req.user, branchId, year, month);
+    return this.svc.getBranchDashboardKpis(user, branchId, year, month);
   }
 
   /** Get weighted compliance scoring breakdown across all frequencies */
   @ApiOperation({ summary: 'Weighted Compliance' })
   @Get('weighted-compliance')
-  async weightedCompliance(@Req() req: any, @Query() q: any) {
-    const branchId = await this.svc.resolveBranchId(req.user, q.branchId);
+  async weightedCompliance(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const branchId = await this.svc.resolveBranchId(user, q.branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
-    return this.svc.calculateWeightedCompliance(
-      branchId,
-      req.user.clientId,
-      year,
-    );
+    return this.svc.calculateWeightedCompliance(branchId, user.clientId!, year);
   }
 
   /** Unified compliance dashboard — KPIs + trend + risk + badges */
   @ApiOperation({ summary: 'Full Dashboard' })
   @Get('dashboard/full')
-  async fullDashboard(@Req() req: any, @Query() q: any) {
-    const branchId = await this.svc.resolveBranchId(req.user, q.branchId);
+  async fullDashboard(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const branchId = await this.svc.resolveBranchId(user, q.branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
-    return this.svc.getBranchComplianceDashboard(req.user, branchId, year);
+    return this.svc.getBranchComplianceDashboard(user, branchId, year);
   }
 
   /** 12-month compliance trend for the branch */
   @ApiOperation({ summary: 'Compliance Trend' })
   @Get('trend')
-  async complianceTrend(@Req() req: any, @Query() q: any) {
-    const branchId = await this.svc.resolveBranchId(req.user, q.branchId);
+  async complianceTrend(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const branchId = await this.svc.resolveBranchId(user, q.branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
-    return this.svc.getComplianceTrend(branchId, req.user.clientId, year);
+    return this.svc.getComplianceTrend(branchId, user.clientId!, year);
   }
 
   /** Risk exposure score for the branch */
   @ApiOperation({ summary: 'Risk Exposure' })
   @Get('risk')
-  async riskExposure(@Req() req: any, @Query() q: any) {
-    const branchId = await this.svc.resolveBranchId(req.user, q.branchId);
+  async riskExposure(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const branchId = await this.svc.resolveBranchId(user, q.branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
-    return this.svc.calculateRiskExposure(branchId, req.user.clientId, year);
+    return this.svc.calculateRiskExposure(branchId, user.clientId!, year);
   }
 
   /** Sidebar badge counts per frequency (overdue + reupload) */
   @ApiOperation({ summary: 'Sidebar Badges' })
   @Get('badges')
-  async sidebarBadges(@Req() req: any, @Query() q: any) {
-    const branchId = await this.svc.resolveBranchId(req.user, q.branchId);
+  async sidebarBadges(
+    @CurrentUser() user: ReqUser,
+    @Query() q: Record<string, string>,
+  ) {
+    const branchId = await this.svc.resolveBranchId(user, q.branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
-    return this.svc.getSidebarBadges(branchId, req.user.clientId, year);
+    return this.svc.getSidebarBadges(branchId, user.clientId!, year);
   }
 }

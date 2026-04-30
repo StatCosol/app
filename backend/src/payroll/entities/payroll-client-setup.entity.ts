@@ -72,6 +72,17 @@ export class PayrollClientSetupEntity {
   pfWageCeiling: string;
 
   @Column({
+    name: 'pf_gross_threshold',
+    type: 'numeric',
+    precision: 14,
+    scale: 2,
+    default: 0,
+    comment:
+      'PF only applies when gross exceeds this amount. 0 = apply to all.',
+  })
+  pfGrossThreshold: string;
+
+  @Column({
     name: 'esi_wage_ceiling',
     type: 'numeric',
     precision: 14,
@@ -100,7 +111,12 @@ export class PayrollClientSetupEntity {
   @Column({ name: 'lock_day', type: 'int', default: 26 })
   lockDay: number;
 
-  @Column({ name: 'arrear_mode', type: 'varchar', length: 20, default: 'CURRENT' })
+  @Column({
+    name: 'arrear_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'CURRENT',
+  })
   arrearMode: string;
 
   @Column({
@@ -118,10 +134,20 @@ export class PayrollClientSetupEntity {
   @Column({ name: 'allow_carry_forward', type: 'boolean', default: true })
   allowCarryForward: boolean;
 
-  @Column({ name: 'lop_mode', type: 'varchar', length: 20, default: 'PRORATED' })
+  @Column({
+    name: 'lop_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'PRORATED',
+  })
   lopMode: string;
 
-  @Column({ name: 'attendance_source', type: 'varchar', length: 20, default: 'MANUAL' })
+  @Column({
+    name: 'attendance_source',
+    type: 'varchar',
+    length: 20,
+    default: 'MANUAL',
+  })
   attendanceSource: string;
 
   @Column({ name: 'attendance_cutoff_day', type: 'int', default: 25 })

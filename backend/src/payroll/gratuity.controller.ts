@@ -12,6 +12,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/gratuity', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('PAYROLL', 'ADMIN', 'CLIENT')
 export class GratuityController {
   constructor(private readonly gratuity: GratuityCalculatorService) {}
 

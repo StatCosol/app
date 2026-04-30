@@ -6,21 +6,24 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  Req,
   UseGuards,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { BranchesService } from './branches.service';
+import { CreateBranchDto } from './dto/create-branch.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { BranchContractorEntity } from './entities/branch-contractor.entity';
 import { BranchDocumentEntity } from './entities/branch-document.entity';
 import { BranchApplicableComplianceEntity } from './entities/branch-applicable-compliance.entity';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Branches')
 @ApiBearerAuth('JWT')
@@ -45,23 +48,20 @@ export class ClientBranchesController {
   @Get()
   @Roles('CLIENT', 'ADMIN', 'CRM', 'CCO', 'CEO')
   async list(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('state') state?: string,
     @Query('status') status?: string,
     @Query('clientId') clientIdParam?: string,
   ) {
     // Admin roles may pass clientId as query param; CLIENT users use their own
-    const clientId = req.user.clientId || clientIdParam;
+    const clientId = user.clientId || clientIdParam;
     if (!clientId) return []; // No client context → empty list
 
     let branches = await this.service.findByClient(clientId);
 
     // Branch access: filter to only user's allowed branches (skip for admin roles)
-    if (req.user.roleCode === 'CLIENT') {
-      branches = await this.branchAccess.filterBranches(
-        req.user.userId,
-        branches,
-      );
+    if (user.roleCode === 'CLIENT') {
+      branches = await this.branchAccess.filterBranches(user.userId, branches);
     }
 
     if (state) {
@@ -88,7 +88,7 @@ export class ClientBranchesController {
       .getRawMany();
 
     const countMap = new Map<string, number>();
-    contractorCounts.forEach((r: any) =>
+    contractorCounts.forEach((r: { branchId: string; count: string }) =>
       countMap.set(r.branchId, Number(r.count)),
     );
 
@@ -103,7 +103,7 @@ export class ClientBranchesController {
       .getRawMany();
 
     const complianceMap = new Map<string, number>();
-    complianceCounts.forEach((r: any) =>
+    complianceCounts.forEach((r: { branchId: string; count: string }) =>
       complianceMap.set(r.branchId, Number(r.count)),
     );
 
@@ -120,12 +120,13 @@ export class ClientBranchesController {
       .groupBy('bd.branch_id')
       .getRawMany();
 
-    const docMap = new Map<string, any>();
-    docCounts.forEach((r: any) =>
-      docMap.set(r.branchId, {
-        total: Number(r.total),
-        approved: Number(r.approved),
-      }),
+    const docMap = new Map<string, { total: number; approved: number }>();
+    docCounts.forEach(
+      (r: { branchId: string; total: string; approved: string }) =>
+        docMap.set(r.branchId, {
+          total: Number(r.total),
+          approved: Number(r.approved),
+        }),
     );
 
     return branches.map((b) => {
@@ -142,33 +143,31 @@ export class ClientBranchesController {
   /** POST /api/client/branches — master user only (creates branch + optional branch user) */
   @ApiOperation({ summary: 'Create' })
   @Post()
-  async create(@Req() req: any, @Body() dto: any) {
-    const isMaster = await this.branchAccess.isMasterUser(req.user.userId);
+  async create(@CurrentUser() user: ReqUser, @Body() dto: CreateBranchDto) {
+    const isMaster = await this.branchAccess.isMasterUser(user.userId);
     if (!isMaster) {
       throw new ForbiddenException(
         'Only master client user can create branches',
       );
     }
-    return this.service.create(
-      req.user.clientId,
-      dto,
-      req.user.userId,
-      req.user.roleCode,
-    );
+    return this.service.create(user.clientId!, dto, user.userId, user.roleCode);
   }
 
   /** GET /api/client/branches/:id — branch detail with counts */
   @ApiOperation({ summary: 'Detail' })
   @Get(':id')
-  async detail(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
-    const clientId = req.user.clientId;
+  async detail(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const clientId = user.clientId;
     const branch = await this.service.findById(id);
     if (branch.clientId !== clientId) {
-      return { error: 'Branch not found for this client' };
+      throw new NotFoundException('Branch not found for this client');
     }
 
     // Branch access check
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
 
     // Contractor count
     const contractorCount = await this.branchContractorRepo.count({
@@ -221,16 +220,16 @@ export class ClientBranchesController {
   @ApiOperation({ summary: 'Dashboard' })
   @Get(':id/dashboard')
   async dashboard(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('month') month?: string,
   ) {
-    const clientId = req.user.clientId;
+    const clientId = user.clientId;
     const branch = await this.service.findById(id);
     if (branch.clientId !== clientId) {
-      return { error: 'Branch not found for this client' };
+      throw new NotFoundException('Branch not found for this client');
     }
-    await this.branchAccess.assertBranchAccess(req.user.userId, id);
+    await this.branchAccess.assertBranchAccess(user.userId, id);
 
     // Parse month filter
     const now = new Date();
@@ -286,7 +285,9 @@ export class ClientBranchesController {
     const monthEnd = new Date(Date.UTC(year, mo, 1));
 
     // Get contractors for this branch
-    const contractors: any[] = await this.dataSource.query(
+    const contractors = await this.dataSource.query<
+      { contractor_user_id: string; contractor_name: string }[]
+    >(
       `SELECT bc.contractor_user_id, u.name AS contractor_name
        FROM branch_contractor bc
        JOIN users u ON u.id = bc.contractor_user_id
@@ -299,7 +300,9 @@ export class ClientBranchesController {
     // Required doc counts per contractor
     const requiredMap = new Map<string, number>();
     if (contractorIds.length) {
-      const reqRows: any[] = await this.dataSource.query(
+      const reqRows = await this.dataSource.query<
+        { contractor_user_id: string; cnt: string }[]
+      >(
         `SELECT contractor_user_id, COUNT(*) AS cnt
          FROM contractor_required_documents
          WHERE client_id = $1
@@ -320,7 +323,14 @@ export class ClientBranchesController {
       { uploaded: number; rejected: number; expired: number }
     >();
     if (contractorIds.length) {
-      const docRows: any[] = await this.dataSource.query(
+      const docRows = await this.dataSource.query<
+        {
+          contractor_user_id: string;
+          uploaded_distinct: string;
+          rejected_count: string;
+          expired_count: string;
+        }[]
+      >(
         `SELECT
            contractor_user_id,
            COUNT(DISTINCT doc_type) AS uploaded_distinct,

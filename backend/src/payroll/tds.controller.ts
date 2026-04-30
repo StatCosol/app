@@ -1,15 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Query,
-  Req,
-  BadRequestException,
-} from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { TdsCalculatorService } from './services/tds-calculator.service';
-import type { TdsResult } from './services/tds-calculator.service';
+import { TdsCalculateDto } from './dto/tds-calculate.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Payroll')
@@ -22,12 +14,7 @@ export class TdsController {
   /** Calculate TDS for a given regime */
   @ApiOperation({ summary: 'Calculate' })
   @Post('calculate')
-  calculate(@Body() body: any) {
-    if (!body.annualGross || body.annualGross <= 0) {
-      throw new BadRequestException(
-        'annualGross is required and must be positive',
-      );
-    }
+  calculate(@Body() body: TdsCalculateDto) {
     return this.tds.calculate({
       annualGross: Number(body.annualGross),
       regime: body.regime ?? 'NEW',
@@ -50,12 +37,7 @@ export class TdsController {
   /** Compare both regimes side-by-side */
   @ApiOperation({ summary: 'Compare' })
   @Post('compare')
-  compare(@Body() body: any) {
-    if (!body.annualGross || body.annualGross <= 0) {
-      throw new BadRequestException(
-        'annualGross is required and must be positive',
-      );
-    }
+  compare(@Body() body: TdsCalculateDto) {
     return this.tds.compareBothRegimes({
       annualGross: Number(body.annualGross),
       deduction80C: body.deduction80C ? Number(body.deduction80C) : undefined,

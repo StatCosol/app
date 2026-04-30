@@ -2,7 +2,13 @@
   <ui-page-header
     title="Renewals Workspace"
     subtitle="Expiry queue, owner assignment, follow-up reminders, and renewal review actions in one workspace">
-    <ui-button variant="secondary" size="sm" (clicked)="load(page)">Refresh</ui-button>
+    <div class="flex items-center gap-2">
+      <ui-button variant="secondary" size="sm" (clicked)="goBack()">← Back</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="load(page)">Refresh</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="exportRenewalsXlsx()" [disabled]="exportingXlsx">
+        {{ exportingXlsx ? 'Exporting…' : 'Export Excel' }}
+      </ui-button>
+    </div>
   </ui-page-header>
 
   <div class="summary-grid">
@@ -33,29 +39,31 @@
 
   <div class="filter-bar">
     <div class="filter-field">
-      <label>Month</label>
-      <input type="month" class="filter-input" [(ngModel)]="month" />
+      <label for="ren-month">Month</label>
+      <input autocomplete="off" type="month" id="ren-month" name="month" class="filter-input" [(ngModel)]="month" />
     </div>
     <div class="filter-field">
-      <label>Client</label>
-      <input type="text" class="filter-input" [(ngModel)]="clientId" placeholder="Client ID" />
+      <label for="ren-client">Client</label>
+      <input autocomplete="off" type="text" id="ren-client" name="clientId" class="filter-input" [(ngModel)]="clientId" placeholder="Client ID" />
     </div>
     <div class="filter-field">
-      <label>Branch</label>
-      <input type="text" class="filter-input" [(ngModel)]="branchId" placeholder="Branch ID" />
+      <label for="ren-branch">Branch</label>
+      <input autocomplete="off" type="text" id="ren-branch" name="branchId" class="filter-input" [(ngModel)]="branchId" placeholder="Branch ID" />
     </div>
     <div class="filter-field filter-field--wide">
-      <label>Search</label>
-      <input
+      <label for="ren-search">Search</label>
+      <input autocomplete="off"
         type="text"
+        id="ren-search"
+        name="q"
         class="filter-input"
         [(ngModel)]="q"
         placeholder="Search title, act, remarks"
         (keyup.enter)="load(1)" />
     </div>
     <div class="filter-field">
-      <label>Sort</label>
-      <select class="filter-input" [(ngModel)]="sortMode" (change)="load(page)">
+      <label for="ren-sort">Sort</label>
+      <select id="ren-sort" name="sortMode" class="filter-input" [(ngModel)]="sortMode" (change)="load(page)">
         <option value="DUE_ASC">Due Date - Earliest</option>
         <option value="DUE_DESC">Due Date - Latest</option>
         <option value="UPDATED_DESC">Last Updated</option>
@@ -72,7 +80,7 @@
       <h3>Branch-wise Pending View</h3>
       <span>Click branch row to filter queue</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap max-h-[600px] overflow-y-auto">
       <table class="queue-table queue-table--compact">
         <thead>
           <tr>
@@ -121,7 +129,7 @@
         <h3>Renewal Queue</h3>
         <span>Page {{ page }}</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap max-h-[600px] overflow-y-auto">
         <table class="queue-table">
           <thead>
             <tr>
@@ -191,7 +199,7 @@
           <div><span>Reference</span><strong>{{ referenceFor(item) }}</strong></div>
           <div><span>Assigned Owner</span><strong>{{ ownerFor(item) }}</strong></div>
           <div><span>Last Reminder</span><strong>{{ lastReminderFor(item) ? (lastReminderFor(item) | date: 'dd MMM yyyy, HH:mm') : '-' }}</strong></div>
-          <div><span>Last Updated</span><strong>{{ item.lastUpdatedAt | date: 'dd MMM yyyy, HH:mm' }}</strong></div>
+          <div><span>Last Updated</span><strong>{{ item.lastUpdatedAt ? (item.lastUpdatedAt | date: 'dd MMM yyyy, HH:mm') : '-' }}</strong></div>
         </div>
 
         <div class="workflow">

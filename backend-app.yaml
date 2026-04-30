@@ -1,0 +1,165 @@
+﻿id: /subscriptions/bb5b48c3-99b9-45e5-bc12-81e929c4a823/resourceGroups/statcompy-rg/providers/Microsoft.App/containerapps/statcompy-backend
+identity:
+  principalId: 52c4906e-9554-40e7-a261-9cbfda04b7f0
+  tenantId: e178ad09-6f25-4662-8c61-5905e63219d0
+  type: SystemAssigned
+location: Central India
+name: statcompy-backend
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    dapr: null
+    identitySettings: []
+    ingress:
+      additionalPortMappings: null
+      allowInsecure: false
+      clientCertificateMode: null
+      corsPolicy: null
+      customDomains: null
+      exposedPort: 0
+      external: true
+      fqdn: statcompy-backend.victoriouswave-37ad896d.centralindia.azurecontainerapps.io
+      ipSecurityRestrictions: null
+      stickySessions: null
+      targetPort: 3000
+      targetPortHttpScheme: null
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: Auto
+    maxInactiveRevisions: null
+    registries:
+    - identity: system
+      passwordSecretRef: ''
+      server: statcompyacr001.azurecr.io
+      username: ''
+    revisionTransitionThreshold: null
+    runtime: null
+    secrets: null
+    service: null
+    targetLabel: ''
+  customDomainVerificationId: 5C01537D5AC0422F91FB9A7E2EEBEBF761F51A1A82E8D9C85C5D65682198AE98
+  delegatedIdentities: []
+  environmentId: /subscriptions/bb5b48c3-99b9-45e5-bc12-81e929c4a823/resourceGroups/statcompy-rg/providers/Microsoft.App/managedEnvironments/statcompy-env
+  eventStreamEndpoint: https://centralindia.azurecontainerapps.dev/subscriptions/bb5b48c3-99b9-45e5-bc12-81e929c4a823/resourceGroups/statcompy-rg/containerApps/statcompy-backend/eventstream
+  latestReadyRevisionName: statcompy-backend--0000033
+  latestRevisionFqdn: statcompy-backend--0000033.victoriouswave-37ad896d.centralindia.azurecontainerapps.io
+  latestRevisionName: statcompy-backend--0000033
+  managedEnvironmentId: /subscriptions/bb5b48c3-99b9-45e5-bc12-81e929c4a823/resourceGroups/statcompy-rg/providers/Microsoft.App/managedEnvironments/statcompy-env
+  outboundIpAddresses:
+  - 20.204.252.66
+  - 20.204.255.44
+  - 20.207.112.119
+  - 20.204.254.22
+  - 4.213.194.124
+  - 4.213.194.130
+  - 4.213.194.85
+  - 4.213.194.149
+  - 4.213.194.114
+  - 4.213.194.154
+  - 4.187.221.107
+  - 4.224.75.64
+  - 4.224.128.131
+  - 20.235.215.243
+  - 4.188.89.163
+  - 13.71.53.213
+  - 20.219.205.56
+  - 4.224.156.119
+  - 4.224.154.29
+  - 4.186.36.9
+  - 20.207.113.244
+  - 20.207.114.82
+  - 20.207.113.247
+  - 20.207.113.242
+  - 4.188.105.82
+  - 4.213.216.206
+  - 4.188.110.244
+  - 4.186.33.69
+  - 4.186.36.246
+  - 4.186.37.141
+  - 20.204.189.45
+  patchingMode: Automatic
+  provisioningState: Succeeded
+  runningStatus: Running
+  template:
+    containers:
+    - env:
+      - name: NODE_ENV
+        value: production
+      - name: PORT
+        value: '3000'
+      - name: DB_HOST
+        value: statcompy-db.postgres.database.azure.com
+      - name: DB_PORT
+        value: '5432'
+      - name: DB_USER
+        value: Statcocompy
+      - name: DB_PASS
+        value: Statco@123
+      - name: DB_NAME
+        value: statcompy
+      - name: DB_SSL
+        value: 'true'
+      - name: JWT_SECRET
+        value: MDQ0YmRhYzEtYjY4Ni00Yzk0LTg0ZWEtOTI5OTA0MTc4MzBmYTkzNmUxZjEtZDE3
+      - name: JWT_EXPIRES_IN
+        value: 12h
+      - name: JWT_ACCESS_EXPIRES_SEC
+        value: '900'
+      - name: SKIP_BOOTSTRAP_SEED
+        value: 'true'
+      - name: EMAIL_ENABLED
+        value: 'true'
+      - name: FRONTEND_URL
+        value: https://app.statcosol.com
+      - name: CORS_ORIGINS
+        value: https://app.statcosol.com,https://statcompy-frontend.victoriouswave-37ad896d.centralindia.azurecontainerapps.io
+      - name: UPLOADS_PATH
+        value: /app/uploads
+      - name: AI_ENCRYPTION_KEY
+        value: 3ad671a3965c95e405800ab3fd75813025f2d79b904fafe5d59682270d3308df
+      - name: SMTP_HOST
+        value: smtp.zoho.in
+      - name: SMTP_PORT
+        value: '587'
+      - name: SMTP_USER
+        value: it_admin@statcosol.com
+      - name: SMTP_PASS
+        value: SX8xUKrhXzwS
+      - name: SMTP_FROM_EMAIL
+        value: it_admin@statcosol.com
+      image: statcompyacr001.azurecr.io/statcompy-backend:v202604051830
+      imageType: ContainerImage
+      name: statcompy-backend
+      resources:
+        cpu: 1.0
+        ephemeralStorage: 4Gi
+        memory: 2Gi
+      volumeMounts:
+      - volumeName: uploads
+        mountPath: /app/uploads
+    customMetricsSettings: null
+    initContainers: null
+    revisionSuffix: ''
+    scale:
+      cooldownPeriod: 300
+      maxReplicas: 3
+      minReplicas: 1
+      pollingInterval: 30
+      rules: null
+    serviceBinds: null
+    terminationGracePeriodSeconds: null
+    volumes:
+    - name: uploads
+      storageName: uploadstorage
+      storageType: AzureFile
+  workloadProfileName: Consumption
+resourceGroup: statcompy-rg
+systemData:
+  createdAt: '2026-03-30T05:41:05.2247176'
+  createdBy: statcosolutions@gmail.com
+  createdByType: User
+  lastModifiedAt: '2026-04-05T14:13:18.163097'
+  lastModifiedBy: statcosolutions@gmail.com
+  lastModifiedByType: User
+type: Microsoft.App/containerApps

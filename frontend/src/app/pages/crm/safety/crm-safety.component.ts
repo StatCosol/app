@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
-import { PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, ClientContextStripComponent } from '../../../shared/ui';
 import {
   SafetyDocumentsApi,
   SafetyDocument,
@@ -12,16 +12,20 @@ import {
   SafetyScore,
   SAFETY_CATEGORIES,
   SAFETY_FREQUENCIES,
+  SAFETY_DOCUMENT_TYPES,
 } from '../../../core/api/safety-documents.api';
+import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   standalone: true,
   selector: 'app-crm-safety',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, EmptyStateComponent, ClientContextStripComponent],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <ui-page-header title="Safety Documents" subtitle="View and verify safety documents for this client"></ui-page-header>
+      <ui-page-header title="Safety Documents" subtitle="View and verify safety documents for this client">
+        <ui-client-context-strip [inline]="true"></ui-client-context-strip>
+      </ui-page-header>
 
       <!-- Safety Risk Score Card -->
       <div *ngIf="safetyScore" class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -81,11 +85,80 @@ import { ToastService } from '../../../shared/toast/toast.service';
           </nav>
         </div>
         <div class="p-4 flex flex-wrap gap-3">
-          <select [(ngModel)]="filterCategory" (ngModelChange)="loadDocuments()"
+          <select id="cs-filter-category" name="filterCategory" [(ngModel)]="filterCategory" (ngModelChange)="loadDocuments()"
             class="form-select rounded-lg border-gray-300 text-sm">
             <option value="">All Categories</option>
             <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
           </select>
+          <button (click)="showUploadForm = !showUploadForm" type="button"
+            class="ml-auto inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+            {{ showUploadForm ? 'Cancel' : 'Upload on Behalf' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Upload On Behalf Form -->
+      <div *ngIf="showUploadForm" class="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-base font-semibold text-gray-900 mb-4">Upload Safety Document on Behalf of Branch</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Branch *</label>
+            <select [(ngModel)]="uploadForm.branchId" name="uf-branch"
+              class="form-select w-full rounded-lg border-gray-300 text-sm">
+              <option value="">Select Branch</option>
+              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Document Type *</label>
+            <select [(ngModel)]="uploadForm.documentType" name="uf-doctype"
+              class="form-select w-full rounded-lg border-gray-300 text-sm">
+              <option value="">Select Type</option>
+              <option *ngFor="let dt of documentTypes" [value]="dt">{{ dt }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Document Name *</label>
+            <input type="text" [(ngModel)]="uploadForm.documentName" name="uf-docname"
+              class="form-input w-full rounded-lg border-gray-300 text-sm" placeholder="e.g. Fire Safety Certificate">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Category</label>
+            <select [(ngModel)]="uploadForm.category" name="uf-cat"
+              class="form-select w-full rounded-lg border-gray-300 text-sm">
+              <option value="">Select Category</option>
+              <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Frequency</label>
+            <select [(ngModel)]="uploadForm.frequency" name="uf-freq"
+              class="form-select w-full rounded-lg border-gray-300 text-sm">
+              <option value="">Select Frequency</option>
+              <option *ngFor="let f of frequencyTabs.slice(1)" [value]="f.value">{{ f.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Valid To</label>
+            <input type="date" [(ngModel)]="uploadForm.validTo" name="uf-validto"
+              class="form-input w-full rounded-lg border-gray-300 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
+            <input type="text" [(ngModel)]="uploadForm.remarks" name="uf-remarks"
+              class="form-input w-full rounded-lg border-gray-300 text-sm" placeholder="Optional notes">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">File *</label>
+            <input type="file" (change)="onFileSelected($event)" #fileInput
+              class="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+          </div>
+          <div class="flex items-end">
+            <button (click)="submitUpload()" [disabled]="uploading"
+              class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">
+              {{ uploading ? 'Uploading...' : 'Upload' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -171,10 +244,18 @@ export class CrmSafetyComponent implements OnInit, OnDestroy {
   safetyScore: SafetyScore | null = null;
 
   categories = SAFETY_CATEGORIES;
+  documentTypes = SAFETY_DOCUMENT_TYPES;
   frequencyTabs = [{ value: '', label: 'All' }, ...SAFETY_FREQUENCIES];
 
   filterFrequency = '';
   filterCategory = '';
+
+  /* Upload on behalf */
+  showUploadForm = false;
+  uploading = false;
+  branches: any[] = [];
+  selectedFile: File | null = null;
+  uploadForm: any = { branchId: '', documentType: '', documentName: '', category: '', frequency: '', validTo: '', remarks: '' };
 
   monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -183,6 +264,7 @@ export class CrmSafetyComponent implements OnInit, OnDestroy {
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
+    private readonly crmClientsApi: CrmClientsApi,
   ) {}
 
   ngOnInit(): void {
@@ -191,6 +273,9 @@ export class CrmSafetyComponent implements OnInit, OnDestroy {
       this.loadDocuments();
       this.loadExpiring();
       this.loadSafetyScore();
+      this.crmClientsApi.getBranchesForClient(this.clientId).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (b) => { this.branches = b || []; this.cdr.markForCheck(); },
+      });
     }
   }
 
@@ -245,6 +330,45 @@ export class CrmSafetyComponent implements OnInit, OnDestroy {
     this.api.downloadCrm(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = doc.fileName; a.click(); URL.revokeObjectURL(url); },
       error: () => this.toast.error('Download failed'),
+    });
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile = input.files?.[0] || null;
+  }
+
+  submitUpload(): void {
+    const f = this.uploadForm;
+    if (!f.branchId || !f.documentType || !f.documentName || !this.selectedFile) {
+      this.toast.error('Branch, Document Type, Document Name, and File are required.');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', this.selectedFile);
+    fd.append('clientId', this.clientId);
+    fd.append('branchId', f.branchId);
+    fd.append('documentType', f.documentType);
+    fd.append('documentName', f.documentName);
+    if (f.category) fd.append('category', f.category);
+    if (f.frequency) fd.append('frequency', f.frequency);
+    if (f.validTo) fd.append('validTo', f.validTo);
+    if (f.remarks) fd.append('remarks', f.remarks);
+
+    this.uploading = true;
+    this.api.uploadForCrm(fd).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.uploading = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: () => {
+        this.toast.success('Document uploaded successfully.');
+        this.showUploadForm = false;
+        this.uploadForm = { branchId: '', documentType: '', documentName: '', category: '', frequency: '', validTo: '', remarks: '' };
+        this.selectedFile = null;
+        this.loadDocuments();
+        this.loadSafetyScore();
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Upload failed'),
     });
   }
 

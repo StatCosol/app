@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, SelectQueryBuilder } from 'typeorm';
 import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { ScopedListQueryDto } from '../common/dto/scoped-list-query.dto';
 import { Page } from '../common/types/page.type';
@@ -54,7 +54,7 @@ export class ReturnListService {
   async list(
     user: ReqUser,
     q: ScopedListQueryDto,
-  ): Promise<Page<Record<string, any>>> {
+  ): Promise<Page<Record<string, unknown>>> {
     const scopeResult = await this.scope.getScope(user);
     const qb = this.ds
       .getRepository(ComplianceReturnEntity)
@@ -142,12 +142,17 @@ export class ReturnListService {
     };
   }
 
-  private applyCategory(qb: any, category?: string) {
+  private applyCategory(
+    qb: SelectQueryBuilder<ComplianceReturnEntity>,
+    category?: string,
+  ) {
     if (!category) return;
     const cat = category.toUpperCase();
 
     if (cat === 'RENEWAL') {
-      qb.andWhere('LOWER(r.returnType) LIKE :renewal', { renewal: '%renewal%' });
+      qb.andWhere('LOWER(r.returnType) LIKE :renewal', {
+        renewal: '%renewal%',
+      });
       return;
     }
 
@@ -157,7 +162,9 @@ export class ReturnListService {
     }
 
     if (cat === 'RETURN') {
-      qb.andWhere('LOWER(r.returnType) NOT LIKE :renewal', { renewal: '%renewal%' });
+      qb.andWhere('LOWER(r.returnType) NOT LIKE :renewal', {
+        renewal: '%renewal%',
+      });
       qb.andWhere('LOWER(r.returnType) NOT LIKE :amend', { amend: '%amend%' });
       return;
     }
@@ -166,10 +173,12 @@ export class ReturnListService {
     qb.andWhere('UPPER(r.lawType) = :cat', { cat });
   }
 
-  private toDueItemRow(row: ComplianceReturnEntity): Record<string, any> {
+  private toDueItemRow(row: ComplianceReturnEntity): Record<string, unknown> {
     const category = this.inferCategory(row.returnType);
     const status = this.toUiStatus(row.status, row.dueDate);
-    const period = row.periodLabel || this.periodFromYearMonth(row.periodYear, row.periodMonth);
+    const period =
+      row.periodLabel ||
+      this.periodFromYearMonth(row.periodYear, row.periodMonth);
 
     return {
       id: row.id,
@@ -186,7 +195,10 @@ export class ReturnListService {
       assigneeRole: row.crmOwner ? 'CRM' : 'BRANCH',
       evidenceUrl: row.ackFilePath || row.challanFilePath || null,
       remarks: row.crmLastNote || null,
-      lastUpdatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt || ''),
+      lastUpdatedAt:
+        row.updatedAt instanceof Date
+          ? row.updatedAt.toISOString()
+          : String(row.updatedAt || ''),
       ownerAssigned: row.crmOwner || null,
       lastReminderAt:
         row.crmLastReminderAt instanceof Date
@@ -197,14 +209,19 @@ export class ReturnListService {
     };
   }
 
-  private inferCategory(returnType?: string | null): 'RETURN' | 'RENEWAL' | 'AMENDMENT' {
+  private inferCategory(
+    returnType?: string | null,
+  ): 'RETURN' | 'RENEWAL' | 'AMENDMENT' {
     const text = (returnType || '').toLowerCase();
     if (text.includes('renewal')) return 'RENEWAL';
     if (text.includes('amend')) return 'AMENDMENT';
     return 'RETURN';
   }
 
-  private periodFromYearMonth(year?: number | null, month?: number | null): string | null {
+  private periodFromYearMonth(
+    year?: number | null,
+    month?: number | null,
+  ): string | null {
     if (!year) return null;
     if (!month) return String(year);
     return `${year}-${String(month).padStart(2, '0')}`;
@@ -212,7 +229,11 @@ export class ReturnListService {
 
   private toUiStatus(status: string, dueDate?: string | null) {
     if (!dueDate) return status;
-    if (status === 'APPROVED' || status === 'SUBMITTED' || status === 'REJECTED') {
+    if (
+      status === 'APPROVED' ||
+      status === 'SUBMITTED' ||
+      status === 'REJECTED'
+    ) {
       return status;
     }
     const today = new Date().toISOString().slice(0, 10);
@@ -220,7 +241,10 @@ export class ReturnListService {
     return status;
   }
 
-  private applyTab(qb: any, tab: string) {
+  private applyTab(
+    qb: SelectQueryBuilder<ComplianceReturnEntity>,
+    tab: string,
+  ) {
     const today = new Date().toISOString().slice(0, 10);
     switch (tab.toUpperCase()) {
       case 'OVERDUE':

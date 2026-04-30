@@ -99,7 +99,10 @@ export class PayrollEngineController {
       body.effectiveFrom,
       'effectiveFrom',
     );
-    const effectiveTo = this.parseOptionalIsoDate(body.effectiveTo, 'effectiveTo');
+    const effectiveTo = this.parseOptionalIsoDate(
+      body.effectiveTo,
+      'effectiveTo',
+    );
     this.validateDateWindow(effectiveFrom, effectiveTo);
 
     await this.ensureNoOverlappingRuleSet({
@@ -129,7 +132,9 @@ export class PayrollEngineController {
     if (!ruleSet) throw new NotFoundException('Rule set not found');
 
     const name =
-      body.name !== undefined ? this.requireTrimmed(body.name, 'name') : ruleSet.name;
+      body.name !== undefined
+        ? this.requireTrimmed(body.name, 'name')
+        : ruleSet.name;
     const branchId =
       body.branchId !== undefined
         ? this.optionalTrimmed(body.branchId)
@@ -156,7 +161,11 @@ export class PayrollEngineController {
     });
 
     if (isActive) {
-      await this.assertRuleSetActivatable(ruleSet.id, effectiveFrom, effectiveTo);
+      await this.assertRuleSetActivatable(
+        ruleSet.id,
+        effectiveFrom,
+        effectiveTo,
+      );
     }
 
     return this.ruleSetRepo.manager.transaction(async (manager) => {
@@ -212,9 +221,13 @@ export class PayrollEngineController {
     await this.ensureRuleSetExists(ruleSetId);
 
     const key = this.requireTrimmed(body.key, 'key').toUpperCase();
-    const existing = await this.paramRepo.findOne({ where: { ruleSetId, key } });
+    const existing = await this.paramRepo.findOne({
+      where: { ruleSetId, key },
+    });
     if (existing) {
-      throw new ConflictException(`Parameter ${key} already exists for this rule set`);
+      throw new ConflictException(
+        `Parameter ${key} already exists for this rule set`,
+      );
     }
 
     const param = this.paramRepo.create({
@@ -236,11 +249,15 @@ export class PayrollEngineController {
     @Body() body: UpdateParameterDto,
   ) {
     await this.ensureRuleSetExists(ruleSetId);
-    const param = await this.paramRepo.findOne({ where: { id: paramId, ruleSetId } });
+    const param = await this.paramRepo.findOne({
+      where: { id: paramId, ruleSetId },
+    });
     if (!param) throw new NotFoundException('Parameter not found');
 
     const nextKey =
-      body.key !== undefined ? this.requireTrimmed(body.key, 'key').toUpperCase() : param.key;
+      body.key !== undefined
+        ? this.requireTrimmed(body.key, 'key').toUpperCase()
+        : param.key;
 
     if (nextKey !== param.key) {
       const keyExists = await this.paramRepo.findOne({
@@ -260,9 +277,12 @@ export class PayrollEngineController {
         body.valueText !== undefined
           ? this.optionalTrimmed(body.valueText)
           : param.valueText,
-      unit: body.unit !== undefined ? this.optionalTrimmed(body.unit) : param.unit,
+      unit:
+        body.unit !== undefined ? this.optionalTrimmed(body.unit) : param.unit,
       notes:
-        body.notes !== undefined ? this.optionalTrimmed(body.notes) : param.notes,
+        body.notes !== undefined
+          ? this.optionalTrimmed(body.notes)
+          : param.notes,
     });
     return this.paramRepo.save(param);
   }
@@ -274,7 +294,9 @@ export class PayrollEngineController {
     @Param('paramId') paramId: string,
   ) {
     await this.ensureRuleSetExists(ruleSetId);
-    const param = await this.paramRepo.findOne({ where: { id: paramId, ruleSetId } });
+    const param = await this.paramRepo.findOne({
+      where: { id: paramId, ruleSetId },
+    });
     if (!param) throw new NotFoundException('Parameter not found');
     return this.paramRepo.remove(param);
   }
@@ -311,7 +333,10 @@ export class PayrollEngineController {
       body.effectiveFrom,
       'effectiveFrom',
     );
-    const effectiveTo = this.parseOptionalIsoDate(body.effectiveTo, 'effectiveTo');
+    const effectiveTo = this.parseOptionalIsoDate(
+      body.effectiveTo,
+      'effectiveTo',
+    );
     this.validateDateWindow(effectiveFrom, effectiveTo);
 
     const scopeTargets = this.normalizeScopeTargets(scopeType, {
@@ -355,7 +380,9 @@ export class PayrollEngineController {
     if (!structure) throw new NotFoundException('Structure not found');
 
     const name =
-      body.name !== undefined ? this.requireTrimmed(body.name, 'name') : structure.name;
+      body.name !== undefined
+        ? this.requireTrimmed(body.name, 'name')
+        : structure.name;
     const scopeType =
       body.scopeType !== undefined
         ? this.normalizeScopeType(body.scopeType)
@@ -373,9 +400,12 @@ export class PayrollEngineController {
     this.validateDateWindow(effectiveFrom, effectiveTo);
 
     const scopeTargets = this.normalizeScopeTargets(scopeType, {
-      branchId: body.branchId !== undefined ? body.branchId : structure.branchId,
+      branchId:
+        body.branchId !== undefined ? body.branchId : structure.branchId,
       departmentId:
-        body.departmentId !== undefined ? body.departmentId : structure.departmentId,
+        body.departmentId !== undefined
+          ? body.departmentId
+          : structure.departmentId,
       gradeId: body.gradeId !== undefined ? body.gradeId : structure.gradeId,
       employeeId:
         body.employeeId !== undefined ? body.employeeId : structure.employeeId,
@@ -397,7 +427,11 @@ export class PayrollEngineController {
     });
 
     if (isActive) {
-      await this.assertStructureActivatable(structure.id, effectiveFrom, effectiveTo);
+      await this.assertStructureActivatable(
+        structure.id,
+        effectiveFrom,
+        effectiveTo,
+      );
     }
 
     return this.structureRepo.manager.transaction(async (manager) => {
@@ -438,8 +472,35 @@ export class PayrollEngineController {
   async deleteStructure(@Param('id') id: string) {
     const structure = await this.structureRepo.findOne({ where: { id } });
     if (!structure) throw new NotFoundException('Structure not found');
-    structure.isActive = false;
-    return this.structureRepo.save(structure);
+    if (structure.isActive) {
+      throw new BadRequestException(
+        'Active structure cannot be deleted. Activate another version first.',
+      );
+    }
+
+    await this.structureRepo.manager.transaction(async (manager) => {
+      const traceColumnExists = await manager.query(
+        `SELECT 1
+           FROM information_schema.columns
+          WHERE table_name = 'pay_calc_traces'
+            AND column_name = 'structure_id'
+          LIMIT 1`,
+      );
+      if (traceColumnExists?.length) {
+        await manager.query(
+          'DELETE FROM pay_calc_traces WHERE structure_id = $1',
+          [id],
+        );
+      }
+
+      await manager.delete(PaySalaryStructureItemEntity, { structureId: id });
+      const deleted = await manager.delete(PaySalaryStructureEntity, { id });
+      if (!deleted.affected) {
+        throw new ConflictException('Structure could not be deleted');
+      }
+    });
+
+    return { success: true };
   }
 
   // ── Structure Items CRUD ───────────────────────
@@ -464,7 +525,7 @@ export class PayrollEngineController {
     if (!body?.componentId) {
       throw new BadRequestException('componentId is required');
     }
-    const item = this.itemRepo.create({ ...body, structureId } as any);
+    const item = this.itemRepo.create({ ...body, structureId });
     return this.itemRepo.save(item);
   }
 
@@ -476,9 +537,11 @@ export class PayrollEngineController {
     @Body() body: UpdateStructureItemDto,
   ) {
     await this.ensureStructureExists(structureId);
-    const item = await this.itemRepo.findOne({ where: { id: itemId, structureId } });
+    const item = await this.itemRepo.findOne({
+      where: { id: itemId, structureId },
+    });
     if (!item) throw new NotFoundException('Structure item not found');
-    this.itemRepo.merge(item, body as any);
+    this.itemRepo.merge(item, body as Partial<PaySalaryStructureItemEntity>);
     return this.itemRepo.save(item);
   }
 
@@ -489,7 +552,9 @@ export class PayrollEngineController {
     @Param('itemId') itemId: string,
   ) {
     await this.ensureStructureExists(structureId);
-    const item = await this.itemRepo.findOne({ where: { id: itemId, structureId } });
+    const item = await this.itemRepo.findOne({
+      where: { id: itemId, structureId },
+    });
     if (!item) throw new NotFoundException('Structure item not found');
     return this.itemRepo.remove(item);
   }
@@ -552,7 +617,9 @@ export class PayrollEngineController {
     }
     const trimmed = value.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      throw new BadRequestException(`${fieldName} must be in YYYY-MM-DD format`);
+      throw new BadRequestException(
+        `${fieldName} must be in YYYY-MM-DD format`,
+      );
     }
     const dt = new Date(`${trimmed}T00:00:00Z`);
     if (Number.isNaN(dt.getTime())) {
@@ -561,7 +628,10 @@ export class PayrollEngineController {
     return trimmed;
   }
 
-  private validateDateWindow(effectiveFrom: string, effectiveTo: string | null): void {
+  private validateDateWindow(
+    effectiveFrom: string,
+    effectiveTo: string | null,
+  ): void {
     if (effectiveTo && effectiveTo < effectiveFrom) {
       throw new BadRequestException(
         'effectiveTo cannot be before effectiveFrom',
@@ -684,24 +754,35 @@ export class PayrollEngineController {
     const employeeId = this.optionalTrimmed(raw.employeeId);
 
     if (scopeType === 'TENANT') {
-      return { branchId: null, departmentId: null, gradeId: null, employeeId: null };
+      return {
+        branchId: null,
+        departmentId: null,
+        gradeId: null,
+        employeeId: null,
+      };
     }
     if (scopeType === 'BRANCH') {
-      if (!branchId) throw new BadRequestException('branchId is required for BRANCH scope');
+      if (!branchId)
+        throw new BadRequestException('branchId is required for BRANCH scope');
       return { branchId, departmentId: null, gradeId: null, employeeId: null };
     }
     if (scopeType === 'DEPARTMENT') {
       if (!departmentId) {
-        throw new BadRequestException('departmentId is required for DEPARTMENT scope');
+        throw new BadRequestException(
+          'departmentId is required for DEPARTMENT scope',
+        );
       }
       return { branchId: null, departmentId, gradeId: null, employeeId: null };
     }
     if (scopeType === 'GRADE') {
-      if (!gradeId) throw new BadRequestException('gradeId is required for GRADE scope');
+      if (!gradeId)
+        throw new BadRequestException('gradeId is required for GRADE scope');
       return { branchId: null, departmentId: null, gradeId, employeeId: null };
     }
     if (!employeeId) {
-      throw new BadRequestException('employeeId is required for EMPLOYEE scope');
+      throw new BadRequestException(
+        'employeeId is required for EMPLOYEE scope',
+      );
     }
     return { branchId: null, departmentId: null, gradeId: null, employeeId };
   }
@@ -716,7 +797,10 @@ export class PayrollEngineController {
       employeeId: string | null;
     },
   ): void {
-    if (targets.branchId) qb.andWhere(`${alias}.branchId = :branchId`, { branchId: targets.branchId });
+    if (targets.branchId)
+      qb.andWhere(`${alias}.branchId = :branchId`, {
+        branchId: targets.branchId,
+      });
     else qb.andWhere(`${alias}.branchId IS NULL`);
 
     if (targets.departmentId) {
@@ -725,7 +809,8 @@ export class PayrollEngineController {
       });
     } else qb.andWhere(`${alias}.departmentId IS NULL`);
 
-    if (targets.gradeId) qb.andWhere(`${alias}.gradeId = :gradeId`, { gradeId: targets.gradeId });
+    if (targets.gradeId)
+      qb.andWhere(`${alias}.gradeId = :gradeId`, { gradeId: targets.gradeId });
     else qb.andWhere(`${alias}.gradeId IS NULL`);
 
     if (targets.employeeId) {
@@ -809,12 +894,16 @@ export class PayrollEngineController {
       where: { id: ruleSetId, clientId },
     });
     if (!ruleSet) {
-      throw new BadRequestException('ruleSetId is invalid for the selected client');
+      throw new BadRequestException(
+        'ruleSetId is invalid for the selected client',
+      );
     }
   }
 
   private async ensureStructureExists(structureId: string): Promise<void> {
-    const structure = await this.structureRepo.findOne({ where: { id: structureId } });
+    const structure = await this.structureRepo.findOne({
+      where: { id: structureId },
+    });
     if (!structure) {
       throw new NotFoundException('Structure not found');
     }

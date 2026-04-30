@@ -34,7 +34,7 @@ export class RiskSnapshotCronService {
       return;
     }
 
-    const branches: any[] = await this.ds.query(
+    const branches: { id: string; clientid: string }[] = await this.ds.query(
       `SELECT id, clientid FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
     );
 
@@ -51,8 +51,10 @@ export class RiskSnapshotCronService {
           [b.clientid, b.id, snapshotDate, score],
         );
         count++;
-      } catch (err: any) {
-        this.logger.warn(`Snapshot failed for branch ${b.id}: ${err.message}`);
+      } catch (err: unknown) {
+        this.logger.warn(
+          `Snapshot failed for branch ${b.id}: ${(err as Error).message}`,
+        );
       }
     }
 

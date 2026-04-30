@@ -1,9 +1,11 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { ComplianceService } from '../compliance.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -15,8 +17,8 @@ export class ComplianceCrmDashboardController {
 
   @ApiOperation({ summary: 'Get' })
   @Get()
-  get(@Req() req: any) {
-    return this.svc.crmDashboard(req.user);
+  get(@CurrentUser() user: ReqUser) {
+    return this.svc.crmDashboard(user);
   }
 }
 
@@ -29,8 +31,8 @@ export class ContractorDashboardController {
 
   @ApiOperation({ summary: 'Get' })
   @Get()
-  get(@Req() req: any) {
-    return this.svc.contractorDashboard(req.user);
+  get(@CurrentUser() user: ReqUser) {
+    return this.svc.contractorDashboard(user);
   }
 }
 
@@ -42,8 +44,8 @@ export class ClientDashboardController {
 
   @ApiOperation({ summary: 'Get' })
   @Get()
-  get(@Req() req: any) {
-    return this.svc.clientDashboard(req.user);
+  get(@CurrentUser() user: ReqUser) {
+    return this.svc.clientDashboard(user);
   }
 }
 
@@ -55,8 +57,8 @@ export class AdminRoleDashboardController {
 
   @ApiOperation({ summary: 'Get' })
   @Get()
-  get(@Req() req: any) {
-    return this.svc.adminDashboard(req.user);
+  get(@CurrentUser() user: ReqUser) {
+    return this.svc.adminDashboard(user);
   }
 }
 
@@ -68,7 +70,7 @@ export class ComplianceAuditorDashboardController {
 
   @ApiOperation({ summary: 'Get' })
   @Get()
-  get(@Req() req: any) {
-    return this.svc.auditorDashboard(req.user);
+  get(@CurrentUser() user: ReqUser) {
+    return this.svc.auditorDashboard(user);
   }
 }

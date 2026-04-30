@@ -16,7 +16,9 @@ import {
   RuleSet,
 } from './payroll-engine-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
+import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 
 interface RuleSetFormModel {
   name: string;
@@ -55,7 +57,7 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-rule-sets',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-rule-sets.component.html',
   styleUrls: ['./payroll-rule-sets.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,7 +77,7 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
   params: RuleParameter[] = [];
 
   searchTerm = '';
-  statusFilter: 'ALL' | 'ACTIVE' | 'INACTIVE' = 'ALL';
+  statusFilter: 'ALL' | 'ACTIVE' | 'INACTIVE' = 'ACTIVE';
 
   showRuleSetModal = false;
   editingRuleSet: RuleSet | null = null;
@@ -106,10 +108,15 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
-    this.loadClients();
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) {
+      this.selectedClientId = routeClientId;
+      this.onClientChange();
+    }
   }
 
   ngOnDestroy(): void {
@@ -256,7 +263,7 @@ export class PayrollRuleSetsComponent implements OnInit, OnDestroy {
     this.selectedRuleSet = null;
     this.params = [];
     this.searchTerm = '';
-    this.statusFilter = 'ALL';
+    this.statusFilter = 'ACTIVE';
 
     if (!this.selectedClientId) {
       this.cdr.markForCheck();

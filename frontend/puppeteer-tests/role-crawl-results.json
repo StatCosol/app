@@ -1,0 +1,1827 @@
+[
+  {
+    "role": "ADMIN",
+    "email": "it_admin@statcosol.com",
+    "loginUrl": "http://localhost:4200/admin",
+    "pages": [
+      {
+        "path": "/admin/dashboard",
+        "finalUrl": "http://localhost:4200/admin/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin",
+        "finalUrl": "http://localhost:4200/admin/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/reports",
+        "finalUrl": "http://localhost:4200/admin/reports",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/users",
+        "finalUrl": "http://localhost:4200/admin/users",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/clients",
+        "finalUrl": "http://localhost:4200/admin/clients",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config",
+          "/admin/clients/d1a2b3c4-1111-4aaa-aaaa-000000000001/branches",
+          "/admin/clients/b9e61e9f-d9a9-47a6-82b0-6270b075e8a6/branches",
+          "/admin/clients/96641295-d9df-4074-88b3-d06c8f992710/branches"
+        ]
+      },
+      {
+        "path": "/admin/assignments",
+        "finalUrl": "http://localhost:4200/admin/assignments",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/payroll-assignments",
+        "finalUrl": "http://localhost:4200/admin/payroll-assignments",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/governance",
+        "finalUrl": "http://localhost:4200/admin/governance",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/governance/unassigned",
+        "finalUrl": "http://localhost:4200/admin/governance/unassigned",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config",
+          "/admin/clients/96641295-d9df-4074-88b3-d06c8f992710",
+          "/admin/clients/b9e61e9f-d9a9-47a6-82b0-6270b075e8a6",
+          "/admin/clients/d1a2b3c4-1111-4aaa-aaaa-000000000001"
+        ]
+      },
+      {
+        "path": "/admin/masters",
+        "finalUrl": "http://localhost:4200/admin/masters",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/payroll/templates",
+        "finalUrl": "http://localhost:4200/admin/payroll/templates",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      },
+      {
+        "path": "/admin/payroll/client-settings",
+        "finalUrl": "http://localhost:4200/admin/payroll/client-settings",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/admin/dashboard",
+          "/admin/reports",
+          "/admin/users",
+          "/admin/clients",
+          "/admin/assignments",
+          "/admin/payroll-assignments",
+          "/admin/governance",
+          "/admin/governance/unassigned",
+          "/admin/masters",
+          "/admin/payroll/templates",
+          "/admin/payroll/client-settings",
+          "/admin/approvals",
+          "/admin/applicability",
+          "/admin/applicability/config",
+          "/admin/sla",
+          "/admin/escalations",
+          "/admin/notifications",
+          "/admin/digest",
+          "/admin/news",
+          "/admin/helpdesk",
+          "/admin/audit-logs",
+          "/admin/ai-hub",
+          "/admin/ai-risk",
+          "/admin/ai-audit",
+          "/admin/ai-payroll",
+          "/admin/ai-config"
+        ]
+      }
+    ],
+    "routeErrors": [
+      {
+        "type": "api",
+        "path": "/admin/assignments",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/assignments"
+      },
+      {
+        "type": "console:error",
+        "path": "/admin/assignments",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      },
+      {
+        "type": "api",
+        "path": "/admin/assignments",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/assignments/history"
+      },
+      {
+        "type": "api",
+        "path": "/admin/payroll-assignments",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/clients"
+      },
+      {
+        "type": "console:error",
+        "path": "/admin/payroll-assignments",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      },
+      {
+        "type": "api",
+        "path": "/admin/payroll-assignments",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/users?role=PAYROLL"
+      },
+      {
+        "type": "api",
+        "path": "/admin/governance",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/dashboard/assignment-summary"
+      },
+      {
+        "type": "console:error",
+        "path": "/admin/governance",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      },
+      {
+        "type": "api",
+        "path": "/admin/governance",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/dashboard/unassigned-clients"
+      },
+      {
+        "type": "api",
+        "path": "/admin/governance",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/dashboard/risk-alerts"
+      },
+      {
+        "type": "api",
+        "path": "/admin/governance",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/dashboard/summary"
+      },
+      {
+        "type": "api",
+        "path": "/admin/governance",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/assignments"
+      },
+      {
+        "type": "api",
+        "path": "/admin/governance",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/users?status=INACTIVE&limit=50&page=1"
+      },
+      {
+        "type": "api",
+        "path": "/admin/masters",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/masters/compliances"
+      },
+      {
+        "type": "console:error",
+        "path": "/admin/masters",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      },
+      {
+        "type": "api",
+        "path": "/admin/payroll/templates",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/payroll/templates"
+      },
+      {
+        "type": "console:error",
+        "path": "/admin/payroll/templates",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      },
+      {
+        "type": "api",
+        "path": "/admin/payroll/templates",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/admin/clients"
+      }
+    ]
+  },
+  {
+    "role": "CRM",
+    "email": "compliance@statcosol.com",
+    "loginUrl": "http://localhost:4200/crm",
+    "pages": [
+      {
+        "path": "/crm/dashboard",
+        "finalUrl": "http://localhost:4200/crm/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm",
+        "finalUrl": "http://localhost:4200/crm/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/clients",
+        "finalUrl": "http://localhost:4200/crm/clients",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile",
+          "/crm/clients/b9e61e9f-d9a9-47a6-82b0-6270b075e8a6/branches",
+          "/crm/clients/b9e61e9f-d9a9-47a6-82b0-6270b075e8a6/overview"
+        ]
+      },
+      {
+        "path": "/crm/helpdesk",
+        "finalUrl": "http://localhost:4200/crm/helpdesk",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/compliance-tracker",
+        "finalUrl": "http://localhost:4200/crm/compliance-tracker",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile",
+          "/crm/reupload-backlog",
+          "/crm/reupload-backlog",
+          "/crm/reupload-backlog"
+        ]
+      },
+      {
+        "path": "/crm/returns",
+        "finalUrl": "http://localhost:4200/crm/returns",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/branch-docs-review",
+        "finalUrl": "http://localhost:4200/crm/branch-docs-review",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/calendar",
+        "finalUrl": "http://localhost:4200/crm/calendar",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/sla",
+        "finalUrl": "http://localhost:4200/crm/sla",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/escalations",
+        "finalUrl": "http://localhost:4200/crm/escalations",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/expiry-tasks",
+        "finalUrl": "http://localhost:4200/crm/expiry-tasks",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      },
+      {
+        "path": "/crm/audits",
+        "finalUrl": "http://localhost:4200/crm/audits",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/crm/dashboard",
+          "/crm/clients",
+          "/crm/helpdesk",
+          "/crm/compliance-tracker",
+          "/crm/returns",
+          "/crm/branch-docs-review",
+          "/crm/calendar",
+          "/crm/sla",
+          "/crm/escalations",
+          "/crm/expiry-tasks",
+          "/crm/audits",
+          "/crm/audit-monitoring",
+          "/crm/reports",
+          "/crm/heatmap",
+          "/crm/risk-trend",
+          "/crm/profile"
+        ]
+      }
+    ],
+    "routeErrors": [
+      {
+        "type": "console:error",
+        "path": "",
+        "message": "ERROR RuntimeError: NG02100: InvalidPipeArgument: 'NG02311: Unable to convert \"[object Object]\" into a date' for pipe '_DatePipe'"
+      },
+      {
+        "type": "console:error",
+        "path": "/crm/dashboard",
+        "message": "ERROR RuntimeError: NG02100: InvalidPipeArgument: 'NG02311: Unable to convert \"[object Object]\" into a date' for pipe '_DatePipe'"
+      },
+      {
+        "type": "console:error",
+        "path": "/crm",
+        "message": "ERROR RuntimeError: NG02100: InvalidPipeArgument: 'NG02311: Unable to convert \"[object Object]\" into a date' for pipe '_DatePipe'"
+      }
+    ]
+  },
+  {
+    "role": "CCO",
+    "email": "crm_india@statcosol.com",
+    "loginUrl": "http://localhost:4200/cco",
+    "pages": [
+      {
+        "path": "/cco/dashboard",
+        "finalUrl": "http://localhost:4200/cco/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco",
+        "finalUrl": "http://localhost:4200/cco/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/notifications",
+        "finalUrl": "http://localhost:4200/cco/notifications",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/approvals",
+        "finalUrl": "http://localhost:4200/cco/approvals",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/oversight",
+        "finalUrl": "http://localhost:4200/cco/oversight",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/escalations",
+        "finalUrl": "http://localhost:4200/cco/escalations",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/risk-heatmap",
+        "finalUrl": "http://localhost:4200/cco/risk-heatmap",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/controls",
+        "finalUrl": "http://localhost:4200/cco/controls",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/registers",
+        "finalUrl": "http://localhost:4200/cco/registers",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/crms-under-me",
+        "finalUrl": "http://localhost:4200/cco/crms-under-me",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/crm-performance",
+        "finalUrl": "http://localhost:4200/cco/crm-performance",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      },
+      {
+        "path": "/cco/profile",
+        "finalUrl": "http://localhost:4200/cco/profile",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/cco/dashboard",
+          "/cco/notifications",
+          "/cco/approvals",
+          "/cco/oversight",
+          "/cco/escalations",
+          "/cco/risk-heatmap",
+          "/cco/controls",
+          "/cco/registers",
+          "/cco/crms-under-me",
+          "/cco/crm-performance",
+          "/cco/profile"
+        ]
+      }
+    ],
+    "routeErrors": [
+      {
+        "type": "api",
+        "path": "/cco/escalations",
+        "status": 403,
+        "url": "http://localhost:4200/api/v1/admin/users/list"
+      },
+      {
+        "type": "console:error",
+        "path": "/cco/escalations",
+        "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      },
+      {
+        "type": "console:error",
+        "path": "/cco/registers",
+        "message": "ERROR RuntimeError: NG0103: Infinite change detection while refreshing application views. Ensure views are not calling `markForCheck` on every template execution or that afterRender hooks always mark views for check."
+      }
+    ]
+  },
+  {
+    "role": "CEO",
+    "email": "mkkallepalli@gmail.com",
+    "loginUrl": "http://localhost:4200/ceo",
+    "pages": [
+      {
+        "path": "/ceo/dashboard",
+        "finalUrl": "http://localhost:4200/ceo/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo",
+        "finalUrl": "http://localhost:4200/ceo/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/notifications",
+        "finalUrl": "http://localhost:4200/ceo/notifications",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/approvals",
+        "finalUrl": "http://localhost:4200/ceo/approvals",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/escalations",
+        "finalUrl": "http://localhost:4200/ceo/escalations",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/oversight",
+        "finalUrl": "http://localhost:4200/ceo/oversight",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/branches",
+        "finalUrl": "http://localhost:4200/ceo/branches",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile",
+          "/ceo/branches/d1a2b3c4-2222-4bbb-bbbb-000000000001",
+          "/ceo/branches/8097a8ad-85e0-4288-837e-797d70fd3d02",
+          "/ceo/branches/d1a2b3c4-2222-4bbb-bbbb-000000000003",
+          "/ceo/branches/8097a8ad-85e0-4288-837e-797d70fd3d01",
+          "/ceo/branches/8097a8ad-85e0-4288-837e-797d70fd3dff",
+          "/ceo/branches/d1a2b3c4-2222-4bbb-bbbb-000000000002",
+          "/ceo/branches/8add8fa3-c57b-4633-9931-208ddae779f0",
+          "/ceo/branches/3050caf9-9bc8-448d-9283-3297267dd8a3",
+          "/ceo/branches/16265699-639d-4e7f-aaac-0e871c0d31c2",
+          "/ceo/branches/51778ef9-fa54-40db-aad2-a0b9f5aea52c",
+          "/ceo/branches/279fc837-73fe-4755-8acf-0a8cab7c0b88",
+          "/ceo/branches/311f2f15-fcf4-41c2-bde0-68e38d0f5785"
+        ]
+      },
+      {
+        "path": "/ceo/reports",
+        "finalUrl": "http://localhost:4200/ceo/reports",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/registers",
+        "finalUrl": "http://localhost:4200/ceo/registers",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/profile",
+        "finalUrl": "http://localhost:4200/ceo/profile",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/branches/d1a2b3c4-2222-4bbb-bbbb-000000000001",
+        "finalUrl": "http://localhost:4200/ceo/branches/d1a2b3c4-2222-4bbb-bbbb-000000000001",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      },
+      {
+        "path": "/ceo/branches/8097a8ad-85e0-4288-837e-797d70fd3d02",
+        "finalUrl": "http://localhost:4200/ceo/branches/8097a8ad-85e0-4288-837e-797d70fd3d02",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/ceo/dashboard",
+          "/ceo/notifications",
+          "/ceo/approvals",
+          "/ceo/escalations",
+          "/ceo/oversight",
+          "/ceo/branches",
+          "/ceo/reports",
+          "/ceo/registers",
+          "/ceo/profile"
+        ]
+      }
+    ],
+    "routeErrors": [
+      {
+        "type": "console:error",
+        "path": "/ceo/registers",
+        "message": "ERROR RuntimeError: NG0103: Infinite change detection while refreshing application views. Ensure views are not calling `markForCheck` on every template execution or that afterRender hooks always mark views for check."
+      }
+    ]
+  },
+  {
+    "role": "AUDITOR",
+    "email": "payroll_audit@statcosol.com",
+    "loginUrl": "http://localhost:4200/auditor",
+    "pages": [
+      {
+        "path": "/auditor/dashboard",
+        "finalUrl": "http://localhost:4200/auditor/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications"
+        ]
+      },
+      {
+        "path": "/auditor",
+        "finalUrl": "http://localhost:4200/auditor/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications"
+        ]
+      },
+      {
+        "path": "/auditor/audits",
+        "finalUrl": "http://localhost:4200/auditor/audits",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications"
+        ]
+      },
+      {
+        "path": "/auditor/observations",
+        "finalUrl": "http://localhost:4200/auditor/observations",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications"
+        ]
+      },
+      {
+        "path": "/auditor/reports",
+        "finalUrl": "http://localhost:4200/auditor/reports",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications",
+          "/auditor/reports/undefined/builder"
+        ]
+      },
+      {
+        "path": "/auditor/notifications",
+        "finalUrl": "http://localhost:4200/auditor/notifications",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications"
+        ]
+      },
+      {
+        "path": "/auditor/reports/undefined/builder",
+        "finalUrl": "http://localhost:4200/auditor/reports/undefined/builder",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/auditor/dashboard",
+          "/auditor/audits",
+          "/auditor/observations",
+          "/auditor/reports",
+          "/auditor/notifications"
+        ]
+      }
+    ],
+    "routeErrors": [
+      {
+        "type": "api",
+        "path": "/auditor/reports/undefined/builder",
+        "status": 400,
+        "url": "http://localhost:4200/api/v1/auditor/audits/undefined"
+      },
+      {
+        "type": "console:error",
+        "path": "/auditor/reports/undefined/builder",
+        "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+      }
+    ]
+  },
+  {
+    "role": "CLIENT",
+    "email": "ashok@logiqems.com",
+    "loginUrl": "http://localhost:4200/branch",
+    "pages": [
+      {
+        "path": "/branch/dashboard",
+        "finalUrl": "http://localhost:4200/branch/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk",
+          "/branch/monthly-compliance"
+        ]
+      },
+      {
+        "path": "/branch",
+        "finalUrl": "http://localhost:4200/branch/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk",
+          "/branch/monthly-compliance"
+        ]
+      },
+      {
+        "path": "/branch/compliance/monthly",
+        "finalUrl": "http://localhost:4200/branch/compliance/monthly",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/uploads",
+        "finalUrl": "http://localhost:4200/branch/uploads",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/registrations",
+        "finalUrl": "http://localhost:4200/branch/registrations",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/safety",
+        "finalUrl": "http://localhost:4200/branch/safety",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/audits/observations",
+        "finalUrl": "http://localhost:4200/branch/audits/observations",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/employees",
+        "finalUrl": "http://localhost:4200/branch/employees",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk",
+          "/branch/employees/f2554116-724c-451f-bf3d-7bdeae2b2489",
+          "/branch/employees/b4e4d594-3e33-4041-90f6-b93a81b02d41",
+          "/branch/employees/eeeeeeee-0020-4000-a000-000000000001",
+          "/branch/employees/eeeeeeee-0000-4000-a000-000000000001",
+          "/branch/employees/eeeeeeee-0040-4000-a000-000000000001",
+          "/branch/employees/eeeeeeee-0030-4000-a000-000000000001",
+          "/branch/employees/eeeeeeee-0010-4000-a000-000000000001"
+        ]
+      },
+      {
+        "path": "/branch/contractors",
+        "finalUrl": "http://localhost:4200/branch/contractors",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/documents",
+        "finalUrl": "http://localhost:4200/branch/documents",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/reports",
+        "finalUrl": "http://localhost:4200/branch/reports",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      },
+      {
+        "path": "/branch/notifications",
+        "finalUrl": "http://localhost:4200/branch/notifications",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/branch/dashboard",
+          "/branch/compliance/monthly",
+          "/branch/uploads",
+          "/branch/registrations",
+          "/branch/safety",
+          "/branch/audits/observations",
+          "/branch/employees",
+          "/branch/contractors",
+          "/branch/documents",
+          "/branch/reports",
+          "/branch/notifications",
+          "/branch/helpdesk"
+        ]
+      }
+    ],
+    "routeErrors": []
+  },
+  {
+    "role": "CONTRACTOR",
+    "email": "contractor@gmail.com",
+    "loginUrl": "http://localhost:4200/contractor",
+    "pages": [
+      {
+        "path": "/contractor/dashboard",
+        "finalUrl": "http://localhost:4200/contractor/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/contractor/dashboard",
+          "/contractor/tasks",
+          "/contractor/notifications",
+          "/contractor/support",
+          "/contractor/profile"
+        ]
+      },
+      {
+        "path": "/contractor",
+        "finalUrl": "http://localhost:4200/contractor/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/contractor/dashboard",
+          "/contractor/tasks",
+          "/contractor/notifications",
+          "/contractor/support",
+          "/contractor/profile"
+        ]
+      },
+      {
+        "path": "/contractor/tasks",
+        "finalUrl": "http://localhost:4200/contractor/tasks",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/contractor/dashboard",
+          "/contractor/tasks",
+          "/contractor/notifications",
+          "/contractor/support",
+          "/contractor/profile"
+        ]
+      },
+      {
+        "path": "/contractor/notifications",
+        "finalUrl": "http://localhost:4200/contractor/notifications",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/contractor/dashboard",
+          "/contractor/tasks",
+          "/contractor/notifications",
+          "/contractor/support",
+          "/contractor/profile"
+        ]
+      },
+      {
+        "path": "/contractor/support",
+        "finalUrl": "http://localhost:4200/contractor/support",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/contractor/dashboard",
+          "/contractor/tasks",
+          "/contractor/notifications",
+          "/contractor/support",
+          "/contractor/profile"
+        ]
+      },
+      {
+        "path": "/contractor/profile",
+        "finalUrl": "http://localhost:4200/contractor/profile",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/contractor/dashboard",
+          "/contractor/tasks",
+          "/contractor/notifications",
+          "/contractor/support",
+          "/contractor/profile"
+        ]
+      }
+    ],
+    "routeErrors": []
+  },
+  {
+    "role": "PF_TEAM",
+    "email": "statcosolutions@gmail.com",
+    "loginUrl": "http://localhost:4200/pf-team",
+    "pages": [
+      {
+        "path": "/pf-team/dashboard",
+        "finalUrl": "http://localhost:4200/pf-team/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets",
+          "/pf-team/tickets",
+          "/pf-team/tickets",
+          "/pf-team/tickets/35ccc9b1-d9ed-447e-9ab2-8a90af196e77",
+          "/pf-team/tickets/65256ee6-33ae-463d-93b4-edf1d04c7fe8",
+          "/pf-team/tickets/44926213-0984-4276-872b-7682c8f521a1",
+          "/pf-team/tickets/7f5666fa-3088-4698-897c-0610df2a919c",
+          "/pf-team/tickets/9a22926f-031b-4ddb-87dc-2935163a94b3"
+        ]
+      },
+      {
+        "path": "/pf-team",
+        "finalUrl": "http://localhost:4200/pf-team/dashboard",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets",
+          "/pf-team/tickets",
+          "/pf-team/tickets",
+          "/pf-team/tickets/35ccc9b1-d9ed-447e-9ab2-8a90af196e77",
+          "/pf-team/tickets/65256ee6-33ae-463d-93b4-edf1d04c7fe8",
+          "/pf-team/tickets/44926213-0984-4276-872b-7682c8f521a1",
+          "/pf-team/tickets/7f5666fa-3088-4698-897c-0610df2a919c",
+          "/pf-team/tickets/9a22926f-031b-4ddb-87dc-2935163a94b3"
+        ]
+      },
+      {
+        "path": "/pf-team/tickets",
+        "finalUrl": "http://localhost:4200/pf-team/tickets",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets"
+        ]
+      },
+      {
+        "path": "/pf-team/tickets/35ccc9b1-d9ed-447e-9ab2-8a90af196e77",
+        "finalUrl": "http://localhost:4200/pf-team/tickets/35ccc9b1-d9ed-447e-9ab2-8a90af196e77",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets"
+        ]
+      },
+      {
+        "path": "/pf-team/tickets/65256ee6-33ae-463d-93b4-edf1d04c7fe8",
+        "finalUrl": "http://localhost:4200/pf-team/tickets/65256ee6-33ae-463d-93b4-edf1d04c7fe8",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets"
+        ]
+      },
+      {
+        "path": "/pf-team/tickets/44926213-0984-4276-872b-7682c8f521a1",
+        "finalUrl": "http://localhost:4200/pf-team/tickets/44926213-0984-4276-872b-7682c8f521a1",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets"
+        ]
+      },
+      {
+        "path": "/pf-team/tickets/7f5666fa-3088-4698-897c-0610df2a919c",
+        "finalUrl": "http://localhost:4200/pf-team/tickets/7f5666fa-3088-4698-897c-0610df2a919c",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets"
+        ]
+      },
+      {
+        "path": "/pf-team/tickets/9a22926f-031b-4ddb-87dc-2935163a94b3",
+        "finalUrl": "http://localhost:4200/pf-team/tickets/9a22926f-031b-4ddb-87dc-2935163a94b3",
+        "title": "StatCo Comply",
+        "discoveredLinks": [
+          "/pf-team/dashboard",
+          "/pf-team/tickets"
+        ]
+      }
+    ],
+    "routeErrors": [
+      {
+        "type": "api",
+        "path": "/pf-team/tickets/44926213-0984-4276-872b-7682c8f521a1",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/pf-team/helpdesk/tickets/44926213-0984-4276-872b-7682c8f521a1"
+      },
+      {
+        "type": "console:error",
+        "path": "/pf-team/tickets/44926213-0984-4276-872b-7682c8f521a1",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      },
+      {
+        "type": "api",
+        "path": "/pf-team/tickets/7f5666fa-3088-4698-897c-0610df2a919c",
+        "status": 500,
+        "url": "http://localhost:4200/api/v1/pf-team/helpdesk/tickets/7f5666fa-3088-4698-897c-0610df2a919c"
+      },
+      {
+        "type": "console:error",
+        "path": "/pf-team/tickets/7f5666fa-3088-4698-897c-0610df2a919c",
+        "message": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      }
+    ]
+  }
+]

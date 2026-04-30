@@ -49,8 +49,8 @@ import {
 
       <!-- Branch selector (for client portal with multiple branches) -->
       <div *ngIf="branchIds.length > 1 && !fixedBranchId" class="branch-selector">
-        <label class="text-sm font-medium text-gray-600">Branch</label>
-        <select class="select-input" [(ngModel)]="selectedBranchId" (ngModelChange)="load()">
+        <label class="text-sm font-medium text-gray-600" for="bci-selected-branch-id">Branch</label>
+        <select id="bci-selected-branch-id" name="selectedBranchId" class="select-input" [(ngModel)]="selectedBranchId" (ngModelChange)="load()">
           <option *ngFor="let id of branchIds" [value]="id">{{ id }}</option>
         </select>
       </div>

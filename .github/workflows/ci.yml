@@ -37,15 +37,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
       - run: npm ci
 
+      - name: Security audit
+        run: npm audit --audit-level=high
+
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Build
         run: npm run build
@@ -63,17 +65,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
 
       - name: Lint
-        run: npx ng lint 2>/dev/null || echo "No lint config - skipping"
+        run: npm run lint
 
       - name: Build
         run: npx ng build --configuration=production
+
+      - name: Unit tests
+        run: npm run test -- --watch=false
 
   payroll-transition-smoke:
     runs-on: ubuntu-latest
@@ -103,6 +108,7 @@ jobs:
       NODE_ENV: test
       EMAIL_ENABLED: "false"
       SKIP_BOOTSTRAP_SEED: "true"
+      SMOKE_ADMIN_EMAIL: it_admin@statcosol.com
     steps:
       - uses: actions/checkout@v4
 
@@ -119,59 +125,47 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Apply SQL migrations
+      - name: Generate smoke admin password
         run: |
-          apply_sql() {
-            local f="$1"
-            echo "Applying $f"
-            PGPASSWORD=postgres psql \
-              -h localhost \
-              -p 5432 \
-              -U postgres \
-              -d statcompy \
-              -v ON_ERROR_STOP=1 \
-              -f "$f"
-          }
+          password="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AB')"
+          echo "DEFAULT_SEED_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "SMOKE_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
 
-          PGPASSWORD=postgres psql \
-            -h localhost \
-            -p 5432 \
-            -U postgres \
-            -d statcompy \
-            -v ON_ERROR_STOP=1 \
-            -f backend/migrations/statco_schema_final.sql
-
-          if [ -f backend/migrations/20260127_hrms_phase1_schema.sql ]; then
-            apply_sql backend/migrations/20260127_hrms_phase1_schema.sql
-          elif [ -f backend/migrations/obsolete/20260127_hrms_phase1_schema.sql ]; then
-            apply_sql backend/migrations/obsolete/20260127_hrms_phase1_schema.sql
-          else
-            echo "Skipping missing migration backend/migrations/20260127_hrms_phase1_schema.sql"
-          fi
-
-          for f in \
-            backend/migrations/20260201_payroll_runs_and_payslips.sql \
-            backend/migrations/20260210_user_type_master_branch.sql \
-            backend/migrations/20260217_payroll_statutory_engine.sql \
-            backend/migrations/20260218_statutory_services_refactor.sql \
-            backend/migrations/obsolete/20260220_ess_employee_self_service.sql \
-            backend/migrations/20260311_ci_payroll_smoke_schema_patch.sql; do
-            if [ ! -f "$f" ]; then
-              echo "Skipping missing migration $f"
-              continue
+      - name: Apply SQL migrations
+        working-directory: backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: '5432'
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: statcompy
+          PGPASSWORD: postgres
+        run: |
+          # Apply obsolete migrations that the cross-platform runner skips
+          # (it only globs the top-level migrations dir). These create tables
+          # the active migrations + main.ts boot patches expect.
+          for obs in \
+            migrations/obsolete/20260127_hrms_phase1_schema.sql \
+            migrations/obsolete/20260220_ess_employee_self_service.sql; do
+            if [ -f "$obs" ]; then
+              echo "Applying $obs"
+              psql -h localhost -p 5432 -U postgres -d statcompy \
+                -v ON_ERROR_STOP=1 -f "$obs"
             fi
-            apply_sql "$f"
           done
 
-          PGPASSWORD=postgres psql \
-            -h localhost \
-            -p 5432 \
-            -U postgres \
-            -d statcompy \
+          # Use the cross-platform migration runner so CI mirrors prod and
+          # automatically picks up every chronologically-ordered SQL file
+          # (all migrations are idempotent: CREATE/ADD ... IF NOT EXISTS).
+          npm run db:migrate:sql
+
+          psql -h localhost -p 5432 -U postgres -d statcompy \
             -v ON_ERROR_STOP=1 <<'SQL'
           ALTER TABLE users
             ADD COLUMN IF NOT EXISTS user_type VARCHAR(10),
-            ADD COLUMN IF NOT EXISTS employee_id UUID;
+            ADD COLUMN IF NOT EXISTS employee_id UUID,
+            ADD COLUMN IF NOT EXISTS scheduled_employment VARCHAR(120),
+            ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
           CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
           CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
           SQL
@@ -209,7 +203,7 @@ jobs:
 
       - name: Run PayDek transition smoke
         shell: pwsh
-        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api" -AdminEmail "admin@statcosol.com" -AdminPassword "Admin@123" -OutFile "$PWD/paydek_transition_results_ci.txt"
+        run: ./paydek_transition_smoke.ps1 -BaseUrl "http://localhost:3000/api" -AdminEmail "$env:SMOKE_ADMIN_EMAIL" -AdminPassword "$env:SMOKE_ADMIN_PASSWORD" -OutFile "$PWD/paydek_transition_results_ci.txt"
 
       - name: Upload smoke artifacts
         if: always()

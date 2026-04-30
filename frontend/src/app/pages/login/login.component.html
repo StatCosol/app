@@ -53,7 +53,7 @@
 
     <!-- Footer -->
     <div class="sc-footer">
-      <span>&copy; {{ currentYear }} StatCo Solutions Pvt. Ltd.</span>
+      <span>&copy; {{ currentYear }} StatCo Solutions</span>
     </div>
   </aside>
 
@@ -137,11 +137,11 @@
         <!-- Remember + Forgot -->
         <div class="form-row">
           <label class="remember">
-            <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
+            <input autocomplete="off" id="l-remember-me" type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
             <span class="remember-box"></span>
             <span>Remember me</span>
           </label>
-          <a class="forgot" href="mailto:support&#64;statcosol.com?subject=Password%20Reset%20Request">Forgot password?</a>
+          <a class="forgot" routerLink="/forgot-password">Forgot password?</a>
         </div>
 
         <!-- Submit -->
@@ -158,9 +158,9 @@
       <div class="divider"><span>Need assistance?</span></div>
 
       <div class="support-row">
-        <a class="support-link" href="mailto:support&#64;statcosol.com">
+        <a class="support-link" href="mailto:it_admin&#64;statcosol.com">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 4l6 4 6-4" stroke="currentColor" stroke-width="1.2"/></svg>
-          support&#64;statcosol.com
+          it_admin&#64;statcosol.com
         </a>
         <a class="support-link" href="tel:+919000607839">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5.27 6.27a7.06 7.06 0 002.46 2.46l.87-.87a.58.58 0 01.6-.14 6.7 6.7 0 002.1.34.58.58 0 01.58.58v2.06a.58.58 0 01-.58.58A9.85 9.85 0 012.72 2.72a.58.58 0 01.58-.58H5.36a.58.58 0 01.58.58 6.7 6.7 0 00.34 2.1.58.58 0 01-.14.6l-.87.85z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>

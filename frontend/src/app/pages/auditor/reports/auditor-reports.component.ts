@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { takeUntil, finalize, catchError } from 'rxjs/operators';
 import {
   PageHeaderComponent, DataTableComponent, TableCellDirective, TableColumn,
@@ -77,10 +77,24 @@ export class AuditorReportsComponent implements OnInit, OnDestroy {
         finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
       )
       .subscribe((res) => {
-        this.reports = res?.items || [];
+        this.reports = (res?.items || []).map((row: any) => this.normalizeReport(row));
         this.applyFilter();
         this.cdr.detectChanges();
       });
+  }
+
+  private normalizeReport(row: any): AuditorReportPending {
+    return {
+      auditId: row?.auditId ?? row?.audit_id ?? '',
+      reportId: row?.reportId ?? row?.report_id ?? '',
+      clientId: row?.clientId ?? row?.client_id ?? '',
+      clientName: row?.clientName ?? row?.client_name ?? '',
+      branchId: row?.branchId ?? row?.branch_id ?? '',
+      branchName: row?.branchName ?? row?.branch_name ?? '',
+      auditName: row?.auditName ?? row?.audit_name ?? row?.auditCode ?? row?.audit_code ?? 'Audit',
+      dueDate: row?.dueDate ?? row?.due_date ?? '',
+      status: row?.status ?? 'PENDING_SUBMISSION',
+    };
   }
 
   applyFilter(): void {

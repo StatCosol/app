@@ -27,6 +27,18 @@ export class ClientPayrollService {
     return this.http.post(`${this.baseUrl}/api/v1/client/payroll/inputs`, data);
   }
 
+  listRuns(filters?: any): Observable<any> {
+    let params = new HttpParams();
+    if (filters) {
+      Object.keys(filters).forEach(k => {
+        if (filters[k] !== undefined && filters[k] !== null && filters[k] !== '') {
+          params = params.set(k, String(filters[k]));
+        }
+      });
+    }
+    return this.http.get(`${this.baseUrl}/api/v1/client/payroll/runs`, { params });
+  }
+
   updateInputStatus(id: string, data: any): Observable<any> {
     return this.http.patch(`${this.baseUrl}/api/v1/client/payroll/inputs/${id}/status`, data);
   }

@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { PayrollTemplate } from './payroll-template.entity';
 
 export type PayrollComponentType = 'EARNING' | 'DEDUCTION';
@@ -11,6 +17,7 @@ export class PayrollTemplateComponent {
   @ManyToOne(() => PayrollTemplate, (t) => t.components, {
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'template_id' })
   template: PayrollTemplate;
 
   @Column()

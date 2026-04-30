@@ -1,6 +1,8 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
 import { CrmService } from '../../core/crm.service';
@@ -13,7 +15,7 @@ import { CrmService } from '../../core/crm.service';
   templateUrl: './heatmap.component.html',
   styleUrls: ['./heatmap.component.scss'],
 })
-export class HeatmapComponent implements OnInit {
+export class HeatmapComponent implements OnInit, OnDestroy {
   month = this.currentMonth();
   searchTerm = '';
   branches: any[] = [];
@@ -24,6 +26,8 @@ export class HeatmapComponent implements OnInit {
   isCrm = false;
   clients: any[] = [];
   selectedClientId = '';
+
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private api: ClientBranchesService,
@@ -37,12 +41,17 @@ export class HeatmapComponent implements OnInit {
     this.isCrm = role === 'CRM';
 
     if (this.isCrm) {
-      this.crmService.getAssignedClientsCached().subscribe({
+      this.crmService.getAssignedClientsCached().pipe(takeUntil(this.destroy$)).subscribe({
         next: (clients: any[]) => {
           this.clients = clients || [];
           if (this.clients.length) {
             this.selectedClientId = this.clients[0].clientId || this.clients[0].id || '';
           }
+          this.cdr.markForCheck();
+          this.load();
+        },
+        error: () => {
+          this.clients = [];
           this.cdr.markForCheck();
           this.load();
         },
@@ -61,7 +70,7 @@ export class HeatmapComponent implements OnInit {
       params.clientId = this.selectedClientId;
     }
 
-    this.api.getRiskHeatmap(params).subscribe({
+    this.api.getRiskHeatmap(params).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.branches = res.branches || [];
         this.groupByState();
@@ -111,6 +120,11 @@ export class HeatmapComponent implements OnInit {
 
   get lowCount(): number {
     return this.branches.filter((b) => b.riskLevel === 'LOW').length;
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private currentMonth(): string {

@@ -8,12 +8,12 @@
   <!-- Tabs -->
   <div class="border-b border-gray-200 mb-6">
     <nav class="flex space-x-6 -mb-px">
-      <button (click)="activeTab = 'list'" [class]="activeTab === 'list'
+      <button type="button" (click)="activeTab = 'list'" [class]="activeTab === 'list'
         ? 'border-b-2 border-statco-blue-light text-statco-blue-light pb-3 text-sm font-medium'
         : 'text-gray-500 hover:text-gray-700 pb-3 text-sm font-medium'">
         Manage Audits
       </button>
-      <button (click)="activeTab = 'create'" [class]="activeTab === 'create'
+      <button type="button" (click)="activeTab = 'create'" [class]="activeTab === 'create'
         ? 'border-b-2 border-statco-blue-light text-statco-blue-light pb-3 text-sm font-medium'
         : 'text-gray-500 hover:text-gray-700 pb-3 text-sm font-medium'">
         + Schedule New
@@ -27,20 +27,20 @@
     <div class="card mb-6">
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
-          <select [(ngModel)]="listFilters.status" (ngModelChange)="loadAudits()" class="w-full text-sm rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+          <label class="block text-xs font-medium text-gray-500 mb-1" for="crm-audit-status">Status</label>
+          <select id="crm-audit-status" name="listFilterStatus" [(ngModel)]="listFilters.status" (ngModelChange)="loadAudits()" class="w-full text-sm rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
             <option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Client</label>
-          <select [(ngModel)]="listFilters.clientId" (ngModelChange)="loadAudits()" class="w-full text-sm rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+          <label class="block text-xs font-medium text-gray-500 mb-1" for="crm-audit-client">Client</label>
+          <select id="crm-audit-client" name="listFilterClientId" [(ngModel)]="listFilters.clientId" (ngModelChange)="loadAudits()" class="w-full text-sm rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
             <option *ngFor="let c of clientFilterOptions" [value]="c.value">{{ c.label }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Year</label>
-          <input type="number" [(ngModel)]="listFilters.year" (ngModelChange)="loadAudits()" placeholder="e.g. 2025" class="w-full text-sm rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+          <label class="block text-xs font-medium text-gray-500 mb-1" for="crm-audit-year">Year</label>
+          <input autocomplete="off" id="crm-audit-year" type="number" name="listFilterYear" [(ngModel)]="listFilters.year" (ngModelChange)="loadAudits()" placeholder="e.g. 2025" class="w-full text-sm rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
         </div>
       </div>
     </div>
@@ -80,7 +80,7 @@
         </ng-template>
         <ng-template uiTableCell="actions" let-row>
           <div class="flex justify-end gap-2">
-            <button *ngFor="let action of getNextStatuses(row.status)"
+            <button type="button" *ngFor="let action of getNextStatuses(row.status)"
               (click)="changeStatus(row, action.value)"
               [disabled]="statusUpdating"
               class="text-xs font-medium px-2.5 py-1 rounded-md transition"
@@ -104,47 +104,47 @@
           <h3 class="text-lg font-semibold text-gray-900 mb-6">Audit Details</h3>
           <div class="space-y-4">
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Client *</label>
-              <select [(ngModel)]="model.clientId" name="clientId" required (change)="onClientChange()" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-client-id">Client *</label>
+              <select id="ca-client-id" [(ngModel)]="model.clientId" name="clientId" required (change)="onClientChange()" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
                 <option value="">-- Select Client --</option>
                 <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Branch (Optional)</label>
-              <select [(ngModel)]="model.branchId" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-branch-id">Branch (Optional)</label>
+              <select id="ca-branch-id" [(ngModel)]="model.branchId" name="branchId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
                 <option value="">-- All Branches --</option>
                 <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Contractor (Optional)</label>
-              <select [(ngModel)]="model.contractorUserId" name="contractorUserId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-contractor-user-id">Contractor (Optional)</label>
+              <select id="ca-contractor-user-id" [(ngModel)]="model.contractorUserId" name="contractorUserId" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
                 <option value="">-- None (Client Audit) --</option>
                 <option *ngFor="let ct of contractors" [value]="ct.id">{{ ct.name }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Assigned Auditor *</label>
-              <select [(ngModel)]="model.assignedAuditorId" name="assignedAuditorId" required class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-assigned-auditor-id">Assigned Auditor *</label>
+              <select id="ca-assigned-auditor-id" [(ngModel)]="model.assignedAuditorId" name="assignedAuditorId" required class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
                 <option value="">-- Select Auditor --</option>
                 <option *ngFor="let a of auditors" [value]="a.id">{{ a.name }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
-              <select [(ngModel)]="model.frequency" name="frequency" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-frequency">Frequency</label>
+              <select id="ca-frequency" [(ngModel)]="model.frequency" name="frequency" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
                 <option *ngFor="let f of frequencies" [ngValue]="f.value">{{ f.label }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Audit Type</label>
-              <select [(ngModel)]="model.auditType" name="auditType" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-audit-type">Audit Type</label>
+              <select id="ca-audit-type" [(ngModel)]="model.auditType" name="auditType" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light">
                 <option *ngFor="let t of auditTypes" [ngValue]="t.value">{{ t.label }}</option>
               </select>
             </div>
@@ -155,23 +155,23 @@
           <h3 class="text-lg font-semibold text-gray-900 mb-6">Period & Schedule</h3>
           <div class="space-y-4">
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Period Year</label>
-              <input type="number" [(ngModel)]="model.periodYear" name="periodYear" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-period-year">Period Year</label>
+              <input autocomplete="off" id="ca-period-year" type="number" [(ngModel)]="model.periodYear" name="periodYear" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Period Code</label>
-              <input type="text" [(ngModel)]="model.periodCode" name="periodCode" placeholder="e.g. 2025-01, 2025-Q1, 2025-H1, 2025" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-period-code">Period Code</label>
+              <input autocomplete="off" id="ca-period-code" type="text" [(ngModel)]="model.periodCode" name="periodCode" placeholder="e.g. 2025-01, 2025-Q1, 2025-H1, 2025" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Due Date (optional)</label>
-              <input type="date" [(ngModel)]="model.dueDate" name="dueDate" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-due-date">Due Date (optional)</label>
+              <input autocomplete="off" id="ca-due-date" type="date" [(ngModel)]="model.dueDate" name="dueDate" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" />
             </div>
 
             <div class="form-group">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Notes (optional)</label>
-              <textarea [(ngModel)]="model.notes" name="notes" rows="3" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"></textarea>
+              <label class="block text-sm font-medium text-gray-700 mb-2" for="ca-notes">Notes (optional)</label>
+              <textarea autocomplete="off" id="ca-notes" [(ngModel)]="model.notes" name="notes" rows="3" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"></textarea>
             </div>
 
             <ui-button variant="primary" type="submit" [fullWidth]="true" [disabled]="submitting">

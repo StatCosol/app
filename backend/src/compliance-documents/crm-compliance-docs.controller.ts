@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   Query,
-  Req,
   Res,
   UploadedFile,
   UseGuards,
@@ -21,6 +20,8 @@ import { Roles } from '../auth/roles.decorator';
 import { ComplianceDocumentsService } from './compliance-documents.service';
 import { UploadComplianceDocumentDto } from './dto/upload-compliance-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Compliance Documents')
 @ApiBearerAuth('JWT')
@@ -40,18 +41,21 @@ export class CrmComplianceDocsController {
     }),
   )
   async upload(
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadComplianceDocumentDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.svc.upload(dto, file, req.user.id, 'CRM');
+    return this.svc.upload(dto, file, user.id, 'CRM');
   }
 
   /** List documents for a client (CRM must be assigned) */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Req() req: any, @Query() query: any) {
-    return this.svc.listForCrm(req.user.id, {
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    return this.svc.listForCrm(user.id, {
       clientId: query.clientId,
       branchId: query.branchId,
       category: query.category,
@@ -81,11 +85,11 @@ export class CrmComplianceDocsController {
   @Get(':id/download')
   async download(
     @Param('id') id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
     const { absolutePath, fileName, mimeType } =
-      await this.svc.getDocumentForDownload(id, req.user.id, 'CRM');
+      await this.svc.getDocumentForDownload(id, user.id, 'CRM');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(fileName)}"`,
@@ -97,8 +101,8 @@ export class CrmComplianceDocsController {
   /** Soft delete a document */
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
-  async remove(@Param('id') id: string, @Req() req: any) {
-    await this.svc.softDelete(id, req.user.id);
+  async remove(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+    await this.svc.softDelete(id, user.id);
     return { message: 'Document deleted' };
   }
 }

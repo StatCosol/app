@@ -5,7 +5,6 @@ import {
   Post,
   Param,
   Body,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -18,12 +17,14 @@ import { UnitFactsDto } from './dto/unit-facts.dto';
 import { RecomputeDto } from './dto/recompute.dto';
 import { SaveApplicableDto } from './dto/save-applicable.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Units')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'units', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'CRM')
+@Roles('ADMIN', 'CRM', 'CLIENT')
 export class UnitsController {
   constructor(
     private readonly factsSvc: UnitsFactsService,
@@ -44,9 +45,9 @@ export class UnitsController {
   upsertFacts(
     @Param('branchId') branchId: string,
     @Body() dto: UnitFactsDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.factsSvc.upsertFacts(branchId, dto, req.user?.id ?? null);
+    return this.factsSvc.upsertFacts(branchId, dto, user?.id ?? null);
   }
 
   /** POST /api/v1/units/:branchId/recompute */
@@ -55,12 +56,12 @@ export class UnitsController {
   recompute(
     @Param('branchId') branchId: string,
     @Body() dto: RecomputeDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.engineSvc.recompute(
       branchId,
       dto.packageId,
-      req.user?.id ?? null,
+      user?.id ?? null,
       dto.onDate,
     );
   }
@@ -78,9 +79,9 @@ export class UnitsController {
   async saveApplicable(
     @Param('branchId') branchId: string,
     @Body() dto: SaveApplicableDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    const actorUserId = req.user?.id ?? null;
+    const actorUserId = user?.id ?? null;
 
     // 1. Recompute AUTO rules
     const recomputeResult = await this.engineSvc.recompute(
@@ -90,7 +91,7 @@ export class UnitsController {
     );
 
     // 2. Set special act selections
-    let specialResult: any[] = [];
+    let specialResult: unknown[] = [];
     if (dto.selectedSpecialActCodes?.length) {
       specialResult = await this.applicabilitySvc.setSpecialActs(
         branchId,
@@ -100,7 +101,7 @@ export class UnitsController {
     }
 
     // 3. Apply manual overrides
-    let overrideResult: any[] = [];
+    let overrideResult: unknown[] = [];
     if (dto.overrides?.length) {
       overrideResult = await this.applicabilitySvc.applyOverrides(
         branchId,

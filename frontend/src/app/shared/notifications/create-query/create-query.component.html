@@ -4,8 +4,8 @@
 
     <div class="space-y-6">
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Query Type</label>
-        <select class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="queryType">
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cq-query-type">Query Type</label>
+        <select id="cq-query-type" name="queryType" class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light" [(ngModel)]="queryType">
           <option value="TECHNICAL">Technical Query (to Admin)</option>
           <option value="COMPLIANCE">Compliance Query (to CRM)</option>
           <option value="AUDIT">Audit Query (to Auditor)</option>
@@ -13,9 +13,10 @@
       </div>
 
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
-        <input
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cq-subject">Subject</label>
+        <input autocomplete="off" id="cq-subject"
           type="text"
+          name="querySubject"
           class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"
           [(ngModel)]="subject"
           placeholder="Short subject (min 3 characters)"
@@ -24,8 +25,9 @@
       </div>
 
       <div class="form-group">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
-        <textarea
+        <label class="block text-sm font-medium text-gray-700 mb-2" for="cq-message">Message</label>
+        <textarea autocomplete="off" id="cq-message"
+          name="queryMessage"
           class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light"
           [(ngModel)]="message"
           rows="5"

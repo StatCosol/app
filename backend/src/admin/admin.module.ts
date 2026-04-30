@@ -8,12 +8,7 @@ import { AdminActionsController } from './admin-actions.controller';
 import { AdminReportsController } from './admin-reports.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailModule } from '../email/email.module';
-import { PayrollTemplate } from '../payroll/entities/payroll-template.entity';
-import { PayrollTemplateComponent } from '../payroll/entities/payroll-template-component.entity';
-import { PayrollClientTemplate } from '../payroll/entities/payroll-client-template.entity';
-import { PayrollClientSettings } from '../payroll/entities/payroll-client-settings.entity';
-import { AdminPayrollClientSettingsController } from './admin-payroll-client-settings.controller';
-import { AdminPayrollTemplatesController } from './admin-payroll-templates.controller';
+
 import { AdminMastersController } from './admin-masters.controller';
 import { AdminMastersService } from './admin-masters.service';
 import { ComplianceMasterEntity } from '../compliances/entities/compliance-master.entity';
@@ -29,6 +24,9 @@ import { AdminAuditLogsController } from './admin-audit-logs.controller';
 import { AdminListController } from './admin-list.controller';
 import { BranchesModule } from '../branches/branches.module';
 import { ListQueriesModule } from '../list-queries/list-queries.module';
+import { MastersModule } from '../masters/masters.module';
+import { AdminApplicabilityConfigController } from './admin-applicability-config.controller';
+import { AdminApplicabilityConfigService } from './admin-applicability-config.service';
 
 @Module({
   imports: [
@@ -38,11 +36,8 @@ import { ListQueriesModule } from '../list-queries/list-queries.module';
     AuditLogsModule,
     BranchesModule,
     ListQueriesModule,
+    MastersModule,
     TypeOrmModule.forFeature([
-      PayrollTemplate,
-      PayrollTemplateComponent,
-      PayrollClientTemplate,
-      PayrollClientSettings,
       ComplianceMasterEntity,
       ApprovalRequestEntity,
       ClientAssignmentCurrentEntity,
@@ -53,20 +48,20 @@ import { ListQueriesModule } from '../list-queries/list-queries.module';
   controllers: [
     AdminDashboardController,
     AdminDigestController,
-    AdminPayrollTemplatesController,
-    AdminPayrollClientSettingsController,
     AdminMastersController,
     AdminApprovalsController,
     AdminActionsController,
     AdminAuditLogsController,
     AdminReportsController,
     AdminListController,
+    AdminApplicabilityConfigController,
   ],
   providers: [
     AdminDigestService,
     AdminMastersService,
     AdminApprovalsService,
     AdminActionsService,
+    AdminApplicabilityConfigService,
   ],
 })
 export class AdminModule {}

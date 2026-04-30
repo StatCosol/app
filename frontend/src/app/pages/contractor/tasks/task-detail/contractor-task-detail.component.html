@@ -29,10 +29,13 @@
   <!-- Progress Stepper -->
   <div class="contractor-stepper mb-6">
     <div class="contractor-stepper__step">
-      <div class="contractor-stepper__circle contractor-stepper__circle--done">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-        </svg>
+      <div [class]="(evidence.length||0) > 0 ? 'contractor-stepper__circle contractor-stepper__circle--done' : 'contractor-stepper__circle contractor-stepper__circle--inactive'">
+        <ng-container *ngIf="(evidence.length||0) > 0; else step1Num">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+        </ng-container>
+        <ng-template #step1Num>1</ng-template>
       </div>
       <span class="contractor-stepper__label text-gray-900">Upload Evidence</span>
     </div>
@@ -73,8 +76,8 @@
       </app-file-dropzone>
 
       <div class="mt-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-        <textarea
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="ctd-notes">Notes (optional)</label>
+        <textarea autocomplete="off" id="ctd-notes" name="notes"
           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
           [(ngModel)]="notes"
           placeholder="Add any notes about the evidence..."
@@ -83,7 +86,7 @@
       </div>
 
       <div class="mt-4 relative">
-        <button
+        <button type="button"
           [disabled]="!canEdit() || uploading || files.length===0"
           (click)="upload()"
           class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg transition-colors
@@ -141,7 +144,7 @@
       <h3 class="text-lg font-semibold text-gray-900 mb-2">Submit Task</h3>
       <p class="text-sm text-gray-600 mb-4">Submit only after uploading all required documents.</p>
 
-      <button
+      <button type="button"
         [disabled]="task.status==='SUBMITTED' || task.status==='APPROVED' || (evidence.length||0)<1 || submitting"
         (click)="submit()"
         class="w-full py-3 bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors

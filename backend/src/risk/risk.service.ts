@@ -23,11 +23,10 @@ export class RiskService {
    */
   async calculateBranchRisk(branchId: string, month: string): Promise<number> {
     const [year, mon] = month.split('-').map(Number);
-    const monthStart = new Date(year, mon - 1, 1);
     const monthEnd = new Date(year, mon, 0, 23, 59, 59, 999);
 
     // 1) Expired registrations (weight 40%)
-    const expiredRows: any[] = await this.ds.query(
+    const expiredRows = await this.ds.query(
       `SELECT COUNT(*)::int AS cnt
        FROM branch_registrations
        WHERE branch_id = $1
@@ -39,7 +38,7 @@ export class RiskService {
     const expiredCount = expiredRows[0]?.cnt || 0;
 
     // 2) Overdue SLA tasks (weight 35%)
-    const overdueRows: any[] = await this.ds.query(
+    const overdueRows = await this.ds.query(
       `SELECT COUNT(*)::int AS cnt
        FROM sla_tasks
        WHERE branch_id = $1
@@ -51,7 +50,7 @@ export class RiskService {
     const overdueCount = overdueRows[0]?.cnt || 0;
 
     // 3) Total registrations to compute ratio (weight 25%)
-    const totalRegRows: any[] = await this.ds.query(
+    const totalRegRows = await this.ds.query(
       `SELECT COUNT(*)::int AS cnt
        FROM branch_registrations
        WHERE branch_id = $1 AND status <> 'DELETED'`,
@@ -86,7 +85,7 @@ export class RiskService {
         AND isdeleted = false
         AND status = 'ACTIVE'
     `;
-    const sqlParams: any[] = [clientId];
+    const sqlParams: unknown[] = [clientId];
 
     if (branchIds.length > 0) {
       sqlParams.push(branchIds);
@@ -95,7 +94,7 @@ export class RiskService {
 
     sql += ` ORDER BY statecode, branchname`;
 
-    const rows: any[] = await this.ds.query(sql, sqlParams);
+    const rows = await this.ds.query(sql, sqlParams);
 
     const result: BranchRiskItem[] = [];
 
@@ -122,7 +121,7 @@ export class RiskService {
     from: string;
     to: string;
   }): Promise<{ points: { date: string; riskScore: number }[] }> {
-    let rows: any[] = [];
+    let rows: { snapshot_date: string | Date; risk_score: number }[] = [];
     try {
       rows = await this.ds.query(
         `SELECT snapshot_date, risk_score
@@ -132,8 +131,8 @@ export class RiskService {
          ORDER BY snapshot_date ASC`,
         [params.branchId, params.from, params.to],
       );
-    } catch (err: any) {
-      if (err?.code === '42P01') {
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code === '42P01') {
         this.logger.warn(
           'branch_risk_snapshots table missing; returning empty risk trend.',
         );

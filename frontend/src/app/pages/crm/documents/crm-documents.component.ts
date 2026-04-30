@@ -5,7 +5,6 @@ import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { CrmContractorDocumentsApi } from '../../../core/api/crm-contractor-documents.api';
-import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   PageHeaderComponent,
@@ -14,7 +13,9 @@ import {
   LoadingSpinnerComponent,
   StatusBadgeComponent,
   FormSelectComponent,
+  ClientContextStripComponent,
 } from '../../../shared/ui';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 
 @Component({
   standalone: true,
@@ -27,12 +28,14 @@ import {
     LoadingSpinnerComponent,
     StatusBadgeComponent,
     FormSelectComponent,
+    ClientContextStripComponent,
   ],
   template: `
     <ui-page-header
       title="Contractor Documents"
       subtitle="Review and manage contractor document uploads for this client"
       [breadcrumbs]="breadcrumbs">
+      <ui-client-context-strip [inline]="true"></ui-client-context-strip>
     </ui-page-header>
 
     <!-- KPI Cards -->
@@ -61,7 +64,7 @@ import {
         <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
-        <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
+        <input autocomplete="off" id="cd-search-term" name="searchTerm" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
                placeholder="Search by contractor or file name..." class="search-input" />
       </div>
       <ui-form-select label="" [options]="statusOptions" [(ngModel)]="filterStatus"
@@ -102,9 +105,10 @@ import {
             <td><ui-status-badge [status]="doc.status || 'PENDING'"></ui-status-badge></td>
             <td class="text-right">
               <div class="action-btns">
-                <a *ngIf="doc.downloadUrl || doc.fileUrl"
-                   [href]="authUrl(doc.downloadUrl || doc.fileUrl)" target="_blank"
-                   class="btn-sm btn-outline">Download</a>
+                <button *ngIf="doc.downloadUrl || doc.fileUrl"
+                        type="button"
+                        (click)="openDocument(doc)"
+                        class="btn-sm btn-outline">Download</button>
                 <button *ngIf="(doc.status || 'PENDING') === 'PENDING'"
                         (click)="review(doc, 'APPROVED')" class="btn-sm btn-approve"
                         [disabled]="processing.has(doc.id)">Approve</button>
@@ -124,8 +128,8 @@ import {
         <h3 class="modal-title">{{ reviewAction === 'REJECTED' ? 'Reject' : 'Approve' }} Document</h3>
         <p class="text-sm text-gray-600 mb-3">{{ reviewingDoc.name || reviewingDoc.fileName }}</p>
         <div *ngIf="reviewAction === 'REJECTED'" class="mb-3">
-          <label class="text-sm font-medium text-gray-700">Reason for rejection</label>
-          <textarea [(ngModel)]="reviewNotes" rows="3" class="field-input mt-1"
+          <label class="text-sm font-medium text-gray-700" for="cd-review-notes">Reason for rejection</label>
+          <textarea autocomplete="off" id="cd-review-notes" name="reviewNotes" [(ngModel)]="reviewNotes" rows="3" class="field-input mt-1"
                     placeholder="Provide feedback..."></textarea>
         </div>
         <div class="modal-actions">
@@ -231,10 +235,10 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: CrmContractorDocumentsApi,
-    private auth: AuthService,
     private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,
     private toast: ToastService,
+    private protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
@@ -245,11 +249,6 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  /** Append JWT token to a URL for authenticated static file access */
-  authUrl(url: string): string {
-    return this.auth.authenticateUrl(url);
   }
 
   private loadKpis(): void {
@@ -318,5 +317,18 @@ export class CrmDocumentsComponent implements OnInit, OnDestroy {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  openDocument(doc: any): void {
+    const url = doc?.downloadUrl || doc?.fileUrl;
+    if (!url) return;
+    this.protectedFiles
+      .open(url, doc?.fileName || doc?.name || doc?.title || null)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to open document.');
+        },
+      });
   }
 }

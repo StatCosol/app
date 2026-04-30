@@ -5,7 +5,6 @@ import {
   Param,
   Patch,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -15,6 +14,8 @@ import { ReturnsService } from './returns.service';
 import { UpdateReturnStatusDto } from './dto/update-return-status.dto';
 import { DeleteReturnDto } from './dto/delete-return.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Returns')
 @ApiBearerAuth('JWT')
@@ -26,7 +27,7 @@ export class AdminReturnsController {
 
   @ApiOperation({ summary: 'List' })
   @Get('filings')
-  list(@Query() q: any) {
+  list(@Query() q: Record<string, string>) {
     return this.returns.listForAdmin(q);
   }
 
@@ -45,13 +46,13 @@ export class AdminReturnsController {
   @ApiOperation({ summary: 'Soft Delete' })
   @Patch('filings/:id/delete')
   softDelete(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() dto: DeleteReturnDto,
   ) {
     return this.returns.softDeleteAsAdmin(
       id,
-      req.user?.userId ?? null,
+      user?.userId ?? null,
       dto?.reason,
     );
   }

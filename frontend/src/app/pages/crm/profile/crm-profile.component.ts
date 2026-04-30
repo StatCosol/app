@@ -5,11 +5,12 @@ import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui';
 import { ProfileApiService, UserProfile } from '../../../core/api/profile.api';
+import { ChangePasswordComponent } from '../../../shared/components/change-password/change-password.component';
 
 @Component({
   standalone: true,
   selector: 'app-crm-profile',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ChangePasswordComponent],
   template: `
     <ui-page-header title="Profile" description="Manage your CRM profile"></ui-page-header>
 
@@ -23,16 +24,16 @@ import { ProfileApiService, UserProfile } from '../../../core/api/profile.api';
         <h3 class="card-title mb-4">Personal Information</h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input type="text" class="input w-full" [(ngModel)]="profile.name" />
+            <label for="crm-profile-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input type="text" id="crm-profile-name" name="name" autocomplete="name" class="input w-full" [(ngModel)]="profile.name" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" class="input w-full" [value]="profile.email" disabled />
+            <label for="crm-profile-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" id="crm-profile-email" name="email" class="input w-full" [value]="profile.email" disabled />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input type="tel" class="input w-full" [(ngModel)]="profile.phone" />
+            <label for="crm-profile-phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input type="tel" id="crm-profile-phone" name="phone" autocomplete="tel" class="input w-full" [(ngModel)]="profile.phone" />
           </div>
           <button class="btn-primary" [disabled]="saving" (click)="saveProfile()">
             {{ saving ? 'Saving...' : 'Save Changes' }}
@@ -40,26 +41,7 @@ import { ProfileApiService, UserProfile } from '../../../core/api/profile.api';
         </div>
       </div>
 
-      <div class="card">
-        <h3 class="card-title mb-4">Change Password</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-            <input type="password" class="input w-full" [(ngModel)]="currentPassword" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-            <input type="password" class="input w-full" [(ngModel)]="newPassword" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-            <input type="password" class="input w-full" [(ngModel)]="confirmPassword" />
-          </div>
-          <button class="btn-primary" [disabled]="changingPassword" (click)="changePassword()">
-            {{ changingPassword ? 'Changing...' : 'Change Password' }}
-          </button>
-        </div>
-      </div>
+      <ui-change-password></ui-change-password>
     </div>
   `,
 })
@@ -68,12 +50,8 @@ export class CrmProfileComponent implements OnInit, OnDestroy {
   profile: UserProfile | null = null;
   loading = false;
   saving = false;
-  changingPassword = false;
   error: string | null = null;
   success: string | null = null;
-  currentPassword = '';
-  newPassword = '';
-  confirmPassword = '';
 
   constructor(private profileApi: ProfileApiService, private cdr: ChangeDetectorRef) {}
 
@@ -97,26 +75,6 @@ export class CrmProfileComponent implements OnInit, OnDestroy {
     this.profileApi.updateProfile({ name: this.profile.name, phone: this.profile.phone }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (updated) => { this.profile = updated; this.saving = false; this.success = 'Profile updated'; this.cdr.detectChanges(); },
       error: () => { this.error = 'Failed to save profile'; this.saving = false; this.cdr.detectChanges(); },
-    });
-  }
-
-  changePassword(): void {
-    if (this.changingPassword) return;
-    if (this.newPassword !== this.confirmPassword) { this.error = 'Passwords do not match'; return; }
-    if (!this.currentPassword || !this.newPassword) { this.error = 'All password fields are required'; return; }
-    this.changingPassword = true;
-    this.error = null;
-    this.success = null;
-    this.profileApi.changePassword(this.currentPassword, this.newPassword).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.changingPassword = false;
-        this.success = 'Password changed successfully';
-        this.currentPassword = '';
-        this.newPassword = '';
-        this.confirmPassword = '';
-        this.cdr.detectChanges();
-      },
-      error: () => { this.error = 'Failed to change password'; this.changingPassword = false; this.cdr.detectChanges(); },
     });
   }
 

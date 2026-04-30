@@ -1,13 +1,13 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
-  Patch,
   Post,
   Query,
-  Req,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -20,6 +20,8 @@ import { BranchAccessService } from '../../auth/branch-access.service';
 import { SafetyDocumentsService } from '../safety-documents.service';
 import { UploadSafetyDocumentDto } from '../dto/upload-safety-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 
 /**
  * Branch user controller for safety documents.
@@ -39,7 +41,7 @@ export class BranchSafetyDocumentsController {
   /** Get master document list (seed data for dropdowns) */
   @ApiOperation({ summary: 'Get Master List' })
   @Get('master')
-  async getMasterList(@Query() query: any) {
+  async getMasterList(@Query() query: Record<string, string>) {
     return this.svc.getMasterList({
       frequency: query.frequency,
       category: query.category,
@@ -57,9 +59,9 @@ export class BranchSafetyDocumentsController {
   /** Get Safety Risk Score for branch */
   @ApiOperation({ summary: 'Get Safety Score' })
   @Get('safety-score')
-  async getSafetyScore(@Req() req: any) {
-    const userId = req.user.id;
-    const clientId = req.user.clientId;
+  async getSafetyScore(@CurrentUser() user: ReqUser) {
+    const userId = user.id;
+    const clientId = user.clientId!;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     if (!branchIds.length) {
@@ -78,21 +80,21 @@ export class BranchSafetyDocumentsController {
     }),
   )
   async upload(
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadSafetyDocumentDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    const userId = req.user.id;
-    const clientId = req.user.clientId;
+    const userId = user.id;
+    const clientId = user.clientId!;
 
     if (!clientId) {
-      return { error: 'No client assigned to this user' };
+      throw new BadRequestException('No client assigned to this user');
     }
 
     // Verify the user has access to this branch
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
     if (branchIds.length > 0 && !branchIds.includes(dto.branchId)) {
-      return { error: 'You do not have access to this branch' };
+      throw new ForbiddenException('You do not have access to this branch');
     }
 
     const doc = await this.svc.upload(dto, file, userId, clientId);
@@ -109,9 +111,12 @@ export class BranchSafetyDocumentsController {
   /** List safety documents for the branch user's branch(es) */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Req() req: any, @Query() query: any) {
-    const userId = req.user.id;
-    const clientId = req.user.clientId;
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    const userId = user.id;
+    const clientId = user.clientId!;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     // Master user: fetch all branches for client
@@ -139,13 +144,13 @@ export class BranchSafetyDocumentsController {
   /** Get expiring safety documents for branch user */
   @ApiOperation({ summary: 'Get Expiring' })
   @Get('expiring')
-  async getExpiring(@Req() req: any) {
-    const userId = req.user.id;
+  async getExpiring(@CurrentUser() user: ReqUser) {
+    const userId = user.id;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     if (!branchIds.length) {
       // Master user: get all for client
-      return this.svc.getExpiringDocuments({ clientId: req.user.clientId });
+      return this.svc.getExpiringDocuments({ clientId: user.clientId! });
     }
 
     return this.svc.getExpiringDocuments({ branchIds });
@@ -154,13 +159,13 @@ export class BranchSafetyDocumentsController {
   /** Delete a safety document */
   @ApiOperation({ summary: 'Delete' })
   @Delete(':id')
-  async delete(@Param('id') id: string, @Req() req: any) {
-    const userId = req.user.id;
+  async delete(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+    const userId = user.id;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     // Master user can delete any of their client's documents
     if (!branchIds.length) {
-      const clientId = req.user.clientId;
+      const clientId = user.clientId;
       const allBranches = await this.svc['repo'].manager.query(
         `SELECT id FROM client_branches WHERE clientid = $1 AND deletedat IS NULL`,
         [clientId],
@@ -180,12 +185,12 @@ export class BranchSafetyDocumentsController {
   @Get(':id/download')
   async download(
     @Param('id') id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
     // Verify user has access to this document's branch
     const doc = await this.svc.getDocumentEntity(id);
-    const userId = req.user.id;
+    const userId = user.id;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
     if (branchIds.length > 0 && !branchIds.includes(doc.branchId)) {

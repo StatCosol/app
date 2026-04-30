@@ -5,7 +5,7 @@ import { ActorBadgeComponent } from './actor-badge.component';
 import { StatusChangeRowComponent } from './status-change-row.component';
 
 @Component({
-  selector: 'timeline-event-card',
+  selector: 'ui-timeline-event-card',
   standalone: true,
   imports: [CommonModule, ActorBadgeComponent, StatusChangeRowComponent],
   template: `
@@ -14,7 +14,7 @@ import { StatusChangeRowComponent } from './status-change-row.component';
         <div>
           <div class="text-sm font-semibold text-gray-900">{{ event.title }}</div>
           <div class="mt-1 flex flex-wrap gap-2 items-center">
-            <actor-badge [actorName]="event.actorName || null" [actorRole]="event.actorRole || null"></actor-badge>
+            <ui-actor-badge [actorName]="event.actorName || null" [actorRole]="event.actorRole || null"></ui-actor-badge>
             <span class="text-[11px] text-gray-500">{{ event.createdAt | date:'d MMM y, h:mm a' }}</span>
           </div>
         </div>
@@ -22,7 +22,7 @@ import { StatusChangeRowComponent } from './status-change-row.component';
       </div>
 
       <div class="mt-2">
-        <status-change-row [from]="event.statusFrom || null" [to]="event.statusTo || null"></status-change-row>
+        <ui-status-change-row [from]="event.statusFrom || null" [to]="event.statusTo || null"></ui-status-change-row>
       </div>
 
       <div *ngIf="event.comment" class="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{{ event.comment }}</div>

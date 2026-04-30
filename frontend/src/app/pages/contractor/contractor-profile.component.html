@@ -47,27 +47,28 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <label class="field">
             <span>Company / Contractor Name</span>
-            <input type="text" [(ngModel)]="form.name" [class.field-invalid]="!isNameValid" />
+            <input type="text" id="contractor-name" name="name" autocomplete="organization" [(ngModel)]="form.name" [class.field-invalid]="!isNameValid" />
           </label>
           <label class="field">
             <span>Contact Mobile</span>
-            <input type="text" [(ngModel)]="form.mobile" [class.field-invalid]="!isMobileValid" />
+            <input type="text" id="contractor-mobile" name="mobile" autocomplete="tel" [(ngModel)]="form.mobile" [class.field-invalid]="!isMobileValid" placeholder="e.g. +919876543210" />
+            <p *ngIf="mobileFieldError" class="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">{{ mobileFieldError }}</p>
           </label>
           <div class="field">
             <span>Email</span>
-            <input type="text" [value]="profile?.email || '-'" disabled />
+            <input type="text" id="contractor-email" name="email" [value]="profile?.email || '-'" disabled />
           </div>
           <div class="field">
             <span>Client</span>
-            <input type="text" [value]="profile?.clientName || '-'" disabled />
+            <input type="text" id="contractor-client" name="clientName" [value]="profile?.clientName || '-'" disabled />
           </div>
           <div class="field">
             <span>Role</span>
-            <input type="text" [value]="profile?.roleCode || 'CONTRACTOR'" disabled />
+            <input type="text" id="contractor-role" name="roleCode" [value]="profile?.roleCode || 'CONTRACTOR'" disabled />
           </div>
           <div class="field">
             <span>Served Branches</span>
-            <input type="text" [value]="servedBranchesCount" disabled />
+            <input type="text" id="contractor-branches" name="branchCount" [value]="servedBranchesCount" disabled />
           </div>
         </div>
         <div class="mt-4 flex justify-end">
@@ -85,7 +86,7 @@
         <h3 class="workspace-title">Served Branches</h3>
         <div class="branch-list mt-4 mb-4">
           <div *ngFor="let b of branches" class="branch-pill">
-            {{ b?.branchName || b?.name || b?.id }}
+            {{ b?.branchName || b?.name || 'Branch' }}
           </div>
           <div class="text-sm text-gray-500" *ngIf="!branches.length">
             No branch mappings found.

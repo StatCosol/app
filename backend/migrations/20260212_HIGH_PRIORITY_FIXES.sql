@@ -228,12 +228,23 @@ BEGIN
     ADD COLUMN id_new UUID DEFAULT gen_random_uuid();
 
     ALTER TABLE compliance_evidence DROP CONSTRAINT IF EXISTS pk_compliance_evidence;
-    DROP SEQUENCE IF EXISTS compliance_evidence_id_seq;
 
-    -- Update any FK references
-    UPDATE compliance_task_evidence SET evidence_id = (
-      SELECT ce.id_new FROM compliance_evidence ce WHERE ce.id = evidence_id
-    );
+    -- Do not force-drop compliance_evidence_id_seq here.
+    -- Some environments still have dependent defaults/triggers on this sequence,
+    -- and dropping it can abort the whole migration. It is safe to leave orphaned
+    -- sequence objects if they are no longer referenced.
+
+    -- Update FK references only when the linking table exists in this environment.
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_name = 'compliance_task_evidence'
+    ) THEN
+      UPDATE compliance_task_evidence
+      SET evidence_id = (
+        SELECT ce.id_new FROM compliance_evidence ce WHERE ce.id = evidence_id
+      );
+    END IF;
 
     ALTER TABLE compliance_evidence DROP COLUMN id;
     ALTER TABLE compliance_evidence RENAME COLUMN id_new TO id;

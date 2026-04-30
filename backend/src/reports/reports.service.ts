@@ -5,6 +5,7 @@ import { ComplianceTask } from '../compliance/entities/compliance-task.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
+import { ReqUser } from '../access/access-scope.service';
 
 interface ComplianceSummaryFilters {
   clientId?: string;
@@ -24,7 +25,7 @@ export class ReportsService {
     private readonly assignmentsService: AssignmentsService,
   ) {}
 
-  async complianceSummary(user: any, q: ComplianceSummaryFilters) {
+  async complianceSummary(user: ReqUser, q: ComplianceSummaryFilters) {
     try {
       const role = user?.roleCode as string | undefined;
 
@@ -46,7 +47,7 @@ export class ReportsService {
         const assigned = await this.assignmentsService.getAssignedClientsForCrm(
           user.userId,
         );
-        const clientIds = (assigned || []).map((c: any) => c.id);
+        const clientIds = (assigned || []).map((c) => c.id);
         if (!clientIds.length) {
           return this.emptySummary();
         }
@@ -113,7 +114,7 @@ export class ReportsService {
     }
   }
 
-  async overdue(user: any, q: ComplianceSummaryFilters) {
+  async overdue(user: ReqUser, q: ComplianceSummaryFilters) {
     try {
       const role = user?.roleCode as string | undefined;
 
@@ -139,7 +140,7 @@ export class ReportsService {
         const assigned = await this.assignmentsService.getAssignedClientsForCrm(
           user.userId,
         );
-        const clientIds = (assigned || []).map((c: any) => c.id);
+        const clientIds = (assigned || []).map((c) => c.id);
         if (!clientIds.length) {
           return [];
         }
@@ -179,21 +180,30 @@ export class ReportsService {
         .addOrderBy('t.id', 'ASC')
         .getRawMany();
 
-      return rows.map((r: any) => ({
-        id: r.id,
-        clientId: r.clientId,
-        branchName: r.branchName as string | null,
-        complianceName: (r.complianceName as string | null) || '',
-        dueDate: String(r.dueDate),
-        status: String(r.status),
-      }));
+      return rows.map(
+        (r: {
+          id: string;
+          clientId: string;
+          branchName: string | null;
+          complianceName: string | null;
+          dueDate: string;
+          status: string;
+        }) => ({
+          id: r.id,
+          clientId: r.clientId,
+          branchName: r.branchName,
+          complianceName: r.complianceName || '',
+          dueDate: String(r.dueDate),
+          status: String(r.status),
+        }),
+      );
     } catch (err) {
       this.logger.error('complianceSummary query failed', (err as Error).stack);
       return [];
     }
   }
 
-  async contractorPerformance(user: any, q: ComplianceSummaryFilters) {
+  async contractorPerformance(user: ReqUser, q: ComplianceSummaryFilters) {
     try {
       const role = user?.roleCode as string | undefined;
 
@@ -218,7 +228,7 @@ export class ReportsService {
         const assigned = await this.assignmentsService.getAssignedClientsForCrm(
           user.userId,
         );
-        const clientIds = (assigned || []).map((c: any) => c.id);
+        const clientIds = (assigned || []).map((c) => c.id);
         if (!clientIds.length) {
           return [];
         }
@@ -301,7 +311,7 @@ export class ReportsService {
   }
 
   async exportOverdueExcel(
-    user: any,
+    user: ReqUser,
     q: ComplianceSummaryFilters,
     res: Response,
   ) {

@@ -42,7 +42,7 @@ interface Branch {
     <div class="page">
       <ui-page-header
         title="Branches"
-        description="View and manage your registered branches">
+        description="Organization structure — view and manage your registered branches">
       </ui-page-header>
 
       <!-- Loading -->

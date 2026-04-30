@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ClientBranchesService } from '../../core/client-branches.service';
 import { AuthService } from '../../core/auth.service';
+import { CrmClientsApi } from '../../core/api/crm-clients.api';
+import { AdminApiService } from '../../core/admin-api.service';
 
 @Component({
   selector: 'app-risk-trend',
@@ -13,17 +15,22 @@ import { AuthService } from '../../core/auth.service';
   styleUrls: ['./risk-trend.component.scss'],
 })
 export class RiskTrendComponent implements OnInit {
-  branches: any[] = [];
+  clients: { id: string; name: string }[] = [];
+  clientId = '';
+  branches: { id: string; name: string }[] = [];
   branchId = '';
   from = '';
   to = '';
   points: any[] = [];
   loading = false;
+  showClientPicker = false;
 
   constructor(
     private api: ClientBranchesService,
     private auth: AuthService,
     private cdr: ChangeDetectorRef,
+    private crmApi: CrmClientsApi,
+    private adminApi: AdminApiService,
   ) {}
 
   ngOnInit(): void {
@@ -32,33 +39,113 @@ export class RiskTrendComponent implements OnInit {
     this.from = this.toISO(start);
     this.to = this.toISO(now);
 
+    const role = (this.auth.getRoleCode() || '').toUpperCase();
+
+    // CLIENT users: branches come from their own JWT mapping
     const mapped = this.auth.getBranchIds();
-    if (mapped?.length) {
-      this.branchId = mapped[0];
-      this.branches = mapped.map(id => ({ id, name: 'Branch' }));
-      this.load();
+    if (role === 'CLIENT' || mapped?.length) {
+      this.showClientPicker = false;
+      if (mapped?.length) {
+        this.branchId = mapped[0];
+        this.branches = mapped.map((id) => ({ id, name: 'Branch' }));
+        this.load();
+        this.api.list().subscribe({
+          next: (b: any[]) => {
+            const nameMap = new Map(
+              (b || []).map((x: any) => [
+                x.id,
+                x.name || x.branchName || x.title || 'Branch',
+              ]),
+            );
+            this.branches = mapped.map((id) => ({
+              id,
+              name: nameMap.get(id) || 'Branch',
+            }));
+            this.cdr.markForCheck();
+          },
+        });
+        return;
+      }
+
+      // CLIENT user without explicit branchIds → fall back to client/branches list
       this.api.list().subscribe({
         next: (b: any[]) => {
-          const nameMap = new Map((b || []).map((x: any) => [x.id, x.name || x.branchName || x.title || 'Branch']));
-          this.branches = mapped.map(id => ({ id, name: nameMap.get(id) || 'Branch' }));
+          this.branches = (b || []).map((x) => ({
+            id: x.id,
+            name: x.branchName || x.name || x.title || 'Branch',
+          }));
+          if (this.branches.length) {
+            this.branchId = this.branches[0].id;
+          }
           this.cdr.markForCheck();
+          this.load();
         },
       });
       return;
     }
 
-    this.api.list().subscribe({
-      next: (b: any[]) => {
-        this.branches = (b || []).map((x) => ({
-          id: x.id,
-          name: x.branchName || x.name || x.title || 'Branch',
+    // CRM / ADMIN / CCO / CEO: need a client picker, then branches per client
+    this.showClientPicker = true;
+    if (role === 'CRM') {
+      this.crmApi.getAssignedClients().subscribe({
+        next: (cs: any[]) => {
+          this.clients = (cs || []).map((c) => ({
+            id: c.id,
+            name: c.clientName || c.name || 'Client',
+          }));
+          this.autoSelectFirstClient();
+        },
+        error: () => this.cdr.markForCheck(),
+      });
+    } else {
+      this.adminApi.getAdminClients().subscribe({
+        next: (cs: any[]) => {
+          this.clients = (cs || []).map((c) => ({
+            id: c.id,
+            name: c.clientName || c.name || 'Client',
+          }));
+          this.autoSelectFirstClient();
+        },
+        error: () => this.cdr.markForCheck(),
+      });
+    }
+  }
+
+  private autoSelectFirstClient(): void {
+    if (this.clients.length) {
+      this.clientId = this.clients[0].id;
+      this.loadBranchesForClient();
+    }
+    this.cdr.markForCheck();
+  }
+
+  onClientChange(): void {
+    this.branchId = '';
+    this.branches = [];
+    this.points = [];
+    this.loadBranchesForClient();
+  }
+
+  private loadBranchesForClient(): void {
+    if (!this.clientId) return;
+    const role = (this.auth.getRoleCode() || '').toUpperCase();
+    const obs$ =
+      role === 'CRM'
+        ? this.crmApi.getBranchesForClient(this.clientId)
+        : this.adminApi.getBranchesForAdminClient(this.clientId);
+    obs$.subscribe({
+      next: (bs: any[]) => {
+        this.branches = (bs || []).map((b) => ({
+          id: b.id,
+          name: b.branchName || b.name || 'Branch',
         }));
         if (this.branches.length) {
           this.branchId = this.branches[0].id;
+          this.load();
         }
         this.cdr.markForCheck();
-        this.load();
       },
+      error: () => this.cdr.markForCheck(),
     });
   }
 

@@ -9,6 +9,7 @@ import { UserEntity } from '../users/entities/user.entity';
 import { RoleEntity } from '../users/entities/role.entity';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { ReqUser } from '../access/access-scope.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -24,7 +25,7 @@ export class CrmContractorRegistrationService {
   ) {}
 
   async registerContractor(
-    crmUser: any,
+    crmUser: ReqUser,
     dto: {
       name: string;
       email: string;
@@ -32,6 +33,7 @@ export class CrmContractorRegistrationService {
       password: string;
       clientId: string;
       branchIds?: string[];
+      scheduledEmployment?: string | null;
     },
   ) {
     // Verify CRM is assigned to this client
@@ -80,6 +82,7 @@ export class CrmContractorRegistrationService {
       passwordHash,
       clientId: dto.clientId,
       isActive: true,
+      scheduledEmployment: dto.scheduledEmployment?.trim() || null,
     });
 
     const savedContractor = await this.userRepo.save(contractor);
@@ -104,6 +107,7 @@ export class CrmContractorRegistrationService {
         name: savedContractor.name,
         email: savedContractor.email,
         mobile: savedContractor.mobile,
+        scheduledEmployment: savedContractor.scheduledEmployment,
       },
       credentials: {
         email: savedContractor.email,
@@ -112,15 +116,21 @@ export class CrmContractorRegistrationService {
     };
   }
 
-  async listContractorsForCrm(crmUser: any) {
+  async listContractorsForCrm(crmUser: ReqUser, clientId?: string) {
     // Get all clients assigned to this CRM
     const assignments =
       await this.assignmentsService.getActiveAssignmentsForCrm(crmUser.userId);
-    const clientIds = assignments.map((a) => a.clientId);
+    const assignedClientIds = assignments.map((a) => a.clientId);
 
-    if (clientIds.length === 0) {
+    if (assignedClientIds.length === 0) {
       return [];
     }
+
+    // If a specific clientId is provided, scope to that client only (must be assigned)
+    const clientIds =
+      clientId && assignedClientIds.includes(clientId)
+        ? [clientId]
+        : assignedClientIds;
 
     // Get all contractors for these clients
     const contractors = await this.userRepo
@@ -138,6 +148,7 @@ export class CrmContractorRegistrationService {
         'u.mobile',
         'u.isActive',
         'u.clientId',
+        'u.scheduledEmployment',
         'c.clientName',
       ])
       .orderBy('u.name', 'ASC')

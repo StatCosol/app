@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Query,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -14,6 +6,8 @@ import { NominationsService } from './nominations.service';
 import { SaveNominationDto } from './dto/save-nomination.dto';
 import { GenerateFormDto } from './dto/generate-form.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Nominations')
 @ApiBearerAuth('JWT')
@@ -23,37 +17,52 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 export class NominationsController {
   constructor(private readonly service: NominationsService) {}
 
+  private toCtx(user: ReqUser) {
+    return {
+      userId: user.userId,
+      clientId: user.clientId!,
+      roleCode: user.roleCode,
+      branchId: user.branchIds?.[0] ?? null,
+    };
+  }
+
   @ApiOperation({ summary: 'Save' })
   @Post('save')
-  save(@Req() req: any, @Body() dto: SaveNominationDto) {
-    return this.service.saveNomination(req.user, dto);
+  save(@CurrentUser() user: ReqUser, @Body() dto: SaveNominationDto) {
+    return this.service.saveNomination(this.toCtx(user), dto);
   }
 
   @ApiOperation({ summary: 'Get' })
   @Get()
   get(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query('employeeId') employeeId: string,
     @Query('type') type: string,
   ) {
-    return this.service.getNomination(req.user, employeeId, type);
+    return this.service.getNomination(this.toCtx(user), employeeId, type);
   }
 
   @ApiOperation({ summary: 'List All' })
   @Get('all')
-  listAll(@Req() req: any, @Query('employeeId') employeeId: string) {
-    return this.service.listNominations(req.user, employeeId);
+  listAll(
+    @CurrentUser() user: ReqUser,
+    @Query('employeeId') employeeId: string,
+  ) {
+    return this.service.listNominations(this.toCtx(user), employeeId);
   }
 
   @ApiOperation({ summary: 'List Forms' })
   @Get('forms')
-  listForms(@Req() req: any, @Query('employeeId') employeeId: string) {
-    return this.service.listForms(req.user, employeeId);
+  listForms(
+    @CurrentUser() user: ReqUser,
+    @Query('employeeId') employeeId: string,
+  ) {
+    return this.service.listForms(this.toCtx(user), employeeId);
   }
 
   @ApiOperation({ summary: 'Generate' })
   @Post('generate')
-  generate(@Req() req: any, @Body() dto: GenerateFormDto) {
-    return this.service.generateForm(req.user, dto);
+  generate(@CurrentUser() user: ReqUser, @Body() dto: GenerateFormDto) {
+    return this.service.generateForm(this.toCtx(user), dto);
   }
 }

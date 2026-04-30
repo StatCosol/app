@@ -11,6 +11,7 @@ import {
   DataTableComponent,
   TableCellDirective,
   TableColumn,
+  ClientContextStripComponent,
 } from '../../../shared/ui';
 import {
   ComplianceDocumentsService,
@@ -31,6 +32,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     EmptyStateComponent,
     DataTableComponent,
     TableCellDirective,
+    ClientContextStripComponent,
   ],
   templateUrl: './crm-compliance-docs.component.html',
   styleUrls: ['./crm-compliance-docs.component.scss'],

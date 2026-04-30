@@ -21,7 +21,10 @@ import {
   PayrollComponent as SetupComponent,
   PayrollSetupApiService,
 } from './payroll-setup-api.service';
+import { ClientMasterDataService, MasterItem } from '../client/master-data/client-master-data.service';
+import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 
 const SCOPE_OPTIONS = [
   'TENANT',
@@ -78,7 +81,7 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-structures',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-structures.component.html',
   styleUrls: ['./payroll-structures.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +103,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   components: SetupComponent[] = [];
   ruleSets: RuleSet[] = [];
+
+  // Lookup data for dropdowns
+  branchOptions: { id: string; branchName: string }[] = [];
+  departmentOptions: MasterItem[] = [];
+  gradeOptions: MasterItem[] = [];
+  employeeOptions: { id: string; label: string }[] = [];
 
   structureSearch = '';
   structureStatusFilter: 'ALL' | 'ACTIVE' | 'INACTIVE' = 'ALL';
@@ -129,6 +138,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     employeeId: '',
   };
   previewRows: Array<{ component: string; amount: number }> = [];
+  previewEarnings: Array<{ component: string; amount: number }> = [];
+  previewDeductions: Array<{ component: string; amount: number }> = [];
+  previewEmployer: Array<{ component: string; amount: number }> = [];
+  previewNetPay = 0;
+  previewTotalEarnings = 0;
+  previewTotalDeductions = 0;
   previewTotal = 0;
 
   readonly scopeOptions = SCOPE_OPTIONS;
@@ -142,12 +157,18 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     private readonly engineApi: PayrollEngineApiService,
     private readonly payrollApi: PayrollApiService,
     private readonly setupApi: PayrollSetupApiService,
+    private readonly masterDataSvc: ClientMasterDataService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
-    this.loadClients();
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) {
+      this.selectedClientId = routeClientId;
+      this.onClientChange();
+    }
   }
 
   ngOnDestroy(): void {
@@ -157,6 +178,10 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   get activeStructureCount(): number {
     return this.structures.filter((s) => s.isActive).length;
+  }
+
+  get inactiveStructureCount(): number {
+    return this.structures.filter((s) => !s.isActive).length;
   }
 
   get currentVersionCount(): number {
@@ -303,7 +328,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   get componentOptions(): Array<{ value: string; label: string }> {
     return this.components.map((c) => ({
       value: String(c.id),
-      label: `${c.code || 'COMP'} - ${c.name || c.id}`,
+      label: `${c.code || 'COMP'} - ${c.name || '(Unnamed)'}`,
     }));
   }
 
@@ -350,6 +375,26 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     this.items = [];
     this.previewRows = [];
     this.previewTotal = 0;
+
+    // Load lookup data for dropdowns
+    this.payrollApi.getOptionBranches(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(b => { this.branchOptions = b || []; this.cdr.markForCheck(); });
+    this.masterDataSvc.listDepartments(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(d => { this.departmentOptions = d || []; this.cdr.markForCheck(); });
+    this.masterDataSvc.listGrades(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(g => { this.gradeOptions = g || []; this.cdr.markForCheck(); });
+    this.payrollApi.getEmployees({ clientId: this.selectedClientId, limit: 500 })
+      .pipe(takeUntil(this.destroy$), catchError(() => of({ data: [], total: 0 })))
+      .subscribe(res => {
+        this.employeeOptions = (res?.data || []).map(e => ({
+          id: e.id,
+          label: `${e.employeeCode || ''} – ${e.name || ''}`.trim(),
+        }));
+        this.cdr.markForCheck();
+      });
 
     forkJoin({
       structures: this.engineApi
@@ -483,8 +528,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   }
 
   deleteStructure(structure: SalaryStructure): void {
+    if (structure.isActive) {
+      this.toast.error('Active structure cannot be deleted. Activate another version first.');
+      return;
+    }
     const ok = window.confirm(
-      `Delete "${structure.name}"? Existing mappings will be disabled for this version.`,
+      `Delete "${structure.name}" permanently? Its mapped items for this inactive version will also be removed.`,
     );
     if (!ok) return;
     this.engineApi
@@ -497,6 +546,51 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to delete structure'),
       });
+  }
+
+  cleanupInactiveStructures(): void {
+    const inactive = this.structures.filter((row) => !row.isActive);
+    if (!inactive.length) {
+      this.toast.success('No inactive structures to remove');
+      return;
+    }
+
+    const ok = window.confirm(
+      `Delete ${inactive.length} inactive structure(s)? Active structure(s) will be kept.`,
+    );
+    if (!ok) return;
+
+    this.saving = true;
+    const deleteReqs = inactive.map((row) =>
+      this.engineApi.deleteStructure(row.id).pipe(
+        catchError((err) => of({ __error: err, __id: row.id })),
+      ),
+    );
+
+    forkJoin(deleteReqs)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (results) => {
+          const failed = results.filter((r: any) => !!r?.__error).length;
+          if (failed > 0) {
+            this.toast.error(`${failed} structure(s) could not be deleted`);
+          } else {
+            this.toast.success('Inactive structures removed');
+          }
+          this.refreshStructures();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to clean up inactive structures'),
+      });
+  }
+
+  canDeleteStructure(structure: SalaryStructure): boolean {
+    return !structure.isActive;
   }
 
   activateStructure(structure: SalaryStructure): void {
@@ -709,12 +803,49 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (result) => {
-          const rows = Object.entries(result || {}).map(([component, amount]) => ({
-            component,
-            amount: Number(amount || 0),
-          }));
-          this.previewRows = rows.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-          this.previewTotal = this.previewRows.reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
+          const entries = Object.entries(result || {});
+
+          // Hidden intermediate/info keys
+          const hiddenKeys = new Set([
+            'ACTUAL_GROSS', 'PF_WAGE', 'PF_WAGES', 'ESI_WAGE', 'ESI_WAGES',
+            'GROSS', 'PF_EPS', 'PF_DIFF',
+          ]);
+          // Deduction keys (employee-side)
+          const deductionKeys = new Set(['PF_EMP', 'ESI_EMP', 'PT', 'LWF_EMP', 'PF_ER_FROM_EMP']);
+          // Employer contribution keys
+          const employerKeys = new Set(['PF_ER', 'ESI_ER', 'LWF_ER']);
+
+          const earnings: Array<{ component: string; amount: number }> = [];
+          const deductions: Array<{ component: string; amount: number }> = [];
+          const employer: Array<{ component: string; amount: number }> = [];
+          let netPay = 0;
+
+          for (const [key, val] of entries) {
+            const amount = Number(val || 0);
+            if (key === 'NET_PAY') {
+              netPay = amount;
+              continue;
+            }
+            if (hiddenKeys.has(key)) continue;
+            if (deductionKeys.has(key)) {
+              if (amount !== 0) deductions.push({ component: key, amount });
+            } else if (employerKeys.has(key)) {
+              if (amount !== 0) employer.push({ component: key, amount });
+            } else {
+              earnings.push({ component: key, amount });
+            }
+          }
+
+          this.previewEarnings = earnings.sort((a, b) => b.amount - a.amount);
+          this.previewDeductions = deductions.sort((a, b) => b.amount - a.amount);
+          this.previewEmployer = employer.sort((a, b) => b.amount - a.amount);
+          this.previewNetPay = netPay;
+          this.previewTotalEarnings = earnings.reduce((s, r) => s + r.amount, 0);
+          this.previewTotalDeductions = deductions.reduce((s, r) => s + r.amount, 0);
+
+          // Also keep flat rows for backward compat
+          this.previewRows = [...earnings, ...deductions, ...employer];
+          this.previewTotal = netPay;
         },
         error: (err) => this.toast.error(err?.error?.message || 'Preview calculation failed'),
       });

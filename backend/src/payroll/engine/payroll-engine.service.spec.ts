@@ -10,6 +10,9 @@ import { PayrollComponentEntity } from '../entities/payroll-component.entity';
 import { PayrollClientSetupEntity } from '../entities/payroll-client-setup.entity';
 import { PayCalcTraceEntity } from '../entities/pay-calc-trace.entity';
 import { EmployeeEntity } from '../../employees/entities/employee.entity';
+import { AttendanceService } from '../../attendance/attendance.service';
+import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
+import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
 import { StructureResolverService } from './structure-resolver.service';
 import { RulesetResolverService } from './ruleset-resolver.service';
 import { StatutoryCalculatorService } from '../services/statutory-calculator.service';
@@ -79,6 +82,18 @@ describe('PayrollEngineService', () => {
               .fn()
               .mockReturnValue({ pfWage: 0, esiWage: 0, gross: 0 }),
           },
+        },
+        {
+          provide: AttendanceService,
+          useValue: { getAttendanceSummary: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(LeaveLedgerEntity),
+          useFactory: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(LeaveBalanceEntity),
+          useFactory: mockRepo,
         },
       ],
     }).compile();

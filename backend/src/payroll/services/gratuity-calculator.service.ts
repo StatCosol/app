@@ -9,11 +9,13 @@ import { Injectable } from '@nestjs/common';
  * - Minimum 5 years of continuous service required (except death/disability)
  * - Maximum gratuity: ₹25,00,000 (as per 2024 amendment)
  */
-export interface GratuityInput {
-  lastDrawnSalary: number; // monthly basic + DA
-  yearsOfService: number;
-  monthsOfService?: number; // partial year (rounds ≥ 6 months up)
-  isDeathOrDisability?: boolean; // waives 5-year minimum
+import { IsNumber, IsOptional, IsBoolean, Min } from 'class-validator';
+
+export class GratuityInput {
+  @IsNumber() @Min(0) lastDrawnSalary: number; // monthly basic + DA
+  @IsNumber() @Min(0) yearsOfService: number;
+  @IsOptional() @IsNumber() @Min(0) monthsOfService?: number; // partial year (rounds ≥ 6 months up)
+  @IsOptional() @IsBoolean() isDeathOrDisability?: boolean; // waives 5-year minimum
 }
 
 export interface GratuityResult {

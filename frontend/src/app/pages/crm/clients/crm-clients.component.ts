@@ -17,7 +17,7 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
       <ui-page-header title="My Clients" description="Manage your assigned clients" icon="office-building"></ui-page-header>
 
       <div class="flex flex-wrap gap-3 mb-6">
-        <input
+        <input autocomplete="off" id="cc-search" name="search"
           type="text"
           [(ngModel)]="search"
           (ngModelChange)="applyFilters()"
@@ -25,7 +25,7 @@ import type { ClientDto } from '../../../core/api/cco-clients.api';
           class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
         />
 
-        <select [(ngModel)]="status" (ngModelChange)="applyFilters()"
+        <select id="cc-status" name="status" [(ngModel)]="status" (ngModelChange)="applyFilters()"
                 class="rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
           <option value="all">All status</option>
           <option value="ACTIVE">Active</option>

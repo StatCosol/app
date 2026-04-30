@@ -2,7 +2,6 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
-  NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AdminNotifyDto } from './dto/admin-notify.dto';
@@ -40,8 +39,11 @@ export class AdminActionsService {
    * @param dto - Notification details
    * @returns Status and notification ID
    */
-  async notify(adminUser: { id: string; role: string }, dto: AdminNotifyDto) {
-    if (adminUser.role !== 'ADMIN') {
+  async notify(
+    adminUser: { id: string; role: string; roleCode?: string },
+    dto: AdminNotifyDto,
+  ) {
+    if ((adminUser.roleCode || adminUser.role) !== 'ADMIN') {
       throw new BadRequestException(
         'Only ADMIN can send admin action notifications.',
       );
@@ -162,7 +164,7 @@ export class AdminActionsService {
             }),
           );
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         throw new ConflictException(
           'Active assignment already exists. Please retry.',
         );
@@ -171,7 +173,6 @@ export class AdminActionsService {
       // Optional notifications
       if (dto.notifyParties) {
         const subject = `${dto.assignmentType} Assignment Updated`;
-        const msg = `Assignment updated for client. Effective: ${effectiveDate}. Next rotation due: ${rotationDueOn}. Reason: ${dto.reason}`;
 
         // Notify new assignee
         await notifRepo.save(

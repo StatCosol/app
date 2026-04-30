@@ -9,6 +9,7 @@ import {
 } from './branch-compliance-override.service';
 import { AccessPolicyService } from '../auth/policies/access-policy.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -31,7 +32,7 @@ export class BranchComplianceOverrideController {
       mode: OverrideMode;
       reason?: string;
     },
-    @CurrentUser() user: any,
+    @CurrentUser() user: ReqUser,
   ) {
     if (user.roleCode === 'CRM') {
       await this.policy.assertBranchAccess(user, body.branchId);

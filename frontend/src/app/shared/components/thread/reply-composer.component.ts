@@ -3,12 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 @Component({
-  selector: 'reply-composer',
+  selector: 'ui-reply-composer',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <div class="border border-gray-200 rounded-lg bg-white p-3">
-      <textarea
+      <textarea autocomplete="off"
+        id="reply-text"
+        name="replyText"
         [(ngModel)]="text"
         [placeholder]="placeholder"
         rows="3"

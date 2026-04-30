@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS sla_compliance_rules (
 
   -- Window-based items (MCD-style: open → close)
   window_open_day     INT          NULL,   -- e.g. 20
-  window_close_day    INT          NULL,   -- e.g. 25
+  window_close_day    INT          NULL,   -- e.g. 27
 
   -- SLA creation lead time
   create_before_days  INT          NOT NULL DEFAULT 5,
@@ -81,10 +81,10 @@ ON CONFLICT (code) DO NOTHING;
 
 -- ── Default rules (all states, all establishment types) ──
 
--- MCD: window 20th–25th, create task 5 days before open (i.e. 15th)
+-- MCD: window 20th–27th, create task 5 days before open (i.e. 15th)
 INSERT INTO sla_compliance_rules (compliance_item_id, state_code, establishment_type, applicable,
   window_open_day, window_close_day, create_before_days, title_template)
-SELECT id, NULL, NULL, TRUE, 20, 25, 5,
+SELECT id, NULL, NULL, TRUE, 20, 27, 5,
        'MCD upload window ({open}–{close})'
 FROM sla_compliance_items WHERE code = 'MCD_UPLOAD'
 ON CONFLICT DO NOTHING;

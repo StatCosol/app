@@ -42,8 +42,8 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
 
         <form *ngIf="showNewTicketForm" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" (ngSubmit)="submitTicket()">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Query Type</label>
-            <select
+            <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-query-type">Query Type</label>
+            <select id="bh-query-type"
               class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               [(ngModel)]="newTicket.queryType"
               name="queryType">
@@ -55,8 +55,8 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
-            <input
+            <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-subject">Subject</label>
+            <input autocomplete="off" id="bh-subject"
               type="text"
               class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               [(ngModel)]="newTicket.subject"
@@ -65,8 +65,8 @@ import { BranchThreadApiService } from '../../../core/branch-thread-api.service'
           </div>
 
           <div class="md:col-span-2">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Message</label>
-            <textarea
+            <label class="block text-xs font-medium text-gray-600 mb-1" for="bh-message">Message</label>
+            <textarea autocomplete="off" id="bh-message"
               rows="3"
               class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               [(ngModel)]="newTicket.message"

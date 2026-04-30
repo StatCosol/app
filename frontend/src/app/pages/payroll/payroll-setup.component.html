@@ -4,23 +4,10 @@
       <h1>Payroll Setup</h1>
       <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
-          <option value="">Select client</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </header>
 
   <div *ngIf="loading" class="loader">Loading payroll setup...</div>
-
-  <div *ngIf="!loading && !selectedClientId" class="empty-state">
-    Select a client to configure setup tabs.
-  </div>
 
   <ng-container *ngIf="!loading && selectedClientId">
     <section class="summary-grid">
@@ -65,36 +52,41 @@
       </header>
 
       <div class="toggle-row">
-        <label><input type="checkbox" [(ngModel)]="setup.pfEnabled" /> PF Enabled</label>
-        <label><input type="checkbox" [(ngModel)]="setup.esiEnabled" /> ESI Enabled</label>
-        <label><input type="checkbox" [(ngModel)]="setup.ptEnabled" /> PT Enabled</label>
-        <label><input type="checkbox" [(ngModel)]="setup.lwfEnabled" /> LWF Enabled</label>
+        <label><input autocomplete="off" id="ps-pf-enabled" type="checkbox" name="pfEnabled" [(ngModel)]="setup.pfEnabled" /> PF Enabled</label>
+        <label><input autocomplete="off" id="ps-esi-enabled" type="checkbox" name="esiEnabled" [(ngModel)]="setup.esiEnabled" /> ESI Enabled</label>
+        <label><input autocomplete="off" id="ps-pt-enabled" type="checkbox" name="ptEnabled" [(ngModel)]="setup.ptEnabled" /> PT Enabled</label>
+        <label><input autocomplete="off" id="ps-lwf-enabled" type="checkbox" name="lwfEnabled" [(ngModel)]="setup.lwfEnabled" /> LWF Enabled</label>
       </div>
 
       <div class="form-grid">
         <label>
           PF Employer Rate (%)
-          <input type="number" [(ngModel)]="setup.pfEmployerRate" />
+          <input autocomplete="off" id="ps-pf-employer-rate" type="number" name="pfEmployerRate" [(ngModel)]="setup.pfEmployerRate" />
         </label>
         <label>
           PF Employee Rate (%)
-          <input type="number" [(ngModel)]="setup.pfEmployeeRate" />
+          <input autocomplete="off" id="ps-pf-employee-rate" type="number" name="pfEmployeeRate" [(ngModel)]="setup.pfEmployeeRate" />
         </label>
         <label>
           ESI Employer Rate (%)
-          <input type="number" [(ngModel)]="setup.esiEmployerRate" />
+          <input autocomplete="off" id="ps-esi-employer-rate" type="number" name="esiEmployerRate" [(ngModel)]="setup.esiEmployerRate" />
         </label>
         <label>
           ESI Employee Rate (%)
-          <input type="number" [(ngModel)]="setup.esiEmployeeRate" />
+          <input autocomplete="off" id="ps-esi-employee-rate" type="number" name="esiEmployeeRate" [(ngModel)]="setup.esiEmployeeRate" />
         </label>
         <label>
           PF Wage Ceiling
-          <input type="number" [(ngModel)]="setup.pfWageCeiling" />
+          <input autocomplete="off" id="ps-pf-wage-ceiling" type="number" name="pfWageCeiling" [(ngModel)]="setup.pfWageCeiling" />
+        </label>
+        <label>
+          PF Gross Threshold
+          <input autocomplete="off" id="ps-pf-gross-threshold" type="number" min="0" name="pfGrossThreshold" [(ngModel)]="setup.pfGrossThreshold" />
+          <small style="display:block;color:#888;font-size:0.82em">PF applies only when gross &ge; this amount. Set 0 to apply to all.</small>
         </label>
         <label>
           ESI Wage Ceiling
-          <input type="number" [(ngModel)]="setup.esiWageCeiling" />
+          <input autocomplete="off" id="ps-esi-wage-ceiling" type="number" name="esiWageCeiling" [(ngModel)]="setup.esiWageCeiling" />
         </label>
       </div>
 
@@ -123,29 +115,29 @@
       <div class="form-grid">
         <label>
           Effective From
-          <input type="date" [(ngModel)]="addon.effectiveFrom" />
+          <input autocomplete="off" id="ps-effective-from" type="date" name="effectiveFrom" [(ngModel)]="addon.effectiveFrom" />
         </label>
         <label>
           Cycle Type
-          <select [(ngModel)]="setup.payCycle">
+          <select id="ps-pay-cycle" name="payCycle" [(ngModel)]="setup.payCycle">
             <option *ngFor="let opt of payCycleOptions" [value]="opt">{{ opt }}</option>
           </select>
         </label>
         <label>
           Cycle Start Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.cycleStartDay" />
+          <input autocomplete="off" id="ps-cycle-start-day" type="number" name="cycleStartDay" min="1" max="31" [(ngModel)]="addon.cycleStartDay" />
         </label>
         <label>
           Payout Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.payoutDay" />
+          <input autocomplete="off" id="ps-payout-day" type="number" name="payoutDay" min="1" max="31" [(ngModel)]="addon.payoutDay" />
         </label>
         <label>
           Payroll Lock Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.lockDay" />
+          <input autocomplete="off" id="ps-lock-day" type="number" name="lockDay" min="1" max="31" [(ngModel)]="addon.lockDay" />
         </label>
         <label>
           Arrear Mode
-          <select [(ngModel)]="addon.arrearMode">
+          <select id="ps-arrear-mode" name="arrearMode" [(ngModel)]="addon.arrearMode">
             <option value="CURRENT">Current Cycle</option>
             <option value="NEXT">Next Cycle</option>
           </select>
@@ -177,20 +169,20 @@
       <div class="form-grid">
         <label>
           Leave Accrual per Month
-          <input type="number" step="0.1" [(ngModel)]="addon.leaveAccrualPerMonth" />
+          <input autocomplete="off" id="ps-leave-accrual-per-month" type="number" name="leaveAccrualPerMonth" step="0.1" [(ngModel)]="addon.leaveAccrualPerMonth" />
         </label>
         <label>
           Max Carry Forward
-          <input type="number" [(ngModel)]="addon.maxCarryForward" />
+          <input autocomplete="off" id="ps-max-carry-forward" type="number" name="maxCarryForward" [(ngModel)]="addon.maxCarryForward" />
         </label>
         <label>
           LOP Mode
-          <select [(ngModel)]="addon.lopMode">
+          <select id="ps-lop-mode" name="lopMode" [(ngModel)]="addon.lopMode">
             <option *ngFor="let mode of lopModes" [value]="mode">{{ mode }}</option>
           </select>
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.allowCarryForward" />
+          <input autocomplete="off" id="ps-allow-carry-forward" type="checkbox" name="allowCarryForward" [(ngModel)]="addon.allowCarryForward" />
           Allow Carry Forward
         </label>
       </div>
@@ -208,6 +200,30 @@
       <div *ngIf="sectionMessages['leave-policy'].text" class="msg" [class.error]="sectionMessages['leave-policy'].error">
         {{ sectionMessages['leave-policy'].text }}
       </div>
+
+      <!-- EL Accrual -->
+      <div class="el-accrual-section">
+        <h3 class="text-sm font-bold text-gray-700 mt-4 mb-2">Earned Leave Accrual</h3>
+        <p class="text-xs text-gray-500 mb-3">Credit 1 EL to employees who worked &ge; 20 days in a month</p>
+        <div class="flex items-end gap-3 flex-wrap">
+          <label class="text-sm">
+            Year
+            <input autocomplete="off" type="number" class="w-24" [(ngModel)]="elAccrualYear" min="2020" max="2030" />
+          </label>
+          <label class="text-sm">
+            Month
+            <select [(ngModel)]="elAccrualMonth" class="w-32">
+              <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()">
+            {{ elAccruing ? 'Processing...' : 'Run EL Accrual' }}
+          </button>
+        </div>
+        <div *ngIf="elAccrualResult" class="text-sm mt-2" [class.text-green-700]="!elAccrualError" [class.text-red-600]="elAccrualError">
+          {{ elAccrualResult }}
+        </div>
+      </div>
     </section>
 
     <!-- Attendance -->
@@ -220,24 +236,24 @@
       <div class="form-grid">
         <label>
           Attendance Source
-          <select [(ngModel)]="addon.attendanceSource">
+          <select id="ps-attendance-source" name="attendanceSource" [(ngModel)]="addon.attendanceSource">
             <option *ngFor="let src of attendanceSources" [value]="src">{{ src }}</option>
           </select>
         </label>
         <label>
           Attendance Cutoff Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.attendanceCutoffDay" />
+          <input autocomplete="off" id="ps-attendance-cutoff-day" type="number" name="attendanceCutoffDay" min="1" max="31" [(ngModel)]="addon.attendanceCutoffDay" />
         </label>
         <label>
           Grace Minutes
-          <input type="number" min="0" max="180" [(ngModel)]="addon.graceMinutes" />
+          <input autocomplete="off" id="ps-grace-minutes" type="number" name="graceMinutes" min="0" max="180" [(ngModel)]="addon.graceMinutes" />
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.autoLockAttendance" />
+          <input autocomplete="off" id="ps-auto-lock-attendance" type="checkbox" name="autoLockAttendance" [(ngModel)]="addon.autoLockAttendance" />
           Auto-lock Attendance
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.syncEnabled" />
+          <input autocomplete="off" id="ps-sync-enabled" type="checkbox" name="syncEnabled" [(ngModel)]="addon.syncEnabled" />
           Integration Sync Enabled
         </label>
       </div>
@@ -266,20 +282,20 @@
 
       <div class="form-grid">
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.enableLoanRecovery" />
+          <input autocomplete="off" id="ps-enable-loan-recovery" type="checkbox" name="enableLoanRecovery" [(ngModel)]="addon.enableLoanRecovery" />
           Enable Loan Recovery
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.enableAdvanceRecovery" />
+          <input autocomplete="off" id="ps-enable-advance-recovery" type="checkbox" name="enableAdvanceRecovery" [(ngModel)]="addon.enableAdvanceRecovery" />
           Enable Advance Recovery
         </label>
         <label>
           Default Deduction Cap (%)
-          <input type="number" min="0" max="100" [(ngModel)]="addon.defaultDeductionCapPct" />
+          <input autocomplete="off" id="ps-default-deduction-cap-pct" type="number" name="defaultDeductionCapPct" min="0" max="100" [(ngModel)]="addon.defaultDeductionCapPct" />
         </label>
         <label class="span-2">
           Recovery Order
-          <input type="text" [(ngModel)]="addon.recoveryOrder" />
+          <input autocomplete="off" id="ps-recovery-order" type="text" name="recoveryOrder" [(ngModel)]="addon.recoveryOrder" />
         </label>
       </div>
 
@@ -307,7 +323,7 @@
       <div class="inline-filters">
         <label class="search-box">
           Search Components
-          <input type="search" [(ngModel)]="componentSearch" placeholder="Code / name / type" />
+          <input autocomplete="off" id="ps-component-search" type="search" name="componentSearch" [(ngModel)]="componentSearch" placeholder="Code / name / type" />
         </label>
       </div>
 
@@ -400,26 +416,26 @@
     <div class="modal-grid">
       <label>
         Code *
-        <input type="text" [(ngModel)]="compForm.code" [disabled]="editingComp" />
+        <input autocomplete="off" id="ps-code" type="text" name="compCode" [(ngModel)]="compForm.code" [disabled]="editingComp" />
       </label>
       <label>
         Name *
-        <input type="text" [(ngModel)]="compForm.name" />
+        <input autocomplete="off" id="ps-name" type="text" name="compName" [(ngModel)]="compForm.name" />
       </label>
       <label>
         Type *
-        <select [(ngModel)]="compForm.componentType">
+        <select id="ps-component-type" name="componentType" [(ngModel)]="compForm.componentType">
           <option *ngFor="let t of compTypeOptions" [value]="t">{{ t }}</option>
         </select>
       </label>
       <label>
         Display Order
-        <input type="number" [(ngModel)]="compForm.displayOrder" />
+        <input autocomplete="off" id="ps-display-order" type="number" name="displayOrder" [(ngModel)]="compForm.displayOrder" />
       </label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.affectsPfWage" /> Affects PF Wage</label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.affectsEsiWage" /> Affects ESI Wage</label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.isTaxable" /> Taxable</label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.isRequired" /> Required</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-affects-pf-wage" type="checkbox" name="affectsPfWage" [(ngModel)]="compForm.affectsPfWage" /> Affects PF Wage</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-affects-esi-wage" type="checkbox" name="affectsEsiWage" [(ngModel)]="compForm.affectsEsiWage" /> Affects ESI Wage</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-is-taxable" type="checkbox" name="isTaxable" [(ngModel)]="compForm.isTaxable" /> Taxable</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-is-required" type="checkbox" name="isRequired" [(ngModel)]="compForm.isRequired" /> Required</label>
     </div>
 
     <div *ngIf="compFormError" class="msg error">{{ compFormError }}</div>
@@ -444,32 +460,32 @@
     <div class="modal-grid">
       <label>
         Rule Type
-        <select [(ngModel)]="ruleForm.ruleType">
+        <select id="ps-rule-type" name="ruleType" [(ngModel)]="ruleForm.ruleType">
           <option *ngFor="let t of ruleTypeOptions" [value]="t">{{ t }}</option>
         </select>
       </label>
       <label>
         Priority
-        <input type="number" [(ngModel)]="ruleForm.priority" />
+        <input autocomplete="off" id="ps-priority" type="number" name="rulePriority" [(ngModel)]="ruleForm.priority" />
       </label>
 
       <label *ngIf="ruleForm.ruleType === 'FIXED'">
         Fixed Amount
-        <input type="number" [(ngModel)]="ruleForm.fixedAmount" />
+        <input autocomplete="off" id="ps-fixed-amount" type="number" name="ruleFixedAmount" [(ngModel)]="ruleForm.fixedAmount" />
       </label>
 
       <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
         Base Component Code
-        <input type="text" [(ngModel)]="ruleForm.baseComponent" />
+        <input autocomplete="off" id="ps-base-component" type="text" name="baseComponent" [(ngModel)]="ruleForm.baseComponent" />
       </label>
       <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
         Percentage
-        <input type="number" [(ngModel)]="ruleForm.percentage" />
+        <input autocomplete="off" id="ps-percentage" type="number" name="rulePercentage" [(ngModel)]="ruleForm.percentage" />
       </label>
 
       <label class="span-2" *ngIf="ruleForm.ruleType === 'FORMULA'">
         Formula
-        <textarea rows="3" [(ngModel)]="ruleForm.formula"></textarea>
+        <textarea autocomplete="off" id="ps-formula" rows="3" name="ruleFormula" [(ngModel)]="ruleForm.formula"></textarea>
       </label>
     </div>
 

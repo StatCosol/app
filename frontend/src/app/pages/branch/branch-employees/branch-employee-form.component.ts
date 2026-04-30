@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
-import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
+import { ClientEmployeesService } from '../../client/employees/client-employees.service';
 import { ClientMasterDataService } from '../../client/master-data/client-master-data.service';
 import { stateSelectOptionsWithPlaceholder } from '../../../shared/utils/indian-states';
 import {
@@ -40,7 +40,7 @@ import {
 
       <ui-page-header
         [title]="isEdit ? 'Edit Employee' : 'New Employee Registration'"
-        [subtitle]="isEdit ? ('Editing: ' + form.firstName + ' ' + (form.lastName || '') + ' (' + form.employeeCode + ')') : 'Fill in the details below to register a new Employee'"
+        [subtitle]="isEdit ? ('Editing: ' + form.name + ' (' + form.employeeCode + ')') : 'Fill in the details below to register a new Employee'"
         [breadcrumbs]="breadcrumbs">
       </ui-page-header>
 
@@ -70,18 +70,30 @@ import {
             <h3>Personal Information</h3>
           </div>
           <div class="section-grid">
-            <ui-form-input label="First Name *" [(ngModel)]="form.firstName" name="firstName"
-                           placeholder="Enter first name"></ui-form-input>
-            <ui-form-input label="Last Name" [(ngModel)]="form.lastName" name="lastName"
-                           placeholder="Enter last name"></ui-form-input>
+            <ui-form-input label="Name as per Aadhaar *" [(ngModel)]="form.name" name="name"
+                           placeholder="Enter full name as per Aadhaar"></ui-form-input>
             <ui-form-select label="Gender" [options]="genderOptions" [(ngModel)]="form.gender"
                             name="gender"></ui-form-select>
             <div class="form-field">
-              <label class="form-label">Date of Birth</label>
-              <input type="date" class="form-date-input" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" />
+              <label class="form-label" for="emp-dob">DOB as per Aadhaar</label>
+              <input autocomplete="off" id="emp-dob" type="date" class="form-date-input" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" (change)="onDobChange()" />
+              <div *ngIf="dobWarning" class="mt-1 flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 text-xs font-medium">
+                <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {{ dobWarning }}
+              </div>
             </div>
             <ui-form-input label="Father's / Husband's Name" [(ngModel)]="form.fatherName" name="fatherName"
                            placeholder="Enter father's name"></ui-form-input>
+            <div class="form-field">
+              <label class="form-label" for="bef-marital-status">Marital Status</label>
+              <select id="bef-marital-status" name="maritalStatus" [(ngModel)]="form.maritalStatus" class="form-input">
+                <option value="">- Select -</option>
+                <option value="MARRIED">Married</option>
+                <option value="UNMARRIED">Unmarried</option>
+                <option value="WIDOW">Widow</option>
+                <option value="WIDOWER">Widower</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -96,9 +108,11 @@ import {
           </div>
           <div class="section-grid">
             <ui-form-input label="Phone *" type="tel" [(ngModel)]="form.phone" name="phone"
-                           placeholder="e.g. 9876543210"></ui-form-input>
+                           placeholder="e.g. +919876543210"
+                           [error]="phoneError"></ui-form-input>
             <ui-form-input label="Email" type="email" [(ngModel)]="form.email" name="email"
-                           placeholder="Employee@example.com"></ui-form-input>
+                           placeholder="Employee@example.com"
+                           [error]="emailError"></ui-form-input>
           </div>
         </div>
 
@@ -113,13 +127,23 @@ import {
           </div>
           <div class="section-grid">
             <ui-form-input label="Aadhaar Number *" [(ngModel)]="form.aadhaar" name="aadhaar"
-                           placeholder="XXXX XXXX XXXX"></ui-form-input>
+                           placeholder="123456789012"
+                           [error]="aadhaarError"></ui-form-input>
             <ui-form-input label="PAN" [(ngModel)]="form.pan" name="pan"
-                           placeholder="ABCDE1234F"></ui-form-input>
+                           placeholder="ABCDE1234F"
+                           [error]="panError"></ui-form-input>
             <ui-form-input label="UAN (Universal Account Number)" [(ngModel)]="form.uan" name="uan"
                            placeholder="PF UAN number"></ui-form-input>
             <ui-form-input label="ESIC Number" [(ngModel)]="form.esic" name="esic"
                            placeholder="ESI contribution number"></ui-form-input>
+            <div class="form-field">
+              <label class="form-label" for="emp-pf-service-start">PF Service Start Date</label>
+              <input autocomplete="off" id="emp-pf-service-start" type="date" class="form-date-input"
+                     [(ngModel)]="form.pfServiceStartDate" name="pfServiceStartDate" />
+            </div>
+            <ui-form-input label="Basic Salary at PF Start" type="number"
+                           [(ngModel)]="form.basicAtPfStart" name="basicAtPfStart"
+                           placeholder="e.g. 15000"></ui-form-input>
           </div>
         </div>
 
@@ -133,16 +157,36 @@ import {
             <h3>Employment Details</h3>
           </div>
           <div class="section-grid">
-            <ui-form-select label="Designation" [options]="designationOptions" [(ngModel)]="form.designation"
-                            name="designation" placeholder="Select designation"></ui-form-select>
-            <ui-form-select label="Department" [options]="departmentOptions" [(ngModel)]="form.department"
-                            name="department" placeholder="Select department"></ui-form-select>
             <div class="form-field">
-              <label class="form-label">Date of Joining</label>
-              <input type="date" class="form-date-input" [(ngModel)]="form.dateOfJoining" name="dateOfJoining" />
+              <label class="form-label">Designation</label>
+              <ui-form-select *ngIf="!designationManualMode" [options]="designationOptions" [(ngModel)]="form.designation"
+                              name="designation" placeholder="Select designation"></ui-form-select>
+              <input *ngIf="designationManualMode" type="text" class="form-input" [(ngModel)]="form.designation"
+                     name="designationManual" placeholder="Type designation" />
+              <button type="button" class="toggle-link" (click)="designationManualMode = !designationManualMode; form.designation = ''">
+                {{ designationManualMode ? 'Select from list' : 'Type manually' }}
+              </button>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Department</label>
+              <ui-form-select *ngIf="!departmentManualMode" [options]="departmentOptions" [(ngModel)]="form.department"
+                              name="department" placeholder="Select department"></ui-form-select>
+              <input *ngIf="departmentManualMode" type="text" class="form-input" [(ngModel)]="form.department"
+                     name="departmentManual" placeholder="Type department" />
+              <button type="button" class="toggle-link" (click)="departmentManualMode = !departmentManualMode; form.department = ''">
+                {{ departmentManualMode ? 'Select from list' : 'Type manually' }}
+              </button>
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="emp-doj">Date of Joining</label>
+              <input autocomplete="off" id="emp-doj" type="date" class="form-date-input" [(ngModel)]="form.dateOfJoining" name="dateOfJoining" />
             </div>
             <ui-form-select label="State" [options]="stateOptions" [(ngModel)]="form.stateCode"
                             name="stateCode"></ui-form-select>
+            <ui-form-input label="CTC (Annual)" type="number" [(ngModel)]="form.ctc" name="ctc"
+                           placeholder="e.g. 480000"></ui-form-input>
+            <ui-form-input label="Monthly Gross" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
+                           placeholder="e.g. 25000"></ui-form-input>
           </div>
         </div>
 
@@ -208,6 +252,22 @@ import {
       .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; }
       .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
       .form-label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+      .form-input {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        color: #111827;
+        background: white;
+        transition: border-color 0.2s;
+        height: 38px;
+      }
+      .form-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+      .toggle-link {
+        background: none; border: none; color: #6366f1; font-size: 0.75rem;
+        cursor: pointer; padding: 0.15rem 0 0; text-align: left;
+      }
+      .toggle-link:hover { text-decoration: underline; }
       .form-date-input {
         padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem;
         font-size: 0.875rem; color: #111827; background: white; transition: border-color 0.2s; height: 38px;
@@ -227,7 +287,9 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   saving = false;
   formError = '';
   successMsg = '';
-  form: any = {};
+  dobWarning = '';
+  form: any = { phone: '+91' };
+  submitted = false;
 
   breadcrumbs: Breadcrumb[] = [
     { label: 'Employees', route: '/branch/employees' },
@@ -241,6 +303,8 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
     { label: 'Other', value: 'Other' },
   ];
 
+  designationManualMode = false;
+  departmentManualMode = false;
   designationOptions: { label: string; value: string }[] = [{ label: 'Select designation', value: '' }];
   departmentOptions: { label: string; value: string }[] = [{ label: 'Select department', value: '' }];
 
@@ -302,7 +366,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
           this.form = { ...emp };
           this.breadcrumbs = [
             { label: 'Employees', route: '/branch/employees' },
-            { label: emp.firstName + ' ' + (emp.lastName || ''), route: '/branch/employees/' + emp.id },
+            { label: emp.name, route: '/branch/employees/' + emp.id },
             { label: 'Edit' },
           ];
         },
@@ -313,29 +377,90 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
       });
   }
 
+  get phoneError(): string {
+    const v = (this.form.phone || '').trim();
+    if (!v || v === '+91') return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    // Auto-prepend +91 for bare 10-digit Indian numbers
+    if (/^[6-9]\d{9}$/.test(cleaned)) {
+      this.form.phone = '+91' + cleaned;
+      return '';
+    }
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Phone must include country code + 10 digits (e.g. +919876543210)';
+    return '';
+  }
+
+  get emailError(): string {
+    const v = (this.form.email || '').trim();
+    if (!v) return '';
+    if (!v.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Please enter a valid email address';
+    return '';
+  }
+
+  get aadhaarError(): string {
+    const v = (this.form.aadhaar || '').trim();
+    if (!v) return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    if (!/^\d{12}$/.test(cleaned)) return 'Aadhaar number must be exactly 12 digits';
+    return '';
+  }
+
+  get panError(): string {
+    const v = (this.form.pan || '').trim();
+    if (!v) return '';
+    if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'PAN must be 10 characters: 5 capital letters, 4 digits, 1 capital letter (e.g. ABCDE1234F)';
+    return '';
+  }
+
+  onDobChange(): void {
+    this.dobWarning = this.calcDobWarning(this.form.dateOfBirth);
+  }
+
+  private calcDobWarning(dob: string): string {
+    if (!dob) return '';
+    const d = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    if (age < 18) return `Warning: Employee age is ${age} years — below 18.`;
+    if (age > 58) return `Warning: Employee age is ${age} years — above 58.`;
+    return '';
+  }
+
   save(): void {
-    if (!this.form.firstName?.trim()) {
-      this.formError = 'First name is required';
+    this.submitted = true;
+    if (!this.form.name?.trim()) {
+      this.formError = 'Name as per Aadhaar is required';
       return;
     }
     if (!this.form.phone?.trim()) {
       this.formError = 'Phone number is required';
       return;
     }
+    if (this.phoneError) {
+      this.formError = this.phoneError;
+      return;
+    }
     if (!this.form.aadhaar?.trim()) {
       this.formError = 'Aadhaar number is required';
       return;
     }
+    if (this.aadhaarError) {
+      this.formError = this.aadhaarError;
+      return;
+    }
+    if (this.emailError) {
+      this.formError = this.emailError;
+      return;
+    }
+    if (this.panError) {
+      this.formError = this.panError;
+      return;
+    }
     if (this.form.dateOfBirth) {
-      const dob = new Date(this.form.dateOfBirth);
-      const today = new Date();
-      let age = today.getFullYear() - dob.getFullYear();
-      const m = today.getMonth() - dob.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-      if (age < 18) {
-        this.formError = `Employee must be at least 18 years old. Date of birth indicates age ${age}.`;
-        return;
-      }
+      this.dobWarning = this.calcDobWarning(this.form.dateOfBirth);
     }
     this.saving = true;
     this.formError = '';

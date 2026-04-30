@@ -59,7 +59,7 @@
           <h3>Unassigned Clients</h3>
           <a routerLink="/admin/governance/unassigned" class="panel-link">Open full report</a>
         </div>
-        <div *ngIf="unassignedClients.length; else noUnassigned" class="table-wrap">
+        <div *ngIf="unassignedClients.length; else noUnassigned" class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -94,22 +94,22 @@
           <h3>Duplicate Mapping Alerts</h3>
           <a routerLink="/admin/assignments" class="panel-link">Open assignments</a>
         </div>
-        <div *ngIf="duplicateMappings.length; else noDuplicate" class="table-wrap">
+        <div *ngIf="duplicateMappings.length; else noDuplicate" class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
                 <th>Client</th>
                 <th>Active Rows</th>
-                <th>CRM IDs</th>
-                <th>Auditor IDs</th>
+                <th>CRM Count</th>
+                <th>Auditor Count</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let row of duplicateMappings | slice:0:10">
                 <td>{{ row.clientName }}</td>
                 <td>{{ row.activeRows }}</td>
-                <td>{{ row.crmIds.length ? row.crmIds.join(', ') : '-' }}</td>
-                <td>{{ row.auditorIds.length ? row.auditorIds.join(', ') : '-' }}</td>
+                <td>{{ row.crmIds.length || '-' }}</td>
+                <td>{{ row.auditorIds.length || '-' }}</td>
               </tr>
             </tbody>
           </table>
@@ -127,7 +127,7 @@
           <h3>Stale Accounts</h3>
           <a routerLink="/admin/users" class="panel-link">Open users</a>
         </div>
-        <div *ngIf="staleUsers.length; else noStaleUsers" class="table-wrap">
+        <div *ngIf="staleUsers.length; else noStaleUsers" class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>
@@ -160,7 +160,7 @@
           <h3>Rotation Due</h3>
           <a routerLink="/admin/assignments" class="panel-link">Manage rotations</a>
         </div>
-        <div *ngIf="rotationDue.length; else noRotationDue" class="table-wrap">
+        <div *ngIf="rotationDue.length; else noRotationDue" class="table-wrap max-h-[600px] overflow-y-auto">
           <table>
             <thead>
               <tr>

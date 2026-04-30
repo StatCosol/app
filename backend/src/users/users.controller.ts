@@ -12,12 +12,11 @@ import {
   Post,
   Put,
   Query,
-  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -25,6 +24,10 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { ConfigService } from '@nestjs/config';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import { DataSource } from 'typeorm';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT')
@@ -34,7 +37,11 @@ import { RolesGuard } from '../auth/roles.guard';
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
-  constructor(private readonly service: UsersService) {}
+  constructor(
+    private readonly service: UsersService,
+    private readonly config: ConfigService,
+    private readonly ds: DataSource,
+  ) {}
 
   @ApiOperation({ summary: 'List CCO users' })
   @Get('users/cco')
@@ -50,7 +57,7 @@ export class UsersController {
 
   @ApiOperation({ summary: 'Reset CEO password (not allowed for admin)' })
   @Post('users/reset-ceo-password')
-  async resetCeoPassword(@Body() dto: ResetPasswordDto) {
+  async resetCeoPassword(@Body() _dto: ResetPasswordDto) {
     // As per product rules, CEO manages their own password/profile.
     // Admin should not directly reset CEO credentials.
     throw new BadRequestException(
@@ -99,7 +106,7 @@ export class UsersController {
     @Query('sortBy') sortBy?: string,
     @Query('sortDir') sortDir?: 'asc' | 'desc',
   ) {
-    if (process.env.NODE_ENV !== 'production') {
+    if (this.config.get<string>('NODE_ENV') !== 'production') {
       this.logger.debug(`[UsersController] GET /api/admin/users`, {
         roleCode,
         roleId,
@@ -149,11 +156,7 @@ export class UsersController {
         : 'N/A',
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
-
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await jsonToExcelBuffer(data, 'Users');
     res.setHeader('Content-Disposition', 'attachment; filename=users.xlsx');
     res.setHeader(
       'Content-Type',
@@ -171,7 +174,7 @@ export class UsersController {
   // Advanced directory: global search + filters + pagination + optional grouping by client
   @ApiOperation({ summary: 'Get user directory with search and filters' })
   @Get('users/directory')
-  getDirectory(@Query() q: any) {
+  getDirectory(@Query() q: Record<string, string>) {
     // Accept raw query and let the service coerce types
     return this.service.getUserDirectory(q);
   }
@@ -187,9 +190,9 @@ export class UsersController {
   updateUser(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { name?: string; email?: string; mobile?: string },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.service.updateUser(id, dto, req.user?.userId);
+    return this.service.updateUser(id, dto, user?.userId);
   }
 
   @ApiOperation({ summary: 'Admin reset user password' })
@@ -200,13 +203,18 @@ export class UsersController {
 
   @ApiOperation({ summary: 'Delete a user' })
   @Delete('users/:id')
-  async deleteUser(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+  async deleteUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const actorUserId = user?.userId ?? user?.id;
+
     // CRM deletion requires CCO approval; others delete immediately
     const roleCode = await this.service.getUserRoleCode(id);
     if (roleCode === 'CRM') {
-      return this.service.createUserDeletionRequest(id, req.user?.userId);
+      return this.service.createUserDeletionRequest(id, actorUserId);
     }
-    return this.service.deleteUser(id, req.user?.userId);
+    return this.service.deleteUser(id, actorUserId);
   }
 
   @ApiOperation({ summary: 'Update user active status' })
@@ -214,8 +222,88 @@ export class UsersController {
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserStatusDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.service.updateUserStatus(id, dto.isActive, req.user?.userId);
+    return this.service.updateUserStatus(id, dto.isActive, user?.userId);
+  }
+
+  @ApiOperation({ summary: 'Admin hard-delete employee by code' })
+  @Delete('employees/by-code/:code')
+  async hardDeleteEmployeeByCode(@Param('code') code: string) {
+    const rows = await this.ds.query(
+      `SELECT id, client_id FROM employees WHERE employee_code = $1`,
+      [code],
+    );
+    if (!rows.length)
+      throw new BadRequestException(`Employee ${code} not found`);
+    const { id, client_id: _clientId } = rows[0];
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(
+        `DELETE FROM employee_nomination_members WHERE nomination_id IN (SELECT id FROM employee_nominations WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM employee_nominations WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM employee_generated_forms WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM employee_documents WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM employee_statutory WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM employee_salary_revisions WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM attendance_records WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM leave_ledger WHERE employee_id = $1`, [id]);
+      await mgr.query(`DELETE FROM leave_balances WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(`DELETE FROM leave_applications WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM payroll_run_component_values WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(
+        `DELETE FROM payroll_run_items WHERE run_employee_id IN (SELECT id FROM payroll_run_employees WHERE employee_id = $1)`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM pay_calc_traces WHERE employee_id = $1`, [
+        id,
+      ]);
+      await mgr.query(
+        `DELETE FROM payroll_run_employees WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM payroll_fnf WHERE employee_id = $1`, [id]);
+      await mgr.query(
+        `UPDATE pay_salary_structures SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE payroll_queries SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE ai_payroll_anomalies SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(
+        `UPDATE users SET employee_id = NULL WHERE employee_id = $1`,
+        [id],
+      );
+      await mgr.query(`DELETE FROM employees WHERE id = $1`, [id]);
+    });
+    return { deleted: true, employeeCode: code, employeeId: id };
   }
 }

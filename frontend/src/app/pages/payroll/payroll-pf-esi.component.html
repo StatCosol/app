@@ -4,35 +4,28 @@
       <h1>PF / ESI Compliance Dashboard</h1>
       <p>Track statutory applicability gaps, derived remittance readiness, and challan or return evidence from a single payroll workspace.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientOrPeriodChange()">
-          <option value="">All assigned clients</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-
-      <label>
-        Year
-        <select [(ngModel)]="selectedYear" (ngModelChange)="onClientOrPeriodChange()">
-          <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
-        </select>
-      </label>
-
-      <label>
-        Month
-        <select [(ngModel)]="selectedMonth" (ngModelChange)="onClientOrPeriodChange()">
-          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
-        </select>
-      </label>
-
-      <button type="button" class="btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()">
-        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
-      </button>
-    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </header>
+
+  <div class="head-controls">
+    <label>
+      Year
+      <select id="ppe-selected-year" name="selectedYear" [(ngModel)]="selectedYear" (ngModelChange)="onClientOrPeriodChange()">
+        <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+      </select>
+    </label>
+
+    <label>
+      Month
+      <select id="ppe-selected-month" name="selectedMonth" [(ngModel)]="selectedMonth" (ngModelChange)="onClientOrPeriodChange()">
+        <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+      </select>
+    </label>
+
+    <button type="button" class="btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()">
+      {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+    </button>
+  </div>
 
   <div *ngIf="loading" class="loader">Loading PF/ESI dashboard...</div>
 
@@ -102,12 +95,12 @@
         <div class="filter-row">
           <label class="search-box">
             Search
-            <input type="search" [(ngModel)]="gapSearch" placeholder="Client / emp code / employee name" />
+            <input autocomplete="off" id="ppe-gap-search" type="search" name="gapSearch" [(ngModel)]="gapSearch" placeholder="Client / emp code / employee name" />
           </label>
 
           <label>
             Scheme
-            <select [(ngModel)]="schemeFilter">
+            <select id="ppe-scheme-filter" name="schemeFilter" [(ngModel)]="schemeFilter">
               <option value="ALL">All</option>
               <option value="PF">PF</option>
               <option value="ESI">ESI</option>
@@ -116,7 +109,7 @@
 
           <label>
             Identifier
-            <select [(ngModel)]="identifierFilter">
+            <select id="ppe-identifier-filter" name="identifierFilter" [(ngModel)]="identifierFilter">
               <option value="ALL">All</option>
               <option value="MISSING_ID">Missing ID</option>
               <option value="HAS_ID">Has ID</option>
@@ -173,7 +166,7 @@
           <div class="filter-row compact">
             <label>
               State
-              <select [(ngModel)]="remittanceFilter">
+            <select id="ppe-remittance-filter" name="remittanceFilter" [(ngModel)]="remittanceFilter">
                 <option value="ALL">All</option>
                 <option value="READY">Ready</option>
                 <option value="IN_PROGRESS">In progress</option>
@@ -282,7 +275,6 @@
     <div class="kv">
       <span>Client</span>
       <strong>{{ exception.clientName }}</strong>
-      <p>{{ exception.clientId }}</p>
     </div>
 
     <div class="kv">

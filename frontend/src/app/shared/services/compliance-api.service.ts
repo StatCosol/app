@@ -1,9 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ComplianceTaskDto, Paged } from '../models/compliance.models';
-
-type Portal = 'crm' | 'client' | 'contractor' | 'auditor' | 'admin' | 'legitx';
 
 @Injectable({ providedIn: 'root' })
 export class ComplianceApiService {
@@ -169,14 +167,60 @@ export class ComplianceApiService {
   // Controller: legitx                (GET mcd)
   // =========================
 
-  crmGetMcd(query?: { clientId?: string; branchId?: string; monthKey?: string }) {
+  crmListBranchCompliance(query?: Record<string, any>) {
+    return this.http.get(this.v1('crm/branch-compliance'), {
+      params: this.toParams(query || {}),
+    });
+  }
+
+  crmReviewBranchCompliance(id: string, payload: { status: string; remarks?: string }) {
+    return this.http.patch(this.v1(`crm/branch-compliance/${id}/review`), payload);
+  }
+
+  crmUploadOnBehalf(formData: FormData) {
+    return this.http.post(this.v1('crm/branch-compliance/upload-on-behalf'), formData);
+  }
+
+  crmGetReturnMaster(query?: Record<string, any>) {
+    return this.http.get<any[]>(this.v1('crm/branch-compliance/return-master'), {
+      params: this.toParams(query || {}),
+    });
+  }
+
+  crmGetMcd(query?: { clientId?: string; branchId?: string; year?: number; month?: number }) {
     return this.http.get(this.v1('crm/compliance-tracker/mcd'), {
       params: this.toParams(query || {}),
     });
   }
 
-  crmFinalizeMcd(branchId: string, payload?: any) {
-    return this.http.post(this.v1(`crm/compliance-tracker/mcd/${branchId}/finalize`), payload || {});
+  crmFinalizeMcd(branchId: string, payload: { year: number; month: number }) {
+    return this.http.post(this.v1(`crm/compliance-tracker/mcd/${branchId}/finalize`), payload);
+  }
+
+  crmGetMcdItems(branchId: string, query: { year: number; month: number }) {
+    return this.http.get<{ data: any[] }>(this.v1(`crm/compliance-tracker/mcd/${branchId}/items`), {
+      params: this.toParams(query),
+    });
+  }
+
+  crmUploadMcdItem(itemId: number, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ ok: boolean; message: string }>(
+      this.v1(`crm/compliance-tracker/mcd/item/${itemId}/upload`), formData,
+    );
+  }
+
+  crmApproveMcdItem(itemId: number) {
+    return this.http.post<{ ok: boolean; message: string }>(
+      this.v1(`crm/compliance-tracker/mcd/item/${itemId}/approve`), {},
+    );
+  }
+
+  crmRejectMcdItem(itemId: number, remarks: string) {
+    return this.http.post<{ ok: boolean; message: string }>(
+      this.v1(`crm/compliance-tracker/mcd/item/${itemId}/reject`), { remarks },
+    );
   }
 
   legitxGetMcd(query?: { branchId?: string; monthKey?: string }) {
@@ -269,18 +313,25 @@ export class ComplianceApiService {
     return this.http.post(this.v1(`contractor/compliance/tasks/${taskId}/submit`), {});
   }
 
+  contractorMarkNotApplicable(taskId: string, remarks: string) {
+    return this.http.post(this.v1(`contractor/compliance/tasks/${taskId}/mark-not-applicable`), { remarks });
+  }
+
   contractorAddComment(taskId: string, comment: string) {
     return this.http.post(this.v1(`contractor/compliance/tasks/${taskId}/comment`), { comment });
   }
 
-  contractorUploadEvidence(taskId: string, file: File, meta?: Record<string, any>) {
+  contractorUploadEvidence(taskId: string, file: File, meta?: Record<string, any>): Observable<HttpEvent<unknown>> {
     const fd = new FormData();
     fd.append('file', file);
     Object.entries(meta || {}).forEach(([k, v]) => {
       if (v === undefined || v === null) return;
       fd.append(k, `${v}`);
     });
-    return this.http.post(this.v1(`contractor/compliance/tasks/${taskId}/evidence`), fd);
+    return this.http.post(this.v1(`contractor/compliance/tasks/${taskId}/evidence`), fd, {
+      reportProgress: true,
+      observe: 'events',
+    });
   }
 
   // Reupload Requests
@@ -347,6 +398,10 @@ export class ComplianceApiService {
 
   branchReuploadSubmit(requestId: string) {
     return this.http.post(this.v1(`branch/compliance-docs/reupload-requests/${requestId}/submit`), {});
+  }
+
+  branchReuploadMarkNotApplicable(requestId: string, remarks: string) {
+    return this.http.post(this.v1(`branch/compliance-docs/reupload-requests/${requestId}/mark-not-applicable`), { remarks });
   }
 
   // =========================

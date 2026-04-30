@@ -12,7 +12,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
     <div class="lb-card">
       <div class="lb-head">
         <h3 class="lb-title">Lowest Branch Compliance</h3>
-        <input type="month" [(ngModel)]="month" (change)="load()" class="lb-month" />
+        <input autocomplete="off" id="lb-month" name="month" type="month" [(ngModel)]="month" (change)="load()" class="lb-month" />
       </div>
 
       <div *ngIf="loading" class="lb-muted" style="padding:12px 0;">Loading…</div>
@@ -37,7 +37,7 @@ import { ClientBranchesService } from '../../core/client-branches.service';
                 {{ r.completionPercent }}%
               </span>
             </td>
-            <td class="lb-muted">{{ r.uploaded }}/{{ r.totalApplicableCodes }}</td>
+            <td class="lb-muted">{{ r.uploaded }}/{{ r.totalApplicable }}</td>
           </tr>
         </tbody>
       </table>

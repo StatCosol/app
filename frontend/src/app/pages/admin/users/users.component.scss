@@ -282,9 +282,6 @@ button.btn-sm.danger {
   }
 }
 
-/* Hide global header/logo elements when viewing this page */
-/* shared header is provided by AdminShellComponent now; no per-page hiding needed */
-
 /* Ensure native selects sit above overlays */
 select {
   position: relative;

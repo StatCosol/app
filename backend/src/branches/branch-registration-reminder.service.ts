@@ -27,7 +27,20 @@ export class BranchRegistrationReminderService {
     try {
       // Find all non-deleted registrations that have an expiry date
       // and compute daysRemaining
-      const rows: any[] = await this.dataSource.query(`
+      const rows: Array<{
+        id: string;
+        clientId: string;
+        branchId: string;
+        type: string;
+        registrationNumber: string | null;
+        expiryDate: string;
+        daysRemaining: number;
+        branchName: string;
+        clientName: string;
+        clientAdminEmail: string | null;
+        clientEmail?: string | null;
+        crmEmail?: string | null;
+      }> = await this.dataSource.query(`
         SELECT
           r.id,
           r.client_id      AS "clientId",

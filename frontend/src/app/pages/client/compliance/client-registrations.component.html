@@ -1,67 +1,108 @@
-<div class="page-container">
-
-  <div class="page-header">
-    <h2>Registrations & Licenses</h2>
-
-    <select [(ngModel)]="selectedBranchId" (change)="load()">
-      <option *ngFor="let b of branches" [value]="b.id">
-        {{ b.name }}
-      </option>
-    </select>
-  </div>
+<div class="page-wrap">
+  <header class="page-head">
+    <div>
+      <h1>Registrations & Licenses</h1>
+      <p>Track active registrations, renewal alerts, and expiry status across branches.</p>
+    </div>
+    <div class="head-controls">
+      <select id="cr-selected-branch-id" name="selectedBranchId" [(ngModel)]="selectedBranchId" (change)="load()">
+        <option value="" disabled>Select Branch</option>
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.name || b.branchName || 'Branch' }}</option>
+      </select>
+    </div>
+  </header>
 
   <!-- Summary Cards -->
-  <div class="summary-strip">
-    <div class="card green">
-      <h3>{{ active }}</h3>
-      <p>Active</p>
-    </div>
+  <section class="summary-grid">
+    <article class="summary-card summary-card--ok">
+      <span class="label">Active</span>
+      <strong>{{ active }}</strong>
+      <span class="sub">Operational</span>
+    </article>
+    <article class="summary-card summary-card--warn">
+      <span class="label">Expiring Soon</span>
+      <strong>{{ expiring }}</strong>
+      <span class="sub">Renewal due in 30 days</span>
+    </article>
+    <article class="summary-card summary-card--bad">
+      <span class="label">Expired</span>
+      <strong>{{ expired }}</strong>
+      <span class="sub">Immediate action required</span>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span class="label">Total</span>
+      <strong>{{ registrations.length }}</strong>
+      <span class="sub">Registrations</span>
+    </article>
+  </section>
 
-    <div class="card orange">
-      <h3>{{ expiring }}</h3>
-      <p>Expiring Soon</p>
+  <!-- Expiry Alert -->
+  <section class="alert-strip" *ngIf="expiring > 0 || expired > 0">
+    <div class="alert-strip__icon">!</div>
+    <div class="alert-strip__text">
+      <strong>Expiry Alert:</strong>
+      {{ expiring }} expiring soon and {{ expired }} expired registrations need follow-up.
     </div>
+  </section>
 
-    <div class="card red">
-      <h3>{{ expired }}</h3>
-      <p>Expired</p>
+  <!-- Filter Tabs -->
+  <section class="filters">
+    <div class="status-tabs">
+      <button type="button" [class.active]="statusFilter === 'all'" (click)="statusFilter = 'all'; applyFilter()">All</button>
+      <button type="button" [class.active]="statusFilter === 'ACTIVE'" (click)="statusFilter = 'ACTIVE'; applyFilter()">Active</button>
+      <button type="button" [class.active]="statusFilter === 'EXPIRING_SOON'" (click)="statusFilter = 'EXPIRING_SOON'; applyFilter()">Expiring Soon</button>
+      <button type="button" [class.active]="statusFilter === 'EXPIRED'" (click)="statusFilter = 'EXPIRED'; applyFilter()">Expired</button>
     </div>
-
-    <div class="card blue">
-      <h3>{{ registrations.length }}</h3>
-      <p>Total</p>
-    </div>
-  </div>
+  </section>
 
   <!-- Loading -->
-  <div *ngIf="loading" class="text-center py-8 text-gray-500">Loading registrations...</div>
+  <div *ngIf="loading" class="loader">Loading registrations…</div>
 
   <!-- Error -->
-  <div *ngIf="error" class="alert alert-error mb-4">{{ error }}</div>
+  <div *ngIf="error" class="error-banner">{{ error }}</div>
 
   <!-- Table -->
-  <ui-data-table *ngIf="!loading && !error"
-    [columns]="regColumns" [data]="filtered" [loading]="loading"
-    emptyMessage="No registrations found">
-    <ng-template uiTableCell="issuedDate" let-row>
-      {{ row.issuedDate | date:'dd-MMM-yyyy' }}
-    </ng-template>
-    <ng-template uiTableCell="expiryDate" let-row>
-      {{ row.expiryDate | date:'dd-MMM-yyyy' }}
-    </ng-template>
-    <ng-template uiTableCell="daysRemaining" let-row>
-      <span [class.text-red-600]="row.daysRemaining <= 0" [class.text-orange-500]="row.daysRemaining > 0 && row.daysRemaining <= 30">
-        {{ row.daysRemaining }}
-      </span>
-    </ng-template>
-    <ng-template uiTableCell="computedStatus" let-row>
-      <span class="text-xs px-2 py-0.5 rounded-full"
-        [ngClass]="{
-          'bg-green-100 text-green-700': row.computedStatus === 'ACTIVE',
-          'bg-orange-100 text-orange-700': row.computedStatus === 'EXPIRING_SOON',
-          'bg-red-100 text-red-700': row.computedStatus === 'EXPIRED'
-        }">{{ row.computedStatus }}</span>
-    </ng-template>
-  </ui-data-table>
-
+  <section class="table-card" *ngIf="!loading && !error">
+    <div class="table-wrap">
+      <table *ngIf="filtered.length; else emptyTpl">
+        <thead>
+          <tr>
+            <th>Registration</th>
+            <th>Number</th>
+            <th>Authority</th>
+            <th>Issued</th>
+            <th>Expiry</th>
+            <th class="text-center">Days</th>
+            <th class="text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of filtered; trackBy: trackById">
+            <td>{{ row.type }}</td>
+            <td>{{ row.registrationNumber || '—' }}</td>
+            <td>{{ row.authority || '—' }}</td>
+            <td>{{ row.issuedDate ? (row.issuedDate | date:'dd-MMM-yyyy') : '—' }}</td>
+            <td>{{ row.expiryDate ? (row.expiryDate | date:'dd-MMM-yyyy') : '—' }}</td>
+            <td class="text-center">
+              <span [ngClass]="{
+                'days--ok': row.daysRemaining > 30,
+                'days--warn': row.daysRemaining > 0 && row.daysRemaining <= 30,
+                'days--bad': row.daysRemaining <= 0
+              }">{{ row.daysRemaining }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge" [ngClass]="{
+                'badge--active': row.computedStatus === 'ACTIVE',
+                'badge--expiring': row.computedStatus === 'EXPIRING_SOON',
+                'badge--expired': row.computedStatus === 'EXPIRED'
+              }">{{ row.computedStatus === 'EXPIRING_SOON' ? 'Expiring' : row.computedStatus }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #emptyTpl>
+        <div class="empty-state">No registrations found for the selected branch and filter.</div>
+      </ng-template>
+    </div>
+  </section>
 </div>

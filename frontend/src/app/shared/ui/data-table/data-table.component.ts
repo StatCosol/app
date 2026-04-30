@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ContentChildren, QueryList, TemplateRef, Directive } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ContentChildren, QueryList, TemplateRef, Directive , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface TableColumn {
@@ -31,19 +31,22 @@ export class TableCellDirective {
 @Component({
   selector: 'ui-data-table',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-card overflow-hidden" style="animation: fadeUp 0.4s ease-out both">
+    <div class="animate-fade-up">
       <!-- Table -->
       <div class="overflow-x-auto">
-        <table class="min-w-full">
+        <table class="w-full table-fixed min-w-[600px]">
           <thead>
             <tr>
               <th *ngFor="let col of columns"
+                  scope="col"
                   [style.width]="col.width"
                   [ngClass]="getHeaderClasses(col)"
+                  [attr.aria-sort]="col.sortable ? (sortColumn === col.key ? (sortDirection === 'asc' ? 'ascending' : sortDirection === 'desc' ? 'descending' : 'none') : 'none') : null"
                   (click)="col.sortable && onSort(col.key)">
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5" [ngClass]="{'justify-center': col.align === 'center', 'justify-end': col.align === 'right'}">
                   <span>{{ col.header }}</span>
                   <ng-container *ngIf="col.sortable">
                     <svg *ngIf="sortColumn !== col.key" class="w-3.5 h-3.5 text-gray-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,22 +115,52 @@ export class TableCellDirective {
         <div class="text-sm text-gray-500 font-medium">
           Showing <span class="text-gray-800">{{ startItem }}</span> to <span class="text-gray-800">{{ endItem }}</span> of <span class="text-gray-800">{{ totalItems }}</span>
         </div>
-        <div class="flex items-center gap-1.5">
+        <div class="inline-flex items-center gap-1 rounded-2xl border border-gray-200 bg-white px-2 py-1.5 shadow-sm whitespace-nowrap">
           <button
+            type="button"
+            [disabled]="currentPage === 1"
+            (click)="onPageChange(1)"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            title="First page"
+            aria-label="First page">&#171;</button>
+
+          <button
+            type="button"
             [disabled]="currentPage === 1"
             (click)="onPageChange(currentPage - 1)"
-            class="btn-secondary px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-          </button>
-          <span class="px-3 py-1.5 text-sm font-semibold text-gray-700 tabular-nums">
-            {{ currentPage }} / {{ totalPages }}
-          </span>
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            title="Previous page"
+            aria-label="Previous page">&#8249;</button>
+
+          <div class="flex items-center gap-1.5 px-2 text-gray-800">
+            <span class="text-sm font-semibold">Page</span>
+            <input
+              type="number"
+              min="1"
+              [max]="totalPages"
+              [value]="currentPage"
+              (keydown.enter)="commitPageInput($event)"
+              (blur)="commitPageInput($event)"
+              class="h-8 w-14 rounded-md border border-gray-300 bg-white text-center text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              aria-label="Current page" />
+            <span class="text-sm font-semibold">of {{ totalPages }}</span>
+          </div>
+
           <button
-            [disabled]="currentPage === totalPages"
+            type="button"
+            [disabled]="currentPage >= totalPages"
             (click)="onPageChange(currentPage + 1)"
-            class="btn-secondary px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </button>
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            title="Next page"
+            aria-label="Next page">&#8250;</button>
+
+          <button
+            type="button"
+            [disabled]="currentPage >= totalPages"
+            (click)="onPageChange(totalPages)"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:text-gray-300 disabled:cursor-not-allowed"
+            title="Last page"
+            aria-label="Last page">&#187;</button>
         </div>
       </div>
     </div>
@@ -164,14 +197,14 @@ export class DataTableComponent {
   }
 
   getHeaderClasses(col: TableColumn): string {
-    const base = 'px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100/80 border-b-2 border-gray-200/80';
+    const base = 'px-4 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gradient-to-b from-gray-50 to-gray-100/80 border-b-2 border-gray-200/80 sticky top-0 z-10';
     const align = col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left';
     const cursor = col.sortable ? 'cursor-pointer select-none hover:text-gray-700 transition-colors' : '';
     return `${base} ${align} ${cursor}`;
   }
 
   getCellClasses(col: TableColumn): string {
-    const base = 'px-6 py-4 text-sm text-gray-700 whitespace-nowrap';
+    const base = 'px-4 py-4 text-sm text-gray-700 truncate max-w-0';
     const align = col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left';
     return `${base} ${align}`;
   }
@@ -188,9 +221,20 @@ export class DataTableComponent {
   }
 
   onPageChange(page: number): void {
-    if (page >= 1 && page <= this.totalPages) {
-      this.pageChange.emit({ page, pageSize: this.pageSize });
-    }
+    const safePage = this.normalizePage(page);
+    if (safePage === this.currentPage) return;
+    this.pageChange.emit({ page: safePage, pageSize: this.pageSize });
+  }
+
+  commitPageInput(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) return;
+
+    const parsed = Number(input.value);
+    const safePage = this.normalizePage(parsed);
+
+    input.value = String(safePage);
+    this.onPageChange(safePage);
   }
 
   onRowClick(row: any, index: number): void {
@@ -201,6 +245,12 @@ export class DataTableComponent {
 
   get totalPages(): number {
     return Math.ceil(this.totalItems / this.pageSize) || 1;
+  }
+
+  private normalizePage(page: number): number {
+    if (!Number.isFinite(page)) return this.currentPage || 1;
+    const rounded = Math.trunc(page);
+    return Math.min(this.totalPages, Math.max(1, rounded));
   }
 
   get startItem(): number {

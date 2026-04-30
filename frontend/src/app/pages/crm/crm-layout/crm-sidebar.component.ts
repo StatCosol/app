@@ -32,8 +32,7 @@ interface SidebarItem {
     <!-- Sidebar -->
     <aside
       [class]="sidebarClasses"
-      [class.translate-x-0]="mobileOpen"
-      [class.-translate-x-full]="!mobileOpen"
+      [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
       <div *ngIf="!collapsed" class="px-5 pt-6 pb-4 flex items-center gap-3">
@@ -80,9 +79,9 @@ interface SidebarItem {
               [routerLinkActiveOptions]="{ exact: true }"
               (click)="onNavClick()"
               class="collapsed-icon"
-              [title]="link.label"
             >
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
+              <span class="collapsed-tooltip">{{ link.label }}</span>
             </a>
           </div>
         </ng-container>
@@ -90,8 +89,6 @@ interface SidebarItem {
         <ng-template #expandedNav>
           <div
             *ngFor="let group of navGroups"
-            (mouseenter)="openGroupOnHover(group)"
-            (mouseleave)="closeGroupOnLeave(group)"
           >
             <div
               class="sidebar-section"
@@ -121,13 +118,43 @@ interface SidebarItem {
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center">
-        <span class="text-[10px] text-white/35">CRM v1.0</span>
+      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+        <div class="text-[10px] text-white/35">CRM v1.0</div>
+        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
     </aside>
   `,
   styles: [`
     :host { display: contents; }
+
+    .sidebar-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 50;
+      height: 100vh;
+      width: 16rem;
+      transform: translateX(-100%);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-panel.mobile-open {
+      transform: translateX(0);
+    }
+
+    @media (min-width: 1024px) {
+      .sidebar-panel {
+        position: sticky;
+        z-index: 30;
+        width: 15rem;
+        transform: none;
+      }
+      .sidebar-panel.is-collapsed {
+        width: 68px;
+      }
+    }
 
     .sidebar-nav {
       overflow-y: auto;
@@ -326,6 +353,39 @@ interface SidebarItem {
     .collapsed-active .sidebar-icon {
       color: #FFFFFF;
     }
+
+    .collapsed-tooltip {
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1E293B;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+    }
+
+    .collapsed-tooltip::before {
+      content: '';
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-right-color: #1E293B;
+    }
+
+    .collapsed-icon:hover .collapsed-tooltip {
+      opacity: 1;
+    }
   `]
 })
 export class CrmSidebarComponent implements OnChanges, OnDestroy {
@@ -370,9 +430,8 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
   }
 
   get sidebarClasses(): string {
-    const base = 'fixed lg:sticky top-0 left-0 z-50 lg:z-30 h-screen sidebar-dark flex flex-col transition-all duration-300 ease-in-out relative';
-    const width = this.collapsed ? 'lg:w-[68px]' : 'lg:w-60';
-    return `${base} w-64 ${width} lg:translate-x-0`;
+    const base = 'sidebar-panel sidebar-dark flex flex-col transition-all duration-300 ease-in-out';
+    return this.collapsed ? `${base} is-collapsed` : base;
   }
 
   toggleGroup(group: SidebarGroup): void {
@@ -381,22 +440,8 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
     group.expanded = willExpand;
   }
 
-  openGroupOnHover(group: SidebarGroup): void {
-    if (!this.isDesktop()) return;
-    this.navGroups.forEach(g => g.expanded = false);
-    group.expanded = true;
-  }
-
-  closeGroupOnLeave(group: SidebarGroup): void {
-    if (!this.isDesktop()) return;
-    group.expanded = false;
-  }
-
-  private isDesktop(): boolean {
-    return typeof window !== 'undefined' && window.innerWidth >= 1024;
-  }
-
   onNavClick(): void {
+    this.navGroups.forEach(g => g.expanded = false);
     if (this.mobileOpen) {
       this.mobileOpen = false;
       this.mobileOpenChange.emit(false);
@@ -433,6 +478,7 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
       { label: 'Helpdesk', route: '/crm/helpdesk', icon: this.svg('M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z') },
       { label: 'Reports', route: '/crm/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
       { label: 'Audits', route: '/crm/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+      { label: 'Heatmap', route: '/crm/heatmap', icon: this.svg('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z') },
       { label: 'Profile', route: '/crm/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
     ];
   }
@@ -460,11 +506,14 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
         items: [
           { label: 'Compliance Tracker', route: '/crm/compliance-tracker', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Returns / Filings', route: '/crm/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
-          { label: 'Branch Docs Review', route: '/crm/branch-docs-review', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Registrations & Licenses', route: '/crm/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h2M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
+          { label: 'Document Review Center', route: '/crm/branch-docs-review', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Compliance Calendar', route: '/crm/calendar', icon: this.svg('M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'SLA Tracker', route: '/crm/sla', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Escalations', route: '/crm/escalations', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
-          { label: 'Reupload Backlog', route: '/crm/reupload-backlog', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
+          { label: 'Expiry & Renewals', route: '/crm/expiry-tasks', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Notices', route: '/crm/notices', icon: this.svg('M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z') },
+          { label: 'Minimum Wages', route: '/crm/minimum-wages', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
         ],
       },
       {
@@ -472,7 +521,10 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Audits', route: '/crm/audits', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
+          { label: 'Audit Monitoring', route: '/crm/audit-monitoring', icon: this.svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z') },
           { label: 'Reports', route: '/crm/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
+          { label: 'Risk Heatmap', route: '/crm/heatmap', icon: this.svg('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z') },
+          { label: 'Risk Trend', route: '/crm/risk-trend', icon: this.svg('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6') },
         ],
       },
       {

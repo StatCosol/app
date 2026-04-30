@@ -8,14 +8,23 @@ import {
   Param,
   Query,
   Body,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollSetupService } from './payroll-setup.service';
+import {
+  UpsertPayrollSetupDto,
+  CreatePayrollComponentDto,
+  UpdatePayrollComponentDto,
+  CreatePayrollRuleDto,
+  UpdatePayrollRuleDto,
+  SaveSlabsDto,
+} from './dto/payroll-setup.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 // ── Client Payroll Setup Controller ─────────────────────────
 @ApiTags('Payroll')
@@ -35,7 +44,10 @@ export class PayrollSetupController {
 
   @ApiOperation({ summary: 'Upsert Setup' })
   @Post(':clientId')
-  upsertSetup(@Param('clientId') clientId: string, @Body() body: any) {
+  upsertSetup(
+    @Param('clientId') clientId: string,
+    @Body() body: UpsertPayrollSetupDto,
+  ) {
     return this.svc.upsertSetup(clientId, body);
   }
 
@@ -51,7 +63,10 @@ export class PayrollSetupController {
 
   @ApiOperation({ summary: 'Create Component' })
   @Post(':clientId/components')
-  createComponent(@Param('clientId') clientId: string, @Body() body: any) {
+  createComponent(
+    @Param('clientId') clientId: string,
+    @Body() body: CreatePayrollComponentDto,
+  ) {
     return this.svc.createComponent(clientId, body);
   }
 
@@ -60,7 +75,7 @@ export class PayrollSetupController {
   updateComponent(
     @Param('clientId') clientId: string,
     @Param('componentId') componentId: string,
-    @Body() body: any,
+    @Body() body: UpdatePayrollComponentDto,
   ) {
     return this.svc.updateComponent(clientId, componentId, body);
   }
@@ -78,7 +93,7 @@ export class PayrollSetupController {
   @ApiOperation({ summary: 'List Rules' })
   @Get(':clientId/components/:componentId/rules')
   listRules(
-    @Param('clientId') clientId: string,
+    @Param('clientId') _clientId: string,
     @Param('componentId') componentId: string,
   ) {
     return this.svc.listRules(componentId);
@@ -87,16 +102,19 @@ export class PayrollSetupController {
   @ApiOperation({ summary: 'Create Rule' })
   @Post(':clientId/components/:componentId/rules')
   createRule(
-    @Param('clientId') clientId: string,
+    @Param('clientId') _clientId2: string,
     @Param('componentId') componentId: string,
-    @Body() body: any,
+    @Body() body: CreatePayrollRuleDto,
   ) {
     return this.svc.createRule(componentId, body);
   }
 
   @ApiOperation({ summary: 'Update Rule' })
   @Put(':clientId/components/:componentId/rules/:ruleId')
-  updateRule(@Param('ruleId') ruleId: string, @Body() body: any) {
+  updateRule(
+    @Param('ruleId') ruleId: string,
+    @Body() body: UpdatePayrollRuleDto,
+  ) {
     return this.svc.updateRule(ruleId, body);
   }
 
@@ -115,7 +133,7 @@ export class PayrollSetupController {
 
   @ApiOperation({ summary: 'Save Slabs' })
   @Post(':clientId/components/:componentId/rules/:ruleId/slabs')
-  saveSlabs(@Param('ruleId') ruleId: string, @Body() body: any) {
+  saveSlabs(@Param('ruleId') ruleId: string, @Body() body: SaveSlabsDto) {
     return this.svc.saveSlabs(ruleId, body);
   }
 }
@@ -129,16 +147,16 @@ export class ClientPayrollSetupController {
 
   @ApiOperation({ summary: 'Get Setup' })
   @Get()
-  getSetup(@Req() req: any) {
-    const clientId = req.user.clientId;
+  getSetup(@CurrentUser() user: ReqUser) {
+    const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.svc.getSetup(clientId);
   }
 
   @ApiOperation({ summary: 'List Components' })
   @Get('components')
-  listComponents(@Req() req: any, @Query('type') type?: string) {
-    const clientId = req.user.clientId;
+  listComponents(@CurrentUser() user: ReqUser, @Query('type') type?: string) {
+    const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     return this.svc.listComponents(clientId, type);
   }

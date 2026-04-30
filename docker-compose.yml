@@ -6,9 +6,7 @@ services:
     environment:
       POSTGRES_DB: statcompy
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASS:-Statco123}
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS is required}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +15,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── One-time DB migration/init ─────────────
+  migrate:
+    build: ./backend
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: ${DB_PASS:?DB_PASS is required}
+      DB_NAME: statcompy
+    command: ["node", "scripts/apply-migrations.mjs"]
+
   # ── NestJS Backend ─────────────────────────
   backend:
     build: ./backend
@@ -24,6 +38,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     environment:
@@ -32,11 +48,12 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: postgres
-      DB_PASS: ${DB_PASS:-Statco123}
+      DB_PASS: ${DB_PASS:?DB_PASS is required}
       DB_NAME: statcompy
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRES_IN: 12h
       JWT_ACCESS_EXPIRES_SEC: 900
+      SKIP_BOOTSTRAP_SEED: "true"
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
@@ -51,6 +68,8 @@ services:
       - backend
     ports:
       - "80:80"
+    environment:
+      BACKEND_URL: http://backend:3000
 
 volumes:
   pgdata:

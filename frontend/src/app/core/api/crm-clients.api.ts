@@ -24,7 +24,7 @@ export interface CreateBranchRequest {
   employeeCount?: number;
   contractorCount?: number;
   status?: string;
-  stateCode?: 'AP' | 'TG' | 'TN' | 'KA';
+  stateCode?: string;
   establishmentType?: 'FACTORY' | 'ESTABLISHMENT' | 'WAREHOUSE' | 'SHOP' | 'HO' | 'BRANCH';
   branchUserName: string;
   branchUserEmail: string;

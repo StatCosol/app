@@ -1,5 +1,4 @@
 import { HttpEvent, HttpHandlerFn, HttpRequest, HttpResponse } from '@angular/common/http';
-import { inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiSuccessResponse } from '../models/api-response.model';
 

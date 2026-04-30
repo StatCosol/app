@@ -3,6 +3,20 @@
  * Converts query string parameters to SQL-safe values
  */
 
+export interface FilterQuery {
+  clientId?: string;
+  branchId?: string;
+  state?: string;
+  fromDate?: string;
+  toDate?: string;
+  windowDays?: number | string;
+  tab?: string;
+  status?: string;
+  risk?: string;
+  limit?: number | string;
+  offset?: number | string;
+}
+
 export interface DashboardFilters {
   clientId: string | null;
   state: string | null;
@@ -31,7 +45,7 @@ export interface PagingParams {
 /**
  * Normalize admin dashboard filters (no user scoping)
  */
-export function normalizeAdminFilters(query: any): DashboardFilters {
+export function normalizeAdminFilters(query: FilterQuery): DashboardFilters {
   return {
     clientId: query.clientId ?? null,
     state: query.state ?? null,
@@ -46,7 +60,7 @@ export function normalizeAdminFilters(query: any): DashboardFilters {
  */
 export function normalizeCrmFilters(
   userId: string,
-  query: any,
+  query: FilterQuery,
 ): ScopedDashboardFilters {
   return {
     userId, // From JWT token - NEVER from query params
@@ -63,7 +77,7 @@ export function normalizeCrmFilters(
  */
 export function normalizeAuditorFilters(
   userId: string,
-  query: any,
+  query: FilterQuery,
 ): ScopedDashboardFilters {
   return {
     userId, // From JWT token - NEVER from query params
@@ -78,7 +92,7 @@ export function normalizeAuditorFilters(
 /**
  * Normalize tab filters for list endpoints
  */
-export function normalizeTabFilters(query: any) {
+export function normalizeTabFilters(query: FilterQuery) {
   return {
     tab: query.tab ?? null,
     status: query.status ?? null,
@@ -90,7 +104,7 @@ export function normalizeTabFilters(query: any) {
  * Normalize date filters with optional branchId
  * Used for CRM and Auditor queries
  */
-export function normalizeDateFilters(query: any): DateFilters {
+export function normalizeDateFilters(query: FilterQuery): DateFilters {
   return {
     clientId: query.clientId ?? null,
     branchId: query.branchId ?? null,
@@ -104,7 +118,7 @@ export function normalizeDateFilters(query: any): DateFilters {
  * Normalize pagination parameters
  * Enforces limits: 1-500 rows, default 200
  */
-export function normalizePaging(query: any): PagingParams {
+export function normalizePaging(query: FilterQuery): PagingParams {
   const limit = Math.min(Math.max(Number(query.limit ?? 200), 1), 500);
   const offset = Math.max(Number(query.offset ?? 0), 0);
   return { limit, offset };

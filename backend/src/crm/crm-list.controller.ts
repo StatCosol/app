@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Res,
+} from '@nestjs/common';
+import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
@@ -8,6 +18,9 @@ import { ReturnListService } from '../list-queries/return-list.service';
 import { DocListService } from '../list-queries/doc-list.service';
 import { ThreadListService } from '../list-queries/thread-list.service';
 import { ReturnsService } from '../returns/returns.service';
+import type { ReturnStatus } from '../returns/entities/compliance-return.entity';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ExcelExportService } from '../common/services/excel-export.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 /**
@@ -25,6 +38,8 @@ export class CrmListController {
     private readonly docs: DocListService,
     private readonly threads: ThreadListService,
     private readonly returnsWorkflow: ReturnsService,
+    private readonly auditLogs: AuditLogsService,
+    private readonly excel: ExcelExportService,
   ) {}
 
   /** CRM Tasks list — paginated, searchable, sortable */
@@ -84,7 +99,7 @@ export class CrmListController {
     @Body() body?: { status?: string; reason?: string },
   ) {
     return this.returnsWorkflow.updateStatusAsCrm(user, id, {
-      status: (body?.status as any) || 'IN_PROGRESS',
+      status: (body?.status || 'IN_PROGRESS') as ReturnStatus,
       reason: body?.reason || null,
     });
   }
@@ -123,6 +138,112 @@ export class CrmListController {
     );
   }
 
+  /** CRM Renewal timeline */
+  @ApiOperation({ summary: 'Renewal Timeline' })
+  @Get('renewals/:id/timeline')
+  renewalTimeline(@Param('id') id: string) {
+    return this.auditLogs.findCombinedTimeline('RETURN_TASK', id, 'RENEWAL');
+  }
+
+  /** CRM Renewal approval history */
+  @ApiOperation({ summary: 'Renewal Approval History' })
+  @Get('renewals/:id/approval-history')
+  renewalApprovalHistory(@Param('id') id: string) {
+    return this.auditLogs.findApprovalHistory('RENEWAL', id);
+  }
+
+  /** CRM Renewals bulk reminder */
+  @ApiOperation({ summary: 'Bulk Renewal Reminders' })
+  @Post('renewals/reminders/bulk')
+  bulkRenewalReminder(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { taskIds: string[]; message?: string },
+  ) {
+    return this.returnsWorkflow.sendBulkReminders(
+      user,
+      body.taskIds,
+      body.message,
+    );
+  }
+
+  /** CRM Renewals Excel export */
+  @ApiOperation({ summary: 'Export Renewals Excel' })
+  @Get('renewals/export/xlsx')
+  async exportRenewalsXlsx(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ScopedListQueryDto,
+    @Res() res: Response,
+  ) {
+    const result = await this.returns.list(user, {
+      ...q,
+      category: 'RENEWAL',
+      limit: 5000,
+    });
+    const columns = [
+      { key: 'clientName', label: 'Client', width: 24 },
+      { key: 'branchName', label: 'Branch', width: 24 },
+      { key: 'lawType', label: 'Law Type', width: 16 },
+      { key: 'returnType', label: 'Return Type', width: 20 },
+      { key: 'periodYear', label: 'Year', width: 10 },
+      { key: 'periodMonth', label: 'Month', width: 10 },
+      { key: 'dueDate', label: 'Due Date', width: 14 },
+      { key: 'filedDate', label: 'Filed Date', width: 14 },
+      { key: 'status', label: 'Status', width: 16 },
+    ];
+    const buf = await this.excel.generate(result.items, columns, 'Renewals');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="crm-renewals-export.xlsx"',
+    );
+    res.send(buf);
+  }
+
+  /** CRM Due-items timeline (generic) */
+  @ApiOperation({ summary: 'Due Item Timeline' })
+  @Get('due-items/:id/timeline')
+  dueItemTimeline(@Param('id') id: string) {
+    return this.auditLogs.findCombinedTimeline('RETURN_TASK', id, 'RETURN');
+  }
+
+  /** CRM Due-items Excel export */
+  @ApiOperation({ summary: 'Export Due Items Excel' })
+  @Get('due-items/export/xlsx')
+  async exportDueItemsXlsx(
+    @CurrentUser() user: ReqUser,
+    @Query() q: ScopedListQueryDto,
+    @Res() res: Response,
+  ) {
+    const result = await this.returns.list(user, {
+      ...q,
+      limit: 5000,
+    });
+    const columns = [
+      { key: 'clientName', label: 'Client', width: 24 },
+      { key: 'branchName', label: 'Branch', width: 24 },
+      { key: 'lawType', label: 'Law Type', width: 16 },
+      { key: 'returnType', label: 'Return Type', width: 20 },
+      { key: 'periodYear', label: 'Year', width: 10 },
+      { key: 'periodMonth', label: 'Month', width: 10 },
+      { key: 'dueDate', label: 'Due Date', width: 14 },
+      { key: 'filedDate', label: 'Filed Date', width: 14 },
+      { key: 'status', label: 'Status', width: 16 },
+    ];
+    const buf = await this.excel.generate(result.items, columns, 'Due Items');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="crm-due-items-export.xlsx"',
+    );
+    res.send(buf);
+  }
+
   /** CRM Amendments list alias */
   @ApiOperation({ summary: 'List Amendments' })
   @Get('amendments')
@@ -159,7 +280,7 @@ export class CrmListController {
     @Body() body?: { status?: string; reason?: string },
   ) {
     return this.returnsWorkflow.updateStatusAsCrm(user, id, {
-      status: (body?.status as any) || 'IN_PROGRESS',
+      status: (body?.status || 'IN_PROGRESS') as ReturnStatus,
       reason: body?.reason || null,
     });
   }

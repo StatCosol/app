@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminDigestService } from './admin-digest.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Admin')
 @ApiBearerAuth('JWT')
@@ -33,13 +35,13 @@ export class AdminDigestController {
 
   @ApiOperation({ summary: 'Send Now' })
   @Post('send-now')
-  async sendNow(@Req() req: any) {
-    return this.svc.sendDigest(req.user?.userId || null, 'MANUAL');
+  async sendNow(@CurrentUser() user: ReqUser) {
+    return this.svc.sendDigest(user?.userId || null, 'MANUAL');
   }
 
   @ApiOperation({ summary: 'Send Critical' })
   @Post('send-critical')
-  async sendCritical(@Req() req: any) {
-    return this.svc.sendCriticalAlerts(req.user?.userId || null, 'MANUAL');
+  async sendCritical(@CurrentUser() user: ReqUser) {
+    return this.svc.sendCriticalAlerts(user?.userId || null, 'MANUAL');
   }
 }

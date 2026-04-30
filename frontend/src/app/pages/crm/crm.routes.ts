@@ -42,6 +42,10 @@ const CrmComplianceDocsComponent = () =>
   import('./compliance-docs/crm-compliance-docs.component').then((m) => m.CrmComplianceDocsComponent);
 const CrmRegistrationsComponent = () =>
   import('./registrations/crm-registrations.component').then((m) => m.CrmRegistrationsComponent);
+const CrmRegistrationsLandingComponent = () =>
+  import('./registrations/crm-registrations-landing.component').then(
+    (m) => m.CrmRegistrationsLandingComponent,
+  );
 const CrmUnitDocumentsComponent = () =>
   import('./unit-documents/crm-unit-documents.component').then((m) => m.CrmUnitDocumentsComponent);
 const CrmSafetyComponent = () =>
@@ -56,8 +60,6 @@ const RiskTrendComponent = () =>
   import('../../shared/risk/risk-trend.component').then((m) => m.RiskTrendComponent);
 const EscalationsComponent = () =>
   import('../../shared/escalations/escalations.component').then((m) => m.EscalationsComponent);
-const CrmReuploadBacklogComponent = () =>
-  import('./compliance/crm-reupload-backlog.component').then((m) => m.CrmReuploadBacklogComponent);
 const CrmRenewalsWorkspacePageComponent = () =>
   import('./renewals/crm-renewals-workspace-page.component').then(
     (m) => m.CrmRenewalsWorkspacePageComponent,
@@ -66,12 +68,28 @@ const CrmAmendmentsWorkspacePageComponent = () =>
   import('./amendments/crm-amendments-workspace-page.component').then(
     (m) => m.CrmAmendmentsWorkspacePageComponent,
   );
+const CrmAuditMonitoringComponent = () =>
+  import('./audits/crm-audit-monitoring.component').then(
+    (m) => m.CrmAuditMonitoringComponent,
+  );
+const CrmExpiryTasksComponent = () =>
+  import('./expiry/crm-expiry-tasks.component').then(
+    (m) => m.CrmExpiryTasksComponent,
+  );
+const CrmNoticesComponent = () =>
+  import('./notices/crm-notices.component').then(
+    (m) => m.CrmNoticesComponent,
+  );
+const CrmMinimumWagesComponent = () =>
+  import('./minimum-wages/crm-minimum-wages.component').then(
+    (m) => m.CrmMinimumWagesComponent,
+  );
 
 export const CRM_ROUTES: Routes = [
   {
     path: 'crm',
     loadComponent: CrmLayoutComponent,
-    canActivate: [roleGuard(['CRM'])],
+    canActivate: [roleGuard(['CRM', 'ADMIN'])],
     children: [
       // ── Top-level pages ──
       { path: 'dashboard', loadComponent: CrmDashboardActionPageComponent },
@@ -105,26 +123,29 @@ export const CRM_ROUTES: Routes = [
       { path: 'requests', redirectTo: 'helpdesk', pathMatch: 'full' },
       { path: 'reports', loadComponent: CrmReportsComponent },
       { path: 'audits', loadComponent: CrmAuditManagementPageComponent },
+      { path: 'audit-monitoring', loadComponent: CrmAuditMonitoringComponent },
+      { path: 'expiry-tasks', loadComponent: CrmExpiryTasksComponent },
       { path: 'returns', loadComponent: CrmReturnsWorkspacePageComponent },
+      { path: 'registrations', loadComponent: CrmRegistrationsLandingComponent },
       { path: 'renewals', loadComponent: CrmRenewalsWorkspacePageComponent },
       { path: 'amendments', loadComponent: CrmAmendmentsWorkspacePageComponent },
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
+      { path: 'notices', loadComponent: CrmNoticesComponent },
+      { path: 'minimum-wages', loadComponent: CrmMinimumWagesComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },
       { path: 'heatmap', loadComponent: HeatmapComponent },
       { path: 'risk-trend', loadComponent: RiskTrendComponent },
       { path: 'escalations', loadComponent: EscalationsComponent },
-      { path: 'reupload-backlog', loadComponent: CrmReuploadBacklogComponent },
+      { path: 'reupload-backlog', redirectTo: 'branch-docs-review', pathMatch: 'full' },
 
       // ── Legacy redirects ──
       { path: 'contractors', redirectTo: 'clients', pathMatch: 'full' },
       { path: 'compliance', redirectTo: 'clients', pathMatch: 'full' },
-      { path: 'payroll-status', redirectTo: 'clients', pathMatch: 'full' },
       { path: 'returns/filings', redirectTo: 'returns', pathMatch: 'full' },
       { path: 'compliance-tracker/mcd', redirectTo: 'compliance-tracker', pathMatch: 'full' },
       { path: 'helpdesk/tickets', redirectTo: 'helpdesk', pathMatch: 'full' },
-      { path: 'requests/tickets', redirectTo: 'helpdesk', pathMatch: 'full' },
 
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

@@ -1,71 +1,60 @@
-﻿.clients-page { padding: 20px; }
-.alert { padding: 12px 20px; margin-bottom: 20px; border-radius: 4px; }
-.alert.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-.alert.error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
-.back-btn { margin-bottom: 20px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; }
-.tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
-.tabs button { padding: 10px 20px; background: none; border: none; cursor: pointer; transition: all 0.15s ease; }
-.tabs button.active { color: #2563eb; border-bottom: 3px solid #2563eb; font-weight: 600; }
-.tabs .tab-link { 
-  padding: 10px 20px; 
-  background: none; 
-  border: none; 
-  cursor: pointer; 
-  text-decoration: none; 
-  color: #374151; 
-  display: inline-block; 
-  transition: all 0.15s ease;
+﻿.clients-page { @apply p-5; }
+.alert { @apply px-5 py-3 mb-5 rounded-xl; }
+.alert.success { @apply bg-green-50 border border-green-200 text-green-800; }
+.alert.error { @apply bg-red-50 border border-red-200 text-red-700; }
+.back-btn { @apply mb-5 px-4 py-2 bg-gray-500 text-white border-none rounded-lg cursor-pointer hover:bg-gray-600 transition-colors; }
+
+/* Use global .tab-nav / .tab-nav-item system */
+.tabs { @apply flex flex-wrap gap-1 mb-5 border-b-2 border-gray-200; }
+.tabs button { @apply px-5 py-2.5 bg-transparent border-none cursor-pointer transition-all duration-150 text-sm; }
+.tabs button.active { @apply text-info-600 font-semibold; border-bottom: 3px solid theme('colors.info.600'); }
+.tabs .tab-link {
+  @apply px-5 py-2.5 bg-transparent border-none cursor-pointer no-underline text-gray-700 inline-block transition-all duration-150 text-sm;
   border-bottom: 3px solid transparent;
 }
-.tabs .tab-link:hover:not(.disabled):not(.active) { 
-  background: #f9fafb;
-  color: #1f2937;
+.tabs .tab-link:hover:not(.disabled):not(.active) {
+  @apply bg-gray-50 text-gray-800;
 }
-.tabs .tab-link.active { 
-  color: #2563eb; 
-  border-bottom-color: #2563eb; 
-  font-weight: 600;
-  background: #eff6ff;
+.tabs .tab-link.active {
+  @apply text-info-600 font-semibold bg-info-50;
+  border-bottom-color: theme('colors.info.600');
 }
-.tabs .tab-link.disabled { 
-  opacity: 0.5; 
-  pointer-events: none; 
-  cursor: not-allowed; 
+.tabs .tab-link.disabled {
+  @apply opacity-50 pointer-events-none cursor-not-allowed;
 }
 .tabs .tab-link:active:not(.disabled) {
   transform: translateY(1px);
 }
-.card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-form label { display: block; margin-bottom: 5px; font-weight: 500; }
-form input, form select, form textarea {
-  width: 100%;
-  margin-bottom: 12px;
+
+/* Cards: use global .card class, just add margin-bottom */
+.card { @apply mb-5; }
+
+form label { @apply block mb-1.5 font-medium text-sm; }
+form input:not([type="checkbox"]), form select, form textarea {
+  @apply w-full mb-3;
 }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-@media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
-.form-actions { display: flex; gap: 10px; margin-top: 20px; }
-button.primary { background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
-button.primary:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); }
+.form-row { @apply grid grid-cols-2 gap-4; }
+@media (max-width: 640px) { .form-row { @apply grid-cols-1; } }
+.form-actions { @apply flex gap-2.5 mt-5; }
+
+button.primary { @apply text-white px-5 py-2.5 border-none rounded-xl cursor-pointer transition-all duration-150; background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%); }
+button.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(10, 38, 86, 0.3); }
 button.primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
-button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
-button.secondary { background: #6b7280; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
-button.secondary:hover:not(:disabled) { background: #4b5563; transform: translateY(-1px); }
+button.primary:disabled { @apply opacity-60 cursor-not-allowed; }
+
+button.secondary { @apply bg-gray-500 text-white px-5 py-2.5 border-none rounded-xl cursor-pointer transition-all duration-150; }
+button.secondary:hover:not(:disabled) { @apply bg-gray-600; transform: translateY(-1px); }
 button.secondary:active:not(:disabled) { transform: translateY(0); }
-button.btn-sm { padding: 5px 10px; font-size: 12px; margin-right: 5px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s ease; }
-button.btn-sm:hover:not(:disabled) { background: #1d4ed8; }
+
+button.btn-sm { @apply px-3 py-1.5 text-xs mr-1.5 text-white border-none rounded-lg cursor-pointer transition-all duration-150; background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%); }
+button.btn-sm:hover:not(:disabled) { transform: translateY(-1px); }
 button.btn-sm:active:not(:disabled) { transform: scale(0.95); }
-button.btn-sm.danger { background: #dc2626; }
-button.btn-sm.danger:hover:not(:disabled) { background: #b91c1c; }
-table { width: 100%; border-collapse: collapse; margin-top: 15px; table-layout: fixed; }
-table thead { background: #f9fafb; }
+button.btn-sm.danger { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+button.btn-sm.danger:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25); }
+table { @apply w-full border-collapse mt-4; table-layout: fixed; }
+table thead { @apply bg-slate-50; }
 table th, table td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 13px;
-  vertical-align: middle;
-  white-space: nowrap;
-  overflow: hidden;
+  @apply py-2.5 px-3 text-left border-b border-gray-200 text-sm align-middle whitespace-nowrap overflow-hidden;
   text-overflow: ellipsis;
 }
 

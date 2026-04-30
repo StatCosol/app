@@ -18,7 +18,9 @@ import {
   PfEsiRemittanceRow,
   PfEsiSummaryResponse,
 } from './payroll-api.service';
+import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 
 type SchemeFilter = 'ALL' | 'PF' | 'ESI';
 type RemittanceFilter = 'ALL' | 'READY' | 'IN_PROGRESS' | 'NOT_STARTED' | 'REWORK' | 'UNKNOWN';
@@ -27,7 +29,7 @@ type IdentifierFilter = 'ALL' | 'MISSING_ID' | 'HAS_ID';
 @Component({
   selector: 'app-payroll-pf-esi',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent],
   templateUrl: './payroll-pf-esi.component.html',
   styleUrls: ['./payroll-pf-esi.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,9 +82,12 @@ export class PayrollPfEsiComponent implements OnInit, OnDestroy {
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) this.selectedClientId = routeClientId;
     this.loadBase();
   }
 
@@ -167,9 +172,8 @@ export class PayrollPfEsiComponent implements OnInit, OnDestroy {
     return this.remittanceRows.filter((row) => row.remittanceState === 'REWORK').length;
   }
 
-  get remittanceDerivedText(): string {
-    return 'Remittance state is derived from payroll run lifecycle until dedicated remittance APIs are exposed.';
-  }
+  readonly remittanceDerivedText =
+    'Remittance state is derived from payroll run lifecycle until dedicated remittance APIs are exposed.';
 
   trackGap(_: number, row: PfEsiGapRow): string {
     return `${row.scheme}-${row.employeeId}`;

@@ -8,6 +8,34 @@ statco-frontend/dist/
 
 node_modules/
 .env
+.env.production
+.env*.local
 
 # Temp artifacts
 tmpclaude-*
+tmp_job_*/
+tmp-*
+backend/tmp-check-*.js
+backend/tmp-*.txt
+{*
+
+# Test / smoke result files
+*_results*.txt
+*_smoke*.txt
+*_status_*.txt
+
+# Database dumps
+*.dump
+
+# Write test markers
+_write_test.txt
+
+# Private keys / secrets
+*.pem
+.seed-admin-password
+
+# Dev-only scripts output
+controller_inventory.txt
+controller_decorators.txt
+
+backend-build.log

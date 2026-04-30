@@ -2,11 +2,12 @@
   <ui-page-header
     title="Compliance Document Library"
     subtitle="Upload and manage compliance documents for this client">
+    <ui-client-context-strip [inline]="true"></ui-client-context-strip>
   </ui-page-header>
 
   <!-- Toggle upload form -->
   <div class="mb-4">
-    <button class="btn-upload" (click)="toggleUploadForm()">
+    <button type="button" class="btn-upload" (click)="toggleUploadForm()">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
       </svg>
@@ -20,54 +21,54 @@
 
     <div class="form-grid">
       <div class="form-group">
-        <label>Category *</label>
-        <select class="input-sm" [(ngModel)]="form.category" (ngModelChange)="onCategoryChange()">
+        <label for="ccd-category">Category *</label>
+        <select id="ccd-category" name="category" class="input-sm" [(ngModel)]="form.category" (ngModelChange)="onCategoryChange()">
           <option value="">Select category</option>
           <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
         </select>
       </div>
 
       <div class="form-group" *ngIf="subCategories.length > 0">
-        <label>Sub-Category</label>
-        <select class="input-sm" [(ngModel)]="form.subCategory">
+        <label for="ccd-sub-category">Sub-Category</label>
+        <select id="ccd-sub-category" name="subCategory" class="input-sm" [(ngModel)]="form.subCategory">
           <option value="">Select</option>
           <option *ngFor="let sc of subCategories" [value]="sc.code">{{ sc.label }}</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Title *</label>
-        <input class="input-sm" type="text" [(ngModel)]="form.title" placeholder="Document title" />
+        <label for="ccd-title">Title *</label>
+        <input autocomplete="off" id="ccd-title" name="title" class="input-sm" type="text" [(ngModel)]="form.title" placeholder="Document title" />
       </div>
 
       <div class="form-group">
-        <label>Branch (optional)</label>
-        <input class="input-sm" type="text" [(ngModel)]="form.branchId" placeholder="Branch ID (leave empty for all)" />
+        <label for="ccd-branch-id">Branch (optional)</label>
+        <input autocomplete="off" id="ccd-branch-id" name="branchId" class="input-sm" type="text" [(ngModel)]="form.branchId" placeholder="Branch ID (leave empty for all)" />
       </div>
 
       <div class="form-group">
-        <label>Year</label>
-        <select class="input-sm" [(ngModel)]="form.periodYear">
+        <label for="ccd-period-year">Year</label>
+        <select id="ccd-period-year" name="periodYear" class="input-sm" [(ngModel)]="form.periodYear">
           <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Month</label>
-        <select class="input-sm" [(ngModel)]="form.periodMonth">
+        <label for="ccd-period-month">Month</label>
+        <select id="ccd-period-month" name="periodMonth" class="input-sm" [(ngModel)]="form.periodMonth">
           <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Period Label</label>
-        <input class="input-sm" type="text" [(ngModel)]="form.periodLabel" placeholder="e.g. Apr-2026" />
+        <label for="ccd-period-label">Period Label</label>
+        <input autocomplete="off" id="ccd-period-label" name="periodLabel" class="input-sm" type="text" [(ngModel)]="form.periodLabel" placeholder="e.g. Apr-2026" />
       </div>
     </div>
 
     <div class="form-group mb-3">
-      <label>Description</label>
-      <textarea class="input-sm" [(ngModel)]="form.description" placeholder="Optional description..."></textarea>
+      <label for="ccd-description">Description</label>
+      <textarea autocomplete="off" id="ccd-description" name="description" class="input-sm" [(ngModel)]="form.description" placeholder="Optional description..."></textarea>
     </div>
 
     <div class="file-drop mb-3" [class.has-file]="!!selectedFile" (click)="fileInput.click()">
@@ -85,7 +86,7 @@
       </div>
     </div>
 
-    <button class="btn-upload" [disabled]="uploading || !selectedFile || !form.category || !form.title" (click)="upload()">
+    <button type="button" class="btn-upload" [disabled]="uploading || !selectedFile || !form.category || !form.title" (click)="upload()">
       <svg *ngIf="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
       </svg>
@@ -96,15 +97,15 @@
   <!-- Filters -->
   <div class="flex flex-wrap items-end gap-3 mb-4">
     <div>
-      <label class="block text-xs text-gray-500 mb-1">Category</label>
-      <select class="input-sm" [(ngModel)]="filters.category" (ngModelChange)="loadDocuments()">
+      <label class="block text-xs text-gray-500 mb-1" for="ccd-category-2">Category</label>
+      <select id="ccd-category-2" name="category" class="input-sm" [(ngModel)]="filters.category" (ngModelChange)="loadDocuments()">
         <option value="">All</option>
         <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
       </select>
     </div>
     <div>
-      <label class="block text-xs text-gray-500 mb-1">Search</label>
-      <input class="input-sm" type="text" [(ngModel)]="filters.search" placeholder="Search titles..."
+      <label class="block text-xs text-gray-500 mb-1" for="ccd-search">Search</label>
+      <input autocomplete="off" id="ccd-search" name="search" class="input-sm" type="text" [(ngModel)]="filters.search" placeholder="Search titles..."
         (keyup.enter)="loadDocuments()" />
     </div>
   </div>

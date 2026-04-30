@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap, map } from 'rxjs/operators';
-import { Observable, of } from 'rxjs';
+import { Observable, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { CryptoService } from './crypto.service';
 
 /** Valid role codes returned by the backend */
-const VALID_ROLES = ['ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR', 'PAYROLL', 'EMPLOYEE'] as const;
+const VALID_ROLES = ['ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT', 'CONTRACTOR', 'PAYROLL', 'PF_TEAM', 'EMPLOYEE', 'ACCOUNTS'] as const;
 type RoleCode = (typeof VALID_ROLES)[number];
 
 @Injectable({ providedIn: 'root' })
@@ -18,7 +19,7 @@ export class AuthService {
   // prevents "dual logout" / multiple navigations
   private loggingOut = false;
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(private http: HttpClient, private router: Router, private cryptoService: CryptoService) {
     // Migrate any tokens from localStorage to sessionStorage (one-time)
     this.migrateFromLocalStorage();
   }
@@ -45,6 +46,11 @@ export class AuthService {
           sessionStorage.setItem(this.TOKEN_KEY, res.accessToken);
           sessionStorage.setItem(this.REFRESH_KEY, res.refreshToken);
           sessionStorage.setItem(this.USER_KEY, JSON.stringify(normalizedUser));
+
+          // Store encryption key if provided by backend
+          if (res.encryptionKey) {
+            this.cryptoService.setKey(res.encryptionKey);
+          }
         })
       );
   }
@@ -55,9 +61,29 @@ export class AuthService {
       .post<any>(`${environment.apiBaseUrl}/api/v1/auth/ess/login`, { companyCode, email, password })
       .pipe(
         tap((res) => {
-          sessionStorage.setItem(this.TOKEN_KEY, res.accessToken);
-          sessionStorage.setItem(this.REFRESH_KEY, res.refreshToken);
-          sessionStorage.setItem(this.USER_KEY, JSON.stringify(res.user));
+          const accessToken = res?.accessToken ?? res?.access_token ?? '';
+          const refreshToken = res?.refreshToken ?? res?.refresh_token ?? '';
+          const rawUser = res?.user ?? res?.data?.user ?? {};
+
+          const normalizedUser = {
+            ...rawUser,
+            roleCode:
+              rawUser?.roleCode ??
+              rawUser?.role?.code ??
+              res?.roleCode ??
+              res?.role?.code ??
+              '',
+          };
+
+          sessionStorage.setItem(this.TOKEN_KEY, accessToken);
+          sessionStorage.setItem(this.REFRESH_KEY, refreshToken);
+          sessionStorage.setItem(this.USER_KEY, JSON.stringify(normalizedUser));
+
+          // Store encryption key if provided by backend
+          const encKey = res?.encryptionKey ?? res?.encryption_key ?? '';
+          if (encKey) {
+            this.cryptoService.setKey(encKey);
+          }
         })
       );
   }
@@ -66,17 +92,20 @@ export class AuthService {
   logout(reason?: string) {
     const wasEmployee =
       this.getRoleCode() === 'EMPLOYEE' ||
-      window.location.pathname.startsWith('/ess/');
+      window.location.pathname.includes('/ess/');
 
-    // Notify the backend to revoke the refresh token family
+    // Capture refresh token BEFORE clearing state
     const refreshToken = this.getRefreshToken();
+
+    // Clear state and navigate immediately
+    this.logoutOnce(reason, wasEmployee);
+
+    // Notify the backend to revoke the refresh token family (best-effort)
     if (refreshToken) {
       this.http
         .post(`${environment.apiBaseUrl}/api/v1/auth/logout`, { refreshToken })
         .subscribe({ error: () => { /* best-effort */ } });
     }
-
-    this.logoutOnce(reason, wasEmployee);
   }
 
   /** Call this from interceptor on 401 */
@@ -89,10 +118,8 @@ export class AuthService {
 
     const target = toEssLogin ? '/ess/login' : '/login';
 
-    // Replace the current history entry so pressing "Back" won't
+    // Navigate with replaceUrl so the browser Back button won't
     // return to the previous authenticated page.
-    window.history.replaceState(null, '', target);
-
     this.router.navigate([target], { replaceUrl: true }).finally(() => {
       // allow future logout actions after navigation stabilizes
       setTimeout(() => (this.loggingOut = false), 0);
@@ -108,6 +135,8 @@ export class AuthService {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.REFRESH_KEY);
     localStorage.removeItem(this.USER_KEY);
+    // Clear encryption key
+    this.cryptoService.clearKey();
   }
 
   getAccessToken(): string {
@@ -125,12 +154,14 @@ export class AuthService {
   refreshAccessToken(): Observable<string> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
-      return of('');
+      return throwError(() => new Error('No refresh token'));
     }
     return this.http
       .post<any>(`${environment.apiBaseUrl}/api/v1/auth/refresh`, { refreshToken })
       .pipe(
         tap((res) => {
+          // Don't restore tokens if a logout was triggered while refresh was in-flight
+          if (this.loggingOut) return;
           sessionStorage.setItem(this.TOKEN_KEY, res.accessToken);
           sessionStorage.setItem(this.REFRESH_KEY, res.refreshToken);
         }),
@@ -149,16 +180,35 @@ export class AuthService {
   }
 
   /**
-   * Append the access token as a query parameter to a URL.
-   * Use this for `window.open()` calls to authenticated endpoints
-   * (e.g. /uploads/...) since window.open doesn't send the Authorization header.
+   * Legacy no-op kept for older callers while we migrate browser-open flows
+   * to header-authenticated blob downloads.
    */
   authenticateUrl(url: string): string {
     if (!url) return url;
+    if (!this.requiresQueryToken(url)) return url;
     const token = this.getAccessToken();
     if (!token) return url;
     const sep = url.includes('?') ? '&' : '?';
     return `${url}${sep}token=${encodeURIComponent(token)}`;
+  }
+
+  private requiresQueryToken(url: string): boolean {
+    void url;
+    return false;
+  }
+
+  private extractPathname(url: string): string {
+    try {
+      if (/^https?:\/\//i.test(url)) {
+        return new URL(url).pathname;
+      }
+      if (url.startsWith('//')) {
+        return new URL(window.location.protocol + url).pathname;
+      }
+      return new URL(url, window.location.origin).pathname;
+    } catch {
+      return '';
+    }
   }
 
   isLoggedIn(): boolean {
@@ -213,7 +263,9 @@ export class AuthService {
       CLIENT: this.isBranchUser() ? '/branch' : '/client',
       CONTRACTOR: '/contractor',
       PAYROLL: '/payroll',
+      PF_TEAM: '/pf-team',
       EMPLOYEE: '/ess',
+      ACCOUNTS: '/accounts',
     };
     return redirects[role || ''] || '';
   }
@@ -264,6 +316,22 @@ export class AuthService {
 
   changeMyPassword(payload: { currentPassword: string; newPassword: string }) {
     return this.http.patch<any>(`${environment.apiBaseUrl}/api/v1/me/password`, payload);
+  }
+
+  /** Request a password-reset email for the given email address */
+  forgotPassword(email: string) {
+    return this.http.post<{ ok: boolean }>(
+      `${environment.apiBaseUrl}/api/v1/auth/password/request-reset`,
+      { email },
+    );
+  }
+
+  /** Set a new password using the reset token from email link */
+  resetPassword(token: string, newPassword: string) {
+    return this.http.post<{ ok: boolean }>(
+      `${environment.apiBaseUrl}/api/v1/auth/password/reset`,
+      { token, newPassword },
+    );
   }
 
   /**

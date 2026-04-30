@@ -85,8 +85,7 @@ export interface PfEsiChallanRow {
 export interface PayrollEmployee {
   id: string;
   employeeCode: string;
-  firstName: string;
-  lastName: string | null;
+  name: string;
   designation: string | null;
   department: string | null;
   dateOfJoining: string | null;
@@ -115,6 +114,8 @@ export interface PayrollEmployeeDetail extends PayrollEmployee {
   stateCode?: string | null;
   pfApplicableFrom?: string | null;
   esiApplicableFrom?: string | null;
+  pfServiceStartDate?: string | null;
+  basicAtPfStart?: number | null;
   runHistory: PayrollRunHistoryItem[];
 }
 
@@ -206,6 +207,16 @@ export class PayrollApiService {
   private base = `${environment.apiBaseUrl}/api/v1/payroll`;
 
   constructor(private http: HttpClient) {}
+
+  /** Get branches for a given client (for dropdown lookups) */
+  getOptionBranches(clientId?: string): Observable<{ id: string; branchName: string; branchType?: string; stateCode?: string }[]> {
+    let params = new HttpParams();
+    if (clientId) params = params.set('clientId', clientId);
+    return this.http.get<{ id: string; branchName: string; branchType?: string; stateCode?: string }[]>(
+      `${this.base}/options/branches`,
+      { params },
+    );
+  }
 
   getSummary(): Observable<PayrollSummary> {
     return this.http.get<any>(`${this.base}/summary`).pipe(
@@ -587,6 +598,30 @@ export class PayrollApiService {
       settlementBreakup,
       remarks,
     });
+  }
+
+  // ── F&F Settlement Documents ──
+  uploadFnfDocument(fnfId: string, file: File, docType: string, docName: string, remarks?: string): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('docType', docType);
+    fd.append('docName', docName);
+    if (remarks) fd.append('remarks', remarks);
+    return this.http.post(`${this.base}/fnf/${fnfId}/documents`, fd);
+  }
+
+  listFnfDocuments(fnfId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/fnf/${fnfId}/documents`);
+  }
+
+  downloadFnfDocument(docId: string, docName: string): void {
+    this.http.get(`${this.base}/fnf/documents/${docId}/download`, { responseType: 'blob' }).subscribe((blob) => {
+      this.saveBlob(blob, docName || 'document');
+    });
+  }
+
+  deleteFnfDocument(docId: string): Observable<any> {
+    return this.http.delete(`${this.base}/fnf/documents/${docId}`);
   }
 
   // ── Report Downloads ──

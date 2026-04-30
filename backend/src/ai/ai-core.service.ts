@@ -1,28 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import OpenAI from 'openai';
 import * as crypto from 'crypto';
 import { AiConfigurationEntity } from './entities/ai-configuration.entity';
 import { AiCostTrackingService } from './ai-cost-tracking.service';
+import { DEV_AI_ENCRYPTION_PASSPHRASE } from '../config/runtime.constants';
 
 const ALGO = 'aes-256-gcm';
 const IV_LEN = 12;
 const TAG_LEN = 16;
 
-function getEncryptionKey(): Buffer {
-  const raw = process.env.AI_ENCRYPTION_KEY || '';
+function deriveEncryptionKey(raw: string): Buffer {
   if (!raw) {
     // Fallback key for dev — in production AI_ENCRYPTION_KEY env var MUST be set
-    return crypto.scryptSync('statco-dev-key-change-me', 'salt', 32);
+    return crypto.scryptSync(DEV_AI_ENCRYPTION_PASSPHRASE, 'salt', 32);
   }
   // Accept hex-encoded 32-byte key or derive from passphrase
   if (/^[0-9a-f]{64}$/i.test(raw)) return Buffer.from(raw, 'hex');
   return crypto.scryptSync(raw, 'statco-ai', 32);
 }
 
-function encrypt(plaintext: string): string {
-  const key = getEncryptionKey();
+function encrypt(plaintext: string, key: Buffer): string {
   const iv = crypto.randomBytes(IV_LEN);
   const cipher = crypto.createCipheriv(ALGO, key, iv);
   const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
@@ -31,8 +31,7 @@ function encrypt(plaintext: string): string {
   return Buffer.concat([iv, tag, enc]).toString('base64');
 }
 
-function decrypt(encoded: string): string {
-  const key = getEncryptionKey();
+function decrypt(encoded: string, key: Buffer): string {
   const buf = Buffer.from(encoded, 'base64');
   const iv = buf.subarray(0, IV_LEN);
   const tag = buf.subarray(IV_LEN, IV_LEN + TAG_LEN);
@@ -56,12 +55,18 @@ export class AiCoreService {
   private readonly logger = new Logger(AiCoreService.name);
   private openaiClient: OpenAI | null = null;
   private cachedConfig: AiConfigurationEntity | null = null;
+  private readonly encryptionKey: Buffer;
 
   constructor(
     @InjectRepository(AiConfigurationEntity)
     private readonly configRepo: Repository<AiConfigurationEntity>,
     private readonly costTracking: AiCostTrackingService,
-  ) {}
+    private readonly _config: ConfigService,
+  ) {
+    this.encryptionKey = deriveEncryptionKey(
+      _config.get<string>('AI_ENCRYPTION_KEY', ''),
+    );
+  }
 
   async getConfig(): Promise<AiConfigurationEntity | null> {
     if (this.cachedConfig) return this.cachedConfig;
@@ -83,12 +88,13 @@ export class AiCoreService {
     if (!config) {
       config = this.configRepo.create({
         provider: 'openai',
-        modelName: 'gpt-4o-mini',
+        modelName: 'gpt-4.1-mini',
       });
     }
     if (updates.provider) config.provider = updates.provider;
     if (updates.modelName) config.modelName = updates.modelName;
-    if (updates.apiKey) config.apiKeyEncrypted = encrypt(updates.apiKey);
+    if (updates.apiKey)
+      config.apiKeyEncrypted = encrypt(updates.apiKey, this.encryptionKey);
     if (updates.temperature !== undefined)
       config.temperature = updates.temperature;
     if (updates.maxTokens !== undefined) config.maxTokens = updates.maxTokens;
@@ -108,7 +114,7 @@ export class AiCoreService {
     }
     let apiKey: string;
     try {
-      apiKey = decrypt(config.apiKeyEncrypted);
+      apiKey = decrypt(config.apiKeyEncrypted, this.encryptionKey);
     } catch {
       // Fallback: key may have been stored as plaintext before encryption was added
       apiKey = config.apiKeyEncrypted;

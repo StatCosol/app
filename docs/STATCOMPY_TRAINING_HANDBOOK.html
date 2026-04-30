@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StatComply Training Handbook</title>
+  <style>
+    :root {
+      --navy: #12213f;
+      --blue: #2c5fe5;
+      --green: #1f7a4d;
+      --teal: #167a7a;
+      --purple: #5b2fb3;
+      --gold: #8b6a19;
+      --rose: #8b1d4f;
+      --ink: #1f2937;
+      --muted: #5b6472;
+      --line: #d7deea;
+      --panel: #f7f9fc;
+      --paper: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: #eef3f9;
+      line-height: 1.5;
+    }
+    .book {
+      width: 210mm;
+      margin: 0 auto;
+      background: var(--paper);
+      padding: 18mm 16mm 20mm;
+    }
+    .cover {
+      position: relative;
+      overflow: hidden;
+      min-height: 250mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #0f1f3f 0%, #204c9a 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 22mm 18mm;
+      margin-bottom: 16mm;
+    }
+    .cover::before,
+    .cover::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .cover::before {
+      width: 180mm;
+      height: 180mm;
+      right: -60mm;
+      top: -50mm;
+    }
+    .cover::after {
+      width: 120mm;
+      height: 120mm;
+      right: 15mm;
+      bottom: -45mm;
+    }
+    .cover-top,
+    .cover-bottom {
+      position: relative;
+      z-index: 1;
+    }
+    .cover-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #c9dbff;
+    }
+    .cover-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ffffff 0%, #8bb4ff 100%);
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(18,33,63,0.1);
+    }
+    .cover-mark::before,
+    .cover-mark::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+    }
+    .cover-mark::before {
+      width: 14px;
+      height: 14px;
+      background: #2c5fe5;
+      left: 6px;
+      top: 10px;
+    }
+    .cover-mark::after {
+      width: 18px;
+      height: 18px;
+      background: #12213f;
+      right: 5px;
+      top: 8px;
+    }
+    .cover h1 { font-size: 30px; margin: 0 0 10px; line-height: 1.15; }
+    .cover p { margin: 0; max-width: 140mm; color: #dce8ff; }
+    .cover-subtitle {
+      margin-top: 14px;
+      max-width: 150mm;
+      font-size: 14px;
+      color: #e7efff;
+    }
+    .cover-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+      max-width: 150mm;
+    }
+    .cover-tag {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    .cover-meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      max-width: 120mm;
+    }
+    .cover-card {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .cover-card strong {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #b9d1ff;
+    }
+    h1, h2, h3, h4 { color: var(--navy); margin-top: 0; }
+    h2 { font-size: 24px; margin-bottom: 8px; padding-top: 8px; }
+    h3 { font-size: 18px; margin-bottom: 6px; }
+    h4 { font-size: 14px; margin-bottom: 4px; }
+    p, li { font-size: 12.5px; }
+    .toc, .panel, .module, .section-block {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 10px 30px rgba(18, 33, 63, 0.05);
+    }
+    .section-block { background: var(--panel); }
+    .lead-note {
+      border-left: 4px solid var(--blue);
+      background: #fff;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 12px;
+      color: var(--muted);
+    }
+    .toc ol {
+      columns: 2;
+      column-gap: 18mm;
+      padding-left: 18px;
+      margin: 0;
+    }
+    .summary-grid, .trainer-grid, .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 10px 0 0;
+    }
+    .summary-card, .trainer-card, .flow-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .module { page-break-inside: avoid; margin-top: 14px; }
+    .module-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .module-header p { color: var(--muted); }
+    .module-badge {
+      color: #fff;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 10px;
+      white-space: nowrap;
+    }
+    .admin { background: var(--navy); }
+    .ceo { background: var(--green); }
+    .cco { background: var(--purple); }
+    .crm { background: var(--teal); }
+    .client { background: var(--blue); }
+    .branch { background: #1f6ea6; }
+    .auditor { background: var(--gold); }
+    .contractor { background: var(--rose); }
+    .payroll { background: #374151; }
+    .pfteam { background: #3757c8; }
+    .ess { background: #2563eb; }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 14px;
+    }
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    figure {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(18, 33, 63, 0.06);
+    }
+    figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+    }
+    figcaption {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+      text-align: center;
+    }
+    ol, ul { margin: 6px 0 0; padding-left: 18px; }
+    .page-break { page-break-before: always; }
+    .footer-note {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 16px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+    @page { size: A4; margin: 12mm; }
+    @media print {
+      body { background: #fff; }
+      .book { width: auto; margin: 0; padding: 0; }
+      .cover { border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="book">
+    <section class="cover">
+      <div class="cover-top">
+        <div class="cover-kicker">
+          <span class="cover-mark"></span>
+          <span>StatCo Solutions</span>
+        </div>
+        <h1>StatComply Consolidated Training Handbook</h1>
+        <p class="cover-subtitle">This handbook combines the module-wise user manual, training flow, and trainer SOP into one print-ready reference for onboarding, refresher training, and role-based operational guidance.</p>
+        <div class="cover-tags">
+          <span class="cover-tag">Trainer Guide</span>
+          <span class="cover-tag">Role-Based Flows</span>
+          <span class="cover-tag">Screenshots Included</span>
+          <span class="cover-tag">Export Ready</span>
+        </div>
+      </div>
+      <div class="cover-bottom">
+      <div class="cover-meta">
+        <div class="cover-card"><strong>Prepared For</strong>Training and Operations Teams</div>
+        <div class="cover-card"><strong>Coverage</strong>Admin, CEO, CCO, CRM, Client, Branch, Auditor, Contractor, Payroll, PF Team, ESS</div>
+        <div class="cover-card"><strong>Version</strong>March 29, 2026</div>
+        <div class="cover-card"><strong>Format</strong>Consolidated Handbook and PDF</div>
+      </div>
+      </div>
+    </section>
+
+    <section class="toc">
+      <h2>Contents</h2>
+      <ol>
+        <li>How to Use This Handbook</li>
+        <li>Common Login Flow</li>
+        <li>End-to-End Platform Flow</li>
+        <li>Admin Module</li>
+        <li>CEO Module</li>
+        <li>CCO Module</li>
+        <li>CRM Module</li>
+        <li>Client Module</li>
+        <li>Branch Module</li>
+        <li>Auditor Module</li>
+        <li>Contractor Module</li>
+        <li>Payroll Module</li>
+        <li>PF Team Module</li>
+        <li>ESS Module</li>
+        <li>Cross-Module Process Flows</li>
+        <li>Trainer Assessment Checklist</li>
+      </ol>
+      <div class="lead-note">Use this handbook in live training, induction batches, and role refresher sessions. Each module includes the normal execution flow, the exception flow, and the next-team handoff.</div>
+    </section>
+
+    <section class="section-block">
+      <h2>How to Use This Handbook</h2>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h4>For Users</h4>
+          <ol>
+            <li>Understand your dashboard and menu.</li>
+            <li>Follow the step-by-step module process.</li>
+            <li>Use the exception and handoff notes when work is blocked.</li>
+          </ol>
+        </div>
+        <div class="summary-card">
+          <h4>For Trainers</h4>
+          <ol>
+            <li>Explain role purpose first.</li>
+            <li>Demonstrate the normal daily cycle.</li>
+            <li>Show one rejection or escalation scenario.</li>
+            <li>End with a hands-on exercise.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <h2>Common Login Flow</h2>
+      <ol>
+        <li>Open the relevant portal URL.</li>
+        <li>Enter the registered email ID.</li>
+        <li>Enter the password.</li>
+        <li>Click <strong>Sign In</strong>.</li>
+        <li>Confirm the correct role dashboard opens.</li>
+        <li>Use the left menu to navigate to module pages.</li>
+      </ol>
+      <div class="image-grid">
+        <figure>
+          <img src="./user-manual-assets/login.png" alt="Common Login">
+          <figcaption>Common portal login</figcaption>
+        </figure>
+        <figure>
+          <img src="./user-manual-assets/ess-login.png" alt="ESS Login">
+          <figcaption>ESS login with company code</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <h2>End-to-End Platform Flow</h2>
+      <div class="flow-grid">
+        <div class="flow-card">
+          <h4>Setup and Ownership</h4>
+          <ol>
+            <li>Admin creates client, users, branches, and assignments.</li>
+            <li>Client and Branch teams maintain business and employee data.</li>
+            <li>Payroll, CRM, and Auditor ownership becomes active.</li>
+          </ol>
+        </div>
+        <div class="flow-card">
+          <h4>Execution and Review</h4>
+          <ol>
+            <li>Branch and Contractor users submit operational evidence.</li>
+            <li>CRM reviews filings, documents, renewals, and exceptions.</li>
+            <li>Auditor performs audits and publishes reports.</li>
+          </ol>
+        </div>
+        <div class="flow-card">
+          <h4>Oversight and Resolution</h4>
+          <ol>
+            <li>CCO monitors overdue and escalated portfolios.</li>
+            <li>CEO reviews executive approvals and business-critical escalations.</li>
+            <li>PF Team and Payroll close employee-facing issues.</li>
+          </ol>
+        </div>
+        <div class="flow-card">
+          <h4>Employee Experience</h4>
+          <ol>
+            <li>Published payroll outputs become visible in ESS.</li>
+            <li>Employees download payslips and documents.</li>
+            <li>ESS helpdesk issues route to PF Team or Payroll.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="module page-break">
+      <div class="module-header">
+        <div>
+          <h2>Admin Module</h2>
+          <p>Purpose: onboard clients, create users, assign owners, configure control data, and monitor system-wide operational health.</p>
+        </div>
+        <span class="module-badge admin">ADMIN</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review dashboard KPIs, alerts, unread items, and escalations.</li>
+            <li>Open <strong>Users</strong> to create, activate, deactivate, or correct role access.</li>
+            <li>Open <strong>Clients</strong> to register new companies and maintain records.</li>
+            <li>Create branches and configure applicability for each branch.</li>
+            <li>Use <strong>Assignments</strong> and <strong>Payroll Assignments</strong> to map CRM, Auditor, and Payroll ownership.</li>
+            <li>Review governance gaps, unassigned clients, and monitoring alerts.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>If a client is missing CRM, Auditor, or Payroll ownership, fix it before operations begin.</li>
+            <li>If users are inactive or mapped incorrectly, correct the user record immediately.</li>
+            <li>Handoff goes to Client, Branch, CRM, Auditor, and Payroll after setup is complete.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain client onboarding from user creation to assignments?</li>
+            <li>Can the trainee identify where governance gaps are cleared?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/admin-dashboard.png" alt="Admin Dashboard">
+            <figcaption>Admin dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/admin-users.png" alt="Admin Users">
+            <figcaption>User management</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/admin-clients.png" alt="Admin Clients">
+            <figcaption>Client registration</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>CEO Module</h2>
+          <p>Purpose: review executive risk, approvals, escalations, reports, and enterprise-level registers.</p>
+        </div>
+        <span class="module-badge ceo">CEO</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Open the dashboard and review executive KPIs and guardrails.</li>
+            <li>Open <strong>Approvals</strong> for items requiring executive decision.</li>
+            <li>Open <strong>Escalations</strong> for business-critical unresolved issues.</li>
+            <li>Use <strong>Reports</strong> for period-based executive export packs.</li>
+            <li>Use <strong>Registers</strong> for centralized output review.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Rejected approvals move back to the previous operating owner.</li>
+            <li>Major unresolved escalations move downward again with direction for closure.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain when an escalation should remain with CCO and when it requires CEO action?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/ceo-dashboard.png" alt="CEO Dashboard">
+            <figcaption>Executive dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/ceo-reports.png" alt="CEO Reports">
+            <figcaption>Executive reports</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/ceo-registers.png" alt="CEO Registers">
+            <figcaption>Payroll registers</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>CCO Module</h2>
+          <p>Purpose: supervise CRM teams, manage controls, review approvals, and close escalated compliance issues.</p>
+        </div>
+        <span class="module-badge cco">CCO</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review the dashboard for pending approvals, CRM count, overdue tasks, and escalations.</li>
+            <li>Use CRM performance tables to identify weak portfolios.</li>
+            <li>Review <strong>Approvals</strong> and decide routed requests.</li>
+            <li>Review <strong>Controls</strong> for SLA and escalation logic.</li>
+            <li>Work <strong>Escalations</strong> and review <strong>Registers</strong> when output monitoring is needed.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Corrective actions go back to CRM owners.</li>
+            <li>Repeated or unresolved risk items move to CEO.</li>
+            <li>Setup-related control gaps route to Admin.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain how controls affect escalation behavior?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/cco-dashboard.png" alt="CCO Dashboard">
+            <figcaption>CCO dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/cco-escalations.png" alt="CCO Escalations">
+            <figcaption>Escalation queue</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/cco-registers.png" alt="CCO Registers">
+            <figcaption>Register visibility</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module page-break">
+      <div class="module-header">
+        <div>
+          <h2>CRM Module</h2>
+          <p>Purpose: manage client portfolios, review branch submissions, process filings, coordinate audits, and track escalations.</p>
+        </div>
+        <span class="module-badge crm">CRM</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Start with the dashboard and due queues.</li>
+            <li>Open <strong>All Clients</strong> to enter a client workspace.</li>
+            <li>Use <strong>Document Review Center</strong> for approve versus reupload decisions.</li>
+            <li>Use <strong>Returns / Filings</strong> to move filings through prepared, reviewed, filed, and acknowledged stages.</li>
+            <li>Create and assign audits from <strong>Audits</strong>.</li>
+            <li>Use <strong>SLA Tracker</strong> and <strong>Escalations</strong> when work remains overdue.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Returned documents move back to Branch.</li>
+            <li>Contractor task or evidence issues move back to Contractor.</li>
+            <li>Persistent overdue issues move to CCO and then CEO if unresolved.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain the difference between review approval, reupload, and escalation?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/crm-dashboard.png" alt="CRM Dashboard">
+            <figcaption>CRM action workbench</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/crm-clients.png" alt="CRM Clients">
+            <figcaption>Assigned clients</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/crm-returns.png" alt="CRM Returns">
+            <figcaption>Returns and filings workspace</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>Client Module</h2>
+          <p>Purpose: review company-wide branches, employees, payroll readiness, approvals, and support follow-up.</p>
+        </div>
+        <span class="module-badge client">CLIENT</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review the dashboard with branch and period filters.</li>
+            <li>Use <strong>Branches</strong> for organization-level branch visibility.</li>
+            <li>Use <strong>Employees</strong> for employee master review and maintenance.</li>
+            <li>Use <strong>Approvals Center</strong> for routed approvals.</li>
+            <li>Use <strong>My Queries</strong> for support and follow-up.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Branch execution issues move to Branch and CRM.</li>
+            <li>Payroll readiness issues move to Payroll.</li>
+            <li>Major support issues move through CRM or Admin channels.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee identify which branch needs attention and who should act next?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/client-dashboard.png" alt="Client Dashboard">
+            <figcaption>Client dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/client-branches.png" alt="Client Branches">
+            <figcaption>Branch listing</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/client-employees.png" alt="Client Employees">
+            <figcaption>Employee master</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>Branch Module</h2>
+          <p>Purpose: execute monthly and periodic compliance uploads, respond to review remarks, and maintain branch-level operational data.</p>
+        </div>
+        <span class="module-badge branch">BRANCH</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review branch KPIs, upload completion, and open observations on the dashboard.</li>
+            <li>Use <strong>Monthly Compliance</strong> for monthly uploads and overdue items.</li>
+            <li>Use <strong>Periodic Uploads</strong> for quarterly, half-yearly, and yearly submissions.</li>
+            <li>Read and correct returned items, then resubmit.</li>
+            <li>Use Helpdesk when branch execution is blocked.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Submissions move to CRM for review.</li>
+            <li>Returned items come back to Branch for correction.</li>
+            <li>Overdue items can escalate upward through SLA rules.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain first submission versus reupload?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/branch-dashboard.png" alt="Branch Dashboard">
+            <figcaption>Branch dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/branch-compliance.png" alt="Branch Compliance">
+            <figcaption>Monthly compliance workbench</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/branch-uploads.png" alt="Branch Uploads">
+            <figcaption>Periodic uploads workbench</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module page-break">
+      <div class="module-header">
+        <div>
+          <h2>Auditor Module</h2>
+          <p>Purpose: execute assigned audits, request reuploads, raise observations, and publish audit reports.</p>
+        </div>
+        <span class="module-badge auditor">AUDITOR</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review audit counts and due audits from the dashboard.</li>
+            <li>Use <strong>Audits</strong> to open the next assigned workspace.</li>
+            <li>Review scope, evidence, checklist, and branch context.</li>
+            <li>Request reupload when evidence is insufficient.</li>
+            <li>Raise observations, set severity, and complete report progress.</li>
+            <li>Finalize outputs in <strong>Reports</strong>.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Reupload requests go back to the source team.</li>
+            <li>Final outputs feed CRM, CCO, and CEO review cycles.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain when to request reupload and when to log an observation?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/auditor-dashboard.png" alt="Auditor Dashboard">
+            <figcaption>Auditor dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/auditor-audits.png" alt="Auditor Audits">
+            <figcaption>Assigned audits</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/auditor-reports.png" alt="Auditor Reports">
+            <figcaption>Audit reports</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>Contractor Module</h2>
+          <p>Purpose: complete assigned tasks, upload evidence, answer reviewer remarks, and raise support tickets when blocked.</p>
+        </div>
+        <span class="module-badge contractor">CONTRACTOR</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Open the dashboard and review required documents, in-progress items, and awaiting approval.</li>
+            <li>Use <strong>Tasks</strong> to start, upload evidence, comment, and submit.</li>
+            <li>Use <strong>Support</strong> for technical or compliance blockers.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Rejected work returns for correction and resubmission.</li>
+            <li>Submitted work moves to the reviewer, usually CRM or another assigned team.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain when to use task comments versus a support ticket?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/contractor-dashboard.png" alt="Contractor Dashboard">
+            <figcaption>Contractor dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/contractor-tasks.png" alt="Contractor Tasks">
+            <figcaption>Unified task center</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/contractor-support.png" alt="Contractor Support">
+            <figcaption>Support and queries</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>Payroll Module</h2>
+          <p>Purpose: process client-scoped payroll runs, statutory outputs, reports, and related employee-facing results.</p>
+        </div>
+        <span class="module-badge payroll">PAYROLL</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review the payroll dashboard for active and pending runs.</li>
+            <li>Open <strong>Clients</strong> and enter the target client workspace.</li>
+            <li>Use <strong>Payroll Runs</strong> for input freeze, attendance import, arrears, preview, approval, and publishing.</li>
+            <li>Use <strong>Reports</strong> and <strong>Registers</strong> for output generation.</li>
+            <li>Use PF/ESI and queries pages when statutory or support issues exist.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Published outputs feed ESS and business reporting.</li>
+            <li>Employee-facing PF, ESI, or payslip issues may route to PF Team.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee explain the difference between global payroll pages and client-scoped pages?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/payroll-dashboard.png" alt="Payroll Dashboard">
+            <figcaption>Payroll dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/payroll-clients.png" alt="Payroll Clients">
+            <figcaption>Assigned clients</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/payroll-reports.png" alt="Payroll Reports">
+            <figcaption>Payroll reports</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module page-break">
+      <div class="module-header">
+        <div>
+          <h2>PF Team Module</h2>
+          <p>Purpose: triage and resolve PF, ESI, and payslip-related support tickets from employees and payroll operations.</p>
+        </div>
+        <span class="module-badge pfteam">PF TEAM</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Review total, open, in-progress, and SLA-breached tickets from the dashboard.</li>
+            <li>Use <strong>Tickets</strong> to filter by client, category, status, or priority.</li>
+            <li>Open the ticket, review history, respond, and close when resolved.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Issues needing payroll input are coordinated with Payroll.</li>
+            <li>Missing employee information must be collected before closure.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee identify which ticket must be handled first and why?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/pf-dashboard.png" alt="PF Dashboard">
+            <figcaption>PF and ESI dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/pf-tickets.png" alt="PF Tickets">
+            <figcaption>Helpdesk tickets</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-header">
+        <div>
+          <h2>ESS Module</h2>
+          <p>Purpose: let employees manage self-service actions such as payslips, documents, leave, profile, and helpdesk queries.</p>
+        </div>
+        <span class="module-badge ess">ESS</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <h3>Daily Workflow</h3>
+          <ol>
+            <li>Log in using company code, email, and password.</li>
+            <li>Review the dashboard cards for payslip, PF, ESI, and leave balance.</li>
+            <li>Use <strong>Payslips</strong> to filter and download payroll output.</li>
+            <li>Use <strong>Documents</strong> to preview and download employee records.</li>
+            <li>Use <strong>Leave</strong>, <strong>Nominations</strong>, <strong>My Profile</strong>, and <strong>Attendance</strong> for self-service updates.</li>
+            <li>Use <strong>Helpdesk</strong> for PF, ESI, or payslip issues.</li>
+          </ol>
+          <h3>Exception and Handoff</h3>
+          <ul>
+            <li>Published payroll output comes from Payroll.</li>
+            <li>Helpdesk requests route to PF Team, Payroll, or HR support depending on issue type.</li>
+          </ul>
+          <h3>Trainer Check</h3>
+          <ul>
+            <li>Can the trainee independently download a payslip and locate a document?</li>
+          </ul>
+        </div>
+        <div class="image-grid">
+          <figure>
+            <img src="./user-manual-assets/ess-dashboard.png" alt="ESS Dashboard">
+            <figcaption>ESS dashboard</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/ess-payslips.png" alt="ESS Payslips">
+            <figcaption>Payslip download</figcaption>
+          </figure>
+          <figure>
+            <img src="./user-manual-assets/ess-documents.png" alt="ESS Documents">
+            <figcaption>Document vault</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block page-break">
+      <h2>Cross-Module Process Flows</h2>
+      <div class="trainer-grid">
+        <div class="trainer-card">
+          <h4>New Client Setup</h4>
+          <ol>
+            <li>Admin creates client, branches, and users.</li>
+            <li>Admin assigns CRM, Auditor, and Payroll.</li>
+            <li>Client and Branch start business data setup.</li>
+          </ol>
+        </div>
+        <div class="trainer-card">
+          <h4>Branch to CRM Review</h4>
+          <ol>
+            <li>Branch uploads compliance evidence.</li>
+            <li>CRM approves or returns it for reupload.</li>
+            <li>Branch corrects and resubmits if required.</li>
+          </ol>
+        </div>
+        <div class="trainer-card">
+          <h4>Audit Lifecycle</h4>
+          <ol>
+            <li>CRM creates the audit.</li>
+            <li>Auditor executes the workspace and report.</li>
+            <li>Completed outputs feed CRM, CCO, and CEO review.</li>
+          </ol>
+        </div>
+        <div class="trainer-card">
+          <h4>Payroll to ESS</h4>
+          <ol>
+            <li>Payroll processes and publishes a run.</li>
+            <li>Payslips become visible in ESS.</li>
+            <li>Employee issues route to PF Team or Payroll.</li>
+          </ol>
+        </div>
+        <div class="trainer-card">
+          <h4>Escalation Chain</h4>
+          <ol>
+            <li>CRM works the issue first.</li>
+            <li>CCO intervenes if unresolved.</li>
+            <li>CEO reviews severe or repeated cases.</li>
+          </ol>
+        </div>
+        <div class="trainer-card">
+          <h4>Contractor Task Flow</h4>
+          <ol>
+            <li>Task is assigned.</li>
+            <li>Contractor uploads evidence and submits.</li>
+            <li>Reviewer approves or rejects for correction.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <h2>Trainer Assessment Checklist</h2>
+      <ol>
+        <li>Can the trainee explain the purpose of the role dashboard?</li>
+        <li>Can the trainee identify the main daily work queue?</li>
+        <li>Can the trainee explain what happens after approval?</li>
+        <li>Can the trainee explain what happens after rejection?</li>
+        <li>Can the trainee identify the next team in the process?</li>
+        <li>Can the trainee explain when escalation is required?</li>
+      </ol>
+    </section>
+
+    <p class="footer-note">Prepared from the consolidated sources in MODULE_WISE_USER_MANUAL.md, MODULE_WISE_TRAINING_FLOW.md, and MODULE_WISE_TRAINER_SOP.md. Screenshots reference the verified local assets captured on March 29, 2026.</p>
+  </div>
+</body>
+</html>

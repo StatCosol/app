@@ -148,6 +148,7 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
 export class CcoRegistersComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   clients: PayrollClient[] = [];
+  clientOptions: SelectOption[] = [{ value: null, label: 'All Clients' }];
   rows: RegisterRow[] = [];
   loading = true;
   error = '';
@@ -160,13 +161,6 @@ export class CcoRegistersComponent implements OnInit, OnDestroy {
     { key: 'status', header: 'Status', sortable: true, width: '120px' },
     { key: 'actions', header: 'Download', sortable: false, width: '120px', align: 'center' },
   ];
-
-  get clientOptions(): SelectOption[] {
-    return [
-      { value: null, label: 'All Clients' },
-      ...this.clients.map(c => ({ value: c.id, label: c.clientName })),
-    ];
-  }
 
   q = {
     clientId: null as string | null,
@@ -183,7 +177,14 @@ export class CcoRegistersComponent implements OnInit, OnDestroy {
     this.http.get<any>(`${this.base}/clients`).pipe(
       takeUntil(this.destroy$),
     ).subscribe({
-      next: (list) => { this.clients = list || []; this.cdr.detectChanges(); },
+      next: (list) => {
+        this.clients = list || [];
+        this.clientOptions = [
+          { value: null, label: 'All Clients' },
+          ...this.clients.map((c) => ({ value: c.id, label: c.clientName })),
+        ];
+        this.cdr.markForCheck();
+      },
       error: () => { this.clients = []; },
     });
     this.reload();
@@ -217,10 +218,21 @@ export class CcoRegistersComponent implements OnInit, OnDestroy {
           approvedAt: r.approvedAt ?? null,
         })) as RegisterRow[];
       }),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      finalize(() => {
+        this.loading = false;
+        this.cdr.markForCheck();
+      }),
     ).subscribe({
-      next: (rows) => { this.loading = false; this.rows = rows; this.cdr.detectChanges(); },
-      error: (e) => { this.loading = false; this.error = e?.error?.message || 'Failed to load registers'; this.cdr.detectChanges(); },
+      next: (rows) => {
+        this.loading = false;
+        this.rows = rows;
+        this.cdr.markForCheck();
+      },
+      error: (e) => {
+        this.loading = false;
+        this.error = e?.error?.message || 'Failed to load registers';
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -238,13 +250,13 @@ export class CcoRegistersComponent implements OnInit, OnDestroy {
       },
       error: (e) => {
         this.error = e?.error?.message || 'Download failed';
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
     });
   }
 
   clientName(clientId: string): string {
-    return this.clients.find(c => c.id === clientId)?.clientName || clientId;
+    return this.clients.find(c => c.id === clientId)?.clientName || '—';
   }
 
   two(n: any): string {

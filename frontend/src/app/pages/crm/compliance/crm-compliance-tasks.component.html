@@ -1,9 +1,11 @@
-<ui-page-header title="CRM Compliance Tasks" subtitle="Task approvals, rejections, and assignments"></ui-page-header>
+<ui-page-header title="CRM Compliance Tasks" subtitle="Task approvals, rejections, and assignments">
+  <ui-button variant="secondary" (clicked)="goBack()">← Back</ui-button>
+</ui-page-header>
 
-<div class="p-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <!-- ─── KPI Cards ─── -->
   <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6" *ngIf="kpis">
-    <button
+    <button type="button"
       class="bg-white rounded-lg border border-gray-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
       [class.ring-2]="status === ''"
       [class.ring-statco-blue]="status === ''"
@@ -12,7 +14,7 @@
       <div class="text-xs text-gray-500 mt-1">Total</div>
     </button>
 
-    <button
+    <button type="button"
       class="bg-white rounded-lg border border-red-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
       [class.ring-2]="status === 'OVERDUE'"
       [class.ring-red-500]="status === 'OVERDUE'"
@@ -21,14 +23,14 @@
       <div class="text-xs text-red-500 mt-1">Overdue</div>
     </button>
 
-    <button
+    <button type="button"
       class="bg-white rounded-lg border border-amber-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
       (click)="filterByStatus('PENDING')">
       <div class="text-2xl font-bold text-amber-600">{{ kpis.dueToday }}</div>
       <div class="text-xs text-amber-500 mt-1">Due Today</div>
     </button>
 
-    <button
+    <button type="button"
       class="bg-white rounded-lg border border-blue-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
       [class.ring-2]="status === 'SUBMITTED'"
       [class.ring-blue-500]="status === 'SUBMITTED'"
@@ -37,7 +39,7 @@
       <div class="text-xs text-blue-500 mt-1">Awaiting Review</div>
     </button>
 
-    <button
+    <button type="button"
       class="bg-white rounded-lg border border-green-200 p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
       [class.ring-2]="status === 'APPROVED'"
       [class.ring-green-500]="status === 'APPROVED'"
@@ -49,7 +51,7 @@
 
   <!-- ─── Secondary KPI Row ─── -->
   <div class="grid grid-cols-3 md:grid-cols-4 gap-3 mb-6" *ngIf="kpis">
-    <button
+    <button type="button"
       class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
       [class.ring-2]="status === 'PENDING'"
       [class.ring-yellow-400]="status === 'PENDING'"
@@ -57,7 +59,7 @@
       <span class="font-semibold text-yellow-600">{{ kpis.pending }}</span>
       <span class="text-gray-500 ml-1">Pending</span>
     </button>
-    <button
+    <button type="button"
       class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
       [class.ring-2]="status === 'IN_PROGRESS'"
       [class.ring-indigo-400]="status === 'IN_PROGRESS'"
@@ -65,7 +67,7 @@
       <span class="font-semibold text-indigo-600">{{ kpis.inProgress }}</span>
       <span class="text-gray-500 ml-1">In Progress</span>
     </button>
-    <button
+    <button type="button"
       class="bg-gray-50 rounded-lg border border-gray-200 px-3 py-2 text-center hover:bg-gray-100 cursor-pointer text-sm"
       [class.ring-2]="status === 'REJECTED'"
       [class.ring-orange-400]="status === 'REJECTED'"
@@ -84,22 +86,22 @@
   <!-- ─── Filters ─── -->
   <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
     <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
-      <input
+      <input autocomplete="off" id="cct-client-id" name="clientId"
         class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
         placeholder="Client ID"
         [(ngModel)]="clientId" />
 
-      <input
+      <input autocomplete="off" id="cct-branch-id" name="branchId"
         class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
         placeholder="Branch ID"
         [(ngModel)]="branchId" />
 
-      <input
+      <input autocomplete="off" id="cct-month-key" name="monthKey"
         class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
         placeholder="Month Key (YYYY-MM)"
         [(ngModel)]="monthKey" />
 
-      <select
+      <select id="cct-status" name="status"
         class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-statco-blue focus:border-statco-blue"
         [(ngModel)]="status">
         <option value="">All Status</option>
@@ -111,7 +113,7 @@
         <option value="REJECTED">REJECTED</option>
       </select>
 
-      <input
+      <input autocomplete="off" id="cct-q" name="q"
         class="border border-gray-300 rounded-md px-3 py-2 text-sm md:col-span-2 focus:ring-statco-blue focus:border-statco-blue"
         placeholder="Search (task name / code)"
         [(ngModel)]="q"
@@ -160,7 +162,8 @@
       <div class="text-xs text-gray-500" *ngIf="row.taskCode">{{ row.taskCode }}</div>
       <div class="text-xs text-gray-400 mt-0.5" *ngIf="row.remarks">Remark: {{ row.remarks }}</div>
     </ng-template>
-    <ng-template uiTableCell="branch" let-row>{{ row.branch?.branchName || row.branchId || '-' }}</ng-template>
+    <ng-template uiTableCell="clientId" let-row>{{ row.clientName || row.client?.clientName || '—' }}</ng-template>
+    <ng-template uiTableCell="branch" let-row>{{ row.branch?.branchName || row.branchName || '—' }}</ng-template>
     <ng-template uiTableCell="dueDate" let-row>
       <div class="text-sm text-gray-600">{{ row.dueDate | date:'mediumDate' }}</div>
       <div class="text-xs mt-0.5" [class]="slaClass(row.dueDate, row.status)" *ngIf="slaLabel(row.dueDate, row.status)">
@@ -169,6 +172,12 @@
     </ng-template>
     <ng-template uiTableCell="status" let-row>
       <ui-status-badge [status]="row.status"></ui-status-badge>
+      <div class="text-xs text-gray-400 mt-0.5" *ngIf="row.status === 'APPROVED' && row.approvedBy?.name">
+        by {{ row.approvedBy.name }}
+      </div>
+      <div class="text-xs text-gray-400 mt-0.5" *ngIf="row.status === 'APPROVED' && !row.approvedBy?.name && !row.approvedByUserId">
+        (no audit trail)
+      </div>
     </ng-template>
     <ng-template uiTableCell="actions" let-row>
       <div class="flex items-center justify-end gap-2" *ngIf="canReview(row.status)">

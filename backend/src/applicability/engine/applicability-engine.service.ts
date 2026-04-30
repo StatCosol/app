@@ -31,7 +31,7 @@ type CompAcc = {
   isApplicable: boolean;
   source: ComplianceSource;
   locked: boolean;
-  explain: Record<string, any>;
+  explain: Record<string, unknown>;
 };
 
 @Injectable()
@@ -52,20 +52,20 @@ export class ApplicabilityEngineService {
   private taskRepo: Repository<AeUnitTaskEntity>;
 
   constructor(
-    private readonly ds: DataSource,
+    private readonly _ds: DataSource,
     private readonly taskGen: TaskGeneratorService,
   ) {
-    this.unitRepo = ds.getRepository(AeUnitEntity);
-    this.factsRepo = ds.getRepository(AeUnitFactsEntity);
-    this.actRepo = ds.getRepository(AeUnitActEntity);
-    this.actProfileRepo = ds.getRepository(AeUnitActProfileEntity);
-    this.ruleRepo = ds.getRepository(AeRuleMasterEntity);
-    this.ruleCondRepo = ds.getRepository(AeRuleConditionEntity);
-    this.pkgItemRepo = ds.getRepository(AePackageItemEntity);
-    this.complianceRepo = ds.getRepository(AeComplianceMasterEntity);
-    this.unitComplianceRepo = ds.getRepository(AeUnitComplianceEntity);
-    this.overrideRepo = ds.getRepository(AeUnitComplianceOverrideEntity);
-    this.taskRepo = ds.getRepository(AeUnitTaskEntity);
+    this.unitRepo = _ds.getRepository(AeUnitEntity);
+    this.factsRepo = _ds.getRepository(AeUnitFactsEntity);
+    this.actRepo = _ds.getRepository(AeUnitActEntity);
+    this.actProfileRepo = _ds.getRepository(AeUnitActProfileEntity);
+    this.ruleRepo = _ds.getRepository(AeRuleMasterEntity);
+    this.ruleCondRepo = _ds.getRepository(AeRuleConditionEntity);
+    this.pkgItemRepo = _ds.getRepository(AePackageItemEntity);
+    this.complianceRepo = _ds.getRepository(AeComplianceMasterEntity);
+    this.unitComplianceRepo = _ds.getRepository(AeUnitComplianceEntity);
+    this.overrideRepo = _ds.getRepository(AeUnitComplianceOverrideEntity);
+    this.taskRepo = _ds.getRepository(AeUnitTaskEntity);
   }
 
   /* ───────────────────────── CORE RECOMPUTE ───────────────────────── */
@@ -79,7 +79,7 @@ export class ApplicabilityEngineService {
 
     // 2) Load facts
     const facts = await this.factsRepo.findOneBy({ unitId });
-    const factsJson: Record<string, any> = facts?.factsJson ?? {};
+    const factsJson: Record<string, unknown> = facts?.factsJson ?? {};
 
     // 3) Load act toggles + profiles
     const acts = await this.actRepo.findBy({ unitId });
@@ -142,7 +142,7 @@ export class ApplicabilityEngineService {
       packageCode: string,
       source: ComplianceSource,
       locked: boolean,
-      explain: Record<string, any>,
+      explain: Record<string, unknown>,
     ) => {
       appliedPackageCodes.add(packageCode);
       const pkgItems = await this.pkgItemRepo.findBy({ packageCode });
@@ -169,7 +169,7 @@ export class ApplicabilityEngineService {
       const source =
         (eff.source as ComplianceSource) ?? ComplianceSource.AUTO_RULE;
       const locked = eff.locked !== undefined ? Boolean(eff.locked) : true;
-      const baseExplain: Record<string, any> = {
+      const baseExplain: Record<string, unknown> = {
         rules: [rule.id],
         ruleName: rule.name,
       };
@@ -340,18 +340,19 @@ export class ApplicabilityEngineService {
   private async generateExpiryTasks(
     unitId: string,
     complianceId: string,
-    tpl: Record<string, any>,
-    actProfilesMap: Record<string, Record<string, any>>,
+    tpl: Record<string, unknown>,
+    actProfilesMap: Record<string, Record<string, unknown>>,
   ): Promise<number> {
-    const actCode = String(tpl.actCode ?? '');
-    const expiryField = String(tpl.expiryField ?? 'expiryDate');
+    const actCode: string = typeof tpl.actCode === 'string' ? tpl.actCode : '';
+    const expiryField: string =
+      typeof tpl.expiryField === 'string' ? tpl.expiryField : 'expiryDate';
     if (!actCode) return 0;
 
     const profile = actProfilesMap[actCode];
     const expiryRaw = profile?.[expiryField];
     if (!expiryRaw) return 0;
 
-    const expiry = new Date(expiryRaw);
+    const expiry = new Date(expiryRaw as string | number);
     if (Number.isNaN(expiry.getTime())) return 0;
 
     const leadDays = [60, 30, 15];
@@ -396,7 +397,7 @@ export class ApplicabilityEngineService {
     const masterMap = new Map(masters.map((m) => [m.id, m]));
 
     // Group by labourCode
-    const grouped: Record<string, any[]> = {};
+    const grouped: Record<string, unknown[]> = {};
     for (const row of rows) {
       const master = masterMap.get(row.complianceId);
       const key = master?.labourCode ?? 'OTHER';

@@ -2,9 +2,9 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Query,
-  Req,
   UseGuards,
   Body,
 } from '@nestjs/common';
@@ -14,6 +14,8 @@ import { NotificationListQueryDto } from './dto/notification-list.dto';
 import { NotificationStatusDto } from './dto/notification-status.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /**
  * Notifications Inbox Controller
@@ -56,15 +58,15 @@ export class NotificationsInboxController {
   @ApiOperation({ summary: 'List' })
   @Get('list')
   list(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query() q: NotificationListQueryDto & { view?: string },
   ) {
-    const normalized = { ...q } as any;
+    const normalized: NotificationListQueryDto = { ...q };
     if (q.view && !q.box) {
       const v = String(q.view).toUpperCase();
       normalized.box = v === 'OUTBOX' ? 'OUTBOX' : 'INBOX';
     }
-    return this.svc.list(req.user, normalized);
+    return this.svc.list({ id: user.id, role: user.roleCode }, normalized);
   }
 
   /**
@@ -77,8 +79,8 @@ export class NotificationsInboxController {
    */
   @ApiOperation({ summary: 'Get' })
   @Get(':id')
-  get(@Req() req: any, @Param('id') id: string) {
-    return this.svc.getById(req.user, id);
+  get(@CurrentUser() user: ReqUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getById({ id: user.id, role: user.roleCode }, id);
   }
 
   /**
@@ -95,10 +97,10 @@ export class NotificationsInboxController {
   @ApiOperation({ summary: 'Set Status' })
   @Patch(':id/status')
   setStatus(
-    @Req() req: any,
-    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: NotificationStatusDto,
   ) {
-    return this.svc.setStatus(req.user, id, dto);
+    return this.svc.setStatus({ id: user.id, role: user.roleCode }, id, dto);
   }
 }

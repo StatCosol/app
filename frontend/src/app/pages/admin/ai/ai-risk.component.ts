@@ -9,9 +9,10 @@ import {
   AiApiService,
   RiskAssessment,
   HighRiskClient,
-  AiInsight,
 } from '../../../core/ai-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { FilterOptionsService } from '../../../shared/filters/services/filter-options.service';
+import { ClientOption } from '../../../shared/filters/models/filter.model';
 import {
   PageHeaderComponent,
   LoadingSpinnerComponent,
@@ -56,9 +57,12 @@ import {
         <h3 class="font-semibold text-blue-900 mb-3">Run Risk Assessment</h3>
         <div class="flex items-end gap-4">
           <div class="flex-1">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
-            <input type="text" [(ngModel)]="assessClientId" placeholder="Enter client UUID"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ar-assess-client-id">Client</label>
+            <select id="ar-assess-client-id" name="assessClientId" [(ngModel)]="assessClientId"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="">Select client</option>
+              <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+            </select>
           </div>
           <ui-button variant="primary" [disabled]="!assessClientId || assessing" (clicked)="runAssessment()">
             {{ assessing ? 'Analysing...' : 'Run Assessment' }}
@@ -199,6 +203,7 @@ export class AiRiskComponent implements OnInit, OnDestroy {
   showAssessPanel = false;
   assessClientId = '';
   errorMsg = '';
+  clients: ClientOption[] = [];
 
   highRiskClients: HighRiskClient[] = [];
   latestAssessment: RiskAssessment | null = null;
@@ -219,6 +224,7 @@ export class AiRiskComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private toast: ToastService,
+    private filterOptions: FilterOptionsService,
   ) {}
 
   ngOnInit(): void {
@@ -229,11 +235,21 @@ export class AiRiskComponent implements OnInit, OnDestroy {
       this.showAssessPanel = true;
     }
     this.loadHighRisk();
+    this.loadClients();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private loadClients(): void {
+    this.filterOptions.adminClients()
+      .pipe(takeUntil(this.destroy$), timeout(8000))
+      .subscribe({
+        next: (rows) => { this.clients = rows ?? []; this.cdr.markForCheck(); },
+        error: () => { this.toast.error('Failed to load clients list.'); },
+      });
   }
 
   loadHighRisk(): void {

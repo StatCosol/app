@@ -6,7 +6,6 @@ import {
   Param,
   Body,
   Query,
-  Req,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -32,9 +31,15 @@ import {
   BranchRiskAssessmentDto,
 } from './dto/ai.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('AI')
 @ApiBearerAuth('JWT')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller({ path: 'ai', version: '1' })
 export class AiController {
   constructor(
@@ -91,14 +96,17 @@ export class AiController {
   @Post('risk/assess')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
-  async runRiskAssessment(@Body() dto: RunRiskAssessmentDto, @Req() req: any) {
+  async runRiskAssessment(
+    @Body() dto: RunRiskAssessmentDto,
+    @CurrentUser() user: ReqUser,
+  ) {
     try {
       return await this.riskEngine.runAssessment(
         dto.clientId,
-        req.user.userId,
+        user.userId,
         dto.assessmentType,
       );
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Risk assessment failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -157,8 +165,8 @@ export class AiController {
   @ApiOperation({ summary: 'Dismiss Insight' })
   @Put('insights/:id/dismiss')
   @Roles('ADMIN', 'CEO', 'CCO')
-  async dismissInsight(@Param('id') id: string, @Req() req: any) {
-    await this.riskEngine.dismissInsight(id, req.user.userId);
+  async dismissInsight(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+    await this.riskEngine.dismissInsight(id, user.userId);
     return { success: true };
   }
 
@@ -166,11 +174,11 @@ export class AiController {
   @ApiOperation({ summary: 'Generate Audit Observation' })
   @Post('audit/generate-observation')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @Roles('ADMIN', 'CCO', 'CRM', 'AUDITOR')
+  @Roles('AUDITOR')
   async generateAuditObservation(@Body() dto: GenerateAuditObservationDto) {
     try {
       return await this.auditAi.generateObservation(dto);
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Observation generation failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -198,15 +206,15 @@ export class AiController {
 
   @ApiOperation({ summary: 'Review Observation' })
   @Put('audit/observations/:id/review')
-  @Roles('ADMIN', 'CCO', 'AUDITOR')
+  @Roles('CCO', 'CRM')
   async reviewObservation(
     @Param('id') id: string,
     @Body() dto: ReviewObservationDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.auditAi.reviewObservation(
       id,
-      req.user.userId,
+      user.userId,
       dto.status,
       dto.auditorNotes,
     );
@@ -223,7 +231,7 @@ export class AiController {
         dto.clientId,
         dto.payrollRunId,
       );
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Anomaly detection failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -255,11 +263,11 @@ export class AiController {
   async resolveAnomaly(
     @Param('id') id: string,
     @Body() dto: ResolveAnomalyDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.payrollAi.resolveAnomaly(
       id,
-      req.user.userId,
+      user.userId,
       dto.status,
       dto.resolutionNotes,
     );
@@ -285,15 +293,18 @@ export class AiController {
   @Post('query-draft')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
-  async generateQueryDraft(@Body() dto: QueryDraftDto, @Req() req: any) {
+  async generateQueryDraft(
+    @Body() dto: QueryDraftDto,
+    @CurrentUser() user: ReqUser,
+  ) {
     try {
       return await this.queryDraft.draft({
         message: dto.message,
         queryTypeHint: dto.queryTypeHint,
         subject: dto.subject,
-        createdBy: req.user?.userId,
+        createdBy: user?.userId,
       });
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Query draft failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -308,11 +319,11 @@ export class AiController {
   @Roles('ADMIN', 'CCO', 'CRM', 'AUDITOR')
   async runDocumentCheck(
     @Param('documentId') documentId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     try {
-      return await this.docCheck.checkDocument(documentId, req.user?.userId);
-    } catch (err) {
+      return await this.docCheck.checkDocument(documentId, user?.userId);
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Document check failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -344,16 +355,16 @@ export class AiController {
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
   async runBranchRiskAssessment(
     @Body() dto: BranchRiskAssessmentDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     try {
       return await this.riskEngine.runBranchAssessment({
         branchId: dto.branchId,
         year: dto.year,
         month: dto.month,
-        assessedBy: req.user?.userId,
+        assessedBy: user?.userId,
       });
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Branch risk assessment failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -365,13 +376,13 @@ export class AiController {
   @Get('risk/branch/:branchId')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT', 'BRANCH', 'AUDITOR')
   async getBranchRisk(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('branchId') branchId: string,
     @Query('year') yearStr: string,
     @Query('month') monthStr: string,
   ) {
-    if (req.user.roleCode === 'CLIENT' || req.user.roleCode === 'BRANCH') {
-      await this.branchAccess.assertBranchAccess(req.user.userId, branchId);
+    if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
+      await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
     const year = Number(yearStr);
     const month = Number(monthStr);
@@ -380,7 +391,7 @@ export class AiController {
     }
     try {
       return await this.riskEngine.getBranchRiskSnapshot(branchId, year, month);
-    } catch (err) {
+    } catch (err: any) {
       throw new HttpException(
         err?.message || 'Branch risk lookup failed',
         HttpStatus.INTERNAL_SERVER_ERROR,

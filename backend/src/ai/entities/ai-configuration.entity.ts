@@ -18,7 +18,7 @@ export class AiConfigurationEntity {
     name: 'model_name',
     type: 'varchar',
     length: 100,
-    default: 'gpt-4o-mini',
+    default: 'gpt-4.1-mini',
   })
   modelName: string;
 

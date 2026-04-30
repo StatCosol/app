@@ -14,20 +14,20 @@ import { ClientBranchesService } from '../../core/client-branches.service';
 
     <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
-        <label>Completion %</label>
-        <input type="number" [(ngModel)]="completionPercent" />
+        <label for="sim-completion">Completion %</label>
+        <input autocomplete="off" type="number" id="sim-completion" name="completionPercent" [(ngModel)]="completionPercent" />
       </div>
       <div>
-        <label>Overdue SLA</label>
-        <input type="number" [(ngModel)]="overdueSla" />
+        <label for="sim-overdue">Overdue SLA</label>
+        <input autocomplete="off" type="number" id="sim-overdue" name="overdueSla" [(ngModel)]="overdueSla" />
       </div>
       <div>
-        <label>High/Critical</label>
-        <input type="number" [(ngModel)]="highCritical" />
+        <label for="sim-critical">High/Critical</label>
+        <input autocomplete="off" type="number" id="sim-critical" name="highCritical" [(ngModel)]="highCritical" />
       </div>
       <div>
         <label>
-          <input type="checkbox" [(ngModel)]="expiringRegistrations" />
+          <input autocomplete="off" type="checkbox" id="sim-expiring" name="expiringRegistrations" [(ngModel)]="expiringRegistrations" />
           Expiring Registration
         </label>
       </div>

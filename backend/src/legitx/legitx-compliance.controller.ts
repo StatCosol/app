@@ -4,7 +4,6 @@ import {
   Param,
   ParseUUIDPipe,
   Query,
-  Req,
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
@@ -13,6 +12,8 @@ import { LegitxReadOnlyGuard } from '../auth/policies/legitx-readonly.guard';
 import { LegitxComplianceService } from './legitx-compliance.service';
 import { ComplianceQueryDto } from './dto/compliance-query.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @UseGuards(JwtAuthGuard, LegitxReadOnlyGuard)
 @ApiTags('Compliance')
@@ -24,7 +25,7 @@ export class LegitxComplianceController {
   @ApiOperation({ summary: 'Compliance Status' })
   @Get('compliance-status')
   async complianceStatus(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceQueryDto,
   ) {
@@ -35,14 +36,14 @@ export class LegitxComplianceController {
       branchId: q.branchId || null,
       lawType: q.lawType || null,
       status: q.status || null,
-      clientId: req.user?.clientId ?? null,
+      clientId: user?.clientId ?? null,
     });
   }
 
   @ApiOperation({ summary: 'List Mcd' })
   @Get('mcd')
   async listMcd(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceQueryDto,
   ) {
@@ -52,14 +53,14 @@ export class LegitxComplianceController {
       year: q.year ?? now.getFullYear(),
       branchId: q.branchId || null,
       status: q.status || null,
-      clientId: req.user?.clientId ?? null,
+      clientId: user?.clientId ?? null,
     });
   }
 
   @ApiOperation({ summary: 'List Returns' })
   @Get('returns')
   async listReturns(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceQueryDto,
   ) {
@@ -70,23 +71,23 @@ export class LegitxComplianceController {
       branchId: q.branchId || null,
       lawType: q.lawType || null,
       status: q.status || null,
-      clientId: req.user?.clientId ?? null,
+      clientId: user?.clientId ?? null,
     });
   }
 
   @ApiOperation({ summary: 'Download Return' })
   @Get('returns/:id/download')
   async downloadReturn(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.svc.getReturnDownload(id, req.user?.clientId ?? null);
+    return this.svc.getReturnDownload(id, user?.clientId ?? null);
   }
 
   @ApiOperation({ summary: 'List Audits' })
   @Get('audits')
   async listAudits(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     q: ComplianceQueryDto,
   ) {
@@ -96,25 +97,25 @@ export class LegitxComplianceController {
       year: q.year ?? now.getFullYear(),
       branchId: q.branchId || null,
       status: q.status || null,
-      clientId: req.user?.clientId ?? null,
+      clientId: user?.clientId ?? null,
     });
   }
 
   @ApiOperation({ summary: 'Download Audit Report' })
   @Get('audits/:auditId/report/download')
   async downloadAuditReport(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('auditId', new ParseUUIDPipe()) auditId: string,
   ) {
-    return this.svc.getAuditReportDownload(auditId, req.user?.clientId ?? null);
+    return this.svc.getAuditReportDownload(auditId, user?.clientId ?? null);
   }
 
   @ApiOperation({ summary: 'Audit Observations' })
   @Get('audits/:auditId/observations')
   async auditObservations(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Param('auditId', new ParseUUIDPipe()) auditId: string,
   ) {
-    return this.svc.getAuditObservations(auditId, req.user?.clientId ?? null);
+    return this.svc.getAuditObservations(auditId, user?.clientId ?? null);
   }
 }

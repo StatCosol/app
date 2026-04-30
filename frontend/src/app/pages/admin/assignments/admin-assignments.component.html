@@ -129,15 +129,10 @@
       <ng-template uiTableCell="clientName" let-row>
           <span class="font-medium text-gray-900">{{ clientNameById[row.clientId] || 'Unknown Client' }}</span>
         </ng-template>
-        
-        <!-- CRM Name -->
-        <ng-template uiTableCell="crmName" let-row>
-          <span class="text-sm text-gray-600">{{ getUserName(row.crmId) }}</span>
-        </ng-template>
-        
-        <!-- Auditor Name -->
-        <ng-template uiTableCell="auditorName" let-row>
-          <span class="text-sm text-gray-600">{{ getUserName(row.auditorId) }}</span>
+
+        <!-- Assigned To (name resolution) -->
+        <ng-template uiTableCell="assigneeName" let-row>
+          <span class="text-sm text-gray-600">{{ getUserName(row.assigneeId) }}</span>
         </ng-template>
       
       <!-- Start Date -->

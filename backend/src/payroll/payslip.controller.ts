@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Param,
-  Req,
   Res,
   StreamableFile,
   BadRequestException,
@@ -11,6 +10,8 @@ import type { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { PayslipGeneratorService } from './services/payslip-generator.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
@@ -25,10 +26,10 @@ export class PayslipController {
   async generateForEmployee(
     @Param('runId') runId: string,
     @Param('employeeId') employeeId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const userId = req.user?.userId ?? req.user?.id;
+    const userId = user?.userId ?? user?.id;
     if (!userId) throw new BadRequestException('Authenticated user required');
 
     const { buffer, fileName } = await this.generator.generateForEmployee(
@@ -48,8 +49,11 @@ export class PayslipController {
   /** Batch generate payslips for entire run */
   @ApiOperation({ summary: 'Generate For Run' })
   @Post('runs/:runId/generate-all')
-  async generateForRun(@Param('runId') runId: string, @Req() req: any) {
-    const userId = req.user?.userId ?? req.user?.id;
+  async generateForRun(
+    @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const userId = user?.userId ?? user?.id;
     if (!userId) throw new BadRequestException('Authenticated user required');
     return this.generator.generateForRun(runId, userId);
   }

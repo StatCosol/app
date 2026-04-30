@@ -3,8 +3,9 @@ import { ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil, timeout } from 'rxjs/operators';
-import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent } from '../../../shared/ui';
 import { CrmService } from '../../../core/crm.service';
+import { ClientContextService } from '../../../core/client-context.service';
 
 interface ClientTab {
   label: string;
@@ -15,13 +16,18 @@ interface ClientTab {
 @Component({
   standalone: true,
   selector: 'app-crm-client-overview',
-  imports: [CommonModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent],
+  imports: [CommonModule, RouterModule, PageHeaderComponent, LoadingSpinnerComponent, ClientContextStripComponent],
+  styles: [`
+    .tab-nav { scrollbar-width: none; -ms-overflow-style: none; }
+    .tab-nav::-webkit-scrollbar { display: none; }
+  `],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
       <ui-page-header
         [title]="clientName ? 'Client: ' + clientName : 'Client Workspace'"
         description="Manage branches, contractors, compliance, documents & payroll for this client"
         icon="office-building">
+        <ui-client-context-strip [inline]="true"></ui-client-context-strip>
       </ui-page-header>
 
       <ui-loading-spinner *ngIf="loading" text="Loading client info..."></ui-loading-spinner>
@@ -31,24 +37,14 @@ interface ClientTab {
       </div>
 
       <div *ngIf="!loading && !accessDenied">
-        <!-- Client Info Card -->
-        <div *ngIf="clientName" class="bg-white rounded-lg border border-gray-200 p-4 mb-6 flex items-center gap-4">
-          <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg">
-            {{ clientName.charAt(0) }}
-          </div>
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900">{{ clientName }}</h3>
-            <p class="text-sm text-gray-500">Client Code: {{ clientCode || '—' }}</p>
-          </div>
-        </div>
 
         <!-- Tab Navigation -->
-        <nav class="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 overflow-x-auto">
+        <nav class="tab-nav flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 overflow-x-auto">
           <a *ngFor="let tab of tabs"
              [routerLink]="['/crm/clients', clientId, tab.route]"
              routerLinkActive="bg-white text-indigo-700 shadow-sm"
              [routerLinkActiveOptions]="{ exact: true }"
-             class="flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium text-gray-600
+             class="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600
                     hover:text-gray-900 transition-colors whitespace-nowrap">
             <span>{{ tab.icon }}</span>
             <span>{{ tab.label }}</span>
@@ -75,6 +71,12 @@ export class CrmClientOverviewComponent implements OnInit, OnDestroy {
   clientId = '';
   clientName = '';
   clientCode = '';
+  clientStatus = '';
+  clientIndustry = '';
+  clientState = '';
+  clientContact = '';
+  clientEmail = '';
+  clientMobile = '';
   loading = true;
   accessDenied = false;
 
@@ -92,6 +94,7 @@ export class CrmClientOverviewComponent implements OnInit, OnDestroy {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly crmService: CrmService,
+    private readonly clientCtx: ClientContextService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -120,6 +123,13 @@ export class CrmClientOverviewComponent implements OnInit, OnDestroy {
         if (match) {
           this.clientName = match.clientName || match.name || '';
           this.clientCode = match.clientCode || '';
+          this.clientStatus = match.status || '';
+          this.clientIndustry = match.industry || '';
+          this.clientState = match.state || '';
+          this.clientContact = match.primaryContactName || '';
+          this.clientEmail = match.primaryContactEmail || '';
+          this.clientMobile = match.primaryContactMobile || '';
+          this.clientCtx.set({ id: this.clientId, clientName: this.clientName, clientCode: this.clientCode });
         } else {
           this.accessDenied = true;
         }

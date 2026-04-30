@@ -48,3 +48,7 @@ export { AiRiskScoreComponent } from './ai-risk-score/ai-risk-score.component';
 
 // Branch Audit KPI
 export { BranchAuditKpiComponent } from './branch-audit-kpi/branch-audit-kpi.component';
+
+// Client Context Strip
+export { ClientContextStripComponent } from './client-context-strip/client-context-strip.component';
+export type { ContextBadge } from './client-context-strip/client-context-strip.component';

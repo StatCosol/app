@@ -5,7 +5,6 @@ import {
   Param,
   Body,
   Query,
-  Req,
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +13,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SlaService } from './sla.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('SLA')
 @ApiBearerAuth('JWT')
@@ -36,10 +37,8 @@ export class SlaController {
       branchId?: string;
       clientId?: string;
     },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
-
     if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor access denied');
     }
@@ -67,17 +66,20 @@ export class SlaController {
       dueDate?: string;
       clientId?: string;
     },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
-
     if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor access denied');
     }
 
     const clientId = user.clientId || body.clientId;
-    if (!clientId) throw new ForbiddenException('Client not mapped');
+    // Non-client roles (admin/CRM/CCO/CEO) may not have a clientId in JWT;
+    // allow them to update by task ID only, without client scoping.
+    const nonClientRoles = ['ADMIN', 'CCO', 'CEO', 'CRM'];
+    if (!clientId && !nonClientRoles.includes(user.roleCode)) {
+      throw new ForbiddenException('Client not mapped');
+    }
 
-    return this.slaService.update(clientId, user, id, body);
+    return this.slaService.update(clientId ?? null, user, id, body);
   }
 }

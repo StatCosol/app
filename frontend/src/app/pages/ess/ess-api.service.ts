@@ -8,11 +8,11 @@ import { environment } from '../../../environments/environment';
 export interface EssProfile {
   id: string;
   employeeCode: string;
-  firstName: string;
-  lastName: string | null;
+  name: string;
   dateOfBirth: string | null;
   gender: string | null;
   fatherName: string | null;
+  maritalStatus: string | null;
   phone: string | null;
   email: string | null;
   aadhaar: string | null;
@@ -21,6 +21,8 @@ export interface EssProfile {
   esic: string | null;
   pfApplicable: boolean;
   pfRegistered: boolean;
+  pfServiceStartDate: string | null;
+  basicAtPfStart: number | null;
   esiApplicable: boolean;
   esiRegistered: boolean;
   bankName: string | null;
@@ -96,9 +98,13 @@ export interface EssNominationMember {
   id: string;
   memberName: string;
   relationship: string | null;
+  dateOfBirth: string | null;
+  address: string | null;
   sharePct: number;
   isMinor: boolean;
   guardianName: string | null;
+  guardianRelationship: string | null;
+  guardianAddress: string | null;
 }
 
 export interface LeaveBalance {
@@ -151,8 +157,70 @@ export interface EssAttendanceRecord {
   checkOut: string | null;
   workedHours: string | null;
   overtimeHours: string | null;
+  shortWorkReason: string | null;
   remarks: string | null;
   source: string | null;
+  captureMethod: string | null;
+  selfMarked: boolean;
+}
+
+export interface TodayAttendance {
+  date: string;
+  status: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  captureMethod?: string;
+  selfMarked?: boolean;
+}
+
+export interface CheckInOutPayload {
+  captureMethod?: 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
+  latitude?: number;
+  longitude?: number;
+  deviceInfo?: string;
+}
+
+export interface CheckOutResponse {
+  success: boolean;
+  date: string;
+  checkOut: string;
+  workedHours: string;
+  overtimeHours: string;
+  overtimeType: 'OT' | 'COFF' | null;
+  isShortDay: boolean;
+  shortWorkReasonRequired: boolean;
+  coffAccrued: number;
+  captureMethod: string;
+}
+
+export interface OvertimeSummary {
+  month: string;
+  monthlyGross: number;
+  otEligibility: 'OT_PAY' | 'COMP_OFF';
+  totalOtHours: number;
+  paidOtHours: number;
+  coffOtHours: number;
+  shortDays: number;
+  shortDaysPending: number;
+  overtimeDays: number;
+  workedOnOffDays: number;
+}
+
+export interface CompOffBalance {
+  accrued: number;
+  used: number;
+  lapsed: number;
+  available: number;
+}
+
+export interface CompOffEntry {
+  id: string;
+  entryDate: string;
+  entryType: string;
+  days: number;
+  reason: string;
+  remarks: string | null;
+  createdAt: string;
 }
 
 export interface EssAttendanceResponse {
@@ -249,6 +317,10 @@ export class EssApiService {
     return this.http.put(`${this.base}/nominations/${id}/resubmit`, body);
   }
 
+  updateNomination(id: string, body: any): Observable<any> {
+    return this.http.put(`${this.base}/nominations/${id}`, body);
+  }
+
   // Leave
   getLeaveBalances(year?: number): Observable<LeaveBalance[]> {
     const params = year ? `?year=${year}` : '';
@@ -302,18 +374,43 @@ export class EssApiService {
     return this.http.get<{ month: string; items: EssHoliday[] }>(`${this.base}/holidays${params}`);
   }
 
-  // Document vault
-  getDocuments(filters?: {
-    category?: string;
-    year?: number;
-    q?: string;
-  }): Observable<{ total: number; items: EssDocument[] }> {
-    const query = new URLSearchParams();
-    if (filters?.category) query.set('category', filters.category);
-    if (filters?.year) query.set('year', String(filters.year));
-    if (filters?.q) query.set('q', filters.q);
-    const suffix = query.toString() ? `?${query.toString()}` : '';
-    return this.http.get<{ total: number; items: EssDocument[] }>(`${this.base}/documents${suffix}`);
+    getTodayAttendance(): Observable<TodayAttendance> {
+      return this.http.get<TodayAttendance>(`${this.base}/attendance/today`);
+    }
+
+    checkIn(payload: CheckInOutPayload): Observable<any> {
+      return this.http.post(`${this.base}/attendance/check-in`, payload);
+    }
+
+    checkOut(payload: CheckInOutPayload): Observable<CheckOutResponse> {
+      return this.http.post<CheckOutResponse>(`${this.base}/attendance/check-out`, payload);
+    }
+
+    submitShortWorkReason(body: { date?: string; reason: string }): Observable<any> {
+      return this.http.post(`${this.base}/attendance/short-reason`, body);
+    }
+
+    getOvertimeSummary(month?: string): Observable<OvertimeSummary> {
+      const params = month ? `?month=${encodeURIComponent(month)}` : '';
+      return this.http.get<OvertimeSummary>(`${this.base}/attendance/overtime-summary${params}`);
+    }
+
+    getCompOffBalance(): Observable<CompOffBalance> {
+      return this.http.get<CompOffBalance>(`${this.base}/attendance/comp-off/balance`);
+    }
+
+    getCompOffLedger(): Observable<CompOffEntry[]> {
+      return this.http.get<CompOffEntry[]>(`${this.base}/attendance/comp-off/ledger`);
+    }
+
+  // Documents
+  getDocuments(filters?: { category?: string; year?: number; q?: string }): Observable<{ total: number; items: EssDocument[] }> {
+    const parts: string[] = [];
+    if (filters?.category) parts.push(`category=${encodeURIComponent(filters.category)}`);
+    if (filters?.year) parts.push(`year=${filters.year}`);
+    if (filters?.q) parts.push(`q=${encodeURIComponent(filters.q)}`);
+    const params = parts.length ? '?' + parts.join('&') : '';
+    return this.http.get<{ total: number; items: EssDocument[] }>(`${this.base}/documents${params}`);
   }
 
   getDocumentById(id: string): Observable<EssDocument> {
@@ -324,5 +421,56 @@ export class EssApiService {
     return this.http.get(`${this.base}/documents/${id}/download`, {
       responseType: 'blob',
     });
+  }
+
+  uploadDocument(formData: FormData): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/documents/upload`, formData);
+  }
+
+  // ── Helpdesk ────────────────────────────────────────────
+  helpdeskListTickets(status?: string): Observable<any[]> {
+    const params = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.http.get<any>(`${this.base}/helpdesk/tickets${params}`).pipe(
+      map((res) => (Array.isArray(res) ? res : res?.data ?? [])),
+    );
+  }
+
+  helpdeskCreateTicket(body: {
+    category: string;
+    subCategory?: string | null;
+    priority?: string;
+    description: string;
+  }): Observable<any> {
+    return this.http.post(`${this.base}/helpdesk/tickets`, body);
+  }
+
+  helpdeskGetTicket(id: string): Observable<any> {
+    return this.http.get(`${this.base}/helpdesk/tickets/${id}`);
+  }
+
+  helpdeskGetMessages(ticketId: string): Observable<any[]> {
+    return this.http
+      .get<any>(`${environment.apiBaseUrl}/api/v1/helpdesk/tickets/${ticketId}/messages`)
+      .pipe(map((res) => (Array.isArray(res) ? res : res?.data ?? [])));
+  }
+
+  helpdeskPostMessage(ticketId: string, message: string): Observable<any> {
+    return this.http.post(
+      `${environment.apiBaseUrl}/api/v1/helpdesk/tickets/${ticketId}/messages`,
+      { message },
+    );
+  }
+
+  // ── Performance Appraisal ──────────────────────────────
+  getMyAppraisals(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/appraisals`);
+  }
+
+  getMyAppraisal(id: string): Observable<any> {
+    return this.http.get<any>(`${this.base}/appraisals/${id}`);
+  }
+
+  submitSelfReview(id: string, items: { itemId: string; rating: number; remarks?: string }[]): Observable<any> {
+    return this.http.post<any>(`${this.base}/appraisals/${id}/self-review`, { items });
   }
 }

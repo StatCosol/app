@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FileVersionItem } from './file-preview.model';
 
 @Component({
-  selector: 'version-history-panel',
+  selector: 'ui-version-history-panel',
   standalone: true,
   imports: [CommonModule],
   template: `
