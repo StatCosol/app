@@ -97,34 +97,44 @@ export class InvoicePdfService {
 
     // ── Letterhead ──
     const headerTop = 40;
-    // Left: "StatCo Solutions" wordmark
-    doc.font('Helvetica-Bold').fontSize(34);
+    // Left: "StatCo Solutions" wordmark — Times New Roman bold, 33.5pt
+    doc.font('Times-Bold').fontSize(33.5);
     const statcoText = 'StatCo';
     const statcoW = doc.widthOfString(statcoText);
+    const wordmarkH = doc.heightOfString(statcoText);
     doc.fillColor(BRAND_LIGHT).text(statcoText, left, headerTop, { lineBreak: false });
     doc
       .fillColor(BRAND)
       .text(' Solutions', left + statcoW, headerTop, { lineBreak: false });
 
     // Right: Email + Phone
-    const contactX = pageW - right - 220;
-    const contactW = 220;
-    doc.font('Helvetica').fontSize(10).fillColor(LINK);
-    doc.text('Email- ' , contactX, headerTop + 6, {
-      width: contactW,
-      align: 'right',
-      continued: true,
-      underline: false,
-    });
-    doc.fillColor(LINK).text('Compliance@statcosol.com', { underline: true });
-    doc.fillColor(TEXT).font('Helvetica').text('Ph.No-  +91 9000607839', contactX, headerTop + 22, {
-      width: contactW,
-      align: 'right',
-    });
+    const contactX = pageW - right - 240;
+    const contactW = 240;
+    const emailLabel = 'Email- ';
+    const emailValue = 'finance@statcosol.com';
+    doc.font('Times-Roman').fontSize(11).fillColor(TEXT);
+    const emailLabelW = doc.widthOfString(emailLabel);
+    const emailValueW = doc.widthOfString(emailValue);
+    const emailLineW = emailLabelW + emailValueW;
+    const emailX = contactX + contactW - emailLineW;
+    doc.fillColor(TEXT).text(emailLabel, emailX, headerTop + 4, { lineBreak: false });
+    doc
+      .fillColor(LINK)
+      .text(emailValue, emailX + emailLabelW, headerTop + 4, {
+        lineBreak: false,
+        underline: true,
+      });
+    doc
+      .fillColor(TEXT)
+      .font('Times-Roman')
+      .text('Ph.No-  +91 9000607839', contactX, headerTop + 22, {
+        width: contactW,
+        align: 'right',
+      });
 
-    // Reset cursor below header
+    // Reset cursor below header (use wordmark height as baseline)
     doc.x = left;
-    doc.y = headerTop + 50;
+    doc.y = headerTop + Math.max(wordmarkH, 44) + 6;
 
     // Subtle horizontal divider
     doc
