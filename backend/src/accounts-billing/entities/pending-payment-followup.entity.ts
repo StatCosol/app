@@ -26,7 +26,7 @@ export class PendingPaymentFollowup {
   @Column({ name: 'client_email', length: 250 })
   clientEmail: string;
 
-  @Column({ name: 'cc_email', length: 250, nullable: true })
+  @Column({ name: 'cc_email', type: 'varchar', length: 250, nullable: true })
   ccEmail: string | null;
 
   @Column({ type: 'numeric', precision: 14, scale: 2 })
@@ -55,7 +55,7 @@ export class PendingPaymentFollowup {
   @Column({ name: 'last_reminder_sent_at', type: 'timestamptz', nullable: true })
   lastReminderSentAt: Date | null;
 
-  @Column({ name: 'last_reminder_status', length: 20, nullable: true })
+  @Column({ name: 'last_reminder_status', type: 'varchar', length: 20, nullable: true })
   lastReminderStatus: string | null;
 
   @Column({ name: 'last_failure_reason', type: 'text', nullable: true })
