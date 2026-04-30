@@ -12,6 +12,7 @@ import {
   InvoiceEmailLog,
   InvoiceAuditLog,
   RecurringInvoiceConfig,
+  PendingPaymentFollowup,
 } from './entities';
 
 import {
@@ -25,6 +26,7 @@ import {
   BillingClientsService,
   BillingSettingsService,
   RecurringInvoicesService,
+  PendingPaymentFollowupsService,
 } from './services';
 
 import { InvoicesController } from './controllers/invoices.controller';
@@ -33,6 +35,7 @@ import { BillingClientsController } from './controllers/billing-clients.controll
 import { BillingSettingsController } from './controllers/billing-settings.controller';
 import { InvoicePdfEmailController } from './controllers/invoice-pdf-email.controller';
 import { RecurringInvoicesController } from './controllers/recurring-invoices.controller';
+import { PendingPaymentFollowupsController } from './controllers/pending-payment-followups.controller';
 import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
 
 @Module({
@@ -46,6 +49,7 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
       InvoiceEmailLog,
       InvoiceAuditLog,
       RecurringInvoiceConfig,
+      PendingPaymentFollowup,
     ]),
     EmailModule,
     AuditLogsModule,
@@ -57,6 +61,7 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
     BillingSettingsController,
     InvoicePdfEmailController,
     RecurringInvoicesController,
+    PendingPaymentFollowupsController,
   ],
   providers: [
     BillingCalculationService,
@@ -69,6 +74,7 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
     BillingClientsService,
     BillingSettingsService,
     RecurringInvoicesService,
+    PendingPaymentFollowupsService,
     RecurringInvoiceCron,
   ],
   exports: [InvoicesService, BillingClientsService],

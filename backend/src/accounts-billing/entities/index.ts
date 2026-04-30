@@ -6,3 +6,7 @@ export { InvoicePayment } from './invoice-payment.entity';
 export { InvoiceEmailLog } from './invoice-email-log.entity';
 export { InvoiceAuditLog } from './invoice-audit-log.entity';
 export { RecurringInvoiceConfig } from './recurring-invoice-config.entity';
+export {
+  PendingPaymentFollowup,
+  PendingPaymentStatus,
+} from './pending-payment-followup.entity';

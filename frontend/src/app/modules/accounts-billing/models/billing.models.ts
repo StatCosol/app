@@ -154,6 +154,24 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+export interface PendingPaymentFollowup {
+  id: string;
+  invoiceNumber: string;
+  clientName: string;
+  clientEmail: string;
+  ccEmail?: string | null;
+  amount: number;
+  invoiceDate?: string | null;
+  dueDate?: string | null;
+  notes?: string | null;
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  reminderCount: number;
+  lastReminderSentAt?: string | null;
+  lastReminderStatus?: string | null;
+  lastFailureReason?: string | null;
+  uploadedAt: string;
+}
+
 export const INVOICE_TYPES = [
   { value: 'PROFORMA', label: 'Proforma Invoice' },
   { value: 'TAX_INVOICE', label: 'Tax Invoice' },

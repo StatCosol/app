@@ -8,3 +8,4 @@ export { InvoiceEmailService } from './invoice-email.service';
 export { BillingClientsService } from './billing-clients.service';
 export { BillingSettingsService } from './billing-settings.service';
 export { RecurringInvoicesService } from './recurring-invoices.service';
+export { PendingPaymentFollowupsService } from './pending-payment-followups.service';

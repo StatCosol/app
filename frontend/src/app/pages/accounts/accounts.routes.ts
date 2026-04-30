@@ -25,6 +25,8 @@ const BillingSettingsComponent = () =>
   import('../../modules/accounts-billing/pages/billing-settings.component').then((m) => m.BillingSettingsComponent);
 const BillingRecurringComponent = () =>
   import('../../modules/accounts-billing/pages/billing-recurring.component').then((m) => m.BillingRecurringComponent);
+const BillingPendingPaymentsComponent = () =>
+  import('../../modules/accounts-billing/pages/billing-pending-payments.component').then((m) => m.BillingPendingPaymentsComponent);
 
 export const ACCOUNTS_ROUTES: Routes = [
   {
@@ -41,6 +43,7 @@ export const ACCOUNTS_ROUTES: Routes = [
       { path: 'gst-summary', loadComponent: BillingGstReportComponent },
       { path: 'email-logs', loadComponent: BillingEmailLogsComponent },
       { path: 'recurring', loadComponent: BillingRecurringComponent },
+      { path: 'pending-payments', loadComponent: BillingPendingPaymentsComponent },
       { path: 'settings', loadComponent: BillingSettingsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

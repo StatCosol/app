@@ -10,3 +10,7 @@ export {
   CreateRecurringInvoiceConfigDto,
   UpdateRecurringInvoiceConfigDto,
 } from './recurring-invoice-config.dto';
+export {
+  CreatePendingPaymentFollowupDto,
+  UpdatePendingPaymentFollowupDto,
+} from './pending-payment-followup.dto';

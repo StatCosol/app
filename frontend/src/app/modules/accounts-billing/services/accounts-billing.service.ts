@@ -126,4 +126,50 @@ export class AccountsBillingService {
   runRecurringNow(): Observable<any> {
     return this.http.post(`${this.base}/recurring/run-now`, {});
   }
+
+  // ── Pending Payment Follow-ups ──
+  listPendingPayments(params?: Record<string, string>): Observable<any> {
+    return this.http.get<any>(`${this.base}/pending-payments`, { params });
+  }
+
+  uploadPendingPaymentsCsv(
+    file: File,
+    autoSend: boolean,
+  ): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<any>(
+      `${this.base}/pending-payments/upload?autoSend=${autoSend ? '1' : '0'}`,
+      fd,
+    );
+  }
+
+  sendPendingPaymentReminder(id: string): Observable<any> {
+    return this.http.post<any>(
+      `${this.base}/pending-payments/${id}/send-reminder`,
+      {},
+    );
+  }
+
+  sendPendingPaymentReminders(ids: string[]): Observable<any> {
+    return this.http.post<any>(
+      `${this.base}/pending-payments/send-reminders`,
+      { ids },
+    );
+  }
+
+  updatePendingPayment(id: string, data: any): Observable<any> {
+    return this.http.patch<any>(
+      `${this.base}/pending-payments/${id}`,
+      data,
+    );
+  }
+
+  deletePendingPayment(id: string): Observable<any> {
+    return this.http.delete<any>(`${this.base}/pending-payments/${id}`);
+  }
+
+  pendingPaymentsCsvTemplateUrl(): string {
+    return `${this.base}/pending-payments/template.csv`;
+  }
 }
