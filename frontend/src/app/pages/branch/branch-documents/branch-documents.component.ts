@@ -3,8 +3,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { forkJoin, of, Subject } from 'rxjs';
+import { catchError, takeUntil } from 'rxjs/operators';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { AuthService } from '../../../core/auth.service';
 
@@ -12,6 +12,8 @@ interface DocumentItem {
   id: string;
   name: string;
   category: string;
+  branchId: string;
+  branchName: string;
   uploadedDate: string;
   status: 'Uploaded' | 'Pending' | 'Rejected';
   uploadedBy: string;
@@ -31,6 +33,10 @@ interface DocumentItem {
           <p class="page-subtitle">Branch document repository — upload, track, and manage compliance documents</p>
         </div>
         <div class="flex items-center gap-3">
+          <select *ngIf="branches.length > 1" id="bd-branch-filter" name="branchFilter" [(ngModel)]="branchFilter" (change)="applyFilter()" class="filter-select">
+            <option value="all">All Branches</option>
+            <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+          </select>
           <select id="bd-category-filter" name="categoryFilter" [(ngModel)]="categoryFilter" (change)="applyFilter()" class="filter-select">
             <option value="all">All Categories</option>
             <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
@@ -67,6 +73,7 @@ interface DocumentItem {
             <thead>
               <tr>
                 <th>Document Name</th>
+                <th *ngIf="branches.length > 1">Branch</th>
                 <th>Category</th>
                 <th>File Type</th>
                 <th>Uploaded Date</th>
@@ -82,6 +89,7 @@ interface DocumentItem {
                   </svg>
                   {{ doc.name }}
                 </td>
+                <td *ngIf="branches.length > 1" class="text-slate-600">{{ doc.branchName }}</td>
                 <td class="text-slate-600">{{ doc.category }}</td>
                 <td class="text-slate-500 text-xs uppercase font-mono">{{ doc.fileType }}</td>
                 <td class="text-slate-500 text-xs">{{ doc.uploadedDate }}</td>
@@ -96,7 +104,7 @@ interface DocumentItem {
                 </td>
               </tr>
               <tr *ngIf="filteredDocs.length === 0">
-                <td colspan="6" class="text-center text-slate-400 py-12">No documents found</td>
+                <td [attr.colspan]="branches.length > 1 ? 7 : 6" class="text-center text-slate-400 py-12">No documents found</td>
               </tr>
             </tbody>
           </table>
@@ -124,9 +132,13 @@ interface DocumentItem {
   `]
 })
 export class BranchDocumentsComponent implements OnInit, OnDestroy {
+  branchFilter = 'all';
   categoryFilter = 'all';
   statusFilter = 'all';
   categories: string[] = [];
+  // All branches the user has access to. Drives the branch filter and the
+  // "branch" column visibility. Loaded once via ClientBranchesService.list().
+  branches: { id: string; name: string }[] = [];
   documents: DocumentItem[] = [];
   filteredDocs: DocumentItem[] = [];
   uploadedCount = 0;
@@ -142,13 +154,45 @@ export class BranchDocumentsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    const branchIds = this.auth.getBranchIds();
-    if (!branchIds.length) { this.loading = false; this.cdr.markForCheck(); return; }
-    const branchId = branchIds[0];
+    // Resolve every branch the user can access (multi-branch users used to see
+    // only branchIds[0]). Load names from the API; fall back to the JWT-issued
+    // ids if the call fails so the page still loads docs for those.
+    this.branchSvc.list().pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of([])),
+    ).subscribe((rows) => {
+      const apiBranches = (rows || []).map((r: any) => ({
+        id: r.id,
+        name: r.branchName || r.branchname || r.name || 'Branch',
+      }));
+      if (apiBranches.length) {
+        this.branches = apiBranches;
+      } else {
+        this.branches = (this.auth.getBranchIds() || []).map((id) => ({ id, name: id }));
+      }
+      this.cdr.markForCheck();
+      this.loadAllDocs();
+    });
+  }
 
-    this.branchSvc.listDocuments(branchId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (rows) => {
-        this.documents = (rows || []).map((r: any): DocumentItem => {
+  private loadAllDocs(): void {
+    if (!this.branches.length) {
+      this.loading = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.loading = true;
+    // Fan out one listDocuments call per branch and merge — each document
+    // gets its source branchId/branchName attached so the UI can group/filter.
+    forkJoin(
+      this.branches.map((b) =>
+        this.branchSvc.listDocuments(b.id).pipe(catchError(() => of([] as any[]))),
+      ),
+    ).pipe(takeUntil(this.destroy$)).subscribe((perBranch) => {
+      const all: DocumentItem[] = [];
+      perBranch.forEach((rows, idx) => {
+        const br = this.branches[idx];
+        for (const r of rows || []) {
           let status: 'Uploaded' | 'Pending' | 'Rejected' = 'Pending';
           const s = (r.status || '').toUpperCase();
           if (s === 'REJECTED') status = 'Rejected';
@@ -157,28 +201,36 @@ export class BranchDocumentsComponent implements OnInit, OnDestroy {
           const ext = (r.mimeType || r.mime_type || r.fileType || '').split('/').pop()?.toUpperCase() || r.fileName?.split('.').pop()?.toUpperCase() || '—';
           const fmt = (d: any) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-          return {
+          all.push({
             id: r.id,
             name: r.fileName || r.file_name || r.docType || r.doc_type || '—',
             category: r.category || '—',
+            branchId: br.id,
+            branchName: br.name,
             uploadedDate: fmt(r.createdAt || r.created_at),
             status,
             uploadedBy: r.uploadedByName || r.uploaded_by || '—',
             fileType: ext,
-          };
-        });
-        this.categories = [...new Set(this.documents.map(d => d.category))];
-        this.computeCounts();
-        this.applyFilter();
-        this.loading = false;
-        this.cdr.markForCheck();
-      },
-      error: () => { this.loading = false; this.cdr.markForCheck(); },
+          });
+        }
+      });
+      // Group by branch first so the table reads naturally for multi-branch users.
+      this.documents = all.sort((a, b) => {
+        const bn = a.branchName.localeCompare(b.branchName);
+        if (bn !== 0) return bn;
+        return a.uploadedDate < b.uploadedDate ? 1 : -1;
+      });
+      this.categories = [...new Set(this.documents.map((d) => d.category))];
+      this.computeCounts();
+      this.applyFilter();
+      this.loading = false;
+      this.cdr.markForCheck();
     });
   }
 
   applyFilter(): void {
     let result = [...this.documents];
+    if (this.branchFilter !== 'all') result = result.filter(d => d.branchId === this.branchFilter);
     if (this.categoryFilter !== 'all') result = result.filter(d => d.category === this.categoryFilter);
     if (this.statusFilter !== 'all') result = result.filter(d => d.status === this.statusFilter);
     this.filteredDocs = result;

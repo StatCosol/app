@@ -43,7 +43,10 @@
 
       <div class="form-group">
         <label for="ccd-branch-id">Branch (optional)</label>
-        <input autocomplete="off" id="ccd-branch-id" name="branchId" class="input-sm" type="text" [(ngModel)]="form.branchId" placeholder="Branch ID (leave empty for all)" />
+        <select id="ccd-branch-id" name="branchId" class="input-sm" [(ngModel)]="form.branchId">
+          <option value="">All Branches</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+        </select>
       </div>
 
       <div class="form-group">
@@ -103,6 +106,13 @@
         <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
       </select>
     </div>
+    <div *ngIf="branches.length > 1">
+      <label class="block text-xs text-gray-500 mb-1" for="ccd-branch-filter">Branch</label>
+      <select id="ccd-branch-filter" name="branchFilter" class="input-sm" [(ngModel)]="filters.branchId" (ngModelChange)="loadDocuments()">
+        <option value="">All Branches</option>
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+      </select>
+    </div>
     <div>
       <label class="block text-xs text-gray-500 mb-1" for="ccd-search">Search</label>
       <input autocomplete="off" id="ccd-search" name="search" class="input-sm" type="text" [(ngModel)]="filters.search" placeholder="Search titles..."
@@ -123,6 +133,9 @@
     emptyMessage="No documents yet.">
     <ng-template uiTableCell="title" let-row>
       <span class="font-medium text-gray-900">{{ row.title }}</span>
+    </ng-template>
+    <ng-template uiTableCell="branch" let-row>
+      <span class="text-xs text-gray-700">{{ getBranchName(row.branchId) }}</span>
     </ng-template>
     <ng-template uiTableCell="category" let-row>
       <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{{ getCategoryLabel(row.category) }}</span>
