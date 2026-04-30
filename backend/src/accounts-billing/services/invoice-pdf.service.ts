@@ -107,13 +107,15 @@ export class InvoicePdfService {
       .fillColor(BRAND)
       .text(' Solutions', left + statcoW, headerTop, { lineBreak: false });
 
-    // Right: Email + Phone + Website (right-aligned, no overlap)
-    const contactX = pageW - right - 260;
-    const contactW = 260;
+    // Right: Email + Phone + Website with aligned label column.
+    // Labels right-justify just before a fixed value-start X so all labels and
+    // all values line up vertically (instead of each line being floated to the right edge).
+    const valueStartX = pageW - right - 165;
+    const labelGap = 4;
     const lineGap = 14;
     let contactY = headerTop + 2;
 
-    const drawRightLine = (
+    const drawAlignedLine = (
       label: string,
       value: string,
       y: number,
@@ -121,32 +123,31 @@ export class InvoicePdfService {
     ) => {
       doc.font('Times-Roman').fontSize(11);
       const labelW = doc.widthOfString(label);
-      const valueW = doc.widthOfString(value);
-      const totalW = labelW + valueW;
-      const startX = contactX + contactW - totalW;
-      doc.fillColor(TEXT).text(label, startX, y, { lineBreak: false });
+      const labelX = valueStartX - labelGap - labelW;
+      doc.fillColor(TEXT).text(label, labelX, y, { lineBreak: false });
       doc
         .fillColor(opts?.valueColor || TEXT)
-        .text(value, startX + labelW, y, { lineBreak: false });
+        .text(value, valueStartX, y, { lineBreak: false });
       if (opts?.underline) {
+        const valueW = doc.widthOfString(value);
         const underlineY = y + doc.currentLineHeight() - 1;
         doc
-          .moveTo(startX + labelW, underlineY)
-          .lineTo(startX + labelW + valueW, underlineY)
+          .moveTo(valueStartX, underlineY)
+          .lineTo(valueStartX + valueW, underlineY)
           .strokeColor(opts?.valueColor || TEXT)
           .lineWidth(0.5)
           .stroke();
       }
     };
 
-    drawRightLine('Email- ', 'finance@statcosol.com', contactY, {
+    drawAlignedLine('Email-', 'finance@statcosol.com', contactY, {
       underline: true,
       valueColor: LINK,
     });
     contactY += lineGap;
-    drawRightLine('Ph.No-  ', '+91 9000607839', contactY);
+    drawAlignedLine('Ph.No-', '+91 9000607839', contactY);
     contactY += lineGap;
-    drawRightLine('Website- ', 'www.statcosol.com', contactY, {
+    drawAlignedLine('Website-', 'www.statcosol.com', contactY, {
       underline: true,
       valueColor: LINK,
     });
@@ -154,10 +155,6 @@ export class InvoicePdfService {
     // Reset cursor below header (use the taller of wordmark or contact column)
     doc.x = left;
     doc.y = headerTop + Math.max(wordmarkH, contactY - headerTop + 4) + 6;
-
-    // Reset cursor below header (use wordmark height as baseline)
-    doc.x = left;
-    doc.y = headerTop + Math.max(wordmarkH, 44) + 6;
 
     // Subtle horizontal divider
     doc
@@ -342,9 +339,13 @@ export class InvoicePdfService {
         doc.image(sigPath, sigX + 200 - imgW, doc.y, { width: imgW, height: imgH });
         doc.y += imgH + 2;
       } catch (e) {
+        this.log.warn(`Signature image render failed: ${(e as Error).message}`);
         doc.y += 40;
       }
     } else {
+      this.log.warn(
+        `Signature image not found. Looked in: ${sigCandidates.join(', ')}`,
+      );
       doc.y += 40;
     }
     doc.font('Helvetica-Bold').text('Authorized Signatory', sigX, doc.y, {

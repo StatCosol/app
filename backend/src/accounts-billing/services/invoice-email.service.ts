@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InvoiceEmailLog } from '../entities';
@@ -18,6 +19,7 @@ export class InvoiceEmailService {
     private readonly emailService: EmailService,
     private readonly invoicesService: InvoicesService,
     private readonly pdfService: InvoicePdfService,
+    private readonly config: ConfigService,
   ) {}
 
   async sendInvoice(
@@ -61,7 +63,13 @@ export class InvoiceEmailService {
         subject,
         `Invoice ${invoice.invoiceNumber}`,
         `<p>${body.replace(/\n/g, '<br>')}</p>`,
-        undefined,
+        {
+          name: this.config.get<string>('INVOICE_FROM_NAME', 'StatCo Solutions'),
+          email: this.config.get<string>(
+            'INVOICE_FROM_EMAIL',
+            'finance@statcosol.com',
+          ),
+        },
         {
           cc: dto.ccEmail || undefined,
           attachments: [
