@@ -22,7 +22,7 @@ import { ComplianceContextService } from '../../../core/services/compliance-cont
 import { ReturnsAutomationService, FilingGenerationResult, OverdueAlertResult } from '../../../core/returns-automation.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
-import { ComplianceAdvancedFiltersComponent, FilterDropdownOption } from '../../../shared/components/compliance-advanced-filters/compliance-advanced-filters.component';
+import { FilterDropdownOption } from '../../../shared/components/compliance-advanced-filters/compliance-advanced-filters.component';
 import { ComplianceTaskFilters } from '../../../core/models/returns.models';
 import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {

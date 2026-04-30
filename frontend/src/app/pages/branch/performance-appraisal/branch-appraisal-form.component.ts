@@ -17,7 +17,7 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
       <div class="page-header">
         <div>
           <h1 class="page-title">{{ appraisal.employee_name }} — Appraisal Review</h1>
-          <p class="page-subtitle">{{ appraisal.cycle_name }} | {{ appraisal.financial_year }} | Status: {{ appraisal.status?.replace('_', ' ') }}</p>
+          <p class="page-subtitle">{{ appraisal.cycle_name }} | {{ appraisal.financial_year }} | Status: {{ appraisal.status.replace('_', ' ') }}</p>
         </div>
         <div class="flex items-center gap-3">
           <a routerLink="/branch/appraisals" class="btn-secondary">Back to List</a>

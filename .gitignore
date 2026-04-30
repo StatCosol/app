@@ -8,10 +8,16 @@ statco-frontend/dist/
 
 node_modules/
 .env
+.env.production
+.env*.local
 
 # Temp artifacts
 tmpclaude-*
 tmp_job_*/
+tmp-*
+backend/tmp-check-*.js
+backend/tmp-*.txt
+{*
 
 # Test / smoke result files
 *_results*.txt

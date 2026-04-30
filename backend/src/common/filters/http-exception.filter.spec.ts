@@ -1,5 +1,10 @@
 import { GlobalExceptionFilter } from './http-exception.filter';
-import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 
 describe('GlobalExceptionFilter', () => {
@@ -7,8 +12,10 @@ describe('GlobalExceptionFilter', () => {
   let mockJson: jest.Mock;
   let mockStatus: jest.Mock;
   let mockHost: ArgumentsHost;
+  let loggerSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     filter = new GlobalExceptionFilter();
     mockJson = jest.fn();
     mockStatus = jest.fn().mockReturnValue({ json: mockJson });
@@ -18,6 +25,10 @@ describe('GlobalExceptionFilter', () => {
         getRequest: () => ({ url: '/test', method: 'GET' }),
       }),
     } as unknown as ArgumentsHost;
+  });
+
+  afterEach(() => {
+    loggerSpy.mockRestore();
   });
 
   it('should handle HttpException', () => {

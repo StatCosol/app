@@ -282,7 +282,7 @@ export class BillingInvoiceViewComponent implements OnInit {
     if (!this.invoice) return;
     this.generatingPdf = true;
     this.svc.generatePdf(this.invoice.id).subscribe({
-      next: (res) => {
+      next: () => {
         this.generatingPdf = false;
         this.loadInvoice(this.invoice!.id);
       },

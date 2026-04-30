@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
-import { BillingSetting, INDIAN_STATES } from '../models/billing.models';
+import { INDIAN_STATES } from '../models/billing.models';
 
 @Component({
   selector: 'app-billing-settings',

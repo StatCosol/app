@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
-import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/appraisal.models';
+import { AppraisalDashboard } from '../../../core/models/appraisal.models';
 
 @Component({
   selector: 'app-client-appraisal-dashboard',
@@ -65,7 +65,7 @@ import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/apprais
         </div>
 
         <!-- Branch Comparison -->
-        <div class="table-card mt-6" *ngIf="dashboard.branchSummary?.length">
+        <div class="table-card mt-6" *ngIf="dashboard.branchSummary.length">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Branch-wise Performance</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -100,7 +100,7 @@ import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/apprais
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <!-- Top Performers -->
-          <div class="table-card" *ngIf="dashboard.topPerformers?.length">
+          <div class="table-card" *ngIf="dashboard.topPerformers.length">
             <h3 class="text-sm font-semibold text-gray-900 mb-4">Top Performers</h3>
             <div class="space-y-2">
               <div *ngFor="let p of dashboard.topPerformers; let i = index" class="flex items-center justify-between text-sm border-b pb-2">
@@ -116,7 +116,7 @@ import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/apprais
           </div>
 
           <!-- Low Performers -->
-          <div class="table-card" *ngIf="dashboard.lowPerformers?.length">
+          <div class="table-card" *ngIf="dashboard.lowPerformers.length">
             <h3 class="text-sm font-semibold text-gray-900 mb-4">Low Performers / PIP Watch</h3>
             <div class="space-y-2">
               <div *ngFor="let p of dashboard.lowPerformers; let i = index" class="flex items-center justify-between text-sm border-b pb-2">

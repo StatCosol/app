@@ -450,7 +450,7 @@ export class ContractorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   isLinkActive(item: SidebarItem): boolean {
-    const [currentPath, currentQuery] = this.router.url.split('?');
+    const [currentPath] = this.router.url.split('?');
     if (currentPath !== item.route) return false;
 
     // If the link has queryParams, check they match the current URL

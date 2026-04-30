@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
-import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/appraisal.models';
+import { AppraisalDashboard } from '../../../core/models/appraisal.models';
 
 @Component({
   selector: 'app-branch-appraisal-dashboard',
@@ -83,7 +83,7 @@ import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/apprais
         </div>
 
         <!-- Top Performers -->
-        <div class="table-card mt-6" *ngIf="dashboard.topPerformers?.length">
+        <div class="table-card mt-6" *ngIf="dashboard.topPerformers.length">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Top Performers</h3>
           <div class="overflow-x-auto">
             <table class="data-table">
@@ -108,7 +108,7 @@ import { AppraisalDashboard, AppraisalCycle } from '../../../core/models/apprais
         </div>
 
         <!-- Low Performers -->
-        <div class="table-card mt-6" *ngIf="dashboard.lowPerformers?.length">
+        <div class="table-card mt-6" *ngIf="dashboard.lowPerformers.length">
           <h3 class="text-sm font-semibold text-gray-900 mb-4">Low Performers / PIP Watch</h3>
           <div class="overflow-x-auto">
             <table class="data-table">

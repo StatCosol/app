@@ -9,8 +9,6 @@ import {
   NoticesService,
   Notice,
   NoticeKpis,
-  NoticeDocument,
-  NoticeActivity,
 } from '../../../core/notices.service';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 

@@ -252,8 +252,8 @@
 
     <!-- Components table -->
     <section class="card">
-      <h3>Salary Components ({{ selectedStructure.components?.length || 0 }})</h3>
-      <div class="table-wrap" *ngIf="selectedStructure.components?.length">
+      <h3>Salary Components ({{ selectedStructure.components.length || 0 }})</h3>
+      <div class="table-wrap" *ngIf="selectedStructure.components.length">
         <table>
           <thead>
             <tr>
@@ -299,7 +299,7 @@
     </section>
 
     <!-- Statutory configs -->
-    <section class="card" *ngIf="selectedStructure.statutoryConfigs?.length">
+    <section class="card" *ngIf="selectedStructure.statutoryConfigs.length">
       <h3>Statutory Configuration</h3>
       <div *ngFor="let sc of selectedStructure.statutoryConfigs; trackBy: trackStat" class="stat-card">
         <div class="stat-card-head">
@@ -357,7 +357,7 @@
 
       <div *ngIf="previewResult" class="preview-result">
         <!-- Warnings -->
-        <div *ngIf="previewResult.warnings?.length" class="preview-warnings">
+        <div *ngIf="previewResult.warnings.length" class="preview-warnings">
           <div *ngFor="let w of previewResult.warnings" class="warning-row">⚠ {{ w }}</div>
         </div>
 

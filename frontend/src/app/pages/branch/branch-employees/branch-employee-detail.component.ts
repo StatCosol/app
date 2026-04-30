@@ -184,7 +184,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <div class="nom-row-info">
                 <ui-status-badge [status]="nom.nominationType"></ui-status-badge>
                 <span class="text-xs text-gray-500" *ngIf="nom.declarationDate">Declared: {{ nom.declarationDate }}</span>
-                <span class="text-xs text-gray-500">{{ nom.members?.length || 0 }} nominee(s)</span>
+                <span class="text-xs text-gray-500">{{ nom.members.length || 0 }} nominee(s)</span>
               </div>
               <ui-button variant="outline" size="sm"
                          [disabled]="printingNomination === nom.nominationType"

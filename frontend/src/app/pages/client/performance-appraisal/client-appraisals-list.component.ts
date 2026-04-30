@@ -1,11 +1,11 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { PerformanceAppraisalService } from '../../../core/services/performance-appraisal.service';
-import { EmployeeAppraisal, AppraisalCycle, AppraisalPaginatedResult } from '../../../core/models/appraisal.models';
+import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisal.models';
 
 @Component({
   selector: 'app-client-appraisals-list',
@@ -111,7 +111,7 @@ import { EmployeeAppraisal, AppraisalCycle, AppraisalPaginatedResult } from '../
                     [class.text-red-700]="a.recommendation === 'PIP'"
                     [class.bg-gray-100]="a.recommendation === 'NO_CHANGE'"
                     [class.text-gray-600]="a.recommendation === 'NO_CHANGE'">
-                    {{ a.recommendation?.replace(/_/g, ' ') }}
+                    {{ a.recommendation.replace(/_/g, ' ') }}
                   </span>
                   <span *ngIf="!a.recommendation" class="text-gray-400">—</span>
                 </td>
@@ -125,7 +125,7 @@ import { EmployeeAppraisal, AppraisalCycle, AppraisalPaginatedResult } from '../
                     [class.text-emerald-700]="a.status === 'CLIENT_APPROVED' || a.status === 'LOCKED'"
                     [class.bg-red-100]="a.status === 'REJECTED'"
                     [class.text-red-700]="a.status === 'REJECTED'">
-                    {{ a.status?.replace(/_/g, ' ') }}
+                    {{ a.status.replace(/_/g, ' ') }}
                   </span>
                 </td>
                 <td>

@@ -93,7 +93,7 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
                 <td class="text-xs font-mono text-gray-500">{{ c.cycleCode }}</td>
                 <td class="font-medium text-slate-800">{{ c.cycleName }}</td>
                 <td>{{ c.financialYear }}</td>
-                <td><span class="badge bg-indigo-100 text-indigo-700">{{ c.appraisalType?.replace(/_/g, ' ') }}</span></td>
+                <td><span class="badge bg-indigo-100 text-indigo-700">{{ c.appraisalType.replace(/_/g, ' ') }}</span></td>
                 <td class="text-xs text-gray-500">{{ c.reviewPeriodFrom | date:'dd/MM/yyyy' }} — {{ c.reviewPeriodTo | date:'dd/MM/yyyy' }}</td>
                 <td>
                   <span class="badge"

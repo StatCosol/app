@@ -1,11 +1,24 @@
 const path = require('path');
 const { Client } = require(path.join(__dirname, 'backend', 'node_modules', 'pg'));
+
+require(path.join(__dirname, 'backend', 'node_modules', 'dotenv')).config({
+  path: path.join(__dirname, 'backend', '.env'),
+});
+
+const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME'];
+const missing = requiredEnv.filter((key) => !process.env[key]);
+if (missing.length) {
+  console.error(`Missing required environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 const c = new Client({
-  host: 'statcompy-db.postgres.database.azure.com',
-  user: 'Statcocompy',
-  password: 'Statco@123',
-  database: 'statcompy',
-  ssl: { rejectUnauthorized: false },
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT || 5432),
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 c.connect()
   .then(() => c.query('SELECT COUNT(*) as cnt FROM contractor_documents'))
