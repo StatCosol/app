@@ -7,11 +7,13 @@ import PDFDocument from 'pdfkit';
 import { BillingSetting, Invoice } from '../entities';
 import { InvoicesService } from './invoices.service';
 
-const BRAND = '#1a56db';
+const BRAND = '#0a2656';        // dark navy (Solutions)
+const BRAND_LIGHT = '#3ec6ff';   // cyan/light blue (StatCo)
 const LIGHT_BG = '#f8fafc';
 const BORDER = '#e2e8f0';
 const TEXT = '#1e293b';
 const MUTED = '#64748b';
+const LINK = '#1d4ed8';
 
 @Injectable()
 export class InvoicePdfService {
@@ -93,32 +95,67 @@ export class InvoicePdfService {
     const right = doc.page.margins.right;
     const contentW = pageW - left - right;
 
-    // ── Title ──
+    // ── Letterhead ──
+    const headerTop = 40;
+    // Left: "StatCo Solutions" wordmark
+    doc.font('Helvetica-Bold').fontSize(34);
+    const statcoText = 'StatCo';
+    const statcoW = doc.widthOfString(statcoText);
+    doc.fillColor(BRAND_LIGHT).text(statcoText, left, headerTop, { lineBreak: false });
     doc
-      .fontSize(18)
       .fillColor(BRAND)
-      .font('Helvetica-Bold')
-      .text((invoice.invoiceType || 'INVOICE').replace(/_/g, ' '), left, 40, {
-        align: 'center',
-        width: contentW,
-      });
-    doc
-      .fontSize(10)
-      .fillColor(MUTED)
-      .font('Helvetica')
-      .text(invoice.invoiceNumber, left, doc.y + 2, {
-        align: 'center',
-        width: contentW,
-      });
-    doc.y += 6;
+      .text(' Solutions', left + statcoW, headerTop, { lineBreak: false });
+
+    // Right: Email + Phone
+    const contactX = pageW - right - 220;
+    const contactW = 220;
+    doc.font('Helvetica').fontSize(10).fillColor(LINK);
+    doc.text('Email- ' , contactX, headerTop + 6, {
+      width: contactW,
+      align: 'right',
+      continued: true,
+      underline: false,
+    });
+    doc.fillColor(LINK).text('Compliance@statcosol.com', { underline: true });
+    doc.fillColor(TEXT).font('Helvetica').text('Ph.No-  +91 9000607839', contactX, headerTop + 22, {
+      width: contactW,
+      align: 'right',
+    });
+
+    // Reset cursor below header
+    doc.x = left;
+    doc.y = headerTop + 50;
+
+    // Subtle horizontal divider
     doc
       .moveTo(left, doc.y)
       .lineTo(pageW - right, doc.y)
-      .strokeColor(BRAND)
-      .lineWidth(1.5)
+      .strokeColor(BORDER)
+      .lineWidth(0.75)
       .stroke();
+    doc.y += 14;
+
+    // ── Centered "TAX INVOICE" title ──
+    const titleText = (invoice.invoiceType || 'TAX_INVOICE').replace(/_/g, ' ').toUpperCase();
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(16)
+      .fillColor(BRAND)
+      .text(titleText, left, doc.y, { align: 'center', width: contentW });
+    doc.y += 8;
+
+    // ── Invoice meta (left aligned) ──
+    doc.font('Helvetica').fontSize(10).fillColor(TEXT);
+    doc.text(`Invoice No: ${invoice.invoiceNumber}`, left, doc.y, {
+      width: contentW,
+      align: 'left',
+    });
+    doc.text(`Date: ${this.fmtDate(invoice.invoiceDate)}`, left, doc.y, {
+      width: contentW,
+      align: 'left',
+    });
     doc.x = left;
-    doc.y += 12;
+    doc.y += 8;
 
     // ── From / To boxes ──
     const boxH = 95;
@@ -460,7 +497,18 @@ export class InvoicePdfService {
 
   private fmtDate(d: any): string {
     if (!d) return '';
-    if (d instanceof Date) return d.toISOString().slice(0, 10);
-    return String(d).slice(0, 10);
+    let dt: Date;
+    if (d instanceof Date) {
+      dt = d;
+    } else {
+      const s = String(d);
+      // Accept YYYY-MM-DD or full ISO
+      dt = new Date(s.length <= 10 ? s + 'T00:00:00' : s);
+    }
+    if (isNaN(dt.getTime())) return String(d);
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
   }
 }

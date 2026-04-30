@@ -24,6 +24,7 @@ export class BillingSettingsService {
         address: '',
         stateCode: '36',
         stateName: 'Telangana',
+        branchName: 'Dolapeta',
       } as Partial<BillingSetting>);
       settings = await this.repo.save(settings);
     }
