@@ -326,16 +326,6 @@ export class InvoicePdfService {
       width: 200,
       align: 'right',
     });
-    doc.font('Helvetica').fontSize(8).fillColor(MUTED);
-    if (settings.authorizedSignatoryName) {
-      doc.text(settings.authorizedSignatoryName, sigX, doc.y, { width: 200, align: 'right' });
-    }
-    if (settings.authorizedSignatoryDesignation) {
-      doc.text(settings.authorizedSignatoryDesignation, sigX, doc.y, {
-        width: 200,
-        align: 'right',
-      });
-    }
     doc.x = left;
 
     // ── Page numbers ──
