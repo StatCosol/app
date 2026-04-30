@@ -101,4 +101,29 @@ export class AccountsBillingService {
   updateSettings(data: Partial<BillingSetting>): Observable<BillingSetting> {
     return this.http.patch<BillingSetting>(`${this.base}/settings`, data);
   }
+
+  // ── Recurring Invoices ──
+  getRecurringConfigs(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/recurring`);
+  }
+
+  createRecurringConfig(data: any): Observable<any> {
+    return this.http.post(`${this.base}/recurring`, data);
+  }
+
+  updateRecurringConfig(id: string, data: any): Observable<any> {
+    return this.http.patch(`${this.base}/recurring/${id}`, data);
+  }
+
+  toggleRecurringConfig(id: string, isActive: boolean): Observable<any> {
+    return this.http.patch(`${this.base}/recurring/${id}/toggle`, { isActive });
+  }
+
+  deleteRecurringConfig(id: string): Observable<any> {
+    return this.http.delete(`${this.base}/recurring/${id}`);
+  }
+
+  runRecurringNow(): Observable<any> {
+    return this.http.post(`${this.base}/recurring/run-now`, {});
+  }
 }

@@ -23,6 +23,7 @@ import {
   InvoiceEmailService,
   BillingClientsService,
   BillingSettingsService,
+  RecurringInvoicesService,
 } from './services';
 
 import { InvoicesController } from './controllers/invoices.controller';
@@ -30,6 +31,7 @@ import { InvoicePaymentsController } from './controllers/invoice-payments.contro
 import { BillingClientsController } from './controllers/billing-clients.controller';
 import { BillingSettingsController } from './controllers/billing-settings.controller';
 import { InvoicePdfEmailController } from './controllers/invoice-pdf-email.controller';
+import { RecurringInvoicesController } from './controllers/recurring-invoices.controller';
 import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
 
 @Module({
@@ -52,6 +54,7 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
     BillingClientsController,
     BillingSettingsController,
     InvoicePdfEmailController,
+    RecurringInvoicesController,
   ],
   providers: [
     BillingCalculationService,
@@ -63,6 +66,7 @@ import { RecurringInvoiceCron } from './jobs/recurring-invoice.cron';
     InvoiceEmailService,
     BillingClientsService,
     BillingSettingsService,
+    RecurringInvoicesService,
     RecurringInvoiceCron,
   ],
   exports: [InvoicesService, BillingClientsService],
