@@ -120,7 +120,7 @@ import { BillingClient, INVOICE_TYPES } from '../models/billing.models';
 
         <!-- Submit -->
         <div class="flex justify-end gap-3">
-          <button type="button" (click)="router.navigate(['/admin/billing/invoices'])"
+          <button type="button" (click)="router.navigate(['/accounts/invoices'])"
                   class="px-6 py-2.5 border rounded-lg text-sm">Cancel</button>
           <button type="submit" [disabled]="saving || form.invalid"
                   class="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
@@ -206,7 +206,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
     this.svc.createInvoice(this.form.value).subscribe({
       next: (inv) => {
         this.saving = false;
-        this.router.navigate(['/admin/billing/invoices', inv.id]);
+        this.router.navigate(['/accounts/invoices', inv.id]);
       },
       error: () => (this.saving = false),
     });

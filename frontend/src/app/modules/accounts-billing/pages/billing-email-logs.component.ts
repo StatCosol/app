@@ -28,7 +28,7 @@ import { InvoiceEmailLog } from '../models/billing.models';
           <tbody class="divide-y">
             <tr *ngFor="let l of logs" class="hover:bg-slate-50">
               <td class="px-4 py-3">
-                <a *ngIf="l.invoice" [routerLink]="['/admin/billing/invoices', l.invoice.id]"
+                <a *ngIf="l.invoice" [routerLink]="['/accounts/invoices', l.invoice.id]"
                    class="text-blue-600 hover:underline text-xs font-mono">{{ l.invoice.invoiceNumber }}</a>
               </td>
               <td class="px-4 py-3">{{ l.toEmail }}</td>

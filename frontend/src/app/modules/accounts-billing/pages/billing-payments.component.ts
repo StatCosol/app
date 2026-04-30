@@ -31,7 +31,7 @@ import { InvoicePayment } from '../models/billing.models';
             <tr *ngFor="let p of payments" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs">{{ p.receiptNumber }}</td>
               <td class="px-4 py-3">
-                <a *ngIf="p.invoice" [routerLink]="['/admin/billing/invoices', p.invoice.id]"
+                <a *ngIf="p.invoice" [routerLink]="['/accounts/invoices', p.invoice.id]"
                    class="text-blue-600 hover:underline text-xs font-mono">{{ p.invoice.invoiceNumber }}</a>
               </td>
               <td class="px-4 py-3">{{ p.paymentDate }}</td>

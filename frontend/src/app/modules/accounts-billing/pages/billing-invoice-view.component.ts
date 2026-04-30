@@ -14,7 +14,7 @@ import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models
       <!-- Header -->
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <a routerLink="/admin/billing/invoices" class="text-blue-600 text-sm hover:underline">&larr; Back to Invoices</a>
+          <a routerLink="/accounts/invoices" class="text-blue-600 text-sm hover:underline">&larr; Back to Invoices</a>
           <h1 class="text-2xl font-bold text-slate-800 mt-1">{{ invoice.invoiceNumber }}</h1>
           <p class="text-sm text-slate-500">{{ invoice.invoiceType.replace('_',' ') }} &middot; {{ invoice.invoiceDate }}</p>
         </div>

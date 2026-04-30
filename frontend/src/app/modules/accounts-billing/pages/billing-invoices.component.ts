@@ -13,7 +13,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
     <div class="p-6 space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-2xl font-bold text-slate-800">Invoices</h1>
-        <a routerLink="/admin/billing/create-invoice"
+        <a routerLink="/accounts/invoices/new"
            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
           + New Invoice
         </a>
@@ -56,7 +56,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
           <tbody class="divide-y">
             <tr *ngFor="let inv of invoices" class="hover:bg-slate-50">
               <td class="px-4 py-3 font-mono text-xs font-medium">
-                <a [routerLink]="['/admin/billing/invoices', inv.id]" class="text-blue-600 hover:underline">{{ inv.invoiceNumber }}</a>
+                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-blue-600 hover:underline">{{ inv.invoiceNumber }}</a>
               </td>
               <td class="px-4 py-3">{{ inv.billingClient?.legalName || '—' }}</td>
               <td class="px-4 py-3 text-xs">{{ inv.invoiceType.replace('_',' ') }}</td>
@@ -74,7 +74,7 @@ import { Invoice, INVOICE_STATUSES } from '../models/billing.models';
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
-                <a [routerLink]="['/admin/billing/invoices', inv.id]" class="text-blue-600 hover:underline text-xs">View</a>
+                <a [routerLink]="['/accounts/invoices', inv.id]" class="text-blue-600 hover:underline text-xs">View</a>
               </td>
             </tr>
             <tr *ngIf="!invoices.length">
