@@ -35,7 +35,13 @@ properties:
       username: ''
     revisionTransitionThreshold: null
     runtime: null
-    secrets: null
+    # Secrets are managed via `az containerapp secret set`. Names below are
+    # referenced by env vars via `secretRef:`. Values are NOT stored in this file.
+    secrets:
+      - name: db-pass
+      - name: jwt-secret
+      - name: ai-encryption-key
+      - name: smtp-pass
     service: null
     targetLabel: ''
   customDomainVerificationId: 5C01537D5AC0422F91FB9A7E2EEBEBF761F51A1A82E8D9C85C5D65682198AE98
@@ -95,13 +101,13 @@ properties:
       - name: DB_USER
         value: Statcocompy
       - name: DB_PASS
-        value: <REDACTED-ROTATE-IN-AZURE>
+        secretRef: db-pass
       - name: DB_NAME
         value: statcompy
       - name: DB_SSL
         value: 'true'
       - name: JWT_SECRET
-        value: <REDACTED-ROTATE-IN-AZURE>
+        secretRef: jwt-secret
       - name: JWT_EXPIRES_IN
         value: 12h
       - name: JWT_ACCESS_EXPIRES_SEC
@@ -117,7 +123,7 @@ properties:
       - name: UPLOADS_PATH
         value: /app/uploads
       - name: AI_ENCRYPTION_KEY
-        value: <REDACTED-ROTATE-IN-AZURE>
+        secretRef: ai-encryption-key
       - name: SMTP_HOST
         value: smtp.zoho.in
       - name: SMTP_PORT
@@ -125,7 +131,7 @@ properties:
       - name: SMTP_USER
         value: it_admin@statcosol.com
       - name: SMTP_PASS
-        value: <REDACTED-ROTATE-IN-AZURE>
+        secretRef: smtp-pass
       - name: SMTP_FROM_EMAIL
         value: it_admin@statcosol.com
       image: statcompyacr001.azurecr.io/statcompy-backend:v202604051830
