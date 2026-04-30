@@ -151,7 +151,17 @@ import { INDIAN_STATES } from '../models/billing.models';
   `,
 })
 export class BillingSettingsComponent implements OnInit {
-  settings: any = null;
+  // Initialise with empty defaults so the form always renders, even before the
+  // API response arrives or when no settings row exists yet.
+  settings: any = {
+    legalName: '', tradeName: '', gstin: '', pan: '', address: '',
+    stateCode: '36', stateName: 'Telangana', email: '', phone: '',
+    bankAccountName: '', bankName: '', accountNumber: '', ifscCode: '', branchName: '',
+    invoicePrefix: 'STS/INV', proformaPrefix: 'STS/PI', creditNotePrefix: 'STS/CN',
+    defaultGstRate: 18, defaultPaymentTermsDays: 30, defaultSacCode: '',
+    authorizedSignatoryName: '', authorizedSignatoryDesignation: '',
+    termsAndConditions: '', notesFooter: '',
+  };
   states = INDIAN_STATES;
   saving = false;
 
@@ -159,18 +169,8 @@ export class BillingSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.svc.getSettings().subscribe({
-      next: (s) => (this.settings = s),
-      error: () => {
-        this.settings = {
-          legalName: '', tradeName: '', gstin: '', pan: '', address: '',
-          stateCode: '36', stateName: 'Telangana', email: '', phone: '',
-          bankAccountName: '', bankName: '', accountNumber: '', ifscCode: '', branchName: '',
-          invoicePrefix: 'STS/INV', proformaPrefix: 'STS/PI', creditNotePrefix: 'STS/CN',
-          defaultGstRate: 18, defaultPaymentTermsDays: 30, defaultSacCode: '',
-          authorizedSignatoryName: '', authorizedSignatoryDesignation: '',
-          termsAndConditions: '', notesFooter: '',
-        };
-      },
+      next: (s) => { if (s) this.settings = s; },
+      error: () => { /* keep defaults so form still renders */ },
     });
   }
 

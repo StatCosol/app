@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BillingSetting } from '../entities';
@@ -12,9 +12,21 @@ export class BillingSettingsService {
   ) {}
 
   async getSettings() {
-    const settings = await this.repo.findOne({ where: {} });
-    if (!settings)
-      throw new NotFoundException('Billing settings not configured');
+    let settings = await this.repo.findOne({ where: {} });
+    if (!settings) {
+      // Lazily seed an empty settings row the first time the page is opened
+      // so the frontend always has something editable to render.
+      settings = this.repo.create({
+        tenantId: '00000000-0000-0000-0000-000000000000',
+        legalName: 'StatCo Solutions',
+        gstin: '',
+        pan: '',
+        address: '',
+        stateCode: '36',
+        stateName: 'Telangana',
+      } as Partial<BillingSetting>);
+      settings = await this.repo.save(settings);
+    }
     return settings;
   }
 

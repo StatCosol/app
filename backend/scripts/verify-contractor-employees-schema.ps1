@@ -1,0 +1,2 @@
+$DB_HOST="statcompy-db.postgres.database.azure.com"; $DB_USER="Statcocompy"; $DB_PASS="Statco@123"; $DB_NAME="statcompy"
+$sql = "SELECT column_name||':'||data_type AS col FROM information_schema.columns WHERE table_name='contractor_employees' AND column_name IN ('skill_category','monthly_salary','daily_wage','state_code','status') ORDER BY column_

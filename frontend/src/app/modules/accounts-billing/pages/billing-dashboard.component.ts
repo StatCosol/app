@@ -104,15 +104,30 @@ import { DashboardStats } from '../models/billing.models';
   `,
 })
 export class BillingDashboardComponent implements OnInit {
-  stats: DashboardStats | null = null;
+  // Pre-populate with zeros so the cards render immediately even before/if the
+  // API call fails. Real numbers replace these on subscribe.
+  stats: DashboardStats = {
+    totalInvoices: 0,
+    draftCount: 0,
+    approvedCount: 0,
+    pendingPaymentCount: 0,
+    paidCount: 0,
+    overdueCount: 0,
+    totalBilled: 0,
+    totalReceived: 0,
+    totalOutstanding: 0,
+  } as DashboardStats;
 
   constructor(private svc: AccountsBillingService) {}
 
   ngOnInit(): void {
-    this.svc.getDashboardStats().subscribe((s) => (this.stats = s));
+    this.svc.getDashboardStats().subscribe({
+      next: (s) => { if (s) this.stats = s; },
+      error: () => { /* keep zero defaults */ },
+    });
   }
 
-  formatNum(n: number): string {
-    return (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNum(n: number | string | null | undefined): string {
+    return (+(n as any) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 }
