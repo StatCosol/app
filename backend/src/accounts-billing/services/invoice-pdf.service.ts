@@ -24,6 +24,13 @@ export class InvoicePdfService {
   ) {}
 
   async generatePdf(invoiceId: string): Promise<string> {
+    const { pdfPath } = await this.generatePdfBuffer(invoiceId);
+    return pdfPath;
+  }
+
+  async generatePdfBuffer(
+    invoiceId: string,
+  ): Promise<{ buffer: Buffer; fileName: string; pdfPath: string }> {
     const invoice = await this.invoicesService.findOne(invoiceId);
     const settings =
       (await this.settingsRepo.findOne({ where: {} })) || ({} as BillingSetting);
@@ -37,12 +44,20 @@ export class InvoicePdfService {
     const filePath = path.join(uploadsDir, fileName);
 
     const buffer = await this.buildPdfBuffer(invoice, settings);
-    fs.writeFileSync(filePath, buffer);
+    try {
+      fs.writeFileSync(filePath, buffer);
+    } catch (err) {
+      this.log.warn(`Could not persist PDF to disk: ${(err as Error).message}`);
+    }
 
     const pdfPath = `/uploads/invoices/${fileName}`;
-    await this.invoicesService.updatePdfPath(invoiceId, pdfPath);
-    this.log.log(`PDF generated: ${pdfPath}`);
-    return pdfPath;
+    try {
+      await this.invoicesService.updatePdfPath(invoiceId, pdfPath);
+    } catch (err) {
+      this.log.warn(`Could not update pdfPath: ${(err as Error).message}`);
+    }
+    this.log.log(`PDF generated: ${pdfPath} (${buffer.length} bytes)`);
+    return { buffer, fileName, pdfPath };
   }
 
   private buildPdfBuffer(invoice: Invoice, settings: BillingSetting): Promise<Buffer> {

@@ -39,6 +39,12 @@ export class EsslIclockController {
 
   constructor(private readonly essl: EsslService) {}
 
+  @All()
+  @Header('Content-Type', 'text/plain')
+  root(): string {
+    return 'OK';
+  }
+
   @Get('ping')
   @Header('Content-Type', 'text/plain')
   ping(): string {
@@ -48,7 +54,10 @@ export class EsslIclockController {
   /** Device handshake. Returns server config the device should adopt. */
   @Get('cdata')
   @Header('Content-Type', 'text/plain')
-  async handshake(@Query('SN') sn: string): Promise<string> {
+  async handshake(@Query('SN') sn: string, @Req() req: any): Promise<string> {
+    this.logger.log(
+      `handshake SN=${sn || '-'} from=${req?.ip || req?.socket?.remoteAddress || '-'}`,
+    );
     return this.essl.handshake(sn);
   }
 
@@ -88,6 +97,9 @@ export class EsslIclockController {
     if (!raw && req?.rawBody) raw = req.rawBody.toString('utf8');
 
     const tableU = (table || '').toUpperCase();
+    this.logger.log(
+      `push table=${tableU || '-'} SN=${sn || '-'} bytes=${raw.length} from=${req?.ip || req?.socket?.remoteAddress || '-'}`,
+    );
     if (tableU === 'ATTLOG') {
       const count = await this.essl.ingestAttlog(sn, raw);
       return `OK: ${count}\nStamp=${stamp || Date.now()}`;

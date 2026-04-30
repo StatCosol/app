@@ -298,12 +298,32 @@ export class BillingInvoiceViewComponent implements OnInit {
   generatePdf(): void {
     if (!this.invoice) return;
     this.generatingPdf = true;
+    const invNum = this.invoice.invoiceNumber;
     this.svc.generatePdf(this.invoice.id).subscribe({
-      next: () => {
+      next: (blob: Blob) => {
         this.generatingPdf = false;
+        try {
+          const url = URL.createObjectURL(blob);
+          // Open in new tab for preview
+          window.open(url, '_blank');
+          // Also trigger a download with a sensible filename
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${(invNum || 'invoice').replace(/[\/\\]/g, '-')}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (e) {
+          console.error('[billing] PDF open failed', e);
+        }
         this.loadInvoice(this.invoice!.id);
       },
-      error: () => (this.generatingPdf = false),
+      error: (e) => {
+        this.generatingPdf = false;
+        console.error('[billing] generate PDF failed', e);
+        alert('Failed to generate PDF. ' + (e?.error?.message || e?.message || ''));
+      },
     });
   }
 

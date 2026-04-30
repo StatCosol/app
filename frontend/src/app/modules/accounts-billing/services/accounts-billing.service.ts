@@ -66,8 +66,10 @@ export class AccountsBillingService {
   }
 
   // ── PDF & Email ──
-  generatePdf(invoiceId: string): Observable<{ pdfPath: string }> {
-    return this.http.post<{ pdfPath: string }>(`${this.base}/invoices/${invoiceId}/generate-pdf`, {});
+  generatePdf(invoiceId: string): Observable<Blob> {
+    return this.http.post(`${this.base}/invoices/${invoiceId}/generate-pdf`, {}, {
+      responseType: 'blob',
+    });
   }
 
   sendInvoiceEmail(invoiceId: string, data: any): Observable<any> {

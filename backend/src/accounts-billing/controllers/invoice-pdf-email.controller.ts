@@ -7,7 +7,9 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -28,11 +30,30 @@ export class InvoicePdfEmailController {
     private readonly emailService: InvoiceEmailService,
   ) {}
 
-  @ApiOperation({ summary: 'Generate invoice PDF' })
+  @ApiOperation({ summary: 'Generate invoice PDF (returns PDF binary)' })
   @Post('invoices/:id/generate-pdf')
-  async generatePdf(@Param('id', ParseUUIDPipe) id: string) {
-    const pdfPath = await this.pdfService.generatePdf(id);
-    return { pdfPath };
+  async generatePdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, fileName } = await this.pdfService.generatePdfBuffer(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.end(buffer);
+  }
+
+  @ApiOperation({ summary: 'Download invoice PDF (regenerates if missing)' })
+  @Get('invoices/:id/pdf')
+  async downloadPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, fileName } = await this.pdfService.generatePdfBuffer(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.end(buffer);
   }
 
   @ApiOperation({ summary: 'Send invoice via email' })
