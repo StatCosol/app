@@ -39,8 +39,8 @@ import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models
           {{ invoice.paymentStatus }}
         </span>
         <span class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">Mail: {{ invoice.mailStatus }}</span>
-        <a *ngIf="invoice.pdfPath" [href]="invoice.pdfPath" target="_blank"
-           class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 hover:underline">View PDF</a>
+        <button *ngIf="invoice.pdfPath" (click)="generatePdf()" type="button"
+           class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 hover:underline">View PDF</button>
       </div>
 
       <!-- Client & Amount Cards -->
