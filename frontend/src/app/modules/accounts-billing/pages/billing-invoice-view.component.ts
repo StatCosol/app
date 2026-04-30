@@ -10,7 +10,7 @@ import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule],
   template: `
-    <div class="p-6 space-y-6" *ngIf="invoice">
+    <div class="p-6 space-y-6" *ngIf="invoice; else placeholderTpl">
       <!-- Header -->
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -228,12 +228,24 @@ import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models
         </div>
       </div>
     </div>
+
+    <ng-template #placeholderTpl>
+      <div class="p-6 space-y-4">
+        <a routerLink="/accounts/invoices" class="text-blue-600 text-sm hover:underline">&larr; Back to Invoices</a>
+        <h1 class="text-2xl font-bold text-slate-800">Invoice</h1>
+        <div class="bg-white rounded-xl border p-10 text-center text-slate-500">
+          <p *ngIf="!loadError">Loading invoice…</p>
+          <p *ngIf="loadError" class="text-red-500">Could not load this invoice. It may have been deleted or you may not have access.</p>
+        </div>
+      </div>
+    </ng-template>
   `,
 })
 export class BillingInvoiceViewComponent implements OnInit {
   invoice: Invoice | null = null;
   payments: InvoicePayment[] = [];
   paymentModes = PAYMENT_MODES;
+  loadError = false;
 
   showPaymentModal = false;
   savingPayment = false;
@@ -256,11 +268,16 @@ export class BillingInvoiceViewComponent implements OnInit {
   }
 
   loadInvoice(id: string): void {
-    this.svc.getInvoice(id).subscribe((inv) => {
-      this.invoice = inv;
-      this.payments = inv.payments || [];
-      this.resetPayForm();
-      this.resetEmailForm();
+    this.loadError = false;
+    this.svc.getInvoice(id).subscribe({
+      next: (inv) => {
+        if (!inv) { this.loadError = true; return; }
+        this.invoice = inv;
+        this.payments = inv.payments || [];
+        this.resetPayForm();
+        this.resetEmailForm();
+      },
+      error: (e) => { console.error('[billing] invoice load failed', e); this.loadError = true; },
     });
   }
 

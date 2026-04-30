@@ -155,7 +155,10 @@ export class BillingCreateInvoiceComponent implements OnInit {
       items: this.fb.array([this.newItem()]),
     });
 
-    this.svc.getActiveClients().subscribe((c) => (this.clients = c));
+    this.svc.getActiveClients().subscribe({
+      next: (c) => (this.clients = c || []),
+      error: (e) => { console.error('[billing] active clients load failed', e); this.clients = []; },
+    });
   }
 
   get itemsArray(): FormArray {
