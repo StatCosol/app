@@ -51,8 +51,8 @@ export class Invoice {
   @Column({ name: 'invoice_date', type: 'date' })
   invoiceDate: string;
 
-  @Column({ name: 'due_date', type: 'date' })
-  dueDate: string;
+  @Column({ name: 'due_date', type: 'date', nullable: true })
+  dueDate: string | null;
 
   @Column({ name: 'financial_year', length: 20 })
   financialYear: string;

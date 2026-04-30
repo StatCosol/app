@@ -55,9 +55,7 @@ export class InvoicesService {
       new Date(dto.invoiceDate),
     );
 
-    const dueDate =
-      dto.dueDate ||
-      this.calculateDueDate(dto.invoiceDate, client.paymentTermsDays || 30);
+    const dueDate = dto.dueDate ? dto.dueDate : null;
 
     const itemResults = dto.items.map((item) => {
       const itemGstRate = item.gstRate ?? gstRate;

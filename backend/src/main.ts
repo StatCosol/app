@@ -502,6 +502,7 @@ async function bootstrap() {
         `CREATE INDEX IF NOT EXISTS idx_audit_logs_invoice ON invoice_audit_logs(invoice_id)`,
         `INSERT INTO billing_settings (tenant_id,legal_name,trade_name,gstin,pan,address,state_code,state_name,email,phone,bank_account_name,bank_name,account_number,ifsc_code,branch_name,invoice_prefix,proforma_prefix,credit_note_prefix,default_gst_rate,default_payment_terms_days,authorized_signatory_name,authorized_signatory_designation,terms_and_conditions) SELECT '00000000-0000-0000-0000-000000000000','StatCo Solutions','StatCo Solutions','36LNIPK6065M1Z6','LNIPK6065M','D.No 8-3-228/595/3, Rehamat Nagar, Yusufguda, Hyderabad, Telangana - 500045','36','Telangana','Compliance@statcosol.com','+91 9000607839','Kallepalli Lakshmana Kumar','State Bank of India','44043172246','SBIN0014267','Dolapeta','STS/INV','STS/PI','STS/CN',18,30,'Kallepalli Lakshmana Kumar','Proprietor','We declare that this invoice shows the actual price of the services provided and that all particulars are true and correct.' WHERE NOT EXISTS (SELECT 1 FROM billing_settings LIMIT 1)`,
         `UPDATE billing_settings SET branch_name='Dolapeta' WHERE branch_name IS NULL OR branch_name='' OR branch_name='Yusufguda'`,
+        `ALTER TABLE invoices ALTER COLUMN due_date DROP NOT NULL`,
       ];
       for (const s of billingStmts) {
         try {

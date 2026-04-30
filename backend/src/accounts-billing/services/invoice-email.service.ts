@@ -42,7 +42,7 @@ export class InvoiceEmailService {
       dto.subject || `Invoice ${invoice.invoiceNumber} from StatCo Solutions`;
     const body =
       dto.body ||
-      `Dear ${invoice.billingClient?.contactPerson || 'Sir/Madam'},\n\nPlease find attached invoice ${invoice.invoiceNumber} dated ${invoice.invoiceDate}.\n\nAmount: ₹${invoice.grandTotal}\nDue Date: ${invoice.dueDate}\n\nRegards,\nStatCo Solutions`;
+      `Dear ${invoice.billingClient?.contactPerson || 'Sir/Madam'},\n\nPlease find attached invoice ${invoice.invoiceNumber} dated ${invoice.invoiceDate}.\n\nAmount: ₹${invoice.grandTotal}${invoice.dueDate ? `\nDue Date: ${invoice.dueDate}` : ''}\n\nRegards,\nStatCo Solutions`;
 
     const log = this.emailLogRepo.create({
       invoiceId,
