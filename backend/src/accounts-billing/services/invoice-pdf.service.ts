@@ -110,20 +110,17 @@ export class InvoicePdfService {
     // Right: Email + Phone
     const contactX = pageW - right - 240;
     const contactW = 240;
-    const emailLabel = 'Email- ';
-    const emailValue = 'finance@statcosol.com';
-    doc.font('Times-Roman').fontSize(11).fillColor(TEXT);
-    const emailLabelW = doc.widthOfString(emailLabel);
-    const emailValueW = doc.widthOfString(emailValue);
-    const emailLineW = emailLabelW + emailValueW;
-    const emailX = contactX + contactW - emailLineW;
-    doc.fillColor(TEXT).text(emailLabel, emailX, headerTop + 4, { lineBreak: false });
+    doc.font('Times-Roman').fontSize(11);
+    // Email line: label in dark text + value as underlined link, right-aligned
     doc
+      .fillColor(TEXT)
+      .text('Email- ', contactX, headerTop + 4, {
+        width: contactW,
+        align: 'right',
+        continued: true,
+      })
       .fillColor(LINK)
-      .text(emailValue, emailX + emailLabelW, headerTop + 4, {
-        lineBreak: false,
-        underline: true,
-      });
+      .text('finance@statcosol.com', { underline: true });
     doc
       .fillColor(TEXT)
       .font('Times-Roman')
