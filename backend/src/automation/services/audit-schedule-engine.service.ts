@@ -21,6 +21,11 @@ interface CreateScheduleInput {
   scheduledBySystem?: boolean;
   frequencyRuleId?: string | null;
   remarks?: string | null;
+  /**
+   * Optional explicit override; when omitted, contractor audits derive it from
+   * the contractor's active headcount via {@link computeAuditorSlotHours}.
+   */
+  auditorSlotHours?: number | null;
 }
 
 @Injectable()
@@ -165,6 +170,16 @@ export class AuditScheduleEngineService {
       };
     }
 
+    const slotHours =
+      input.auditorSlotHours !== undefined && input.auditorSlotHours !== null
+        ? input.auditorSlotHours
+        : input.auditType === 'CONTRACTOR_AUDIT'
+          ? await this.computeAuditorSlotHours(
+              input.contractorId ?? null,
+              input.branchId ?? null,
+            )
+          : null;
+
     const rows = await this.dataSource.query(
       `
       INSERT INTO audit_schedules
@@ -180,12 +195,13 @@ export class AuditScheduleEngineService {
         due_date,
         frequency_rule_id,
         remarks,
+        auditor_slot_hours,
         status,
         created_at,
         updated_at
       )
       VALUES
-      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'SCHEDULED', NOW(), NOW())
+      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'SCHEDULED', NOW(), NOW())
       RETURNING *
       `,
       [
@@ -200,6 +216,7 @@ export class AuditScheduleEngineService {
         input.dueDate ?? null,
         input.frequencyRuleId ?? null,
         input.remarks ?? null,
+        slotHours,
       ],
     );
 
@@ -397,5 +414,45 @@ export class AuditScheduleEngineService {
       59,
       59,
     );
+  }
+
+  /**
+   * Item #9b: derive the auditor's allocated time (in hours) for a
+   * contractor audit from the contractor's active employee headcount.
+   *   < 50     => 1 hour
+   *   50..100  => 2 hours
+   *   > 100    => 3 hours
+   * Returns null when there is no contractor scope (non-contractor audit).
+   */
+  async computeAuditorSlotHours(
+    contractorId: string | null,
+    branchId: string | null,
+  ): Promise<number | null> {
+    if (!contractorId) return null;
+    try {
+      const params: any[] = [contractorId];
+      let branchFilter = '';
+      if (branchId) {
+        params.push(branchId);
+        branchFilter = 'AND ce.branch_id = $2::uuid';
+      }
+      const rows = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS hc
+           FROM contractor_employees ce
+          WHERE ce.contractor_user_id = $1::uuid
+            AND COALESCE(ce.status, 'ACTIVE') = 'ACTIVE'
+            ${branchFilter}`,
+        params,
+      );
+      const hc = Number(rows?.[0]?.hc ?? 0);
+      if (hc < 50) return 1;
+      if (hc <= 100) return 2;
+      return 3;
+    } catch (e: any) {
+      this.logger.warn(
+        `computeAuditorSlotHours failed (contractor=${contractorId}): ${e?.message || e}`,
+      );
+      return null;
+    }
   }
 }

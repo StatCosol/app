@@ -9,11 +9,10 @@ import { EmailService } from './email.service';
  *                         Email body: Document, Month, CRM Remarks, Correction Required, Due Date.
  *
  *  - sendAuditRejection:  Auditor marked an audit document as NON_COMPLIED.
- *                         Recipient is the contractor.
+ *                         Recipient is the contractor; the assigned auditor (and any
+ *                         additional reviewers) is automatically Cc'd so they have a
+ *                         live record of every NC raised.
  *                         Email body: Non-Compliance, Applicable Law, Impact, Solution.
- *
- * Per design: auditors are NOT cc'd on rejections. They get reupload-submitted /
- * new-audit-assigned / audit-pending notifications elsewhere.
  *
  * All sends are best-effort; callers MUST wrap them so a mail failure never
  * breaks the underlying review transaction.
@@ -27,6 +26,7 @@ export class RejectionMailService {
   // ─── 1. MCD (CRM-side) rejection ────────────────────────────────
   async sendMcdRejection(params: {
     to: string | string[];
+    cc?: string | string[];
     docName: string;
     month?: string | null;
     branchName?: string | null;
@@ -35,6 +35,7 @@ export class RejectionMailService {
     dueDate?: string | null;
   }): Promise<void> {
     const recipients = this.normalize(params.to);
+    const ccList = this.normalize(params.cc);
     if (!recipients.length) {
       this.log.warn(`MCD rejection: no recipient (doc=${params.docName})`);
       return;
@@ -55,7 +56,14 @@ export class RejectionMailService {
     `;
 
     try {
-      await this.emailService.send(recipients, subject, subject, bodyHtml);
+      await this.emailService.send(
+        recipients,
+        subject,
+        subject,
+        bodyHtml,
+        undefined,
+        ccList.length ? { cc: ccList } : undefined,
+      );
     } catch (e: any) {
       this.log.warn(`MCD rejection mail failed: ${e?.message || e}`);
     }
@@ -64,6 +72,7 @@ export class RejectionMailService {
   // ─── 2. Audit (Auditor-side) rejection / NC ────────────────────
   async sendAuditRejection(params: {
     to: string | string[];
+    cc?: string | string[];
     docName: string;
     branchName?: string | null;
     auditPeriod?: string | null;
@@ -73,6 +82,7 @@ export class RejectionMailService {
     solution?: string | null;
   }): Promise<void> {
     const recipients = this.normalize(params.to);
+    const ccList = this.normalize(params.cc);
     if (!recipients.length) {
       this.log.warn(`Audit rejection: no recipient (doc=${params.docName})`);
       return;
@@ -99,6 +109,7 @@ export class RejectionMailService {
         subject,
         subject,
         bodyHtml,
+        ccList.length ? { cc: ccList } : undefined,
       );
     } catch (e: any) {
       this.log.warn(`Audit rejection mail failed: ${e?.message || e}`);

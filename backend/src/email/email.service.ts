@@ -31,10 +31,14 @@ export class EmailService {
     title: string,
     bodyHtml: string,
     fromOverride?: { name?: string; email?: string },
+    extras?: { cc?: string | string[]; bcc?: string | string[] },
   ) {
     if (!this.enabled) {
       const toStr = Array.isArray(to) ? to.join(',') : to;
-      this.log.warn(`[EMAIL DISABLED] Subject=${subject} To=${toStr}`);
+      const ccStr = extras?.cc
+        ? ` Cc=${Array.isArray(extras.cc) ? extras.cc.join(',') : extras.cc}`
+        : '';
+      this.log.warn(`[EMAIL DISABLED] Subject=${subject} To=${toStr}${ccStr}`);
       return { skipped: true } as const;
     }
 
@@ -52,6 +56,8 @@ export class EmailService {
       const info = await this.transporter.sendMail({
         from: `${fromName} <${fromEmail}>`,
         to,
+        cc: extras?.cc,
+        bcc: extras?.bcc,
         subject,
         html,
       });
@@ -75,14 +81,22 @@ export class EmailService {
     subject: string,
     title: string,
     bodyHtml: string,
+    extras?: { cc?: string | string[]; bcc?: string | string[] },
   ) {
-    return this.send(to, subject, title, bodyHtml, {
-      name: this.config.get<string>('AUDIT_FROM_NAME', 'StatCo Audit Desk'),
-      email: this.config.get<string>(
-        'AUDIT_FROM_EMAIL',
-        'crm_india@statcosol.com',
-      ),
-    });
+    return this.send(
+      to,
+      subject,
+      title,
+      bodyHtml,
+      {
+        name: this.config.get<string>('AUDIT_FROM_NAME', 'StatCo Audit Desk'),
+        email: this.config.get<string>(
+          'AUDIT_FROM_EMAIL',
+          'crm_india@statcosol.com',
+        ),
+      },
+      extras,
+    );
   }
 
   adminRecipients(): string[] {

@@ -853,9 +853,33 @@ export class AuditsService implements OnModuleInit {
       const scoreResult = await this.calculateScore(auditId);
       audit.score = scoreResult.score;
       audit.scoreCalculatedAt = new Date();
+      // Item #10: release the contractor upload lock so the contractor can
+      // upload supplementary documents post-audit and roll-forward into the
+      // next audit cycle.
+      audit.uploadLockFrom = null;
+      audit.uploadLockUntil = null;
     }
 
     const saved = await this.repo.save(audit);
+
+    // Mirror the COMPLETED status onto the originating audit_schedule (if any)
+    // so the auditor's calendar reflects the closed slot.
+    if (targetStatus === 'COMPLETED') {
+      try {
+        await this.dataSource.query(
+          `UPDATE audit_schedules
+              SET status = 'COMPLETED', updated_at = NOW()
+            WHERE id = (SELECT schedule_id FROM audits WHERE id = $1 AND schedule_id IS NOT NULL)
+              AND status NOT IN ('COMPLETED', 'CANCELLED')`,
+          [auditId],
+        );
+      } catch (e: any) {
+        this.logger.warn(
+          `audit_schedules COMPLETED sync failed for ${auditId}: ${e?.message || e}`,
+        );
+      }
+    }
+
     return {
       id: saved.id,
       status: saved.status,
@@ -3399,9 +3423,27 @@ export class AuditsService implements OnModuleInit {
       const email = rows?.[0]?.email as string | undefined;
       if (!email) return;
 
+      // Cc the assigned auditor so they have a live record of every NC raised.
+      let auditorCc: string[] = [];
+      if (audit.assignedAuditorId) {
+        try {
+          const aRows = await this.dataSource.query(
+            `SELECT email FROM users WHERE id = $1::uuid AND deleted_at IS NULL LIMIT 1`,
+            [audit.assignedAuditorId],
+          );
+          const aEmail = aRows?.[0]?.email as string | undefined;
+          if (aEmail && aEmail.toLowerCase() !== email.toLowerCase()) {
+            auditorCc = [aEmail];
+          }
+        } catch {
+          // swallow; cc is best-effort
+        }
+      }
+
       const period = audit.periodCode || null;
       await this.rejectionMail.sendAuditRejection({
         to: email,
+        cc: auditorCc.length ? auditorCc : undefined,
         docName,
         branchName: rows?.[0]?.branch_name ?? null,
         auditPeriod: period,

@@ -571,6 +571,7 @@ export class ComplianceCronService {
         auditId: string;
         nonCompliedCount: number;
         clientName: string;
+        auditorEmail: string | null;
       }> = await this.dataSource.query(
         `SELECT
            cd.contractor_user_id AS "contractorUserId",
@@ -579,14 +580,16 @@ export class ComplianceCronService {
            a.audit_code AS "auditCode",
            a.id AS "auditId",
            COUNT(*)::int AS "nonCompliedCount",
-           c.client_name AS "clientName"
+           c.client_name AS "clientName",
+           au.email AS "auditorEmail"
          FROM contractor_documents cd
          JOIN audits a ON a.id = cd.audit_id
          JOIN users u ON u.id = cd.contractor_user_id
          LEFT JOIN clients c ON c.id = a.client_id
+         LEFT JOIN users au ON au.id = a.assigned_auditor_id AND au.deleted_at IS NULL
          WHERE cd.status = 'REJECTED'
            AND a.status IN ('PLANNED', 'IN_PROGRESS')
-         GROUP BY cd.contractor_user_id, u.name, u.email, a.audit_code, a.id, c.client_name`,
+         GROUP BY cd.contractor_user_id, u.name, u.email, a.audit_code, a.id, c.client_name, au.email`,
       );
 
       if (!rows.length) {
@@ -616,11 +619,18 @@ export class ComplianceCronService {
         // Send email
         if (row.contractorEmail) {
           try {
+            const cc =
+              row.auditorEmail &&
+              row.auditorEmail.toLowerCase() !==
+                row.contractorEmail.toLowerCase()
+                ? [row.auditorEmail]
+                : undefined;
             await this.email.sendAuditMail(
               row.contractorEmail,
               `Action Required: ${row.nonCompliedCount} Non-Compliant Documents`,
               'Audit Non-Compliance Notice',
               `Dear ${row.contractorName || 'Contractor'},\n\nYou have ${row.nonCompliedCount} non-compliant document(s) for audit ${row.auditCode} (${row.clientName}). Please log in to the portal and upload corrected documents as soon as possible.\n\nThis is a daily reminder until all non-compliant items are resolved.`,
+              cc ? { cc } : undefined,
             );
           } catch (e: any) {
             this.logger.warn(
