@@ -97,8 +97,8 @@ export class InvoicePdfService {
 
     // ── Letterhead ──
     const headerTop = 40;
-    // Left: "StatCo Solutions" wordmark — Times New Roman bold, 33.5pt
-    doc.font('Times-Bold').fontSize(33.5);
+    // Left: "StatCo Solutions" wordmark — Times New Roman regular, 33.5pt
+    doc.font('Times-Roman').fontSize(33.5);
     const statcoText = 'StatCo';
     const statcoW = doc.widthOfString(statcoText);
     const wordmarkH = doc.heightOfString(statcoText);
@@ -107,27 +107,53 @@ export class InvoicePdfService {
       .fillColor(BRAND)
       .text(' Solutions', left + statcoW, headerTop, { lineBreak: false });
 
-    // Right: Email + Phone
-    const contactX = pageW - right - 240;
-    const contactW = 240;
-    doc.font('Times-Roman').fontSize(11);
-    // Email line: label in dark text + value as underlined link, right-aligned
-    doc
-      .fillColor(TEXT)
-      .text('Email- ', contactX, headerTop + 4, {
-        width: contactW,
-        align: 'right',
-        continued: true,
-      })
-      .fillColor(LINK)
-      .text('finance@statcosol.com', { underline: true });
-    doc
-      .fillColor(TEXT)
-      .font('Times-Roman')
-      .text('Ph.No-  +91 9000607839', contactX, headerTop + 22, {
-        width: contactW,
-        align: 'right',
-      });
+    // Right: Email + Phone + Website (right-aligned, no overlap)
+    const contactX = pageW - right - 260;
+    const contactW = 260;
+    const lineGap = 14;
+    let contactY = headerTop + 2;
+
+    const drawRightLine = (
+      label: string,
+      value: string,
+      y: number,
+      opts?: { underline?: boolean; valueColor?: string },
+    ) => {
+      doc.font('Times-Roman').fontSize(11);
+      const labelW = doc.widthOfString(label);
+      const valueW = doc.widthOfString(value);
+      const totalW = labelW + valueW;
+      const startX = contactX + contactW - totalW;
+      doc.fillColor(TEXT).text(label, startX, y, { lineBreak: false });
+      doc
+        .fillColor(opts?.valueColor || TEXT)
+        .text(value, startX + labelW, y, { lineBreak: false });
+      if (opts?.underline) {
+        const underlineY = y + doc.currentLineHeight() - 1;
+        doc
+          .moveTo(startX + labelW, underlineY)
+          .lineTo(startX + labelW + valueW, underlineY)
+          .strokeColor(opts?.valueColor || TEXT)
+          .lineWidth(0.5)
+          .stroke();
+      }
+    };
+
+    drawRightLine('Email- ', 'finance@statcosol.com', contactY, {
+      underline: true,
+      valueColor: LINK,
+    });
+    contactY += lineGap;
+    drawRightLine('Ph.No-  ', '+91 9000607839', contactY);
+    contactY += lineGap;
+    drawRightLine('Website- ', 'www.statcosol.com', contactY, {
+      underline: true,
+      valueColor: LINK,
+    });
+
+    // Reset cursor below header (use the taller of wordmark or contact column)
+    doc.x = left;
+    doc.y = headerTop + Math.max(wordmarkH, contactY - headerTop + 4) + 6;
 
     // Reset cursor below header (use wordmark height as baseline)
     doc.x = left;
