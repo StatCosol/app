@@ -88,9 +88,9 @@ export class RecurringInvoicesController {
   }
 
   @ApiOperation({
-    summary: 'Manually trigger the monthly recurring invoice run (admin only)',
+    summary: 'Manually trigger the monthly recurring invoice run',
   })
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'ACCOUNTS')
   @Post('run-now')
   async runNow() {
     const now = Date.now();
