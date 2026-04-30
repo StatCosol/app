@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -9,7 +9,6 @@ import { AuthService } from '../../../core/auth.service';
 @Component({
   selector: 'app-accounts-layout',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterOutlet, AccountsSidebarComponent],
   template: `
     <div class="accounts-shell">
