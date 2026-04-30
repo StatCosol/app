@@ -181,10 +181,13 @@ export class BillingClientsComponent implements OnInit {
     const params: Record<string, string> = { page: String(this.page) };
     if (this.search) params['search'] = this.search;
     if (this.statusFilter) params['status'] = this.statusFilter;
-    this.svc.getClients(params).subscribe((r) => {
-      this.clients = r.data;
-      this.total = r.total;
-      this.totalPages = r.totalPages;
+    this.svc.getClients(params).subscribe({
+      next: (r) => {
+        this.clients = (r && r.data) || [];
+        this.total = (r && r.total) || 0;
+        this.totalPages = (r && r.totalPages) || 0;
+      },
+      error: (e) => { console.error('[billing] clients load failed', e); this.clients = []; this.total = 0; this.totalPages = 0; },
     });
   }
 

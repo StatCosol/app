@@ -67,9 +67,12 @@ export class BillingEmailLogsComponent implements OnInit {
   ngOnInit(): void { this.load(); }
 
   load(): void {
-    this.svc.getEmailLogs({ page: String(this.page) }).subscribe((r) => {
-      this.logs = r.data;
-      this.totalPages = r.totalPages;
+    this.svc.getEmailLogs({ page: String(this.page) }).subscribe({
+      next: (r) => {
+        this.logs = (r && r.data) || [];
+        this.totalPages = (r && r.totalPages) || 0;
+      },
+      error: (e) => { console.error('[billing] email logs load failed', e); this.logs = []; this.totalPages = 0; },
     });
   }
 }

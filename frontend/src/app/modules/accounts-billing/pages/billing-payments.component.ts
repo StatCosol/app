@@ -68,9 +68,12 @@ export class BillingPaymentsComponent implements OnInit {
   ngOnInit(): void { this.load(); }
 
   load(): void {
-    this.svc.getAllPayments({ page: String(this.page) }).subscribe((r) => {
-      this.payments = r.data;
-      this.totalPages = r.totalPages;
+    this.svc.getAllPayments({ page: String(this.page) }).subscribe({
+      next: (r) => {
+        this.payments = (r && r.data) || [];
+        this.totalPages = (r && r.totalPages) || 0;
+      },
+      error: (e) => { console.error('[billing] payments load failed', e); this.payments = []; this.totalPages = 0; },
     });
   }
 

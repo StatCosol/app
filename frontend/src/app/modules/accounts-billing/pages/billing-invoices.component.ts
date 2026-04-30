@@ -119,10 +119,13 @@ export class BillingInvoicesComponent implements OnInit {
     if (this.paymentFilter) p['paymentStatus'] = this.paymentFilter;
     if (this.fromDate) p['fromDate'] = this.fromDate;
     if (this.toDate) p['toDate'] = this.toDate;
-    this.svc.getInvoices(p).subscribe((r) => {
-      this.invoices = r.data;
-      this.total = r.total;
-      this.totalPages = r.totalPages;
+    this.svc.getInvoices(p).subscribe({
+      next: (r) => {
+        this.invoices = (r && r.data) || [];
+        this.total = (r && r.total) || 0;
+        this.totalPages = (r && r.totalPages) || 0;
+      },
+      error: (e) => { console.error('[billing] invoices load failed', e); this.invoices = []; this.total = 0; this.totalPages = 0; },
     });
   }
 
