@@ -384,11 +384,19 @@ export class PendingPaymentFollowupsService {
       <p>Regards,<br/>StatCo Solutions — Accounts Team</p>
     `;
 
-    const fromName = this.config.get<string>('INVOICE_FROM_NAME', 'StatCo Solutions');
-    const fromEmail = this.config.get<string>(
-      'INVOICE_FROM_EMAIL',
-      'finance@statcosol.com',
-    );
+    const fromName = this.config.get<string>('INVOICE_FROM_NAME')
+      || this.config.get<string>('SMTP_FROM_NAME', 'StatCo Solutions');
+    const fromEmail = this.config.get<string>('INVOICE_FROM_EMAIL')
+      || this.config.get<string>('SMTP_FROM_EMAIL')
+      || this.config.get<string>('SMTP_USER', '');
+    const smtpUser = this.config.get<string>('SMTP_USER', '');
+    // Many SMTP relays (Zoho, etc.) reject sending from any address other
+    // than the authenticated user. Fall back silently to SMTP_USER when the
+    // configured From doesn't match.
+    const safeFromEmail =
+      smtpUser && fromEmail && fromEmail.toLowerCase() !== smtpUser.toLowerCase()
+        ? smtpUser
+        : fromEmail;
 
     let ok = false;
     let failureReason: string | null = null;
@@ -398,7 +406,7 @@ export class PendingPaymentFollowupsService {
         subject,
         `Payment Reminder — Invoice ${ent.invoiceNumber}`,
         html,
-        { name: fromName, email: fromEmail },
+        { name: fromName, email: safeFromEmail },
         { cc: ent.ccEmail || undefined },
       );
       if ('ok' in result && result.ok) {
