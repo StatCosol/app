@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   PendingPaymentFollowup,
   PendingPaymentStatus,
@@ -238,8 +238,46 @@ export class PendingPaymentFollowupsService {
       };
     }
 
-    const created: PendingPaymentFollowup[] = [];
+    // De-duplicate within the CSV (keep first occurrence) and against DB.
+    const seenInCsv = new Set<string>();
+    const dedupedRows: typeof rows = [];
     for (const r of rows) {
+      const key = r.invoiceNumber.trim().toLowerCase();
+      if (seenInCsv.has(key)) {
+        errors.push({
+          line: 0,
+          reason: `duplicate invoiceNumber in file: ${r.invoiceNumber}`,
+        });
+        continue;
+      }
+      seenInCsv.add(key);
+      dedupedRows.push(r);
+    }
+    const allInvoiceNumbers = dedupedRows.map((r) => r.invoiceNumber);
+    const existing = allInvoiceNumbers.length
+      ? await this.repo.find({
+          where: { invoiceNumber: In(allInvoiceNumbers) },
+          select: ['invoiceNumber'],
+        })
+      : [];
+    const existingSet = new Set(
+      existing.map((e) => e.invoiceNumber.trim().toLowerCase()),
+    );
+    let dbDuplicateSkips = 0;
+    const finalRows = dedupedRows.filter((r) => {
+      if (existingSet.has(r.invoiceNumber.trim().toLowerCase())) {
+        errors.push({
+          line: 0,
+          reason: `invoiceNumber already exists: ${r.invoiceNumber}`,
+        });
+        dbDuplicateSkips++;
+        return false;
+      }
+      return true;
+    });
+
+    const created: PendingPaymentFollowup[] = [];
+    for (const r of finalRows) {
       const entity = this.repo.create({
         invoiceNumber: r.invoiceNumber,
         clientName: r.clientName,
@@ -274,7 +312,7 @@ export class PendingPaymentFollowupsService {
       created: created.length,
       sent,
       failed,
-      skipped,
+      skipped: skipped + dbDuplicateSkips,
       parseErrors: errors,
     };
   }
@@ -301,6 +339,15 @@ export class PendingPaymentFollowupsService {
   }
 
   async create(dto: CreatePendingPaymentFollowupDto, userId: string | null) {
+    const dup = await this.repo.findOne({
+      where: { invoiceNumber: dto.invoiceNumber },
+      select: ['id'],
+    });
+    if (dup) {
+      throw new BadRequestException(
+        `Invoice number already exists: ${dto.invoiceNumber}`,
+      );
+    }
     const ent = this.repo.create({
       ...dto,
       status: PendingPaymentStatus.PENDING,
@@ -311,6 +358,17 @@ export class PendingPaymentFollowupsService {
 
   async update(id: string, dto: UpdatePendingPaymentFollowupDto) {
     const ent = await this.findOne(id);
+    if (dto.invoiceNumber && dto.invoiceNumber !== ent.invoiceNumber) {
+      const dup = await this.repo.findOne({
+        where: { invoiceNumber: dto.invoiceNumber },
+        select: ['id'],
+      });
+      if (dup && dup.id !== id) {
+        throw new BadRequestException(
+          `Invoice number already exists: ${dto.invoiceNumber}`,
+        );
+      }
+    }
     Object.assign(ent, dto);
     return this.repo.save(ent);
   }

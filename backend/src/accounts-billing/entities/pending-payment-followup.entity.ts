@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 export enum PendingPaymentStatus {
@@ -13,6 +14,7 @@ export enum PendingPaymentStatus {
 }
 
 @Entity('pending_payment_followups')
+@Index('uq_pending_payment_followups_invoice', ['invoiceNumber'], { unique: true })
 export class PendingPaymentFollowup {
   @PrimaryGeneratedColumn('uuid')
   id: string;
