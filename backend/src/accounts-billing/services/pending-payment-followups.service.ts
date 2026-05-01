@@ -148,14 +148,40 @@ export class PendingPaymentFollowupsService {
         errors.push({ line: lineNo, reason: `invalid amount: ${amountRaw}` });
         continue;
       }
-      const isoDate = (s?: string): string | undefined => {
+      const isoDate = (raw?: string): string | undefined => {
+        if (!raw) return undefined;
+        // Strip trailing time component if present (Excel often appends "0:00:00")
+        const s = raw.trim().split(/[ T]/)[0];
         if (!s) return undefined;
-        // Accept yyyy-mm-dd or dd/mm/yyyy or dd-mm-yyyy
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        // yyyy-mm-dd or yyyy/mm/dd
+        let m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+        if (m) {
+          const [, yyyy, mm, dd] = m;
+          return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
+        // dd/mm/yyyy or dd-mm-yyyy (Indian/EU default)
+        m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
         if (m) {
           const [, dd, mm, yyyy] = m;
           return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
+        // dd-MMM-yyyy e.g. 01-May-2026 or 1/May/2026
+        m = s.match(/^(\d{1,2})[\/\-]([A-Za-z]{3,9})[\/\-](\d{4})$/);
+        if (m) {
+          const months: Record<string, string> = {
+            jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+            jul: '07', aug: '08', sep: '09', sept: '09', oct: '10', nov: '11', dec: '12',
+          };
+          const mm = months[m[2].toLowerCase().slice(0, 3)];
+          if (mm) return `${m[3]}-${mm}-${m[1].padStart(2, '0')}`;
+        }
+        // Last-resort: Date.parse
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}`;
         }
         return undefined;
       };
