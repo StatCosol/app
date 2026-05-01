@@ -165,6 +165,14 @@ export class PendingPaymentFollowupsService {
           const [, dd, mm, yyyy] = m;
           return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
         }
+        // dd/mm/yy or dd-mm-yy (2-digit year — pivot at 70)
+        m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+        if (m) {
+          const [, dd, mm, yy] = m;
+          const n = parseInt(yy, 10);
+          const yyyy = n >= 70 ? 1900 + n : 2000 + n;
+          return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+        }
         // dd-MMM-yyyy e.g. 01-May-2026 or 1/May/2026
         m = s.match(/^(\d{1,2})[\/\-]([A-Za-z]{3,9})[\/\-](\d{4})$/);
         if (m) {
