@@ -96,7 +96,9 @@ export interface InvoicePayment {
 
 export interface InvoiceEmailLog {
   id: string;
-  invoiceId: string;
+  invoiceId: string | null;
+  pendingPaymentId?: string | null;
+  source?: string;
   toEmail: string;
   ccEmail?: string;
   subject: string;
@@ -104,6 +106,7 @@ export interface InvoiceEmailLog {
   sentAt?: string;
   failureReason?: string;
   invoice?: Invoice;
+  pendingPayment?: { id: string; invoiceNumber: string; clientName: string };
 }
 
 export interface BillingSetting {

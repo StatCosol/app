@@ -110,7 +110,13 @@ export class InvoiceEmailService {
     const qb = this.emailLogRepo
       .createQueryBuilder('log')
       .leftJoinAndSelect('log.invoice', 'inv')
-      .orderBy('log.sentAt', 'DESC');
+      .leftJoinAndMapOne(
+        'log.pendingPayment',
+        'pending_payment_followups',
+        'pp',
+        'pp.id = log.pending_payment_id',
+      )
+      .orderBy('log.createdAt', 'DESC');
 
     if (query.invoiceId) {
       qb.andWhere('log.invoice_id = :invoiceId', {

@@ -30,6 +30,12 @@ import { InvoiceEmailLog } from '../models/billing.models';
               <td class="px-4 py-3">
                 <a *ngIf="l.invoice" [routerLink]="['/accounts/invoices', l.invoice.id]"
                    class="text-blue-600 hover:underline text-xs font-mono">{{ l.invoice.invoiceNumber }}</a>
+                <a *ngIf="!l.invoice && l.pendingPayment" [routerLink]="['/accounts/pending-payments']"
+                   class="text-amber-600 hover:underline text-xs font-mono"
+                   [title]="'Pending payment: ' + l.pendingPayment.clientName">
+                  {{ l.pendingPayment.invoiceNumber }}
+                  <span class="ml-1 text-[10px] text-slate-400">(pending)</span>
+                </a>
               </td>
               <td class="px-4 py-3">{{ l.toEmail }}</td>
               <td class="px-4 py-3 max-w-xs truncate">{{ l.subject }}</td>

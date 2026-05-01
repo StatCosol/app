@@ -11,6 +11,8 @@ import {
   PendingPaymentFollowup,
   PendingPaymentStatus,
 } from '../entities/pending-payment-followup.entity';
+import { InvoiceEmailLog } from '../entities/invoice-email-log.entity';
+import { MailStatus } from '../enums';
 import { EmailService } from '../../email/email.service';
 import {
   CreatePendingPaymentFollowupDto,
@@ -48,6 +50,8 @@ export class PendingPaymentFollowupsService {
   constructor(
     @InjectRepository(PendingPaymentFollowup)
     private readonly repo: Repository<PendingPaymentFollowup>,
+    @InjectRepository(InvoiceEmailLog)
+    private readonly emailLogRepo: Repository<InvoiceEmailLog>,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
   ) {}
@@ -491,6 +495,28 @@ export class PendingPaymentFollowupsService {
     ent.lastReminderStatus = ok ? 'SENT' : 'FAILED';
     ent.lastFailureReason = ok ? null : failureReason;
     await this.repo.save(ent);
+
+    // Mirror into invoice_email_logs so the Email Logs page surfaces it.
+    try {
+      await this.emailLogRepo.save(
+        this.emailLogRepo.create({
+          invoiceId: null,
+          pendingPaymentId: ent.id,
+          source: 'PENDING_PAYMENT',
+          toEmail: ent.clientEmail,
+          ccEmail: ent.ccEmail || null,
+          subject,
+          body: `Payment reminder for invoice ${ent.invoiceNumber} — ₹${amountFmt}`,
+          sentStatus: ok ? MailStatus.SENT : MailStatus.FAILED,
+          sentAt: ok ? ent.lastReminderSentAt : null,
+          sentBy: null,
+          failureReason: ok ? null : failureReason,
+        }),
+      );
+    } catch (e) {
+      this.log.warn(`Failed to record email log: ${(e as Error).message}`);
+    }
+
     return ok;
   }
 

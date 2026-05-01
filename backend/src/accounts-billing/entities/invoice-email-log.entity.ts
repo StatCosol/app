@@ -14,21 +14,28 @@ export class InvoiceEmailLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'invoice_id', type: 'uuid' })
-  invoiceId: string;
+  @Column({ name: 'invoice_id', type: 'uuid', nullable: true })
+  invoiceId: string | null;
 
   @ManyToOne(() => Invoice, (invoice) => invoice.emailLogs, {
     onDelete: 'CASCADE',
     eager: false,
+    nullable: true,
   })
   @JoinColumn({ name: 'invoice_id' })
-  invoice: Invoice;
+  invoice: Invoice | null;
+
+  @Column({ name: 'pending_payment_id', type: 'uuid', nullable: true })
+  pendingPaymentId: string | null;
+
+  @Column({ type: 'varchar', length: 30, default: 'INVOICE' })
+  source: string;
 
   @Column({ name: 'to_email', type: 'text' })
   toEmail: string;
 
   @Column({ name: 'cc_email', type: 'text', nullable: true })
-  ccEmail: string;
+  ccEmail: string | null;
 
   @Column({ length: 250 })
   subject: string;
