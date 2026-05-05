@@ -34,10 +34,13 @@ import { PayRuleSetEntity } from './entities/pay-rule-set.entity';
 import { PayRuleParameterEntity } from './entities/pay-rule-parameter.entity';
 import { PaySalaryStructureEntity } from './entities/pay-salary-structure.entity';
 import { PaySalaryStructureItemEntity } from './entities/pay-salary-structure-item.entity';
+import { PayFormulaTemplateEntity } from './entities/pay-formula-template.entity';
+import { PaySalaryStructureVersionEntity } from './entities/pay-salary-structure-version.entity';
 import { PayCalcTraceEntity } from './entities/pay-calc-trace.entity';
 
 import { ClientEntity } from '../clients/entities/client.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { BranchEntity } from '../branches/entities/branch.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuditsModule } from '../audits/audits.module';
 import { AttendanceModule } from '../attendance/attendance.module';
@@ -105,6 +108,8 @@ import { PayrollComponentConditionEntity } from './entities/payroll-component-co
 import { PayrollStatutoryConfigEntity } from './entities/payroll-statutory-config.entity';
 import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
+import { LeaveApplicationEntity } from '../ess/entities/leave-application.entity';
+import { AttendanceEntity } from '../attendance/entities/attendance.entity';
 import { ClientStructuresService } from './client-structures.service';
 import { ClientPayrollCalculationService } from './client-payroll-calculation.service';
 import { ClientStructuresController } from './client-structures.controller';
@@ -113,9 +118,11 @@ import {
   ClientCtcSummaryController,
   BranchCtcController,
 } from './ctc-summary.controller';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
+    AccessModule,
     TypeOrmModule.forFeature([
       PayrollClientAssignmentEntity,
       PayrollInputEntity,
@@ -148,11 +155,13 @@ import {
       PayrollFnfEventEntity,
       PayrollFnfDocumentEntity,
       EmployeeEntity,
-      // Engine entities
+      BranchEntity,
       PayRuleSetEntity,
       PayRuleParameterEntity,
       PaySalaryStructureEntity,
       PaySalaryStructureItemEntity,
+      PayFormulaTemplateEntity,
+      PaySalaryStructureVersionEntity,
       PayCalcTraceEntity,
       PayrollConfigAuditEntity,
       // Client-structures engine entities
@@ -162,6 +171,8 @@ import {
       PayrollStatutoryConfigEntity,
       LeaveLedgerEntity,
       LeaveBalanceEntity,
+      LeaveApplicationEntity,
+      AttendanceEntity,
     ]),
     NotificationsModule,
     AuditsModule,

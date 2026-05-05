@@ -87,6 +87,26 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
             </div>
           </div>
 
+          <!-- Branch-wise PF / ESI codes (optional). When set, contribution files
+               (ECR / ESI) are generated per branch using these codes. -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-pf-code">PF Establishment Code (branch-wise, optional)</label>
+              <input autocomplete="off" id="ccb-pf-code" type="text" name="pfCode" [(ngModel)]="newBranch.pfCode"
+                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                     placeholder="e.g., HYHYD0123456000" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-esi-code">ESI Sub-Code (branch-wise, optional)</label>
+              <input autocomplete="off" id="ccb-esi-code" type="text" name="esiCode" [(ngModel)]="newBranch.esiCode"
+                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                     placeholder="e.g., 53000123456789001" />
+            </div>
+            <div class="text-xs text-gray-500 self-end pb-2">
+              When provided, PF ECR / ESI files are generated <b>per branch</b> using these codes.
+            </div>
+          </div>
+
           <!-- Branch User Login Section -->
           <div class="border-t border-gray-200 pt-4 mt-2 mb-4">
             <h4 class="text-sm font-semibold text-gray-800 mb-3">Branch User Login (auto-created)</h4>
@@ -273,6 +293,20 @@ import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dia
                       class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
+            </div>
+          </div>
+
+          <!-- Branch-wise PF / ESI codes (optional) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-pf-code-2">PF Establishment Code (branch-wise, optional)</label>
+              <input autocomplete="off" id="ccb-pf-code-2" type="text" name="editPfCode" [(ngModel)]="editingBranch.pfCode"
+                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="ccb-esi-code-2">ESI Sub-Code (branch-wise, optional)</label>
+              <input autocomplete="off" id="ccb-esi-code-2" type="text" name="editEsiCode" [(ngModel)]="editingBranch.esiCode"
+                     class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
             </div>
           </div>
         </form>
@@ -484,6 +518,8 @@ export class CrmClientBranchesComponent implements OnInit, OnDestroy {
      status: 'ACTIVE',
      stateCode: 'TG',
      establishmentType: 'BRANCH',
+     pfCode: '',
+     esiCode: '',
      branchUserName: '',
      branchUserEmail: '',
      branchUserMobile: '',

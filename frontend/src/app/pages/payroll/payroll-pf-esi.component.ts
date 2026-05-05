@@ -18,6 +18,7 @@ import {
   PfEsiRemittanceRow,
   PfEsiSummaryResponse,
 } from './payroll-api.service';
+import { PayrollSetupApiService } from './payroll-setup-api.service';
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
@@ -25,6 +26,8 @@ import { ClientContextStripComponent } from '../../shared/ui/client-context-stri
 type SchemeFilter = 'ALL' | 'PF' | 'ESI';
 type RemittanceFilter = 'ALL' | 'READY' | 'IN_PROGRESS' | 'NOT_STARTED' | 'REWORK' | 'UNKNOWN';
 type IdentifierFilter = 'ALL' | 'MISSING_ID' | 'HAS_ID';
+
+type UploadRegisterType = 'PF_CHALLAN_REGISTER' | 'ESI_CHALLAN_REGISTER' | 'ECR' | 'ESI';
 
 @Component({
   selector: 'app-payroll-pf-esi',
@@ -56,6 +59,23 @@ export class PayrollPfEsiComponent implements OnInit, OnDestroy {
   remittanceFilter: RemittanceFilter = 'ALL';
   gapSearch = '';
   downloadBusyId = '';
+  generateBusyKey = '';
+
+  // Upload state
+  uploadClientId = '';
+  uploadRegisterType: UploadRegisterType = 'PF_CHALLAN_REGISTER';
+  uploadYear = new Date().getFullYear();
+  uploadMonth = new Date().getMonth() + 1;
+  uploadTitle = '';
+  uploadFile: File | null = null;
+  uploading = false;
+
+  readonly uploadTypeOptions: Array<{ value: UploadRegisterType; label: string }> = [
+    { value: 'PF_CHALLAN_REGISTER', label: 'PF Challan (paid receipt)' },
+    { value: 'ECR', label: 'PF ECR file' },
+    { value: 'ESI_CHALLAN_REGISTER', label: 'ESI Challan (paid receipt)' },
+    { value: 'ESI', label: 'ESI Contribution / Return' },
+  ];
 
   selectedException: PfEsiGapRow | null = null;
   showExceptionDrawer = false;
@@ -80,6 +100,7 @@ export class PayrollPfEsiComponent implements OnInit, OnDestroy {
 
   constructor(
     private readonly payrollApi: PayrollApiService,
+    private readonly setupApi: PayrollSetupApiService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
@@ -149,7 +170,10 @@ export class PayrollPfEsiComponent implements OnInit, OnDestroy {
 
   get selectedClientName(): string {
     if (!this.selectedClientId) return 'All assigned clients';
-    return this.clients.find((c) => c.id === this.selectedClientId)?.name || 'Selected client';
+    const fromClients = this.clients.find((c) => c.id === this.selectedClientId)?.name;
+    if (fromClients) return fromClients;
+    const fromSummary = this.summary?.clients?.find((c) => c.clientId === this.selectedClientId)?.clientName;
+    return fromSummary || 'Selected client';
   }
 
   get missingIdentifierCount(): number {
@@ -259,6 +283,105 @@ export class PayrollPfEsiComponent implements OnInit, OnDestroy {
     if (!row.id) return 'Not available';
     if (this.downloadBusyId === row.id) return 'Downloading...';
     return 'Download';
+  }
+
+  generateBusyFor(row: PfEsiRemittanceRow, scheme: 'PF' | 'ESI'): boolean {
+    return this.generateBusyKey === `${scheme}:${row.runId}`;
+  }
+
+  generatePfFile(row: PfEsiRemittanceRow): void {
+    this.generateContribution(row, 'PF');
+  }
+
+  generateEsiFile(row: PfEsiRemittanceRow): void {
+    this.generateContribution(row, 'ESI');
+  }
+
+  // ── Upload handlers ──
+  onUploadFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.uploadFile = input.files && input.files.length ? input.files[0] : null;
+  }
+
+  onUploadTypeChange(): void {
+    if (this.uploadTitle && this.uploadTitle.trim()) return;
+    // do not auto-fill if user already typed; otherwise leave blank for user input
+  }
+
+  uploadChallan(): void {
+    if (this.uploading) return;
+    const clientId = this.uploadClientId || this.selectedClientId;
+    if (!clientId) { this.toast.error('Select a client to upload to'); return; }
+    if (!this.uploadFile) { this.toast.error('Choose a file to upload'); return; }
+    if (!this.uploadYear || !this.uploadMonth) { this.toast.error('Period year & month are required'); return; }
+    const typeLabel = (this.uploadTypeOptions.find(o => o.value === this.uploadRegisterType)?.label) || this.uploadRegisterType;
+    const period = `${this.uploadYear}-${String(this.uploadMonth).padStart(2, '0')}`;
+    const title = (this.uploadTitle && this.uploadTitle.trim()) || `${typeLabel} - ${period}`;
+    this.uploading = true;
+    this.payrollApi
+      .uploadPfEsiRecord({
+        file: this.uploadFile,
+        clientId,
+        title,
+        registerType: this.uploadRegisterType,
+        category: 'RECORD',
+        periodYear: this.uploadYear,
+        periodMonth: this.uploadMonth,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.uploading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('File uploaded');
+          this.uploadFile = null;
+          this.uploadTitle = '';
+          this.reloadBoards();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Upload failed'),
+      });
+  }
+
+  private generateContribution(row: PfEsiRemittanceRow, scheme: 'PF' | 'ESI'): void {
+    if (!row.runId || this.generateBusyKey) return;
+    this.generateBusyKey = `${scheme}:${row.runId}`;
+    const obs = scheme === 'PF'
+      ? this.setupApi.generatePfEcr(row.runId)
+      : this.setupApi.generateEsi(row.runId);
+    const ext = 'txt';
+    const period = `${row.periodYear || 'na'}-${String(row.periodMonth || 0).padStart(2, '0')}`;
+    const fileName = `${scheme === 'PF' ? 'PF_ECR' : 'ESI'}_${period}.${ext}`;
+    obs
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.generateBusyKey = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          try {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch {
+            // ignore download errors; file is still saved server-side
+          }
+          this.toast.success(`${scheme} contribution file generated`);
+          this.reloadBoards();
+        },
+        error: (err) => this.toast.error(err?.error?.message || `${scheme} generation failed`),
+      });
   }
 
   downloadChallan(row: PfEsiChallanRow): void {

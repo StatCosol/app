@@ -50,7 +50,7 @@ export class ComplianceMailService {
       return;
     }
 
-    const result = await this.emailService.send(
+    const result = await this.emailService.sendAuditMail(
       recipients,
       subject,
       subject,
@@ -117,7 +117,7 @@ export class ComplianceMailService {
       return;
     }
 
-    const result = await this.emailService.send(
+    const result = await this.emailService.sendAuditMail(
       recipients,
       subject,
       subject,

@@ -126,4 +126,124 @@ export class MinimumWageController {
     await this.repo.delete(id);
     return { ok: true };
   }
+
+  /**
+   * Bulk-import minimum-wage rows. Idempotent upsert keyed on
+   * (state_code, skill_category, COALESCE(scheduled_employment,''), effective_from).
+   *
+   * Body: { rows: UpsertWageDto[], dryRun?: boolean }
+   * Returns per-row outcome: 'inserted' | 'updated' | 'skipped' | 'error'.
+   */
+  @Post('bulk-import')
+  @Roles('ADMIN', 'CRM')
+  async bulkImport(
+    @Body() body: { rows: UpsertWageDto[]; dryRun?: boolean },
+  ) {
+    const rows = Array.isArray(body?.rows) ? body.rows : [];
+    if (!rows.length) {
+      return { total: 0, inserted: 0, updated: 0, skipped: 0, errors: 0, results: [] };
+    }
+    const dryRun = !!body.dryRun;
+    const results: Array<{
+      index: number;
+      stateCode?: string;
+      skillCategory?: string;
+      effectiveFrom?: string;
+      outcome: 'inserted' | 'updated' | 'skipped' | 'error';
+      message?: string;
+      id?: string;
+    }> = [];
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      try {
+        if (!r || !r.stateCode || !r.skillCategory || !r.effectiveFrom || r.monthlyWage == null) {
+          throw new Error('stateCode, skillCategory, effectiveFrom and monthlyWage are required');
+        }
+        const stateCode = String(r.stateCode).toUpperCase().trim();
+        const skillCategory = String(r.skillCategory).toUpperCase().trim() as MinimumWageSkill;
+        if (!['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED'].includes(skillCategory)) {
+          throw new Error(`invalid skillCategory: ${r.skillCategory}`);
+        }
+        const monthlyWage = Number(r.monthlyWage);
+        if (!Number.isFinite(monthlyWage) || monthlyWage <= 0) {
+          throw new Error(`invalid monthlyWage: ${r.monthlyWage}`);
+        }
+        const scheduledEmployment = r.scheduledEmployment ?? null;
+
+        // Find existing row for the natural key.
+        const qb = this.repo
+          .createQueryBuilder('mw')
+          .where('mw.state_code = :sc', { sc: stateCode })
+          .andWhere('mw.skill_category = :sk', { sk: skillCategory })
+          .andWhere('mw.effective_from = :ef', { ef: r.effectiveFrom });
+        if (scheduledEmployment === null) {
+          qb.andWhere('mw.scheduled_employment IS NULL');
+        } else {
+          qb.andWhere('mw.scheduled_employment = :se', { se: scheduledEmployment });
+        }
+        const existing = await qb.getOne();
+
+        if (existing) {
+          // Skip if all fields already match.
+          const sameMonthly = Number(existing.monthlyWage) === monthlyWage;
+          const sameDaily = (existing.dailyWage == null ? null : Number(existing.dailyWage)) ===
+            (r.dailyWage == null ? null : Number(r.dailyWage));
+          const sameEffTo = (existing.effectiveTo ?? null) === (r.effectiveTo ?? null);
+          const sameSrc = (existing.source ?? null) === (r.source ?? null);
+          const sameNotes = (existing.notes ?? null) === (r.notes ?? null);
+          if (sameMonthly && sameDaily && sameEffTo && sameSrc && sameNotes) {
+            skipped++;
+            results.push({ index: i, stateCode, skillCategory, effectiveFrom: r.effectiveFrom, outcome: 'skipped', id: existing.id });
+            continue;
+          }
+          if (!dryRun) {
+            existing.monthlyWage = monthlyWage;
+            existing.dailyWage = r.dailyWage != null ? Number(r.dailyWage) : null;
+            existing.effectiveTo = r.effectiveTo ?? null;
+            existing.source = r.source ?? null;
+            existing.notes = r.notes ?? null;
+            await this.repo.save(existing);
+          }
+          updated++;
+          results.push({ index: i, stateCode, skillCategory, effectiveFrom: r.effectiveFrom, outcome: 'updated', id: existing.id });
+        } else {
+          let savedId: string | undefined;
+          if (!dryRun) {
+            const row = this.repo.create({
+              stateCode,
+              skillCategory,
+              scheduledEmployment,
+              monthlyWage,
+              dailyWage: r.dailyWage != null ? Number(r.dailyWage) : null,
+              effectiveFrom: r.effectiveFrom,
+              effectiveTo: r.effectiveTo ?? null,
+              source: r.source ?? null,
+              notes: r.notes ?? null,
+            });
+            const saved = await this.repo.save(row);
+            savedId = saved.id;
+          }
+          inserted++;
+          results.push({ index: i, stateCode, skillCategory, effectiveFrom: r.effectiveFrom, outcome: 'inserted', id: savedId });
+        }
+      } catch (err) {
+        errors++;
+        results.push({
+          index: i,
+          stateCode: r?.stateCode,
+          skillCategory: r?.skillCategory,
+          effectiveFrom: r?.effectiveFrom,
+          outcome: 'error',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    return { total: rows.length, inserted, updated, skipped, errors, dryRun, results };
+  }
 }

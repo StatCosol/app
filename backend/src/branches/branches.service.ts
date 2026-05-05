@@ -75,6 +75,8 @@ export class BranchesService {
       employeeCount,
       contractorCount,
       status: dto.status || 'ACTIVE',
+      pfCode: dto.pfCode?.trim() || null,
+      esiCode: dto.esiCode?.trim() || null,
       isActive: true,
       isDeleted: false,
     });

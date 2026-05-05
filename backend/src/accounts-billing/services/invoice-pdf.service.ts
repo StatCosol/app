@@ -542,9 +542,13 @@ export class InvoicePdfService {
 
   private inr(n: number | string | null | undefined): string {
     const num = typeof n === 'string' ? parseFloat(n) : Number(n ?? 0);
-    if (!isFinite(num)) return '0.00';
+    if (!isFinite(num)) return 'Rs. 0.00';
+    // PDFKit's built-in Helvetica/Times-Roman fonts use WinAnsi encoding which
+    // does not include the Indian Rupee glyph (U+20B9). Using it caused a
+    // fallback glyph ("¹") to be rendered. Use the standard "Rs." prefix to
+    // stay font-agnostic across PDF generators.
     return (
-      '\u20B9' +
+      'Rs. ' +
       num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     );
   }

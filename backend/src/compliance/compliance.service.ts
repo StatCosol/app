@@ -1407,7 +1407,7 @@ export class ComplianceService {
       }
 
       if (clientUser.email) {
-        await this.email.send(
+        await this.email.sendAuditMail(
           clientUser.email,
           `Task Approved #${taskIdNum}`,
           'Compliance Task Approved',
@@ -1462,7 +1462,7 @@ export class ComplianceService {
         where: { id: t.assignedToUserId },
       });
       if (contractor?.email) {
-        await this.email.send(
+        await this.email.sendAuditMail(
           contractor.email,
           `Task Rejected #${taskIdNum}`,
           'Compliance Task Rejected',
@@ -1686,7 +1686,7 @@ export class ComplianceService {
         where: { id: t.assignedByUserId },
       });
       if (crm?.email) {
-        await this.email.send(
+        await this.email.sendAuditMail(
           crm.email,
           `Task Submitted #${taskIdNum}`,
           'Compliance Task Submitted',
@@ -1897,7 +1897,7 @@ export class ComplianceService {
 
       const crm = await this.users.findOne({ where: { id: crmUserId } });
       if (crm?.email) {
-        await this.email.send(
+        await this.email.sendAuditMail(
           crm.email,
           `Audit Report for Task #${taskIdNum}`,
           'Audit Report Submitted',
@@ -2523,7 +2523,7 @@ export class ComplianceService {
         where: { id: t.assignedByUserId },
       });
       if (crm?.email) {
-        await this.email.send(
+        await this.email.sendAuditMail(
           crm.email,
           `Client submitted task #${taskIdNum}`,
           'Compliance Task Submitted',

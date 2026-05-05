@@ -17,6 +17,11 @@ import { PendingPaymentFollowup } from '../models/billing.models';
             Upload a CSV of already-issued invoices awaiting payment. The system can
             send a reminder email to each client immediately.
           </p>
+          <p class="text-xs text-blue-700 mt-1">
+            🔔 Auto-reminders run daily at <strong>9:00 AM IST</strong> for every
+            pending invoice until it is marked Paid. Use the Pause button on a row
+            to stop daily reminders for that invoice without deleting it.
+          </p>
         </div>
         <div class="flex gap-2">
           <button type="button" (click)="downloadTemplate()"
@@ -121,11 +126,21 @@ import { PendingPaymentFollowup } from '../models/billing.models';
               <td class="px-3 py-2 text-center">
                 <span [class]="statusClass(p.status)"
                       class="px-2 py-0.5 rounded-full text-xs font-medium">{{ p.status }}</span>
+                <div *ngIf="p.status === 'PENDING' && p.remindersPaused"
+                     class="mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-200 text-slate-700">
+                  ⏸ Paused
+                </div>
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 <button *ngIf="p.status === 'PENDING'"
                         (click)="sendOne(p)"
                         class="text-blue-600 hover:underline text-xs mr-2">Remind</button>
+                <button *ngIf="p.status === 'PENDING' && !p.remindersPaused"
+                        (click)="togglePause(p, true)"
+                        class="text-amber-600 hover:underline text-xs mr-2">Pause</button>
+                <button *ngIf="p.status === 'PENDING' && p.remindersPaused"
+                        (click)="togglePause(p, false)"
+                        class="text-emerald-600 hover:underline text-xs mr-2">Resume</button>
                 <button *ngIf="p.status === 'PENDING'"
                         (click)="markPaid(p)"
                         class="text-green-600 hover:underline text-xs mr-2">Mark Paid</button>
@@ -289,6 +304,15 @@ export class BillingPendingPaymentsComponent implements OnInit {
     this.svc.updatePendingPayment(p.id, { status: 'PAID' }).subscribe({
       next: () => { this.flash('Marked paid.'); this.load(); },
       error: (e) => this.flash('Update failed: ' + (e.error?.message || e.message), true),
+    });
+  }
+
+  togglePause(p: PendingPaymentFollowup, paused: boolean): void {
+    const verb = paused ? 'pause' : 'resume';
+    if (!confirm(`${paused ? 'Pause' : 'Resume'} daily auto-reminders for invoice ${p.invoiceNumber}?`)) return;
+    this.svc.setPendingPaymentPause(p.id, paused).subscribe({
+      next: () => { this.flash(`Auto-reminders ${verb}d.`); this.load(); },
+      error: (e) => this.flash(`Failed to ${verb}: ` + (e.error?.message || e.message), true),
     });
   }
 

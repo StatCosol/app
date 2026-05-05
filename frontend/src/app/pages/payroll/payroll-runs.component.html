@@ -1,13 +1,23 @@
 <div class="runs-page">
+  <div class="client-strip-bar">
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
+  </div>
   <ui-page-header
     title="Payroll Runs Console"
     subtitle="Step-based payroll execution console with import status, validation exceptions, preview totals, approval, publish, and rerun controls">
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 flex-wrap header-actions">
+      <div class="new-run-period" title="Pay period for the new run. Defaults to the previous month (e.g. in May, run April's payroll).">
+        <label for="new-run-month" class="sr-label">Pay period</label>
+        <select id="new-run-month" name="newRunMonth" [(ngModel)]="newRunMonth" title="Pay-period month for new payroll run">
+          <option *ngFor="let month of monthOptions; index as idx" [ngValue]="idx + 1">{{ month }}</option>
+        </select>
+        <select id="new-run-year" name="newRunYear" [(ngModel)]="newRunYear" title="Pay-period year for new payroll run">
+          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+        </select>
+      </div>
       <ui-button variant="primary" size="sm" (clicked)="createRun()" [disabled]="creatingRun">
         {{ creatingRun ? 'Creating...' : '+ New Run' }}
       </ui-button>
-      <ui-button variant="secondary" size="sm" (clicked)="loadRuns()">Refresh</ui-button>
-      <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
     </div>
   </ui-page-header>
 
@@ -92,7 +102,7 @@
                   size="sm"
                   (clicked)="deleteRun(run)"
                   [disabled]="!canDeleteRun(run)"
-                  [title]="canDeleteRun(run) ? 'Delete draft run' : 'Only draft runs can be deleted'">
+                  [title]="canDeleteRun(run) ? 'Delete payroll run' : 'Approved runs are locked'">
                   Delete
                 </ui-button>
               </td>
@@ -136,7 +146,7 @@
 
       <div class="import-box">
         <div class="import-title">Attendance Upload</div>
-        <div class="import-hint">Excel with columns: Employee Code, Employee Name, Working Days, Payable Days, OT Hours, Other Earnings, Arrears Attendance Bonus, Other Deductions</div>
+        <div class="import-hint">Excel with columns: Employee Code, Employee Name, Working Days, Payable Days, Approved Leave Days, OT Hours, Other Earnings, Arrears Attendance Bonus, Other Deductions</div>
         <div class="import-row">
           <input type="file" name="importFile" accept=".xlsx,.xls,.csv" (change)="onImportFileSelected($event)" />
           <ui-button variant="primary" size="sm" (clicked)="uploadRunImport()" [disabled]="actionButtonDisabled(run,'IMPORT')">
@@ -145,6 +155,171 @@
           <ui-button variant="ghost" size="sm" (clicked)="downloadAttendanceTemplate()">Download Template</ui-button>
         </div>
         <div class="guard-note" *ngIf="!actionAllowed(run,'IMPORT')">{{ actionGuardReason(run, 'IMPORT') }}</div>
+      </div>
+
+      <div class="leave-validation-box">
+        <div class="lv-header">
+          <div>
+            <div class="lv-title">Leave Validation</div>
+            <div class="lv-hint">Compare "Approved Leave Days" in the attendance sheet against leaves applied & approved through the ESS portal for this period.</div>
+          </div>
+          <ui-button variant="ghost" size="sm" (clicked)="loadLeaveValidation()" [disabled]="leaveValidationLoading">
+            {{ leaveValidationLoading ? 'Checking...' : (leaveValidationLoaded ? 'Re-check' : 'Validate Leaves') }}
+          </ui-button>
+        </div>
+
+        <div class="lv-error" *ngIf="leaveValidationError">{{ leaveValidationError }}</div>
+
+        <div class="lv-empty" *ngIf="leaveValidationLoaded && !leaveValidationError && leaveValidationRows.length === 0">
+          All employees match — attendance leave equals ESS-approved leave.
+        </div>
+
+        <div class="lv-search" *ngIf="leaveValidationRows.length > 0">
+          <input type="text" class="lv-search-input" placeholder="Search employee by name or code..." [(ngModel)]="leaveValidationSearch" />
+          <span class="lv-search-meta" *ngIf="leaveValidationSearch">
+            Showing {{ filteredLeaveValidationRows.length }} of {{ leaveValidationRows.length }}
+          </span>
+          <span class="lv-bulk-spacer"></span>
+          <label class="lv-bulk-label">Bulk source:</label>
+          <select [(ngModel)]="bulkLeaveSource" class="lv-select" [disabled]="bulkResolvingLeave">
+            <option value="ESS">ESS (snap sheet to ESS)</option>
+            <option value="SHEET">Sheet (accept sheet as truth)</option>
+          </select>
+          <ui-button
+            variant="primary"
+            size="sm"
+            (clicked)="resolveAllLeaveValidation()"
+            [disabled]="bulkResolvingLeave || pendingLeaveCount === 0"
+            [title]="leaveValidationSearch ? ('Resolve ' + pendingLeaveCount + ' filtered row(s) using ' + bulkLeaveSource) : ('Resolve all ' + pendingLeaveCount + ' mismatch(es) using ' + bulkLeaveSource)">
+            {{ bulkResolvingLeave ? ('Resolving ' + bulkResolveProgress.done + '/' + bulkResolveProgress.total + '...') : ('Resolve All (' + pendingLeaveCount + ')') }}
+          </ui-button>
+        </div>
+
+        <table class="lv-table" *ngIf="leaveValidationRows.length > 0">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Employee</th>
+              <th class="num">Sheet</th>
+              <th class="num">ESS Approved</th>
+              <th class="num">Diff</th>
+              <th>Issue</th>
+              <th>ESS Applications</th>
+              <th>Snap to</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of filteredLeaveValidationRows" [class.lv-warn]="row.status !== 'OK' && !row.resolved" [class.lv-resolved]="row.resolved">
+              <td>{{ row.empCode }}</td>
+              <td>{{ row.employeeName }}</td>
+              <td class="num">{{ row.attendanceLeave | number: '1.0-2' }}</td>
+              <td class="num">{{ row.essApprovedLeave | number: '1.0-2' }}</td>
+              <td class="num" [class.lv-diff-pos]="row.diff > 0" [class.lv-diff-neg]="row.diff < 0">
+                {{ row.diff | number: '1.0-2' }}
+              </td>
+              <td>{{ leaveValidationStatusLabel(row.status) }}</td>
+              <td>
+                <ng-container *ngIf="row.essApplications.length; else noApps">
+                  <div *ngFor="let a of row.essApplications" class="lv-app">
+                    {{ a.leaveType }} · {{ a.fromDate }} → {{ a.toDate }} ({{ a.days | number: '1.0-2' }}d)
+                  </div>
+                </ng-container>
+                <ng-template #noApps><span class="lv-muted">—</span></ng-template>
+              </td>
+              <td>
+                <select [(ngModel)]="row.resolveSource" class="lv-select" [disabled]="!!row.resolving || !!row.resolved">
+                  <option value="ESS">ESS ({{ row.essApprovedLeave | number: '1.0-2' }})</option>
+                  <option value="SHEET">Sheet ({{ row.attendanceLeave | number: '1.0-2' }})</option>
+                </select>
+              </td>
+              <td>
+                <span *ngIf="row.resolved" class="lv-resolved-badge" [title]="'Resolved using ' + row.resolvedSource">✓ Resolved ({{ row.resolvedSource }})</span>
+                <ui-button *ngIf="!row.resolved" variant="primary" size="sm" (clicked)="resolveLeaveValidationRow(row.empCode)" [disabled]="!!row.resolving">
+                  {{ row.resolving ? 'Resolving...' : 'Resolve' }}
+                </ui-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="leave-validation-box">
+        <div class="lv-header">
+          <div>
+            <div class="lv-title">OT Validation</div>
+            <div class="lv-hint">Compare OT hours from the uploaded attendance sheet against branch/client desk attendance and ESS self-attendance. OT rule: paid hours beyond 9, min 45 min, at 2× normal hourly rate (gross/26/8).</div>
+          </div>
+          <ui-button variant="ghost" size="sm" (clicked)="loadOtValidation()" [disabled]="otValidationLoading">
+            {{ otValidationLoading ? 'Checking...' : (otValidationLoaded ? 'Re-check' : 'Validate OT') }}
+          </ui-button>
+        </div>
+
+        <div class="lv-error" *ngIf="otValidationError">{{ otValidationError }}</div>
+
+        <div class="lv-empty" *ngIf="otValidationLoaded && !otValidationError && otValidationRows.length === 0">
+          All employees match — attendance OT equals branch and ESS daily OT.
+        </div>
+
+        <div class="lv-search" *ngIf="otValidationRows.length > 0">
+          <input type="text" class="lv-search-input" placeholder="Search employee by name or code..." [(ngModel)]="otValidationSearch" />
+          <span class="lv-search-meta" *ngIf="otValidationSearch">
+            Showing {{ filteredOtValidationRows.length }} of {{ otValidationRows.length }}
+          </span>
+          <span class="lv-bulk-spacer"></span>
+          <label class="lv-bulk-label">Bulk source:</label>
+          <select [(ngModel)]="bulkOtSource" class="lv-select" [disabled]="bulkResolvingOt">
+            <option value="BRANCH">Branch / Client</option>
+            <option value="ESS">ESS</option>
+            <option value="SHEET">Sheet</option>
+          </select>
+          <ui-button
+            variant="primary"
+            size="sm"
+            (clicked)="resolveAllOtValidation()"
+            [disabled]="bulkResolvingOt || pendingOtCount === 0"
+            [title]="otValidationSearch ? ('Snap OT to ' + bulkOtSource + ' for ' + pendingOtCount + ' filtered row(s)') : ('Snap OT to ' + bulkOtSource + ' for all ' + pendingOtCount + ' mismatch(es)')">
+            {{ bulkResolvingOt ? ('Resolving ' + bulkResolveProgress.done + '/' + bulkResolveProgress.total + '...') : ('Resolve All (' + pendingOtCount + ')') }}
+          </ui-button>
+        </div>
+
+        <table class="lv-table" *ngIf="otValidationRows.length > 0">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Employee</th>
+              <th class="num">Sheet OT</th>
+              <th class="num">Branch/Client</th>
+              <th class="num">ESS</th>
+              <th class="num">Max Diff</th>
+              <th>Snap to</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of filteredOtValidationRows" [class.lv-warn]="!row.resolved" [class.lv-resolved]="row.resolved">
+              <td>{{ row.empCode }}</td>
+              <td>{{ row.employeeName }}</td>
+              <td class="num">{{ row.attendanceSheetOt | number: '1.0-2' }}</td>
+              <td class="num">{{ row.branchClientOt | number: '1.0-2' }}</td>
+              <td class="num">{{ row.essOt | number: '1.0-2' }}</td>
+              <td class="num lv-diff-pos">{{ row.maxDiff | number: '1.0-2' }}</td>
+              <td>
+                <select [(ngModel)]="row.resolveSource" class="lv-select" [disabled]="!!row.resolving || !!row.resolved">
+                  <option value="BRANCH">Branch/Client ({{ row.branchClientOt | number: '1.0-2' }})</option>
+                  <option value="ESS">ESS ({{ row.essOt | number: '1.0-2' }})</option>
+                  <option value="SHEET">Sheet ({{ row.attendanceSheetOt | number: '1.0-2' }})</option>
+                </select>
+              </td>
+              <td>
+                <span *ngIf="row.resolved" class="lv-resolved-badge" [title]="'Resolved using ' + row.resolvedSource + ' = ' + row.resolvedOtHours + ' hr'">✓ Resolved ({{ row.resolvedSource }})</span>
+                <ui-button *ngIf="!row.resolved" variant="primary" size="sm" (clicked)="resolveOtValidationRow(row.empCode)" [disabled]="!!row.resolving">
+                  {{ row.resolving ? 'Resolving...' : 'Resolve' }}
+                </ui-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="preview-grid">
@@ -165,37 +340,37 @@
       <div class="actions-card">
         <div class="actions-title">Approval and Publish Controls</div>
         <div class="actions-row">
-          <ui-button variant="secondary" size="sm" (clicked)="processRun(run)" [disabled]="actionButtonDisabled(run,'PROCESS')">
+          <ui-button [variant]="actionAllowed(run,'PROCESS') ? 'primary' : 'ghost'" size="sm" (clicked)="processRun(run)" [disabled]="actionButtonDisabled(run,'PROCESS')" [title]="actionGuardReason(run,'PROCESS') || 'Process payroll run'">
             Process
           </ui-button>
-          <ui-button variant="secondary" size="sm" (clicked)="submitRun(run)" [disabled]="actionButtonDisabled(run,'SUBMIT')">
+          <ui-button [variant]="actionAllowed(run,'SUBMIT') ? 'primary' : 'ghost'" size="sm" (clicked)="submitRun(run)" [disabled]="actionButtonDisabled(run,'SUBMIT')" [title]="actionGuardReason(run,'SUBMIT') || 'Submit for approval'">
             Submit
           </ui-button>
-          <ui-button variant="primary" size="sm" (clicked)="approveRun(run)" [disabled]="actionButtonDisabled(run,'APPROVE')">
+          <ui-button [variant]="actionAllowed(run,'APPROVE') ? 'primary' : 'ghost'" size="sm" (clicked)="approveRun(run)" [disabled]="actionButtonDisabled(run,'APPROVE')" [title]="actionGuardReason(run,'APPROVE') || 'Approve run'">
             Approve
           </ui-button>
-          <ui-button variant="primary" size="sm" (clicked)="publishRun(run)" [disabled]="actionButtonDisabled(run,'PUBLISH')">
+          <ui-button [variant]="actionAllowed(run,'PUBLISH') ? 'primary' : 'ghost'" size="sm" (clicked)="publishRun(run)" [disabled]="actionButtonDisabled(run,'PUBLISH')" [title]="actionGuardReason(run,'PUBLISH') || 'Publish payslips'">
             {{ isPublished(run) ? 'Download Payslips' : (canSubmit(run) ? 'Submit & Publish' : (canApprove(run) ? 'Approve & Publish' : 'Publish')) }}
           </ui-button>
-          <ui-button variant="danger" size="sm" (clicked)="rejectRun(run)" [disabled]="actionButtonDisabled(run,'REJECT')">
+          <ui-button [variant]="actionAllowed(run,'REJECT') ? 'danger' : 'ghost'" size="sm" (clicked)="rejectRun(run)" [disabled]="actionButtonDisabled(run,'REJECT')" [title]="actionGuardReason(run,'REJECT') || 'Reject run'">
             Reject
           </ui-button>
-          <ui-button variant="secondary" size="sm" (clicked)="rerunRun(run)" [disabled]="actionButtonDisabled(run,'RERUN') || isPublished(run)">
+          <ui-button [variant]="(actionAllowed(run,'RERUN') && !isPublished(run)) ? 'secondary' : 'ghost'" size="sm" (clicked)="rerunRun(run)" [disabled]="actionButtonDisabled(run,'RERUN') || isPublished(run)" [title]="isPublished(run) ? 'Published runs cannot be rerun' : (actionGuardReason(run,'RERUN') || 'Rerun calculation')">
             Rerun
           </ui-button>
-          <ui-button variant="ghost" size="sm" (clicked)="rollbackRun(run)" [disabled]="actionButtonDisabled(run,'ROLLBACK')">
+          <ui-button [variant]="actionAllowed(run,'ROLLBACK') ? 'secondary' : 'ghost'" size="sm" (clicked)="rollbackRun(run)" [disabled]="actionButtonDisabled(run,'ROLLBACK')" [title]="actionGuardReason(run,'ROLLBACK') || 'Rollback to previous state'">
             Rollback
           </ui-button>
           <ui-button
-            variant="danger"
+            [variant]="canDeleteRun(run) ? 'danger' : 'ghost'"
             size="sm"
             (clicked)="deleteRun(run)"
             [disabled]="actionBusy || importBusy || loadingRuns || loadingRunDetail || !canDeleteRun(run)"
-            [title]="canDeleteRun(run) ? 'Delete draft run' : 'Only draft runs can be deleted'">
+            [title]="canDeleteRun(run) ? 'Delete this run' : 'Approved runs are locked'">
             Delete Draft
           </ui-button>
         </div>
-        <div class="guard-note" *ngIf="!canDeleteRun(run)">Delete is available only when run status is DRAFT.</div>
+        <div class="guard-note" *ngIf="!canDeleteRun(run)">Delete is unavailable for Approved runs.</div>
       </div>
 
       <div class="guardrail-card">
@@ -285,13 +460,36 @@
       <div class="employee-preview">
         <div class="emp-preview-header">
           <div class="actions-title">Payroll Preview Employees</div>
-          <button class="btn-add-emp" (click)="toggleAddEmployeePanel()" [disabled]="addEmpBusy">
-            {{ showAddEmployeePanel ? '✕ Close' : '+ Add Employee' }}
-          </button>
+          <div class="emp-preview-actions">
+            <button
+              class="btn-download-payheet"
+              type="button"
+              (click)="downloadPayheetCsv()"
+              [disabled]="!runEmployees.length"
+              title="Download the payheet as CSV">
+              ⬇ Download CSV
+            </button>
+            <button class="btn-add-emp" (click)="toggleAddEmployeePanel()" [disabled]="addEmpBusy">
+              {{ showAddEmployeePanel ? '✕ Close' : '+ Add Employee' }}
+            </button>
+          </div>
         </div>
 
         <!-- Add Employee Panel -->
         <div class="add-emp-panel" *ngIf="showAddEmployeePanel">
+          <!-- Register New Employee Section -->
+          <div class="add-emp-register-section">
+            <div class="add-emp-upload-label">Register a brand new employee</div>
+            <div class="add-emp-upload-hint">
+              Open the employee registration form to enter all details (name, code, monthly gross, PF/ESI applicability, etc.) and then come back here to add them to this run.
+            </div>
+            <button class="btn-register-new" (click)="openNewEmployeeForm()">
+              + Register New Employee
+            </button>
+          </div>
+
+          <div class="add-emp-divider">OR upload a CSV of existing employees</div>
+
           <!-- Upload CSV Section -->
           <div class="add-emp-upload-section">
             <div class="add-emp-upload-label">Upload CSV with Employee Codes</div>
@@ -307,7 +505,7 @@
             </div>
           </div>
 
-          <div class="add-emp-divider">OR select manually</div>
+          <div class="add-emp-divider">OR pick existing registered employees</div>
 
           <!-- Manual Search & Select -->
           <input
@@ -342,23 +540,244 @@
         </div>
 
         <ui-loading-spinner *ngIf="loadingRunDetail" text="Loading employee preview..."></ui-loading-spinner>
-        <div class="table-wrap" *ngIf="!loadingRunDetail && runEmployees.length">
-          <table class="data-table compact">
+        <div class="emp-preview-search" *ngIf="!loadingRunDetail && runEmployees.length">
+          <input
+            type="text"
+            class="emp-preview-search-input"
+            placeholder="Search employee by name or code..."
+            [(ngModel)]="runEmployeeSearch"
+          />
+          <span class="emp-preview-search-meta" *ngIf="runEmployeeSearch">
+            Showing {{ filteredRunEmployees.length }} of {{ runEmployees.length }}
+          </span>
+        </div>
+        <div class="table-wrap payheet-wrap" *ngIf="!loadingRunDetail && runEmployees.length">
+          <table class="data-table compact payheet-table">
             <thead>
+              <tr class="group-row">
+                <th class="sticky-col" rowspan="2">Employee</th>
+                <th rowspan="2">Designation</th>
+                <th rowspan="2" class="num">Actual Gross</th>
+                <th rowspan="2">PF</th>
+                <th rowspan="2">ESI</th>
+                <th rowspan="2">UAN / ESIC</th>
+                <th colspan="5" class="grp-att">Attendance</th>
+                <th [attr.colspan]="earningComponents.length + 1" class="grp-earn">Earnings</th>
+                <th [attr.colspan]="deductionComponents.length + 1" class="grp-ded">Deductions</th>
+                <th rowspan="2" class="col-net">Net Pay</th>
+                <th *ngIf="employerComponents.length" [attr.colspan]="employerComponents.length" class="grp-er">Employer Cost</th>
+                <th rowspan="2">Action</th>
+              </tr>
               <tr>
-                <th>Employee</th>
-                <th>Gross</th>
-                <th>Deductions</th>
-                <th>Net Pay</th>
+                <th>Total Days</th>
+                <th>Payable</th>
+                <th>LOP</th>
+                <th>OT Hrs</th>
+                <th class="num">OT Amount</th>
+                <th *ngFor="let c of earningComponents" class="col-earn" [title]="c.name">{{ c.name }}</th>
+                <th class="col-total-earn">Gross</th>
+                <th *ngFor="let c of deductionComponents" class="col-ded" [title]="c.name">{{ c.name }}</th>
+                <th class="col-total-ded">Total Ded.</th>
+                <th *ngFor="let c of employerComponents" class="col-er" [title]="c.name">{{ c.name }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of runEmployees; trackBy: trackById">
-                <td>{{ row.employeeName }} <div class="muted">{{ row.empCode }}</div></td>
-                <td>{{ row.grossEarnings | number: '1.0-0' }}</td>
-                <td>{{ row.totalDeductions | number: '1.0-0' }}</td>
-                <td>{{ row.netPay | number: '1.0-0' }}</td>
-              </tr>
+              <ng-container *ngFor="let row of filteredRunEmployees; trackBy: trackById">
+                <tr>
+                  <td class="sticky-col">{{ row.employeeName }} <div class="muted">{{ row.empCode }}</div></td>
+                  <td>{{ row.designation || '-' }}</td>
+                  <td class="num">{{ row.monthlyGross | number: '1.0-0' }}</td>
+                  <td><span class="yn-pill" [class.yn-yes]="row.pfApplicable" [class.yn-no]="!row.pfApplicable">{{ row.pfApplicable ? 'Yes' : 'No' }}</span></td>
+                  <td><span class="yn-pill" [class.yn-yes]="row.esiApplicable" [class.yn-no]="!row.esiApplicable">{{ row.esiApplicable ? 'Yes' : 'No' }}</span></td>
+                  <td class="id-stack">
+                    <div>{{ row.uan || '-' }}</div>
+                    <div class="muted">{{ row.esic || '-' }}</div>
+                  </td>
+                  <td class="num">{{ row.totalDays | number: '1.0-1' }}</td>
+                  <td class="num">{{ row.daysPresent | number: '1.0-1' }}</td>
+                  <td class="num">{{ row.lopDays | number: '1.0-1' }}</td>
+                  <td class="num">{{ row.otHours | number: '1.0-1' }}</td>
+                  <td class="num">{{ componentValue(row, 'OT_AMOUNT') | number: '1.0-0' }}</td>
+                  <td *ngFor="let c of earningComponents" class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+                  <td class="num strong">{{ row.grossEarnings | number: '1.0-0' }}</td>
+                  <td *ngFor="let c of deductionComponents" class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+                  <td class="num strong">{{ row.totalDeductions | number: '1.0-0' }}</td>
+                  <td class="num strong net">{{ row.netPay | number: '1.0-0' }}</td>
+                  <td *ngFor="let c of employerComponents" class="num">{{ componentValue(row, c.code) | number: '1.0-0' }}</td>
+                  <td>
+                    <button
+                      class="btn-row-edit"
+                      *ngIf="editingEmpCode !== row.empCode"
+                      (click)="startEditEmployee(row)"
+                      [disabled]="editEmpBusy || isPublished(selectedRun)"
+                      title="Edit days / overrides for this employee"
+                    >Edit</button>
+                    <button
+                      class="btn-row-check"
+                      (click)="toggleCheckEmployee(row)"
+                      title="Show full calculation breakdown"
+                    >{{ checkingEmpCode === row.empCode ? 'Hide' : 'Check' }}</button>
+                  </td>
+                </tr>
+                <tr *ngIf="checkingEmpCode === row.empCode" class="check-row">
+                  <td [attr.colspan]="13 + earningComponents.length + deductionComponents.length + employerComponents.length + 3">
+                    <div class="check-emp-panel">
+                      <div class="check-emp-title">
+                        Calculation breakdown for {{ row.employeeName }} ({{ row.empCode }})
+                      </div>
+
+                      <div class="check-grid">
+                        <div class="check-section">
+                          <div class="check-section-title">Inputs</div>
+                          <table class="check-table">
+                            <tbody>
+                              <tr><td>Designation</td><td class="num">{{ row.designation || '-' }}</td></tr>
+                              <tr><td>Monthly Gross (master)</td><td class="num">{{ row.monthlyGross | number:'1.2-2' }}</td></tr>
+                              <tr><td>Total Days</td><td class="num">{{ row.totalDays | number:'1.0-2' }}</td></tr>
+                              <tr><td>Worked Days</td><td class="num">{{ rawComponent(row, 'WORKED_DAYS') | number:'1.0-2' }}</td></tr>
+                              <tr><td>Payable Days</td><td class="num">{{ rawComponent(row, 'PAYABLE_DAYS') | number:'1.0-2' }}</td></tr>
+                              <tr><td>LOP Days</td><td class="num">{{ row.lopDays | number:'1.0-2' }}</td></tr>
+                              <tr><td>OT Hours</td><td class="num">{{ row.otHours | number:'1.0-2' }}</td></tr>
+                              <tr><td>PF Applicable</td><td class="num">{{ row.pfApplicable ? 'Yes' : 'No' }}</td></tr>
+                              <tr><td>ESI Applicable</td><td class="num">{{ row.esiApplicable ? 'Yes' : 'No' }}</td></tr>
+                              <tr><td>UAN</td><td class="num">{{ row.uan || '-' }}</td></tr>
+                              <tr><td>ESIC</td><td class="num">{{ row.esic || '-' }}</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div class="check-section">
+                          <div class="check-section-title">Statutory Wages &amp; Computations</div>
+                          <table class="check-table">
+                            <tbody>
+                              <tr><td>Actual Gross (full month)</td><td class="num">{{ rawComponent(row, 'ACTUAL_GROSS') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PF Wage</td><td class="num">{{ rawComponent(row, 'PF_WAGE') | number:'1.2-2' }}</td></tr>
+                              <tr><td>ESI Wage</td><td class="num">{{ rawComponent(row, 'ESI_WAGE') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PF (Employee) 12%</td><td class="num">{{ rawComponent(row, 'PF_EMP') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PF (Employer)</td><td class="num">{{ rawComponent(row, 'PF_ER') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PF Employer Recovered from Employee</td><td class="num">{{ rawComponent(row, 'PF_ER_FROM_EMP') | number:'1.2-2' }}</td></tr>
+                              <tr><td>EPS Wages</td><td class="num">{{ rawComponent(row, 'EPS_WAGES') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PF EPS</td><td class="num">{{ rawComponent(row, 'PF_EPS') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PF Diff</td><td class="num">{{ rawComponent(row, 'PF_DIFF') | number:'1.2-2' }}</td></tr>
+                              <tr><td>ESI (Employee) 0.75%</td><td class="num">{{ rawComponent(row, 'ESI_EMP') | number:'1.2-2' }}</td></tr>
+                              <tr><td>ESI (Employer) 3.25%</td><td class="num">{{ rawComponent(row, 'ESI_ER') | number:'1.2-2' }}</td></tr>
+                              <tr><td>PT (Professional Tax)</td><td class="num">{{ rawComponent(row, 'PT') | number:'1.2-2' }}</td></tr>
+                              <tr><td>Leave Earned (EL Accrued)</td><td class="num">{{ rawComponent(row, 'EL_ACCRUED') | number:'1.0-2' }}</td></tr>
+                              <tr><td>Paid Leave Days</td><td class="num">{{ rawComponent(row, 'EL_PAID_LEAVE_DAYS') | number:'1.0-2' }}</td></tr>
+                              <tr><td>EL Balance</td><td class="num">{{ rawComponent(row, 'EL_BALANCE') | number:'1.0-2' }}</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div class="check-section">
+                          <div class="check-section-title">All Components</div>
+                          <table class="check-table">
+                            <thead>
+                              <tr><th>Code</th><th>Name</th><th>Type</th><th class="num">Amount</th></tr>
+                            </thead>
+                            <tbody>
+                              <tr *ngFor="let c of allComponentRows(row)">
+                                <td><code>{{ c.code }}</code></td>
+                                <td>{{ c.name }}</td>
+                                <td>{{ c.type }}</td>
+                                <td class="num">{{ c.amount | number:'1.2-2' }}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div class="check-section">
+                          <div class="check-section-title">Verification</div>
+                          <table class="check-table">
+                            <tbody>
+                              <tr>
+                                <td>Sum of Earnings</td>
+                                <td class="num">{{ sumEarnings(row) | number:'1.2-2' }}</td>
+                              </tr>
+                              <tr>
+                                <td>Reported Gross Earnings</td>
+                                <td class="num">{{ row.grossEarnings | number:'1.2-2' }}</td>
+                              </tr>
+                              <tr [class.warn]="(sumEarnings(row) - row.grossEarnings | number:'1.0-0') !== '0'">
+                                <td>Difference</td>
+                                <td class="num">{{ sumEarnings(row) - row.grossEarnings | number:'1.2-2' }}</td>
+                              </tr>
+                              <tr>
+                                <td>Sum of Deductions (incl. PF_ER_FROM_EMP)</td>
+                                <td class="num">{{ sumDeductions(row) | number:'1.2-2' }}</td>
+                              </tr>
+                              <tr>
+                                <td>Reported Total Deductions</td>
+                                <td class="num">{{ row.totalDeductions | number:'1.2-2' }}</td>
+                              </tr>
+                              <tr>
+                                <td>Gross − Deductions</td>
+                                <td class="num">{{ row.grossEarnings - row.totalDeductions | number:'1.2-2' }}</td>
+                              </tr>
+                              <tr class="strong">
+                                <td>Reported Net Pay</td>
+                                <td class="num">{{ row.netPay | number:'1.2-2' }}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div class="check-emp-actions">
+                        <button class="btn-cancel-edit" (click)="toggleCheckEmployee(row)">Close</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="editingEmpCode === row.empCode" class="edit-row">
+                  <td [attr.colspan]="13 + earningComponents.length + deductionComponents.length + employerComponents.length + 3">
+                    <div class="edit-emp-form">
+                      <div class="edit-emp-title">Edit inputs for {{ row.employeeName }} ({{ row.empCode }})</div>
+                      <div class="edit-emp-grid">
+                        <label>
+                          <span>Working Days</span>
+                          <input type="number" min="0" step="0.5" [(ngModel)]="editEmpForm.workingDays" />
+                        </label>
+                        <label>
+                          <span>Payable Days</span>
+                          <input type="number" min="0" step="0.5" [(ngModel)]="editEmpForm.payableDays" />
+                        </label>
+                        <label>
+                          <span>OT Hours</span>
+                          <input type="number" min="0" step="0.5" [(ngModel)]="editEmpForm.otHours" />
+                        </label>
+                        <label>
+                          <span>Other Earnings</span>
+                          <input type="number" min="0" step="1" [(ngModel)]="editEmpForm.otherEarnings" />
+                        </label>
+                        <label>
+                          <span>Other Earnings — Type / Note</span>
+                          <input type="text" maxlength="120" placeholder="e.g. Festival bonus, Arrears Apr" [(ngModel)]="editEmpForm.otherEarningsNote" />
+                        </label>
+                        <label>
+                          <span>Arrears / Attendance Bonus</span>
+                          <input type="number" min="0" step="1" [(ngModel)]="editEmpForm.arrearAttBonus" />
+                        </label>
+                        <label>
+                          <span>Other Deductions</span>
+                          <input type="number" min="0" step="1" [(ngModel)]="editEmpForm.otherDeductions" />
+                        </label>
+                        <label>
+                          <span>Other Deductions — Type / Note</span>
+                          <input type="text" maxlength="120" placeholder="e.g. Loan recovery, Advance" [(ngModel)]="editEmpForm.otherDeductionsNote" />
+                        </label>
+                      </div>
+                      <div class="edit-emp-actions">
+                        <button class="btn-cancel-edit" (click)="cancelEditEmployee()" [disabled]="editEmpBusy">Cancel</button>
+                        <button class="btn-save-edit" (click)="saveEmployeeEdit(row)" [disabled]="editEmpBusy">
+                          {{ editEmpBusy ? 'Saving...' : 'Save & Reprocess' }}
+                        </button>
+                      </div>
+                      <div class="edit-emp-hint">Saving will recompute payroll for this employee only.</div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
             </tbody>
           </table>
         </div>

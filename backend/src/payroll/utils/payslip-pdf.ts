@@ -49,6 +49,8 @@ export type PayslipPdfInput = {
     uan?: string | null;
     esic?: string | null;
     logoBuffer?: Buffer | null;
+    otherEarningsNote?: string | null;
+    otherDeductionsNote?: string | null;
   };
   componentValues: Record<string, number>;
 };
@@ -69,7 +71,7 @@ const MONTH_NAMES = [
 ];
 
 function formatCurrency(n: number): string {
-  return 'Rs.' + Math.round(n).toLocaleString('en-IN');
+  return 'Rs.' + Math.ceil(n).toLocaleString('en-IN');
 }
 
 export async function generatePayslipPdfBuffer(
@@ -206,7 +208,12 @@ export async function generatePayslipPdfBuffer(
       const lopDays = cv['LOP_DAYS'] ?? 0;
       const holidays = cv['HOLIDAYS'] ?? 0;
       const elPaidLeaveDays = cv['EL_PAID_LEAVE_DAYS'] ?? 0;
-      const leaveEarned = cv['EL_ACCRUED'] ?? 0;
+      const plAvailed = cv['PL_DAYS'] ?? elPaidLeaveDays;
+      const slAvailed = cv['SL_DAYS'] ?? 0;
+      const plEarned = cv['EL_ACCRUED'] ?? 0;
+      const slEarned = cv['SL_ACCRUED'] ?? 0;
+      const plBalance = Math.max(cv['EL_BALANCE'] ?? 0, 0);
+      const slBalance = Math.max(cv['SL_BALANCE'] ?? 0, 0);
       doc.text('Days Worked:', leftCol, infoY);
       doc.text(String(workedDays), leftCol + infoLabelWidth, infoY);
       doc.text('Payable Days:', rightCol, infoY);
@@ -219,15 +226,22 @@ export async function generatePayslipPdfBuffer(
       doc.text(String(lopDays), rightCol + 100, infoY);
       infoY += 18;
 
-      doc.text('Leave Earned:', leftCol, infoY);
-      doc.text(String(leaveEarned), leftCol + infoLabelWidth, infoY);
-      doc.text('Leave Paid:', rightCol, infoY);
-      doc.text(String(elPaidLeaveDays), rightCol + 100, infoY);
+      doc.text('PL Earned:', leftCol, infoY);
+      doc.text(String(plEarned), leftCol + infoLabelWidth, infoY);
+      doc.text('PL Availed:', rightCol, infoY);
+      doc.text(String(plAvailed), rightCol + 100, infoY);
       infoY += 18;
 
-      const elBalance = cv['EL_BALANCE'] ?? 0;
-      doc.text('Leave Balance:', leftCol, infoY);
-      doc.text(String(elBalance), leftCol + infoLabelWidth, infoY);
+      doc.text('PL Balance:', leftCol, infoY);
+      doc.text(String(plBalance), leftCol + infoLabelWidth, infoY);
+      doc.text('SL Availed:', rightCol, infoY);
+      doc.text(String(slAvailed), rightCol + 100, infoY);
+      infoY += 18;
+
+      doc.text('SL Earned:', leftCol, infoY);
+      doc.text(String(slEarned), leftCol + infoLabelWidth, infoY);
+      doc.text('SL Balance:', rightCol, infoY);
+      doc.text(String(slBalance), rightCol + 100, infoY);
       infoY += 24;
 
       doc.y = infoY;
@@ -238,19 +252,39 @@ export async function generatePayslipPdfBuffer(
       const others = cv['OTHERS'] ?? 0;
       const attBonus = cv['ATT_BONUS'] ?? 0;
       const gross = cv['GROSS'] ?? 0;
-      // Other Earnings = everything in gross not covered by the four named components
-      const otherEarningsRow = Math.max(
-        0,
-        gross - basic - hra - others - attBonus,
-      );
+      // Use the explicit OTHER_EARNINGS component value when present (the
+      // user-entered "other earnings" amount from the Preview Employees grid).
+      // Fall back to the gross-residual when the structure does not have a
+      // dedicated component (older payslips).
+      const otherEarningsExplicit = cv['OTHER_EARNINGS'] ?? 0;
+      const arrearAttBonus = cv['ARREAR_ATT_BONUS'] ?? 0;
+      const otAmount = cv['OT_AMOUNT'] ?? 0;
+      // Show OT pay as part of "Other Earnings" rather than a separate row.
+      const otherEarningsBase =
+        otherEarningsExplicit > 0
+          ? otherEarningsExplicit
+          : Math.max(0, gross - basic - hra - others - attBonus);
+      const otherEarningsRow = otherEarningsBase + otAmount;
+      const otherEarningsNoteParts: string[] = [];
+      if (input.header.otherEarningsNote) otherEarningsNoteParts.push(input.header.otherEarningsNote);
+      if (otAmount > 0) otherEarningsNoteParts.push('incl. OT');
+      const otherEarningsLabel = otherEarningsNoteParts.length
+        ? `Other Earnings (${otherEarningsNoteParts.join(', ')})`
+        : 'Other Earnings';
 
       // ── Compute deductions summary ──
       const pfAmt = cv['PF_EMP'] ?? 0;
       const esiAmt = cv['ESI_EMP'] ?? 0;
       const ptAmt = cv['PT'] ?? 0;
       const pfErFromEmpAmt = cv['PF_ER_FROM_EMP'] ?? 0;
-      const totalDeduction = pfAmt + esiAmt + ptAmt + pfErFromEmpAmt;
-      const netPay = cv['NET_PAY'] ?? gross - totalDeduction;
+      const otherDeductions = cv['OTHER_DEDUCTIONS'] ?? 0;
+      const otherDeductionsLabel = input.header.otherDeductionsNote
+        ? `Other Deductions (${input.header.otherDeductionsNote})`
+        : 'Other Deductions';
+      const totalDeduction =
+        pfAmt + esiAmt + ptAmt + pfErFromEmpAmt + otherDeductions;
+      const netPay =
+        cv['NET_PAY'] ?? gross + otAmount - totalDeduction;
 
       // ── Draw Table ──
       const tableX = startX;
@@ -335,14 +369,30 @@ export async function generatePayslipPdfBuffer(
 
       // Other Earnings (catch-all: includes Arrear Att. Bonus, Other Earnings, etc.)
       if (otherEarningsRow > 0) {
-        drawRow('Other Earnings', formatCurrency(otherEarningsRow), '', '', tY);
+        drawRow(otherEarningsLabel, formatCurrency(otherEarningsRow), '', '', tY);
+        tY += rowHeight;
+      }
+
+      // Arrear / Att. Bonus on its own row when present (separate from Att. Bonus)
+      if (arrearAttBonus > 0) {
+        drawRow('Arrear / Att. Bonus', formatCurrency(arrearAttBonus), '', '', tY);
+        tY += rowHeight;
+      }
+
+      // OT Amount is included inside the Other Earnings row above; no separate row.
+
+      // Other Deductions (user-supplied via Preview Employees) — paired alone
+      // on the deductions side. The label includes the user-entered note when
+      // present so payees know what the recovery is for.
+      if (otherDeductions > 0) {
+        drawRow('', '', otherDeductionsLabel, formatCurrency(otherDeductions), tY);
         tY += rowHeight;
       }
 
       // Gross / Total Deduction
       drawRow(
         'Gross',
-        formatCurrency(gross),
+        formatCurrency(gross + otAmount),
         'Total Deduction',
         formatCurrency(totalDeduction),
         tY,

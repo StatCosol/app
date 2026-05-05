@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
+  Param,
   Res,
   UseGuards,
   UseInterceptors,
@@ -206,5 +208,19 @@ export class EmployeeBulkImportController {
     const defaultBranchId =
       user.branchIds?.length === 1 ? user.branchIds[0] : undefined;
     return this.importSvc.importFromExcel(clientId, file.path, defaultBranchId);
+  }
+
+  @ApiOperation({
+    summary:
+      'Revert a bulk import by batchId — deletes only the employees created in that import',
+  })
+  @Delete(':batchId/revert')
+  async revertImport(
+    @CurrentUser() user: ReqUser,
+    @Param('batchId') batchId: string,
+  ) {
+    const clientId = user?.clientId;
+    if (!clientId) throw new BadRequestException('Client context required');
+    return this.importSvc.revertBulkImport(clientId, batchId);
   }
 }

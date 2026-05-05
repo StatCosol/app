@@ -3,6 +3,7 @@ import { PayrollClientStructureEntity } from './entities/payroll-client-structur
 import { PayrollStructureComponentEntity } from './entities/payroll-structure-component.entity';
 import { PayrollStatutoryConfigEntity } from './entities/payroll-statutory-config.entity';
 import { evaluateFormula } from './engine/expression';
+import { StateSlabService } from './services/state-slab.service';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -29,16 +30,18 @@ export interface CalculatePayrollResult {
 export class ClientPayrollCalculationService {
   private readonly logger = new Logger(ClientPayrollCalculationService.name);
 
+  constructor(private readonly stateSlab: StateSlabService) {}
+
   /**
    * Calculate all payroll components for a given structure and input.
    *
    * Uses the existing safe formula expression engine (IF/MIN/MAX/ROUND/PARAM)
    * instead of JS eval — no code-injection risk.
    */
-  calculate(
+  async calculate(
     structure: PayrollClientStructureEntity,
     input: CalculatePayrollInput,
-  ): CalculatePayrollResult {
+  ): Promise<CalculatePayrollResult> {
     if (input.gross < 0) {
       throw new BadRequestException('Gross salary cannot be negative.');
     }
@@ -93,7 +96,8 @@ export class ClientPayrollCalculationService {
 
     // ── Statutory deductions ──────────────────────────────────────────────
     if (statutory.enablePt) {
-      ctx['PT'] = this.calculatePt(
+      ctx['PT'] = await this.calculatePt(
+        structure.clientId,
         ctx['GROSS'] ?? input.gross,
         input.stateCode,
       );
@@ -113,6 +117,25 @@ export class ClientPayrollCalculationService {
         Number(statutory.esiEmployerRate),
         statutory,
       );
+    }
+    // LWF — driven by slab presence; per-state defaults seeded by migration
+    // 20260508_state_pt_lwf_global_slabs.sql, per-client overrides supported.
+    {
+      const gross = ctx['GROSS'] ?? input.gross;
+      const lwfEmp = await this.stateSlab.resolveAmount({
+        clientId: structure.clientId,
+        stateCode: input.stateCode,
+        componentCode: 'LWF_EMP',
+        baseAmount: gross,
+      });
+      const lwfEr = await this.stateSlab.resolveAmount({
+        clientId: structure.clientId,
+        stateCode: input.stateCode,
+        componentCode: 'LWF_ER',
+        baseAmount: gross,
+      });
+      if (lwfEmp > 0) ctx['LWF_EMP'] = Math.ceil(lwfEmp);
+      if (lwfEr > 0) ctx['LWF_ER'] = Math.ceil(lwfEr);
     }
 
     // ── Validation warnings ───────────────────────────────────────────────
@@ -135,10 +158,15 @@ export class ClientPayrollCalculationService {
       .reduce((sum, c) => sum + (ctx[c.code] || 0), 0);
 
     const totalDeductions =
-      (ctx['PT'] || 0) + (ctx['PF_EMPLOYEE'] || 0) + (ctx['ESI_EMPLOYEE'] || 0);
+      (ctx['PT'] || 0) +
+      (ctx['PF_EMPLOYEE'] || 0) +
+      (ctx['ESI_EMPLOYEE'] || 0) +
+      (ctx['LWF_EMP'] || 0);
 
     const employerContributions =
-      (ctx['PF_EMPLOYER'] || 0) + (ctx['ESI_EMPLOYER'] || 0);
+      (ctx['PF_EMPLOYER'] || 0) +
+      (ctx['ESI_EMPLOYER'] || 0) +
+      (ctx['LWF_ER'] || 0);
 
     return {
       warnings,
@@ -199,17 +227,22 @@ export class ClientPayrollCalculationService {
   // ── Statutory helpers ───────────────────────────────────────────────────────
 
   /**
-   * Professional Tax — slab-based per state.
-   * Currently supports Telangana (TS). Extend with more states as needed.
+   * Professional Tax — slab-based per state. Resolved via StateSlabService
+   * with per-client overrides falling back to the shared default slab set
+   * (migration 20260508_state_pt_lwf_global_slabs.sql).
    */
-  private calculatePt(gross: number, stateCode: string): number {
-    if (stateCode === 'TS') {
-      if (gross <= 15000) return 0;
-      if (gross <= 20000) return 150;
-      return 200;
-    }
-    // Other states can be added here
-    return 0;
+  private async calculatePt(
+    clientId: string,
+    gross: number,
+    stateCode: string,
+  ): Promise<number> {
+    const amount = await this.stateSlab.resolveAmount({
+      clientId,
+      stateCode,
+      componentCode: 'PT',
+      baseAmount: gross,
+    });
+    return Math.ceil(amount);
   }
 
   private calculatePfEmployee(
@@ -258,13 +291,15 @@ export class ClientPayrollCalculationService {
   ): number {
     switch (rule) {
       case 'ROUND':
-        return Math.round(amount);
+        // Payroll values are always rounded UP to the next whole rupee.
+        return Math.ceil(amount);
       case 'ROUND_UP':
         return Math.ceil(amount);
       case 'ROUND_DOWN':
         return Math.floor(amount);
       default:
-        return Number(amount.toFixed(2));
+        // Default to round-up as well so monetary outputs are never half-rupees.
+        return Math.ceil(amount);
     }
   }
 }

@@ -48,4 +48,14 @@ export class UpdateBranchDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  /** Branch-specific PF establishment code (optional). */
+  @IsString()
+  @IsOptional()
+  pfCode?: string;
+
+  /** Branch-specific ESI sub/establishment code (optional). */
+  @IsString()
+  @IsOptional()
+  esiCode?: string;
 }

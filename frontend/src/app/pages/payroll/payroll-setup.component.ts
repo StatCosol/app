@@ -17,17 +17,29 @@ import {
   PayrollSetupApiService,
 } from './payroll-setup-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
-import { ActivatedRoute } from '@angular/router';
+import {
+  PayrollEngineApiService,
+  ClientStructure,
+  CalculatePayrollResult,
+  SalaryStructure,
+  StructureItem,
+} from './payroll-engine-api.service';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { LeaveManagementService } from '../client/leave-management.service';
+import {
+  FormulaBuilderComponent,
+  FormulaNode,
+} from './formula-builder/formula-builder.component';
 
 type SetupTab =
   | 'statutory'
   | 'pay-cycle'
   | 'leave-policy'
   | 'attendance'
-  | 'deductions';
+  | 'deductions'
+  | 'rules-preview';
 
 interface PayrollSetupViewModel extends PayrollClientSetup {
   updatedAt?: string;
@@ -60,7 +72,7 @@ interface LocalSetupAddon {
 @Component({
   selector: 'app-payroll-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClientContextStripComponent],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent, FormulaBuilderComponent],
   templateUrl: './payroll-setup.component.html',
   styleUrls: ['./payroll-setup.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -70,6 +82,10 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
 
   loading = true;
   selectedClientId = '';
+  /** True when this component was opened from a client-scoped route
+   * (`/payroll/clients/:clientId/setup`). In that case the dropdown is
+   * suppressed because the workspace strip already pins the active client. */
+  isClientScoped = false;
   clients: PayrollClient[] = [];
 
   activeTab: SetupTab = 'statutory';
@@ -79,6 +95,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     { key: 'leave-policy', label: 'Leave / Pay Policy' },
     { key: 'attendance', label: 'Attendance Config' },
     { key: 'deductions', label: 'Deductions / Recovery' },
+    { key: 'rules-preview', label: 'Salary Rules & Live Preview' },
   ];
 
   setup: PayrollSetupViewModel = this.defaultSetup();
@@ -90,6 +107,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     'leave-policy': { text: '', error: false },
     attendance: { text: '', error: false },
     deductions: { text: '', error: false },
+    'rules-preview': { text: '', error: false },
   };
 
   savingSection: Record<SetupTab, boolean> = {
@@ -98,6 +116,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     'leave-policy': false,
     attendance: false,
     deductions: false,
+    'rules-preview': false,
   };
 
   sectionValidation: Record<SetupTab, string[]> = {
@@ -106,6 +125,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     'leave-policy': [],
     attendance: [],
     deductions: [],
+    'rules-preview': [],
   };
 
   sectionSnapshots: Record<SetupTab, string> = {
@@ -114,6 +134,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     'leave-policy': '',
     attendance: '',
     deductions: '',
+    'rules-preview': '',
   };
 
   readonly payCycleOptions = ['MONTHLY', 'WEEKLY', 'BIWEEKLY'];
@@ -158,20 +179,122 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
   readonly compTypeOptions = ['EARNING', 'DEDUCTION', 'EMPLOYER', 'INFO'];
   readonly ruleTypeOptions = ['FIXED', 'PERCENTAGE', 'SLAB', 'FORMULA'];
 
+  // ── Inline Formula editor (writes to pay_salary_structure_items) ────────
+  // Active TENANT-scoped salary structure for the client (lazy-loaded once).
+  private activeStructure: SalaryStructure | null = null;
+  private structureItems: StructureItem[] = [];
+  /** Map of componentId -> formula summary text shown inline in the table. */
+  componentFormulaMap: Record<string, string> = {};
+
+  showFormulaModal = false;
+  savingFormula = false;
+  formulaError = '';
+  formulaTargetComponent: PayrollComponent | null = null;
+  formulaForm: {
+    itemId: string | null;
+    calcMethod: 'FIXED' | 'PERCENT' | 'FORMULA';
+    fixedAmount: number | null;
+    percentage: number | null;
+    percentageBase: string;
+    formula: string;
+    formulaJson: FormulaNode | null;
+    roundingMode: 'NONE' | 'ROUND' | 'ROUND_UP' | 'ROUND_DOWN';
+    minAmount: number | null;
+    maxAmount: number | null;
+    enabled: boolean;
+  } = this.blankFormulaForm();
+  readonly formulaCalcMethods = ['FIXED', 'PERCENT', 'FORMULA'] as const;
+  readonly formulaBaseOptions = ['BASIC', 'GROSS', 'CTC', 'PF_WAGE', 'ESI_WAGE', 'EARNINGS_SUM'] as const;
+  readonly formulaRoundOptions = ['NONE', 'ROUND', 'ROUND_UP', 'ROUND_DOWN'] as const;
+
+  // Templates + Versions (Phase 2A)
+  formulaTemplates: Array<{ id: string; name: string; clientId: string | null; componentId: string | null; formulaJson: any; }> = [];
+  selectedTemplateId = '';
+  savingTemplate = false;
+  structureVersions: Array<{ id: string; versionNo: number; reason: string | null; createdAt: string; itemsSnapshot: any[] }> = [];
+  loadingVersions = false;
+
+  private blankFormulaForm() {
+    return {
+      itemId: null,
+      calcMethod: 'FORMULA' as 'FIXED' | 'PERCENT' | 'FORMULA',
+      fixedAmount: null,
+      percentage: null,
+      percentageBase: 'BASIC',
+      formula: '',
+      formulaJson: null as FormulaNode | null,
+      roundingMode: 'ROUND' as 'NONE' | 'ROUND' | 'ROUND_UP' | 'ROUND_DOWN',
+      minAmount: null,
+      maxAmount: null,
+      enabled: true,
+    };
+  }
+
+  // ── Salary Rules & Live Preview tab ──────────────────────────────────────
+  loadingRulesPreview = false;
+  clientStructures: ClientStructure[] = [];
+  selectedStructureId = '';
+  stateSlabsLoading = false;
+  stateSlabs: Array<{
+    source: string;
+    stateCode: string;
+    componentCode: string;
+    slabs: Array<{
+      fromAmount: number;
+      toAmount: number | null;
+      valueAmount: number | null;
+      valuePercent: number | null;
+    }>;
+  }> = [];
+  preview = {
+    gross: 25000,
+    lopDays: 0,
+    stateCode: 'TS',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+  };
+  previewResult: CalculatePayrollResult | null = null;
+  previewLoading = false;
+  readonly indianStates: Array<{ code: string; name: string }> = [
+    { code: 'AP', name: 'Andhra Pradesh' }, { code: 'AS', name: 'Assam' },
+    { code: 'BR', name: 'Bihar' }, { code: 'CG', name: 'Chhattisgarh' },
+    { code: 'DL', name: 'Delhi' }, { code: 'GA', name: 'Goa' },
+    { code: 'GJ', name: 'Gujarat' }, { code: 'HR', name: 'Haryana' },
+    { code: 'HP', name: 'Himachal Pradesh' }, { code: 'JH', name: 'Jharkhand' },
+    { code: 'JK', name: 'Jammu & Kashmir' }, { code: 'KA', name: 'Karnataka' },
+    { code: 'KL', name: 'Kerala' }, { code: 'MP', name: 'Madhya Pradesh' },
+    { code: 'MH', name: 'Maharashtra' }, { code: 'MN', name: 'Manipur' },
+    { code: 'ML', name: 'Meghalaya' }, { code: 'MZ', name: 'Mizoram' },
+    { code: 'NL', name: 'Nagaland' }, { code: 'OD', name: 'Odisha' },
+    { code: 'PB', name: 'Punjab' }, { code: 'RJ', name: 'Rajasthan' },
+    { code: 'SK', name: 'Sikkim' }, { code: 'TN', name: 'Tamil Nadu' },
+    { code: 'TS', name: 'Telangana' }, { code: 'TR', name: 'Tripura' },
+    { code: 'UP', name: 'Uttar Pradesh' }, { code: 'UK', name: 'Uttarakhand' },
+    { code: 'WB', name: 'West Bengal' },
+  ];
+
   constructor(
     private readonly setupApi: PayrollSetupApiService,
     private readonly payrollApi: PayrollApiService,
+    private readonly engineApi: PayrollEngineApiService,
     private readonly leaveMgmtSvc: LeaveManagementService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
     const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
     if (routeClientId) {
+      this.isClientScoped = true;
       this.selectedClientId = routeClientId;
+      // No need to load the full client list — the workspace strip pins the
+      // active client and the dropdown is hidden in this mode.
       this.onClientChange();
+    } else {
+      // No client in route -> load assigned clients and auto-select first.
+      this.loadClients();
     }
   }
 
@@ -229,6 +352,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
         this.clearValidationIssues();
         this.refreshSectionSnapshots();
         this.loadComponents();
+        this.loadRulesPreview();
       });
   }
 
@@ -317,6 +441,8 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
         payoutDay: this.addon.payoutDay,
         lockDay: this.addon.lockDay,
         arrearMode: this.addon.arrearMode,
+        wageBasisDays: this.setup.wageBasisDays,
+        otMultiplier: this.setup.otMultiplier as any,
       })
       .pipe(
         takeUntil(this.destroy$),
@@ -518,6 +644,8 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.components = rows || [];
+          // Lazy-load active structure so the formula column populates.
+          this.loadActiveStructureFormulas(true);
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to load payroll components'),
       });
@@ -701,6 +829,247 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ── Inline Formula editor (active salary structure items) ────────────────
+
+  /**
+   * Load (and cache) the active TENANT-scoped salary structure for the
+   * current client and build a `componentId -> summary` map for inline
+   * display in the Component & Rule Management table.
+   */
+  loadActiveStructureFormulas(force = false): void {
+    if (!this.selectedClientId) return;
+    if (!force && this.activeStructure) return;
+
+    this.engineApi
+      .listStructures(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([] as SalaryStructure[])))
+      .subscribe((rows) => {
+        const tenant = (rows || []).find(
+          (s) => s.isActive && s.scopeType === 'TENANT',
+        ) || (rows || []).find((s) => s.isActive) || null;
+        this.activeStructure = tenant;
+        if (!tenant) {
+          this.structureItems = [];
+          this.componentFormulaMap = {};
+          this.cdr.markForCheck();
+          return;
+        }
+        this.engineApi
+          .listStructureItems(tenant.id)
+          .pipe(takeUntil(this.destroy$), catchError(() => of([] as StructureItem[])))
+          .subscribe((items) => {
+            this.structureItems = items || [];
+            const map: Record<string, string> = {};
+            for (const it of this.structureItems) {
+              map[it.componentId] = this.formatStructureItem(it);
+            }
+            this.componentFormulaMap = map;
+            this.cdr.markForCheck();
+          });
+      });
+  }
+
+  formatStructureItem(it: StructureItem): string {
+    if (!it.enabled) return '(disabled)';
+    switch (it.calcMethod) {
+      case 'FIXED':
+        return `= ${it.fixedAmount ?? 0}`;
+      case 'PERCENT':
+        return `= ${it.percentage ?? 0}% of ${it.percentageBase || 'BASIC'}`;
+      case 'FORMULA':
+        return it.formula ? `= ${it.formula}` : '(empty formula)';
+      case 'BALANCING':
+        return '= balancing';
+      case 'SLAB':
+        return '= slab';
+      default:
+        return '';
+    }
+  }
+
+  /** Open the inline Formula editor for the selected component. */
+  openFormulaEditor(component: PayrollComponent): void {
+    this.formulaError = '';
+    this.formulaTargetComponent = component;
+
+    if (!this.activeStructure) {
+      // Try to load now; user can retry once it arrives.
+      this.loadActiveStructureFormulas(true);
+      this.toast.error(
+        'No active salary structure loaded yet — try again in a moment, or create one in Builder.',
+      );
+      return;
+    }
+
+    const existing = this.structureItems.find((i) => i.componentId === component.id);
+    this.formulaForm = existing
+      ? {
+          itemId: existing.id,
+          calcMethod: (existing.calcMethod === 'FIXED' || existing.calcMethod === 'PERCENT' || existing.calcMethod === 'FORMULA')
+            ? existing.calcMethod
+            : 'FORMULA',
+          fixedAmount: existing.fixedAmount,
+          percentage: existing.percentage,
+          percentageBase: existing.percentageBase || 'BASIC',
+          formula: existing.formula || '',
+          formulaJson: (existing.formulaJson as FormulaNode | null) || null,
+          roundingMode: (existing.roundingMode as any) || 'ROUND',
+          minAmount: existing.minAmount,
+          maxAmount: existing.maxAmount,
+          enabled: existing.enabled,
+        }
+      : this.blankFormulaForm();
+
+    this.showFormulaModal = true;
+    this.selectedTemplateId = '';
+    this.loadFormulaTemplates(component.id);
+    this.loadStructureVersions();
+  }
+
+  /** Load templates filtered by client + component. */
+  private loadFormulaTemplates(componentId: string): void {
+    this.formulaTemplates = [];
+    this.engineApi
+      .listFormulaTemplates(this.selectedClientId, componentId)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of([] as any[])),
+      )
+      .subscribe((list) => {
+        this.formulaTemplates = list || [];
+        this.cdr.markForCheck();
+      });
+  }
+
+  applySelectedTemplate(): void {
+    const tpl = this.formulaTemplates.find((t) => t.id === this.selectedTemplateId);
+    if (!tpl) return;
+    this.formulaForm.formulaJson = tpl.formulaJson as FormulaNode;
+    this.formulaForm.calcMethod = 'FORMULA';
+    this.toast.success(`Loaded template "${tpl.name}"`);
+  }
+
+  saveAsTemplate(): void {
+    if (!this.formulaForm.formulaJson || !this.formulaTargetComponent) return;
+    const name = window.prompt(
+      'Template name:',
+      `${this.formulaTargetComponent.code} formula`,
+    );
+    if (!name?.trim()) return;
+    this.savingTemplate = true;
+    this.engineApi
+      .createFormulaTemplate({
+        name: name.trim(),
+        clientId: this.selectedClientId || null,
+        componentId: this.formulaTargetComponent.id,
+        formulaJson: this.formulaForm.formulaJson,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingTemplate = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (saved) => {
+          this.toast.success(`Template "${saved.name}" saved`);
+          if (this.formulaTargetComponent) {
+            this.loadFormulaTemplates(this.formulaTargetComponent.id);
+          }
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Failed to save template');
+        },
+      });
+  }
+
+  toggleVersions(): void {
+    if (this.structureVersions.length || this.loadingVersions) return;
+    this.loadStructureVersions();
+  }
+
+  private loadStructureVersions(): void {
+    if (!this.activeStructure) return;
+    this.loadingVersions = true;
+    this.engineApi
+      .listStructureVersions(this.activeStructure.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of([] as any[])),
+        finalize(() => {
+          this.loadingVersions = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe((list) => {
+        this.structureVersions = list || [];
+      });
+  }
+
+  saveFormula(): void {
+    if (!this.activeStructure || !this.formulaTargetComponent) return;
+
+    // Basic validation
+    if (this.formulaForm.calcMethod === 'FIXED' && this.formulaForm.fixedAmount == null) {
+      this.formulaError = 'Fixed amount is required';
+      return;
+    }
+    if (this.formulaForm.calcMethod === 'PERCENT'
+        && (this.formulaForm.percentage == null || !this.formulaForm.percentageBase)) {
+      this.formulaError = 'Percentage and Base are required';
+      return;
+    }
+    if (this.formulaForm.calcMethod === 'FORMULA'
+        && !this.formulaForm.formulaJson
+        && !this.formulaForm.formula?.trim()) {
+      this.formulaError = 'Formula is required';
+      return;
+    }
+
+    const structureId = this.activeStructure.id;
+    const body: Partial<StructureItem> = {
+      componentId: this.formulaTargetComponent.id,
+      calcMethod: this.formulaForm.calcMethod,
+      fixedAmount: this.formulaForm.calcMethod === 'FIXED' ? this.formulaForm.fixedAmount : null,
+      percentage: this.formulaForm.calcMethod === 'PERCENT' ? this.formulaForm.percentage : null,
+      percentageBase: this.formulaForm.calcMethod === 'PERCENT' ? this.formulaForm.percentageBase : null,
+      formula: this.formulaForm.calcMethod === 'FORMULA' ? (this.formulaForm.formula || '').trim() || null : null,
+      formulaJson: this.formulaForm.calcMethod === 'FORMULA' ? this.formulaForm.formulaJson : null,
+      roundingMode: this.formulaForm.roundingMode,
+      minAmount: this.formulaForm.minAmount,
+      maxAmount: this.formulaForm.maxAmount,
+      enabled: this.formulaForm.enabled,
+    };
+
+    this.savingFormula = true;
+    const req$ = this.formulaForm.itemId
+      ? this.engineApi.updateStructureItem(structureId, this.formulaForm.itemId, body)
+      : this.engineApi.createStructureItem(structureId, body);
+
+    req$
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingFormula = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Formula saved — applies to next payroll run');
+          this.showFormulaModal = false;
+          this.formulaTargetComponent = null;
+          this.loadActiveStructureFormulas(true);
+          this.structureVersions = []; // force reload next open
+        },
+        error: (err) => {
+          this.formulaError = err?.error?.message || 'Failed to save formula';
+          this.toast.error(this.formulaError);
+        },
+      });
+  }
+
   // Helpers -------------------------------------------------------------------
 
   ruleSummary(rule: ComponentRule): string {
@@ -791,6 +1160,10 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
         defaults.defaultDeductionCapPct,
       ),
       recoveryOrder: String(raw?.recoveryOrder ?? raw?.recovery_order ?? defaults.recoveryOrder),
+      wageBasisDays: (String(
+        raw?.wageBasisDays ?? raw?.wage_basis_days ?? defaults.wageBasisDays,
+      ) as 'FIXED_26' | 'CALENDAR_DAYS' | 'WORKING_DAYS'),
+      otMultiplier: this.numberOrDefault(raw?.otMultiplier ?? raw?.ot_multiplier, defaults.otMultiplier),
       updatedAt: raw?.updatedAt || raw?.updated_at || '',
     };
   }
@@ -984,6 +1357,8 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       enableAdvanceRecovery: true,
       defaultDeductionCapPct: 50,
       recoveryOrder: 'STATUTORY > LOAN > ADVANCE > OTHER',
+      wageBasisDays: 'FIXED_26',
+      otMultiplier: 2,
       updatedAt: '',
     };
   }
@@ -1030,5 +1405,163 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
       if (['0', 'false', 'no', 'n'].includes(v)) return false;
     }
     return fallback;
+  }
+
+  // ─── Salary Rules & Live Preview ─────────────────────────────────────────
+  loadRulesPreview(): void {
+    if (!this.selectedClientId) return;
+    this.loadingRulesPreview = true;
+    this.previewResult = null;
+    this.engineApi
+      .listClientStructures(this.selectedClientId)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of([])),
+        finalize(() => {
+          this.loadingRulesPreview = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe((rows) => {
+        this.clientStructures = (rows || []).filter((s) => s.isActive);
+        const def =
+          this.clientStructures.find((s) => s.isDefault) ||
+          this.clientStructures[0];
+        if (def) {
+          this.selectedStructureId = def.id;
+          // Adopt the structure's first state code if present
+          const sc = def.statutoryConfigs?.[0]?.stateCode;
+          if (sc) this.preview.stateCode = sc;
+        } else {
+          this.selectedStructureId = '';
+        }
+        this.loadStateSlabs();
+      });
+  }
+
+  loadStateSlabs(): void {
+    if (!this.selectedClientId || !this.preview.stateCode) {
+      this.stateSlabs = [];
+      return;
+    }
+    this.stateSlabsLoading = true;
+    // Use HttpClient via engineApi.listClientStructures? We need a custom call.
+    // Reuse PayrollEngineApiService dynamic GET via fetch through HttpClient:
+    this.engineApi
+      .listStateSlabs(this.selectedClientId, this.preview.stateCode)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of([])),
+        finalize(() => {
+          this.stateSlabsLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe((rows) => {
+        this.stateSlabs = (rows as any[]) || [];
+      });
+  }
+
+  get selectedStructure(): ClientStructure | null {
+    return (
+      this.clientStructures.find((s) => s.id === this.selectedStructureId) ||
+      null
+    );
+  }
+
+  onStructureSelect(): void {
+    this.previewResult = null;
+    const st = this.selectedStructure;
+    const sc = st?.statutoryConfigs?.[0]?.stateCode;
+    if (sc) {
+      this.preview.stateCode = sc;
+      this.loadStateSlabs();
+    }
+    this.cdr.markForCheck();
+  }
+
+  onStateChange(): void {
+    this.previewResult = null;
+    this.loadStateSlabs();
+  }
+
+  runPreview(): void {
+    if (!this.selectedStructureId) {
+      this.toast.error('Select a salary structure first');
+      return;
+    }
+    this.previewLoading = true;
+    this.previewResult = null;
+    this.engineApi
+      .calculatePayroll(this.selectedStructureId, {
+        gross: Number(this.preview.gross) || 0,
+        lopDays: Number(this.preview.lopDays) || 0,
+        stateCode: this.preview.stateCode,
+        month: Number(this.preview.month) || 1,
+        year: Number(this.preview.year) || new Date().getFullYear(),
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.previewLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.previewResult = res;
+        },
+        error: (err) => {
+          this.toast.error(
+            err?.error?.message || 'Live preview calculation failed',
+          );
+        },
+      });
+  }
+
+  formatMoney(n: number | null | undefined): string {
+    if (n == null || Number.isNaN(Number(n))) return '-';
+    return Number(n).toLocaleString('en-IN', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    });
+  }
+
+  componentValuePreview(c: {
+    calculationMethod: string;
+    fixedValue: number | null;
+    percentageValue: number | null;
+    basedOn: string | null;
+    formula: string | null;
+  }): string {
+    switch (c.calculationMethod) {
+      case 'FIXED':
+        return `Fixed ${this.formatMoney(c.fixedValue)}`;
+      case 'PERCENTAGE':
+        return `${c.percentageValue ?? 0}% of ${c.basedOn || 'GROSS'}`;
+      case 'FORMULA':
+      case 'CONDITIONAL_FIXED':
+        return c.formula || '(no formula)';
+      case 'BALANCING':
+        return 'Balancing component (gross − all earnings)';
+      default:
+        return '-';
+    }
+  }
+
+  previewValueRows(): Array<{ code: string; amount: number }> {
+    if (!this.previewResult) return [];
+    return Object.entries(this.previewResult.values || {}).map(([k, v]) => ({
+      code: k,
+      amount: Number(v) || 0,
+    }));
+  }
+
+  goToStructureBuilder(): void {
+    this.router.navigate([
+      '/payroll/clients',
+      this.selectedClientId,
+      'structures',
+    ]);
   }
 }

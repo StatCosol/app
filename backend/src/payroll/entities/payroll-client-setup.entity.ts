@@ -185,6 +185,75 @@ export class PayrollClientSetupEntity {
   })
   recoveryOrder: string;
 
+  // Wage divisor basis used for prorating monthly earnings against PAYABLE_DAYS.
+  //   FIXED_26      → divide by 26 (default Indian payroll convention)
+  //   CALENDAR_DAYS → divide by actual days in the payroll month (28/29/30/31)
+  //   WORKING_DAYS  → divide by working days in the month (configurable later)
+  @Column({
+    name: 'wage_basis_days',
+    type: 'varchar',
+    length: 20,
+    default: 'FIXED_26',
+  })
+  wageBasisDays: string;
+
+  // Overtime hourly multiplier. 1.0 = single wage, 2.0 = double wage (legacy default).
+  @Column({
+    name: 'ot_multiplier',
+    type: 'numeric',
+    precision: 4,
+    scale: 2,
+    default: 2.0,
+  })
+  otMultiplier: string;
+
+  // Hours that constitute one full working day for OT rate calculation.
+  // Engine: per-hour wage = GROSS / wageBasisDaysCount / otHoursPerDay.
+  // Default 8.0; VEIPL uses 8.5.
+  @Column({
+    name: 'ot_hours_per_day',
+    type: 'numeric',
+    precision: 4,
+    scale: 2,
+    default: 8.0,
+  })
+  otHoursPerDay: string;
+
+  // Days-in-month divisor used ONLY for OT base wage. Independent of
+  // wage_basis_days (which controls EARNING pro-rata). Default 26.
+  @Column({
+    name: 'ot_days_in_month',
+    type: 'numeric',
+    precision: 4,
+    scale: 2,
+    default: 26.0,
+  })
+  otDaysInMonth: string;
+
+  // Number of worked days that earn 1 day of Earned Leave.
+  // Engine: EL_ACCRUED = WORKED_DAYS / elAccrualDivisor.
+  // Default 20 preserves the legacy hard-coded value (1.5 days/month at 30 worked days).
+  @Column({
+    name: 'el_accrual_divisor',
+    type: 'numeric',
+    precision: 6,
+    scale: 2,
+    default: 20,
+  })
+  elAccrualDivisor: string;
+
+  // Number of worked days that earn 1 day of Sick Leave.
+  // Engine: SL_ACCRUED = WORKED_DAYS / slAccrualDivisor.
+  // Default 60 ≈ 0.5 day per 30 worked days (6 SL/year at full attendance).
+  @Column({
+    name: 'sl_accrual_divisor',
+    type: 'numeric',
+    precision: 6,
+    scale: 2,
+    default: 60,
+  })
+  slAccrualDivisor: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

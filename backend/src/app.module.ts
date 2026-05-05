@@ -66,6 +66,7 @@ import { TaskCenterModule } from './task-center/task-center.module';
 import { NoticesModule } from './notices/notices.module';
 import { PerformanceAppraisalModule } from './performance-appraisal/performance-appraisal.module';
 import { AccountsBillingModule } from './accounts-billing/accounts-billing.module';
+import { ClientContactsModule } from './client-contacts/client-contacts.module';
 
 @Module({
   imports: [
@@ -179,6 +180,7 @@ import { AccountsBillingModule } from './accounts-billing/accounts-billing.modul
     NoticesModule,
     PerformanceAppraisalModule,
     AccountsBillingModule,
+    ClientContactsModule,
   ],
   controllers: [],
   providers: [

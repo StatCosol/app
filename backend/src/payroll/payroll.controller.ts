@@ -44,6 +44,7 @@ import {
   ClientUploadPayrollInputFileDto,
   ClientUploadRegisterRecordDto,
   ClientUpdatePayrollSettingsDto,
+  PayrollUploadRegisterRecordDto,
 } from './dto/client-payroll-input.dto';
 import { RejectRegisterDto } from './dto/payroll-setup.dto';
 import {
@@ -220,6 +221,21 @@ export class PayrollController {
     @Query() q: RegistersQueryDto,
   ) {
     return this.svc.payrollListRegistersFormatted(user, q);
+  }
+
+  // POST /api/payroll/registers-records — payroll-side upload (challans/ECRs/returns)
+  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @ApiOperation({ summary: 'Upload Register Record (Payroll)' })
+  @Post('registers-records')
+  @UseInterceptors(
+    FileInterceptor('file', commonUploadOptions('registers-records')),
+  )
+  uploadRegisterRecord(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: PayrollUploadRegisterRecordDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.svc.payrollUploadRegisterRecord(user, dto, file);
   }
 
   // Frontend expects: GET /api/payroll/registers (alias)
@@ -687,6 +703,43 @@ export class PayrollController {
     @Param('docId', ParseUUIDPipe) docId: string,
   ) {
     return this.svc.deleteFnfDocument(user, docId);
+  }
+
+  @Roles('PAYROLL', 'ADMIN', 'CRM')
+  @ApiOperation({
+    summary:
+      'Generate a settlement document PDF (Settlement Statement / Relieving Letter / Experience Certificate / No Dues Certificate) on the fly from F&F case data',
+  })
+  @Get('fnf/:fnfId/generate/:docType')
+  async generateFnfDocument(
+    @CurrentUser() user: ReqUser,
+    @Param('fnfId', ParseUUIDPipe) fnfId: string,
+    @Param('docType') docType: string,
+    @Query() q: Record<string, string>,
+    @Res() res: Response,
+  ) {
+    const num = (k: string): number | undefined => {
+      const v = q?.[k];
+      if (v === undefined || v === null || v === '') return undefined;
+      const n = Number(v);
+      return isNaN(n) ? undefined : n;
+    };
+    const override = {
+      pendingSalary: num('pendingSalary'),
+      leaveEncashment: num('leaveEncashment'),
+      bonusArrears: num('bonusArrears'),
+      deductions: num('deductions'),
+      recoveries: num('recoveries'),
+      settlementAmount: num('settlementAmount'),
+    };
+    const { buffer, filename, mimeType } =
+      await this.svc.generateFnfDocumentPdf(user, fnfId, docType, override);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+    res.send(buffer);
   }
 }
 

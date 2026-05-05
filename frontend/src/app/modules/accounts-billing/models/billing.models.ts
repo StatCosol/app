@@ -172,6 +172,7 @@ export interface PendingPaymentFollowup {
   lastReminderSentAt?: string | null;
   lastReminderStatus?: string | null;
   lastFailureReason?: string | null;
+  remindersPaused?: boolean;
   uploadedAt: string;
 }
 

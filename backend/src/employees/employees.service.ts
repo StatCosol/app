@@ -64,6 +64,107 @@ export class EmployeesService {
     return trimmed;
   }
 
+  /**
+   * Throws BadRequestException if `monthlyGross` is below the statutory
+   * minimum monthly wage for the employee's branch state + skill category +
+   * client's labour-law schedule of employment, looked up from the
+   * `minimum_wages` master uploaded by CRM.
+   *
+   * Resolution mirrors the payroll engine's `resolveMinWage`:
+   *   1. state + skill + scheduled_employment (exact)
+   *   2. state + skill + scheduled_employment IS NULL (wildcard)
+   *   3. no row → no enforcement (silent pass)
+   *
+   * Skill defaults to UNSKILLED when not supplied. Validation is skipped
+   * when `monthlyGross` or branch state cannot be determined.
+   */
+  private async assertMonthlyGrossMeetsMinimumWage(params: {
+    clientId: string;
+    branchId: string | null | undefined;
+    stateCode?: string | null;
+    skillCategory?: string | null;
+    monthlyGross: number | null | undefined;
+  }): Promise<void> {
+    const gross = Number(params.monthlyGross);
+    if (!gross || isNaN(gross) || gross <= 0) return;
+
+    let stateCode = (params.stateCode || '').toUpperCase().trim();
+    if (!stateCode && params.branchId) {
+      const br = await this.ds.query(
+        `SELECT statecode FROM client_branches WHERE id = $1 LIMIT 1`,
+        [params.branchId],
+      );
+      stateCode = String(br?.[0]?.statecode || '').toUpperCase().trim();
+    }
+    if (!stateCode) return; // can't validate without a state
+
+    const skill = (params.skillCategory || 'UNSKILLED').toUpperCase();
+
+    // Best-effort resolve client's schedule of employment from any
+    // contractor user attached to the client.
+    let sched: string | null = null;
+    try {
+      const rows = await this.ds.query(
+        `SELECT scheduled_employment FROM users
+          WHERE client_id = $1
+            AND scheduled_employment IS NOT NULL
+            AND TRIM(scheduled_employment) <> ''
+          LIMIT 1`,
+        [params.clientId],
+      );
+      const v = rows?.[0]?.scheduled_employment;
+      sched = v ? String(v) : null;
+    } catch {
+      sched = null;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    let row: { monthly_wage: string | number; effective_from: string } | null =
+      null;
+    try {
+      const rows = await this.ds.query(
+        `SELECT monthly_wage, effective_from,
+                CASE
+                  WHEN scheduled_employment IS NOT NULL AND $4::text IS NOT NULL
+                       AND LOWER(scheduled_employment) = LOWER($4) THEN 0
+                  WHEN scheduled_employment IS NULL THEN 1
+                  ELSE 2
+                END AS rank
+           FROM minimum_wages
+          WHERE state_code = $1
+            AND skill_category = $2
+            AND effective_from <= $3
+            AND (effective_to IS NULL OR effective_to >= $3)
+            AND (
+              scheduled_employment IS NULL
+              OR ($4::text IS NOT NULL AND LOWER(scheduled_employment) = LOWER($4))
+            )
+          ORDER BY rank ASC, effective_from DESC
+          LIMIT 1`,
+        [stateCode, skill, today, sched],
+      );
+      row = rows?.[0] || null;
+    } catch (err) {
+      this.logger.warn(
+        `minimum_wages lookup failed for state=${stateCode} skill=${skill}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return; // fail-open on infra error rather than block registration
+    }
+
+    if (!row || row.monthly_wage == null) return; // no master row → no enforcement
+    const minWage = Number(row.monthly_wage);
+    if (isNaN(minWage) || minWage <= 0) return;
+
+    if (gross < minWage) {
+      const schedNote = sched ? ` under "${sched}" schedule of employment` : '';
+      throw new BadRequestException(
+        `Monthly gross ₹${gross.toLocaleString('en-IN')} is below the statutory minimum wage ₹${minWage.toLocaleString('en-IN')} for ${skill} workers in ${stateCode}${schedNote} (effective from ${row.effective_from}). Please correct the wage or update the minimum-wage master.`,
+      );
+    }
+  }
+
   // ── Employee Code Generator ────────────────────────────────
   // Format: <CLIENT_SHORT><BRANCH_SHORT><SEQ padded to 4>
   // Example: LMSHYD0001  (LMS from "LMSPL", HYD from "HYD-001")
@@ -167,6 +268,18 @@ export class EmployeesService {
     dto.phone = phoneNorm || undefined;
     dto.aadhaar = aadhaarNorm || undefined;
 
+    // Statutory: monthly gross must meet the minimum wage uploaded by CRM
+    // for the employee's branch state + skill category. Fail-open when the
+    // master has no matching row (so registration isn't blocked before CRM
+    // uploads slabs).
+    await this.assertMonthlyGrossMeetsMinimumWage({
+      clientId,
+      branchId: branchId || dto.branchId || null,
+      stateCode: dto.stateCode,
+      skillCategory: (dto as any).skillCategory,
+      monthlyGross: dto.monthlyGross,
+    });
+
     // Wrap code generation + save in a transaction so sequence is not wasted on failure
     return this.ds.transaction(async (manager) => {
       // Look up client code (e.g. "LMSPL" → short "LMS")
@@ -213,14 +326,21 @@ export class EmployeesService {
       emp.uan = EmployeesService.sanitizeRegNumber(emp.uan);
       emp.esic = EmployeesService.sanitizeRegNumber(emp.esic);
 
-      // Auto-set registration flags when valid numbers are present
+      // Auto-set registration flags when valid numbers are present, unless
+      // an explicit boolean was supplied in the DTO.
       if (emp.uan) {
-        emp.pfApplicable = true;
+        if (dto.pfApplicable === undefined) emp.pfApplicable = true;
         emp.pfRegistered = true;
       }
       if (emp.esic) {
-        emp.esiApplicable = true;
+        if (dto.esiApplicable === undefined) emp.esiApplicable = true;
         emp.esiRegistered = true;
+      }
+
+      // Statutory rule: if monthly gross at registration exceeds the ESI ceiling
+      // (₹21,000) the employee is not covered under ESI.
+      if (Number(emp.monthlyGross) > 21000) {
+        emp.esiApplicable = false;
       }
 
       return manager.save(emp);
@@ -328,18 +448,43 @@ export class EmployeesService {
     } = dto as any;
     Object.assign(emp, safeDto);
 
+    // Statutory: re-check minimum wage when gross / branch / state / skill
+    // changes. Uses the merged employee record so a partial update still
+    // validates against the effective values.
+    if (
+      dto.monthlyGross !== undefined ||
+      dto.branchId !== undefined ||
+      dto.stateCode !== undefined ||
+      (dto as any).skillCategory !== undefined
+    ) {
+      await this.assertMonthlyGrossMeetsMinimumWage({
+        clientId,
+        branchId: emp.branchId,
+        stateCode: emp.stateCode,
+        skillCategory: (emp as any).skillCategory,
+        monthlyGross: emp.monthlyGross,
+      });
+    }
+
     // Sanitize UAN/ESIC — reject text like "Not applicable"
     emp.uan = EmployeesService.sanitizeRegNumber(emp.uan);
     emp.esic = EmployeesService.sanitizeRegNumber(emp.esic);
 
-    // Auto-set registration flags when valid numbers are present
+    // Auto-set registration flags when valid numbers are present, unless
+    // an explicit boolean was supplied in the DTO.
     if (emp.uan) {
-      emp.pfApplicable = true;
+      if (dto.pfApplicable === undefined) emp.pfApplicable = true;
       emp.pfRegistered = true;
     }
     if (emp.esic) {
-      emp.esiApplicable = true;
+      if (dto.esiApplicable === undefined) emp.esiApplicable = true;
       emp.esiRegistered = true;
+    }
+
+    // Statutory rule: if monthly gross exceeds the ESI ceiling (₹21,000)
+    // the employee is not covered under ESI.
+    if (Number(emp.monthlyGross) > 21000) {
+      emp.esiApplicable = false;
     }
 
     const saved = await this.empRepo.save(emp);

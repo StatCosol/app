@@ -76,10 +76,13 @@ export class CtcSummaryService {
 
   /* ─── Branch CTC Summary ─────────────────────────────────── */
   async getBranchCtcSummary(user: ReqUser, year: number, month?: number) {
-    const { clientId, branchId } = this.requireBranchScope(user);
+    const { clientId, branchIds } = this.requireBranchScope(user);
     if (!year) throw new BadRequestException('year is required');
 
-    const filter = this.buildRunFilter(clientId, year, month, branchId);
+    if (!branchIds.length) {
+      return { year, month: month || null, summary: this.emptySummary() };
+    }
+    const filter = this.buildRunFilter(clientId, year, month, branchIds);
     const rows = await this.queryBranchWise(filter.where, filter.params);
     const summary = this.consolidate(rows);
 
@@ -87,19 +90,21 @@ export class CtcSummaryService {
   }
 
   async getBranchYtd(user: ReqUser, year: number) {
-    const { clientId, branchId } = this.requireBranchScope(user);
+    const { clientId, branchIds } = this.requireBranchScope(user);
     if (!year) throw new BadRequestException('year is required');
 
-    const filter = this.buildRunFilter(clientId, year, undefined, branchId);
+    if (!branchIds.length) return this.emptySummary();
+    const filter = this.buildRunFilter(clientId, year, undefined, branchIds);
     const rows = await this.queryBranchWise(filter.where, filter.params);
     return this.consolidate(rows);
   }
 
   async getBranchMonthlyTrend(user: ReqUser, year: number) {
-    const { clientId, branchId } = this.requireBranchScope(user);
+    const { clientId, branchIds } = this.requireBranchScope(user);
     if (!year) throw new BadRequestException('year is required');
 
-    return this.queryMonthlyTrend(clientId, year, branchId);
+    if (!branchIds.length) return [];
+    return this.queryMonthlyTrend(clientId, year, branchIds);
   }
 
   /* ─── Private helpers ────────────────────────────────────── */
@@ -111,19 +116,22 @@ export class CtcSummaryService {
     return user.clientId;
   }
 
-  private requireBranchScope(user: ReqUser) {
+  private requireBranchScope(user: ReqUser): {
+    clientId: string;
+    branchIds: string[];
+  } {
+    // Branch portal users have roleCode='CLIENT' + userType='BRANCH' (see RolesGuard).
     if (user.roleCode !== 'CLIENT')
       throw new ForbiddenException('Client role required');
-    if (!user.clientId || !user.branchIds?.length)
-      throw new BadRequestException('Branch scope missing');
-    return { clientId: user.clientId, branchId: user.branchIds[0] };
+    if (!user.clientId) throw new BadRequestException('No clientId on token');
+    return { clientId: user.clientId, branchIds: user.branchIds ?? [] };
   }
 
   private buildRunFilter(
     clientId: string,
     year: number,
     month?: number,
-    branchId?: string,
+    branchIds?: string[],
   ) {
     let where = `r.client_id = :clientId AND r.period_year = :year AND r.status IN ('APPROVED','COMPLETED','SUBMITTED')`;
     const params: Record<string, any> = { clientId, year };
@@ -132,11 +140,11 @@ export class CtcSummaryService {
       where += ' AND r.period_month = :month';
       params.month = month;
     }
-    if (branchId) {
-      // Branch CTC must be strictly scoped to the branch.
+    if (branchIds && branchIds.length) {
+      // Branch CTC must be strictly scoped to the branch(es) the user has access to.
       // Including NULL run.branch_id pulls unassigned data into branch totals.
-      where += ' AND r.branch_id = :branchId';
-      params.branchId = branchId;
+      where += ' AND r.branch_id IN (:...branchIds)';
+      params.branchIds = branchIds;
     }
     return { where, params };
   }
@@ -340,7 +348,7 @@ export class CtcSummaryService {
   private async queryMonthlyTrend(
     clientId: string,
     year: number,
-    branchId?: string,
+    branchIds?: string[],
   ) {
     const knownEmployerBreakupExpr = `COALESCE(e.pf_employer, 0)::numeric + COALESCE(e.esi_employer, 0)::numeric + COALESCE(e.bonus, 0)::numeric`;
     const rawEmployerCostExpr = `COALESCE(e.employer_cost, 0)::numeric`;
@@ -373,8 +381,8 @@ export class CtcSummaryService {
       .andWhere('r.period_year = :year', { year })
       .andWhere(`r.status IN ('APPROVED','COMPLETED','SUBMITTED')`);
 
-    if (branchId) {
-      qb.andWhere('r.branch_id = :branchId', { branchId });
+    if (branchIds && branchIds.length) {
+      qb.andWhere('r.branch_id IN (:...branchIds)', { branchIds });
     }
 
     return qb.groupBy('r.period_month').orderBy('r.period_month').getRawMany();
@@ -425,6 +433,25 @@ export class CtcSummaryService {
       netPayTotal: Math.round(netPayTotal * 100) / 100,
       monthlyCTC: Math.round(monthlyCTC * 100) / 100,
       annualCTC: Math.round((monthlyCTC * 12 + bonusTotal) * 100) / 100,
+    };
+  }
+
+  /** Empty consolidated summary used when a branch user has no branch assignments. */
+  private emptySummary() {
+    return {
+      totalEmployees: 0,
+      grossTotal: 0,
+      pfEmployee: 0,
+      pfEmployer: 0,
+      esiEmployee: 0,
+      esiEmployer: 0,
+      ptTotal: 0,
+      bonusTotal: 0,
+      otherEmployerCost: 0,
+      employerCostTotal: 0,
+      netPayTotal: 0,
+      monthlyCTC: 0,
+      annualCTC: 0,
     };
   }
 }

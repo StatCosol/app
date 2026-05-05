@@ -65,6 +65,14 @@ const AdminHelpdeskComponent = () =>
   import('./helpdesk/admin-helpdesk.component').then((m) => m.AdminHelpdeskComponent);
 const AdminHelpdeskDetailComponent = () =>
   import('./helpdesk/admin-helpdesk-detail.component').then((m) => m.AdminHelpdeskDetailComponent);
+const AdminClientContactsComponent = () =>
+  import('./client-contacts/admin-client-contacts.component').then(
+    (m) => m.AdminClientContactsComponent,
+  );
+const AdminMailTemplatesComponent = () =>
+  import('./client-contacts/admin-mail-templates.component').then(
+    (m) => m.AdminMailTemplatesComponent,
+  );
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -102,6 +110,8 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'news', loadComponent: AdminNewsComponent },
       { path: 'helpdesk', loadComponent: AdminHelpdeskComponent },
       { path: 'helpdesk/:id', loadComponent: AdminHelpdeskDetailComponent },
+      { path: 'client-contacts', loadComponent: AdminClientContactsComponent },
+      { path: 'mail-templates', loadComponent: AdminMailTemplatesComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

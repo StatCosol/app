@@ -33,7 +33,7 @@ export class PayrollRunComponentValueEntity {
   amount: string;
 
   @Column({ name: 'source', type: 'varchar', length: 20, default: 'UPLOADED' })
-  source: 'UPLOADED' | 'CALCULATED' | 'OVERRIDE';
+  source: 'UPLOADED' | 'CALCULATED' | 'OVERRIDE' | 'MANUAL_EDIT';
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

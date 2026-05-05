@@ -504,6 +504,8 @@ export class AdminSidebarComponent implements OnDestroy {
           { label: 'Payroll Assignments', route: '/admin/payroll-assignments', icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
           { label: 'Governance Center', route: '/admin/governance', icon: this.svg('M12 3l8 4v5c0 5-3.5 9.74-8 11-4.5-1.26-8-6-8-11V7l8-4zm-3 9l2 2 4-4') },
           { label: 'Unassigned Clients', route: '/admin/governance/unassigned', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
+          { label: 'Client Contacts', route: '/admin/client-contacts', icon: this.svg('M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z') },
+          { label: 'Mail Templates', route: '/admin/mail-templates', icon: this.svg('M4 4h16v16H4z M4 4l8 8 8-8') },
         ],
       },
       {

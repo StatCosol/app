@@ -355,7 +355,7 @@ export class RiskMonitorCronService {
         </p>
       `;
 
-      await this.emailService.send(
+      await this.emailService.sendAuditMail(
         recipients,
         subject,
         `${level} Risk Alert`,
@@ -405,7 +405,7 @@ export class RiskMonitorCronService {
         </p>
       `;
 
-      await this.emailService.send(
+      await this.emailService.sendAuditMail(
         recipients,
         subject,
         'Escalation Alert',

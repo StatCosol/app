@@ -169,6 +169,13 @@ export class AccountsBillingService {
     return this.http.delete<any>(`${this.base}/pending-payments/${id}`);
   }
 
+  setPendingPaymentPause(id: string, paused: boolean): Observable<any> {
+    return this.http.patch<any>(
+      `${this.base}/pending-payments/${id}/pause`,
+      { paused },
+    );
+  }
+
   pendingPaymentsCsvTemplateUrl(): string {
     return `${this.base}/pending-payments/template.csv`;
   }

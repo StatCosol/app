@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -381,6 +382,49 @@ export class PendingPaymentFollowupsService {
     const ent = await this.findOne(id);
     await this.repo.remove(ent);
     return { success: true };
+  }
+
+  // ── Pause / resume daily auto-reminders ─────────────────────────────
+  async setPause(id: string, paused: boolean) {
+    const ent = await this.findOne(id);
+    ent.remindersPaused = !!paused;
+    await this.repo.save(ent);
+    return { id: ent.id, remindersPaused: ent.remindersPaused };
+  }
+
+  // ── Daily auto-reminder cron (09:00 IST) ────────────────────────────
+  // Runs every day at 09:00 Asia/Kolkata time. Sends one reminder per
+  // PENDING follow-up that has not been paused. PAID / CANCELLED rows
+  // and rows with remindersPaused=true are skipped.
+  @Cron('0 9 * * *', { timeZone: 'Asia/Kolkata', name: 'pendingPaymentDailyReminder' })
+  async runDailyReminders(): Promise<void> {
+    const due = await this.repo.find({
+      where: {
+        status: PendingPaymentStatus.PENDING,
+        remindersPaused: false,
+      },
+    });
+    if (!due.length) {
+      this.log.log('Daily pending-payment reminders: nothing to send.');
+      return;
+    }
+    let sent = 0;
+    let failed = 0;
+    for (const ent of due) {
+      try {
+        const ok = await this.sendReminderForEntity(ent);
+        if (ok) sent++;
+        else failed++;
+      } catch (e) {
+        this.log.error(
+          `Daily reminder failed for ${ent.invoiceNumber}: ${(e as Error).message}`,
+        );
+        failed++;
+      }
+    }
+    this.log.log(
+      `Daily pending-payment reminders: sent=${sent}, failed=${failed}, total=${due.length}`,
+    );
   }
 
   // ── Reminder email ──────────────────────────────────────────────────

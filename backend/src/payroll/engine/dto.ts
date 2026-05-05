@@ -91,6 +91,7 @@ export class CreateStructureItemDto {
   @IsIn(['BASIC', 'GROSS', 'CTC', 'PF_WAGE', 'ESI_WAGE'])
   percentageBase?: 'BASIC' | 'GROSS' | 'CTC' | 'PF_WAGE' | 'ESI_WAGE' | null;
   @IsOptional() @IsString() formula?: string | null;
+  @IsOptional() @IsObject() formulaJson?: Record<string, unknown> | null;
   @IsOptional() @IsObject() slabRef?: Record<string, unknown> | null;
   @IsOptional() @IsObject() balancingConfig?: Record<string, unknown> | null;
   @IsOptional() @IsNumber() minAmount?: number | null;
@@ -101,3 +102,21 @@ export class CreateStructureItemDto {
 }
 
 export class UpdateStructureItemDto extends CreateStructureItemDto {}
+
+export class PreviewComponentDto {
+  @IsOptional() @IsUUID() clientId?: string;
+  @IsIn(['FIXED', 'PERCENT', 'FORMULA', 'SLAB', 'BALANCING'])
+  calcMethod: 'FIXED' | 'PERCENT' | 'FORMULA' | 'SLAB' | 'BALANCING';
+  @IsOptional() @IsNumber() fixedAmount?: number | null;
+  @IsOptional() @IsNumber() percentage?: number | null;
+  @IsOptional()
+  @IsIn(['BASIC', 'GROSS', 'CTC', 'PF_WAGE', 'ESI_WAGE'])
+  percentageBase?: 'BASIC' | 'GROSS' | 'CTC' | 'PF_WAGE' | 'ESI_WAGE' | null;
+  @IsOptional() @IsString() formula?: string | null;
+  @IsOptional() @IsObject() slabRef?: Record<string, unknown> | null;
+  @IsOptional() @IsObject() balancingConfig?: Record<string, unknown> | null;
+  @IsOptional() @IsNumber() minAmount?: number | null;
+  @IsOptional() @IsNumber() maxAmount?: number | null;
+  @IsOptional() @IsString() roundingMode?: string;
+  @IsOptional() @IsObject() inputs?: Record<string, number>;
+}

@@ -225,6 +225,24 @@
           <span>{{ fnfDocuments.length }} file(s)</span>
         </header>
 
+        <div class="fnf-doc-generate">
+          <div class="minor" style="margin-bottom:6px;">
+            Auto-generate &amp; download settlement documents (filled from employee &amp; settlement data). Use these to share with the employee, then optionally upload signed copies below.
+          </div>
+          <div class="fnf-doc-generate-row" style="display:flex;flex-wrap:wrap;gap:8px;">
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              *ngFor="let g of generatableDocs"
+              (click)="generateSettlementDoc(g.value)"
+            >
+              Download {{ g.label }}
+            </button>
+          </div>
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid #eee;" />
+
         <div class="fnf-doc-upload">
           <div class="fnf-doc-upload-row">
             <label>
@@ -307,15 +325,18 @@
     <div class="modal-grid">
       <label>
         Client
-        <select id="pf-client-id" name="createClientId" [(ngModel)]="createModel.clientId">
+        <select id="pf-client-id" name="createClientId" [(ngModel)]="createModel.clientId" (ngModelChange)="onCreateClientChange()">
           <option value="">Select client</option>
           <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
         </select>
       </label>
 
       <label>
-        Employee ID
-        <input autocomplete="off" id="pf-employee-id" type="text" name="createEmployeeId" [(ngModel)]="createModel.employeeId" placeholder="Employee UUID" />
+        Employee
+        <select id="pf-employee-id" name="createEmployeeId" [(ngModel)]="createModel.employeeId" [disabled]="!createModel.clientId || modalEmployeesLoading">
+          <option value="">{{ modalEmployeesLoading ? 'Loading…' : (createModel.clientId ? 'Select employee' : 'Pick client first') }}</option>
+          <option *ngFor="let e of modalEmployees" [value]="e.id">{{ e.employeeCode }} — {{ e.name }}</option>
+        </select>
       </label>
 
       <label>

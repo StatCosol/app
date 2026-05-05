@@ -88,6 +88,14 @@ import { environment } from '../../../../environments/environment';
         <div *ngIf="importErrors.length" class="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
           <div *ngFor="let e of importErrors" class="py-0.5">• {{ e }}</div>
         </div>
+        <div *ngIf="lastImportBatchId && lastImportNewCount > 0" class="flex items-center gap-3 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div class="text-xs text-amber-800 flex-1">
+            Wrong upload? Revert to delete the {{ lastImportNewCount }} newly added employee(s) from this import. Updated existing employees will not be reverted.
+          </div>
+          <button [disabled]="reverting" (click)="revertLastImport()" class="btn-danger text-xs">
+            {{ reverting ? 'Reverting...' : 'Revert this Import' }}
+          </button>
+        </div>
       </div>
 
       <!-- Summary cards -->
@@ -237,6 +245,9 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
   importResult = '';
   importHasError = false;
   importErrors: string[] = [];
+  lastImportBatchId: string | null = null;
+  lastImportNewCount = 0;
+  reverting = false;
   downloadingLetters = false;
   private readonly destroy$ = new Subject<void>();
 
@@ -317,6 +328,8 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     this.importing = true;
     this.importResult = '';
     this.importErrors = [];
+    this.lastImportBatchId = null;
+    this.lastImportNewCount = 0;
     const fd = new FormData();
     fd.append('file', this.importFile);
     this.http.post<any>(`${environment.apiBaseUrl}/api/v1/client/employees/bulk-import`, fd).pipe(
@@ -337,6 +350,8 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
         this.importHasError = imported === 0 && updated === 0 && errors.length > 0;
         this.importErrors = errors.map((e: any) => typeof e === 'string' ? e : (e?.message || JSON.stringify(e)));
         this.importFile = null;
+        this.lastImportBatchId = res?.batchId || null;
+        this.lastImportNewCount = Number(imported);
         if (res?.warnings?.length) {
           this.importErrors = [...this.importErrors, ...res.warnings];
         }
@@ -348,6 +363,34 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
         this.importErrors = Array.isArray(e?.error?.errors)
           ? e.error.errors.map((err: any) => typeof err === 'string' ? err : (err?.message || JSON.stringify(err)))
           : [];
+      },
+    });
+  }
+
+  revertLastImport(): void {
+    if (!this.lastImportBatchId || this.reverting) return;
+    const batchId = this.lastImportBatchId;
+    const count = this.lastImportNewCount;
+    if (!window.confirm(`Revert this import? This will permanently delete the ${count} employee(s) newly created in the last bulk upload. Updated existing employees will NOT be reverted.`)) {
+      return;
+    }
+    this.reverting = true;
+    this.cdr.markForCheck();
+    this.http.delete<any>(`${environment.apiBaseUrl}/api/v1/client/employees/bulk-import/${batchId}/revert`).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.reverting = false; this.cdr.markForCheck(); }),
+    ).subscribe({
+      next: (res) => {
+        this.importResult = `Reverted: ${res?.deleted ?? 0} employee(s) deleted.`;
+        this.importHasError = false;
+        this.importErrors = [];
+        this.lastImportBatchId = null;
+        this.lastImportNewCount = 0;
+        this.loadEmployees();
+      },
+      error: (e) => {
+        this.importResult = e?.error?.message || 'Revert failed';
+        this.importHasError = true;
       },
     });
   }

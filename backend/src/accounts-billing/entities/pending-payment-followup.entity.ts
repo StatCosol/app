@@ -63,6 +63,9 @@ export class PendingPaymentFollowup {
   @Column({ name: 'last_failure_reason', type: 'text', nullable: true })
   lastFailureReason: string | null;
 
+  @Column({ name: 'reminders_paused', type: 'boolean', default: false })
+  remindersPaused: boolean;
+
   @Column({ name: 'uploaded_by', type: 'uuid', nullable: true })
   uploadedBy: string | null;
 

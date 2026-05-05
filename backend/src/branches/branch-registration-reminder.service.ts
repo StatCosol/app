@@ -166,7 +166,7 @@ export class BranchRegistrationReminderService {
             </p>
           `;
 
-          await this.emailService.send(
+          await this.emailService.sendAuditMail(
             [...new Set(recipients)],
             subject,
             'Registration Expiry Alert',

@@ -52,9 +52,15 @@ export class CreateEmployeeDto {
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
   @IsOptional() @IsNumber() monthlyGross?: number;
+  @IsOptional()
+  @IsString()
+  @IsIn(['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED'])
+  skillCategory?: 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED';
   @IsOptional() @IsString() pfApplicableFrom?: string;
   @IsOptional() @IsString() pfServiceStartDate?: string;
   @IsOptional() @IsNumber() basicAtPfStart?: number;
+  @IsOptional() @IsBoolean() pfApplicable?: boolean;
+  @IsOptional() @IsBoolean() esiApplicable?: boolean;
 }
 
 export class UpdateEmployeeDto {
@@ -89,9 +95,15 @@ export class UpdateEmployeeDto {
   @IsOptional() @IsNumber() grossSalary?: number;
   @IsOptional() @IsNumber() ctc?: number;
   @IsOptional() @IsNumber() monthlyGross?: number;
+  @IsOptional()
+  @IsString()
+  @IsIn(['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED'])
+  skillCategory?: 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED';
   @IsOptional() @IsString() pfApplicableFrom?: string;
   @IsOptional() @IsString() pfServiceStartDate?: string;
   @IsOptional() @IsNumber() basicAtPfStart?: number;
+  @IsOptional() @IsBoolean() pfApplicable?: boolean;
+  @IsOptional() @IsBoolean() esiApplicable?: boolean;
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 

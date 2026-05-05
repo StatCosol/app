@@ -244,14 +244,43 @@ export class RegisterGenerator {
     };
   }
 
+  private formatLawFamily(law: string | null | undefined): string {
+    if (!law) return '';
+    const map: Record<string, string> = {
+      CODE_ON_WAGES: 'Code on Wages, 2019',
+      MIN_WAGES: 'Minimum Wages Act, 1948',
+      SOCIAL_SECURITY: 'Code on Social Security, 2020 (PF / ESI)',
+      PF: "Employees' Provident Funds & Misc. Provisions Act, 1952",
+      EPF: "Employees' Provident Funds & Misc. Provisions Act, 1952",
+      ESI: "Employees' State Insurance Act, 1948",
+      BONUS_ACT: 'Payment of Bonus Act, 1965',
+      GRATUITY: 'Payment of Gratuity Act, 1972',
+      CLRA: 'Contract Labour (R&A) Act, 1970',
+      FACTORIES_ACT: 'Factories Act, 1948',
+      SHOPS_ESTABLISHMENTS: 'Shops & Establishments Act (State)',
+      LWF: 'Labour Welfare Fund Act (State)',
+      STATE_TAX: 'Profession Tax Act (State)',
+      MATERNITY_BENEFIT: 'Maternity Benefit Act, 1961',
+      EQUAL_REMUNERATION: 'Equal Remuneration Act, 1976',
+    };
+    return map[law] || law.replace(/_/g, ' ');
+  }
+
   private buildExcel(
     template: RegisterTemplateEntity,
     employees: PayrollRunEmployeeEntity[],
     valuesByEmp: Map<string, Map<string, number>>,
     extraFieldsByEmp?: Map<string, Record<string, string>>,
+    meta?: {
+      period?: string;
+      branchName?: string;
+      branchCode?: string;
+      stateCode?: string;
+      establishmentType?: string;
+    },
   ): { workbook: ExcelJS.Workbook } {
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet(template.title);
+    const sheet = workbook.addWorksheet(template.title.substring(0, 30));
 
     const columnDefs: {
       key: string;
@@ -260,14 +289,71 @@ export class RegisterGenerator {
       width?: number;
     }[] = template.columnDefinitions || [];
 
-    sheet.columns = columnDefs.map((col) => ({
-      header: col.header,
-      key: col.key,
-      width: col.width || 18,
-    }));
+    const colCount = Math.max(columnDefs.length, 1);
+    const lastColLetter = (n: number) => {
+      let s = '';
+      while (n > 0) {
+        const m = (n - 1) % 26;
+        s = String.fromCharCode(65 + m) + s;
+        n = Math.floor((n - 1) / 26);
+      }
+      return s;
+    };
+    const lastCol = lastColLetter(colCount);
 
-    // Style header row
-    const headerRow = sheet.getRow(1);
+    // ── Statutory title block ──
+    const actName = this.formatLawFamily(template.lawFamily);
+    const formCode = template.formCode || '';
+    const rule = template.ruleReference || '';
+
+    // Row 1: Title
+    sheet.mergeCells(`A1:${lastCol}1`);
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = template.title + (formCode ? ` (${formCode})` : '');
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(1).height = 22;
+
+    // Row 2: Act / Rule
+    sheet.mergeCells(`A2:${lastCol}2`);
+    const lawCell = sheet.getCell('A2');
+    const lawParts: string[] = [];
+    if (actName) lawParts.push(`Act: ${actName}`);
+    if (rule) lawParts.push(rule);
+    if (formCode) lawParts.push(`Form No: ${formCode}`);
+    lawCell.value = lawParts.join('   |   ');
+    lawCell.font = { italic: true, size: 10 };
+    lawCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    sheet.getRow(2).height = 18;
+
+    // Row 3: Period / Branch / Establishment
+    sheet.mergeCells(`A3:${lastCol}3`);
+    const ctxCell = sheet.getCell('A3');
+    const ctxParts: string[] = [];
+    if (meta?.period) ctxParts.push(`Period: ${meta.period}`);
+    if (meta?.branchName)
+      ctxParts.push(
+        `Branch: ${meta.branchName}${meta.branchCode ? ` (${meta.branchCode})` : ''}`,
+      );
+    if (meta?.stateCode) ctxParts.push(`State: ${meta.stateCode}`);
+    if (meta?.establishmentType)
+      ctxParts.push(`Establishment: ${meta.establishmentType}`);
+    ctxCell.value = ctxParts.join('   |   ');
+    ctxCell.font = { size: 10 };
+    ctxCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Row 4: blank spacer
+    sheet.getRow(4).height = 6;
+
+    // ── Column headers (row 5) ──
+    const headerRowIdx = 5;
+    const headerRow = sheet.getRow(headerRowIdx);
+    columnDefs.forEach((col, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = col.header;
+      sheet.getColumn(i + 1).key = col.key;
+      sheet.getColumn(i + 1).width = col.width || 18;
+    });
     headerRow.font = { bold: true, size: 11 };
     headerRow.alignment = { horizontal: 'center', wrapText: true };
     headerRow.fill = {
@@ -275,6 +361,7 @@ export class RegisterGenerator {
       pattern: 'solid',
       fgColor: { argb: 'FFE0E0E0' },
     };
+    headerRow.commit();
 
     const totals: Record<string, number> = {};
     const numericKeys = new Set<string>();
@@ -381,10 +468,16 @@ export class RegisterGenerator {
       valuesByEmp.get(v.runEmployeeId)!.set(v.componentCode, Number(v.amount));
     }
 
-    const { workbook } = this.buildExcel(template, employees, valuesByEmp);
+    const period = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
+    const { workbook } = this.buildExcel(
+      template,
+      employees,
+      valuesByEmp,
+      undefined,
+      { period, stateCode },
+    );
 
     // Save file
-    const period = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
     const fileName = `${registerType}_${stateCode}_${period}.xlsx`;
     const dir = path.join(process.cwd(), 'uploads', 'registers', run.clientId);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -553,14 +646,21 @@ export class RegisterGenerator {
         continue;
       }
 
+      const stCode = branch.stateCode || 'XX';
       const { workbook } = this.buildExcel(
         template,
         employees,
         valuesByEmp,
         extraFieldsByEmp,
+        {
+          period,
+          branchName: branch.branchName,
+          branchCode: branch.branchCode,
+          stateCode: stCode,
+          establishmentType: estCategory,
+        },
       );
 
-      const stCode = branch.stateCode || 'XX';
       const fileName = `${template.registerType}_${stCode}_${branchCode}_${period}.xlsx`;
       const filePath = path.join(dir, fileName);
       await workbook.xlsx.writeFile(filePath);
@@ -629,6 +729,7 @@ export class RegisterGenerator {
         stateCode: t.stateCode,
         lawFamily: t.lawFamily,
         formCode: t.formCode,
+        ruleReference: t.ruleReference,
         registerMode: t.registerMode,
         frequency: t.frequency,
       })),

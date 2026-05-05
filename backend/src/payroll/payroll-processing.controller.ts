@@ -10,6 +10,9 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ForbiddenException,
+  ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -27,7 +30,10 @@ import { EsiGenerator } from './generators/esi.generator';
 import { RegisterGenerator } from './generators/register.generator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ReqUser } from '../access/access-scope.service';
+import {
+  AccessScopeService,
+  ReqUser,
+} from '../access/access-scope.service';
 import { DataSource } from 'typeorm';
 
 import { PayrollRunEntity } from './entities/payroll-run.entity';
@@ -74,6 +80,8 @@ const breakupUploadOptions = {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('PAYROLL', 'ADMIN')
 export class PayrollProcessingController {
+  private readonly logger = new Logger(PayrollProcessingController.name);
+
   constructor(
     private readonly processingSvc: PayrollProcessingService,
     private readonly engineSvc: PayrollEngineService,
@@ -81,7 +89,24 @@ export class PayrollProcessingController {
     private readonly esi: EsiGenerator,
     private readonly register: RegisterGenerator,
     private readonly ds: DataSource,
+    private readonly access: AccessScopeService,
   ) {}
+
+  /**
+   * Helper: load run + assert the caller has access to its client. Returns the
+   * run row so callers don't have to refetch. Throws Forbidden / NotFound.
+   */
+  private async loadRunForUser(
+    runId: string,
+    user: ReqUser,
+  ): Promise<PayrollRunEntity> {
+    const run = await this.ds
+      .getRepository(PayrollRunEntity)
+      .findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException('Payroll run not found');
+    await this.access.assertClientAllowed(user, run.clientId);
+    return run;
+  }
 
   // Upload breakup Excel
   @ApiOperation({ summary: 'Upload Breakup' })
@@ -107,6 +132,80 @@ export class PayrollProcessingController {
     return this.processingSvc.uploadAttendance(runId, file);
   }
 
+  // Validate attendance leave vs ESS-approved leave applications
+  @ApiOperation({ summary: 'Validate Attendance Leave vs ESS Applied' })
+  @Get(':runId/leave-validation')
+  leaveValidation(@Param('runId') runId: string) {
+    return this.processingSvc.leaveValidation(runId);
+  }
+
+  // Resolve a leave-validation mismatch by snapping attendance to a chosen source
+  @ApiOperation({ summary: 'Resolve Leave Mismatch for Employee' })
+  @Post(':runId/leave-validation/:empCode/resolve')
+  resolveLeaveValidation(
+    @Param('runId') runId: string,
+    @Param('empCode') empCode: string,
+    @Body() body: { source?: 'ESS' | 'SHEET' } = {},
+  ) {
+    const source =
+      body?.source && ['ESS', 'SHEET'].includes(body.source)
+        ? body.source
+        : 'ESS';
+    return this.processingSvc.resolveLeaveValidation(runId, empCode, source);
+  }
+
+  // Validate attendance-sheet OT vs branch/client + ESS daily OT
+  @ApiOperation({ summary: 'Validate Attendance OT vs Branch/ESS Daily OT' })
+  @Get(':runId/ot-validation')
+  otValidation(@Param('runId') runId: string) {
+    return this.processingSvc.otValidation(runId);
+  }
+
+  // Resolve an OT mismatch by snapping attendance OT to a chosen source
+  @ApiOperation({ summary: 'Resolve OT Mismatch for Employee' })
+  @Post(':runId/ot-validation/:empCode/resolve')
+  async resolveOtValidation(
+    @Param('runId') runId: string,
+    @Param('empCode') empCode: string,
+    @Body() body: { source?: 'BRANCH' | 'ESS' | 'SHEET' },
+  ) {
+    const source =
+      body?.source && ['BRANCH', 'ESS', 'SHEET'].includes(body.source)
+        ? body.source
+        : 'BRANCH';
+    const result = await this.processingSvc.resolveOtValidation(
+      runId,
+      empCode,
+      source,
+    );
+    // Auto-reprocess this employee so OT_AMOUNT (and ESI on OT) reflect the
+    // newly chosen OT_HOURS without requiring a separate full-run Process click.
+    try {
+      await this.engineSvc.processSpecificEmployees(runId, [empCode]);
+    } catch (err) {
+      // Don't mask the resolve outcome if reprocess fails — surface a hint.
+      return { ...result, reprocessed: false, reprocessError: (err as Error)?.message };
+    }
+    return { ...result, reprocessed: true };
+  }
+
+  // Admin: heal stale EL_PAID_LEAVE ledger written by old engine logic
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary:
+      'Recompute leave balances (cleans phantom EL paid-leave ledger entries)',
+  })
+  @Post('admin/recompute-leave-balances')
+  async recomputeLeaveBalances(
+    @CurrentUser() user: ReqUser,
+    @Body() body: { clientId?: string; year?: number } = {},
+  ) {
+    if (body.clientId) {
+      await this.access.assertClientAllowed(user, body.clientId);
+    }
+    return this.processingSvc.recomputeLeaveBalances(body.clientId, body.year);
+  }
+
   // Process payroll run (compute statutory deductions)
   @ApiOperation({ summary: 'Process Run' })
   @Post(':runId/process')
@@ -120,11 +219,18 @@ export class PayrollProcessingController {
   @Post(':runId/reprocess-employees')
   async reprocessEmployees(
     @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
     @Body() body: { employeeCodes: string[] },
   ) {
     const codes = body?.employeeCodes;
     if (!Array.isArray(codes) || !codes.length) {
       throw new BadRequestException('employeeCodes array is required');
+    }
+    const run = await this.loadRunForUser(runId, user);
+    if (run.status === 'APPROVED') {
+      throw new ConflictException(
+        'Approved runs are locked. Roll back to DRAFT before reprocessing employees.',
+      );
     }
     const result = await this.engineSvc.processSpecificEmployees(runId, codes);
     return { runId, ...result };
@@ -198,7 +304,154 @@ export class PayrollProcessingController {
     return { runId, added, skipped, engineResult };
   }
 
-  // Generate PF ECR text file
+  // Inline edit of a single employee's days / overrides, then re-run engine
+  // for that employee only. Lets users fix one employee's working / payable
+  // days without re-uploading the whole CSV.
+  @Roles('PAYROLL', 'ADMIN')
+  @ApiOperation({ summary: 'Edit a single employee inputs and reprocess' })
+  @Post(':runId/employees/:empCode/edit-inputs')
+  async editEmployeeInputs(
+    @Param('runId') runId: string,
+    @Param('empCode') empCode: string,
+    @Body()
+    body: {
+      totalDays?: number;
+      payableDays?: number;
+      workedDays?: number;
+      otHours?: number;
+      otherEarnings?: number;
+      otherDeductions?: number;
+      arrearAttBonus?: number;
+      otherEarningsNote?: string | null;
+      otherDeductionsNote?: string | null;
+    },
+  ) {
+    if (!empCode) throw new BadRequestException('empCode is required');
+
+    const runRepo = this.ds.getRepository(PayrollRunEntity);
+    const run = await runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException('Payroll run not found');
+    if (run.status === 'APPROVED') {
+      throw new BadRequestException(
+        'Approved runs are locked. Roll back before editing.',
+      );
+    }
+
+    // Locate the run-employee row
+    const empRow = await this.ds.query(
+      `SELECT id, total_days, days_present, lop_days FROM payroll_run_employees
+       WHERE run_id = $1 AND employee_code = $2 LIMIT 1`,
+      [runId, empCode],
+    );
+    if (!empRow.length) {
+      throw new BadRequestException(
+        `Employee ${empCode} is not part of this run`,
+      );
+    }
+    const runEmpId = empRow[0].id;
+
+    const totalDays =
+      body.totalDays !== undefined && body.totalDays !== null
+        ? Number(body.totalDays)
+        : Number(empRow[0].total_days || 0);
+    const payableDays =
+      body.payableDays !== undefined && body.payableDays !== null
+        ? Number(body.payableDays)
+        : Number(empRow[0].days_present || 0);
+    const workedDays =
+      body.workedDays !== undefined && body.workedDays !== null
+        ? Number(body.workedDays)
+        : payableDays;
+    const lopDays = Math.max(0, totalDays - payableDays);
+
+    // 1. Update payroll_run_employees row
+    const otHours =
+      body.otHours !== undefined && body.otHours !== null
+        ? Number(body.otHours)
+        : null;
+    if (otHours !== null) {
+      await this.ds.query(
+        `UPDATE payroll_run_employees
+         SET total_days = $1, days_present = $2, lop_days = $3, ncp_days = $3, ot_hours = $6
+         WHERE run_id = $4 AND employee_code = $5`,
+        [totalDays, payableDays, lopDays, runId, empCode, otHours],
+      );
+    } else {
+      await this.ds.query(
+        `UPDATE payroll_run_employees
+         SET total_days = $1, days_present = $2, lop_days = $3, ncp_days = $3
+         WHERE run_id = $4 AND employee_code = $5`,
+        [totalDays, payableDays, lopDays, runId, empCode],
+      );
+    }
+
+    // 2. Upsert canonical day component values
+    const upsertComponent = async (code: string, amount: number) => {
+      await this.ds.query(
+        `INSERT INTO payroll_run_component_values (id, run_id, run_employee_id, component_code, amount, source)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, 'MANUAL_EDIT')
+         ON CONFLICT (run_employee_id, component_code) DO UPDATE SET amount = $4, source = 'MANUAL_EDIT'`,
+        [runId, runEmpId, code, String(amount)],
+      );
+    };
+    await upsertComponent('TOTAL_DAYS', totalDays);
+    await upsertComponent('WORKED_DAYS', workedDays);
+    await upsertComponent('PAYABLE_DAYS', payableDays);
+    await upsertComponent('LOP_DAYS', lopDays);
+    if (otHours !== null) {
+      await upsertComponent('OT_HOURS', otHours);
+    }
+
+    if (body.otherEarnings !== undefined && body.otherEarnings !== null) {
+      await upsertComponent('OTHER_EARNINGS', Number(body.otherEarnings));
+    }
+    if (body.arrearAttBonus !== undefined && body.arrearAttBonus !== null) {
+      await upsertComponent('ARREAR_ATT_BONUS', Number(body.arrearAttBonus));
+    }
+    if (body.otherDeductions !== undefined && body.otherDeductions !== null) {
+      await upsertComponent('OTHER_DEDUCTIONS', Number(body.otherDeductions));
+    }
+
+    // Persist user-supplied "type" labels for OTHER_EARNINGS / OTHER_DEDUCTIONS
+    // straight onto the run-employee row so the payslip generator can show them
+    // without needing a separate components-meta table. NULL = no change unless
+    // the caller explicitly sent the field.
+    if (body.otherEarningsNote !== undefined) {
+      await this.ds.query(
+        `UPDATE payroll_run_employees SET other_earnings_note = $1
+         WHERE run_id = $2 AND employee_code = $3`,
+        [body.otherEarningsNote || null, runId, empCode],
+      );
+    }
+    if (body.otherDeductionsNote !== undefined) {
+      await this.ds.query(
+        `UPDATE payroll_run_employees SET other_deductions_note = $1
+         WHERE run_id = $2 AND employee_code = $3`,
+        [body.otherDeductionsNote || null, runId, empCode],
+      );
+    }
+
+    // 3. Reprocess just this employee through the engine
+    const engineResult = await this.engineSvc.processSpecificEmployees(runId, [
+      empCode,
+    ]);
+
+    // 4. Return refreshed totals for this employee
+    const refreshed = await this.ds.query(
+      `SELECT employee_code, employee_name, total_days, days_present, lop_days,
+              gross_earnings, total_deductions, net_pay
+       FROM payroll_run_employees WHERE run_id = $1 AND employee_code = $2 LIMIT 1`,
+      [runId, empCode],
+    );
+
+    return { ok: true, employee: refreshed[0] || null, engineResult };
+  }
+
+  // Generate PF ECR text file(s).
+  // Produces one file per branch when any branch has `pf_code` configured;
+  // otherwise a single consolidated file. The first file is streamed back
+  // for backward-compatible download; all generated files are also persisted
+  // as register records and visible in the Challan / Return Linkage list.
   @ApiOperation({ summary: 'Generate Pf Ecr' })
   @Post(':runId/generate/pf-ecr')
   async generatePfEcr(
@@ -206,16 +459,18 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @Res() res: Response,
   ) {
-    const result = await this.pfEcr.generate(runId, user.userId);
+    const files = await this.pfEcr.generate(runId, user.userId);
+    const first = files[0];
     res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('X-Generated-File-Count', String(files.length));
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${result.fileName}"`,
+      `attachment; filename="${first?.fileName ?? 'ECR.txt'}"`,
     );
-    res.end(result.content);
+    res.end(first?.content ?? '');
   }
 
-  // Generate ESI contribution file
+  // Generate ESI contribution file(s). Same branch-wise semantics as PF ECR.
   @ApiOperation({ summary: 'Generate Esi' })
   @Post(':runId/generate/esi')
   async generateEsi(
@@ -223,13 +478,15 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @Res() res: Response,
   ) {
-    const result = await this.esi.generate(runId, user.userId);
+    const files = await this.esi.generate(runId, user.userId);
+    const first = files[0];
     res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('X-Generated-File-Count', String(files.length));
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${result.fileName}"`,
+      `attachment; filename="${first?.fileName ?? 'ESI.txt'}"`,
     );
-    res.end(result.content);
+    res.end(first?.content ?? '');
   }
 
   // Generate state-wise register
@@ -280,13 +537,29 @@ export class PayrollProcessingController {
   // Temporary: seed payroll config for a specific client
   @Post('seed-config')
   @Roles('ADMIN')
-  async seedConfig(@Query('clientId') clientId: string) {
+  async seedConfig(
+    @Query('clientId') clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     if (!clientId)
       throw new BadRequestException('clientId query param required');
+    // Strict UUID check — required because the SQL block uses a DECLARE
+    // assignment (non-parameterizable) and we must never let the caller
+    // inject SQL via the clientId query string.
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRe.test(clientId)) {
+      throw new BadRequestException('clientId must be a valid UUID');
+    }
+    await this.access.assertClientAllowed(user, clientId);
+    // Strict UUID format already validated above; safe to interpolate the
+    // literal here. PostgreSQL bind parameters ($1) are NOT substituted
+    // inside dollar-quoted DO $$ ... $$ blocks, so we cannot bind it.
+    const v_cid_lit = clientId.toLowerCase();
     const sql = `
 DO $$
 DECLARE
-  v_cid  uuid := '${clientId.replace(/[^a-f0-9-]/gi, '')}';
+  v_cid  uuid := '${v_cid_lit}';
   v_rs_id   uuid;
   v_st_id   uuid;
   v_comp_ag uuid;
@@ -383,12 +656,15 @@ END $$;
   @Post('fix-employee-gross')
   @Roles('ADMIN')
   async fixEmployeeGross(
+    @CurrentUser() user: ReqUser,
     @Body()
     body: {
       clientId: string;
       fixes: Array<{ empCode: string; monthlyGross: number }>;
     },
   ) {
+    if (!body.clientId) throw new BadRequestException('clientId is required');
+    await this.access.assertClientAllowed(user, body.clientId);
     let updated = 0;
     const notFound: string[] = [];
     for (const f of body.fixes) {
@@ -402,13 +678,19 @@ END $$;
     return { ok: true, updated, notFound };
   }
 
-  // Temporary debug: inspect calc data for a run employee
+  // Diagnostic endpoint: inspect calc data for a run employee.
+  // ADMIN-only. Every access is logged for audit. Returns raw calc trace and
+  // setup snapshot — contains sensitive salary data, do not expose to clients.
   @Get('debug/:runId/:empCode')
   @Roles('ADMIN')
   async debugCalc(
     @Param('runId') runId: string,
     @Param('empCode') empCode: string,
+    @CurrentUser() user: ReqUser,
   ) {
+    this.logger.warn(
+      `[AUDIT] payroll.debugCalc accessed by user=${user?.userId ?? 'unknown'} email=${user?.email ?? 'unknown'} role=${user?.roleCode ?? 'unknown'} run=${runId} emp=${empCode}`,
+    );
     const emp = await this.ds.query(
       `SELECT id, employee_id, employee_code, employee_name, total_days, days_present, lop_days, ncp_days, ot_hours, gross_earnings, total_deductions, net_pay, state_code
        FROM payroll_run_employees WHERE run_id = $1 AND employee_code = $2 LIMIT 1`,
@@ -444,6 +726,7 @@ END $$;
   @Post('update-employee-statutory-flags')
   @Roles('ADMIN')
   async updateEmployeeStatutoryFlags(
+    @CurrentUser() user: ReqUser,
     @Body()
     body: {
       clientId: string;
@@ -455,6 +738,8 @@ END $$;
     },
   ) {
     const { clientId, flags } = body;
+    if (!clientId) throw new BadRequestException('clientId is required');
+    await this.access.assertClientAllowed(user, clientId);
     let updated = 0;
     const notFound: string[] = [];
     for (const f of flags) {
@@ -477,6 +762,7 @@ END $$;
   @Roles('ADMIN')
   async patchAttendance(
     @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
     @Body()
     body: {
       totalPayable: number;
@@ -490,6 +776,12 @@ END $$;
       }>;
     },
   ) {
+    const run = await this.loadRunForUser(runId, user);
+    if (run.status === 'APPROVED') {
+      throw new ConflictException(
+        'Approved runs are locked. Roll back to DRAFT before patching attendance.',
+      );
+    }
     const { totalPayable, data } = body;
     let patched = 0;
     const notFound: string[] = [];

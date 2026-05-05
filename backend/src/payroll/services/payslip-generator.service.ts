@@ -341,7 +341,12 @@ export class PayslipGeneratorService {
     const lopDays = valueMap.get('LOP_DAYS') ?? 0;
     const holidays = valueMap.get('HOLIDAYS') ?? 0;
     const elPaidLeaveDays = valueMap.get('EL_PAID_LEAVE_DAYS') ?? 0;
-    const leaveEarned = valueMap.get('EL_ACCRUED') ?? 0;
+    const plAvailed = valueMap.get('PL_DAYS') ?? elPaidLeaveDays;
+    const slAvailed = valueMap.get('SL_DAYS') ?? 0;
+    const plEarned = valueMap.get('EL_ACCRUED') ?? 0;
+    const slEarned = valueMap.get('SL_ACCRUED') ?? 0;
+    const plBalance = Math.max(valueMap.get('EL_BALANCE') ?? 0, 0);
+    const slBalance = Math.max(valueMap.get('SL_BALANCE') ?? 0, 0);
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
@@ -381,30 +386,55 @@ export class PayslipGeneratorService {
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
-      .text('Leave Earned:', leftCol, infoY);
+      .text('PL Earned:', leftCol, infoY);
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
-      .text(String(leaveEarned), leftCol + infoLabelWidth, infoY);
+      .text(String(plEarned), leftCol + infoLabelWidth, infoY);
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
-      .text('Leave Paid:', rightCol, infoY);
+      .text('PL Availed:', rightCol, infoY);
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
-      .text(String(elPaidLeaveDays), rightCol + 100, infoY);
+      .text(String(plAvailed), rightCol + 100, infoY);
     infoY += 18;
 
-    const elBalance = Math.max(valueMap.get('EL_BALANCE') ?? 0, 0);
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
-      .text('Leave Balance:', leftCol, infoY);
+      .text('PL Balance:', leftCol, infoY);
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
-      .text(String(elBalance), leftCol + infoLabelWidth, infoY);
+      .text(String(plBalance), leftCol + infoLabelWidth, infoY);
+    doc
+      .fontSize(infoFontSize)
+      .fillColor('#000000')
+      .text('SL Availed:', rightCol, infoY);
+    doc
+      .fontSize(infoFontSize)
+      .fillColor('#000000')
+      .text(String(slAvailed), rightCol + 100, infoY);
+    infoY += 18;
+
+    doc
+      .fontSize(infoFontSize)
+      .fillColor('#000000')
+      .text('SL Earned:', leftCol, infoY);
+    doc
+      .fontSize(infoFontSize)
+      .fillColor('#000000')
+      .text(String(slEarned), leftCol + infoLabelWidth, infoY);
+    doc
+      .fontSize(infoFontSize)
+      .fillColor('#000000')
+      .text('SL Balance:', rightCol, infoY);
+    doc
+      .fontSize(infoFontSize)
+      .fillColor('#000000')
+      .text(String(slBalance), rightCol + 100, infoY);
     infoY += 24;
 
     doc.y = infoY;
@@ -415,18 +445,36 @@ export class PayslipGeneratorService {
     const others = valueMap.get('OTHERS') ?? 0;
     const attBonus = valueMap.get('ATT_BONUS') ?? 0;
     const gross = valueMap.get('GROSS') ?? 0;
-    // Other Earnings = everything in gross not covered by the four named components
-    const otherEarningsRow = Math.max(
-      0,
-      gross - basic - hra - others - attBonus,
-    );
+    // Use explicit OTHER_EARNINGS when supplied via the Preview Employees
+    // grid; fall back to the gross-residual for legacy structures.
+    const otherEarningsExplicit = valueMap.get('OTHER_EARNINGS') ?? 0;
+    const arrearAttBonus = valueMap.get('ARREAR_ATT_BONUS') ?? 0;
+    const otAmount = valueMap.get('OT_AMOUNT') ?? 0;
+    // Show OT pay as part of "Other Earnings" rather than its own row.
+    const otherEarningsBase =
+      otherEarningsExplicit > 0
+        ? otherEarningsExplicit
+        : Math.max(0, gross - basic - hra - others - attBonus);
+    const otherEarningsRow = otherEarningsBase + otAmount;
+    const otherEarningsNoteParts: string[] = [];
+    if ((runEmp as any).otherEarningsNote) otherEarningsNoteParts.push((runEmp as any).otherEarningsNote);
+    if (otAmount > 0) otherEarningsNoteParts.push('incl. OT');
+    const otherEarningsLabel = otherEarningsNoteParts.length
+      ? `Other Earnings (${otherEarningsNoteParts.join(', ')})`
+      : 'Other Earnings';
 
     // ── Compute deductions summary ──
     const pfAmt = valueMap.get('PF_EMP') ?? 0;
     const esiAmt = valueMap.get('ESI_EMP') ?? 0;
     const ptAmt = valueMap.get('PT') ?? 0;
     const pfErFromEmpAmt = valueMap.get('PF_ER_FROM_EMP') ?? 0;
-    const totalDeduction = pfAmt + esiAmt + ptAmt + pfErFromEmpAmt;
+    const tdsAmt = valueMap.get('TDS') ?? 0;
+    const otherDeductions = valueMap.get('OTHER_DEDUCTIONS') ?? 0;
+    const otherDeductionsLabel = (runEmp as any).otherDeductionsNote
+      ? `Other Deductions (${(runEmp as any).otherDeductionsNote})`
+      : 'Other Deductions';
+    const totalDeduction =
+      pfAmt + esiAmt + ptAmt + pfErFromEmpAmt + otherDeductions;
 
     const netPay = Number(valueMap.get('NET_PAY') ?? runEmp.netPay ?? 0);
 
@@ -537,10 +585,10 @@ export class PayslipGeneratorService {
       tY += rowHeight;
     }
 
-    // Other Earnings (catch-all: includes Arrear Att. Bonus, Other Earnings, etc.)
+    // Other Earnings (explicit user-entered amount or gross-residual)
     if (otherEarningsRow > 0) {
       drawRow(
-        'Other Earnings',
+        otherEarningsLabel,
         this.formatCurrency(otherEarningsRow),
         '',
         '',
@@ -549,10 +597,36 @@ export class PayslipGeneratorService {
       tY += rowHeight;
     }
 
+    // Arrear / Att. Bonus row when present (separate from Att. Bonus)
+    if (arrearAttBonus > 0) {
+      drawRow(
+        'Arrear / Att. Bonus',
+        this.formatCurrency(arrearAttBonus),
+        '',
+        '',
+        tY,
+      );
+      tY += rowHeight;
+    }
+
+    // OT Amount is included inside the Other Earnings row above; no separate row.
+
+    // Other Deductions (user-supplied) on the deductions side
+    if (otherDeductions > 0) {
+      drawRow(
+        '',
+        '',
+        otherDeductionsLabel,
+        this.formatCurrency(otherDeductions),
+        tY,
+      );
+      tY += rowHeight;
+    }
+
     // Row 4: Gross / Total Deduction
     drawRow(
       'Gross',
-      this.formatCurrency(gross),
+      this.formatCurrency(gross + otAmount),
       'Total Deduction',
       this.formatCurrency(totalDeduction),
       tY,
@@ -633,6 +707,31 @@ export class PayslipGeneratorService {
       .fillColor('#000000')
       .text('Authorized Signatory', startX, doc.y);
     doc.font('Helvetica');
+
+    // ── Income Tax (TDS) note — informational only, not deducted ──
+    {
+      const tdsBasis = valueMap.get('TDS_ANNUAL_BASIS') ?? 0;
+      doc.moveDown(1.5);
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(9)
+        .fillColor('#000000')
+        .text(
+          `Income Tax (TDS) for the month: ${this.formatCurrency(tdsAmt)}`,
+          startX,
+          doc.y,
+        );
+      const explain =
+        tdsBasis > 0
+          ? `Computed on annual gross ${this.formatCurrency(tdsBasis)} as per Income Tax Act (FY 2025-26, New Regime, std. deduction ₹75,000, 87A rebate up to taxable ₹12,00,000). Shown for information only — not deducted from this payslip.`
+          : 'No annual gross basis available for the employee — set Monthly Gross or CTC in Employee master to enable TDS projection. Shown for information only — not deducted from this payslip.';
+      doc
+        .font('Helvetica-Oblique')
+        .fontSize(8)
+        .fillColor('#555555')
+        .text(explain, startX, doc.y + 2, { width: pageWidth });
+      doc.font('Helvetica').fillColor('#000000');
+    }
 
     addPageNumbers(doc);
 
@@ -759,15 +858,48 @@ export class PayslipGeneratorService {
           valueMap.set('EL_PAID_LEAVE_DAYS', 0);
       }
 
-      // ── EL_BALANCE: read from leave_balances ──
+      // ── EL_BALANCE: as-of end of payslip month ──
+      // The yearly leave_balances.available is a year-running aggregate that
+      // includes accruals for FUTURE months (e.g. May accrual booked Apr 30).
+      // For the payslip we want the balance AS OF THE PAYSLIP MONTH only:
+      //   opening + Σaccruals(month<=payslipMonth) − Σused(month<=payslipMonth)
+      // The benefit month is encoded in the ledger remarks ("EL accrual for YYYY-MM: …")
+      // which is independent of entry_date (often booked on the prior month-end).
       try {
         const elBal = await this.leaveBalanceRepo.findOne({
           where: { employeeId, year, leaveType: 'EL' },
         });
-        valueMap.set(
-          'EL_BALANCE',
-          elBal ? parseFloat(elBal.available) || 0 : 0,
+        const opening = elBal ? parseFloat(elBal.opening) || 0 : 0;
+        const allEl = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        const tagRe = /(\d{4})-(\d{2})/;
+        let accrual = 0;
+        let used = 0;
+        for (const entry of allEl) {
+          const m = entry.remarks?.match(tagRe);
+          // Fallback to entry_date year/month if no tag in remarks.
+          let entryYear: number;
+          let entryMonth: number;
+          if (m) {
+            entryYear = Number(m[1]);
+            entryMonth = Number(m[2]);
+          } else {
+            const d = new Date(entry.entryDate as unknown as string);
+            entryYear = d.getUTCFullYear();
+            entryMonth = d.getUTCMonth() + 1;
+          }
+          if (entryYear !== year) continue;
+          if (entryMonth > month) continue;
+          const qty = Math.abs(Number(entry.qty) || 0);
+          if (entry.refType === 'EL_ACCRUAL') accrual += qty;
+          else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
+        }
+        const balance = Math.max(
+          Math.round((opening + accrual - used) * 100) / 100,
+          0,
         );
+        valueMap.set('EL_BALANCE', balance);
       } catch {
         if (!valueMap.has('EL_BALANCE')) valueMap.set('EL_BALANCE', 0);
       }

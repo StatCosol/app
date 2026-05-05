@@ -181,6 +181,12 @@ export class PayrollRunEmployeeEntity {
   })
   bonus: string | null;
 
+  @Column({ name: 'other_earnings_note', type: 'text', nullable: true })
+  otherEarningsNote: string | null;
+
+  @Column({ name: 'other_deductions_note', type: 'text', nullable: true })
+  otherDeductionsNote: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

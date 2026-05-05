@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 import * as ExcelJS from 'exceljs';
 import { EmployeeEntity } from './entities/employee.entity';
 
@@ -66,12 +67,15 @@ export class EmployeeBulkImportService {
     filePath: string,
     defaultBranchId?: string,
   ): Promise<{
+    batchId: string;
     imported: number;
     updated: number;
     skipped: number;
     errors: string[];
     warnings: string[];
   }> {
+    const batchId = randomUUID();
+    const createdEmployeeIds: string[] = [];
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
     const sheet = workbook.worksheets[0];
@@ -400,13 +404,14 @@ export class EmployeeBulkImportService {
           dateOfExit: data.dateOfExit ?? undefined,
           exitReason: data.exitReason ?? undefined,
         };
-        await this.empService.create(
+        const createdEmp = await this.empService.create(
           clientId,
           data.branchId || defaultBranchId || null,
           createDto,
           false,
           true,
         );
+        if (createdEmp?.id) createdEmployeeIds.push(createdEmp.id);
         imported++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -414,7 +419,56 @@ export class EmployeeBulkImportService {
       }
     }
 
-    return { imported, updated, skipped, errors, warnings };
+    // Stamp the batch_id on every newly-created employee so the import can
+    // be reverted as a single unit. Updated-existing employees are NOT
+    // stamped — their pre-import state is not preserved and reverting them
+    // is unsafe.
+    if (createdEmployeeIds.length > 0) {
+      try {
+        await this.empRepo
+          .createQueryBuilder()
+          .update(EmployeeEntity)
+          .set({ bulkImportBatchId: batchId })
+          .whereInIds(createdEmployeeIds)
+          .execute();
+      } catch (e) {
+        warnings.push(
+          `Imported rows could not be tagged for revert: ${(e as Error).message}`,
+        );
+      }
+    }
+
+    return { batchId, imported, updated, skipped, errors, warnings };
+  }
+
+  /** Revert a bulk import by deleting all employees that were created during
+   *  it (identified by the batch UUID returned from importFromExcel). Updated
+   *  existing employees are NOT touched because their pre-import state is not
+   *  preserved. */
+  async revertBulkImport(
+    clientId: string,
+    batchId: string,
+  ): Promise<{ deleted: number }> {
+    if (
+      !batchId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        batchId,
+      )
+    ) {
+      throw new BadRequestException('Invalid batchId');
+    }
+    const rows = await this.empRepo.find({
+      where: { clientId, bulkImportBatchId: batchId },
+      select: ['id'],
+    });
+    if (!rows.length) {
+      throw new NotFoundException(
+        'No employees found for this import batch (it may have already been reverted).',
+      );
+    }
+    const ids = rows.map((r) => r.id);
+    await this.empRepo.delete({ id: In(ids) });
+    return { deleted: ids.length };
   }
 
   private buildColumnMap(

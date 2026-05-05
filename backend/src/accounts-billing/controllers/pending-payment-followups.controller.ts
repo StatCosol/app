@@ -108,6 +108,15 @@ export class PendingPaymentFollowupsController {
     return this.service.sendBulk(ids || []);
   }
 
+  @ApiOperation({ summary: 'Pause or resume daily auto-reminders for one entry' })
+  @Patch(':id/pause')
+  setPause(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('paused') paused: boolean,
+  ) {
+    return this.service.setPause(id, !!paused);
+  }
+
   @ApiOperation({ summary: 'Delete a pending-payment follow-up' })
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {

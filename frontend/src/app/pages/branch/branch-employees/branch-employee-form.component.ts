@@ -187,6 +187,31 @@ import {
                            placeholder="e.g. 480000"></ui-form-input>
             <ui-form-input label="Monthly Gross" type="number" [(ngModel)]="form.monthlyGross" name="monthlyGross"
                            placeholder="e.g. 25000"></ui-form-input>
+            <div class="form-field">
+              <label class="form-label">Skill Category</label>
+              <select class="form-input" [(ngModel)]="form.skillCategory" name="skillCategory">
+                <option [ngValue]="undefined">Select skill category</option>
+                <option value="UNSKILLED">Unskilled</option>
+                <option value="SEMI_SKILLED">Semi-skilled</option>
+                <option value="SKILLED">Skilled</option>
+                <option value="HIGHLY_SKILLED">Highly skilled</option>
+              </select>
+              <small class="text-xs text-gray-500">Used to validate Monthly Gross against state-wise minimum wage.</small>
+            </div>
+            <div class="form-field">
+              <label class="form-label">PF Applicable</label>
+              <select class="form-input" [(ngModel)]="form.pfApplicable" name="pfApplicable">
+                <option [ngValue]="true">Yes</option>
+                <option [ngValue]="false">No</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">ESI Applicable</label>
+              <select class="form-input" [(ngModel)]="form.esiApplicable" name="esiApplicable">
+                <option [ngValue]="true">Yes</option>
+                <option [ngValue]="false">No</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -288,7 +313,7 @@ export class BranchEmployeeFormComponent implements OnInit, OnDestroy {
   formError = '';
   successMsg = '';
   dobWarning = '';
-  form: any = { phone: '+91' };
+  form: any = { phone: '+91', pfApplicable: false, esiApplicable: false };
   submitted = false;
 
   breadcrumbs: Breadcrumb[] = [

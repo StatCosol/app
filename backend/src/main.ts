@@ -341,6 +341,39 @@ async function bootstrap() {
       );
     }
 
+    try {
+      await ds.query(`
+        ALTER TABLE employees
+          ADD COLUMN IF NOT EXISTS bulk_import_batch_id UUID DEFAULT NULL
+      `);
+      await ds.query(`
+        CREATE INDEX IF NOT EXISTS idx_employees_bulk_import_batch_id
+          ON employees(client_id, bulk_import_batch_id)
+          WHERE bulk_import_batch_id IS NOT NULL
+      `);
+      logger.log('Schema patch: employees.bulk_import_batch_id OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch employees.bulk_import_batch_id skipped: ${e?.message}`,
+      );
+    }
+
+    try {
+      await ds.query(`
+        ALTER TABLE payroll_client_setup
+          ADD COLUMN IF NOT EXISTS wage_basis_days VARCHAR(20) NOT NULL DEFAULT 'FIXED_26'
+      `);
+      await ds.query(`
+        ALTER TABLE payroll_client_setup
+          ADD COLUMN IF NOT EXISTS ot_multiplier NUMERIC(4,2) NOT NULL DEFAULT 2.0
+      `);
+      logger.log('Schema patch: payroll_client_setup.wage_basis_days/ot_multiplier OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch payroll_client_setup wage/OT skipped: ${e?.message}`,
+      );
+    }
+
     // ── ESS Leave tables (created here so they exist even if the
     //    20260320_schema_reconciliation_v2 migration was not manually run) ──
     try {
@@ -514,6 +547,65 @@ async function bootstrap() {
       logger.log('Schema patch: accounts & billing tables OK');
     } catch (e: any) {
       logger.warn(`Schema patch accounts & billing skipped: ${e?.message}`);
+    }
+
+    // ── Client department contacts (idempotent) ──
+    // Used by admin UI to maintain per-client department mailing lists
+    // (ACCOUNTS, COMPLIANCE, CONTRACTOR_COMPLIANCE, HR, PAYROLL) and by
+    // monthly cron jobs (1st = payroll input request, 16th = MCD request).
+    try {
+      const cdcStmts: string[] = [
+        `DO $$ BEGIN CREATE TYPE client_contact_department AS ENUM ('ACCOUNTS','COMPLIANCE','CONTRACTOR_COMPLIANCE','HR','PAYROLL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+        `CREATE TABLE IF NOT EXISTS client_department_contacts (
+           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+           client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+           department client_contact_department NOT NULL,
+           name VARCHAR(160) NOT NULL,
+           email VARCHAR(160) NOT NULL,
+           phone VARCHAR(40),
+           designation VARCHAR(120),
+           is_active BOOLEAN NOT NULL DEFAULT TRUE,
+           notes TEXT,
+           created_by UUID,
+           updated_by UUID,
+           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_cdc_client_dept_email ON client_department_contacts (client_id, department, lower(email))`,
+        `CREATE INDEX IF NOT EXISTS idx_cdc_client_dept_active ON client_department_contacts (client_id, department) WHERE is_active = TRUE`,
+        `CREATE INDEX IF NOT EXISTS idx_cdc_dept_active ON client_department_contacts (department) WHERE is_active = TRUE`,
+        `CREATE TABLE IF NOT EXISTS client_monthly_comm_runs (
+           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+           client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+           comm_type VARCHAR(40) NOT NULL,
+           run_month DATE NOT NULL,
+           recipients TEXT NOT NULL,
+           cc_emails TEXT,
+           status VARCHAR(20) NOT NULL,
+           failure_reason TEXT,
+           triggered_by VARCHAR(40) NOT NULL DEFAULT 'CRON',
+           sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_cmcr_client_type_month ON client_monthly_comm_runs (client_id, comm_type, run_month)`,
+        `CREATE TABLE IF NOT EXISTS client_comm_templates (
+           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+           comm_type VARCHAR(40) NOT NULL UNIQUE,
+           subject_template TEXT NOT NULL,
+           body_template TEXT NOT NULL,
+           updated_by UUID,
+           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         )`,
+      ];
+      for (const s of cdcStmts) {
+        try {
+          await ds.query(s);
+        } catch (e: any) {
+          logger.warn(`client_department_contacts stmt skipped: ${e?.message}`);
+        }
+      }
+      logger.log('Schema patch: client_department_contacts OK');
+    } catch (e: any) {
+      logger.warn(`Schema patch client_department_contacts skipped: ${e?.message}`);
     }
 
     const CRITICAL_TABLES = [

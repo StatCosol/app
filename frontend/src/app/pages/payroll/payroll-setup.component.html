@@ -4,10 +4,22 @@
       <h1>Payroll Setup</h1>
       <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
     </div>
-    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
+    <div class="head-actions" style="display:flex;align-items:center;gap:12px;">
+      <label *ngIf="!isClientScoped && clients?.length" style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
+        Client:
+        <select [(ngModel)]="selectedClientId" (change)="onClientChange()" style="min-width:240px;padding:4px 8px;">
+          <option value="" disabled>-- Select client --</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName || c.name }} <span *ngIf="c.clientCode">({{ c.clientCode }})</span></option>
+        </select>
+      </label>
+      <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
+    </div>
   </header>
 
   <div *ngIf="loading" class="loader">Loading payroll setup...</div>
+  <div *ngIf="!loading && !selectedClientId" class="card" style="padding:16px;color:#666;">
+    Select a client from the dropdown above to view and edit its payroll rules and configuration.
+  </div>
 
   <ng-container *ngIf="!loading && selectedClientId">
     <section class="summary-grid">
@@ -141,6 +153,19 @@
             <option value="CURRENT">Current Cycle</option>
             <option value="NEXT">Next Cycle</option>
           </select>
+        </label>
+        <label>
+          Wage Divisor (Per-day basis)
+          <select id="ps-wage-basis" name="wageBasisDays" [(ngModel)]="setup.wageBasisDays">
+            <option value="FIXED_26">Fixed 26 days</option>
+            <option value="CALENDAR_DAYS">Calendar days (28/29/30/31)</option>
+          </select>
+          <small class="hint">Per-day wage = Gross / divisor; payable salary = per-day x payable days.</small>
+        </label>
+        <label>
+          Overtime Multiplier
+          <input autocomplete="off" id="ps-ot-mult" type="number" name="otMultiplier" min="1" max="3" step="0.5" [(ngModel)]="setup.otMultiplier" />
+          <small class="hint">1 = single wage, 2 = double wage.</small>
         </label>
       </div>
 
@@ -335,6 +360,7 @@
             <tr>
               <th>Component</th>
               <th>Type</th>
+              <th>Formula / Value</th>
               <th>Flags</th>
               <th class="text-right">Actions</th>
             </tr>
@@ -346,6 +372,10 @@
                 <div class="minor mono">{{ c.code }}</div>
               </td>
               <td>{{ c.componentType }}</td>
+              <td class="mono" style="max-width:340px;white-space:pre-wrap;">
+                <span *ngIf="componentFormulaMap[c.id]; else noFormula">{{ componentFormulaMap[c.id] }}</span>
+                <ng-template #noFormula><span class="minor">&mdash;</span></ng-template>
+              </td>
               <td>
                 <span class="flag" *ngIf="c.affectsPfWage">PF</span>
                 <span class="flag" *ngIf="c.affectsEsiWage">ESI</span>
@@ -354,6 +384,7 @@
               </td>
               <td class="text-right">
                 <button class="link" type="button" (click)="openCompForm(c)">Edit</button>
+                <button class="link" type="button" (click)="openFormulaEditor(c)">Formula</button>
                 <button class="link" type="button" (click)="openRules(c)">Rules</button>
                 <button class="link link-danger" type="button" (click)="deleteComp(c)">Delete</button>
               </td>
@@ -371,6 +402,14 @@
           <h2>Rules - {{ selectedComponent.name }} ({{ selectedComponent.code }})</h2>
           <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
         </header>
+
+        <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;margin:8px 0;padding:8px 12px;font-size:0.9em;">
+          <strong>Note:</strong> Use the <em>Formula</em> button above to set how
+          this component is calculated (BASIC = 40% of GROSS, HRA = 50% of BASIC,
+          etc.). The "Rules" listed here are optional add-ons (e.g.
+          <code>ATT_BONUS = FIXED 500 if presentDays &ge; 24</code>) and slab
+          overrides.
+        </div>
 
         <div *ngIf="loadingRules" class="loader mini">Loading rules...</div>
 
@@ -401,6 +440,200 @@
           <div class="empty-mini" *ngIf="!loadingRules">No rules configured for selected component.</div>
         </ng-template>
       </section>
+    </section>
+
+    <!-- Salary Rules & Live Preview -->
+    <section class="card" *ngIf="activeTab === 'rules-preview'">
+      <header class="section-head">
+        <h2>Salary Rules &amp; Live Preview</h2>
+        <span class="section-meta">Read-only view of every rule the payroll engine will execute for this client. Edits here flow into the next run automatically.</span>
+      </header>
+
+      <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;">
+        Everything below comes from the same data the engine reads at run time.
+        Use <strong>Edit in Builder</strong> to change formulas, components, or
+        statutory config &mdash; saved changes apply to the next payroll run.
+      </div>
+
+      <div *ngIf="loadingRulesPreview" class="loader mini">Loading rules...</div>
+
+      <ng-container *ngIf="!loadingRulesPreview">
+        <header class="section-head top-gap">
+          <h2 style="font-size:1.05em;">Active Salary Structures</h2>
+          <button class="btn btn-secondary" type="button" (click)="goToStructureBuilder()">Edit in Builder</button>
+        </header>
+
+        <div *ngIf="!clientStructures.length" class="empty-mini">
+          No active salary structures. Click <em>Edit in Builder</em> to create one.
+        </div>
+
+        <div *ngFor="let st of clientStructures" class="card" style="margin:8px 0;padding:12px;background:#fafafa;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div class="strong">{{ st.name }} <span class="minor mono">v{{ st.version }} ({{ st.code }})</span></div>
+              <div class="minor">Effective {{ formatDate(st.effectiveFrom) }} &mdash; {{ st.effectiveTo ? formatDate(st.effectiveTo) : 'open' }} <span *ngIf="st.isDefault" class="flag">DEFAULT</span></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
+              <input type="radio" name="structureSel" [value]="st.id" [(ngModel)]="selectedStructureId" (change)="onStructureSelect()" />
+              Use for preview
+            </label>
+          </div>
+
+          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.components?.length">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Component</th>
+                  <th>Type</th>
+                  <th>Calculation</th>
+                  <th>Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of st.components">
+                  <td>{{ c.displayOrder }}</td>
+                  <td>
+                    <div class="strong">{{ c.label || c.name }}</div>
+                    <div class="minor mono">{{ c.code }}</div>
+                  </td>
+                  <td>{{ c.componentType }}</td>
+                  <td class="mono" style="white-space:pre-wrap;">{{ componentValuePreview(c) }}</td>
+                  <td>
+                    <span class="flag" *ngIf="c.statutory">STAT</span>
+                    <span class="flag tax" *ngIf="c.taxable">TAX</span>
+                    <span class="flag" *ngIf="c.isVisibleInPayslip">PAYSLIP</span>
+                    <span class="flag" *ngIf="!c.isActive" style="background:#fee;">INACTIVE</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.statutoryConfigs?.length">
+            <table>
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>PT</th>
+                  <th>PF</th>
+                  <th>ESI</th>
+                  <th>PF rates</th>
+                  <th>ESI rates</th>
+                  <th>Min Wage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let sc of st.statutoryConfigs">
+                  <td class="strong">{{ sc.stateCode }}</td>
+                  <td>{{ sc.enablePt ? 'On' : 'Off' }}</td>
+                  <td>{{ sc.enablePf ? 'On' : 'Off' }}</td>
+                  <td>{{ sc.enableEsi ? 'On' : 'Off' }}</td>
+                  <td class="minor">Emp {{ sc.pfEmployeeRate }}% &middot; Cap {{ sc.pfWageCap }}</td>
+                  <td class="minor">Emp {{ sc.esiEmployeeRate }}% &middot; Er {{ sc.esiEmployerRate }}% &middot; Ceil {{ sc.esiGrossCeiling }}</td>
+                  <td>{{ formatMoney(sc.minimumWage) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <header class="section-head top-gap">
+          <h2 style="font-size:1.05em;">State PT / LWF Slabs (effective)</h2>
+        </header>
+        <div *ngIf="stateSlabsLoading" class="loader mini">Loading slabs...</div>
+
+        <div *ngFor="let slab of stateSlabs" class="card" style="margin:8px 0;padding:10px;background:#fafafa;">
+          <div class="strong">{{ slab.componentCode }} &mdash; {{ slab.stateCode }}
+            <span class="flag" [class.tax]="slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL'">
+              {{ slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL' ? 'Per-client override' : (slab.source === 'NONE' ? 'No slab' : 'Shared default') }}
+            </span>
+          </div>
+          <div *ngIf="!slab.slabs?.length" class="minor">No slabs &mdash; engine returns ₹0 for this component in this state.</div>
+          <table *ngIf="slab.slabs?.length" style="margin-top:6px;">
+            <thead>
+              <tr><th>From</th><th>To</th><th>Amount</th><th>Percent</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of slab.slabs">
+                <td>{{ formatMoney(row.fromAmount) }}</td>
+                <td>{{ row.toAmount == null ? '∞' : formatMoney(row.toAmount) }}</td>
+                <td>{{ row.valueAmount == null ? '-' : formatMoney(row.valueAmount) }}</td>
+                <td>{{ row.valuePercent == null ? '-' : (row.valuePercent + '%') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <header class="section-head top-gap">
+          <h2 style="font-size:1.05em;">Live Preview Calculator</h2>
+        </header>
+
+        <div class="form-grid">
+          <label>
+            Salary Structure
+            <select [(ngModel)]="selectedStructureId" (change)="onStructureSelect()" name="prevStructure" id="ps-prev-structure">
+              <option value="" disabled>-- choose structure --</option>
+              <option *ngFor="let s of clientStructures" [value]="s.id">{{ s.name }} (v{{ s.version }})</option>
+            </select>
+          </label>
+          <label>
+            State
+            <select [(ngModel)]="preview.stateCode" (change)="onStateChange()" name="prevState" id="ps-prev-state">
+              <option *ngFor="let s of indianStates" [value]="s.code">{{ s.code }} &mdash; {{ s.name }}</option>
+            </select>
+          </label>
+          <label>
+            Gross Salary
+            <input type="number" [(ngModel)]="preview.gross" name="prevGross" id="ps-prev-gross" min="0" />
+          </label>
+          <label>
+            LOP Days
+            <input type="number" [(ngModel)]="preview.lopDays" name="prevLop" id="ps-prev-lop" min="0" max="31" />
+          </label>
+          <label>
+            Month
+            <select [(ngModel)]="preview.month" name="prevMonth" id="ps-prev-month">
+              <option *ngFor="let m of months" [value]="m.value">{{ m.label }}</option>
+            </select>
+          </label>
+          <label>
+            Year
+            <input type="number" [(ngModel)]="preview.year" name="prevYear" id="ps-prev-year" min="2020" max="2099" />
+          </label>
+        </div>
+
+        <footer class="section-actions">
+          <button class="btn btn-primary" type="button" [disabled]="previewLoading || !selectedStructureId" (click)="runPreview()">
+            {{ previewLoading ? 'Calculating...' : 'Run Live Preview' }}
+          </button>
+        </footer>
+
+        <div *ngIf="previewResult" class="card" style="margin-top:12px;padding:12px;background:#f8fff4;">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:0.95em;">
+            <div><span class="minor">Total Earnings:</span> <strong>{{ formatMoney(previewResult.totalEarnings) }}</strong></div>
+            <div><span class="minor">Total Deductions:</span> <strong>{{ formatMoney(previewResult.totalDeductions) }}</strong></div>
+            <div><span class="minor">Net Pay:</span> <strong style="color:#15803d;">{{ formatMoney(previewResult.netPay) }}</strong></div>
+          </div>
+          <div *ngIf="previewResult.warnings?.length" style="margin-top:8px;">
+            <div class="minor">Warnings:</div>
+            <ul style="margin:4px 0;padding-left:20px;color:#b45309;">
+              <li *ngFor="let w of previewResult.warnings">{{ w }}</li>
+            </ul>
+          </div>
+          <div class="table-wrap" style="margin-top:8px;">
+            <table>
+              <thead><tr><th>Component</th><th class="text-right">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let r of previewValueRows()">
+                  <td class="mono">{{ r.code }}</td>
+                  <td class="text-right">{{ formatMoney(r.amount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </ng-container>
     </section>
   </ng-container>
 </div>
@@ -499,3 +732,130 @@
     </footer>
   </div>
 </div>
+
+<!-- Formula modal (writes to active salary structure item) -->
+<div class="modal-backdrop" *ngIf="showFormulaModal">
+  <div class="modal-card">
+    <header>
+      <h3>Calculation &mdash; {{ formulaTargetComponent?.name }} ({{ formulaTargetComponent?.code }})</h3>
+      <button type="button" class="link" (click)="showFormulaModal = false">Close</button>
+    </header>
+
+    <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;margin:0 0 8px;padding:8px 12px;font-size:0.88em;">
+      Saved values are used by the payroll engine on the next run. Variables you can use in formulas:
+      <code>ACTUAL_GROSS</code>, <code>BASIC</code>, <code>HRA</code>, <code>GROSS</code>, <code>WORKED_DAYS</code>, <code>PAYABLE_DAYS</code>, <code>LOP_DAYS</code>, plus any other component code defined for this client.
+      Operators: <code>+ - * / ( )</code>, <code>MIN(a,b)</code>, <code>MAX(a,b)</code>, <code>IF(cond, a, b)</code>, comparisons <code>&gt; &lt; &gt;= &lt;= == !=</code>.
+    </div>
+
+    <div class="modal-grid">
+      <label>
+        Calculation Method *
+        <select id="ps-formula-method" name="formulaMethod" [(ngModel)]="formulaForm.calcMethod">
+          <option *ngFor="let m of formulaCalcMethods" [value]="m">{{ m }}</option>
+        </select>
+      </label>
+      <label>
+        Rounding
+        <select id="ps-formula-round" name="formulaRound" [(ngModel)]="formulaForm.roundingMode">
+          <option *ngFor="let r of formulaRoundOptions" [value]="r">{{ r }}</option>
+        </select>
+      </label>
+
+      <label *ngIf="formulaForm.calcMethod === 'FIXED'">
+        Fixed Amount *
+        <input autocomplete="off" id="ps-formula-fixed" type="number" name="formulaFixed" [(ngModel)]="formulaForm.fixedAmount" />
+      </label>
+
+      <label *ngIf="formulaForm.calcMethod === 'PERCENT'">
+        Percentage *
+        <input autocomplete="off" id="ps-formula-pct" type="number" step="0.01" name="formulaPct" [(ngModel)]="formulaForm.percentage" />
+      </label>
+      <label *ngIf="formulaForm.calcMethod === 'PERCENT'">
+        Base *
+        <select id="ps-formula-base" name="formulaBase" [(ngModel)]="formulaForm.percentageBase">
+          <option *ngFor="let b of formulaBaseOptions" [value]="b">{{ b }}</option>
+        </select>
+      </label>
+
+      <div class="span-2" *ngIf="formulaForm.calcMethod === 'FORMULA'">
+        <div class="builder-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span>Formula *</span>
+          <span style="display:flex;gap:6px;align-items:center;">
+            <select [(ngModel)]="selectedTemplateId" name="tplPick"
+                    style="font-size:12px;padding:3px 6px;">
+              <option value="">— Load template —</option>
+              <option *ngFor="let t of formulaTemplates" [value]="t.id">
+                {{ t.name }}{{ t.clientId ? '' : ' (global)' }}
+              </option>
+            </select>
+            <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+                    [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()">
+              Load
+            </button>
+            <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+                    [disabled]="!formulaForm.formulaJson || savingTemplate"
+                    (click)="saveAsTemplate()">
+              {{ savingTemplate ? 'Saving…' : 'Save as template' }}
+            </button>
+          </span>
+        </div>
+        <app-formula-builder
+          [value]="formulaForm.formulaJson"
+          (valueChange)="formulaForm.formulaJson = $event">
+        </app-formula-builder>
+      </div>
+
+      <label>
+        Min Amount (optional)
+        <input autocomplete="off" id="ps-formula-min" type="number" name="formulaMin" [(ngModel)]="formulaForm.minAmount" />
+      </label>
+      <label>
+        Max Amount (optional)
+        <input autocomplete="off" id="ps-formula-max" type="number" name="formulaMax" [(ngModel)]="formulaForm.maxAmount" />
+      </label>
+
+      <label class="inline-toggle">
+        <input autocomplete="off" id="ps-formula-enabled" type="checkbox" name="formulaEnabled" [(ngModel)]="formulaForm.enabled" />
+        Enabled (engine will compute this component)
+      </label>
+    </div>
+
+    <div *ngIf="formulaError" class="msg error">{{ formulaError }}</div>
+
+    <details class="versions-panel" style="margin-top:8px;">
+      <summary style="cursor:pointer;font-size:12px;color:#475569;font-weight:600;"
+               (click)="toggleVersions()">
+        Version History ({{ structureVersions.length }})
+      </summary>
+      <div *ngIf="loadingVersions" style="padding:6px;font-size:12px;">Loading…</div>
+      <table *ngIf="!loadingVersions && structureVersions.length"
+             style="width:100%;font-size:12px;margin-top:6px;">
+        <thead>
+          <tr style="text-align:left;color:#64748b;">
+            <th>v#</th><th>When</th><th>Reason</th><th>Items</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let v of structureVersions">
+            <td>{{ v.versionNo }}</td>
+            <td>{{ v.createdAt | date:'short' }}</td>
+            <td>{{ v.reason || '—' }}</td>
+            <td>{{ v.itemsSnapshot?.length || 0 }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div *ngIf="!loadingVersions && !structureVersions.length"
+           style="padding:6px;font-size:12px;color:#94a3b8;">
+        No prior versions yet — saving this formula will create v1.
+      </div>
+    </details>
+
+    <footer>
+      <button class="btn btn-ghost" type="button" (click)="showFormulaModal = false">Cancel</button>
+      <button class="btn btn-primary" type="button" [disabled]="savingFormula" (click)="saveFormula()">
+        {{ savingFormula ? 'Saving...' : 'Save Formula' }}
+      </button>
+    </footer>
+  </div>
+</div>
+

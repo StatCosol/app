@@ -39,6 +39,35 @@ export class ClientUploadPayrollInputFileDto {
   docType?: string;
 }
 
+export class PayrollUploadRegisterRecordDto {
+  @IsUUID()
+  clientId: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  registerType?: string;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @IsOptional()
+  @IsInt()
+  periodYear?: number;
+
+  @IsOptional()
+  @IsInt()
+  periodMonth?: number;
+}
+
 export class ClientUploadRegisterRecordDto {
   @IsOptional()
   @IsString()

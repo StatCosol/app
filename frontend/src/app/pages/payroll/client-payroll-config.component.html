@@ -8,6 +8,8 @@
   </header>
 
   <div class="head-controls">
+    <button *ngIf="view === 'list'" type="button" class="btn btn-secondary"
+            [disabled]="!selectedClientId" (click)="openOverrides()">⚙ Per-Client Overrides</button>
     <button *ngIf="view === 'list'" type="button" class="btn btn-primary"
             [disabled]="!selectedClientId" (click)="openCreateForm()">+ New Structure</button>
     <button *ngIf="view !== 'list'" type="button" class="btn btn-secondary" (click)="backToList()">← Back to List</button>
@@ -601,4 +603,101 @@
       </div>
     </div>
   </div>
+
+  <!-- ═════════════════════════════════════════════════════════════════════════════ -->
+  <!-- PER-CLIENT COMPONENT OVERRIDES VIEW                                    -->
+  <!-- ═════════════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="!loading && view === 'overrides'">
+    <section class="card form-section">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0;">Per-Client Component Overrides</h2>
+          <p style="margin:4px 0 0; color:#6b7280; font-size:13px;">
+            Customize component label, display order, payslip visibility and formula for this client.
+            Master component definitions are managed by Admin; this view only overrides per-client behavior.
+          </p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary" (click)="loadOverrides()" [disabled]="overridesLoading || saving">Reload</button>
+          <button type="button" class="btn btn-primary"
+                  [disabled]="!overridesDirtyCount || saving"
+                  (click)="saveOverrides()">
+            Save{{ overridesDirtyCount ? ' (' + overridesDirtyCount + ')' : '' }}
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="overridesLoading" class="loader" style="margin-top:12px;">Loading components...</div>
+
+      <div *ngIf="!overridesLoading && !overrides.length" class="empty-state" style="margin-top:12px;">
+        No active payroll components found. Ask Admin to seed master components first.
+      </div>
+
+      <div *ngIf="!overridesLoading && overrides.length" class="table-wrap" style="margin-top:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:90px;">Code</th>
+              <th style="width:100px;">Type</th>
+              <th>Label (Override)</th>
+              <th style="width:90px;">Order</th>
+              <th style="width:110px; text-align:center;">On Payslip</th>
+              <th>Formula (Override)</th>
+              <th style="width:120px;">Flags</th>
+              <th style="width:60px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let c of overrides; trackBy: trackOverride"
+                [class.row-inactive]="!isOverrideDirty(c.componentId) ? false : false"
+                [style.background]="isOverrideDirty(c.componentId) ? '#fef9c3' : null">
+              <td><code>{{ c.code }}</code></td>
+              <td>
+                <span class="badge"
+                      [class.badge-green]="c.componentType === 'EARNING'"
+                      [class.badge-gray]="c.componentType === 'DEDUCTION'"
+                      [class.badge-blue]="c.componentType === 'EMPLOYER_CONTRIBUTION'">
+                  {{ c.componentType.split('_')[0] }}
+                </span>
+              </td>
+              <td>
+                <input type="text" style="width:100%;"
+                       [(ngModel)]="overrideEdits[c.componentId].labelOverride"
+                       (ngModelChange)="markOverrideDirty(c.componentId)"
+                       [placeholder]="c.code" />
+              </td>
+              <td>
+                <input type="number" min="0" style="width:70px;"
+                       [(ngModel)]="overrideEdits[c.componentId].displayOrder"
+                       (ngModelChange)="markOverrideDirty(c.componentId)" />
+              </td>
+              <td style="text-align:center;">
+                <input type="checkbox"
+                       [(ngModel)]="overrideEdits[c.componentId].showOnPayslip"
+                       (ngModelChange)="markOverrideDirty(c.componentId)" />
+              </td>
+              <td>
+                <input type="text" style="width:100%; font-family:monospace; font-size:12px;"
+                       [(ngModel)]="overrideEdits[c.componentId].formulaOverride"
+                       (ngModelChange)="markOverrideDirty(c.componentId)"
+                       placeholder="e.g. BASIC * 0.4" />
+              </td>
+              <td>
+                <span *ngIf="c.isTaxable" class="badge badge-gray" title="Taxable">TX</span>
+                <span *ngIf="c.affectsPfWage" class="badge badge-blue" title="Affects PF wage">PF</span>
+                <span *ngIf="c.affectsEsiWage" class="badge badge-blue" title="Affects ESI wage">ESI</span>
+              </td>
+              <td style="text-align:center;">
+                <span *ngIf="isOverrideDirty(c.componentId)" title="Unsaved" style="color:#b45309;">●</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p *ngIf="!overridesLoading && overrides.length" style="margin-top:10px; color:#6b7280; font-size:12px;">
+        Note: Disabled components are hidden from this list. To re-enable a component, contact Admin.
+      </p>
+    </section>
+  </ng-container>
 </div>

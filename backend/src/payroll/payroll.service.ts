@@ -61,6 +61,7 @@ import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ReqUser } from '../access/access-scope.service';
+import { evaluateFormula } from './engine/expression';
 
 @Injectable()
 export class PayrollService {
@@ -193,12 +194,43 @@ export class PayrollService {
           cv['EL_PAID_LEAVE_DAYS'] = 0;
       }
 
-      // ── EL_BALANCE: read from leave_balances ──
+      // ── EL_BALANCE: as-of end of payslip month ──
+      // Year-aggregate available includes future-month accruals (e.g. May
+      // accrual booked Apr 30). For this month's view, sum opening + ledger
+      // entries whose tagged benefit month <= current month.
       try {
         const elBal = await this.leaveBalanceRepo.findOne({
           where: { employeeId, year, leaveType: 'EL' },
         });
-        cv['EL_BALANCE'] = elBal ? parseFloat(elBal.available) || 0 : 0;
+        const opening = elBal ? parseFloat(elBal.opening) || 0 : 0;
+        const allEl = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        const tagRe = /(\d{4})-(\d{2})/;
+        let accrual = 0;
+        let used = 0;
+        for (const entry of allEl) {
+          const m = entry.remarks?.match(tagRe);
+          let entryYear: number;
+          let entryMonth: number;
+          if (m) {
+            entryYear = Number(m[1]);
+            entryMonth = Number(m[2]);
+          } else {
+            const d = new Date(entry.entryDate as unknown as string);
+            entryYear = d.getUTCFullYear();
+            entryMonth = d.getUTCMonth() + 1;
+          }
+          if (entryYear !== year) continue;
+          if (entryMonth > month) continue;
+          const qty = Math.abs(Number(entry.qty) || 0);
+          if (entry.refType === 'EL_ACCRUAL') accrual += qty;
+          else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
+        }
+        cv['EL_BALANCE'] = Math.max(
+          Math.round((opening + accrual - used) * 100) / 100,
+          0,
+        );
       } catch {
         if (cv['EL_BALANCE'] === undefined) cv['EL_BALANCE'] = 0;
       }
@@ -1145,9 +1177,9 @@ export class PayrollService {
     await this.assertPayrollAccessToClient(user, run.clientId);
 
     const status = String(run.status || '').toUpperCase();
-    if (status !== 'DRAFT') {
+    if (status === 'APPROVED') {
       throw new BadRequestException(
-        `Cannot delete run in "${status}" state. Only DRAFT runs can be deleted.`,
+        `Cannot delete run in "${status}" state. Approved runs are locked.`,
       );
     }
 
@@ -1577,6 +1609,36 @@ export class PayrollService {
       filePath: file.path,
       fileType: file.mimetype,
       fileSize: String(file.size),
+    });
+    return this.rrRepo.save(row);
+  }
+
+  async payrollUploadRegisterRecord(
+    user: ReqUser,
+    dto: any,
+    file: Express.Multer.File,
+  ) {
+    if (!user?.id && !user?.userId) throw new BadRequestException('Invalid user');
+    if (!['PAYROLL', 'ADMIN', 'CRM'].includes(user.roleCode)) {
+      throw new ForbiddenException('Only payroll/admin/CRM allowed');
+    }
+    if (!file) throw new BadRequestException('File is required');
+    if (!dto?.clientId) throw new BadRequestException('clientId is required');
+    if (!dto?.title) throw new BadRequestException('title is required');
+    const row = this.rrRepo.create({
+      clientId: dto.clientId,
+      branchId: dto.branchId ?? null,
+      category: dto.category || 'RECORD',
+      title: dto.title,
+      registerType: dto.registerType ?? null,
+      periodYear: dto.periodYear ? Number(dto.periodYear) : null,
+      periodMonth: dto.periodMonth ? Number(dto.periodMonth) : null,
+      preparedByUserId: user.userId || user.id,
+      fileName: file.originalname,
+      filePath: file.path,
+      fileType: file.mimetype,
+      fileSize: String(file.size),
+      approvalStatus: 'PENDING',
     });
     return this.rrRepo.save(row);
   }
@@ -2581,14 +2643,104 @@ export class PayrollService {
       where: { runId },
       order: { employeeName: 'ASC' },
     });
-    return rows.map((e) => ({
-      employeeId: e.employeeCode, // IMPORTANT for downloads
-      empCode: e.employeeCode,
-      employeeName: e.employeeName ?? null,
-      grossEarnings: Number(e.grossEarnings ?? 0),
-      totalDeductions: Number(e.totalDeductions ?? 0),
-      netPay: Number(e.netPay ?? 0),
+
+    // Fetch component metadata for the client (for column ordering / labels)
+    const components = await this.runEmployeeRepo.manager.query(
+      `SELECT code, name, component_type, display_order
+       FROM payroll_components
+       WHERE client_id = $1 AND is_active = TRUE
+       ORDER BY display_order ASC, code ASC`,
+      [run.clientId],
+    );
+    const componentMeta = components.map((c: any) => ({
+      code: c.code,
+      name: c.name,
+      type: c.component_type,
+      displayOrder: Number(c.display_order || 0),
     }));
+
+    // Fetch all component values for this run in a single query
+    const valueRows = await this.runEmployeeRepo.manager.query(
+      `SELECT run_employee_id, component_code, amount
+       FROM payroll_run_component_values
+       WHERE run_id = $1`,
+      [runId],
+    );
+    const valuesByEmp = new Map<string, Record<string, number>>();
+    for (const v of valueRows) {
+      const map = valuesByEmp.get(v.run_employee_id) || {};
+      map[v.component_code] = Number(v.amount || 0);
+      valuesByEmp.set(v.run_employee_id, map);
+    }
+
+    // Pull employee master data for designation / actual gross / PF & ESI
+    // applicability so the payroll preview can show registration values.
+    const empCodes = rows.map((r) => r.employeeCode).filter(Boolean);
+    const empMasterByCode = new Map<
+      string,
+      {
+        designation: string | null;
+        monthlyGross: number;
+        pfApplicable: boolean;
+        esiApplicable: boolean;
+      }
+    >();
+    if (empCodes.length) {
+      const masterRows: Array<{
+        employee_code: string;
+        designation: string | null;
+        monthly_gross: string | null;
+        ctc: string | null;
+        pf_applicable: boolean;
+        esi_applicable: boolean;
+      }> = await this.runEmployeeRepo.manager.query(
+        `SELECT employee_code, designation, monthly_gross, ctc,
+                pf_applicable, esi_applicable
+         FROM employees
+         WHERE client_id = $1 AND employee_code = ANY($2::text[])`,
+        [run.clientId, empCodes],
+      );
+      for (const m of masterRows) {
+        const monthly =
+          Number(m.monthly_gross) ||
+          (m.ctc ? Number(m.ctc) / 12 : 0);
+        empMasterByCode.set(m.employee_code, {
+          designation: m.designation ?? null,
+          monthlyGross: monthly || 0,
+          pfApplicable: !!m.pf_applicable,
+          esiApplicable: !!m.esi_applicable,
+        });
+      }
+    }
+
+    return {
+      components: componentMeta,
+      employees: rows.map((e) => {
+        const master = empMasterByCode.get(e.employeeCode);
+        return {
+          employeeId: e.employeeCode, // IMPORTANT for downloads
+          empCode: e.employeeCode,
+          employeeName: e.employeeName ?? null,
+          designation: master?.designation ?? e.designation ?? null,
+          uan: e.uan ?? null,
+          esic: e.esic ?? null,
+          monthlyGross: master?.monthlyGross ?? 0,
+          pfApplicable: master?.pfApplicable ?? false,
+          esiApplicable: master?.esiApplicable ?? false,
+          grossEarnings: Number(e.grossEarnings ?? 0),
+          totalDeductions: Number(e.totalDeductions ?? 0),
+          netPay: Number(e.netPay ?? 0),
+          employerCost: Number((e as any).employerCost ?? 0),
+          totalDays: Number(e.totalDays ?? 0),
+          daysPresent: Number(e.daysPresent ?? 0),
+          lopDays: Number(e.lopDays ?? 0),
+          otHours: Number((e as any).otHours ?? 0),
+          otherEarningsNote: (e as any).otherEarningsNote ?? null,
+          otherDeductionsNote: (e as any).otherDeductionsNote ?? null,
+          components: valuesByEmp.get(e.id) || {},
+        };
+      }),
+    };
   }
 
   /**
@@ -2658,6 +2810,8 @@ export class PayrollService {
         uan: emp.uan ?? null,
         esic: emp.esic ?? null,
         logoBuffer,
+        otherEarningsNote: (emp as any).otherEarningsNote ?? null,
+        otherDeductionsNote: (emp as any).otherDeductionsNote ?? null,
       },
       componentValues,
     });
@@ -2756,6 +2910,8 @@ export class PayrollService {
           uan: emp.uan ?? null,
           esic: emp.esic ?? null,
           logoBuffer,
+          otherEarningsNote: (emp as any).otherEarningsNote ?? null,
+          otherDeductionsNote: (emp as any).otherDeductionsNote ?? null,
         },
         componentValues,
       });
@@ -3405,11 +3561,18 @@ export class PayrollService {
       order: { createdAt: 'ASC' },
     });
 
+    // ── Auto-computed settlement breakup (suggested) ──
+    // Pending Salary  = monthly_gross prorated to LWD-day-of-month
+    // Leave Encash    = available EL × (monthly_gross / 30)
+    // Other lines default 0; user can override on the UI before settling.
+    const computedBreakup = await this.computeFnfBreakup(fnf, emp);
+
     return {
       ...fnf,
       employeeName: emp ? emp.name : 'Unknown',
       employeeCode: emp?.employeeCode || '',
       clientName: client?.clientName || 'Unknown',
+      computedBreakup,
       history: history.map((event) => ({
         id: event.id,
         statusFrom: event.statusFrom,
@@ -3424,6 +3587,216 @@ export class PayrollService {
         performedBy: event.performedBy,
         createdAt: event.createdAt,
       })),
+    };
+  }
+
+  private async computeFnfBreakup(
+    fnf: PayrollFnfEntity,
+    emp: EmployeeEntity | null,
+  ): Promise<{
+    pendingSalary: number;
+    leaveEncashment: number;
+    bonusArrears: number;
+    deductions: number;
+    recoveries: number;
+    notes: string[];
+  }> {
+    const notes: string[] = [];
+    const monthlyGross = Number(emp?.monthlyGross || 0);
+    if (!monthlyGross) notes.push('Employee monthly_gross missing — pending salary and leave encashment defaulted to 0.');
+
+    // Pending salary — prorated to LWD day-of-month within the separation month.
+    let pendingSalary = 0;
+    const lwdStr = (fnf.lastWorkingDay || fnf.separationDate || '') as unknown as string;
+    if (lwdStr && monthlyGross > 0) {
+      const lwd = new Date(lwdStr);
+      if (!isNaN(lwd.getTime())) {
+        const daysInMonth = new Date(
+          lwd.getUTCFullYear(),
+          lwd.getUTCMonth() + 1,
+          0,
+        ).getDate();
+        const dayOfMonth = lwd.getUTCDate();
+        pendingSalary = Math.round((monthlyGross * dayOfMonth) / daysInMonth);
+        const monthName = lwd.toLocaleString('en-IN', {
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'UTC',
+        });
+        notes.push(
+          `Pending salary = monthly_gross (₹${monthlyGross}) × ${dayOfMonth}/${daysInMonth} days of ${monthName} (separation month).`,
+        );
+      }
+    }
+
+    // Leave encashment — Gross/26 × min(available EL, 20).
+    let leaveEncashment = 0;
+    if (emp?.id && monthlyGross > 0) {
+      try {
+        const lb = await this.leaveBalanceRepo.findOne({
+          where: {
+            employeeId: emp.id,
+            year: new Date().getFullYear(),
+            leaveType: 'EL',
+          },
+        });
+        const avail = lb ? parseFloat(lb.available) || 0 : 0;
+        const ENCASH_CAP = 20;
+        const encashable = Math.min(avail, ENCASH_CAP);
+        if (encashable > 0) {
+          const perDay = monthlyGross / 26;
+          leaveEncashment = Math.round(encashable * perDay);
+          const capNote =
+            avail > ENCASH_CAP
+              ? ` (capped at ${ENCASH_CAP} of ${avail} available)`
+              : '';
+          notes.push(
+            `Leave encashment = ${encashable} EL${capNote} × ₹${perDay.toFixed(2)} per day (monthly_gross/26).`,
+          );
+        } else if (avail <= 0) {
+          notes.push('Leave encashment = 0 (no EL balance available).');
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Statutory bonus — 8.33% × Basic / 26 × days worked in current FY (Apr–Mar).
+    let bonusArrears = 0;
+    if (emp?.id) {
+      try {
+        // FY based on LWD month: months 1-3 belong to previous FY (Apr Y-1 – Mar Y).
+        const ref = lwdStr ? new Date(lwdStr) : new Date();
+        if (!isNaN(ref.getTime())) {
+          const refMonth = ref.getUTCMonth() + 1; // 1–12
+          const refYear = ref.getUTCFullYear();
+          const fyStartYear = refMonth >= 4 ? refYear : refYear - 1;
+          const fyEndYear = fyStartYear + 1;
+
+          // Latest BASIC component value seen for this employee on or before LWD;
+          // fall back to monthly_gross × 50% if no payroll history exists.
+          const basicRows: Array<{ amount: string }> =
+            await this.runEmployeeRepo.manager.query(
+              `SELECT cv.amount::text AS amount
+                 FROM payroll_run_component_values cv
+                 JOIN payroll_run_employees re ON re.id = cv.run_employee_id
+                 JOIN payroll_runs pr ON pr.id = re.run_id
+                WHERE re.employee_id = $1
+                  AND upper(cv.component_code) = 'BASIC'
+                ORDER BY pr.period_year DESC, pr.period_month DESC
+                LIMIT 1`,
+              [emp.id],
+            );
+          let basic = basicRows.length ? Number(basicRows[0].amount) || 0 : 0;
+          if (basic > 0) {
+            notes.push(
+              `Basic ₹${basic} taken from latest payroll BASIC component.`,
+            );
+          }
+          // If no payroll history, derive BASIC from the client's active salary
+          // structure (client-defined rule). This honours per-client formulas
+          // such as LMSPL: Basic = Gross if Gross<=15000, 15000 if 15000<Gross<=30000,
+          // else 50% of Gross.
+          if (!basic && monthlyGross > 0 && emp?.clientId) {
+            try {
+              const rows: Array<{ formula: string | null; calc_method: string; fixed_amount: string | null; percentage: string | null; percentage_base: string | null }> =
+                await this.runEmployeeRepo.manager.query(
+                  `SELECT i.formula, i.calc_method, i.fixed_amount::text, i.percentage::text, i.percentage_base
+                     FROM pay_salary_structure_items i
+                     JOIN pay_salary_structures s ON s.id = i.structure_id
+                     JOIN payroll_components c ON c.id = i.component_id
+                    WHERE s.client_id = $1
+                      AND s.is_active = true
+                      AND i.enabled = true
+                      AND upper(c.code) = 'BASIC'
+                    ORDER BY s.effective_from DESC NULLS LAST
+                    LIMIT 1`,
+                  [emp.clientId],
+                );
+              if (rows.length) {
+                const item = rows[0];
+                if (item.calc_method === 'FORMULA' && item.formula) {
+                  basic = Math.round(
+                    evaluateFormula(item.formula, {
+                      vars: {
+                        ACTUAL_GROSS: monthlyGross,
+                        GROSS: monthlyGross,
+                        WORKED_DAYS: 26,
+                      },
+                      param: () => 0,
+                      earningsSum: () => monthlyGross,
+                    }),
+                  );
+                  notes.push(
+                    `Basic ₹${basic} computed from client salary-structure formula: ${item.formula}.`,
+                  );
+                } else if (item.calc_method === 'FIXED' && item.fixed_amount) {
+                  basic = Math.round(Number(item.fixed_amount) || 0);
+                  notes.push(`Basic ₹${basic} from client structure (fixed).`);
+                } else if (item.calc_method === 'PERCENTAGE' && item.percentage) {
+                  basic = Math.round(
+                    (Number(item.percentage) || 0) * monthlyGross / 100,
+                  );
+                  notes.push(
+                    `Basic ₹${basic} from client structure (${item.percentage}% of gross).`,
+                  );
+                }
+              }
+            } catch (err) {
+              notes.push(
+                `Basic structure lookup failed (${(err as Error).message}); using fallback.`,
+              );
+            }
+          }
+          if (!basic && monthlyGross > 0) {
+            basic = Math.round(monthlyGross * 0.5);
+            notes.push(
+              `Basic not found in payroll history or client structure — assumed 50% of monthly_gross = ₹${basic}.`,
+            );
+          }
+
+          // Sum of WORKED_DAYS for runs whose period falls inside this FY.
+          const wdRows: Array<{ total: string | null }> =
+            await this.runEmployeeRepo.manager.query(
+              `SELECT COALESCE(SUM(cv.amount), 0)::text AS total
+                 FROM payroll_run_component_values cv
+                 JOIN payroll_run_employees re ON re.id = cv.run_employee_id
+                 JOIN payroll_runs pr ON pr.id = re.run_id
+                WHERE re.employee_id = $1
+                  AND upper(cv.component_code) = 'WORKED_DAYS'
+                  AND (
+                    (pr.period_year = $2 AND pr.period_month >= 4)
+                    OR (pr.period_year = $3 AND pr.period_month <= 3)
+                  )`,
+              [emp.id, fyStartYear, fyEndYear],
+            );
+          const workedDaysFy = wdRows.length
+            ? Number(wdRows[0].total) || 0
+            : 0;
+
+          if (basic > 0 && workedDaysFy > 0) {
+            bonusArrears = Math.round(((0.0833 * basic) / 26) * workedDaysFy);
+            notes.push(
+              `Statutory bonus = 8.33% × Basic (₹${basic}) / 26 × ${workedDaysFy} days worked in FY ${fyStartYear}-${String(fyEndYear).slice(-2)}.`,
+            );
+          } else if (workedDaysFy <= 0) {
+            notes.push(
+              `Bonus = 0 (no WORKED_DAYS recorded for FY ${fyStartYear}-${String(fyEndYear).slice(-2)}).`,
+            );
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return {
+      pendingSalary,
+      leaveEncashment,
+      bonusArrears,
+      deductions: 0,
+      recoveries: 0,
+      notes,
     };
   }
 
@@ -3496,6 +3869,138 @@ export class PayrollService {
     }
     await this.fnfDocRepo.remove(doc);
     return { deleted: true };
+  }
+
+  /**
+   * Generate a settlement document PDF on-the-fly from F&F case data.
+   * Uses saved settlementBreakup if present, otherwise falls back to the
+   * auto-computed suggestion. Returns buffer + suggested filename for the
+   * controller to stream as a download.
+   */
+  async generateFnfDocumentPdf(
+    _user: ReqUser,
+    fnfId: string,
+    docType: string,
+    override?: {
+      pendingSalary?: number;
+      leaveEncashment?: number;
+      bonusArrears?: number;
+      deductions?: number;
+      recoveries?: number;
+      settlementAmount?: number;
+    },
+  ): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F case not found');
+
+    const allowed = [
+      'SETTLEMENT_STATEMENT',
+      'RELIEVING_LETTER',
+      'EXPERIENCE_CERTIFICATE',
+      'NO_DUES_CERTIFICATE',
+    ];
+    const dt = String(docType || '').toUpperCase();
+    if (!allowed.includes(dt)) {
+      throw new BadRequestException(
+        'Unsupported docType. Allowed: ' + allowed.join(', '),
+      );
+    }
+
+    const emp = await this.employeeRepo.findOne({
+      where: { id: fnf.employeeId },
+    });
+    const client = await this.clientRepo.findOne({
+      where: { id: fnf.clientId },
+    });
+
+    const computed = await this.computeFnfBreakup(fnf, emp);
+    const saved = (fnf.settlementBreakup as Record<string, unknown>) || {};
+    const hasSaved = Object.values(saved).some(
+      (v) => Number(v as number) > 0,
+    );
+    const hasOverride =
+      !!override &&
+      [
+        override.pendingSalary,
+        override.leaveEncashment,
+        override.bonusArrears,
+        override.deductions,
+        override.recoveries,
+      ].some((v) => v !== undefined && v !== null);
+    const pick = (
+      key: 'pendingSalary' | 'leaveEncashment' | 'bonusArrears' | 'deductions' | 'recoveries',
+    ): number => {
+      // Priority: explicit user override > saved breakup > computed.
+      if (hasOverride) {
+        const v = (override as Record<string, number | undefined>)[key];
+        if (v !== undefined && v !== null) return Number(v) || 0;
+      }
+      if (hasSaved && saved[key] !== undefined && saved[key] !== null) {
+        return Number(saved[key] as number) || 0;
+      }
+      return Number(
+        (computed as unknown as Record<string, number>)[key] || 0,
+      );
+    };
+    const breakup = {
+      pendingSalary: pick('pendingSalary'),
+      leaveEncashment: pick('leaveEncashment'),
+      bonusArrears: pick('bonusArrears'),
+      deductions: pick('deductions'),
+      recoveries: pick('recoveries'),
+    };
+
+    const computedNet =
+      breakup.pendingSalary +
+      breakup.leaveEncashment +
+      breakup.bonusArrears -
+      breakup.deductions -
+      breakup.recoveries;
+    const netAmount =
+      override?.settlementAmount !== undefined &&
+      override?.settlementAmount !== null
+        ? Number(override.settlementAmount) || 0
+        : fnf.settlementAmount !== null && fnf.settlementAmount !== undefined
+          ? Number(fnf.settlementAmount)
+          : computedNet;
+
+    const { generateFnfPdfBuffer } = await import('./utils/fnf-pdf');
+    const buffer = await generateFnfPdfBuffer({
+      docType: dt as
+        | 'SETTLEMENT_STATEMENT'
+        | 'RELIEVING_LETTER'
+        | 'EXPERIENCE_CERTIFICATE'
+        | 'NO_DUES_CERTIFICATE',
+      client: {
+        name: client?.clientName || 'Company',
+        address: client?.registeredAddress || null,
+        logoUrl: client?.logoUrl || null,
+      },
+      employee: {
+        name: emp?.name || 'Employee',
+        employeeCode: emp?.employeeCode || '-',
+        designation: emp?.designation || null,
+        department: emp?.department || null,
+        fatherName: emp?.fatherName || null,
+        dateOfJoining: emp?.dateOfJoining || null,
+        pan: emp?.pan || null,
+        uan: emp?.uan || null,
+      },
+      separation: {
+        separationDate: fnf.separationDate,
+        lastWorkingDay: fnf.lastWorkingDay,
+        reason: fnf.reason,
+      },
+      settlement: { ...breakup, netAmount },
+      issueDate: new Date().toISOString().slice(0, 10),
+      remarks: fnf.remarks,
+    });
+
+    const safeName = (emp?.name || 'employee')
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const filename = `${dt}_${safeName}_${emp?.employeeCode || ''}.pdf`;
+    return { buffer, filename, mimeType: 'application/pdf' };
   }
 
   async processPayrollRun(user: ReqUser, runId: string) {

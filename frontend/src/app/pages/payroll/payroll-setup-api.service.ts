@@ -36,6 +36,8 @@ export type PayrollClientSetup = {
   enableAdvanceRecovery: boolean;
   defaultDeductionCapPct: number;
   recoveryOrder: string;
+  wageBasisDays: 'FIXED_26' | 'CALENDAR_DAYS' | 'WORKING_DAYS';
+  otMultiplier: number;
 };
 
 export type PayrollComponent = {

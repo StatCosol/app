@@ -45,7 +45,7 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Compliance Tracker', route: '/crm/compliance-tracker', roles: ['CRM'] },
   { label: 'Returns / Filings', route: '/crm/returns', roles: ['CRM'] },
   { label: 'Schedule Audit', route: '/crm/audits', roles: ['CRM'] },
-  { label: 'Helpdesk', route: '/crm/helpdesk', roles: ['CRM'] },
+  { label: 'Helpdesk / Notifications', route: '/crm/helpdesk', roles: ['CRM'] },
   { label: 'Reports', route: '/crm/reports', roles: ['CRM'] },
   { label: 'Compliance Calendar', route: '/crm/calendar', roles: ['CRM'] },
   { label: 'Risk Heatmap', route: '/crm/heatmap', roles: ['CRM'] },
@@ -76,7 +76,7 @@ export const APP_MENUS: MenuItem[] = [
   // PAYROLL
   { label: 'Dashboard', route: '/payroll/dashboard', roles: ['PAYROLL'] },
   { label: 'Clients', route: '/payroll/clients', roles: ['PAYROLL'] },
-  { label: 'Runs', route: '/payroll/runs', roles: ['PAYROLL'] },
-  { label: 'Setup', route: '/payroll/setup', roles: ['PAYROLL'] },
-  { label: 'Registers', route: '/payroll/registers', roles: ['PAYROLL'] },
+  { label: 'Runs (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
+  { label: 'Setup (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
+  { label: 'Registers (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
 ];

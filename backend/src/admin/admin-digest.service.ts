@@ -188,7 +188,7 @@ export class AdminDigestService {
         weekly.lowestCompliance,
       );
 
-      await this.email.send(
+      await this.email.sendAuditMail(
         to,
         'Statco Weekly Compliance Digest',
         'Weekly Compliance Digest',
@@ -277,7 +277,7 @@ export class AdminDigestService {
         critical.overdueAudits30,
         critical.assignmentsPastDue,
       );
-      await this.email.send(
+      await this.email.sendAuditMail(
         to,
         'Statco Daily Critical Alerts',
         'Daily Critical Alerts',

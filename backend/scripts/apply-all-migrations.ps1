@@ -72,7 +72,7 @@ if (-not [string]::IsNullOrWhiteSpace($Password)) {
 
 $activeFiles = Get-ChildItem -Path $migrationsPath -File |
     Where-Object {
-        $_.Name -match '^(\d{8}|025)_.*\.sql$' -and
+        $_.Name -match '^(\d{8}[a-z]?|025)_.*\.sql$' -and
         $_.Name -notmatch '_rollback\.sql$'
     } |
     Sort-Object Name

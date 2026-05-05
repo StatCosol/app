@@ -192,6 +192,12 @@ export class EmployeeEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  /** UUID of the bulk import batch that created this employee. NULL for
+   * employees created via single-employee Register flow. Used by the
+   * "Revert last import" action to delete only the batch's rows. */
+  @Column({ name: 'bulk_import_batch_id', type: 'uuid', nullable: true })
+  bulkImportBatchId: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -33,7 +33,17 @@ export class StatutoryCalculatorService {
     esiApplicable?: boolean;
     pfServiceStartDate?: string | null;
     basicAtPfStart?: number | null;
-  }): { values: Record<string, number> } {
+    /**
+     * Payroll period month (1-12). Used to apply the ESI contribution-period rule:
+     *   April (4) starts H1 (Apr-Sep); October (10) starts H2 (Oct-Mar).
+     *   If the employee's ESI wage exceeds the threshold:
+     *     - At a period-start month → ESI is dropped for the period (and caller is
+     *       expected to flip the master `esiApplicable` flag off).
+     *     - In a mid-period month → ESI continues but capped at the threshold
+     *       (statutory max wage) until the period ends.
+     */
+    periodMonth?: number;
+  }): { values: Record<string, number>; esiDroppedAtPeriodStart?: boolean } {
     const { values, setup, components } = params;
     const empPfApplicable = params.pfApplicable;
     const empEsiApplicable = params.esiApplicable;
@@ -61,7 +71,17 @@ export class StatutoryCalculatorService {
       }
     }
 
-    result['GROSS'] = gross;
+    // OT_AMOUNT is not part of the EARNING components loop above (it's
+    // injected separately by the engine / processing service). Per business
+    // rule it is folded into the earned GROSS (so PT/LWF slabs see the true
+    // gross including overtime) and into the ESI wage base (per ESIC, ESI
+    // is payable on overtime). PF wage explicitly excludes OT.
+    const otAmountForEsi = Number(result['OT_AMOUNT'] ?? 0);
+    result['GROSS'] = gross + otAmountForEsi;
+    if (otAmountForEsi > 0) {
+      esiWage += otAmountForEsi;
+      anyEsiFlagSet = true;
+    }
 
     // When employee had 0 payable days (e.g. only prior-period arrears),
     // no current-month wages apply – skip PF/ESI
@@ -73,9 +93,11 @@ export class StatutoryCalculatorService {
 
     // ── PF ──
     if (setup.pfEnabled && empPfApplicable !== false) {
-      // Check PF gross threshold — skip PF when gross is at or below the threshold
+      // pfGrossThreshold no longer skips basic PF — it only controls whether
+      // the employer share is also recovered from the employee (PF_ER_FROM_EMP below).
+      // Basic 12% of capped basic always applies when PF is enabled for the employee.
       const pfGrossThreshold = Number(setup.pfGrossThreshold) || 0;
-      const pfApplicable = pfGrossThreshold === 0 || gross >= pfGrossThreshold;
+      const pfApplicable = true;
 
       if (pfApplicable) {
         if (pfWage === 0 && !anyPfFlagSet) pfWage = gross; // fallback only when no flags configured
@@ -105,21 +127,21 @@ export class StatutoryCalculatorService {
           : Math.max(0, totalErPf - epsContrib);
 
         result['PF_WAGES'] = pfWage;
-        result['PF_EMP'] = pfEmp;
-        result['PF_ER'] = totalErPf;
-        result['PF_EPS'] = epsContrib;
-        result['PF_DIFF'] = pfDiff;
+        result['PF_EMP'] = Math.ceil(pfEmp);
+        result['PF_ER'] = Math.ceil(totalErPf);
+        result['PF_EPS'] = Math.ceil(epsContrib);
+        result['PF_DIFF'] = Math.ceil(pfDiff);
         result['EPS_WAGES'] = epsWage;
 
         // When the employee's registered gross (ACTUAL_GROSS) meets or exceeds the PF gross
-        // threshold (or > 25 000 when no threshold is set), employer PF is also deducted from
-        // the employee's salary.
+        // threshold (or >= 25 000 when no threshold is set), employer PF is also deducted from
+        // the employee's salary so that total PF deduction reaches 25% of the capped basic.
         const actualGross = result['ACTUAL_GROSS'] ?? 0;
         if (pfGrossThreshold > 0) {
           result['PF_ER_FROM_EMP'] =
-            actualGross >= pfGrossThreshold ? totalErPf : 0;
+            actualGross >= pfGrossThreshold ? Math.ceil(totalErPf) : 0;
         } else {
-          result['PF_ER_FROM_EMP'] = actualGross > 25000 ? totalErPf : 0;
+          result['PF_ER_FROM_EMP'] = actualGross >= 25000 ? Math.ceil(totalErPf) : 0;
         }
       } else {
         result['PF_WAGES'] = 0;
@@ -142,17 +164,37 @@ export class StatutoryCalculatorService {
     }
 
     // ── ESI ──
+    let esiDroppedAtPeriodStart = false;
     if (setup.esiEnabled && empEsiApplicable !== false) {
       if (esiWage === 0 && !anyEsiFlagSet) esiWage = gross; // fallback only when no flags configured
 
       const threshold = Number(setup.esiWageCeiling) || 21000;
       result['ESI_WAGES'] = esiWage;
 
-      if (esiWage <= threshold) {
+      // ESI contribution-period rule (statutory, India):
+      //   Two periods — April–September (H1) and October–March (H2).
+      //   If wage exceeds the threshold:
+      //     - At the start of a period (April or October) the employee is removed
+      //       from ESI for that entire period.
+      //     - Mid-period, ESI continues to be deducted on the threshold (capped)
+      //       until the period ends.
+      const periodMonth = params.periodMonth;
+      const isPeriodStart = periodMonth === 4 || periodMonth === 10;
+      let effectiveEsiWage = esiWage;
+      if (esiWage > threshold) {
+        if (isPeriodStart) {
+          effectiveEsiWage = 0;
+          esiDroppedAtPeriodStart = true;
+        } else {
+          effectiveEsiWage = threshold;
+        }
+      }
+
+      if (effectiveEsiWage > 0) {
         const eeRate = Number(setup.esiEmployeeRate) || 0.75;
         const erRate = Number(setup.esiEmployerRate) || 3.25;
-        result['ESI_EMP'] = (esiWage * eeRate) / 100;
-        result['ESI_ER'] = (esiWage * erRate) / 100;
+        result['ESI_EMP'] = Math.ceil((effectiveEsiWage * eeRate) / 100);
+        result['ESI_ER'] = Math.ceil((effectiveEsiWage * erRate) / 100);
       } else {
         result['ESI_EMP'] = 0;
         result['ESI_ER'] = 0;
@@ -164,6 +206,8 @@ export class StatutoryCalculatorService {
       result['ESI_ER'] = 0;
     }
 
-    return { values: result };
+    return esiDroppedAtPeriodStart
+      ? { values: result, esiDroppedAtPeriodStart: true }
+      : { values: result };
   }
 }

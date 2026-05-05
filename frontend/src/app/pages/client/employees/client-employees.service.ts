@@ -28,6 +28,8 @@ export type Employee = {
   stateCode: string | null;
   ctc: number | null;
   monthlyGross: number | null;
+  pfApplicable: boolean;
+  esiApplicable: boolean;
   isActive: boolean;
   approvalStatus: string;
 };
@@ -189,6 +191,8 @@ export class ClientEmployeesService {
       stateCode: r?.stateCode ?? r?.state_code ?? null,
       ctc: r?.ctc != null ? Number(r.ctc) : null,
       monthlyGross: r?.monthlyGross != null ? Number(r.monthlyGross) : (r?.monthly_gross != null ? Number(r.monthly_gross) : null),
+      pfApplicable: !!(r?.pfApplicable ?? r?.pf_applicable ?? false),
+      esiApplicable: !!(r?.esiApplicable ?? r?.esi_applicable ?? false),
       isActive: r?.isActive ?? r?.is_active ?? true,
       approvalStatus: (r?.approvalStatus ?? r?.approval_status ?? 'APPROVED').toUpperCase(),
     };

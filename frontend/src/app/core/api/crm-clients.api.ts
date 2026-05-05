@@ -14,6 +14,10 @@ export interface BranchDto {
   status: string;
   stateCode?: string;
   establishmentType?: 'FACTORY' | 'ESTABLISHMENT' | 'WAREHOUSE' | 'SHOP' | 'HO' | 'BRANCH';
+  /** Branch-specific PF establishment code (optional). */
+  pfCode?: string | null;
+  /** Branch-specific ESI sub/establishment code (optional). */
+  esiCode?: string | null;
   createdAt?: string;
 }
 
@@ -26,6 +30,8 @@ export interface CreateBranchRequest {
   status?: string;
   stateCode?: string;
   establishmentType?: 'FACTORY' | 'ESTABLISHMENT' | 'WAREHOUSE' | 'SHOP' | 'HO' | 'BRANCH';
+  pfCode?: string | null;
+  esiCode?: string | null;
   branchUserName: string;
   branchUserEmail: string;
   branchUserMobile: string;

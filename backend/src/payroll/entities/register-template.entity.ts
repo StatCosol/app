@@ -49,6 +49,9 @@ export class RegisterTemplateEntity {
   @Column({ name: 'form_code', type: 'varchar', length: 30, nullable: true })
   formCode: string | null;
 
+  @Column({ name: 'rule_reference', type: 'varchar', length: 80, nullable: true })
+  ruleReference: string | null;
+
   @Column({
     name: 'register_mode',
     type: 'varchar',

@@ -67,7 +67,7 @@ try {
   // Collect active migration files
   const allFiles = await readdir(migrationsDir);
   let activeFiles = allFiles
-    .filter((f) => /^(\d{8}|025)_.*\.sql$/.test(f) || f === BASELINE_FILE)
+    .filter((f) => /^(\d{8}[a-z]?|025)_.*\.sql$/.test(f) || f === BASELINE_FILE)
     .filter((f) => !EXCLUDED_FILES.has(f));
 
   if (!includeLegacy) {

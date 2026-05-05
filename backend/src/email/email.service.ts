@@ -3,26 +3,102 @@ import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { baseHtml } from './email.templates';
 
+type Transporter = ReturnType<typeof nodemailer.createTransport>;
+
 @Injectable()
 export class EmailService {
   private readonly log = new Logger(EmailService.name);
   private readonly enabled: boolean;
-  private readonly transporter: ReturnType<typeof nodemailer.createTransport>;
+
+  /**
+   * Map of authenticated SMTP user (lower-cased email) -> transporter.
+   * Lets us send From: each mailbox without Zoho 553 relay rejection.
+   */
+  private readonly transporters = new Map<string, Transporter>();
+  private readonly defaultTransporter: Transporter;
+  private readonly defaultUser: string;
 
   constructor(private readonly config: ConfigService) {
     this.enabled =
       config.get<string>('EMAIL_ENABLED', 'false').toLowerCase() === 'true';
 
-    this.transporter = nodemailer.createTransport({
-      host: config.get<string>('SMTP_HOST'),
-      port: config.get<number>('SMTP_PORT', 587),
-      secure:
-        config.get<string>('SMTP_SECURE', 'false').toLowerCase() === 'true',
-      auth: {
-        user: config.get<string>('SMTP_USER'),
-        pass: config.get<string>('SMTP_PASS'),
-      },
-    });
+    const host = config.get<string>('SMTP_HOST');
+    const port = config.get<number>('SMTP_PORT', 587);
+    const secure =
+      config.get<string>('SMTP_SECURE', 'false').toLowerCase() === 'true';
+
+    const build = (user?: string, pass?: string): Transporter | null => {
+      if (!user || !pass) return null;
+      return nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: { user, pass },
+      });
+    };
+
+    const register = (user?: string, pass?: string) => {
+      const t = build(user, pass);
+      if (t && user) {
+        this.transporters.set(user.toLowerCase(), t);
+      }
+      return t;
+    };
+
+    // Per-mailbox transporters (preferred)
+    register(
+      config.get<string>('SMTP_FINANCE_USER'),
+      config.get<string>('SMTP_FINANCE_PASS'),
+    );
+    register(
+      config.get<string>('SMTP_AUDIT_USER'),
+      config.get<string>('SMTP_AUDIT_PASS'),
+    );
+    register(
+      config.get<string>('SMTP_PAYROLL_USER'),
+      config.get<string>('SMTP_PAYROLL_PASS'),
+    );
+
+    // Legacy single-mailbox transporter (acts as fallback / default)
+    const legacyUser = config.get<string>('SMTP_USER');
+    const legacyPass = config.get<string>('SMTP_PASS');
+    const legacy = register(legacyUser, legacyPass);
+
+    // Default = legacy if present, else finance, else any registered transporter
+    this.defaultUser = (
+      legacyUser ||
+      config.get<string>('SMTP_FINANCE_USER') ||
+      config.get<string>('SMTP_AUDIT_USER') ||
+      config.get<string>('SMTP_PAYROLL_USER') ||
+      ''
+    ).toLowerCase();
+    this.defaultTransporter =
+      legacy ||
+      this.transporters.get(this.defaultUser) ||
+      this.transporters.values().next().value!;
+  }
+
+  /**
+   * Pick the transporter whose authenticated user matches the desired From
+   * address. Falls back to the default transporter and rewrites `from` to the
+   * default user so Zoho doesn't reject with 553 (sender not allowed to relay).
+   */
+  private pickTransport(fromEmail: string): {
+    transporter: Transporter;
+    fromUser: string;
+  } {
+    const wanted = (fromEmail || '').toLowerCase();
+    const t = this.transporters.get(wanted);
+    if (t) return { transporter: t, fromUser: wanted };
+    if (wanted && wanted !== this.defaultUser) {
+      this.log.warn(
+        `No SMTP transporter for ${wanted}; falling back to ${this.defaultUser}`,
+      );
+    }
+    return {
+      transporter: this.defaultTransporter,
+      fromUser: this.defaultUser,
+    };
   }
 
   async send(
@@ -54,15 +130,18 @@ export class EmailService {
     const fromName =
       fromOverride?.name ||
       this.config.get<string>('SMTP_FROM_NAME', 'StatCo Solutions');
-    const fromEmail =
+    const requestedFrom =
       fromOverride?.email ||
       this.config.get<string>('SMTP_FROM_EMAIL') ||
-      this.config.get<string>('SMTP_USER', '');
+      this.defaultUser;
+
+    const { transporter, fromUser } = this.pickTransport(requestedFrom);
+    const fromEmail = fromUser; // must match authenticated SMTP user
 
     const html = baseHtml(title, bodyHtml);
 
     try {
-      const info = await this.transporter.sendMail({
+      const info = await transporter.sendMail({
         from: `${fromName} <${fromEmail}>`,
         to,
         cc: extras?.cc,
@@ -74,7 +153,7 @@ export class EmailService {
       return { ok: true, messageId: info.messageId } as const;
     } catch (e: unknown) {
       const msg = (e as Error)?.message || String(e);
-      this.log.error(`Email send failed: ${msg}`);
+      this.log.error(`Email send failed (from=${fromEmail}): ${msg}`);
       return { ok: false, error: msg } as const;
     }
   }
@@ -115,5 +194,34 @@ export class EmailService {
       .split(',')
       .map((s) => s.trim())
       .filter((s) => !!s);
+  }
+
+  /**
+   * Send a payroll-related email from the dedicated payroll mailbox
+   * (defaults to payroll_audit@statcosol.com; override via
+   * PAYROLL_FROM_EMAIL / PAYROLL_FROM_NAME). Use for salary slips,
+   * PF/ESI notifications, and any payroll cron output.
+   */
+  async sendPayrollMail(
+    to: string | string[],
+    subject: string,
+    title: string,
+    bodyHtml: string,
+    extras?: { cc?: string | string[]; bcc?: string | string[] },
+  ) {
+    return this.send(
+      to,
+      subject,
+      title,
+      bodyHtml,
+      {
+        name: this.config.get<string>('PAYROLL_FROM_NAME', 'StatCo Payroll'),
+        email: this.config.get<string>(
+          'PAYROLL_FROM_EMAIL',
+          'payroll_audit@statcosol.com',
+        ),
+      },
+      extras,
+    );
   }
 }

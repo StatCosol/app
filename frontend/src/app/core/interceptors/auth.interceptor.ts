@@ -11,7 +11,6 @@ import {
   Observable,
   catchError,
   filter,
-  finalize,
   switchMap,
   take,
   throwError,
@@ -81,19 +80,20 @@ export function authInterceptor(
         refreshTokenSubject.next(null);
 
         return authService.refreshAccessToken().pipe(
-          switchMap((newToken) => {
-            refreshTokenSubject.next(newToken);
-            return next(req.clone({
-              setHeaders: { Authorization: `Bearer ${newToken}` },
-            }));
-          }),
+          // Logout ONLY on refresh failure — not on retry failure
           catchError((refreshError) => {
             refreshTokenSubject.next('REFRESH_FAILED');
+            isRefreshing = false;
             authService.logoutOnce('refresh failed', isEssPath);
             return throwError(() => refreshError);
           }),
-          finalize(() => {
+          switchMap((newToken) => {
+            refreshTokenSubject.next(newToken);
             isRefreshing = false;
+            // Retry original request with the new token
+            return next(req.clone({
+              setHeaders: { Authorization: `Bearer ${newToken}` },
+            }));
           }),
         );
       }

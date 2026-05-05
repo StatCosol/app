@@ -83,6 +83,7 @@ export class StructureResolverService {
       .where('s.client_id = :clientId', { clientId })
       .andWhere('s.scope_type = :scope', { scope })
       .andWhere('s.is_active = true')
+      .andWhere(`s.approval_status = 'APPROVED'`)
       .andWhere('s.effective_from <= :asOf', { asOf: asOfDate })
       .andWhere('(s.effective_to IS NULL OR s.effective_to >= :asOf)', {
         asOf: asOfDate,

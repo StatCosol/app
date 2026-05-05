@@ -18,6 +18,8 @@ import {
   StatutoryConfig,
   CreateClientStructurePayload,
   CalculatePayrollResult,
+  EffectiveComponent,
+  ComponentOverridePayload,
 } from './payroll-engine-api.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
 import { ToastService } from '../../shared/toast/toast.service';
@@ -127,7 +129,18 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
   selectedStructure: ClientStructure | null = null;
 
   // View mode
-  view: 'list' | 'form' | 'detail' = 'list';
+  view: 'list' | 'form' | 'detail' | 'overrides' = 'list';
+
+  // Per-client component overrides
+  overrides: EffectiveComponent[] = [];
+  overrideEdits: Record<string, {
+    displayOrder: number | null;
+    showOnPayslip: boolean;
+    labelOverride: string;
+    formulaOverride: string;
+  }> = {};
+  overrideDirty = new Set<string>();
+  overridesLoading = false;
 
   // Form
   structureForm = {
@@ -527,6 +540,107 @@ export class ClientPayrollConfigComponent implements OnInit, OnDestroy {
     this.previewResult = null;
     this.cdr.markForCheck();
   }
+
+  /* ── Per-Client Component Overrides ──────────────────────────────────────── */
+
+  openOverrides(): void {
+    if (!this.selectedClientId) {
+      this.toast.error('Select a client first');
+      return;
+    }
+    this.view = 'overrides';
+    this.loadOverrides();
+  }
+
+  loadOverrides(): void {
+    this.overridesLoading = true;
+    this.overrideDirty.clear();
+    this.cdr.markForCheck();
+    this.engineApi.getEffectiveComponents(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.overridesLoading = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: (rows) => {
+          this.overrides = rows ?? [];
+          this.overrideEdits = {};
+          for (const r of this.overrides) {
+            this.overrideEdits[r.componentId] = {
+              displayOrder: r.displayOrder,
+              showOnPayslip: !!r.showOnPayslip,
+              labelOverride: r.name ?? '',
+              formulaOverride: r.formula ?? '',
+            };
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => { this.toast.error('Failed to load effective components'); },
+      });
+  }
+
+  markOverrideDirty(componentId: string): void {
+    this.overrideDirty.add(componentId);
+    this.cdr.markForCheck();
+  }
+
+  isOverrideDirty(componentId: string): boolean {
+    return this.overrideDirty.has(componentId);
+  }
+
+  get overridesDirtyCount(): number { return this.overrideDirty.size; }
+
+  saveOverrides(): void {
+    if (!this.overrideDirty.size) {
+      this.toast.info('No changes to save');
+      return;
+    }
+    const items: ComponentOverridePayload[] = [];
+    for (const id of Array.from(this.overrideDirty)) {
+      const e = this.overrideEdits[id];
+      const original = this.overrides.find(o => o.componentId === id);
+      if (!e || !original) continue;
+      const payload: ComponentOverridePayload = { componentId: id };
+
+      const trimLabel = (e.labelOverride ?? '').trim();
+      // Only send labelOverride if it differs from the master code-derived name AND is non-empty
+      if (trimLabel && trimLabel !== original.code) {
+        payload.labelOverride = trimLabel;
+      }
+
+      const trimFormula = (e.formulaOverride ?? '').trim();
+      if (trimFormula) payload.formulaOverride = trimFormula;
+
+      if (e.displayOrder != null && !Number.isNaN(Number(e.displayOrder))) {
+        payload.displayOrder = Number(e.displayOrder);
+      }
+
+      payload.showOnPayslip = !!e.showOnPayslip;
+      items.push(payload);
+    }
+
+    this.saving = true;
+    this.cdr.markForCheck();
+    this.engineApi.saveComponentOverrides(this.selectedClientId, items)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.saving = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: (rows) => {
+          this.toast.success(`Saved ${items.length} override${items.length === 1 ? '' : 's'}`);
+          this.overrides = rows ?? [];
+          this.overrideDirty.clear();
+          this.overrideEdits = {};
+          for (const r of this.overrides) {
+            this.overrideEdits[r.componentId] = {
+              displayOrder: r.displayOrder,
+              showOnPayslip: !!r.showOnPayslip,
+              labelOverride: r.name ?? '',
+              formulaOverride: r.formula ?? '',
+            };
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => { this.toast.error('Failed to save overrides'); },
+      });
+  }
+
+  trackOverride(_i: number, c: EffectiveComponent): string { return c.componentId; }
 
   /* ── Preview helpers ────────────────────────────────────────────────────── */
 

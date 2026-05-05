@@ -56,12 +56,11 @@ export class RejectionMailService {
     `;
 
     try {
-      await this.emailService.send(
+      await this.emailService.sendAuditMail(
         recipients,
         subject,
         subject,
         bodyHtml,
-        undefined,
         ccList.length ? { cc: ccList } : undefined,
       );
     } catch (e: any) {

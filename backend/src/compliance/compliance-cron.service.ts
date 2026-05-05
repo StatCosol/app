@@ -127,7 +127,7 @@ export class ComplianceCronService {
             where: { id: t.assignedByUserId },
           });
           if (crm?.email) {
-            await this.email.send(
+            await this.email.sendAuditMail(
               crm.email,
               `Task Overdue #${taskId}`,
               'Compliance Task Overdue',
@@ -140,7 +140,7 @@ export class ComplianceCronService {
             where: { id: t.assignedToUserId },
           });
           if (contractor?.email) {
-            await this.email.send(
+            await this.email.sendAuditMail(
               contractor.email,
               `Task Overdue #${taskId}`,
               'Compliance Task Overdue',

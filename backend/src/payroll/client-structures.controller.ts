@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { ClientStructuresService } from './client-structures.service';
@@ -13,6 +14,7 @@ import {
   ClientPayrollCalculationService,
   CalculatePayrollInput,
 } from './client-payroll-calculation.service';
+import { StateSlabService } from './services/state-slab.service';
 import {
   CalculatePayrollDto,
   CreateClientStructureDto,
@@ -25,6 +27,7 @@ export class ClientStructuresController {
   constructor(
     private readonly structures: ClientStructuresService,
     private readonly calculation: ClientPayrollCalculationService,
+    private readonly stateSlab: StateSlabService,
   ) {}
 
   /** Create a new client payroll structure with components + statutory config. */
@@ -83,5 +86,30 @@ export class ClientStructuresController {
     };
 
     return this.calculation.calculate(structure, input);
+  }
+
+  /**
+   * List the effective state slabs (PT / LWF) used by the payroll engine
+   * for this client + state. Walks the same fallback chain as
+   * StateSlabService.resolveAmount so the UI shows exactly what runs.
+   */
+  @Get('state-slabs/:clientId')
+  listStateSlabs(
+    @Param('clientId') clientId: string,
+    @Query('stateCode') stateCode: string,
+    @Query('componentCode') componentCode?: string,
+  ) {
+    const codes = componentCode
+      ? [componentCode]
+      : ['PT', 'LWF_EMP', 'LWF_ER'];
+    return Promise.all(
+      codes.map((code) =>
+        this.stateSlab.listEffective({
+          clientId,
+          stateCode: stateCode || 'ALL',
+          componentCode: code,
+        }),
+      ),
+    );
   }
 }
