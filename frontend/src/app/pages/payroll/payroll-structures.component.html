@@ -93,6 +93,7 @@
               <th>Scope</th>
               <th>Scope Target</th>
               <th>Effective</th>
+              <th>Approval</th>
               <th>Status</th>
               <th class="text-right">Actions</th>
             </tr>
@@ -113,8 +114,42 @@
                 <div>{{ formatDate(row.effectiveFrom) }}</div>
                 <div class="minor">to {{ formatDate(row.effectiveTo) }}</div>
               </td>
+              <td>
+                <span [class]="approvalStatusClass(row.approvalStatus)">{{ row.approvalStatus }}</span>
+                <div class="minor" *ngIf="row.approvalStatus === 'REJECTED' && row.rejectionReason" [title]="row.rejectionReason">
+                  {{ row.rejectionReason | slice:0:40 }}{{ (row.rejectionReason.length || 0) > 40 ? '…' : '' }}
+                </div>
+              </td>
               <td><span [class]="structureStatusClass(row.isActive)">{{ row.isActive ? 'Active' : 'Inactive' }}</span></td>
               <td class="text-right">
+                <button
+                  type="button"
+                  class="link"
+                  *ngIf="canSubmit(row)"
+                  [disabled]="saving"
+                  (click)="submitForApproval(row); $event.stopPropagation()"
+                >Submit</button>
+                <button
+                  type="button"
+                  class="link"
+                  *ngIf="canApprove(row)"
+                  [disabled]="saving"
+                  (click)="approveStructure(row); $event.stopPropagation()"
+                >Approve</button>
+                <button
+                  type="button"
+                  class="link link-danger"
+                  *ngIf="canReject(row)"
+                  [disabled]="saving"
+                  (click)="rejectStructure(row); $event.stopPropagation()"
+                >Reject</button>
+                <button
+                  type="button"
+                  class="link"
+                  *ngIf="canWithdraw(row)"
+                  [disabled]="saving"
+                  (click)="withdrawStructure(row); $event.stopPropagation()"
+                >Withdraw</button>
                 <button
                   type="button"
                   class="link"
@@ -149,8 +184,11 @@
       <article class="card" *ngIf="selectedStructure as selected; else selectPrompt">
         <header class="section-head">
           <h2>{{ selected.name }}</h2>
-          <span [class]="structureStatusClass(!!selected.isActive)">
-            {{ selected.isActive ? 'Active' : 'Inactive' }}
+          <span class="badge-row">
+            <span [class]="approvalStatusClass(selected.approvalStatus)">{{ selected.approvalStatus }}</span>
+            <span [class]="structureStatusClass(!!selected.isActive)">
+              {{ selected.isActive ? 'Active' : 'Inactive' }}
+            </span>
           </span>
         </header>
 
@@ -179,6 +217,34 @@
 
         <div class="action-row">
           <button class="btn btn-secondary" type="button" (click)="openCreateItem()">+ Add Mapping Item</button>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            *ngIf="canSubmit(selected)"
+            [disabled]="saving"
+            (click)="submitForApproval(selected)"
+          >Submit for Approval</button>
+          <button
+            class="btn btn-primary"
+            type="button"
+            *ngIf="canApprove(selected)"
+            [disabled]="saving"
+            (click)="approveStructure(selected)"
+          >Approve</button>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            *ngIf="canReject(selected)"
+            [disabled]="saving"
+            (click)="rejectStructure(selected)"
+          >Reject</button>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            *ngIf="canWithdraw(selected)"
+            [disabled]="saving"
+            (click)="withdrawStructure(selected)"
+          >Withdraw</button>
           <button
             class="btn btn-primary"
             type="button"
@@ -596,6 +662,74 @@
             {{ comp.label }}
           </button>
         </div>
+
+        <div style="margin-top:10px; border-top:1px dashed var(--border, #ccc); padding-top:8px;">
+          <button type="button" (click)="toggleVisualBuilder()">
+            {{ showVisualBuilder ? 'Hide' : 'Show' }} Visual (no-code) Builder
+          </button>
+          <p *ngIf="showVisualBuilder" class="minor" style="margin:6px 0;">
+            Edits below auto-serialize into the Formula textarea above.
+          </p>
+          <app-formula-builder
+            *ngIf="showVisualBuilder"
+            [variables]="visualBuilderVariables"
+            [value]="visualFormulaNode"
+            (valueChange)="onVisualFormulaChange($event)"
+          ></app-formula-builder>
+          <div *ngIf="visualBuilderError" class="minor" style="color:var(--danger, #b00); margin-top:6px;">
+            {{ visualBuilderError }}
+          </div>
+        </div>
+      </div>
+
+      <div class="span-2 token-block" *ngIf="itemForm.calcMethod === 'SLAB'">
+        <strong>Slab Editor</strong>
+        <p>
+          Lookup base = <code>GROSS</code> (falls back to <code>BASIC</code>).
+          Each row maps a <em>from–to</em> range to a fixed amount or a percent of the base.
+          Set either <em>Amount</em> or <em>Percent</em> per row, not both.
+          Leave <em>To</em> blank for an open-ended top slab.
+        </p>
+        <table class="slab-grid">
+          <thead>
+            <tr>
+              <th style="width:24px;">#</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Amount</th>
+              <th>Percent (%)</th>
+              <th class="text-right" style="width:120px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of itemForm.slabs; let i = index; trackBy: trackSlab">
+              <td class="mono">{{ i + 1 }}</td>
+              <td>
+                <input type="number" min="0" name="slab-from-{{ i }}" [(ngModel)]="row.from" />
+              </td>
+              <td>
+                <input type="number" min="0" name="slab-to-{{ i }}" [(ngModel)]="row.to" placeholder="(open)" />
+              </td>
+              <td>
+                <input type="number" min="0" name="slab-amt-{{ i }}" [(ngModel)]="row.amount" [disabled]="row.percent != null && (row.percent + '') !== ''" />
+              </td>
+              <td>
+                <input type="number" min="0" max="100" step="0.01" name="slab-pct-{{ i }}" [(ngModel)]="row.percent" [disabled]="row.amount != null && (row.amount + '') !== ''" />
+              </td>
+              <td class="text-right">
+                <button type="button" class="link" [disabled]="i === 0" (click)="moveSlab(i, -1)" title="Move up">&uarr;</button>
+                <button type="button" class="link" [disabled]="i === itemForm.slabs.length - 1" (click)="moveSlab(i, 1)" title="Move down">&darr;</button>
+                <button type="button" class="link link-danger" (click)="removeSlab(i)" title="Remove row">&times;</button>
+              </td>
+            </tr>
+            <tr *ngIf="!itemForm.slabs.length">
+              <td colspan="6" class="empty-mini">No slabs configured. Click "+ Add Slab" to begin.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="token-row" style="margin-top:6px;">
+          <button type="button" class="btn btn-secondary" (click)="addSlab()">+ Add Slab</button>
+        </div>
       </div>
 
       <label>
@@ -624,6 +758,58 @@
         <input autocomplete="off" id="ps-enabled" type="checkbox" name="itemEnabled" [(ngModel)]="itemForm.enabled" />
         Enabled
       </label>
+    </div>
+
+    <div class="live-preview-panel">
+      <header class="lp-header">
+        <strong>Live Preview</strong>
+        <small>Test this component against sample variable values without saving.</small>
+      </header>
+      <div class="lp-body">
+        <label class="lp-inputs">
+          Sample inputs (KEY=value, one per line)
+          <textarea
+            autocomplete="off"
+            rows="3"
+            name="livePreviewInputs"
+            [(ngModel)]="livePreviewInputsText"
+            placeholder="GROSS=25000&#10;BASIC=12500&#10;HRA=5000"
+          ></textarea>
+        </label>
+        <div class="lp-actions">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="livePreviewBusy"
+            (click)="runLivePreview()"
+          >
+            {{ livePreviewBusy ? 'Computing…' : 'Compute' }}
+          </button>
+        </div>
+      </div>
+      <div class="lp-error" *ngIf="livePreviewError">
+        <strong>Error:</strong> {{ livePreviewError }}
+      </div>
+      <div class="lp-result" *ngIf="livePreviewResult && !livePreviewError">
+        <div class="lp-row">
+          <span class="lp-label">Computed value</span>
+          <span class="lp-value">₹ {{ livePreviewResult.value | number:'1.2-2' }}</span>
+        </div>
+        <div class="lp-row" *ngIf="livePreviewResult.rawValue !== livePreviewResult.value">
+          <span class="lp-label">Raw (pre-rounding/min-max)</span>
+          <span class="lp-value">₹ {{ livePreviewResult.rawValue | number:'1.2-2' }}</span>
+        </div>
+        <div class="lp-row" *ngIf="livePreviewResult.baseAmount !== undefined">
+          <span class="lp-label">Base amount used</span>
+          <span class="lp-value">₹ {{ livePreviewResult.baseAmount | number:'1.2-2' }}</span>
+        </div>
+        <div class="lp-resolved" *ngIf="livePreviewInputKeys().length">
+          <em>Resolved inputs:</em>
+          <span *ngFor="let k of livePreviewInputKeys()" class="lp-chip">
+            {{ k }} = {{ livePreviewResult.resolvedInputs[k] | number:'1.0-2' }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <footer>

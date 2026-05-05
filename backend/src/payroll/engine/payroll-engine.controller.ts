@@ -21,9 +21,15 @@ import { PayRuleSetEntity } from '../entities/pay-rule-set.entity';
 import { PayRuleParameterEntity } from '../entities/pay-rule-parameter.entity';
 import { PaySalaryStructureEntity } from '../entities/pay-salary-structure.entity';
 import { PaySalaryStructureItemEntity } from '../entities/pay-salary-structure-item.entity';
+import { PayFormulaTemplateEntity } from '../entities/pay-formula-template.entity';
+import { PaySalaryStructureVersionEntity } from '../entities/pay-salary-structure-version.entity';
 import { PayrollEngineService } from './payroll-engine.service';
+import { serializeFormula, FormulaNode } from './formula-serializer';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
 import {
   PreviewEmployeeDto,
+  PreviewComponentDto,
   CreateRuleSetDto,
   UpdateRuleSetDto,
   CreateParameterDto,
@@ -39,7 +45,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @ApiBearerAuth('JWT')
 @Controller({ path: 'payroll/engine', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('PAYROLL', 'ADMIN')
+@Roles('PAYROLL', 'ADMIN', 'CCO')
 export class PayrollEngineController {
   constructor(
     private readonly engineSvc: PayrollEngineService,
@@ -51,6 +57,10 @@ export class PayrollEngineController {
     private readonly structureRepo: Repository<PaySalaryStructureEntity>,
     @InjectRepository(PaySalaryStructureItemEntity)
     private readonly itemRepo: Repository<PaySalaryStructureItemEntity>,
+    @InjectRepository(PayFormulaTemplateEntity)
+    private readonly templateRepo: Repository<PayFormulaTemplateEntity>,
+    @InjectRepository(PaySalaryStructureVersionEntity)
+    private readonly versionRepo: Repository<PaySalaryStructureVersionEntity>,
   ) {}
 
   // ── Engine Processing ──────────────────────────
@@ -65,6 +75,33 @@ export class PayrollEngineController {
   @Post('preview')
   async previewEmployee(@Body() body: PreviewEmployeeDto) {
     return this.engineSvc.previewEmployee(body);
+  }
+
+  @ApiOperation({ summary: 'Preview Single Component (live editor)' })
+  @Post('preview-component')
+  async previewComponent(@Body() body: PreviewComponentDto) {
+    return this.engineSvc.previewComponent(body);
+  }
+
+  @ApiOperation({
+    summary: 'Serialize Formula JSON to text expression (visual builder)',
+  })
+  @Post('formula/serialize')
+  serializeFormulaEndpoint(
+    @Body() body: { formulaJson?: unknown },
+  ): { formulaText: string } {
+    if (!body?.formulaJson) {
+      throw new BadRequestException('formulaJson is required');
+    }
+    try {
+      return {
+        formulaText: serializeFormula(body.formulaJson as FormulaNode),
+      };
+    } catch (err) {
+      throw new BadRequestException(
+        (err as Error).message || 'Invalid formulaJson',
+      );
+    }
   }
 
   // ── Rule Sets CRUD ─────────────────────────────
@@ -303,14 +340,55 @@ export class PayrollEngineController {
 
   // ── Salary Structures CRUD ─────────────────────
 
+  @ApiOperation({ summary: 'List Approval Queue (PENDING structures across clients)' })
+  @Get('structures/approval-queue')
+  @Roles('CCO', 'ADMIN')
+  async listApprovalQueue(@Query('status') status?: string) {
+    const allowed = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'];
+    const s = (status || 'PENDING').toUpperCase();
+    if (!allowed.includes(s)) {
+      throw new BadRequestException(
+        `status must be one of ${allowed.join(', ')}`,
+      );
+    }
+    const rows = await this.structureRepo
+      .createQueryBuilder('ps')
+      .leftJoin('clients', 'c', 'c.id = ps.client_id')
+      .addSelect('c.client_name', 'clientName')
+      .where('ps.approval_status = :s', { s })
+      .orderBy('ps.submitted_at', 'DESC', 'NULLS LAST')
+      .addOrderBy('ps.effective_from', 'DESC')
+      .getRawAndEntities();
+    return rows.entities.map((e, i) => ({
+      ...e,
+      clientName: rows.raw[i]?.clientName ?? null,
+    }));
+  }
+
   @ApiOperation({ summary: 'List Structures' })
   @Get('structures')
-  async listStructures(@Query('clientId') clientId: string) {
+  async listStructures(
+    @Query('clientId') clientId: string,
+    @Query('status') status?: string,
+  ) {
     if (!clientId?.trim()) {
       throw new BadRequestException('clientId is required');
     }
+    const where: { clientId: string; approvalStatus?: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' } = {
+      clientId: clientId.trim(),
+    };
+    if (status?.trim()) {
+      const allowed = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'];
+      const s = status.trim().toUpperCase();
+      if (!allowed.includes(s)) {
+        throw new BadRequestException(
+          `status must be one of ${allowed.join(', ')}`,
+        );
+      }
+      where.approvalStatus = s as 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    }
     return this.structureRepo.find({
-      where: { clientId: clientId.trim() },
+      where,
       order: { scopeType: 'ASC', effectiveFrom: 'DESC' },
     });
   }
@@ -427,6 +505,11 @@ export class PayrollEngineController {
     });
 
     if (isActive) {
+      if (structure.approvalStatus !== 'APPROVED') {
+        throw new ConflictException(
+          `Structure must be APPROVED before it can be activated (current: ${structure.approvalStatus})`,
+        );
+      }
       await this.assertStructureActivatable(
         structure.id,
         effectiveFrom,
@@ -503,6 +586,119 @@ export class PayrollEngineController {
     return { success: true };
   }
 
+  // ── Approval Workflow (Phase 2B) ───────────────
+  // Lifecycle: DRAFT → PENDING → APPROVED|REJECTED. Only APPROVED structures
+  // are picked up by the engine (resolver also gates on approval_status).
+  // Any item edit on an APPROVED structure auto-reverts it to DRAFT so it
+  // must be re-submitted and re-approved.
+
+  @ApiOperation({ summary: 'Submit Structure for Approval' })
+  @Post('structures/:id/submit')
+  async submitStructure(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const s = await this.structureRepo.findOne({ where: { id } });
+    if (!s) throw new NotFoundException('Structure not found');
+    if (s.approvalStatus === 'PENDING') {
+      throw new ConflictException('Structure is already pending approval');
+    }
+    if (s.approvalStatus === 'APPROVED') {
+      throw new ConflictException(
+        'Structure is already approved. Edit items to revert to DRAFT first.',
+      );
+    }
+    s.approvalStatus = 'PENDING';
+    s.submittedById = user?.userId ?? null;
+    s.submittedAt = new Date();
+    s.rejectedById = null;
+    s.rejectedAt = null;
+    s.rejectionReason = null;
+    return this.structureRepo.save(s);
+  }
+
+  @ApiOperation({ summary: 'Approve Structure' })
+  @Post('structures/:id/approve')
+  @Roles('CCO')
+  async approveStructure(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const s = await this.structureRepo.findOne({ where: { id } });
+    if (!s) throw new NotFoundException('Structure not found');
+    if (s.approvalStatus !== 'PENDING') {
+      throw new ConflictException(
+        `Only PENDING structures can be approved (current: ${s.approvalStatus})`,
+      );
+    }
+    if (user?.userId && s.submittedById && user.userId === s.submittedById) {
+      throw new ConflictException(
+        'Submitter cannot approve their own structure changes',
+      );
+    }
+    s.approvalStatus = 'APPROVED';
+    s.approvedById = user?.userId ?? null;
+    s.approvedAt = new Date();
+    return this.structureRepo.save(s);
+  }
+
+  @ApiOperation({ summary: 'Reject Structure' })
+  @Post('structures/:id/reject')
+  @Roles('CCO')
+  async rejectStructure(
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: ReqUser,
+  ) {
+    const s = await this.structureRepo.findOne({ where: { id } });
+    if (!s) throw new NotFoundException('Structure not found');
+    if (s.approvalStatus !== 'PENDING') {
+      throw new ConflictException(
+        `Only PENDING structures can be rejected (current: ${s.approvalStatus})`,
+      );
+    }
+    const reason = (body?.reason ?? '').trim();
+    if (!reason) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+    s.approvalStatus = 'REJECTED';
+    s.rejectedById = user?.userId ?? null;
+    s.rejectedAt = new Date();
+    s.rejectionReason = reason.slice(0, 1000);
+    // Force-deactivate so a rejected version cannot be live.
+    s.isActive = false;
+    return this.structureRepo.save(s);
+  }
+
+  @ApiOperation({ summary: 'Withdraw Submission (PENDING → DRAFT)' })
+  @Post('structures/:id/withdraw')
+  async withdrawStructure(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const s = await this.structureRepo.findOne({ where: { id } });
+    if (!s) throw new NotFoundException('Structure not found');
+    if (s.approvalStatus !== 'PENDING') {
+      throw new ConflictException(
+        `Only PENDING structures can be withdrawn (current: ${s.approvalStatus})`,
+      );
+    }
+    if (
+      user?.userId &&
+      s.submittedById &&
+      user.userId !== s.submittedById &&
+      user.roleCode !== 'CCO'
+    ) {
+      throw new ConflictException(
+        'Only the submitter or a CCO can withdraw a pending submission',
+      );
+    }
+    s.approvalStatus = 'DRAFT';
+    s.submittedById = null;
+    s.submittedAt = null;
+    return this.structureRepo.save(s);
+  }
+
   // ── Structure Items CRUD ───────────────────────
 
   @ApiOperation({ summary: 'List Structure Items' })
@@ -520,13 +716,18 @@ export class PayrollEngineController {
   async createStructureItem(
     @Param('structureId') structureId: string,
     @Body() body: CreateStructureItemDto,
+    @CurrentUser() user: ReqUser,
   ) {
     await this.ensureStructureExists(structureId);
     if (!body?.componentId) {
       throw new BadRequestException('componentId is required');
     }
-    const item = this.itemRepo.create({ ...body, structureId });
-    return this.itemRepo.save(item);
+    await this.revertApprovalIfApproved(structureId);
+    const patch = this.applyFormulaJson(body);
+    const item = this.itemRepo.create({ ...patch, structureId });
+    const saved = await this.itemRepo.save(item);
+    await this.snapshotStructureVersion(structureId, 'item.create', user?.userId);
+    return saved;
   }
 
   @ApiOperation({ summary: 'Update Structure Item' })
@@ -535,14 +736,19 @@ export class PayrollEngineController {
     @Param('structureId') structureId: string,
     @Param('itemId') itemId: string,
     @Body() body: UpdateStructureItemDto,
+    @CurrentUser() user: ReqUser,
   ) {
     await this.ensureStructureExists(structureId);
     const item = await this.itemRepo.findOne({
       where: { id: itemId, structureId },
     });
     if (!item) throw new NotFoundException('Structure item not found');
-    this.itemRepo.merge(item, body as Partial<PaySalaryStructureItemEntity>);
-    return this.itemRepo.save(item);
+    await this.revertApprovalIfApproved(structureId);
+    const patch = this.applyFormulaJson(body);
+    this.itemRepo.merge(item, patch as Partial<PaySalaryStructureItemEntity>);
+    const saved = await this.itemRepo.save(item);
+    await this.snapshotStructureVersion(structureId, 'item.update', user?.userId);
+    return saved;
   }
 
   @ApiOperation({ summary: 'Delete Structure Item' })
@@ -550,13 +756,17 @@ export class PayrollEngineController {
   async deleteStructureItem(
     @Param('structureId') structureId: string,
     @Param('itemId') itemId: string,
+    @CurrentUser() user: ReqUser,
   ) {
     await this.ensureStructureExists(structureId);
     const item = await this.itemRepo.findOne({
       where: { id: itemId, structureId },
     });
     if (!item) throw new NotFoundException('Structure item not found');
-    return this.itemRepo.remove(item);
+    await this.revertApprovalIfApproved(structureId);
+    const removed = await this.itemRepo.remove(item);
+    await this.snapshotStructureVersion(structureId, 'item.delete', user?.userId);
+    return removed;
   }
 
   // ── Bulk update items (replace all items for a structure) ──
@@ -566,16 +776,197 @@ export class PayrollEngineController {
   async bulkUpdateItems(
     @Param('structureId') structureId: string,
     @Body() body: { items: CreateStructureItemDto[] },
+    @CurrentUser() user: ReqUser,
   ) {
     await this.ensureStructureExists(structureId);
     if (!body || !Array.isArray(body.items)) {
       throw new BadRequestException('items array is required');
     }
+    await this.revertApprovalIfApproved(structureId);
     await this.itemRepo.delete({ structureId });
     const items = body.items.map((item) =>
-      this.itemRepo.create({ ...item, structureId }),
+      this.itemRepo.create({ ...this.applyFormulaJson(item), structureId }),
     );
-    return this.itemRepo.save(items);
+    const saved = await this.itemRepo.save(items);
+    await this.snapshotStructureVersion(structureId, 'items.bulk', user?.userId);
+    return saved;
+  }
+
+  // ── Structure Versions (audit / restore) ──
+
+  @ApiOperation({ summary: 'List Structure Versions' })
+  @Get('structures/:structureId/versions')
+  async listStructureVersions(@Param('structureId') structureId: string) {
+    await this.ensureStructureExists(structureId);
+    return this.versionRepo.find({
+      where: { structureId },
+      order: { versionNo: 'DESC' },
+      take: 100,
+    });
+  }
+
+  // ── Formula Templates CRUD ──
+
+  @ApiOperation({ summary: 'List Formula Templates' })
+  @Get('formula-templates')
+  async listFormulaTemplates(
+    @Query('clientId') clientId?: string,
+    @Query('componentId') componentId?: string,
+  ) {
+    const qb = this.templateRepo
+      .createQueryBuilder('t')
+      .where('t.isActive = true');
+    if (clientId?.trim()) {
+      qb.andWhere('(t.clientId IS NULL OR t.clientId = :cid)', { cid: clientId.trim() });
+    } else {
+      qb.andWhere('t.clientId IS NULL');
+    }
+    if (componentId?.trim()) {
+      qb.andWhere('(t.componentId IS NULL OR t.componentId = :comp)', { comp: componentId.trim() });
+    }
+    return qb.orderBy('t.clientId', 'DESC').addOrderBy('t.name', 'ASC').getMany();
+  }
+
+  @ApiOperation({ summary: 'Create Formula Template' })
+  @Post('formula-templates')
+  async createFormulaTemplate(
+    @Body() body: {
+      name?: string;
+      description?: string | null;
+      clientId?: string | null;
+      componentId?: string | null;
+      formulaJson?: Record<string, unknown>;
+    },
+    @CurrentUser() user: ReqUser,
+  ) {
+    const name = this.requireTrimmed(body?.name, 'name');
+    if (!body?.formulaJson) throw new BadRequestException('formulaJson is required');
+    let formulaText: string;
+    try {
+      formulaText = serializeFormula(body.formulaJson as unknown as FormulaNode);
+    } catch (err) {
+      throw new BadRequestException((err as Error).message || 'Invalid formulaJson');
+    }
+    const tpl = this.templateRepo.create({
+      name,
+      description: this.optionalTrimmed(body.description),
+      clientId: body.clientId?.trim() || null,
+      componentId: body.componentId?.trim() || null,
+      formulaJson: body.formulaJson,
+      formulaText,
+      isActive: true,
+      createdById: user?.userId || null,
+    });
+    return this.templateRepo.save(tpl);
+  }
+
+  @ApiOperation({ summary: 'Update Formula Template' })
+  @Put('formula-templates/:id')
+  async updateFormulaTemplate(
+    @Param('id') id: string,
+    @Body() body: {
+      name?: string;
+      description?: string | null;
+      componentId?: string | null;
+      formulaJson?: Record<string, unknown>;
+      isActive?: boolean;
+    },
+  ) {
+    const tpl = await this.templateRepo.findOne({ where: { id } });
+    if (!tpl) throw new NotFoundException('Template not found');
+    if (body.name !== undefined) tpl.name = this.requireTrimmed(body.name, 'name');
+    if (body.description !== undefined) tpl.description = this.optionalTrimmed(body.description);
+    if (body.componentId !== undefined) tpl.componentId = body.componentId?.trim() || null;
+    if (body.isActive !== undefined) tpl.isActive = !!body.isActive;
+    if (body.formulaJson !== undefined && body.formulaJson !== null) {
+      try {
+        tpl.formulaText = serializeFormula(body.formulaJson as unknown as FormulaNode);
+      } catch (err) {
+        throw new BadRequestException((err as Error).message || 'Invalid formulaJson');
+      }
+      tpl.formulaJson = body.formulaJson;
+    }
+    return this.templateRepo.save(tpl);
+  }
+
+  @ApiOperation({ summary: 'Delete Formula Template' })
+  @Delete('formula-templates/:id')
+  async deleteFormulaTemplate(@Param('id') id: string) {
+    const tpl = await this.templateRepo.findOne({ where: { id } });
+    if (!tpl) throw new NotFoundException('Template not found');
+    await this.templateRepo.remove(tpl);
+    return { success: true };
+  }
+
+  /**
+   * Append a JSONB snapshot of all current items for the structure.
+   * Best-effort — never throws into the caller's response.
+   */
+  /**
+   * Editing items on an APPROVED structure invalidates that approval — flip
+   * it back to DRAFT and force-deactivate so the engine immediately stops
+   * picking it up until it is re-submitted and re-approved.
+   */
+  private async revertApprovalIfApproved(structureId: string): Promise<void> {
+    const s = await this.structureRepo.findOne({ where: { id: structureId } });
+    if (!s) return;
+    if (s.approvalStatus === 'APPROVED' || s.approvalStatus === 'PENDING') {
+      s.approvalStatus = 'DRAFT';
+      s.isActive = false;
+      s.submittedById = null;
+      s.submittedAt = null;
+      s.approvedById = null;
+      s.approvedAt = null;
+      await this.structureRepo.save(s);
+    }
+  }
+
+  private async snapshotStructureVersion(
+    structureId: string,
+    reason: string,
+    userId?: string | null,
+  ): Promise<void> {
+    try {
+      const items = await this.itemRepo.find({
+        where: { structureId },
+        order: { priority: 'ASC' },
+      });
+      const last = await this.versionRepo.findOne({
+        where: { structureId },
+        order: { versionNo: 'DESC' },
+      });
+      const versionNo = (last?.versionNo || 0) + 1;
+      await this.versionRepo.save(
+        this.versionRepo.create({
+          structureId,
+          versionNo,
+          itemsSnapshot: items as unknown as Record<string, unknown>[],
+          reason: reason.slice(0, 80),
+          changedById: userId || null,
+        }),
+      );
+    } catch (err) {
+      // Non-fatal: log to stderr and continue.
+      // eslint-disable-next-line no-console
+      console.error('[snapshotStructureVersion] failed', err);
+    }
+  }
+
+  /**
+   * If the caller submitted `formulaJson` (from the no-code Visual Formula
+   * Builder), serialize it to a text expression and store both. Plain text
+   * `formula` strings are passed through unchanged.
+   */
+  private applyFormulaJson<T extends CreateStructureItemDto>(body: T): T {
+    if (!body || !body.formulaJson) return body;
+    try {
+      const text = serializeFormula(body.formulaJson as unknown as FormulaNode);
+      return { ...body, formula: text };
+    } catch (err) {
+      throw new BadRequestException(
+        (err as Error).message || 'Invalid formula JSON',
+      );
+    }
   }
 
   private requireTrimmed(value: unknown, fieldName: string): string {
