@@ -77,10 +77,9 @@ interface SidebarItem {
           <div class="collapsed-menu">
             <a
               *ngFor="let link of collapsedLinks"
-              [routerLink]="link.route"
-              routerLinkActive="collapsed-active"
-              [routerLinkActiveOptions]="{ exact: true }"
-              (click)="onNavClick()"
+              [attr.href]="link.route"
+              [class.collapsed-active]="isActiveRoute(link, true)"
+              (click)="navigateTo(link.route, $event)"
               class="collapsed-icon"
             >
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
@@ -106,10 +105,9 @@ interface SidebarItem {
             <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
               <a
                 *ngFor="let item of group.items"
-                [routerLink]="item.route"
-                routerLinkActive="sidebar-active"
-                [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') || !!item.exact }"
-                (click)="onNavClick()"
+                [attr.href]="item.route"
+                [class.sidebar-active]="isActiveRoute(item)"
+                (click)="navigateTo(item.route, $event)"
                 class="sidebar-item"
               >
                 <span class="sidebar-icon" [innerHTML]="item.icon"></span>
@@ -474,10 +472,26 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  navigateTo(route: string, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    void this.router.navigateByUrl(route).then(() => {
+      this.onNavClick();
+    });
+  }
+
+  isActiveRoute(item: SidebarItem, forceExact = false): boolean {
+    const url = this.normalizeRoute(this.router.url);
+    const route = this.normalizeRoute(item.route);
+    const exact = forceExact || item.exact || item.route.endsWith('dashboard');
+    return exact ? url === route : url === route || url.startsWith(`${route}/`);
+  }
+
   private syncExpandedWithRoute(url: string): void {
     let matched = false;
     this.navGroups.forEach(g => {
-      const match = g.items.some(item => url.startsWith(item.route));
+      const match = g.items.some(item => this.routeMatches(url, item));
       g.expanded = match;
       if (match) matched = true;
     });
@@ -623,5 +637,16 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
     return this.sanitizer.bypassSecurityTrustHtml(
       `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`
     );
+  }
+
+  private routeMatches(url: string, item: SidebarItem): boolean {
+    const current = this.normalizeRoute(url);
+    const route = this.normalizeRoute(item.route);
+    const exact = item.exact || item.route.endsWith('dashboard');
+    return exact ? current === route : current === route || current.startsWith(`${route}/`);
+  }
+
+  private normalizeRoute(route: string): string {
+    return route.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   }
 }
