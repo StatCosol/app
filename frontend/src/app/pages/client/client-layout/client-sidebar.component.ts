@@ -460,13 +460,18 @@ export class ClientSidebarComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onNavClick(): void {
-    setTimeout(() => {
-      this.navGroups.forEach(g => g.expanded = false);
-      if (this.mobileOpen) {
+    // Only close the mobile drawer here. Group expand/collapse is handled by
+    // syncExpandedWithRoute() on NavigationEnd, which keeps the active group
+    // open for the page that just loaded. (Previously this collapsed all
+    // groups via setTimeout, which fired AFTER NavigationEnd and visually
+    // closed the just-clicked group, making users think nothing happened
+    // and click again — the "two clicks needed" bug.)
+    if (this.mobileOpen) {
+      setTimeout(() => {
         this.mobileOpen = false;
         this.mobileOpenChange.emit(false);
-      }
-    });
+      });
+    }
   }
 
   private syncExpandedWithRoute(url: string): void {

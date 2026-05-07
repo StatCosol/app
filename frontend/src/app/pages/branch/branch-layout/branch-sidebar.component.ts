@@ -558,12 +558,11 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   }
 
   onNavClick(): void {
-    setTimeout(() => {
-      this.navItems.forEach(n => { if (n.children) n.expanded = false; });
-      if (this.mobileOpen) {
-        this.closeMobile();
-      }
-    });
+    // Only close the mobile drawer; navItem expand/collapse should not be
+    // forced here (it visually hides the just-clicked item after navigation).
+    if (this.mobileOpen) {
+      setTimeout(() => this.closeMobile());
+    }
   }
 
   private buildNav(): SidebarItem[] {

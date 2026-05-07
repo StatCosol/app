@@ -441,13 +441,14 @@ export class AuditorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   onNavClick(): void {
-    setTimeout(() => {
-      this.navGroups.forEach(g => g.expanded = false);
-      if (this.mobileOpen) {
+    // Only close the mobile drawer; group expand/collapse is handled by
+    // syncExpandedWithRoute() on NavigationEnd, which keeps the active group open.
+    if (this.mobileOpen) {
+      setTimeout(() => {
         this.mobileOpen = false;
         this.mobileOpenChange.emit(false);
-      }
-    });
+      });
+    }
   }
 
   private syncExpandedWithRoute(url: string): void {
