@@ -15,6 +15,8 @@ import { BranchAccessService } from '../auth/branch-access.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'ADMIN')
@@ -25,6 +27,7 @@ export class LegitxComplianceStatusController {
   constructor(
     private readonly svc: LegitxComplianceStatusService,
     private readonly branchAccess: BranchAccessService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /** Overall compliance summary with KPIs and risk level */
@@ -117,6 +120,7 @@ export class LegitxComplianceStatusController {
 
     // Enforce branch scoping for CLIENT users
     let allowedBranchIds: string[] | 'ALL' = 'ALL';
+    let resolvedClientId: string | null = user.clientId ?? null;
     if (user.clientId) {
       allowedBranchIds = await this.branchAccess.getAllowedBranchIds(
         user.userId,
@@ -137,13 +141,29 @@ export class LegitxComplianceStatusController {
         // Auto-scope single-branch users
         q.branchId = allowedBranchIds[0];
       }
+    } else if (branchId) {
+      // Staff role with no tenant context (CEO/CCO/CRM/AUDITOR/ADMIN) but
+      // a specific branchId was requested. Derive that branch's clientId
+      // and constrain the query to it; otherwise the downstream task /
+      // audit-observation queries filter on branch_id alone, which works
+      // correctly when branchId is set, but the SQL `clientId = $1` guard
+      // gets a NULL and silently aggregates across all clients on the
+      // few queries that fall back to clientId-only filtering.
+      const rows: Array<{ clientid: string }> = await this.dataSource.query(
+        `SELECT clientid FROM client_branches WHERE id = $1 LIMIT 1`,
+        [branchId],
+      );
+      if (!rows.length) {
+        throw new ForbiddenException('Branch not found');
+      }
+      resolvedClientId = rows[0].clientid;
     }
 
     return {
       month: normalizedMonth,
       year: normalizedYear,
       branchId: q.branchId ?? branchId,
-      clientId: user.clientId ?? null,
+      clientId: resolvedClientId,
       allowedBranchIds,
       status: q.status ?? null,
       limit: normalizedLimit,

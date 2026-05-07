@@ -68,6 +68,22 @@ export class BranchDocumentsService {
     return now >= start && now <= end;
   }
 
+  /**
+   * Lightweight lookup for tenancy/branch checks at the controller layer
+   * (used before reupload to verify the requester owns the document's branch).
+   * Throws if doc not found or doesn't belong to the caller's client.
+   */
+  async getDocumentMeta(
+    docId: string,
+    clientId: string,
+  ): Promise<{ id: string; branchId: string; clientId: string }> {
+    const doc = await this.docRepo.findOne({ where: { id: docId } });
+    if (!doc || doc.clientId !== clientId) {
+      throw new NotFoundException('Document not found');
+    }
+    return { id: doc.id, branchId: doc.branchId, clientId: doc.clientId };
+  }
+
   /* ── list ────────────────────────────────── */
 
   async listByBranch(

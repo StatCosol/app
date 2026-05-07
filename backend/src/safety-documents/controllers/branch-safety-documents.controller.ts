@@ -194,8 +194,18 @@ export class BranchSafetyDocumentsController {
     const userId = user.id;
     const branchIds = await this.branchAccess.getUserBranchIds(userId);
 
-    if (branchIds.length > 0 && !branchIds.includes(doc.branchId)) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (branchIds.length > 0) {
+      // Branch-scoped user: must own the document's branch.
+      if (!branchIds.includes(doc.branchId)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } else {
+      // Master CLIENT user: must at least be in the same client tenant.
+      // Without this guard, a master could download any safety document
+      // by guessing the doc UUID.
+      if (!user.clientId || doc.clientId !== user.clientId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
 
     const { absolutePath, fileName, mimeType } =

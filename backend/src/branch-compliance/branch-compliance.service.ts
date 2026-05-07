@@ -1618,7 +1618,7 @@ export class BranchComplianceService {
     return resolved;
   }
 
-  private async assertBranchAccess(user: ReqUser, branchId: string) {
+  async assertBranchAccess(user: ReqUser, branchId: string) {
     try {
       await this.branchAccess.assertBranchAccess(
         user.userId ?? user.id,

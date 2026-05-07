@@ -130,6 +130,11 @@ export class ClientBranchDocumentsController {
         'Master user cannot perform this action. Only branch users can upload.',
       );
     }
+    // Verify the rejected document belongs to a branch this user is mapped to.
+    // Without this, any branch user in the same client can reupload any
+    // other branch's REJECTED document if they know the docId.
+    const docMeta = await this.svc.getDocumentMeta(docId, user.clientId!);
+    await this.branchAccess.assertBranchAccess(user.userId, docMeta.branchId);
     return this.svc.reupload(docId, user.clientId!, file, user.userId);
   }
 
@@ -185,6 +190,9 @@ export class ClientBranchDocumentsController {
     @CurrentUser() user: ReqUser,
     @Query('branchId') branchId?: string,
   ) {
+    if (branchId) {
+      await this.branchAccess.assertBranchAccess(user.userId, branchId);
+    }
     return this.regSvc.getAlerts(user.clientId!, branchId);
   }
 

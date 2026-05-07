@@ -103,6 +103,7 @@ export class BranchComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     const branchId = await this.svc.resolveBranchId(user, q.branchId);
+    await this.svc.assertBranchAccess(user, branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     return this.svc.calculateWeightedCompliance(branchId, user.clientId!, year);
   }
@@ -115,6 +116,7 @@ export class BranchComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     const branchId = await this.svc.resolveBranchId(user, q.branchId);
+    await this.svc.assertBranchAccess(user, branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     return this.svc.getBranchComplianceDashboard(user, branchId, year);
   }
@@ -127,6 +129,7 @@ export class BranchComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     const branchId = await this.svc.resolveBranchId(user, q.branchId);
+    await this.svc.assertBranchAccess(user, branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     return this.svc.getComplianceTrend(branchId, user.clientId!, year);
   }
@@ -139,6 +142,7 @@ export class BranchComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     const branchId = await this.svc.resolveBranchId(user, q.branchId);
+    await this.svc.assertBranchAccess(user, branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     return this.svc.calculateRiskExposure(branchId, user.clientId!, year);
   }
@@ -151,6 +155,7 @@ export class BranchComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     const branchId = await this.svc.resolveBranchId(user, q.branchId);
+    await this.svc.assertBranchAccess(user, branchId);
     const year = q.year ? Number(q.year) : new Date().getFullYear();
     return this.svc.getSidebarBadges(branchId, user.clientId!, year);
   }
