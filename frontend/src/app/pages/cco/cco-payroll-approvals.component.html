@@ -1,6 +1,7 @@
 <div class="page-wrap">
   <header class="page-head">
     <div>
+      <p class="eyebrow">Governance Review</p>
       <h1>Payroll Structure Approvals</h1>
       <p class="muted">Review payroll salary structures submitted by Payroll managers and approve or reject them.</p>
     </div>
@@ -15,16 +16,38 @@
     </div>
   </header>
 
-  <div *ngIf="loading" class="loader">Loading…</div>
+  <div class="summary-strip">
+    <div class="summary-card summary-card--pending">
+      <span class="summary-value">{{ structures.length }}</span>
+      <span class="summary-label">{{ statusFilter }} queue</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-value">{{ selected ? '1' : '0' }}</span>
+      <span class="summary-label">Selected</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-value">{{ selectedItems.length }}</span>
+      <span class="summary-label">Components</span>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loader">Loading...</div>
 
   <section *ngIf="!loading" class="grid">
     <article class="card list-pane">
       <header class="section-head">
-        <h2>{{ statusFilter }} structures</h2>
+        <div>
+          <h2>{{ statusFilter }} structures</h2>
+          <p>Salary structures awaiting governance review</p>
+        </div>
         <span>{{ structures.length }} rows</span>
       </header>
 
-      <div *ngIf="!structures.length" class="empty-mini">No structures match.</div>
+      <div *ngIf="!structures.length" class="empty-state">
+        <div class="empty-icon">✓</div>
+        <h3>No structures match</h3>
+        <p>There are no payroll structures for the selected approval status.</p>
+      </div>
 
       <div *ngIf="structures.length" class="table-wrap">
         <table>
@@ -40,12 +63,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of structures; trackBy: trackRow"
-                [class.selected]="selected?.id === row.id"
-                (click)="selectRow(row)">
+            <tr
+              *ngFor="let row of structures; trackBy: trackRow"
+              [class.selected]="selected?.id === row.id"
+              (click)="selectRow(row)">
               <td>
                 <div class="strong">{{ clientLabel(row) }}</div>
-                <div class="minor mono">{{ row.clientId.slice(0, 8) }}…</div>
+                <div class="minor mono">{{ row.clientId.slice(0, 8) }}...</div>
               </td>
               <td>
                 <div class="strong">{{ row.name }}</div>
@@ -62,12 +86,22 @@
               <td><span [class]="badgeClass(row.approvalStatus)">{{ row.approvalStatus }}</span></td>
               <td class="text-right">
                 <ng-container *ngIf="row.approvalStatus === 'PENDING'">
-                  <button type="button" class="link" [disabled]="acting"
-                    (click)="approve(row); $event.stopPropagation()">Approve</button>
-                  <button type="button" class="link link-danger" [disabled]="acting"
-                    (click)="reject(row); $event.stopPropagation()">Reject</button>
+                  <button
+                    type="button"
+                    class="link"
+                    [disabled]="acting"
+                    (click)="approve(row); $event.stopPropagation()">
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    class="link link-danger"
+                    [disabled]="acting"
+                    (click)="reject(row); $event.stopPropagation()">
+                    Reject
+                  </button>
                 </ng-container>
-                <span *ngIf="row.approvalStatus !== 'PENDING'" class="minor">—</span>
+                <span *ngIf="row.approvalStatus !== 'PENDING'" class="minor">-</span>
               </td>
             </tr>
           </tbody>
@@ -77,14 +111,17 @@
 
     <aside class="card detail-pane" *ngIf="selected as s">
       <header class="section-head">
-        <h2>{{ s.name }}</h2>
+        <div>
+          <h2>{{ s.name }}</h2>
+          <p>Approval detail and mapped components</p>
+        </div>
         <span [class]="badgeClass(s.approvalStatus)">{{ s.approvalStatus }}</span>
       </header>
 
       <dl class="kv">
         <dt>Client</dt><dd>{{ clientLabel(s) }}</dd>
         <dt>Scope</dt><dd>{{ scopeText(s) }}</dd>
-        <dt>Effective</dt><dd>{{ formatDate(s.effectiveFrom) }} → {{ formatDate(s.effectiveTo) }}</dd>
+        <dt>Effective</dt><dd>{{ formatDate(s.effectiveFrom) }} to {{ formatDate(s.effectiveTo) }}</dd>
         <dt>Submitted</dt><dd>{{ formatDateTime(s.submittedAt) }}</dd>
         <dt *ngIf="s.approvedAt">Approved</dt><dd *ngIf="s.approvedAt">{{ formatDateTime(s.approvedAt) }}</dd>
         <dt *ngIf="s.rejectedAt">Rejected</dt><dd *ngIf="s.rejectedAt">{{ formatDateTime(s.rejectedAt) }}</dd>
@@ -92,7 +129,7 @@
       </dl>
 
       <h3>Components</h3>
-      <div *ngIf="itemsLoading" class="muted">Loading items…</div>
+      <div *ngIf="itemsLoading" class="muted">Loading items...</div>
       <div *ngIf="!itemsLoading && !selectedItems.length" class="empty-mini">No mapped items.</div>
       <div *ngIf="!itemsLoading && selectedItems.length" class="table-wrap small">
         <table>
@@ -106,7 +143,7 @@
           </thead>
           <tbody>
             <tr *ngFor="let it of selectedItems">
-              <td class="mono">{{ it.componentId.slice(0, 8) }}…</td>
+              <td class="mono">{{ it.componentId.slice(0, 8) }}...</td>
               <td>{{ it.calcMethod }}</td>
               <td class="text-right mono">
                 <ng-container [ngSwitch]="it.calcMethod">
@@ -114,7 +151,7 @@
                   <span *ngSwitchCase="'PERCENT'">{{ it.percentage }}% of {{ it.percentageBase }}</span>
                   <span *ngSwitchCase="'FORMULA'">formula</span>
                   <span *ngSwitchCase="'SLAB'">slab</span>
-                  <span *ngSwitchDefault>—</span>
+                  <span *ngSwitchDefault>-</span>
                 </ng-container>
               </td>
               <td>{{ it.enabled ? 'Yes' : 'No' }}</td>
