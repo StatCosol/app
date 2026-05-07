@@ -231,7 +231,7 @@ Per the user's minimum recommendation, the following must be ticked before any c
 - [x] Privacy Policy published.
 - [x] Terms of Use published.
 - [x] Data Security Policy published.
-- [ ] Backup and restore drill executed with documented RPO/RTO evidence.
+- [x] Backup and restore drill executed with documented RPO/RTO evidence (see [docs/drills/2026-05-restore-drill.md](../docs/drills/2026-05-restore-drill.md) — RPO 0 / RTO ≈7 min, 100% data parity).
 - [x] Role-based access testing completed (see §7 above).
 - [x] OWASP Top 10 self-assessment recorded (§14.3).
 - [ ] Production monitoring configured (Azure Monitor alerts on 5xx rate, p95 latency, container restarts) and audit logs verified end-to-end.
