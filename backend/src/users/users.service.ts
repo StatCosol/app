@@ -1411,9 +1411,13 @@ export class UsersService implements OnModuleInit {
   }
 
   // ✅ NEW: Used for dropdown lists (CCO screen)
-  async listActiveUsersByRoleCode(roleCode: string, clientId?: string) {
+  async listActiveUsersByRoleCode(
+    roleCode: string,
+    clientId?: string,
+    opts?: { ownerCcoId?: string | null },
+  ) {
     this.logger.debug(
-      `[listActiveUsersByRoleCode] Looking for role: ${roleCode}, clientId: ${clientId}`,
+      `[listActiveUsersByRoleCode] Looking for role: ${roleCode}, clientId: ${clientId}, ownerCcoId: ${opts?.ownerCcoId ?? 'none'}`,
     );
     const role = await this.rolesRepo.findOne({ where: { code: roleCode } });
     if (!role) throw new NotFoundException(`Role not found: ${roleCode}`);
@@ -1423,11 +1427,21 @@ export class UsersService implements OnModuleInit {
       isActive: true;
       deletedAt: ReturnType<typeof IsNull>;
       clientId?: string;
+      ownerCcoId?: string;
     } = { roleId: role.id, isActive: true, deletedAt: IsNull() };
 
     // For contractor dropdowns, optionally scope by clientId
     if (roleCode === 'CONTRACTOR' && clientId) {
       where.clientId = clientId;
+    }
+
+    // Scope CRM/AUDITOR dropdowns to the current CCO so a CCO only sees
+    // their own subordinates (not every CRM/auditor in the system).
+    if (
+      opts?.ownerCcoId &&
+      (roleCode === 'CRM' || roleCode === 'AUDITOR')
+    ) {
+      where.ownerCcoId = opts.ownerCcoId;
     }
 
     const users = await this.usersRepo.find({

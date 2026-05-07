@@ -16,6 +16,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CreateClientDto } from './dto/create-client.dto';
 import { AssignClientDto } from './dto/assign-client.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Clients')
 @ApiBearerAuth('JWT')
@@ -26,15 +28,29 @@ export class CcoClientsController {
   private readonly logger = new Logger(CcoClientsController.name);
   constructor(private readonly clientsService: ClientsService) {}
 
+  private isAdmin(user: ReqUser): boolean {
+    return (user?.roleCode ?? '').toUpperCase() === 'ADMIN';
+  }
+
+  private ccoIdOrNull(user: ReqUser): string | null {
+    if (this.isAdmin(user)) return null;
+    return user?.userId ?? user?.id ?? null;
+  }
+
   @ApiOperation({ summary: 'List' })
   @Get()
-  list() {
-    return this.clientsService.listClients();
+  list(@CurrentUser() user: ReqUser) {
+    return this.clientsService.listClients(false, this.ccoIdOrNull(user));
   }
 
   @ApiOperation({ summary: 'Get' })
   @Get(':id')
-  get(@Param('id', ParseUUIDPipe) id: string) {
+  async get(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const ccoId = this.ccoIdOrNull(user);
+    if (ccoId) await this.clientsService.assertClientOwnedByCco(id, ccoId);
     return this.clientsService.getClientDetails(id);
   }
 
@@ -47,7 +63,30 @@ export class CcoClientsController {
 
   @ApiOperation({ summary: 'Assign' })
   @Patch(':id/assign')
-  assign(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AssignClientDto) {
+  async assign(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignClientDto,
+  ) {
+    const ccoId = this.ccoIdOrNull(user);
+    if (ccoId) {
+      await this.clientsService.assertClientOwnedByCco(id, ccoId);
+      // Also confirm the CRM/auditor being assigned is owned by this CCO.
+      if (dto.assignedCrmId) {
+        await this.clientsService.assertUserOwnedByCco(
+          dto.assignedCrmId,
+          ccoId,
+          'CRM',
+        );
+      }
+      if (dto.assignedAuditorId) {
+        await this.clientsService.assertUserOwnedByCco(
+          dto.assignedAuditorId,
+          ccoId,
+          'AUDITOR',
+        );
+      }
+    }
     return this.clientsService.assignCrmAuditor(
       id,
       dto.assignedCrmId,

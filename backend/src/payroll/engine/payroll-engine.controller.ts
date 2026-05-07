@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Put,
@@ -13,7 +14,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -65,7 +66,48 @@ export class PayrollEngineController {
     @InjectRepository(PayrollRunEntity)
     private readonly runRepo: Repository<PayrollRunEntity>,
     private readonly access: AccessScopeService,
+    private readonly dataSource: DataSource,
   ) {}
+
+  // ── Helpers ────────────────────────────────────
+
+  private isAdmin(user: ReqUser | undefined): boolean {
+    return (user?.roleCode ?? '').toUpperCase() === 'ADMIN';
+  }
+
+  /**
+   * For CCO callers, verify the structure's owning client is assigned to a
+   * CRM owned by this CCO. Admins bypass. Throws ForbiddenException
+   * otherwise.
+   */
+  private async assertStructureWithinCcoScope(
+    user: ReqUser,
+    structure: PaySalaryStructureEntity,
+  ) {
+    if (this.isAdmin(user)) return;
+    const ccoId = user?.userId ?? user?.id;
+    if (!ccoId) {
+      throw new ForbiddenException('Missing CCO identity');
+    }
+    if (!structure.clientId) {
+      throw new ForbiddenException(
+        'Structure is not bound to a client and cannot be approved by CCO',
+      );
+    }
+    const [row] = await this.dataSource.query(
+      `SELECT 1
+         FROM clients c
+         INNER JOIN users u ON u.id = c.assigned_crm_id
+        WHERE c.id = $1 AND u.owner_cco_id = $2 AND u.deleted_at IS NULL
+        LIMIT 1`,
+      [structure.clientId, ccoId],
+    );
+    if (!row) {
+      throw new ForbiddenException(
+        'Structure belongs to a client outside your span of control',
+      );
+    }
+  }
 
   // ── Engine Processing ──────────────────────────
 
@@ -355,7 +397,10 @@ export class PayrollEngineController {
   })
   @Get('structures/approval-queue')
   @Roles('CCO', 'ADMIN')
-  async listApprovalQueue(@Query('status') status?: string) {
+  async listApprovalQueue(
+    @CurrentUser() user: ReqUser,
+    @Query('status') status?: string,
+  ) {
     const allowed = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'];
     const s = (status || 'PENDING').toUpperCase();
     if (!allowed.includes(s)) {
@@ -363,11 +408,28 @@ export class PayrollEngineController {
         `status must be one of ${allowed.join(', ')}`,
       );
     }
-    const rows = await this.structureRepo
+    const qb = this.structureRepo
       .createQueryBuilder('ps')
       .leftJoin('clients', 'c', 'c.id = ps.client_id')
       .addSelect('c.client_name', 'clientName')
-      .where('ps.approval_status = :s', { s })
+      .where('ps.approval_status = :s', { s });
+
+    // CCOs may only see structures whose owning client is assigned to a CRM
+    // they own. Admins see everything.
+    if (!this.isAdmin(user)) {
+      const ccoId = user?.userId ?? user?.id;
+      qb.andWhere(
+        `EXISTS (
+           SELECT 1 FROM users u
+           WHERE u.id = c.assigned_crm_id
+             AND u.owner_cco_id = :ccoId
+             AND u.deleted_at IS NULL
+         )`,
+        { ccoId },
+      );
+    }
+
+    const rows = await qb
       .orderBy('ps.submitted_at', 'DESC', 'NULLS LAST')
       .addOrderBy('ps.effective_from', 'DESC')
       .getRawAndEntities();
@@ -638,6 +700,7 @@ export class PayrollEngineController {
   ) {
     const s = await this.structureRepo.findOne({ where: { id } });
     if (!s) throw new NotFoundException('Structure not found');
+    await this.assertStructureWithinCcoScope(user, s);
     if (s.approvalStatus !== 'PENDING') {
       throw new ConflictException(
         `Only PENDING structures can be approved (current: ${s.approvalStatus})`,
@@ -664,6 +727,7 @@ export class PayrollEngineController {
   ) {
     const s = await this.structureRepo.findOne({ where: { id } });
     if (!s) throw new NotFoundException('Structure not found');
+    await this.assertStructureWithinCcoScope(user, s);
     if (s.approvalStatus !== 'PENDING') {
       throw new ConflictException(
         `Only PENDING structures can be rejected (current: ${s.approvalStatus})`,

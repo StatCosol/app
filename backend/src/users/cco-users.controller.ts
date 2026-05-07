@@ -4,6 +4,8 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT')
@@ -15,13 +17,19 @@ export class CcoUsersController {
 
   @ApiOperation({ summary: 'List CRM users for CCO' })
   @Get('crms')
-  listCrms() {
-    return this.usersService.listActiveUsersByRoleCode('CRM');
+  listCrms(@CurrentUser() user: ReqUser) {
+    const ccoId = user?.userId ?? user?.id ?? null;
+    return this.usersService.listActiveUsersByRoleCode('CRM', undefined, {
+      ownerCcoId: ccoId,
+    });
   }
 
   @ApiOperation({ summary: 'List auditor users for CCO' })
   @Get('auditors')
-  listAuditors() {
-    return this.usersService.listActiveUsersByRoleCode('AUDITOR');
+  listAuditors(@CurrentUser() user: ReqUser) {
+    const ccoId = user?.userId ?? user?.id ?? null;
+    return this.usersService.listActiveUsersByRoleCode('AUDITOR', undefined, {
+      ownerCcoId: ccoId,
+    });
   }
 }

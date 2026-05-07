@@ -44,6 +44,7 @@ export class CcoService {
     );
 
     return rows.map((r: Record<string, unknown>) => ({
+      id: r.id,
       name: r.name,
       email: r.email,
       status: r.isActive ? 'ACTIVE' : 'INACTIVE',
@@ -127,6 +128,17 @@ export class CcoService {
       await this.dataSource.query(
         `DELETE FROM user_branches WHERE user_id = $1`,
         [reqDetail.entity_id],
+      );
+    } else {
+      // Refuse to mark non-USER deletion requests as APPROVED here. Other
+      // entity types must be processed by their dedicated approval handlers
+      // so the underlying record is actually deleted (or soft-deleted).
+      // Without this guard a CCO approval would silently flip the request
+      // to APPROVED while leaving the target row alive.
+      throw new BadRequestException(
+        `Deletion requests of type '${String(
+          reqDetail?.entity_type ?? 'UNKNOWN',
+        )}' must be approved through their dedicated workflow, not the legacy CCO endpoint.`,
       );
     }
 

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -245,21 +246,33 @@ export class ClientsService {
     return { id: saved.id, message: 'Client created' };
   }
 
-  async listClients(includeDeleted = false) {
-    // Return only ACTIVE & not deleted clients by default
-    const where = includeDeleted ? {} : { isDeleted: false };
-    const clients = await this.repo.find({
-      select: [
-        'id',
-        'clientName',
-        'clientCode',
-        'status',
-        'logoUrl',
-        'crmOnBehalfEnabled',
-      ],
-      where,
-      order: { id: 'DESC' },
-    });
+  async listClients(includeDeleted = false, ownerCcoId?: string | null) {
+    // Return only ACTIVE & not deleted clients by default. When `ownerCcoId`
+    // is supplied (CCO-scoped endpoints), restrict to clients whose assigned
+    // CRM is owned by this CCO. Admins / global callers should pass `null`
+    // / undefined to skip the scope filter.
+    const qb = this.repo.createQueryBuilder('client').orderBy('client.id', 'DESC');
+    if (!includeDeleted) {
+      qb.andWhere('client.isDeleted = :no', { no: false });
+    }
+    if (ownerCcoId) {
+      qb.andWhere(
+        `EXISTS (
+           SELECT 1 FROM users u
+           WHERE u.id = client.assignedCrmId AND u.owner_cco_id = :ccoId
+         )`,
+        { ccoId: ownerCcoId },
+      );
+    }
+    qb.select([
+      'client.id',
+      'client.clientName',
+      'client.clientCode',
+      'client.status',
+      'client.logoUrl',
+      'client.crmOnBehalfEnabled',
+    ]);
+    const clients = await qb.getMany();
 
     // Aggregate branches, employees, and contractors for each client
     const branchRepo = this.repo.manager.getRepository(BranchEntity);
@@ -307,6 +320,56 @@ export class ClientsService {
 
   async getClientDetails(clientId: string) {
     return this.getOrFail(clientId);
+  }
+
+  /**
+   * Throws ForbiddenException if the given client is NOT owned (via its
+   * assigned CRM) by the supplied CCO user. Used by /api/v1/cco/clients/*
+   * to keep CCOs from acting on clients outside their span of control.
+   */
+  async assertClientOwnedByCco(clientId: string, ccoId: string) {
+    const [row] = await this.dataSource.query(
+      `SELECT 1
+         FROM clients c
+         INNER JOIN users u ON u.id = c.assigned_crm_id
+        WHERE c.id = $1 AND u.owner_cco_id = $2 AND u.deleted_at IS NULL
+        LIMIT 1`,
+      [clientId, ccoId],
+    );
+    if (!row) {
+      throw new ForbiddenException(
+        'Client is not assigned to a CRM under your span of control',
+      );
+    }
+  }
+
+  /**
+   * Throws ForbiddenException if the supplied user (CRM/AUDITOR) is not
+   * owned by the given CCO.
+   */
+  async assertUserOwnedByCco(
+    userId: string,
+    ccoId: string,
+    expectedRoleCode?: string,
+  ) {
+    const [row] = await this.dataSource.query(
+      `SELECT r.code AS role_code
+         FROM users u
+         INNER JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1 AND u.owner_cco_id = $2 AND u.deleted_at IS NULL
+        LIMIT 1`,
+      [userId, ccoId],
+    );
+    if (!row) {
+      throw new ForbiddenException(
+        'Target user is not under your span of control',
+      );
+    }
+    if (expectedRoleCode && row.role_code !== expectedRoleCode) {
+      throw new ForbiddenException(
+        `Target user is not a ${expectedRoleCode}`,
+      );
+    }
   }
 
   async update(

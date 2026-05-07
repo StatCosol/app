@@ -204,15 +204,32 @@ export class InvoicesService {
     if (invoice.invoiceStatus === InvoiceStatus.PAID) {
       throw new BadRequestException('Cannot cancel a fully paid invoice');
     }
+    if (invoice.invoiceStatus === InvoiceStatus.PARTIALLY_PAID) {
+      throw new BadRequestException(
+        'Cannot cancel an invoice with recorded payments. Reverse the payments first.',
+      );
+    }
     invoice.invoiceStatus = InvoiceStatus.CANCELLED;
     return this.invoiceRepo.save(invoice);
   }
 
   async updatePdfPath(id: string, pdfPath: string) {
-    await this.invoiceRepo.update(id, {
-      pdfPath,
-      invoiceStatus: InvoiceStatus.GENERATED,
-    });
+    const invoice = await this.invoiceRepo.findOne({ where: { id } });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    // Status transitions to GENERATED only from DRAFT or APPROVED. Once an
+    // invoice has been GENERATED, EMAILED, PARTIALLY_PAID, PAID, OVERDUE
+    // or CANCELLED, regenerating / re-emailing / re-downloading the PDF
+    // must not silently regress its workflow status.
+    const allowGeneratedTransition =
+      invoice.invoiceStatus === InvoiceStatus.DRAFT ||
+      invoice.invoiceStatus === InvoiceStatus.APPROVED;
+
+    const update: Partial<Invoice> = { pdfPath };
+    if (allowGeneratedTransition) {
+      update.invoiceStatus = InvoiceStatus.GENERATED;
+    }
+    await this.invoiceRepo.update(id, update);
   }
 
   async updateMailStatus(id: string, mailStatus: MailStatus) {

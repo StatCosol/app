@@ -8,6 +8,9 @@ import {
   IsArray,
   ValidateNested,
   IsBoolean,
+  Min,
+  Max,
+  IsPositive,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InvoiceType } from '../enums';
@@ -33,18 +36,23 @@ export class CreateInvoiceItemDto {
   @IsDateString()
   periodTo?: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @IsPositive()
   quantity: number;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
   rate: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
   discountAmount?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
   gstRate?: number;
 
   @IsOptional()
@@ -53,6 +61,7 @@ export class CreateInvoiceItemDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   sequence?: number;
 }
 

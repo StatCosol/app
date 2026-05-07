@@ -5,6 +5,8 @@ import {
   IsEnum,
   IsDateString,
   IsNotEmpty,
+  Min,
+  IsPositive,
 } from 'class-validator';
 import { PaymentMode } from '../enums';
 
@@ -12,15 +14,18 @@ export class RecordPaymentDto {
   @IsDateString()
   paymentDate: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
   amountReceived: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
   tdsAmount?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
   otherDeduction?: number;
 
   @IsEnum(PaymentMode)
