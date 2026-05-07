@@ -45,8 +45,12 @@ export class CrmSafetyDocumentsController {
   /** Get Safety Risk Score for a client */
   @ApiOperation({ summary: 'Get Safety Score' })
   @Get('safety-score')
-  async getSafetyScore(@Query('clientId') clientId: string) {
+  async getSafetyScore(
+    @Query('clientId') clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     if (!clientId) return { overallScore: 0, categoryScores: [] };
+    await this.svc.assertCrmAssigned(clientId, user.id);
     return this.svc.getSafetyScore({ clientId });
   }
 
@@ -54,12 +58,13 @@ export class CrmSafetyDocumentsController {
   @ApiOperation({ summary: 'List' })
   @Get()
   async list(
-    @CurrentUser() _user: ReqUser,
+    @CurrentUser() user: ReqUser,
     @Query() query: Record<string, string>,
   ) {
     if (!query.clientId) {
       throw new BadRequestException('clientId is required');
     }
+    await this.svc.assertCrmAssigned(query.clientId, user.id);
     return this.svc.listForCrm(query.clientId, {
       branchId: query.branchId,
       documentType: query.documentType,
@@ -71,8 +76,12 @@ export class CrmSafetyDocumentsController {
   /** Get expiring documents for a client */
   @ApiOperation({ summary: 'Get Expiring' })
   @Get('expiring')
-  async getExpiring(@Query('clientId') clientId: string) {
+  async getExpiring(
+    @Query('clientId') clientId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     if (!clientId) return [];
+    await this.svc.assertCrmAssigned(clientId, user.id);
     return this.svc.getExpiringDocuments({ clientId });
   }
 

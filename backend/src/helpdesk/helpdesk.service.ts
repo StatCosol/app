@@ -39,6 +39,10 @@ export const HELP_DESK_PRIORITY = [
   'CRITICAL',
 ] as const;
 
+// PF Team can only act on PF/ESI/PAYSLIP tickets. Other categories
+// (e.g. COMPLIANCE / GENERIC) belong to ADMIN/CRM queues.
+export const PF_TEAM_CATEGORIES = ['PF', 'ESI', 'PAYSLIP'] as const;
+
 @Injectable()
 export class HelpdeskService {
   constructor(
@@ -180,7 +184,31 @@ export class HelpdeskService {
       qb.orderBy('t.created_at', 'DESC');
       return qb.getMany();
     }
-    // For ADMIN/PF_TEAM, return all tickets with client info
+    // For PF_TEAM, restrict to PF/ESI/PAYSLIP categories and either
+    // unassigned tickets (queue) or those assigned to this PF user.
+    if (user?.roleCode === 'PF_TEAM') {
+      const qb = this.ticketRepo
+        .createQueryBuilder('t')
+        .leftJoinAndSelect('t.client', 'c')
+        .where('t.category IN (:...cats)', {
+          cats: [...PF_TEAM_CATEGORIES],
+        })
+        .andWhere(
+          '(t.assigned_to_user_id IS NULL OR t.assigned_to_user_id = :uid)',
+          { uid: user.id },
+        );
+      if (q?.status) qb.andWhere('t.status = :s', { s: q.status });
+      if (q?.clientId) qb.andWhere('t.client_id = :c', { c: q.clientId });
+      if (q?.category) {
+        if (!(PF_TEAM_CATEGORIES as readonly string[]).includes(q.category)) {
+          return [];
+        }
+        qb.andWhere('t.category = :cat', { cat: q.category });
+      }
+      qb.orderBy('t.created_at', 'DESC');
+      return qb.getMany();
+    }
+    // For ADMIN, return all tickets with client info
     const qb = this.ticketRepo
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.client', 'c');
@@ -201,6 +229,14 @@ export class HelpdeskService {
     if (!t) throw new BadRequestException('Ticket not found');
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
+    }
+    if (user?.roleCode === 'CRM') {
+      const clientIds = await this.crmAssignedClientIds(user.id);
+      if (!clientIds.includes(t.clientId))
+        throw new ForbiddenException('Not assigned to this client');
+    }
+    if (user?.roleCode === 'PF_TEAM') {
+      this.assertPfTeamScope(t, user.id);
     }
     // Create a system message for the file upload, then attach the file
     const message = this.msgRepo.create({
@@ -339,6 +375,9 @@ export class HelpdeskService {
       if (!clientIds.includes(t.clientId))
         throw new ForbiddenException('Not assigned to this client');
     }
+    if (user?.roleCode === 'PF_TEAM') {
+      this.assertPfTeamScope(t, user.id);
+    }
     return t;
   }
 
@@ -387,6 +426,9 @@ export class HelpdeskService {
     dto: UpdateTicketStatusDto,
   ) {
     if (!dto?.status) throw new BadRequestException('status required');
+    if (!(HELP_DESK_STATUS as readonly string[]).includes(dto.status)) {
+      throw new BadRequestException('Invalid status');
+    }
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
     // Scope rules:
@@ -395,9 +437,41 @@ export class HelpdeskService {
       if (!ids.includes(t.clientId))
         throw new ForbiddenException('Not assigned to this client');
     }
-    // PF_TEAM / ADMIN allowed
+    if (user.roleCode === 'PF_TEAM') {
+      this.assertPfTeamScope(t, user.id);
+    }
+    // ADMIN allowed unconditionally
     t.status = dto.status;
     return this.ticketRepo.save(t);
+  }
+
+  /**
+   * PF Team scope: ticket category must be a PF/ESI/PAYSLIP type, and if the
+   * ticket is already assigned, it must be assigned to the requesting PF user.
+   */
+  private assertPfTeamScope(t: HelpdeskTicketEntity, userId: string) {
+    if (
+      !(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)
+    ) {
+      throw new ForbiddenException('Ticket is not a PF Team category');
+    }
+    if (t.assignedToUserId && t.assignedToUserId !== userId) {
+      throw new ForbiddenException('Ticket assigned to another PF user');
+    }
+  }
+
+  /**
+   * Used by FilesService when authorizing a helpdesk attachment download.
+   * Loads the ticket that owns the given message id so the caller can
+   * enforce role-based scope (CLIENT tenant match, CRM assignment,
+   * PF_TEAM category + assignment).
+   */
+  async getTicketForMessage(
+    messageId: string,
+  ): Promise<HelpdeskTicketEntity | null> {
+    const msg = await this.msgRepo.findOne({ where: { id: messageId } });
+    if (!msg) return null;
+    return this.ticketRepo.findOne({ where: { id: msg.ticketId } });
   }
 
   async listMessages(user: ReqUser, ticketId: string) {
@@ -410,6 +484,9 @@ export class HelpdeskService {
       const clientIds = await this.crmAssignedClientIds(user.id);
       if (!clientIds.includes(t.clientId))
         throw new ForbiddenException('Not assigned to this client');
+    }
+    if (user?.roleCode === 'PF_TEAM') {
+      this.assertPfTeamScope(t, user.id);
     }
     const qb = this.msgRepo
       .createQueryBuilder('m')
@@ -434,6 +511,9 @@ export class HelpdeskService {
       const clientIds = await this.crmAssignedClientIds(user.id);
       if (!clientIds.includes(t.clientId))
         throw new ForbiddenException('Not assigned to this client');
+    }
+    if (user?.roleCode === 'PF_TEAM') {
+      this.assertPfTeamScope(t, user.id);
     }
     const message = this.msgRepo.create({
       message: dto.message,

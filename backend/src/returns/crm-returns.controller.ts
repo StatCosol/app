@@ -174,13 +174,21 @@ export class CrmReturnsController {
 
   @ApiOperation({ summary: 'Get filing timeline' })
   @Get('filings/:id/timeline')
-  getTimeline(@Param('id') id: string) {
+  async getTimeline(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+  ) {
+    await this.returns.assertCrmAssigned(user, id);
     return this.auditLogs.findCombinedTimeline('RETURN_TASK', id, 'RETURN');
   }
 
   @ApiOperation({ summary: 'Get filing approval history' })
   @Get('filings/:id/approval-history')
-  getApprovalHistory(@Param('id') id: string) {
+  async getApprovalHistory(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+  ) {
+    await this.returns.assertCrmAssigned(user, id);
     return this.auditLogs.findApprovalHistory('RETURN', id);
   }
 

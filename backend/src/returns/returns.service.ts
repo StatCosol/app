@@ -1148,7 +1148,7 @@ export class ReturnsService {
     return `/uploads/returns/${filename}`;
   }
 
-  private async assertCrmAssigned(user: ReqUser, id: string) {
+  async assertCrmAssigned(user: ReqUser, id: string) {
     const rec = await this.returnsRepo.findOne({
       where: { id, isDeleted: false },
     });
