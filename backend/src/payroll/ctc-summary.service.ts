@@ -141,9 +141,9 @@ export class CtcSummaryService {
       params.month = month;
     }
     if (branchIds && branchIds.length) {
-      // Branch CTC must be strictly scoped to the branch(es) the user has access to.
-      // Including NULL run.branch_id pulls unassigned data into branch totals.
-      where += ' AND r.branch_id IN (:...branchIds)';
+      // Payroll runs can be client-level while employee rows carry branch scope.
+      // Use employee branch first, with run branch as a legacy fallback.
+      where += ' AND COALESCE(e.branch_id, r.branch_id) IN (:...branchIds)';
       params.branchIds = branchIds;
     }
     return { where, params };
@@ -188,7 +188,7 @@ export class CtcSummaryService {
     const qb = this.runRepo
       .createQueryBuilder('r')
       .select([
-        `COALESCE(r.branch_id, '00000000-0000-0000-0000-000000000000') AS branch_id`,
+        `COALESCE(e.branch_id, r.branch_id, '00000000-0000-0000-0000-000000000000') AS branch_id`,
         `COALESCE(cb.branchname, 'Unassigned') AS branch_name`,
         `COUNT(DISTINCT e.id) AS total_employees`,
         `COALESCE(SUM(e.gross_earnings), 0) AS gross_total`,
@@ -204,9 +204,13 @@ export class CtcSummaryService {
         `COALESCE(SUM(${ctcTotalExpr}),0) AS monthly_ctc`,
       ])
       .innerJoin('payroll_run_employees', 'e', 'e.run_id = r.id')
-      .leftJoin('client_branches', 'cb', 'cb.id = r.branch_id')
+      .leftJoin(
+        'client_branches',
+        'cb',
+        'cb.id = COALESCE(e.branch_id, r.branch_id)',
+      )
       .where(runWhere, params)
-      .groupBy('r.branch_id')
+      .groupBy('COALESCE(e.branch_id, r.branch_id)')
       .addGroupBy('cb.branchname')
       .orderBy('cb.branchname');
 
@@ -382,7 +386,9 @@ export class CtcSummaryService {
       .andWhere(`r.status IN ('APPROVED','COMPLETED','SUBMITTED')`);
 
     if (branchIds && branchIds.length) {
-      qb.andWhere('r.branch_id IN (:...branchIds)', { branchIds });
+      qb.andWhere('COALESCE(e.branch_id, r.branch_id) IN (:...branchIds)', {
+        branchIds,
+      });
     }
 
     return qb.groupBy('r.period_month').orderBy('r.period_month').getRawMany();

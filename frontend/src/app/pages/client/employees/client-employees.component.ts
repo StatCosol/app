@@ -173,24 +173,27 @@ import {
         </ng-template>
 
         <ng-template uiTableCell="actions" let-row>
-          <div class="flex gap-2">
-            <button class="text-xs text-blue-600 hover:underline" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
-            <button class="text-xs text-blue-600 hover:underline" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
+          <div class="employee-actions">
+            <button class="employee-action text-blue-600 hover:underline" title="View employee" (click)="$event.stopPropagation(); viewEmployee(row)">View</button>
+            <button class="employee-action text-blue-600 hover:underline" title="Edit employee" (click)="$event.stopPropagation(); editEmployee(row)">Edit</button>
             <button
               *ngIf="row.approvalStatus === 'PENDING'"
-              class="text-xs text-green-600 hover:underline font-semibold"
+              class="employee-action text-green-600 hover:underline font-semibold"
+              title="Approve employee"
               (click)="$event.stopPropagation(); approveEmployee(row)">
               Approve
             </button>
             <button
               *ngIf="row.approvalStatus === 'PENDING'"
-              class="text-xs text-red-600 hover:underline"
+              class="employee-action text-red-600 hover:underline"
+              title="Reject employee"
               (click)="$event.stopPropagation(); rejectEmployee(row)">
               Reject
             </button>
             <button
               *ngIf="row.isActive && row.approvalStatus !== 'PENDING'"
-              class="text-xs text-red-600 hover:underline"
+              class="employee-action text-red-600 hover:underline"
+              title="Deactivate employee"
               (click)="$event.stopPropagation(); confirmDeactivate(row)">
               Deactivate
             </button>
@@ -205,6 +208,25 @@ import {
       :host ::ng-deep table { table-layout: auto !important; }
       .filter-bar { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
       .total-badge { font-size: 0.8rem; color: #6b7280; margin-bottom: 0.5rem; }
+      :host ::ng-deep tbody td:last-child {
+        overflow: hidden !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+      }
+      .employee-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0.25rem 0.625rem;
+        width: 100%;
+        min-width: 0;
+      }
+      .employee-action {
+        font-size: 0.75rem;
+        line-height: 1rem;
+        white-space: nowrap;
+      }
       .name-link {
         display: block;
         width: 100%;
@@ -256,7 +278,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
     { key: 'ids', header: 'IDs', width: '160px' },
     { key: 'status', header: 'Status', width: '90px', align: 'center' },
     { key: 'approval', header: 'Approval', width: '110px', align: 'center' },
-    { key: 'actions', header: '', width: '230px', align: 'center' },
+    { key: 'actions', header: 'Actions', width: '230px', align: 'center' },
   ];
 
   statusOptions = [
