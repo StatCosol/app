@@ -112,12 +112,12 @@ consistent with production at the chosen restore point.
 
 ## 7. Corrective actions
 
-| ID            | Action                                                                                     | Owner | Due       |
-| ------------- | ------------------------------------------------------------------------------------------ | ----- | --------- |
-| DR-2026-05-A1 | Add `postgresql-client-16` to operator runbook prerequisites.                              | Platform Eng | 2026-05-15 |
-| DR-2026-05-A2 | Codify drill as a `workflow_dispatch`-only GitHub Action (no operator host dependency).    | Platform Eng | 2026-05-22 |
-| DR-2026-05-A3 | Add application-revision boot test to next drill (DR-2026-Q3).                             | Platform Eng | 2026-08-15 |
-| DR-2026-05-A4 | Fix `user_login_logs` validation query column name in drill script.                        | Platform Eng | 2026-05-15 |
+| ID            | Action                                                                                     | Owner | Due       | Status |
+| ------------- | ------------------------------------------------------------------------------------------ | ----- | --------- | ------ |
+| DR-2026-05-A1 | Add `postgresql-client-16` to operator runbook prerequisites.                              | Platform Eng | 2026-05-15 | Open |
+| DR-2026-05-A2 | Codify drill as a `workflow_dispatch`-only GitHub Action (no operator host dependency).    | Platform Eng | 2026-05-22 | ✅ Closed — see [.github/workflows/dr-restore-drill.yml](../../.github/workflows/dr-restore-drill.yml) |
+| DR-2026-05-A3 | Add application-revision boot test to next drill (DR-2026-Q3).                             | Platform Eng | 2026-08-15 | ✅ Closed — implemented as opt-in `run_boot_test` input in [dr-restore-drill.yml](../../.github/workflows/dr-restore-drill.yml) |
+| DR-2026-05-A4 | Fix `user_login_logs` validation query column name in drill script.                        | Platform Eng | 2026-05-15 | ✅ Closed — actual column is `logged_in_at` (not `created_at`); applied in workflow validation step |
 
 ## 8. Sign-off
 

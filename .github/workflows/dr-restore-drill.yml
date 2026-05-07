@@ -1,0 +1,200 @@
+name: DR Restore Drill (PITR)
+
+# Codified version of the manual May 2026 PITR restore drill (DR-2026-05-001).
+# Provisions a sandbox PG Flexible Server via PITR from `statcompy-db`, validates
+# row-count parity vs production, optionally runs an application-revision boot
+# test, then tears the sandbox down.
+#
+# Trigger: workflow_dispatch only.
+# Reference: docs/drills/2026-05-restore-drill.md and
+# docs/policies/BACKUP_AND_DR_POLICY.md §5.2.
+
+on:
+  workflow_dispatch:
+    inputs:
+      restore_minutes_ago:
+        description: 'Minutes back from "now" for the PITR restore point (>= 10).'
+        required: true
+        default: '15'
+      run_boot_test:
+        description: 'Also run an app-revision boot test against the restored DB (DR-2026-05-A3).'
+        required: true
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  RG: statcompy-rg
+  SOURCE_DB: statcompy-db
+  PG_HOST_SUFFIX: .postgres.database.azure.com
+  PG_USER: Statcocompy
+  PG_DB: statcompy
+  CA_BACKEND: statcompy-backend
+
+jobs:
+  drill:
+    name: PITR restore + validate + teardown
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install PostgreSQL client 16 (DR-2026-05-A1)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          psql --version
+
+      - name: Compute sandbox name and restore point
+        id: vars
+        run: |
+          set -euo pipefail
+          MINS="${{ github.event.inputs.restore_minutes_ago }}"
+          if [ "$MINS" -lt 10 ]; then
+            echo "restore_minutes_ago must be >= 10"; exit 1
+          fi
+          STAMP=$(date -u +%m%d%H%M)
+          SANDBOX="statcompy-db-drill-${STAMP}"
+          POINT=$(date -u -d "-${MINS} minutes" +%Y-%m-%dT%H:%M:%SZ)
+          echo "sandbox=$SANDBOX" >> "$GITHUB_OUTPUT"
+          echo "point=$POINT"     >> "$GITHUB_OUTPUT"
+          echo "Sandbox: $SANDBOX"
+          echo "Restore point: $POINT"
+
+      - name: Get runner public IP
+        id: ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> "$GITHUB_OUTPUT"
+
+      - name: Provision sandbox via PITR
+        run: |
+          set -euo pipefail
+          T0=$(date +%s)
+          az postgres flexible-server restore \
+            -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" \
+            --source-server "$SOURCE_DB" \
+            --restore-time "${{ steps.vars.outputs.point }}" \
+            --output none
+          T1=$(date +%s)
+          echo "PITR provision duration: $((T1-T0))s"
+
+      - name: Open temp firewall on sandbox + prod
+        run: |
+          set -euo pipefail
+          az postgres flexible-server firewall-rule create \
+            -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" \
+            -r "drill-${{ github.run_id }}" \
+            --start-ip-address "${{ steps.ip.outputs.ip }}" \
+            --end-ip-address   "${{ steps.ip.outputs.ip }}" \
+            --output none
+          az postgres flexible-server firewall-rule create \
+            -g "$RG" -n "$SOURCE_DB" \
+            -r "drill-${{ github.run_id }}" \
+            --start-ip-address "${{ steps.ip.outputs.ip }}" \
+            --end-ip-address   "${{ steps.ip.outputs.ip }}" \
+            --output none
+
+      - name: Fetch DB password
+        run: |
+          PWD=$(az containerapp secret show \
+            -g "$RG" -n "$CA_BACKEND" --secret-name db-pass \
+            --query value -o tsv)
+          echo "::add-mask::$PWD"
+          echo "PGPASSWORD=$PWD" >> "$GITHUB_ENV"
+
+      - name: Validate sandbox vs production (DR-2026-05-A4 query fix applied)
+        run: |
+          set -euo pipefail
+          SANDBOX_HOST="${{ steps.vars.outputs.sandbox }}${PG_HOST_SUFFIX}"
+          PROD_HOST="${SOURCE_DB}${PG_HOST_SUFFIX}"
+
+          # Note: user_login_logs uses logged_in_at (NOT created_at) — A4 fix.
+          read -r -d '' SQL <<'EOF' || true
+          SELECT 'pg_version'              AS metric, version()::text                                   AS val
+          UNION ALL SELECT 'public_tables',          (SELECT count(*)::text FROM information_schema.tables WHERE table_schema='public')
+          UNION ALL SELECT 'users',                  (SELECT count(*)::text FROM users)
+          UNION ALL SELECT 'clients',                (SELECT count(*)::text FROM clients)
+          UNION ALL SELECT 'payroll_runs',           (SELECT count(*)::text FROM payroll_runs)
+          UNION ALL SELECT 'invoices',               (SELECT count(*)::text FROM invoices)
+          UNION ALL SELECT 'compliance_documents',   (SELECT count(*)::text FROM compliance_documents)
+          UNION ALL SELECT 'audit_reports',          (SELECT count(*)::text FROM audit_reports)
+          UNION ALL SELECT 'user_login_logs',        (SELECT count(*)::text FROM user_login_logs)
+          UNION ALL SELECT 'last_login_at',          (SELECT COALESCE(MAX(logged_in_at)::text,'(none)') FROM user_login_logs);
+          EOF
+
+          echo "=== SANDBOX ($SANDBOX_HOST) ==="
+          psql "host=$SANDBOX_HOST port=5432 dbname=$PG_DB user=$PG_USER sslmode=require" \
+            -At -F '|' -c "$SQL" | tee sandbox.tsv
+          echo ""
+          echo "=== PRODUCTION ($PROD_HOST) ==="
+          psql "host=$PROD_HOST port=5432 dbname=$PG_DB user=$PG_USER sslmode=require" \
+            -At -F '|' -c "$SQL" | tee prod.tsv
+
+          echo ""
+          echo "=== DIFF ==="
+          # Drop the timestamp lines from diff (they will differ between sandbox and prod by design)
+          diff <(grep -v '^last_login_at' sandbox.tsv) <(grep -v '^last_login_at' prod.tsv) \
+            && echo "PARITY: 100%" \
+            || (echo "PARITY MISMATCH" && exit 1)
+
+      - name: App-revision boot test (DR-2026-05-A3, optional)
+        if: ${{ github.event.inputs.run_boot_test == 'true' }}
+        run: |
+          set -euo pipefail
+          SANDBOX_HOST="${{ steps.vars.outputs.sandbox }}${PG_HOST_SUFFIX}"
+          # Pull the latest backend image tag from the active prod revision.
+          IMG=$(az containerapp revision list -g "$RG" -n "$CA_BACKEND" \
+            --query "[?properties.active].properties.template.containers[0].image | [0]" -o tsv)
+          echo "Image under test: $IMG"
+          # Run the container locally with the sandbox DB; succeed if HTTP 200 on /api/v1/health within 60s.
+          docker run -d --name be-boot -p 3000:3000 \
+            -e DATABASE_HOST="$SANDBOX_HOST" \
+            -e DATABASE_PORT=5432 \
+            -e DATABASE_USER="$PG_USER" \
+            -e DATABASE_PASSWORD="$PGPASSWORD" \
+            -e DATABASE_NAME="$PG_DB" \
+            -e DATABASE_SSL=true \
+            -e NODE_ENV=production \
+            "$IMG" || true
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3000/api/v1/health >/dev/null 2>&1; then
+              echo "BOOT TEST: PASS (after ${i}*2s)"; docker logs be-boot --tail 30 || true; docker rm -f be-boot; exit 0
+            fi
+            sleep 2
+          done
+          echo "BOOT TEST: FAIL (no /api/v1/health 200 in 60s)"
+          docker logs be-boot --tail 80 || true
+          docker rm -f be-boot
+          exit 1
+
+      - name: Tear down sandbox + firewall rules
+        if: always()
+        run: |
+          set +e
+          az postgres flexible-server firewall-rule delete \
+            -g "$RG" -n "$SOURCE_DB" -r "drill-${{ github.run_id }}" --yes --output none
+          az postgres flexible-server firewall-rule delete \
+            -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" -r "drill-${{ github.run_id }}" --yes --output none
+          az postgres flexible-server delete \
+            -g "$RG" -n "${{ steps.vars.outputs.sandbox }}" --yes --output none
+          echo "Teardown attempted."
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## DR Restore Drill" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Sandbox: \`${{ steps.vars.outputs.sandbox }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Restore point: \`${{ steps.vars.outputs.point }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Boot test: \`${{ github.event.inputs.run_boot_test }}\`" >> "$GITHUB_STEP_SUMMARY"
