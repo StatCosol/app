@@ -20,9 +20,9 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
           <h1 class="page-title">All Employee Appraisals</h1>
           <p class="page-subtitle">Review, approve, and track performance appraisals</p>
         </div>
-        <div class="flex items-center gap-3">
-          <a routerLink="/client/appraisal-dashboard" class="btn-secondary">Dashboard</a>
-          <a routerLink="/client/appraisal-reports" class="btn-secondary">Reports</a>
+        <div class="page-actions">
+          <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
+          <a routerLink="/client/appraisal-reports" class="appraisal-action">Reports</a>
         </div>
       </div>
 
@@ -73,9 +73,9 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs text-gray-500">{{ total }} records</span>
           <div class="flex gap-2">
-            <button [disabled]="page <= 1" (click)="page = page - 1; load()" class="btn-secondary text-xs">Prev</button>
+            <button [disabled]="page <= 1" (click)="page = page - 1; load()" class="appraisal-action text-xs">Prev</button>
             <span class="text-xs text-gray-500 self-center">Page {{ page }}</span>
-            <button [disabled]="appraisals.length < pageSize" (click)="page = page + 1; load()" class="btn-secondary text-xs">Next</button>
+            <button [disabled]="appraisals.length < pageSize" (click)="page = page + 1; load()" class="appraisal-action text-xs">Next</button>
           </div>
         </div>
 

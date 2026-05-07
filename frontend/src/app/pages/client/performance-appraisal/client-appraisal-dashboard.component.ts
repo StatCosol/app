@@ -12,6 +12,7 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -19,9 +20,9 @@ import { AppraisalDashboard } from '../../../core/models/appraisal.models';
           <h1 class="page-title">Performance Appraisals</h1>
           <p class="page-subtitle">Organization-wide appraisal overview and analytics</p>
         </div>
-        <div class="flex items-center gap-3">
-          <a routerLink="/client/appraisals" class="btn-secondary">All Appraisals</a>
-          <a routerLink="/client/appraisal-cycles" class="btn-primary">Manage Cycles</a>
+        <div class="page-actions">
+          <a routerLink="/client/appraisals" class="appraisal-action">All Appraisals</a>
+          <a routerLink="/client/appraisal-cycles" class="appraisal-action appraisal-action--primary">Manage Cycles</a>
         </div>
       </div>
 

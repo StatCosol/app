@@ -37,8 +37,17 @@
   gap: 0.75rem;
 }
 
+.page-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.appraisal-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -58,26 +67,30 @@
     background 0.18s ease;
 }
 
-.btn-primary {
+.btn-primary,
+.appraisal-action--primary {
   color: #fff;
   background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%);
   box-shadow: 0 8px 18px rgba(10, 38, 86, 0.18);
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.appraisal-action--primary:hover {
   background: linear-gradient(135deg, #0d2f66 0%, #133e80 100%);
   box-shadow: 0 12px 24px rgba(10, 38, 86, 0.24);
   transform: translateY(-1px);
 }
 
-.btn-secondary {
+.btn-secondary,
+.appraisal-action {
   color: #334155;
   background: #fff;
   border-color: #e2e8f0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.appraisal-action:hover {
   background: #f8fafc;
   border-color: #cbd5e1;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
@@ -85,7 +98,8 @@
 }
 
 .btn-primary:disabled,
-.btn-secondary:disabled {
+.btn-secondary:disabled,
+.appraisal-action:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;

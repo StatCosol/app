@@ -20,9 +20,9 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
           <h1 class="page-title">Appraisal Reports</h1>
           <p class="page-subtitle">Analytics and reports for performance appraisals</p>
         </div>
-        <div class="flex items-center gap-3">
-          <a routerLink="/client/appraisal-dashboard" class="btn-secondary">Dashboard</a>
-          <button (click)="exportData()" class="btn-secondary">Export Data</button>
+        <div class="page-actions">
+          <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
+          <button (click)="exportData()" class="appraisal-action">Export Data</button>
         </div>
       </div>
 

@@ -20,7 +20,7 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
           <h1 class="page-title">{{ appraisal.employee_name }} — Approval</h1>
           <p class="page-subtitle">{{ appraisal.cycle_name }} | {{ appraisal.financial_year }} | Status: {{ appraisal.status.replace('_', ' ') }}</p>
         </div>
-        <a routerLink="/client/appraisals" class="btn-secondary">Back</a>
+        <a routerLink="/client/appraisals" class="appraisal-action">Back</a>
       </div>
 
       <!-- Employee Info -->
@@ -96,10 +96,10 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
           <textarea id="client-remarks" name="clientRemarks" [(ngModel)]="clientRemarks" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Optional remarks..."></textarea>
         </div>
         <div class="flex items-center gap-3">
-          <button (click)="approve()" [disabled]="submitting" class="btn-primary">Approve</button>
-          <button (click)="sendBack()" [disabled]="submitting" class="btn-secondary text-amber-600">Send Back</button>
-          <button (click)="reject()" [disabled]="submitting" class="btn-secondary text-red-600">Reject</button>
-          <button *ngIf="appraisal.status === 'CLIENT_APPROVED'" (click)="lock()" [disabled]="submitting" class="btn-secondary">Lock</button>
+          <button (click)="approve()" [disabled]="submitting" class="appraisal-action appraisal-action--primary">Approve</button>
+          <button (click)="sendBack()" [disabled]="submitting" class="appraisal-action text-amber-600">Send Back</button>
+          <button (click)="reject()" [disabled]="submitting" class="appraisal-action text-red-600">Reject</button>
+          <button *ngIf="appraisal.status === 'CLIENT_APPROVED'" (click)="lock()" [disabled]="submitting" class="appraisal-action">Lock</button>
         </div>
       </div>
 

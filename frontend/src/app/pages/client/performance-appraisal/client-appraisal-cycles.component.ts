@@ -20,9 +20,9 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
           <h1 class="page-title">Appraisal Cycles</h1>
           <p class="page-subtitle">Create and manage appraisal cycles</p>
         </div>
-        <div class="flex items-center gap-3">
-          <a routerLink="/client/appraisal-dashboard" class="btn-secondary">Dashboard</a>
-          <button (click)="showCreateForm = !showCreateForm" class="btn-primary">
+        <div class="page-actions">
+          <a routerLink="/client/appraisal-dashboard" class="appraisal-action">Dashboard</a>
+          <button (click)="showCreateForm = !showCreateForm" class="appraisal-action appraisal-action--primary">
             {{ showCreateForm ? 'Cancel' : 'Create Cycle' }}
           </button>
         </div>
@@ -64,7 +64,7 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
           </div>
         </div>
         <div class="flex items-center gap-3 mt-4">
-          <button (click)="createCycle()" [disabled]="creating" class="btn-primary">
+          <button (click)="createCycle()" [disabled]="creating" class="appraisal-action appraisal-action--primary">
             {{ creating ? 'Creating...' : 'Create' }}
           </button>
         </div>
