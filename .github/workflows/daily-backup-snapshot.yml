@@ -1,0 +1,79 @@
+name: Daily File-Share Snapshot
+
+# Takes a daily snapshot of the Azure Files share that backs /app/uploads,
+# and prunes snapshots older than 35 days. This complements the 35-day
+# soft-delete on the storage account and the 35-day PITR window on the
+# PostgreSQL Flexible Server.
+#
+# RPO target: <= 24h for /uploads (combined with soft-delete: 35d recovery window).
+# Aligns with docs/policies/BACKUP_AND_DR_POLICY.md.
+
+on:
+  schedule:
+    # 19:30 UTC = 01:00 IST daily (off-peak in India)
+    - cron: '30 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  RG: statcompy-rg
+  ACCOUNT: statcompystorage
+  SHARE: statcompy-uploads
+  RETENTION_DAYS: 35
+
+jobs:
+  snapshot:
+    name: Snapshot statcompy-uploads
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Take snapshot
+        run: |
+          set -euo pipefail
+          KEY=$(az storage account keys list -g "$RG" -n "$ACCOUNT" --query "[0].value" -o tsv)
+          SNAP=$(az storage share snapshot \
+            --name "$SHARE" \
+            --account-name "$ACCOUNT" \
+            --account-key "$KEY" \
+            --query "snapshot" -o tsv)
+          echo "Created snapshot: $SNAP"
+          echo "SNAP=$SNAP" >> "$GITHUB_ENV"
+
+      - name: Prune snapshots older than ${{ env.RETENTION_DAYS }} days
+        run: |
+          set -euo pipefail
+          KEY=$(az storage account keys list -g "$RG" -n "$ACCOUNT" --query "[0].value" -o tsv)
+          CUTOFF=$(date -u -d "$RETENTION_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
+          echo "Pruning snapshots created before $CUTOFF"
+
+          # List all snapshots of the share
+          az storage share list \
+            --account-name "$ACCOUNT" \
+            --account-key "$KEY" \
+            --include-snapshots \
+            --query "[?name=='$SHARE' && snapshot != null && snapshot < '$CUTOFF'].snapshot" \
+            -o tsv | while read -r OLD; do
+              [ -z "$OLD" ] && continue
+              echo "Deleting snapshot $OLD"
+              az storage share delete \
+                --name "$SHARE" \
+                --account-name "$ACCOUNT" \
+                --account-key "$KEY" \
+                --snapshot "$OLD" \
+                --output none
+            done
+
+      - name: Summary
+        run: |
+          echo "### Daily snapshot complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Share:** \`${ACCOUNT}/${SHARE}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **New snapshot:** \`${SNAP}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Retention:** ${RETENTION_DAYS} days" >> "$GITHUB_STEP_SUMMARY"

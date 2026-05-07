@@ -19,14 +19,15 @@ Define how StatComPy production data is backed up, how those backups are tested,
 
 ## 3. Backup objectives
 
-| Asset                       | Method                                                | Frequency       | Retention        | Encryption |
-| --------------------------- | ----------------------------------------------------- | --------------- | ---------------- | ---------- |
-| PostgreSQL data             | Azure managed PITR (transaction-log streaming)         | Continuous      | 35 days          | AES-256    |
-| PostgreSQL full snapshot    | Azure automated full backup                            | Daily           | 35 days          | AES-256    |
-| File uploads                | Azure storage account redundancy (LRS/ZRS)             | Continuous      | Tied to subscription | AES-256 |
-| Source code                 | GitHub remote (`StatCosol/app`)                        | Per push        | Indefinite       | TLS-in-transit |
-| Container images            | Azure Container Registry `statcompyacr001`             | Per build       | Last 30 tags + `latest` | At-rest |
-| Secrets                     | Azure Container App secrets + offline sealed vault     | On rotation     | Until superseded | AES-256    |
+| Asset                       | Method                                                                       | Frequency       | Retention        | Encryption |
+| --------------------------- | ---------------------------------------------------------------------------- | --------------- | ---------------- | ---------- |
+| PostgreSQL data (WAL)       | Azure managed PITR (transaction-log streaming, ~5 min granularity)            | Continuous      | 35 days          | AES-256    |
+| PostgreSQL full snapshot    | Azure automated full backup                                                   | Daily           | 35 days          | AES-256    |
+| File uploads (Azure Files)  | Azure Files share `statcompy-uploads` on GRS account `statcompystorage`       | Continuous      | Geo-paired region (RA-GRS read access on demand) | AES-256 |
+| File uploads — snapshots    | Daily snapshot via GitHub Actions `daily-backup-snapshot.yml` + share soft-delete | Daily         | 35 days          | AES-256    |
+| Source code                 | GitHub remote (`StatCosol/app`)                                               | Per push        | Indefinite       | TLS-in-transit |
+| Container images            | Azure Container Registry `statcompyacr001` (tag-immutable)                    | Per build       | Last 30 tags + `latest` | At-rest |
+| Secrets                     | Azure Container App secret store (Azure-managed key)                          | On rotation     | Until superseded | AES-256    |
 
 ## 4. Recovery objectives
 
