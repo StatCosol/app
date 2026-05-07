@@ -5,7 +5,7 @@
       <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
     </div>
     <div class="head-actions" style="display:flex;align-items:center;gap:12px;">
-      <label *ngIf="!isClientScoped && clients?.length" style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
+      <label *ngIf="!isClientScoped && clients.length" style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
         Client:
         <select [(ngModel)]="selectedClientId" (change)="onClientChange()" style="min-width:240px;padding:4px 8px;">
           <option value="" disabled>-- Select client --</option>
@@ -479,7 +479,7 @@
             </label>
           </div>
 
-          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.components?.length">
+          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.components.length">
             <table>
               <thead>
                 <tr>
@@ -510,7 +510,7 @@
             </table>
           </div>
 
-          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.statutoryConfigs?.length">
+          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.statutoryConfigs.length">
             <table>
               <thead>
                 <tr>
@@ -549,8 +549,8 @@
               {{ slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL' ? 'Per-client override' : (slab.source === 'NONE' ? 'No slab' : 'Shared default') }}
             </span>
           </div>
-          <div *ngIf="!slab.slabs?.length" class="minor">No slabs &mdash; engine returns ₹0 for this component in this state.</div>
-          <table *ngIf="slab.slabs?.length" style="margin-top:6px;">
+          <div *ngIf="!slab.slabs.length" class="minor">No slabs &mdash; engine returns ₹0 for this component in this state.</div>
+          <table *ngIf="slab.slabs.length" style="margin-top:6px;">
             <thead>
               <tr><th>From</th><th>To</th><th>Amount</th><th>Percent</th></tr>
             </thead>
@@ -615,7 +615,7 @@
             <div><span class="minor">Total Deductions:</span> <strong>{{ formatMoney(previewResult.totalDeductions) }}</strong></div>
             <div><span class="minor">Net Pay:</span> <strong style="color:#15803d;">{{ formatMoney(previewResult.netPay) }}</strong></div>
           </div>
-          <div *ngIf="previewResult.warnings?.length" style="margin-top:8px;">
+          <div *ngIf="previewResult.warnings.length" style="margin-top:8px;">
             <div class="minor">Warnings:</div>
             <ul style="margin:4px 0;padding-left:20px;color:#b45309;">
               <li *ngFor="let w of previewResult.warnings">{{ w }}</li>
@@ -840,7 +840,7 @@
             <td>{{ v.versionNo }}</td>
             <td>{{ v.createdAt | date:'short' }}</td>
             <td>{{ v.reason || '—' }}</td>
-            <td>{{ v.itemsSnapshot?.length || 0 }}</td>
+            <td>{{ v.itemsSnapshot.length || 0 }}</td>
           </tr>
         </tbody>
       </table>
