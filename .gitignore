@@ -34,8 +34,20 @@ _write_test.txt
 *.pem
 .seed-admin-password
 
+# Azure Container App definitions — may contain plaintext secrets when exported
+# via `az containerapp show`. Commit only the sanitized template; treat the live
+# YAML as a local-only file.
+backend-app.yaml
+frontend-app.yaml
+*-app.yaml
+!*-app.template.yaml
+
 # Dev-only scripts output
 controller_inventory.txt
 controller_decorators.txt
 
 backend-build.log
+fe-build.log
+deploy-last.log
+backup-be-revisions.txt
+backup-be-secret-names.txt
