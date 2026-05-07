@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, NgZone, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, finalize, takeUntil, timeout } from 'rxjs';
@@ -91,8 +91,8 @@ export class ClientNoticesComponent implements OnInit, OnDestroy {
   statuses = ['RECEIVED', 'UNDER_REVIEW', 'ACTION_REQUIRED', 'RESPONSE_DRAFTED', 'RESPONSE_SUBMITTED', 'CLOSED', 'ESCALATED'];
   severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-  constructor(private api: NoticesService) {}
-  ngOnInit() { this.load(); this.api.clientKpis().pipe(takeUntil(this.destroy$)).subscribe({ next: k => this.kpis = k }); }
+  constructor(private api: NoticesService, private zone: NgZone) {}
+  ngOnInit() { this.load(); this.api.clientKpis().pipe(takeUntil(this.destroy$)).subscribe({ next: k => this.kpis = k, error: () => {} }); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   load() {
@@ -101,8 +101,27 @@ export class ClientNoticesComponent implements OnInit, OnDestroy {
     if (this.search) f.search = this.search;
     if (this.statusFilter) f.status = this.statusFilter;
     if (this.severityFilter) f.severity = this.severityFilter;
-    this.api.clientList(f).pipe(takeUntil(this.destroy$), timeout(15000), finalize(() => this.loading = false))
-      .subscribe({ next: d => this.notices = d });
+    // Watchdog: if the request truly hangs (network stall, interceptor swallow,
+    // change-detection miss outside Angular zone), force the spinner off after 20s.
+    const watchdog = setTimeout(() => {
+      if (this.loading) {
+        this.zone.run(() => { this.loading = false; });
+      }
+    }, 20000);
+    this.api.clientList(f).pipe(
+      takeUntil(this.destroy$),
+      timeout(15000),
+      finalize(() => {
+        clearTimeout(watchdog);
+        this.zone.run(() => { this.loading = false; });
+      }),
+    ).subscribe({
+      next: (d: any) => {
+        const arr = Array.isArray(d) ? d : (d?.data ?? d?.items ?? []);
+        this.notices = arr;
+      },
+      error: () => { this.notices = []; },
+    });
   }
 
   loadDetail(id: string) {
