@@ -442,11 +442,13 @@ export class ContractorSidebarComponent implements OnChanges, OnDestroy {
   }
 
   onNavClick(): void {
-    this.navGroups.forEach(g => g.expanded = false);
-    if (this.mobileOpen) {
-      this.mobileOpen = false;
-      this.mobileOpenChange.emit(false);
-    }
+    setTimeout(() => {
+      this.navGroups.forEach(g => g.expanded = false);
+      if (this.mobileOpen) {
+        this.mobileOpen = false;
+        this.mobileOpenChange.emit(false);
+      }
+    });
   }
 
   isLinkActive(item: SidebarItem): boolean {

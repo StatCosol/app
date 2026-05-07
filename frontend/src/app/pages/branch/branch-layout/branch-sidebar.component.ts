@@ -558,10 +558,12 @@ export class BranchSidebarComponent implements OnInit, OnDestroy {
   }
 
   onNavClick(): void {
-    this.navItems.forEach(n => { if (n.children) n.expanded = false; });
-    if (this.mobileOpen) {
-      this.closeMobile();
-    }
+    setTimeout(() => {
+      this.navItems.forEach(n => { if (n.children) n.expanded = false; });
+      if (this.mobileOpen) {
+        this.closeMobile();
+      }
+    });
   }
 
   private buildNav(): SidebarItem[] {

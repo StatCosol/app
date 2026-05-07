@@ -112,6 +112,8 @@ export class SalesSidebarComponent {
   }
 
   onNavClick(): void {
-    if (this.mobileOpen) this.closeMobile();
+    setTimeout(() => {
+      if (this.mobileOpen) this.closeMobile();
+    });
   }
 }

@@ -106,7 +106,7 @@ import { AuthService } from '../../core/auth.service';
                routerLinkActive="nav-active"
                [routerLinkActiveOptions]="{ exact: m.route.endsWith('dashboard') }"
                class="mobile-nav-item"
-               (click)="mobileMenuOpen = false">
+                (click)="closeMobileMenuAfterNavigation()">
               {{ m.label }}
             </a>
           </nav>
@@ -178,5 +178,11 @@ export class RoleHeaderComponent implements OnInit {
 
   logout(): void {
     this.auth.logout('User clicked logout');
+  }
+
+  closeMobileMenuAfterNavigation(): void {
+    setTimeout(() => {
+      this.mobileMenuOpen = false;
+    });
   }
 }

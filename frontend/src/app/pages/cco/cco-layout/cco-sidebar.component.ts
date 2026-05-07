@@ -456,11 +456,13 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
   }
 
   onNavClick(): void {
-    this.navGroups.forEach(g => g.expanded = false);
-    if (this.mobileOpen) {
-      this.mobileOpen = false;
-      this.mobileOpenChange.emit(false);
-    }
+    setTimeout(() => {
+      this.navGroups.forEach(g => g.expanded = false);
+      if (this.mobileOpen) {
+        this.mobileOpen = false;
+        this.mobileOpenChange.emit(false);
+      }
+    });
   }
 
   private syncExpandedWithRoute(url: string): void {

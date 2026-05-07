@@ -40,12 +40,13 @@ interface NavItem {
 
         <!-- nav -->
         <nav class="sb-nav">
-          <a *ngFor="let item of navItems"
-             [routerLink]="item.route"
-             routerLinkActive="active"
-             [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
-             class="sb-link"
-             [attr.data-tip]="item.label">
+           <a *ngFor="let item of navItems"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: item.route.endsWith('dashboard') }"
+              (click)="closeMobileAfterNavigation()"
+              class="sb-link"
+              [attr.data-tip]="item.label">
             <span class="sb-icon" [innerHTML]="item.icon"></span>
             <span class="sb-label">{{ item.label }}</span>
           </a>
@@ -451,5 +452,11 @@ export class EssLayoutComponent implements OnInit, OnDestroy {
 
   logout(): void {
     this.auth.logout('User clicked logout');
+  }
+
+  closeMobileAfterNavigation(): void {
+    setTimeout(() => {
+      this.mobileOpen = false;
+    });
   }
 }
