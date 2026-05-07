@@ -125,6 +125,51 @@
           {{ row.isActive ? 'Active' : 'Inactive' }}
         </span>
       </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <button type="button" class="quote-link" (click)="$event.stopPropagation(); openQuoteUpload(row)">
+          Upload Quote
+        </button>
+      </ng-template>
     </ui-data-table>
+  </div>
+
+  <div *ngIf="quoteUploadFor" class="modal-backdrop" (click)="closeQuoteUpload()">
+    <div class="quote-modal" (click)="$event.stopPropagation()">
+      <div class="quote-modal__head">
+        <div>
+          <h3>Upload Quotation Wages</h3>
+          <p>{{ quoteUploadFor.name }} · {{ quoteUploadFor.client?.clientName || quoteUploadFor.clientName }}</p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeQuoteUpload()" title="Close">×</button>
+      </div>
+
+      <div class="quote-grid">
+        <label class="form-group">
+          <span>Effective From</span>
+          <input type="date" name="quoteEffectiveFrom" [(ngModel)]="quoteEffectiveFrom" class="form-control" />
+        </label>
+        <label class="form-group">
+          <span>Quotation Excel</span>
+          <input type="file" accept=".xlsx,.xls" (change)="onQuoteFileSelected($event)" class="form-control" />
+        </label>
+      </div>
+
+      <div class="quote-format">
+        Required columns: skill_category, daily_wage. Optional: monthly_wage, effective_from, effective_to, source, notes.
+      </div>
+
+      <div *ngIf="quoteUploadResult" class="quote-result">
+        {{ quoteUploadResult.inserted || 0 }} inserted,
+        {{ quoteUploadResult.updated || 0 }} updated,
+        {{ quoteUploadResult.errors || 0 }} errors
+      </div>
+
+      <div class="quote-actions">
+        <ui-button variant="primary" [disabled]="quoteUploading || !quoteFile" (clicked)="uploadQuote()">
+          {{ quoteUploading ? 'Uploading...' : 'Upload Quotation' }}
+        </ui-button>
+        <ui-button variant="secondary" (clicked)="closeQuoteUpload()">Close</ui-button>
+      </div>
+    </div>
   </div>
 </div>

@@ -88,6 +88,10 @@ const CrmMinimumWagesComponent = () =>
   import('./minimum-wages/crm-minimum-wages.component').then(
     (m) => m.CrmMinimumWagesComponent,
   );
+const CrmContractorComputationComponent = () =>
+  import('./contractor-computation/crm-contractor-computation.component').then(
+    (m) => m.CrmContractorComputationComponent,
+  );
 
 export const CRM_ROUTES: Routes = [
   {
@@ -108,6 +112,7 @@ export const CRM_ROUTES: Routes = [
               { path: 'overview', loadComponent: CrmClientOverviewComponent },
               { path: 'branches', loadComponent: CrmClientBranchesComponent },
               { path: 'contractors', loadComponent: CrmContractorsComponent },
+              { path: 'contractor-computation', loadComponent: CrmContractorComputationComponent },
               { path: 'compliance-tracker', loadComponent: CrmComplianceComponent },
               { path: 'documents', loadComponent: CrmDocumentsComponent },
               { path: 'compliance-docs', loadComponent: CrmComplianceDocsComponent },
@@ -137,6 +142,7 @@ export const CRM_ROUTES: Routes = [
       { path: 'branch-docs-review', loadComponent: CrmBranchDocsReviewComponent },
       { path: 'notices', loadComponent: CrmNoticesComponent },
       { path: 'minimum-wages', loadComponent: CrmMinimumWagesComponent },
+      { path: 'contractor-computation', loadComponent: CrmContractorComputationComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },
