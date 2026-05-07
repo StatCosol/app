@@ -23,6 +23,7 @@ Define how StatComPy production data is backed up, how those backups are tested,
 | --------------------------- | ---------------------------------------------------------------------------- | --------------- | ---------------- | ---------- |
 | PostgreSQL data (WAL)       | Azure managed PITR (transaction-log streaming, ~5 min granularity)            | Continuous      | 35 days          | AES-256    |
 | PostgreSQL full snapshot    | Azure automated full backup                                                   | Daily           | 35 days          | AES-256    |
+| PostgreSQL logical dump     | `pg_dump -Fc` via GitHub Actions `nightly-pg-dump.yml` → blob `pgdumps/` (Cool tier) | Daily   | 90 days (lifecycle rule) | AES-256 |
 | File uploads (Azure Files)  | Azure Files share `statcompy-uploads` on GRS account `statcompystorage`       | Continuous      | Geo-paired region (RA-GRS read access on demand) | AES-256 |
 | File uploads — snapshots    | Daily snapshot via GitHub Actions `daily-backup-snapshot.yml` + share soft-delete | Daily         | 35 days          | AES-256    |
 | Source code                 | GitHub remote (`StatCosol/app`)                                               | Per push        | Indefinite       | TLS-in-transit |
