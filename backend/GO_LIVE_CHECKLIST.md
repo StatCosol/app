@@ -1,6 +1,7 @@
 # StatCo Backend Go-Live Checklist
 
 ## 1. Environment & Secrets
+- All 7 production secrets (`db-pass`, `jwt-secret`, `ai-encryption-key`, `smtp-pass`, `smtp-pass-audit`, `smtp-pass-finance`, `smtp-pass-payroll`) live in **Azure Key Vault `statcompy-kv-prod`** (RBAC, soft-delete 90 d, purge protection ON). The `statcompy-backend` Container App references them as `keyvaultref:<vaultUri>/secrets/<name>` resolved via its system-assigned managed identity (role: `Key Vault Secrets User`). Versionless URIs ⇒ secret rotation in KV propagates without redeploy (replica restart is enough).
 - Set production env vars:
   - `NODE_ENV=production`
   - `JWT_SECRET=<strong-random>`
@@ -198,7 +199,7 @@ References: OWASP **WSTG** (Web Security Testing Guide), OWASP **ASVS** (Applica
 | OWASP Top 10                                | Implementation in StatComPy                                                                                                                          | Status |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | A01 Broken Access Control                   | RBAC via `JwtAuthGuard` + `RolesGuard` + `@Roles(...)`; per-record scoping (CCO `owner_cco_id`, CRM/Auditor `client_assignments`).                     | DONE   |
-| A02 Cryptographic Failures                  | TLS 1.2+ enforced by Azure FE; passwords hashed with bcrypt; JWT signed with HS256 (`JWT_SECRET` ≥ 32B); DB SSL=true.                                  | DONE   |
+| A02 Cryptographic Failures                  | TLS 1.2+ enforced by Azure FE; passwords hashed with bcrypt; JWT signed with HS256 (`JWT_SECRET` ≥ 32B, sourced from Azure Key Vault `statcompy-kv-prod` via managed identity); DB SSL=true.                                  | DONE   |
 | A03 Injection                               | TypeORM parameterised queries throughout; `class-validator` whitelist+`forbidNonWhitelisted` on every DTO.                                            | DONE   |
 | A04 Insecure Design                         | Two-stage approval flows (deletes, payroll runs, leaves); idempotency keys on payment receipts; non-regressing invoice status state machine.          | DONE   |
 | A05 Security Misconfiguration               | `helmet` (HSTS preload 1y, CSP, no-referrer, frame-ancestors none); Swagger disabled in prod (`NODE_ENV=production`); CORS restricted to allow-list. | DONE   |
