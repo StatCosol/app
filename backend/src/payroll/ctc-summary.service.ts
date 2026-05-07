@@ -210,7 +210,8 @@ export class CtcSummaryService {
         'cb.id = COALESCE(e.branch_id, r.branch_id)',
       )
       .where(runWhere, params)
-      .groupBy('COALESCE(e.branch_id, r.branch_id)')
+      .groupBy('e.branch_id')
+      .addGroupBy('r.branch_id')
       .addGroupBy('cb.branchname')
       .orderBy('cb.branchname');
 
