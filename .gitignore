@@ -49,5 +49,6 @@ controller_decorators.txt
 backend-build.log
 fe-build.log
 deploy-last.log
+deploy-*.log
 backup-be-revisions.txt
 backup-be-secret-names.txt
