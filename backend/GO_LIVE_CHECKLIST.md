@@ -234,7 +234,11 @@ Per the user's minimum recommendation, the following must be ticked before any c
 - [x] Backup and restore drill executed with documented RPO/RTO evidence (see [docs/drills/2026-05-restore-drill.md](../docs/drills/2026-05-restore-drill.md) — RPO 0 / RTO ≈7 min, 100% data parity).
 - [x] Role-based access testing completed (see §7 above).
 - [x] OWASP Top 10 self-assessment recorded (§14.3).
-- [ ] Production monitoring configured (Azure Monitor alerts on 5xx rate, p95 latency, container restarts) and audit logs verified end-to-end.
+- [x] Production monitoring configured — 9 Azure Monitor alerts routed to action group `ag-statcompy-prod` (recipients: `it_admin@statcosol.com`, `statcosolutions@gmail.com`):
+  - **Backend Container App**: `BE-5xx-rate` (sev1), `BE-restart-loop` (sev1), `BE-p95-latency` (sev2), `BE-cpu-high` (sev2), `BE-login-failure-spike` (sev2, log-search KQL on `ContainerAppConsoleLogs_CL`).
+  - **Frontend Container App**: `FE-5xx-rate` (sev1).
+  - **PG Flexible Server `statcompy-db`**: `DB-cpu-high` (sev2), `DB-connections-high` (sev1, B1ms cap = 85), `DB-storage-high` (sev2).
+  - Audit logs (`user_login_logs`, `audit_log`) verified end-to-end during May 2026 restore drill (see [docs/drills/2026-05-restore-drill.md](../docs/drills/2026-05-restore-drill.md)).
 
 ### 14.6 Optional Trust-Building Certifications (Not Blockers)
 

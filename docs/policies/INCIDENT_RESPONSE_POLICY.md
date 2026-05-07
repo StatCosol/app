@@ -40,7 +40,16 @@ For P1 incidents the on-call engineer is the IC by default and may delegate afte
 
 ### 4.1 Detection & triage
 Sources of detection:
-- Monitoring alerts (5xx rate, p95 latency, restart count, login-failure spikes).
+- **Azure Monitor alerts** routed to action group `ag-statcompy-prod` (recipients: `it_admin@statcosol.com`, `statcosolutions@gmail.com`):
+  - `BE-5xx-rate` (sev 1) — backend HTTP 5xx > 5 in 5 min.
+  - `BE-restart-loop` (sev 1) — backend container `RestartCount` > 3 in 15 min.
+  - `BE-p95-latency` (sev 2) — backend avg `ResponseTime` > 2 s for 10 min.
+  - `BE-cpu-high` (sev 2) — backend `CpuPercentage` > 85 % for 15 min.
+  - `BE-login-failure-spike` (sev 2) — log-search KQL on `ContainerAppConsoleLogs_CL`: > 30 login failures in 5 min.
+  - `FE-5xx-rate` (sev 1) — frontend HTTP 5xx > 5 in 5 min.
+  - `DB-cpu-high` (sev 2) — `cpu_percent` > 80 % for 10 min.
+  - `DB-connections-high` (sev 1) — `active_connections` > 80 (B1ms cap = 85).
+  - `DB-storage-high` (sev 2) — `storage_percent` > 80 %.
 - Customer support tickets.
 - Internal staff observation.
 - External reports (`security@statcosol.com`).
