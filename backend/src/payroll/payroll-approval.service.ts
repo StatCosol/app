@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
 import { PayrollProcessingService } from './payroll-processing.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 /**
  * Payroll Approval Workflow
@@ -23,11 +24,17 @@ export class PayrollApprovalService {
     @InjectRepository(PayrollRunEntity)
     private readonly runRepo: Repository<PayrollRunEntity>,
     private readonly processingSvc: PayrollProcessingService,
+    private readonly access: AccessScopeService,
   ) {}
 
   /** Submit a processed run for approval */
-  async submitForApproval(runId: string, submittedByUserId: string) {
+  async submitForApproval(
+    runId: string,
+    submittedByUserId: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'PROCESSED') {
       throw new BadRequestException(
@@ -102,8 +109,14 @@ export class PayrollApprovalService {
   }
 
   /** Approve a submitted run */
-  async approveRun(runId: string, approvedByUserId: string, comments?: string) {
+  async approveRun(
+    runId: string,
+    approvedByUserId: string,
+    comments?: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'SUBMITTED') {
       throw new BadRequestException(
@@ -137,8 +150,14 @@ export class PayrollApprovalService {
   }
 
   /** Reject a submitted run back to drafts */
-  async rejectRun(runId: string, rejectedByUserId: string, reason: string) {
+  async rejectRun(
+    runId: string,
+    rejectedByUserId: string,
+    reason: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'SUBMITTED') {
       throw new BadRequestException(
@@ -177,8 +196,9 @@ export class PayrollApprovalService {
   }
 
   /** Revert a rejected or approved run to DRAFT so it can be reprocessed */
-  async revertToDraft(runId: string) {
+  async revertToDraft(runId: string, user?: ReqUser) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'REJECTED' && run.status !== 'APPROVED') {
       throw new BadRequestException(
@@ -200,8 +220,9 @@ export class PayrollApprovalService {
   }
 
   /** Get approval status details */
-  async getApprovalStatus(runId: string) {
+  async getApprovalStatus(runId: string, user?: ReqUser) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
     return {
       id: run.id,
       status: run.status,

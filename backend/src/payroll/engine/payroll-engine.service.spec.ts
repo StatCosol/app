@@ -19,6 +19,7 @@ import { StatutoryCalculatorService } from '../services/statutory-calculator.ser
 import { StateStatutoryService } from '../services/state-statutory.service';
 import { RoundingService } from './rounding.service';
 import { WageBaseService } from './wage-base.service';
+import { TdsCalculatorService } from '../services/tds-calculator.service';
 
 const mockRepo = () => ({
   findOne: jest.fn(),
@@ -82,6 +83,10 @@ describe('PayrollEngineService', () => {
               .fn()
               .mockReturnValue({ pfWage: 0, esiWage: 0, gross: 0 }),
           },
+        },
+        {
+          provide: TdsCalculatorService,
+          useValue: { calculate: jest.fn().mockReturnValue({ tds: 0 }) },
         },
         {
           provide: AttendanceService,

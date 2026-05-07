@@ -23,10 +23,11 @@ import { PaySalaryStructureEntity } from '../entities/pay-salary-structure.entit
 import { PaySalaryStructureItemEntity } from '../entities/pay-salary-structure-item.entity';
 import { PayFormulaTemplateEntity } from '../entities/pay-formula-template.entity';
 import { PaySalaryStructureVersionEntity } from '../entities/pay-salary-structure-version.entity';
+import { PayrollRunEntity } from '../entities/payroll-run.entity';
 import { PayrollEngineService } from './payroll-engine.service';
 import { serializeFormula, FormulaNode } from './formula-serializer';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { ReqUser } from '../../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../../access/access-scope.service';
 import {
   PreviewEmployeeDto,
   PreviewComponentDto,
@@ -61,13 +62,22 @@ export class PayrollEngineController {
     private readonly templateRepo: Repository<PayFormulaTemplateEntity>,
     @InjectRepository(PaySalaryStructureVersionEntity)
     private readonly versionRepo: Repository<PaySalaryStructureVersionEntity>,
+    @InjectRepository(PayrollRunEntity)
+    private readonly runRepo: Repository<PayrollRunEntity>,
+    private readonly access: AccessScopeService,
   ) {}
 
   // ── Engine Processing ──────────────────────────
 
   @ApiOperation({ summary: 'Process With Engine' })
   @Post('runs/:runId/process')
-  async processWithEngine(@Param('runId') runId: string) {
+  async processWithEngine(
+    @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new NotFoundException('Payroll run not found');
+    await this.access.assertClientAllowed(user, run.clientId);
     return this.engineSvc.processWithEngine(runId);
   }
 

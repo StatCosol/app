@@ -749,16 +749,19 @@ export class PayrollApiService {
   }
 
   private downloadCsv(url: string): void {
-    this.http.get(url, { responseType: 'blob' }).subscribe((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      const match = url.match(/filename="?([^"&]+)"?/);
-      a.download = match ? match[1] : 'report.csv';
-      // Extract filename from Content-Disposition if available or use a default
-      a.download = 'report.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
+    this.http
+      .get(url, { responseType: 'blob', observe: 'response' })
+      .subscribe((res) => {
+        const blob = res.body as Blob;
+        if (!blob) return;
+        // Prefer the filename advertised by the server in Content-Disposition;
+        // fall back to a sensible default. Avoid the previous regex-against-URL
+        // hack which always produced 'report.csv' regardless of the response.
+        const fileName =
+          this.fileNameFromDisposition(res.headers.get('content-disposition')) ||
+          'report.csv';
+        this.saveBlob(blob, fileName);
+      });
   }
 
   private saveBlob(blob: Blob, fileName: string): void {

@@ -109,11 +109,13 @@ export class PayrollProcessingController {
   @ApiOperation({ summary: 'Upload Breakup' })
   @Post(':runId/upload-breakup')
   @UseInterceptors(FileInterceptor('file', breakupUploadOptions))
-  uploadBreakup(
+  async uploadBreakup(
     @Param('runId') runId: string,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: ReqUser,
   ) {
     if (!file) throw new BadRequestException('File is required');
+    await this.loadRunForUser(runId, user);
     return this.processingSvc.uploadBreakup(runId, file);
   }
 
@@ -121,29 +123,37 @@ export class PayrollProcessingController {
   @ApiOperation({ summary: 'Upload Attendance' })
   @Post(':runId/upload-attendance')
   @UseInterceptors(FileInterceptor('file', breakupUploadOptions))
-  uploadAttendance(
+  async uploadAttendance(
     @Param('runId') runId: string,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: ReqUser,
   ) {
     if (!file) throw new BadRequestException('File is required');
+    await this.loadRunForUser(runId, user);
     return this.processingSvc.uploadAttendance(runId, file);
   }
 
   // Validate attendance leave vs ESS-approved leave applications
   @ApiOperation({ summary: 'Validate Attendance Leave vs ESS Applied' })
   @Get(':runId/leave-validation')
-  leaveValidation(@Param('runId') runId: string) {
+  async leaveValidation(
+    @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.loadRunForUser(runId, user);
     return this.processingSvc.leaveValidation(runId);
   }
 
   // Resolve a leave-validation mismatch by snapping attendance to a chosen source
   @ApiOperation({ summary: 'Resolve Leave Mismatch for Employee' })
   @Post(':runId/leave-validation/:empCode/resolve')
-  resolveLeaveValidation(
+  async resolveLeaveValidation(
     @Param('runId') runId: string,
     @Param('empCode') empCode: string,
     @Body() body: { source?: 'ESS' | 'SHEET' } = {},
+    @CurrentUser() user?: ReqUser,
   ) {
+    if (user) await this.loadRunForUser(runId, user);
     const source =
       body?.source && ['ESS', 'SHEET'].includes(body.source)
         ? body.source
@@ -154,7 +164,11 @@ export class PayrollProcessingController {
   // Validate attendance-sheet OT vs branch/client + ESS daily OT
   @ApiOperation({ summary: 'Validate Attendance OT vs Branch/ESS Daily OT' })
   @Get(':runId/ot-validation')
-  otValidation(@Param('runId') runId: string) {
+  async otValidation(
+    @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.loadRunForUser(runId, user);
     return this.processingSvc.otValidation(runId);
   }
 
@@ -165,7 +179,9 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @Param('empCode') empCode: string,
     @Body() body: { source?: 'BRANCH' | 'ESS' | 'SHEET' },
+    @CurrentUser() user?: ReqUser,
   ) {
+    if (user) await this.loadRunForUser(runId, user);
     const source =
       body?.source && ['BRANCH', 'ESS', 'SHEET'].includes(body.source)
         ? body.source
@@ -210,7 +226,11 @@ export class PayrollProcessingController {
   // Process payroll run (compute statutory deductions)
   @ApiOperation({ summary: 'Process Run' })
   @Post(':runId/process')
-  processRun(@Param('runId') runId: string) {
+  async processRun(
+    @Param('runId') runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.loadRunForUser(runId, user);
     return this.engineSvc.processWithEngine(runId);
   }
 
@@ -244,18 +264,17 @@ export class PayrollProcessingController {
   async addEmployeesToRun(
     @Param('runId') runId: string,
     @Body() body: { employeeCodes: string[] },
+    @CurrentUser() user: ReqUser,
   ) {
     const codes = body?.employeeCodes;
     if (!Array.isArray(codes) || !codes.length) {
       throw new BadRequestException('employeeCodes array is required');
     }
 
-    const runRepo = this.ds.getRepository(PayrollRunEntity);
     const runEmpRepo = this.ds.getRepository(PayrollRunEmployeeEntity);
     const empRepo = this.ds.getRepository(EmployeeEntity);
 
-    const run = await runRepo.findOne({ where: { id: runId } });
-    if (!run) throw new BadRequestException('Payroll run not found');
+    const run = await this.loadRunForUser(runId, user);
 
     const added: string[] = [];
     const skipped: string[] = [];
@@ -326,11 +345,15 @@ export class PayrollProcessingController {
       otherEarningsNote?: string | null;
       otherDeductionsNote?: string | null;
     },
+    @CurrentUser() user?: ReqUser,
   ) {
     if (!empCode) throw new BadRequestException('empCode is required');
 
-    const runRepo = this.ds.getRepository(PayrollRunEntity);
-    const run = await runRepo.findOne({ where: { id: runId } });
+    const run = user
+      ? await this.loadRunForUser(runId, user)
+      : await this.ds
+          .getRepository(PayrollRunEntity)
+          .findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     if (run.status === 'APPROVED') {
       throw new BadRequestException(
@@ -460,6 +483,7 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @Res() res: Response,
   ) {
+    await this.loadRunForUser(runId, user);
     const files = await this.pfEcr.generate(runId, user.userId);
     const first = files[0];
     res.setHeader('Content-Type', 'text/plain');
@@ -479,6 +503,7 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @Res() res: Response,
   ) {
+    await this.loadRunForUser(runId, user);
     const files = await this.esi.generate(runId, user.userId);
     const first = files[0];
     res.setHeader('Content-Type', 'text/plain');
@@ -493,7 +518,7 @@ export class PayrollProcessingController {
   // Generate state-wise register
   @ApiOperation({ summary: 'Generate Register' })
   @Post(':runId/generate/registers')
-  generateRegister(
+  async generateRegister(
     @CurrentUser() user: ReqUser,
     @Param('runId') runId: string,
     @Query('stateCode') stateCode: string,
@@ -502,13 +527,14 @@ export class PayrollProcessingController {
     if (!stateCode || !registerType) {
       throw new BadRequestException('stateCode and registerType are required');
     }
+    await this.loadRunForUser(runId, user);
     return this.register.generate(runId, stateCode, registerType, user.userId);
   }
 
   // Generate ALL applicable registers for a branch (branch-type-aware)
   @ApiOperation({ summary: 'Generate all applicable registers for a branch' })
   @Post(':runId/generate/all-registers')
-  generateAllRegisters(
+  async generateAllRegisters(
     @CurrentUser() user: ReqUser,
     @Param('runId') runId: string,
     @Query('branchId') branchId: string,
@@ -516,6 +542,7 @@ export class PayrollProcessingController {
     if (!branchId) {
       throw new BadRequestException('branchId query param is required');
     }
+    await this.loadRunForUser(runId, user);
     return this.register.generateAllForBranch(runId, branchId, user.userId);
   }
 

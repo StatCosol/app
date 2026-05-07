@@ -224,14 +224,20 @@ export class AuditorDashboardController {
           message: 'Evidence not found or not assigned to you',
         };
       }
-      // Log reminder in audit_logs
+      // Log reminder in audit_logs (schema: entity_type, entity_id, action,
+      // performed_by, snapshot, created_at). Use REMINDER_SENT action and
+      // store the evidence id under entity_id; payload (clientName, kind)
+      // goes into snapshot for traceability.
       await this.dataSource.query(
-        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-         VALUES ($1, 'EVIDENCE_REMINDER', 'COMPLIANCE_EVIDENCE', $2, $3)`,
+        `INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot, created_at)
+         VALUES ('AUDIT', $1, 'REMINDER_SENT', $2, $3::jsonb, NOW())`,
         [
-          auditorId,
           evidenceId,
-          JSON.stringify({ clientName: rows[0].client_name }),
+          auditorId,
+          JSON.stringify({
+            kind: 'EVIDENCE_REMINDER',
+            clientName: rows[0].client_name,
+          }),
         ],
       );
       this.logger.log(
@@ -277,11 +283,19 @@ export class AuditorDashboardController {
         `UPDATE compliance_evidence SET status = $1, updated_at = NOW() WHERE id = $2`,
         [body.status, evidenceId],
       );
-      // Log in audit_logs
+      // Log in audit_logs (schema: entity_type, entity_id, action,
+      // performed_by, snapshot, created_at).
       await this.dataSource.query(
-        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-         VALUES ($1, 'EVIDENCE_STATUS_UPDATE', 'COMPLIANCE_EVIDENCE', $2, $3)`,
-        [auditorId, evidenceId, JSON.stringify({ newStatus: body.status })],
+        `INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot, created_at)
+         VALUES ('AUDIT', $1, 'STATUS_CHANGE', $2, $3::jsonb, NOW())`,
+        [
+          evidenceId,
+          auditorId,
+          JSON.stringify({
+            kind: 'EVIDENCE_STATUS_UPDATE',
+            newStatus: body.status,
+          }),
+        ],
       );
       this.logger.log(
         `Evidence ${evidenceId} status updated to ${body.status} by auditor ${auditorId}`,

@@ -30,7 +30,7 @@ export class PayrollApprovalController {
     @Param('runId', ParseUUIDPipe) runId: string,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.submitForApproval(runId, user.userId);
+    return this.approvalService.submitForApproval(runId, user.userId, user);
   }
 
   @ApiOperation({ summary: 'Approve' })
@@ -41,7 +41,7 @@ export class PayrollApprovalController {
     @Body('comments') comments: string | undefined,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.approveRun(runId, user.userId, comments);
+    return this.approvalService.approveRun(runId, user.userId, comments, user);
   }
 
   @ApiOperation({ summary: 'Reject' })
@@ -52,20 +52,26 @@ export class PayrollApprovalController {
     @Body('reason') reason: string,
     @CurrentUser() user: ReqUser,
   ) {
-    return this.approvalService.rejectRun(runId, user.userId, reason);
+    return this.approvalService.rejectRun(runId, user.userId, reason, user);
   }
 
   @ApiOperation({ summary: 'Revert' })
   @Post(':runId/revert')
   @Roles('PAYROLL', 'ADMIN')
-  revert(@Param('runId', ParseUUIDPipe) runId: string) {
-    return this.approvalService.revertToDraft(runId);
+  revert(
+    @Param('runId', ParseUUIDPipe) runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.approvalService.revertToDraft(runId, user);
   }
 
   @ApiOperation({ summary: 'Status' })
   @Get(':runId/approval-status')
   @Roles('PAYROLL', 'ADMIN', 'CLIENT')
-  status(@Param('runId', ParseUUIDPipe) runId: string) {
-    return this.approvalService.getApprovalStatus(runId);
+  status(
+    @Param('runId', ParseUUIDPipe) runId: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.approvalService.getApprovalStatus(runId, user);
   }
 }

@@ -490,10 +490,22 @@ export class CeoController {
   @Get('escalations')
   async escalations(@Query() query: Record<string, string>) {
     try {
-      const status = query.status ? String(query.status).toUpperCase() : null;
+      const requested = query.status
+        ? String(query.status).toUpperCase()
+        : null;
+      // Translate UI-facing status filter back to DB-facing values.
+      const dbStatus = requested
+        ? requested === 'CLOSED'
+          ? 'COMPLETED'
+          : requested === 'OPEN'
+            ? 'PENDING'
+            : requested
+        : null;
       const rows = await this.dataSource.query(
         `SELECT
            ct.id,
+           ct.client_id    AS "clientId",
+           ct.branch_id    AS "branchId",
            c.client_name   AS "clientName",
            b.branchname    AS "branchName",
            ct.status,
@@ -508,9 +520,10 @@ export class CeoController {
            AND ($1::text IS NULL OR ct.status = $1)
          ORDER BY ct.escalated_at DESC
          LIMIT 200`,
-        [status],
+        [dbStatus],
       );
-      return { items: rows, total: rows.length, query };
+      const items = rows.map((r: any) => this.mapEscalationRow(r));
+      return { items, total: items.length, query };
     } catch {
       return { items: [], total: 0, query };
     }
@@ -519,18 +532,72 @@ export class CeoController {
   @ApiOperation({ summary: 'Escalation' })
   @Get('escalations/:id')
   async escalation(@Param('id') id: string) {
-    const numId = Number(id);
-    if (isNaN(numId)) throw new BadRequestException('Invalid escalation ID');
+    if (isNaN(Number(id)))
+      throw new BadRequestException('Invalid escalation ID');
     const [row] = await this.dataSource.query(
-      `SELECT ct.*, c.client_name AS "clientName", b.branchname AS "branchName"
+      `SELECT ct.*, c.client_name AS "clientName", b.branchname AS "branchName",
+              COALESCE(cm.law_family, cm.law_name, 'GENERAL') AS category
        FROM compliance_tasks ct
        LEFT JOIN clients c ON c.id = ct.client_id
        LEFT JOIN client_branches b ON b.id = ct.branch_id
+       LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
        WHERE ct.id = $1`,
       [id],
     );
     if (!row) throw new NotFoundException(`Escalation ${id} not found`);
-    return { ...row, comments: [] };
+    const mapped = this.mapEscalationRow({
+      id: row.id,
+      clientId: row.client_id,
+      branchId: row.branch_id,
+      clientName: row.clientName,
+      branchName: row.branchName,
+      status: row.status,
+      dueDate: row.due_date,
+      escalatedAt: row.escalated_at,
+      category: row.category,
+    });
+    return { ...mapped, raw: row, comments: [] };
+  }
+
+  /**
+   * Normalise compliance_tasks rows into the contract the CEO escalations
+   * UI expects: { id, subject, priority, createdAt, status:OPEN|IN_PROGRESS|RESOLVED|CLOSED, … }.
+   * - status: PENDING→OPEN, COMPLETED→CLOSED, others passthrough.
+   * - priority: derived from how overdue the due_date is.
+   * - subject: human label "<category> — <branch> (<client>)".
+   * - createdAt: aliased from escalated_at so the UI can sort/filter by it.
+   */
+  private mapEscalationRow(r: any) {
+    const rawStatus = String(r.status || '').toUpperCase();
+    const status =
+      rawStatus === 'PENDING'
+        ? 'OPEN'
+        : rawStatus === 'COMPLETED'
+          ? 'CLOSED'
+          : rawStatus;
+    const due = r.dueDate ? new Date(r.dueDate) : null;
+    const overdueDays = due
+      ? Math.floor((Date.now() - due.getTime()) / (24 * 3600 * 1000))
+      : 0;
+    let priority = 'LOW';
+    if (overdueDays > 14) priority = 'CRITICAL';
+    else if (overdueDays > 7) priority = 'HIGH';
+    else if (overdueDays > 0) priority = 'MEDIUM';
+    const subject = `${r.category || 'GENERAL'} — ${r.branchName || 'Branch'} (${r.clientName || 'Client'})`;
+    return {
+      id: r.id,
+      clientId: r.clientId,
+      branchId: r.branchId,
+      clientName: r.clientName,
+      branchName: r.branchName,
+      category: r.category,
+      subject,
+      priority,
+      status,
+      dueDate: r.dueDate,
+      escalatedAt: r.escalatedAt,
+      createdAt: r.escalatedAt,
+    };
   }
 
   @ApiOperation({ summary: 'Escalation Comment' })
@@ -569,17 +636,23 @@ export class CeoController {
     @Param('id') id: string,
     @Body() body: { resolutionNote?: string },
   ) {
+    if (isNaN(Number(id)))
+      throw new BadRequestException('Invalid escalation ID');
+    let dbWriteOk = true;
     await this.dataSource
       .query(
         `UPDATE compliance_tasks SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1`,
         [id],
       )
-      .catch((e) =>
-        this.logger.warn(`Escalation close failed for ${id}`, e?.message),
-      );
+      .catch((e) => {
+        dbWriteOk = false;
+        this.logger.warn(`Escalation close failed for ${id}`, e?.message);
+      });
     return {
       id,
-      status: 'CLOSED',
+      // CLOSED is the UI-facing status; DB stores COMPLETED. Keep both
+      // contracts in lockstep with mapEscalationRow().
+      status: dbWriteOk ? 'CLOSED' : 'OPEN',
       resolutionNote: body?.resolutionNote ?? '',
     };
   }

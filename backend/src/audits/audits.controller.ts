@@ -278,13 +278,21 @@ export class AuditorAuditsController {
 
   @ApiOperation({ summary: 'Latest audit report with scores' })
   @Get('reports/:auditId/latest')
-  async getLatestReport(@Param('auditId', ParseUUIDPipe) auditId: string) {
+  async getLatestReport(
+    @CurrentUser() user: ReqUser,
+    @Param('auditId', ParseUUIDPipe) auditId: string,
+  ) {
+    await this.svc.getForAuditor(user, auditId);
     return this.auditOutputEngine.getLatestReport(auditId);
   }
 
   @ApiOperation({ summary: 'Audit report version history' })
   @Get('reports/:auditId/history')
-  async getReportHistory(@Param('auditId', ParseUUIDPipe) auditId: string) {
+  async getReportHistory(
+    @CurrentUser() user: ReqUser,
+    @Param('auditId', ParseUUIDPipe) auditId: string,
+  ) {
+    await this.svc.getForAuditor(user, auditId);
     return this.auditOutputEngine.getReportHistory(auditId);
   }
 
@@ -551,10 +559,11 @@ export class AuditorAuditsController {
 
   @ApiOperation({ summary: 'Calculate Score' })
   @Post(':id/score')
-  calculateScore(
-    @CurrentUser() _user: ReqUser,
+  async calculateScore(
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.svc.getForAuditor(user, id);
     return this.svc.calculateScore(id);
   }
 
