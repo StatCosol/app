@@ -67,6 +67,7 @@ import { NoticesModule } from './notices/notices.module';
 import { PerformanceAppraisalModule } from './performance-appraisal/performance-appraisal.module';
 import { AccountsBillingModule } from './accounts-billing/accounts-billing.module';
 import { ClientContactsModule } from './client-contacts/client-contacts.module';
+import { SalesModule } from './sales/sales.module';
 
 @Module({
   imports: [
@@ -106,7 +107,26 @@ import { ClientContactsModule } from './client-contacts/client-contacts.module';
         synchronize: false, // Always false — use SQL migrations for schema changes
         ssl:
           config.get<string>('DB_SSL') === 'true'
-            ? { rejectUnauthorized: false }
+            ? (() => {
+                // If a CA bundle path is provided, enforce strict cert validation.
+                // Otherwise fall back to encrypted-but-not-verified for backwards
+                // compatibility (e.g. local dev or pre-CA-bundle deployments).
+                const caPath = config.get<string>('DB_SSL_CA_PATH');
+                if (caPath) {
+                  try {
+                    const fsMod = require('fs') as typeof import('fs');
+                    if (fsMod.existsSync(caPath)) {
+                      return {
+                        rejectUnauthorized: true,
+                        ca: fsMod.readFileSync(caPath, 'utf8'),
+                      };
+                    }
+                  } catch {
+                    /* fall through */
+                  }
+                }
+                return { rejectUnauthorized: false };
+              })()
             : false,
         extra: {
           // Pool configuration — prevent first-query hangs
@@ -181,6 +201,7 @@ import { ClientContactsModule } from './client-contacts/client-contacts.module';
     PerformanceAppraisalModule,
     AccountsBillingModule,
     ClientContactsModule,
+    SalesModule,
   ],
   controllers: [],
   providers: [

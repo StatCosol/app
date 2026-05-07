@@ -91,6 +91,9 @@ const BranchAppraisalFormComponent = () =>
 const BranchAppraisalCyclesComponent = () =>
   import('./performance-appraisal/branch-appraisal-cycles.component').then((m) => m.BranchAppraisalCyclesComponent);
 
+const VendorAuditNcsComponent = () =>
+  import('../shared-vendor/vendor-audit-ncs.component').then((m) => m.VendorAuditNcsComponent);
+
 export const BRANCH_ROUTES: Routes = [
   {
     path: 'branch',
@@ -152,6 +155,7 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'appraisals', loadComponent: BranchAppraisalsListComponent },
       { path: 'appraisals/:id', loadComponent: BranchAppraisalFormComponent },
       { path: 'appraisal-cycles', loadComponent: BranchAppraisalCyclesComponent },
+      { path: 'audits/:id/non-compliances', loadComponent: VendorAuditNcsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

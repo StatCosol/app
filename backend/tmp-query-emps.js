@@ -3,7 +3,7 @@ const { Client } = require('pg');
   const c = new Client({
     host: 'statcompy-db.postgres.database.azure.com',
     user: 'Statcocompy',
-    password: 'Statco@123',
+    password: process.env.DB_PASS,
     database: 'statcompy',
     ssl: { rejectUnauthorized: false }
   });

@@ -30,10 +30,7 @@ import { EsiGenerator } from './generators/esi.generator';
 import { RegisterGenerator } from './generators/register.generator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import {
-  AccessScopeService,
-  ReqUser,
-} from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 import { DataSource } from 'typeorm';
 
 import { PayrollRunEntity } from './entities/payroll-run.entity';
@@ -184,7 +181,11 @@ export class PayrollProcessingController {
       await this.engineSvc.processSpecificEmployees(runId, [empCode]);
     } catch (err) {
       // Don't mask the resolve outcome if reprocess fails — surface a hint.
-      return { ...result, reprocessed: false, reprocessError: (err as Error)?.message };
+      return {
+        ...result,
+        reprocessed: false,
+        reprocessError: (err as Error)?.message,
+      };
     }
     return { ...result, reprocessed: true };
   }

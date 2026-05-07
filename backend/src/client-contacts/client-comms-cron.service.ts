@@ -47,9 +47,7 @@ export class ClientCommsCronService {
         `[payroll-input] cron complete sent=${r.summary.sent} skipped=${r.summary.skipped} failed=${r.summary.failed}`,
       );
     } catch (e) {
-      this.log.error(
-        `[payroll-input] cron error: ${(e as Error).message}`,
-      );
+      this.log.error(`[payroll-input] cron error: ${(e as Error).message}`);
     }
   }
 
@@ -84,10 +82,7 @@ export class ClientCommsCronService {
     const clients = await this.eligiblePayrollClients(opts.onlyClientId);
     const results: RunResultEntry[] = [];
     for (const c of clients) {
-      const recipients = await this.contacts.getActiveEmails(
-        c.id,
-        'PAYROLL',
-      );
+      const recipients = await this.contacts.getActiveEmails(c.id, 'PAYROLL');
       if (!recipients.length) {
         await this.recordRun({
           clientId: c.id,
@@ -194,7 +189,8 @@ export class ClientCommsCronService {
           recipients: [],
           ccEmails: [],
           status: 'SKIPPED',
-          failureReason: 'No contractor users or contractor-compliance contacts',
+          failureReason:
+            'No contractor users or contractor-compliance contacts',
           triggeredBy: opts.triggeredBy,
         });
         results.push({

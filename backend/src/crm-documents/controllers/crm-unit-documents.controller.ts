@@ -12,7 +12,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { CrmDocumentsService } from '../crm-documents.service';
@@ -20,6 +19,10 @@ import { UploadCrmDocumentDto } from '../dto/upload-crm-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 /**
  * CRM-only controller for unit document uploads.
@@ -36,16 +39,14 @@ export class CrmUnitDocumentsController {
   @ApiOperation({ summary: 'File Interceptor' })
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadCrmDocumentDto,
     @CurrentUser() user: ReqUser,
   ) {
+    assertSafeFile(file);
     const doc = await this.svc.upload(dto, file, user.id);
     return {
       id: doc.id,
@@ -92,7 +93,10 @@ export class CrmUnitDocumentsController {
   /** Soft-delete a document (CRM can delete own uploads) */
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
-  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: ReqUser) {
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     await this.svc.softDelete(id, user.id);
     return { deleted: true };
   }

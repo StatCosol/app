@@ -12,7 +12,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -23,6 +22,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import { CacheControl } from '../common/decorators/cache-control.decorator';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 @ApiTags('Compliance Documents')
 @ApiBearerAuth('JWT')
@@ -36,16 +36,14 @@ export class AdminComplianceDocsController {
   @ApiOperation({ summary: 'Upload' })
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadComplianceDocumentDto,
     @CurrentUser() user: ReqUser,
   ) {
+    assertSafeFile(file);
     return this.svc.upload(dto, file, user.id, 'ADMIN');
   }
 

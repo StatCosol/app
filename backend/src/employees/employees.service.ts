@@ -94,7 +94,9 @@ export class EmployeesService {
         `SELECT statecode FROM client_branches WHERE id = $1 LIMIT 1`,
         [params.branchId],
       );
-      stateCode = String(br?.[0]?.statecode || '').toUpperCase().trim();
+      stateCode = String(br?.[0]?.statecode || '')
+        .toUpperCase()
+        .trim();
     }
     if (!stateCode) return; // can't validate without a state
 

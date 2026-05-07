@@ -1,4 +1,5 @@
--- Seed CEO and two CCO users (password: Statco@123)
+-- Seed CEO and two CCO users. Default seed password is documented in the
+-- internal onboarding wiki — do NOT inline it here.
 -- Assumes roles:
 --   2 = CEO
 --   3 = CCO
@@ -60,4 +61,4 @@ ON CONFLICT (email) DO UPDATE SET
   "isActive" = true,
   "deletedAt" = NULL;
 
-SELECT 'Seeded CEO/CCOs (email + Statco@123) if they did not already exist.' AS message;
+SELECT 'Seeded CEO/CCOs (email + default seed password) if they did not already exist. See onboarding wiki for the password.' AS message;

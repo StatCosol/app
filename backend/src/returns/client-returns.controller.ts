@@ -11,7 +11,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as multer from 'multer';
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -21,11 +20,9 @@ import { CreateReturnDto } from './dto/create-return.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
-const uploadOptions = {
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-};
+const uploadOptions = makeSafeUploadOptions({ memory: true, maxMb: 10 });
 
 @ApiTags('Returns')
 @ApiBearerAuth('JWT')
@@ -62,6 +59,7 @@ export class ClientReturnsController {
     @Param('id') id: string,
     @UploadedFile() file: UploadedFile,
   ) {
+    assertSafeFile(file as unknown as Express.Multer.File);
     const ackNumber =
       typeof req.body?.ackNumber === 'string'
         ? req.body.ackNumber.trim() || null
@@ -77,6 +75,7 @@ export class ClientReturnsController {
     @Param('id') id: string,
     @UploadedFile() file: UploadedFile,
   ) {
+    assertSafeFile(file as unknown as Express.Multer.File);
     return this.returns.uploadProof(user, id, 'challan', file);
   }
 

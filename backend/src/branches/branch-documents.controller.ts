@@ -16,9 +16,6 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -35,80 +32,24 @@ import { UploadBranchDocumentDto } from './dto/upload-branch-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
-/* ── File upload config ───────────────────── */
-
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-const MAX_MB = 10;
-
-const storage = diskStorage({
-  destination: (_req, _file, cb) => {
-    const base = path.join(process.cwd(), 'uploads', 'branch-documents');
-    ensureDir(base);
-    cb(null, base);
-  },
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, `${Date.now()}_${safe}`);
-  },
+const fileUploadOptions = makeSafeUploadOptions({
+  folder: 'branch-documents',
+  maxMb: 10,
+  allowedMimes: [
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
 });
 
-const fileUploadOptions = {
-  storage,
-  fileFilter: (
-    _req: unknown,
-    file: { mimetype: string },
-    cb: (err: Error | null, accept: boolean) => void,
-  ) => {
-    const allowed = [
-      'application/pdf',
-      'image/png',
-      'image/jpeg',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new BadRequestException('File type not allowed'), false);
-    }
-    cb(null, true);
-  },
-  limits: { fileSize: MAX_MB * 1024 * 1024 },
-};
-
-/* ── Registration upload config ──────────── */
-
-const registrationStorage = diskStorage({
-  destination: (_req, _file, cb) => {
-    const base = path.join(process.cwd(), 'uploads', 'registrations');
-    ensureDir(base);
-    cb(null, base);
-  },
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, `${Date.now()}_${safe}`);
-  },
+const registrationUploadOptions = makeSafeUploadOptions({
+  folder: 'registrations',
+  maxMb: 10,
+  allowedMimes: ['application/pdf', 'image/png', 'image/jpeg'],
 });
-
-const registrationUploadOptions = {
-  storage: registrationStorage,
-  fileFilter: (
-    _req: unknown,
-    file: { mimetype: string },
-    cb: (err: Error | null, accept: boolean) => void,
-  ) => {
-    const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(
-        new BadRequestException('File type not allowed (PDF/PNG/JPEG only)'),
-        false,
-      );
-    }
-    cb(null, true);
-  },
-  limits: { fileSize: MAX_MB * 1024 * 1024 },
-};
 
 /* ============================================================
    CLIENT: Branch Document Endpoints
@@ -156,6 +97,7 @@ export class ClientBranchDocumentsController {
     @Body() dto: UploadBranchDocumentDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     await this.branchAccess.assertBranchUserOnly(user.userId, id);
     return this.svc.upload(
       id,
@@ -180,7 +122,7 @@ export class ClientBranchDocumentsController {
     @CurrentUser() user: ReqUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) throw new BadRequestException('File is required');
+    assertSafeFile(file);
     // Master users cannot reupload documents
     const isMaster = await this.branchAccess.isMasterUser(user.userId);
     if (isMaster) {
@@ -454,7 +396,7 @@ export class CrmBranchRegistrationsController {
     @UploadedFile() file: Express.Multer.File,
     @Query('field') field?: string,
   ) {
-    if (!file) throw new BadRequestException('File is required');
+    assertSafeFile(file);
     if (user.roleCode === 'CRM') {
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,

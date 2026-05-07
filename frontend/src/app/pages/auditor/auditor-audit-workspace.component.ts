@@ -136,6 +136,7 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
   loadingHistory = false;
   nonCompliances: any[] = [];
   ncSummary: any = {};
+  ncOverview: any = null;
   loadingNc = false;
   finalRemark = '';
 
@@ -461,6 +462,51 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     this.loadCockpit(this.auditId);
   }
 
+  // ── Phase 4: Preliminary Findings ─────────────────────────────
+  preliminaryWindowDays = 6;
+  preliminaryRemark = '';
+  showPreliminaryDialog = false;
+
+  openPreliminaryDialog(): void {
+    this.preliminaryWindowDays = 6;
+    this.preliminaryRemark = '';
+    this.showPreliminaryDialog = true;
+  }
+
+  closePreliminaryDialog(): void {
+    this.showPreliminaryDialog = false;
+  }
+
+  publishPreliminaryFindings(): void {
+    if (!this.auditId || this.busy) return;
+    const days = Number(this.preliminaryWindowDays) || 6;
+    if (days < 1 || days > 30) {
+      this.toast.warning('Closure window must be between 1 and 30 days.');
+      return;
+    }
+    this.busy = true;
+    this.auditsApi
+      .auditorPreliminaryPublish(this.auditId, { windowDays: days, remark: this.preliminaryRemark || undefined })
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.busy = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: (res: any) => {
+          const n = res?.publishedNcCount ?? res?.counts?.total ?? 0;
+          this.toast.success(`Preliminary findings published. ${n} NC(s) sent to vendor with a ${days}-day closure window.`);
+          this.showPreliminaryDialog = false;
+          this.refreshCockpit();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to publish preliminary findings'),
+      });
+  }
+
+  downloadPreliminaryReport(): void {
+    if (!this.auditId) return;
+    const url = this.auditsApi.auditorPreliminaryReportUrl(this.auditId);
+    this.protectedFiles.download(url, `preliminary-findings-${this.auditId}.pdf`).pipe(takeUntil(this.destroy$)).subscribe({
+      error: (err) => this.toast.error(err?.error?.message || 'Failed to download preliminary report'),
+    });
+  }
+
   // ─── Tab switching ─────────────────────────────
   switchTab(tab: typeof this.activeTab): void {
     this.activeTab = tab;
@@ -509,6 +555,13 @@ export class AuditorAuditWorkspaceComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (res: any) => { this.nonCompliances = res?.items || []; this.ncSummary = res?.summary || {}; },
       error: () => this.toast.error('Failed to load non-compliances'),
+    });
+    // Phase 5 — also load NC overview (counts + recurring) for the banner
+    this.auditsApi.auditorGetNcOverview(this.auditId).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (res: any) => { this.ncOverview = res || null; this.cdr.markForCheck(); },
+      error: () => { /* non-critical */ },
     });
   }
 

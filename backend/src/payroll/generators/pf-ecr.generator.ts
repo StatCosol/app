@@ -69,9 +69,7 @@ export class PfEcrGenerator {
     });
 
     const branchIds = Array.from(
-      new Set(
-        employees.map((e) => e.branchId).filter((b): b is string => !!b),
-      ),
+      new Set(employees.map((e) => e.branchId).filter((b): b is string => !!b)),
     );
     const branchMap = new Map<string, BranchEntity>();
     if (branchIds.length) {
@@ -105,7 +103,7 @@ export class PfEcrGenerator {
     }
 
     for (const [bid, emps] of grouped) {
-      const branch = bid ? branchMap.get(bid) ?? null : null;
+      const branch = bid ? (branchMap.get(bid) ?? null) : null;
       results.push(
         await this.buildAndSave(run, emps, pfCeiling, branch, userId),
       );
@@ -191,7 +189,7 @@ export class PfEcrGenerator {
       : '';
     const record = this.rrRepo.create({
       clientId: run.clientId,
-      branchId: branch ? branch.id : run.branchId ?? null,
+      branchId: branch ? branch.id : (run.branchId ?? null),
       category: 'RECORD',
       title: `PF ECR - ${period}${titleSuffix}`,
       periodYear: run.periodYear,

@@ -40,11 +40,14 @@ import { CeoApiService } from '../../../core/api/ceo.api';
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr *ngFor="let cco of summary" class="hover:bg-gray-50">
-              <td class="px-4 py-3 text-sm font-medium">{{ cco.name || cco.email || '—' }}</td>
-              <td class="px-4 py-3 text-sm">{{ cco.clientCount ?? '—' }}</td>
-              <td class="px-4 py-3 text-sm">{{ cco.pendingCount ?? '—' }}</td>
+              <td class="px-4 py-3 text-sm font-medium">
+                <div>{{ cco.ccoName || cco.name || '—' }}</div>
+                <div *ngIf="cco.ccoEmail" class="text-xs text-gray-500">{{ cco.ccoEmail }}</div>
+              </td>
+              <td class="px-4 py-3 text-sm">{{ cco.totalClients ?? cco.clientCount ?? 0 }}</td>
+              <td class="px-4 py-3 text-sm">{{ cco.pendingCount ?? 0 }}</td>
               <td class="px-4 py-3 text-sm">
-                <span [class.text-red-600]="cco.overdueCount > 0">{{ cco.overdueCount ?? 0 }}</span>
+                <span [class.text-red-600]="(cco.overdueCount ?? 0) > 0">{{ cco.overdueCount ?? 0 }}</span>
               </td>
             </tr>
           </tbody>

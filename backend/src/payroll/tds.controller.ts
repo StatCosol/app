@@ -5,7 +5,12 @@ import { Roles } from '../auth/roles.decorator';
 import { TdsCalculatorService } from './services/tds-calculator.service';
 import { TdsCalculateDto } from './dto/tds-calculate.dto';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+} from '@nestjs/swagger';
 
 @ApiTags('Payroll')
 @ApiBearerAuth('JWT')
@@ -72,14 +77,7 @@ export class TdsController {
     if (clientId) where.clientId = clientId;
     const emps = await this.empRepo.find({
       where,
-      select: [
-        'id',
-        'employeeCode',
-        'name',
-        'clientId',
-        'ctc',
-        'monthlyGross',
-      ],
+      select: ['id', 'employeeCode', 'name', 'clientId', 'ctc', 'monthlyGross'],
     });
 
     const rows: any[] = [];

@@ -121,6 +121,27 @@ export class AuditEntity {
   @Column({ name: 'upload_lock_until', type: 'date', nullable: true })
   uploadLockUntil: string | null;
 
+  // ── Phase 3: Preliminary publish + vendor window ────────────────
+  @Column({
+    name: 'preliminary_published_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  preliminaryPublishedAt: Date | null;
+
+  @Column({
+    name: 'preliminary_published_by_user_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  preliminaryPublishedByUserId: string | null;
+
+  @Column({ name: 'preliminary_findings_count', type: 'int', nullable: true })
+  preliminaryFindingsCount: number | null;
+
+  @Column({ name: 'vendor_window_days', type: 'int', default: 6 })
+  vendorWindowDays: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -72,6 +72,10 @@ const CrmAuditMonitoringComponent = () =>
   import('./audits/crm-audit-monitoring.component').then(
     (m) => m.CrmAuditMonitoringComponent,
   );
+const CrmRepeatNcAnalyticsComponent = () =>
+  import('./audits/crm-repeat-nc-analytics.component').then(
+    (m) => m.CrmRepeatNcAnalyticsComponent,
+  );
 const CrmExpiryTasksComponent = () =>
   import('./expiry/crm-expiry-tasks.component').then(
     (m) => m.CrmExpiryTasksComponent,
@@ -124,6 +128,7 @@ export const CRM_ROUTES: Routes = [
       { path: 'reports', loadComponent: CrmReportsComponent },
       { path: 'audits', loadComponent: CrmAuditManagementPageComponent },
       { path: 'audit-monitoring', loadComponent: CrmAuditMonitoringComponent },
+      { path: 'audit-analytics/repeat-ncs', loadComponent: CrmRepeatNcAnalyticsComponent },
       { path: 'expiry-tasks', loadComponent: CrmExpiryTasksComponent },
       { path: 'returns', loadComponent: CrmReturnsWorkspacePageComponent },
       { path: 'registrations', loadComponent: CrmRegistrationsLandingComponent },

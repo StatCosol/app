@@ -20,9 +20,35 @@
     <button type="button" class="btn btn-ghost" [disabled]="busy || loadingAudit" (click)="openReportBuilder()">
       Open Report Builder
     </button>
+    <button type="button" class="btn btn-secondary" [disabled]="busy || loadingAudit" (click)="openPreliminaryDialog()" title="Send preliminary NCs to vendor and start the closure window">
+      Publish Preliminary Findings
+    </button>
+    <button type="button" class="btn btn-ghost" [disabled]="busy || loadingAudit" (click)="downloadPreliminaryReport()" title="Download preliminary findings PDF (after publish)">
+      Preliminary PDF
+    </button>
     <button type="button" class="btn btn-primary" [disabled]="busy || loadingAudit" (click)="refreshCockpit()">
       Refresh
     </button>
+  </div>
+
+  <!-- Phase 4: Publish preliminary findings dialog -->
+  <div class="modal-backdrop" *ngIf="showPreliminaryDialog" (click)="closePreliminaryDialog()" style="position:fixed;inset:0;background:rgba(15,23,42,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;">
+    <div class="modal-card card" (click)="$event.stopPropagation()" style="max-width:480px;width:92%;padding:18px;">
+      <h3 style="margin:0 0 8px;font-size:16px;">Publish Preliminary Findings</h3>
+      <p style="margin:0 0 12px;font-size:12px;color:#64748b;">All open non-compliances on this audit will be sent to the vendor (contractor / branch) with a closure window. The audit moves to <strong>Correction Pending</strong>.</p>
+      <label style="display:block;margin-bottom:10px;font-size:12px;font-weight:600;">
+        Closure window (days)
+        <input type="number" min="1" max="30" [(ngModel)]="preliminaryWindowDays" name="windowDays" style="display:block;width:100%;margin-top:4px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />
+      </label>
+      <label style="display:block;margin-bottom:14px;font-size:12px;font-weight:600;">
+        Remark (optional)
+        <textarea rows="2" [(ngModel)]="preliminaryRemark" name="prelimRemark" placeholder="Optional cover note for the vendor" style="display:block;width:100%;margin-top:4px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:inherit;"></textarea>
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-ghost" [disabled]="busy" (click)="closePreliminaryDialog()">Cancel</button>
+        <button type="button" class="btn btn-primary" [disabled]="busy" (click)="publishPreliminaryFindings()">Publish</button>
+      </div>
+    </div>
   </div>
 
   <div *ngIf="loading" class="loader">Loading audit cockpit...</div>
@@ -909,6 +935,21 @@
     </ng-container>
 
     <ng-container *ngIf="activeTab === 'corrected'">
+      <section *ngIf="ncOverview" class="card" style="margin-bottom:14px;background:#fef9c3;border:1px solid #fde68a;">
+        <header class="section-head">
+          <h2 style="font-size:14px;">NC Overview</h2>
+        </header>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#713f12;">
+          <span><strong>Open:</strong> {{ ncOverview.openCount ?? ncOverview.open ?? 0 }}</span>
+          <span><strong>Awaiting reupload:</strong> {{ ncOverview.awaitingReuploadCount ?? 0 }}</span>
+          <span><strong>Reverification pending:</strong> {{ ncOverview.reverificationPendingCount ?? 0 }}</span>
+          <span><strong>Closed:</strong> {{ ncOverview.closedCount ?? 0 }}</span>
+          <span *ngIf="ncOverview.recurringCount as rc" style="color:#9f1239;font-weight:600;">
+            ⚠ Recurring NCs: {{ rc }}
+          </span>
+        </div>
+      </section>
+
       <section class="card" style="margin-bottom:18px;">
         <header class="section-head">
           <h2>Corrections Awaiting Reverification</h2>

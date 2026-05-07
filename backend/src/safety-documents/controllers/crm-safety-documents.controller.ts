@@ -12,7 +12,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { SafetyDocumentsService } from '../safety-documents.service';
@@ -20,6 +19,10 @@ import { UploadSafetyDocumentDto } from '../dto/upload-safety-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 /**
  * CRM controller for viewing and verifying safety documents.
@@ -84,10 +87,7 @@ export class CrmSafetyDocumentsController {
   @ApiOperation({ summary: 'Upload On Behalf' })
   @Post('upload-on-behalf')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async uploadOnBehalf(
     @UploadedFile() file: Express.Multer.File,
@@ -98,9 +98,7 @@ export class CrmSafetyDocumentsController {
     if (!clientId) {
       throw new BadRequestException('clientId is required');
     }
-    if (!file) {
-      throw new BadRequestException('File is required');
-    }
+    assertSafeFile(file);
     // Verify CRM is assigned to this client
     await this.svc.assertCrmAssigned(clientId, user.id);
     const doc = await this.svc.upload(dto, file, user.id, clientId);

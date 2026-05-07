@@ -711,10 +711,10 @@
                 <input type="number" min="0" name="slab-to-{{ i }}" [(ngModel)]="row.to" placeholder="(open)" />
               </td>
               <td>
-                <input type="number" min="0" name="slab-amt-{{ i }}" [(ngModel)]="row.amount" [disabled]="row.percent != null && (row.percent + '') !== ''" />
+                <input type="number" min="0" name="slab-amt-{{ i }}" [(ngModel)]="row.amount" [disabled]="row.percent !== null && row.percent !== undefined && (row.percent + '') !== ''" />
               </td>
               <td>
-                <input type="number" min="0" max="100" step="0.01" name="slab-pct-{{ i }}" [(ngModel)]="row.percent" [disabled]="row.amount != null && (row.amount + '') !== ''" />
+                <input type="number" min="0" max="100" step="0.01" name="slab-pct-{{ i }}" [(ngModel)]="row.percent" [disabled]="row.amount !== null && row.amount !== undefined && (row.amount + '') !== ''" />
               </td>
               <td class="text-right">
                 <button type="button" class="link" [disabled]="i === 0" (click)="moveSlab(i, -1)" title="Move up">&uarr;</button>

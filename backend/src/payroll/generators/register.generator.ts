@@ -323,7 +323,11 @@ export class RegisterGenerator {
     if (formCode) lawParts.push(`Form No: ${formCode}`);
     lawCell.value = lawParts.join('   |   ');
     lawCell.font = { italic: true, size: 10 };
-    lawCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    lawCell.alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+      wrapText: true,
+    };
     sheet.getRow(2).height = 18;
 
     // Row 3: Period / Branch / Establishment

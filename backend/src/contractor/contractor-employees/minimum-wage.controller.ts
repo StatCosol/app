@@ -136,12 +136,17 @@ export class MinimumWageController {
    */
   @Post('bulk-import')
   @Roles('ADMIN', 'CRM')
-  async bulkImport(
-    @Body() body: { rows: UpsertWageDto[]; dryRun?: boolean },
-  ) {
+  async bulkImport(@Body() body: { rows: UpsertWageDto[]; dryRun?: boolean }) {
     const rows = Array.isArray(body?.rows) ? body.rows : [];
     if (!rows.length) {
-      return { total: 0, inserted: 0, updated: 0, skipped: 0, errors: 0, results: [] };
+      return {
+        total: 0,
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        errors: 0,
+        results: [],
+      };
     }
     const dryRun = !!body.dryRun;
     const results: Array<{
@@ -161,12 +166,26 @@ export class MinimumWageController {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       try {
-        if (!r || !r.stateCode || !r.skillCategory || !r.effectiveFrom || r.monthlyWage == null) {
-          throw new Error('stateCode, skillCategory, effectiveFrom and monthlyWage are required');
+        if (
+          !r ||
+          !r.stateCode ||
+          !r.skillCategory ||
+          !r.effectiveFrom ||
+          r.monthlyWage == null
+        ) {
+          throw new Error(
+            'stateCode, skillCategory, effectiveFrom and monthlyWage are required',
+          );
         }
         const stateCode = String(r.stateCode).toUpperCase().trim();
-        const skillCategory = String(r.skillCategory).toUpperCase().trim() as MinimumWageSkill;
-        if (!['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED'].includes(skillCategory)) {
+        const skillCategory = String(r.skillCategory)
+          .toUpperCase()
+          .trim() as MinimumWageSkill;
+        if (
+          !['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED'].includes(
+            skillCategory,
+          )
+        ) {
           throw new Error(`invalid skillCategory: ${r.skillCategory}`);
         }
         const monthlyWage = Number(r.monthlyWage);
@@ -184,33 +203,52 @@ export class MinimumWageController {
         if (scheduledEmployment === null) {
           qb.andWhere('mw.scheduled_employment IS NULL');
         } else {
-          qb.andWhere('mw.scheduled_employment = :se', { se: scheduledEmployment });
+          qb.andWhere('mw.scheduled_employment = :se', {
+            se: scheduledEmployment,
+          });
         }
         const existing = await qb.getOne();
 
         if (existing) {
           // Skip if all fields already match.
           const sameMonthly = Number(existing.monthlyWage) === monthlyWage;
-          const sameDaily = (existing.dailyWage == null ? null : Number(existing.dailyWage)) ===
+          const sameDaily =
+            (existing.dailyWage == null ? null : Number(existing.dailyWage)) ===
             (r.dailyWage == null ? null : Number(r.dailyWage));
-          const sameEffTo = (existing.effectiveTo ?? null) === (r.effectiveTo ?? null);
+          const sameEffTo =
+            (existing.effectiveTo ?? null) === (r.effectiveTo ?? null);
           const sameSrc = (existing.source ?? null) === (r.source ?? null);
           const sameNotes = (existing.notes ?? null) === (r.notes ?? null);
           if (sameMonthly && sameDaily && sameEffTo && sameSrc && sameNotes) {
             skipped++;
-            results.push({ index: i, stateCode, skillCategory, effectiveFrom: r.effectiveFrom, outcome: 'skipped', id: existing.id });
+            results.push({
+              index: i,
+              stateCode,
+              skillCategory,
+              effectiveFrom: r.effectiveFrom,
+              outcome: 'skipped',
+              id: existing.id,
+            });
             continue;
           }
           if (!dryRun) {
             existing.monthlyWage = monthlyWage;
-            existing.dailyWage = r.dailyWage != null ? Number(r.dailyWage) : null;
+            existing.dailyWage =
+              r.dailyWage != null ? Number(r.dailyWage) : null;
             existing.effectiveTo = r.effectiveTo ?? null;
             existing.source = r.source ?? null;
             existing.notes = r.notes ?? null;
             await this.repo.save(existing);
           }
           updated++;
-          results.push({ index: i, stateCode, skillCategory, effectiveFrom: r.effectiveFrom, outcome: 'updated', id: existing.id });
+          results.push({
+            index: i,
+            stateCode,
+            skillCategory,
+            effectiveFrom: r.effectiveFrom,
+            outcome: 'updated',
+            id: existing.id,
+          });
         } else {
           let savedId: string | undefined;
           if (!dryRun) {
@@ -229,7 +267,14 @@ export class MinimumWageController {
             savedId = saved.id;
           }
           inserted++;
-          results.push({ index: i, stateCode, skillCategory, effectiveFrom: r.effectiveFrom, outcome: 'inserted', id: savedId });
+          results.push({
+            index: i,
+            stateCode,
+            skillCategory,
+            effectiveFrom: r.effectiveFrom,
+            outcome: 'inserted',
+            id: savedId,
+          });
         }
       } catch (err) {
         errors++;
@@ -244,6 +289,14 @@ export class MinimumWageController {
       }
     }
 
-    return { total: rows.length, inserted, updated, skipped, errors, dryRun, results };
+    return {
+      total: rows.length,
+      inserted,
+      updated,
+      skipped,
+      errors,
+      dryRun,
+      results,
+    };
   }
 }

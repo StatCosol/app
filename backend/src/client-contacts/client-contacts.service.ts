@@ -39,7 +39,10 @@ export class ClientContactsService {
     if (clientIds && clientIds.length) {
       qb.andWhere('c.client_id IN (:...ids)', { ids: clientIds });
     }
-    return qb.orderBy('c.client_id', 'ASC').addOrderBy('c.email', 'ASC').getMany();
+    return qb
+      .orderBy('c.client_id', 'ASC')
+      .addOrderBy('c.email', 'ASC')
+      .getMany();
   }
 
   async getActiveEmails(
@@ -50,9 +53,7 @@ export class ClientContactsService {
       where: { clientId, department, isActive: true },
       select: ['email'],
     });
-    const emails = rows
-      .map((r) => (r.email || '').trim())
-      .filter((e) => !!e);
+    const emails = rows.map((r) => (r.email || '').trim()).filter((e) => !!e);
     return Array.from(new Set(emails.map((e) => e.toLowerCase())));
   }
 
@@ -115,8 +116,7 @@ export class ClientContactsService {
       department: newDept,
       email: newEmail,
       name: dto.name?.trim() ?? ent.name,
-      phone:
-        dto.phone === undefined ? ent.phone : dto.phone?.trim() || null,
+      phone: dto.phone === undefined ? ent.phone : dto.phone?.trim() || null,
       designation:
         dto.designation === undefined
           ? ent.designation
@@ -152,7 +152,8 @@ export class ClientContactsService {
     for (const r of rows) {
       const arr = result.get(r.clientId) || [];
       const e = (r.email || '').trim();
-      if (e && !arr.find((x) => x.toLowerCase() === e.toLowerCase())) arr.push(e);
+      if (e && !arr.find((x) => x.toLowerCase() === e.toLowerCase()))
+        arr.push(e);
       result.set(r.clientId, arr);
     }
     return result;

@@ -16,7 +16,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 @ApiTags('Options')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'auditor/options', version: '1' })
-@Roles('AUDITOR')
+@Roles('AUDITOR', 'ADMIN', 'CEO', 'CCO')
 export class AuditorOptionsController {
   constructor(private readonly scope: AccessScopeService) {}
 

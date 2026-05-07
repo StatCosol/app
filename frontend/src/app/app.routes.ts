@@ -11,6 +11,7 @@ import { ESS_ROUTES } from './pages/ess/ess.routes';
 import { PAYROLL_ROUTES } from './pages/payroll/payroll.routes';
 import { PF_TEAM_ROUTES } from './pages/pf-team/pf-team.routes';
 import { ACCOUNTS_ROUTES } from './pages/accounts/accounts.routes';
+import { SALES_ROUTES } from './pages/sales/sales.routes';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -44,6 +45,7 @@ export const routes: Routes = [
   ...PF_TEAM_ROUTES,
   ...ESS_ROUTES,
   ...ACCOUNTS_ROUTES,
+  ...SALES_ROUTES,
 
   // ── Shared ──
   {

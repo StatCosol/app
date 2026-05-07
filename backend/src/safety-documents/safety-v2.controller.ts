@@ -12,7 +12,6 @@ import {
   VERSION_NEUTRAL,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -22,6 +21,7 @@ import { UploadSafetyDocumentDto } from './dto/upload-safety-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 @ApiTags('Safety Documents')
 @ApiBearerAuth('JWT')
@@ -56,10 +56,7 @@ export class SafetyV2Controller {
   @ApiOperation({ summary: 'Upload Safety Document (Compatibility Route)' })
   @Post(':branchId/safety/upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async upload(
     @Param('branchId') branchId: string,
@@ -67,6 +64,7 @@ export class SafetyV2Controller {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: ReqUser,
   ) {
+    assertSafeFile(file);
     const userId = user.userId || user.id;
     const clientId = user.clientId || null;
     if (!userId || !clientId) {

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RecurringInvoiceConfig, BillingClient } from '../entities';
@@ -27,7 +31,8 @@ export class RecurringInvoicesService {
     today.setHours(0, 0, 0, 0);
     if (nextRunDate) {
       const nrd = new Date(nextRunDate);
-      if (isNaN(nrd.getTime())) throw new BadRequestException('Invalid nextRunDate');
+      if (isNaN(nrd.getTime()))
+        throw new BadRequestException('Invalid nextRunDate');
       if (nrd < today) {
         throw new BadRequestException('nextRunDate cannot be in the past');
       }
@@ -78,7 +83,11 @@ export class RecurringInvoicesService {
     return cfg;
   }
 
-  async update(id: string, dto: UpdateRecurringInvoiceConfigDto, userId?: string) {
+  async update(
+    id: string,
+    dto: UpdateRecurringInvoiceConfigDto,
+    userId?: string,
+  ) {
     const cfg = await this.findOne(id);
     const before = { ...cfg } as unknown as Record<string, unknown>;
     // Only enforce "nextRunDate not in the past" when it's actually being

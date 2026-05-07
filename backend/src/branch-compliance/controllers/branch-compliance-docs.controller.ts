@@ -9,7 +9,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as multer from 'multer';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -22,13 +21,14 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
-const uploadOptions = {
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-};
+const uploadOptions = makeSafeUploadOptions({ memory: true, maxMb: 10 });
 
 @ApiTags('Branch Compliance')
 @ApiBearerAuth('JWT')
@@ -61,6 +61,7 @@ export class BranchComplianceDocsController {
     @Body() dto: UploadComplianceDocDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     return this.svc.uploadDocument(user, dto, file);
   }
 

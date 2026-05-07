@@ -3,7 +3,26 @@ import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import { baseHtml } from './email.templates';
 
-type Transporter = ReturnType<typeof nodemailer.createTransport>;
+interface MailAttachment {
+  filename: string;
+  content?: Buffer | string;
+  path?: string;
+  contentType?: string;
+}
+
+interface MailMessage {
+  from: string;
+  to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
+  subject: string;
+  html: string;
+  attachments?: MailAttachment[];
+}
+
+interface MailTransporter {
+  sendMail(message: MailMessage): Promise<{ messageId?: string }>;
+}
 
 @Injectable()
 export class EmailService {
@@ -14,8 +33,8 @@ export class EmailService {
    * Map of authenticated SMTP user (lower-cased email) -> transporter.
    * Lets us send From: each mailbox without Zoho 553 relay rejection.
    */
-  private readonly transporters = new Map<string, Transporter>();
-  private readonly defaultTransporter: Transporter;
+  private readonly transporters = new Map<string, MailTransporter>();
+  private readonly defaultTransporter: MailTransporter;
   private readonly defaultUser: string;
 
   constructor(private readonly config: ConfigService) {
@@ -27,14 +46,14 @@ export class EmailService {
     const secure =
       config.get<string>('SMTP_SECURE', 'false').toLowerCase() === 'true';
 
-    const build = (user?: string, pass?: string): Transporter | null => {
+    const build = (user?: string, pass?: string): MailTransporter | null => {
       if (!user || !pass) return null;
       return nodemailer.createTransport({
         host,
         port,
         secure,
         auth: { user, pass },
-      });
+      }) as MailTransporter;
     };
 
     const register = (user?: string, pass?: string) => {
@@ -84,7 +103,7 @@ export class EmailService {
    * default user so Zoho doesn't reject with 553 (sender not allowed to relay).
    */
   private pickTransport(fromEmail: string): {
-    transporter: Transporter;
+    transporter: MailTransporter;
     fromUser: string;
   } {
     const wanted = (fromEmail || '').toLowerCase();

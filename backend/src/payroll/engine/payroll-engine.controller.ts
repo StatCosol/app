@@ -87,9 +87,9 @@ export class PayrollEngineController {
     summary: 'Serialize Formula JSON to text expression (visual builder)',
   })
   @Post('formula/serialize')
-  serializeFormulaEndpoint(
-    @Body() body: { formulaJson?: unknown },
-  ): { formulaText: string } {
+  serializeFormulaEndpoint(@Body() body: { formulaJson?: unknown }): {
+    formulaText: string;
+  } {
     if (!body?.formulaJson) {
       throw new BadRequestException('formulaJson is required');
     }
@@ -340,7 +340,9 @@ export class PayrollEngineController {
 
   // ── Salary Structures CRUD ─────────────────────
 
-  @ApiOperation({ summary: 'List Approval Queue (PENDING structures across clients)' })
+  @ApiOperation({
+    summary: 'List Approval Queue (PENDING structures across clients)',
+  })
   @Get('structures/approval-queue')
   @Roles('CCO', 'ADMIN')
   async listApprovalQueue(@Query('status') status?: string) {
@@ -374,7 +376,10 @@ export class PayrollEngineController {
     if (!clientId?.trim()) {
       throw new BadRequestException('clientId is required');
     }
-    const where: { clientId: string; approvalStatus?: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' } = {
+    const where: {
+      clientId: string;
+      approvalStatus?: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    } = {
       clientId: clientId.trim(),
     };
     if (status?.trim()) {
@@ -594,10 +599,7 @@ export class PayrollEngineController {
 
   @ApiOperation({ summary: 'Submit Structure for Approval' })
   @Post('structures/:id/submit')
-  async submitStructure(
-    @Param('id') id: string,
-    @CurrentUser() user: ReqUser,
-  ) {
+  async submitStructure(@Param('id') id: string, @CurrentUser() user: ReqUser) {
     const s = await this.structureRepo.findOne({ where: { id } });
     if (!s) throw new NotFoundException('Structure not found');
     if (s.approvalStatus === 'PENDING') {
@@ -726,7 +728,11 @@ export class PayrollEngineController {
     const patch = this.applyFormulaJson(body);
     const item = this.itemRepo.create({ ...patch, structureId });
     const saved = await this.itemRepo.save(item);
-    await this.snapshotStructureVersion(structureId, 'item.create', user?.userId);
+    await this.snapshotStructureVersion(
+      structureId,
+      'item.create',
+      user?.userId,
+    );
     return saved;
   }
 
@@ -747,7 +753,11 @@ export class PayrollEngineController {
     const patch = this.applyFormulaJson(body);
     this.itemRepo.merge(item, patch as Partial<PaySalaryStructureItemEntity>);
     const saved = await this.itemRepo.save(item);
-    await this.snapshotStructureVersion(structureId, 'item.update', user?.userId);
+    await this.snapshotStructureVersion(
+      structureId,
+      'item.update',
+      user?.userId,
+    );
     return saved;
   }
 
@@ -765,7 +775,11 @@ export class PayrollEngineController {
     if (!item) throw new NotFoundException('Structure item not found');
     await this.revertApprovalIfApproved(structureId);
     const removed = await this.itemRepo.remove(item);
-    await this.snapshotStructureVersion(structureId, 'item.delete', user?.userId);
+    await this.snapshotStructureVersion(
+      structureId,
+      'item.delete',
+      user?.userId,
+    );
     return removed;
   }
 
@@ -788,7 +802,11 @@ export class PayrollEngineController {
       this.itemRepo.create({ ...this.applyFormulaJson(item), structureId }),
     );
     const saved = await this.itemRepo.save(items);
-    await this.snapshotStructureVersion(structureId, 'items.bulk', user?.userId);
+    await this.snapshotStructureVersion(
+      structureId,
+      'items.bulk',
+      user?.userId,
+    );
     return saved;
   }
 
@@ -817,20 +835,28 @@ export class PayrollEngineController {
       .createQueryBuilder('t')
       .where('t.isActive = true');
     if (clientId?.trim()) {
-      qb.andWhere('(t.clientId IS NULL OR t.clientId = :cid)', { cid: clientId.trim() });
+      qb.andWhere('(t.clientId IS NULL OR t.clientId = :cid)', {
+        cid: clientId.trim(),
+      });
     } else {
       qb.andWhere('t.clientId IS NULL');
     }
     if (componentId?.trim()) {
-      qb.andWhere('(t.componentId IS NULL OR t.componentId = :comp)', { comp: componentId.trim() });
+      qb.andWhere('(t.componentId IS NULL OR t.componentId = :comp)', {
+        comp: componentId.trim(),
+      });
     }
-    return qb.orderBy('t.clientId', 'DESC').addOrderBy('t.name', 'ASC').getMany();
+    return qb
+      .orderBy('t.clientId', 'DESC')
+      .addOrderBy('t.name', 'ASC')
+      .getMany();
   }
 
   @ApiOperation({ summary: 'Create Formula Template' })
   @Post('formula-templates')
   async createFormulaTemplate(
-    @Body() body: {
+    @Body()
+    body: {
       name?: string;
       description?: string | null;
       clientId?: string | null;
@@ -840,12 +866,17 @@ export class PayrollEngineController {
     @CurrentUser() user: ReqUser,
   ) {
     const name = this.requireTrimmed(body?.name, 'name');
-    if (!body?.formulaJson) throw new BadRequestException('formulaJson is required');
+    if (!body?.formulaJson)
+      throw new BadRequestException('formulaJson is required');
     let formulaText: string;
     try {
-      formulaText = serializeFormula(body.formulaJson as unknown as FormulaNode);
+      formulaText = serializeFormula(
+        body.formulaJson as unknown as FormulaNode,
+      );
     } catch (err) {
-      throw new BadRequestException((err as Error).message || 'Invalid formulaJson');
+      throw new BadRequestException(
+        (err as Error).message || 'Invalid formulaJson',
+      );
     }
     const tpl = this.templateRepo.create({
       name,
@@ -864,7 +895,8 @@ export class PayrollEngineController {
   @Put('formula-templates/:id')
   async updateFormulaTemplate(
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       name?: string;
       description?: string | null;
       componentId?: string | null;
@@ -874,15 +906,22 @@ export class PayrollEngineController {
   ) {
     const tpl = await this.templateRepo.findOne({ where: { id } });
     if (!tpl) throw new NotFoundException('Template not found');
-    if (body.name !== undefined) tpl.name = this.requireTrimmed(body.name, 'name');
-    if (body.description !== undefined) tpl.description = this.optionalTrimmed(body.description);
-    if (body.componentId !== undefined) tpl.componentId = body.componentId?.trim() || null;
+    if (body.name !== undefined)
+      tpl.name = this.requireTrimmed(body.name, 'name');
+    if (body.description !== undefined)
+      tpl.description = this.optionalTrimmed(body.description);
+    if (body.componentId !== undefined)
+      tpl.componentId = body.componentId?.trim() || null;
     if (body.isActive !== undefined) tpl.isActive = !!body.isActive;
     if (body.formulaJson !== undefined && body.formulaJson !== null) {
       try {
-        tpl.formulaText = serializeFormula(body.formulaJson as unknown as FormulaNode);
+        tpl.formulaText = serializeFormula(
+          body.formulaJson as unknown as FormulaNode,
+        );
       } catch (err) {
-        throw new BadRequestException((err as Error).message || 'Invalid formulaJson');
+        throw new BadRequestException(
+          (err as Error).message || 'Invalid formulaJson',
+        );
       }
       tpl.formulaJson = body.formulaJson;
     }
@@ -947,7 +986,7 @@ export class PayrollEngineController {
       );
     } catch (err) {
       // Non-fatal: log to stderr and continue.
-      // eslint-disable-next-line no-console
+
       console.error('[snapshotStructureVersion] failed', err);
     }
   }

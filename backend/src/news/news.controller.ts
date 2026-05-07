@@ -22,9 +22,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -34,6 +31,7 @@ import { NewsService } from './news.service';
 import { CreateNewsDto, UpdateNewsDto, NEWS_CATEGORIES } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 @ApiTags('News')
 @ApiBearerAuth()
@@ -91,46 +89,24 @@ export class NewsController {
   @Roles('ADMIN')
   @Post('upload-image')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'news');
-          fs.mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname).toLowerCase();
-          const base = path
-            .basename(file.originalname, ext)
-            .replace(/[^a-zA-Z0-9\-_]/g, '_');
-          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          cb(null, `${base}-${unique}${ext}`);
-        },
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        const ALLOWED = new Set([
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({
+        folder: 'news',
+        maxMb: 5,
+        allowedMimes: [
           'image/png',
           'image/jpeg',
           'image/jpg',
           'image/gif',
           'image/webp',
           'application/pdf',
-        ]);
-        if (!ALLOWED.has(file.mimetype)) {
-          return cb(
-            new BadRequestException(
-              'Only image or PDF files are allowed (PNG, JPEG, GIF, WEBP, PDF)',
-            ),
-            false,
-          );
-        }
-        cb(null, true);
-      },
-    }),
+        ],
+      }),
+    ),
   )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded');
+    assertSafeFile(file);
     return { imageUrl: `/uploads/news/${file.filename}` };
   }
 

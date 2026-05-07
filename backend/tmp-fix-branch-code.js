@@ -3,7 +3,7 @@ const c = new Client({
   host: 'statcompy-db.postgres.database.azure.com',
   database: 'statcompydb',
   user: 'statcompyadmin',
-  password: 'Statcompy@2026',
+  password: process.env.DB_PASS,
   ssl: { rejectUnauthorized: false },
 });
 

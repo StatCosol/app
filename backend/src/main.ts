@@ -50,8 +50,34 @@ async function bootstrap() {
   const reflector = app.get('Reflector');
   app.useGlobalInterceptors(new CacheHeaderInterceptor(reflector));
 
-  // Secure headers
-  app.use(helmet());
+  // Secure headers — defaults plus explicit HSTS preload, no-referrer, and a
+  // restrictive CSP appropriate for a JSON API (no inline scripts/styles served
+  // from this origin; uploads are same-origin via /uploads with auth).
+  app.use(
+    helmet({
+      hsts: {
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+        includeSubDomains: true,
+        preload: true,
+      },
+      referrerPolicy: { policy: 'no-referrer' },
+      crossOriginResourcePolicy: { policy: 'same-site' },
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          'default-src': ["'self'"],
+          'script-src': ["'self'"],
+          'style-src': ["'self'", "'unsafe-inline'"], // Swagger UI uses inline
+          'img-src': ["'self'", 'data:', 'blob:'],
+          'connect-src': ["'self'"],
+          'object-src': ["'none'"],
+          'frame-ancestors': ["'none'"],
+          'base-uri': ["'self'"],
+          'form-action': ["'self'"],
+        },
+      },
+    }),
+  );
 
   // Response compression
   app.use(compression());
@@ -367,7 +393,9 @@ async function bootstrap() {
         ALTER TABLE payroll_client_setup
           ADD COLUMN IF NOT EXISTS ot_multiplier NUMERIC(4,2) NOT NULL DEFAULT 2.0
       `);
-      logger.log('Schema patch: payroll_client_setup.wage_basis_days/ot_multiplier OK');
+      logger.log(
+        'Schema patch: payroll_client_setup.wage_basis_days/ot_multiplier OK',
+      );
     } catch (e: any) {
       logger.warn(
         `Schema patch payroll_client_setup wage/OT skipped: ${e?.message}`,
@@ -605,7 +633,9 @@ async function bootstrap() {
       }
       logger.log('Schema patch: client_department_contacts OK');
     } catch (e: any) {
-      logger.warn(`Schema patch client_department_contacts skipped: ${e?.message}`);
+      logger.warn(
+        `Schema patch client_department_contacts skipped: ${e?.message}`,
+      );
     }
 
     const CRITICAL_TABLES = [

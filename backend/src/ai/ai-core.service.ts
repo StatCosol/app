@@ -149,8 +149,11 @@ export class AiCoreService {
         promptTokens: response.usage?.prompt_tokens || 0,
         completionTokens: response.usage?.completion_tokens || 0,
       };
-    } catch (err) {
-      this.logger.error('AI completion failed', err);
+    } catch (err: any) {
+      this.logger.error(
+        `AI completion failed: status=${err?.status} code=${err?.code} type=${err?.type} msg=${err?.message}`,
+        err?.stack,
+      );
       return null;
     }
   }

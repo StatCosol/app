@@ -34,13 +34,7 @@ export class ClientDepartmentContactEntity {
   @Column({
     name: 'department',
     type: 'enum',
-    enum: [
-      'ACCOUNTS',
-      'COMPLIANCE',
-      'CONTRACTOR_COMPLIANCE',
-      'HR',
-      'PAYROLL',
-    ],
+    enum: ['ACCOUNTS', 'COMPLIANCE', 'CONTRACTOR_COMPLIANCE', 'HR', 'PAYROLL'],
     enumName: 'client_contact_department',
   })
   department: ClientContactDepartment;

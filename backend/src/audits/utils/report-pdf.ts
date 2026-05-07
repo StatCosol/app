@@ -120,3 +120,118 @@ export async function generateAuditReportPdfBuffer(
     }
   });
 }
+
+// ─── Phase 4: Preliminary Findings Report ─────────────────────────────
+export type PreliminaryNcRow = {
+  documentName: string | null;
+  remark: string | null;
+  status: string;
+  vendorWindowUntil: string | null;
+  isRecurring: boolean;
+  recurrenceCount: number | null;
+};
+
+export type PreliminaryReportPdfInput = {
+  auditId: string;
+  auditCode?: string | null;
+  clientName?: string | null;
+  branchName?: string | null;
+  periodCode?: string | null;
+  publishedAt: string | Date | null;
+  vendorWindowDays: number;
+  vendorWindowUntil: string | null;
+  ncs: PreliminaryNcRow[];
+};
+
+export async function generatePreliminaryReportPdfBuffer(
+  input: PreliminaryReportPdfInput,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 40, bottom: 40, left: 40, right: 40 },
+      });
+      const chunks: Buffer[] = [];
+      doc.on('data', (d) => chunks.push(d));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(18)
+        .text('Preliminary Findings Report', { align: 'center' });
+      doc.moveDown(0.2);
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#666')
+        .text('Issued for vendor / branch corrective action', {
+          align: 'center',
+        });
+      doc.fillColor('#000');
+      doc.moveDown(0.6);
+
+      doc.font('Helvetica').fontSize(10);
+      doc.text(`Audit Code: ${input.auditCode || input.auditId}`);
+      doc.text(`Client: ${input.clientName || '-'}`);
+      doc.text(`Branch: ${input.branchName || '-'}`);
+      doc.text(`Period: ${input.periodCode || '-'}`);
+      doc.text(`Preliminary Published: ${formatDate(input.publishedAt)}`);
+      doc.text(
+        `Closure Window: ${input.vendorWindowDays} day(s)  (Deadline: ${input.vendorWindowUntil || '-'})`,
+      );
+      doc.moveDown(0.6);
+
+      doc.font('Helvetica-Bold').fontSize(11).text('Instructions');
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .text(
+          'The findings below have been raised as Non-Compliances. Please re-upload corrected evidence against each item from your portal (Compliance Portal → Audit Non-Compliances) within the closure window. Items not corrected by the deadline will be escalated and may impact the final audit score.',
+          { lineGap: 2 },
+        );
+      doc.moveDown(0.6);
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(12)
+        .text(`Non-Compliances (${input.ncs.length})`);
+      doc.moveDown(0.3);
+
+      if (!input.ncs.length) {
+        doc
+          .font('Helvetica')
+          .fontSize(10)
+          .text('No open non-compliances at the time of publication.');
+      } else {
+        input.ncs.forEach((nc, idx) => {
+          if (doc.y > 720) doc.addPage();
+          const tag = nc.isRecurring
+            ? ` [RECURRING x${nc.recurrenceCount || 1}]`
+            : '';
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(10)
+            .text(`${idx + 1}. ${nc.documentName || 'Document'}${tag}`);
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .fillColor('#444')
+            .text(
+              `Status: ${nc.status} | Deadline: ${nc.vendorWindowUntil || '-'}`,
+            );
+          doc.fillColor('#000');
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .text(`Finding: ${nc.remark || '-'}`, { lineGap: 2 });
+          doc.moveDown(0.4);
+        });
+      }
+
+      doc.end();
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  });
+}

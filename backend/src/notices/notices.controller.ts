@@ -21,6 +21,12 @@ import { CreateNoticeDto } from './dto/create-notice.dto';
 import { UpdateNoticeDto } from './dto/update-notice.dto';
 import { NoticeQueryDto } from './dto/notice-query.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+
+const noticesUploadOptions = makeSafeUploadOptions({
+  folder: 'notices',
+  maxMb: 10,
+});
 
 // ─── CRM / Admin Notice Controller ──────────────
 @ApiTags('Notices')
@@ -67,7 +73,7 @@ export class CrmNoticesController {
 
   @ApiOperation({ summary: 'Upload document to notice' })
   @Post(':id/documents')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', noticesUploadOptions))
   async uploadDoc(
     @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -75,6 +81,7 @@ export class CrmNoticesController {
     @Body('documentType') documentType: string,
     @Body('remarks') remarks?: string,
   ) {
+    assertSafeFile(file);
     const fileUrl = `/uploads/notices/${file.filename}`;
     return this.svc.uploadDocument(
       user,

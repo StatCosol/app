@@ -309,11 +309,11 @@ export class AuditOutputEngineService {
    */
   async getLatestReport(auditId: string): Promise<any> {
     const rows = await this.dataSource.query(
-      `SELECT ar.*, u.full_name AS prepared_by_name
+      `SELECT ar.*, u.name AS prepared_by_name
        FROM audit_reports ar
        LEFT JOIN users u ON u.id = ar.prepared_by_user_id
        WHERE ar.audit_id = $1
-       ORDER BY ar.version_no DESC, ar.created_at DESC
+       ORDER BY ar.created_at DESC
        LIMIT 1`,
       [auditId],
     );
@@ -349,38 +349,24 @@ export class AuditOutputEngineService {
    */
   async getReportHistory(auditId: string): Promise<any[]> {
     const rows = await this.dataSource.query(
-      `SELECT ar.id, ar.version_no, ar.report_type, ar.status,
-              ar.blended_score, ar.prepared_date, ar.finalized_at,
-              ar.created_at, u.full_name AS prepared_by_name
+      `SELECT ar.*, u.name AS prepared_by_name
        FROM audit_reports ar
        LEFT JOIN users u ON u.id = ar.prepared_by_user_id
        WHERE ar.audit_id = $1
-       ORDER BY ar.version_no DESC`,
+       ORDER BY ar.created_at DESC`,
       [auditId],
     );
-    return rows.map(
-      (r: {
-        id: string;
-        version_no: number;
-        report_type: string;
-        status: string;
-        blended_score: number | null;
-        prepared_date: string | null;
-        finalized_at: string | null;
-        prepared_by_name: string | null;
-        created_at: string;
-      }) => ({
-        id: r.id,
-        versionNo: r.version_no,
-        reportType: r.report_type,
-        status: r.status,
-        blendedScore: r.blended_score,
-        preparedBy: r.prepared_by_name,
-        preparedDate: r.prepared_date,
-        finalizedAt: r.finalized_at,
-        createdAt: r.created_at,
-      }),
-    );
+    return rows.map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      versionNo: (r.version_no as number | undefined) ?? null,
+      reportType: r.report_type as string,
+      status: r.status as string,
+      blendedScore: (r.blended_score as number | null | undefined) ?? null,
+      preparedBy: (r.prepared_by_name as string | null | undefined) ?? null,
+      preparedDate: (r.prepared_date as string | null | undefined) ?? null,
+      finalizedAt: (r.finalized_at as string | null | undefined) ?? null,
+      createdAt: r.created_at as string,
+    }));
   }
 
   /**

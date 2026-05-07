@@ -8,6 +8,7 @@ import { AuditDocumentReviewEntity } from './entities/audit-document-review.enti
 import { AuditNonComplianceEntity } from './entities/audit-non-compliance.entity';
 import { AuditResubmissionEntity } from './entities/audit-resubmission.entity';
 import { AuditsService } from './audits.service';
+import { AuditNcEscalationJob } from './jobs/audit-nc-escalation.job';
 import {
   AuditorAuditsController,
   AuditorAuditsLegacyController,
@@ -28,6 +29,7 @@ import { AiModule } from '../ai/ai.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AutomationModule } from '../automation/automation.module';
 import { EmailModule } from '../email/email.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { EmailModule } from '../email/email.module';
     AiModule,
     NotificationsModule,
     EmailModule,
+    AuditLogsModule,
     forwardRef(() => AutomationModule),
   ],
   controllers: [
@@ -61,7 +64,7 @@ import { EmailModule } from '../email/email.module';
     BranchAuditNcController,
     AuditorObservationsController,
   ],
-  providers: [AuditsService, AuditorObservationsService],
+  providers: [AuditsService, AuditorObservationsService, AuditNcEscalationJob],
   exports: [TypeOrmModule, AuditsService],
 })
 export class AuditsModule {}

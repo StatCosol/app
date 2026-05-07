@@ -15,7 +15,12 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -25,6 +30,10 @@ import {
   CreatePendingPaymentFollowupDto,
   UpdatePendingPaymentFollowupDto,
 } from '../dto/pending-payment-followup.dto';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 @ApiTags('Billing - Pending Payments')
 @ApiBearerAuth()
@@ -67,13 +76,21 @@ export class PendingPaymentFollowupsController {
   @ApiConsumes('multipart/form-data')
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({
+        memory: true,
+        maxMb: 5,
+        allowedMimes: ['text/csv', 'application/vnd.ms-excel', 'text/plain'],
+      }),
+    ),
   )
   upload(
     @UploadedFile() file: Express.Multer.File,
     @Query('autoSend') autoSend: string | undefined,
     @Req() req: any,
   ) {
+    assertSafeFile(file);
     const userId = req.user?.userId || req.user?.id || null;
     return this.service.uploadAndSend(file, userId, {
       autoSend: autoSend !== '0' && autoSend !== 'false',
@@ -108,7 +125,9 @@ export class PendingPaymentFollowupsController {
     return this.service.sendBulk(ids || []);
   }
 
-  @ApiOperation({ summary: 'Pause or resume daily auto-reminders for one entry' })
+  @ApiOperation({
+    summary: 'Pause or resume daily auto-reminders for one entry',
+  })
   @Patch(':id/pause')
   setPause(
     @Param('id', ParseUUIDPipe) id: string,

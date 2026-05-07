@@ -557,9 +557,9 @@
             <tbody>
               <tr *ngFor="let row of slab.slabs">
                 <td>{{ formatMoney(row.fromAmount) }}</td>
-                <td>{{ row.toAmount == null ? '∞' : formatMoney(row.toAmount) }}</td>
-                <td>{{ row.valueAmount == null ? '-' : formatMoney(row.valueAmount) }}</td>
-                <td>{{ row.valuePercent == null ? '-' : (row.valuePercent + '%') }}</td>
+                <td>{{ row.toAmount === null || row.toAmount === undefined ? '∞' : formatMoney(row.toAmount) }}</td>
+                <td>{{ row.valueAmount === null || row.valueAmount === undefined ? '-' : formatMoney(row.valueAmount) }}</td>
+                <td>{{ row.valuePercent === null || row.valuePercent === undefined ? '-' : (row.valuePercent + '%') }}</td>
               </tr>
             </tbody>
           </table>
@@ -858,4 +858,3 @@
     </footer>
   </div>
 </div>
-

@@ -1,0 +1,64 @@
+# Sanitized template for `backend-app.yaml`.
+#
+# How to use:
+#   1. Copy this file to `backend-app.yaml` (which is .gitignored).
+#   2. Run `az containerapp show -g statcompy-rg -n statcompy-backend > backend-app.yaml`
+#      to overwrite with the live config when needed.
+#   3. Never commit `backend-app.yaml` — it may contain plaintext values exported
+#      by `az containerapp show`.
+#
+# Secrets MUST be referenced via `secretRef:` and stored in Container App secrets:
+#   az containerapp secret set -g statcompy-rg -n statcompy-backend \
+#     --secrets db-pass=<value> jwt-secret=<value> ai-encryption-key=<value> smtp-pass=<value>
+
+properties:
+  configuration:
+    secrets:
+      - name: db-pass
+      - name: jwt-secret
+      - name: ai-encryption-key
+      - name: smtp-pass
+  template:
+    containers:
+      - name: statcompy-backend
+        image: statcompyacr001.azurecr.io/statcompy-backend:<tag>
+        env:
+          - name: NODE_ENV
+            value: production
+          - name: PORT
+            value: '3000'
+          - name: DB_HOST
+            value: statcompy-db.postgres.database.azure.com
+          - name: DB_PORT
+            value: '5432'
+          - name: DB_USER
+            value: <db-user>
+          - name: DB_PASS
+            secretRef: db-pass
+          - name: DB_NAME
+            value: statcompy
+          - name: DB_SSL
+            value: 'true'
+          # DB_SSL_CA_PATH is set as an ENV in the Dockerfile; no override needed.
+          - name: JWT_SECRET
+            secretRef: jwt-secret
+          - name: JWT_EXPIRES_IN
+            value: 12h
+          - name: JWT_ACCESS_EXPIRES_SEC
+            value: '900'
+          - name: AI_ENCRYPTION_KEY
+            secretRef: ai-encryption-key
+          - name: SMTP_HOST
+            value: smtp.zoho.in
+          - name: SMTP_PORT
+            value: '587'
+          - name: SMTP_USER
+            value: <smtp-user>
+          - name: SMTP_PASS
+            secretRef: smtp-pass
+          - name: SMTP_FROM_EMAIL
+            value: <from-email>
+          - name: FRONTEND_URL
+            value: https://app.statcosol.com
+          - name: CORS_ORIGINS
+            value: https://app.statcosol.com

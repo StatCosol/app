@@ -266,7 +266,8 @@ export async function generatePayslipPdfBuffer(
           : Math.max(0, gross - basic - hra - others - attBonus);
       const otherEarningsRow = otherEarningsBase + otAmount;
       const otherEarningsNoteParts: string[] = [];
-      if (input.header.otherEarningsNote) otherEarningsNoteParts.push(input.header.otherEarningsNote);
+      if (input.header.otherEarningsNote)
+        otherEarningsNoteParts.push(input.header.otherEarningsNote);
       if (otAmount > 0) otherEarningsNoteParts.push('incl. OT');
       const otherEarningsLabel = otherEarningsNoteParts.length
         ? `Other Earnings (${otherEarningsNoteParts.join(', ')})`
@@ -283,8 +284,7 @@ export async function generatePayslipPdfBuffer(
         : 'Other Deductions';
       const totalDeduction =
         pfAmt + esiAmt + ptAmt + pfErFromEmpAmt + otherDeductions;
-      const netPay =
-        cv['NET_PAY'] ?? gross + otAmount - totalDeduction;
+      const netPay = cv['NET_PAY'] ?? gross + otAmount - totalDeduction;
 
       // ── Draw Table ──
       const tableX = startX;
@@ -369,13 +369,25 @@ export async function generatePayslipPdfBuffer(
 
       // Other Earnings (catch-all: includes Arrear Att. Bonus, Other Earnings, etc.)
       if (otherEarningsRow > 0) {
-        drawRow(otherEarningsLabel, formatCurrency(otherEarningsRow), '', '', tY);
+        drawRow(
+          otherEarningsLabel,
+          formatCurrency(otherEarningsRow),
+          '',
+          '',
+          tY,
+        );
         tY += rowHeight;
       }
 
       // Arrear / Att. Bonus on its own row when present (separate from Att. Bonus)
       if (arrearAttBonus > 0) {
-        drawRow('Arrear / Att. Bonus', formatCurrency(arrearAttBonus), '', '', tY);
+        drawRow(
+          'Arrear / Att. Bonus',
+          formatCurrency(arrearAttBonus),
+          '',
+          '',
+          tY,
+        );
         tY += rowHeight;
       }
 
@@ -385,7 +397,13 @@ export async function generatePayslipPdfBuffer(
       // on the deductions side. The label includes the user-entered note when
       // present so payees know what the recovery is for.
       if (otherDeductions > 0) {
-        drawRow('', '', otherDeductionsLabel, formatCurrency(otherDeductions), tY);
+        drawRow(
+          '',
+          '',
+          otherDeductionsLabel,
+          formatCurrency(otherDeductions),
+          tY,
+        );
         tY += rowHeight;
       }
 

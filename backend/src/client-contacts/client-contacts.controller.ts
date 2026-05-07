@@ -130,7 +130,10 @@ export class ClientContactsController {
     const subject = (dto.subjectTemplate || '').trim();
     const body = (dto.bodyTemplate || '').trim();
     if (!subject || !body) {
-      return { ok: false, error: 'subjectTemplate and bodyTemplate are required' };
+      return {
+        ok: false,
+        error: 'subjectTemplate and bodyTemplate are required',
+      };
     }
     await this.templates.upsert(ct, subject, body, user?.userId);
     return { ok: true };
@@ -192,10 +195,7 @@ export class ClientContactsController {
         tpl
           .replace(/\{\{\s*clientName\s*\}\}/g, escape(vars.clientName))
           .replace(/\{\{\s*monthLabel\s*\}\}/g, escape(vars.monthLabel))
-          .replace(
-            /\{\{\s*deadlineLabel\s*\}\}/g,
-            escape(vars.deadlineLabel),
-          )
+          .replace(/\{\{\s*deadlineLabel\s*\}\}/g, escape(vars.deadlineLabel))
           .replace(/\{\{\s*portalUrl\s*\}\}/g, vars.portalUrl);
       return {
         ok: true,

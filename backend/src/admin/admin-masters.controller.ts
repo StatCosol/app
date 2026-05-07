@@ -23,6 +23,17 @@ import { CreateComplianceMasterDto } from './dto/create-compliance-master.dto';
 import { UpdateComplianceMasterDto } from './dto/update-compliance-master.dto';
 import { CreateAuditCategoryDto } from './dto/create-audit-category.dto';
 import { UpdateAuditCategoryDto } from './dto/update-audit-category.dto';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+
+const EXCEL_MIMES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+];
+const excelUploadOptions = makeSafeUploadOptions({
+  memory: true,
+  maxMb: 5,
+  allowedMimes: EXCEL_MIMES,
+});
 import {
   ApiTags,
   ApiBearerAuth,
@@ -199,13 +210,9 @@ export class AdminMastersController {
   @ApiOperation({ summary: 'Bulk Upload Compliance Masters from Excel' })
   @ApiConsumes('multipart/form-data')
   @Post('compliances/bulk-upload')
-  @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
-  )
+  @UseInterceptors(FileInterceptor('file', excelUploadOptions))
   async bulkUploadCompliances(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No file uploaded');
-    }
+    assertSafeFile(file);
     const ext = file.originalname?.split('.').pop()?.toLowerCase();
     if (!['xlsx', 'xls'].includes(ext || '')) {
       throw new BadRequestException('Only .xlsx or .xls files are accepted');

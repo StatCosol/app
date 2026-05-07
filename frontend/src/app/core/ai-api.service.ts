@@ -170,8 +170,10 @@ export class AiApiService {
     return this.http.get<RiskAssessment[]>(`${this.base}/risk/client/${clientId}/history`, { params: { limit: limit.toString() } });
   }
 
-  getHighRiskClients(limit = 20): Observable<HighRiskClient[]> {
-    return this.http.get<HighRiskClient[]>(`${this.base}/risk/high-risk`, { params: { limit: limit.toString() } });
+  getHighRiskClients(limit = 20, includeAll = false): Observable<HighRiskClient[]> {
+    const params: Record<string, string> = { limit: limit.toString() };
+    if (includeAll) params['includeAll'] = 'true';
+    return this.http.get<HighRiskClient[]>(`${this.base}/risk/high-risk`, { params });
   }
 
   getPlatformRiskSummary(): Observable<PlatformRiskSummary> {

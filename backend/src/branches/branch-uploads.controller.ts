@@ -10,9 +10,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -21,10 +18,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BranchDocumentsService } from './branch-documents.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
+const branchUploadsOptions = makeSafeUploadOptions({
+  folder: 'branch-documents',
+  maxMb: 10,
+});
 
 @ApiTags('Branch Uploads')
 @ApiBearerAuth()
@@ -94,22 +93,7 @@ export class BranchUploadsController {
 
   @ApiOperation({ summary: 'Upload a branch compliance document' })
   @Post()
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'branch-documents');
-          ensureDir(dir);
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-          cb(null, `${Date.now()}_${safe}`);
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', branchUploadsOptions))
   async upload(
     @CurrentUser() user: ReqUser,
     @Body()
@@ -121,9 +105,7 @@ export class BranchUploadsController {
     },
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) {
-      throw new BadRequestException('file is required');
-    }
+    assertSafeFile(file);
     if (!body.documentType?.trim()) {
       throw new BadRequestException('documentType is required');
     }

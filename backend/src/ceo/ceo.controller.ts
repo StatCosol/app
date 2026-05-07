@@ -592,8 +592,10 @@ export class CeoController {
         `SELECT
            cco.id        AS "ccoId",
            cco.name      AS "ccoName",
+           cco.email     AS "ccoEmail",
            COUNT(DISTINCT crm.id)::int  AS "totalCrms",
            COUNT(DISTINCT cl.id)::int   AS "totalClients",
+           COALESCE(SUM(CASE WHEN ct.status IN ('PENDING','IN_PROGRESS') THEN 1 ELSE 0 END), 0)::int AS "pendingCount",
            COALESCE(SUM(CASE WHEN ct.status = 'OVERDUE' THEN 1 ELSE 0 END), 0)::int AS "overdueCount"
          FROM users cco
          INNER JOIN roles rc ON rc.id = cco.role_id AND rc.code = 'CCO'
@@ -601,7 +603,7 @@ export class CeoController {
          LEFT JOIN clients cl ON cl.assigned_crm_id = crm.id AND (cl.is_deleted = false OR cl.is_deleted IS NULL)
          LEFT JOIN compliance_tasks ct ON ct.client_id = cl.id
          WHERE cco.is_active = true AND cco.deleted_at IS NULL
-         GROUP BY cco.id, cco.name
+         GROUP BY cco.id, cco.name, cco.email
          ORDER BY "overdueCount" DESC`,
       );
       return { ccoSummary: rows };

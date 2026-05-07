@@ -11,6 +11,17 @@ FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Trusted CA bundle for outbound TLS (Azure Postgres / Redis / external APIs).
+# `ca-certificates` ships DigiCert Global Root CA, DigiCert Global Root G2,
+# Microsoft RSA Root Certificate Authority 2017 — i.e. every CA Azure rotates
+# its managed-PG server certs to. Set DB_SSL_CA_PATH=/etc/ssl/certs/ca-certificates.crt
+# in the Container App env to enforce strict TLS verification end-to-end.
+RUN apk add --no-cache ca-certificates && update-ca-certificates
+
+# Default DB_SSL_CA_PATH so strict TLS is on by default; override with empty
+# string only if explicitly debugging.
+ENV DB_SSL_CA_PATH=/etc/ssl/certs/ca-certificates.crt
+
 # Create non-root user
 RUN addgroup -S statco && adduser -S statco -G statco
 

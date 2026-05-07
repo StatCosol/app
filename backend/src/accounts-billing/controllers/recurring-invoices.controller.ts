@@ -54,7 +54,9 @@ export class RecurringInvoicesController {
   @Post()
   create(@Body() dto: CreateRecurringInvoiceConfigDto, @Req() req: any) {
     const userId =
-      req.user?.userId || req.user?.id || '00000000-0000-0000-0000-000000000000';
+      req.user?.userId ||
+      req.user?.id ||
+      '00000000-0000-0000-0000-000000000000';
     return this.service.create(dto, userId);
   }
 
@@ -97,7 +99,10 @@ export class RecurringInvoicesController {
     if (RecurringInvoicesController.runInFlight) {
       throw new ConflictException('A recurring run is already in progress');
     }
-    if (now - RecurringInvoicesController.lastRunAt < RecurringInvoicesController.RUN_COOLDOWN_MS) {
+    if (
+      now - RecurringInvoicesController.lastRunAt <
+      RecurringInvoicesController.RUN_COOLDOWN_MS
+    ) {
       throw new ConflictException(
         'Recurring run was triggered recently; please wait before re-running',
       );

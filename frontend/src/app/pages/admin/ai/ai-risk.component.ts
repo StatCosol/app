@@ -256,7 +256,7 @@ export class AiRiskComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.cdr.markForCheck();
 
-    this.ai.getHighRiskClients(100)
+    this.ai.getHighRiskClients(100, true)
       .pipe(
         takeUntil(this.destroy$),
         timeout(10000),

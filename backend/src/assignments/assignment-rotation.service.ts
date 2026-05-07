@@ -267,7 +267,12 @@ export class AssignmentRotationService {
         : `<p>Hi ${u.name},</p><p>Your <strong>${roleName}</strong> assignment for <strong>${clientName}</strong> has been rotated. A new team member has been assigned.</p>`;
 
       try {
-        await this.emailService.sendAuditMail(u.email, emailSubject, emailSubject, body);
+        await this.emailService.sendAuditMail(
+          u.email,
+          emailSubject,
+          emailSubject,
+          body,
+        );
       } catch (e: any) {
         this.logger.warn(
           `Failed to send rotation email to ${u.email}: ${e?.message}`,

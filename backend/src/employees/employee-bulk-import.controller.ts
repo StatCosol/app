@@ -11,8 +11,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as path from 'path';
 import * as ExcelJS from 'exceljs';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,6 +20,18 @@ import { EmployeeBulkImportService } from './employee-bulk-import.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+
+const employeeImportUploadOptions = makeSafeUploadOptions({
+  folder: 'temp',
+  maxMb: 10,
+  allowedMimes: [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'text/csv',
+    'text/plain',
+  ],
+});
 
 @ApiTags('Employees')
 @ApiBearerAuth('JWT')
@@ -172,38 +182,14 @@ export class EmployeeBulkImportController {
 
   @ApiOperation({ summary: 'File Interceptor' })
   @Post()
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: path.join(process.cwd(), 'uploads', 'temp'),
-        filename: (_req, file, cb) => {
-          const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-          cb(null, `import_${Date.now()}_${safeName}`);
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-      fileFilter: (_req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        if (['.xlsx', '.xls', '.csv'].includes(ext)) {
-          cb(null, true);
-        } else {
-          cb(
-            new BadRequestException(
-              'Only Excel (.xlsx, .xls) or CSV files are accepted',
-            ),
-            false,
-          );
-        }
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', employeeImportUploadOptions))
   async importEmployees(
     @CurrentUser() user: ReqUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
     const clientId = user?.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
-    if (!file) throw new BadRequestException('File is required');
+    assertSafeFile(file);
 
     const defaultBranchId =
       user.branchIds?.length === 1 ? user.branchIds[0] : undefined;

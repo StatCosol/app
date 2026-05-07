@@ -13,7 +13,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { BranchAccessService } from '../../auth/branch-access.service';
@@ -22,6 +21,10 @@ import { UploadSafetyDocumentDto } from '../dto/upload-safety-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 /**
  * Branch user controller for safety documents.
@@ -74,16 +77,14 @@ export class BranchSafetyDocumentsController {
   @ApiOperation({ summary: 'File Interceptor' })
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async upload(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadSafetyDocumentDto,
     @CurrentUser() user: ReqUser,
   ) {
+    assertSafeFile(file);
     const userId = user.id;
     const clientId = user.clientId!;
 

@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as multer from 'multer';
 type UploadedFileT = { originalname: string; buffer: Buffer; mimetype: string };
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -35,11 +34,9 @@ import { BulkReminderDto } from './dto/bulk-reminder.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
-const uploadOptions = {
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-};
+const uploadOptions = makeSafeUploadOptions({ memory: true, maxMb: 10 });
 
 @ApiTags('Returns')
 @ApiBearerAuth('JWT')
@@ -154,6 +151,7 @@ export class CrmReturnsController {
     @Param('id') id: string,
     @UploadedFile() file: UploadedFileT,
   ) {
+    assertSafeFile(file as unknown as Express.Multer.File);
     const ackNumber =
       typeof req.body?.ackNumber === 'string'
         ? req.body.ackNumber.trim() || null

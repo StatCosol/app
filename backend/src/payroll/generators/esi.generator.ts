@@ -61,9 +61,7 @@ export class EsiGenerator {
     });
 
     const branchIds = Array.from(
-      new Set(
-        employees.map((e) => e.branchId).filter((b): b is string => !!b),
-      ),
+      new Set(employees.map((e) => e.branchId).filter((b): b is string => !!b)),
     );
     const branchMap = new Map<string, BranchEntity>();
     if (branchIds.length) {
@@ -96,7 +94,7 @@ export class EsiGenerator {
     }
 
     for (const [bid, emps] of grouped) {
-      const branch = bid ? branchMap.get(bid) ?? null : null;
+      const branch = bid ? (branchMap.get(bid) ?? null) : null;
       results.push(
         await this.buildAndSave(run, emps, esiCeiling, branch, userId),
       );
@@ -181,7 +179,7 @@ export class EsiGenerator {
       : '';
     const record = this.rrRepo.create({
       clientId: run.clientId,
-      branchId: branch ? branch.id : run.branchId ?? null,
+      branchId: branch ? branch.id : (run.branchId ?? null),
       category: 'RECORD',
       title: `ESI Contribution - ${period}${titleSuffix}`,
       periodYear: run.periodYear,

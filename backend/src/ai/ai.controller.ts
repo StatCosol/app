@@ -20,6 +20,7 @@ import { AiQueryDraftService } from './ai-query-draft.service';
 import { AiDocumentCheckService } from './ai-document-check.service';
 import { AiRequestLogService } from './ai-request-log.service';
 import { AiCostTrackingService } from './ai-cost-tracking.service';
+import { AiAuditObservationLearningService } from './ai-audit-observation-learning.service';
 import {
   RunRiskAssessmentDto,
   GenerateAuditObservationDto,
@@ -52,6 +53,7 @@ export class AiController {
     private readonly requestLog: AiRequestLogService,
     private readonly branchAccess: BranchAccessService,
     private readonly costTracking: AiCostTrackingService,
+    private readonly remarkLibrary: AiAuditObservationLearningService,
   ) {}
 
   // ─── Configuration ────────────────────────────────
@@ -140,8 +142,12 @@ export class AiController {
   @ApiOperation({ summary: 'Get High Risk Clients' })
   @Get('risk/high-risk')
   @Roles('ADMIN', 'CEO', 'CCO')
-  async getHighRiskClients(@Query('limit') limit?: string) {
-    return this.riskEngine.getHighRiskClients(Number(limit) || 20);
+  async getHighRiskClients(
+    @Query('limit') limit?: string,
+    @Query('includeAll') includeAll?: string,
+  ) {
+    const all = includeAll === 'true' || includeAll === '1';
+    return this.riskEngine.getHighRiskClients(Number(limit) || 20, all);
   }
 
   @ApiOperation({ summary: 'Get Platform Risk Summary' })
@@ -174,7 +180,7 @@ export class AiController {
   @ApiOperation({ summary: 'Generate Audit Observation' })
   @Post('audit/generate-observation')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @Roles('AUDITOR')
+  @Roles('AUDITOR', 'ADMIN', 'CCO')
   async generateAuditObservation(@Body() dto: GenerateAuditObservationDto) {
     try {
       return await this.auditAi.generateObservation(dto);
@@ -218,6 +224,29 @@ export class AiController {
       dto.status,
       dto.auditorNotes,
     );
+  }
+
+  // ─── Phase 2: Audit Remark Library (AI Observation Learning) ───
+  @ApiOperation({ summary: 'Search audit remark library for similar findings' })
+  @Get('audit/remarks/search')
+  @Roles('AUDITOR', 'ADMIN', 'CCO', 'CEO', 'CRM')
+  async searchRemarkLibrary(
+    @Query('q') q: string,
+    @Query('findingType') findingType?: string,
+    @Query('stateCode') stateCode?: string,
+    @Query('actCode') actCode?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!q || q.trim().length < 6) {
+      return { matches: [] };
+    }
+    return this.remarkLibrary.search({
+      findingDescription: q,
+      findingType: findingType || null,
+      stateCode: stateCode || null,
+      actCode: actCode || null,
+      limit: limit ? Math.min(50, Math.max(1, parseInt(limit, 10) || 10)) : 10,
+    });
   }
 
   // ─── Payroll Anomaly Detection ────────────────────

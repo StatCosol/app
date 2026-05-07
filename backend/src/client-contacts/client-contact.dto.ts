@@ -56,4 +56,6 @@ export class CreateClientContactDto {
   notes?: string;
 }
 
-export class UpdateClientContactDto extends PartialType(CreateClientContactDto) {}
+export class UpdateClientContactDto extends PartialType(
+  CreateClientContactDto,
+) {}

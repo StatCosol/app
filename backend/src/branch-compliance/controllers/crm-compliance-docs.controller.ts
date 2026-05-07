@@ -23,6 +23,10 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ReqUser } from '../../access/access-scope.service';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 @ApiTags('Branch Compliance')
 @ApiBearerAuth('JWT')
@@ -54,13 +58,14 @@ export class CrmComplianceDocsController {
   @ApiOperation({ summary: 'CRM Upload On Behalf' })
   @Post('upload-on-behalf')
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   uploadOnBehalf(
     @CurrentUser() user: ReqUser,
     @Body() dto: UploadComplianceDocDto & { companyId: string },
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     return this.svc.crmUploadOnBehalf(user, dto, {
       originalname: file.originalname,
       buffer: file.buffer,

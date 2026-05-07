@@ -438,6 +438,15 @@ export class CeoSidebarComponent implements OnChanges, OnDestroy {
     const willExpand = !group.expanded;
     this.navGroups.forEach(g => g.expanded = false);
     group.expanded = willExpand;
+    // If expanding and current route isn't already in this group, jump to the first item
+    // so users don't need a second click to land on a page.
+    if (willExpand && group.items.length) {
+      const url = this.router.url;
+      const alreadyInGroup = group.items.some(it => url.startsWith(it.route));
+      if (!alreadyInGroup) {
+        this.router.navigateByUrl(group.items[0].route);
+      }
+    }
   }
 
   openGroupOnHover(group: SidebarGroup): void {
@@ -492,8 +501,10 @@ export class CeoSidebarComponent implements OnChanges, OnDestroy {
       { label: 'Escalations', route: '/ceo/escalations', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
       { label: 'Oversight', route: '/ceo/oversight', icon: this.svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z') },
       { label: 'Branches', route: '/ceo/branches', icon: this.svg('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4') },
+      { label: 'Sales Pipeline', route: '/ceo/sales', icon: this.svg('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6') },
+      { label: 'Sales Follow-ups', route: '/ceo/followups', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+      { label: 'Receivables', route: '/ceo/receivables', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
       { label: 'Reports', route: '/ceo/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
-      { label: 'Registers', route: '/ceo/registers', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
       { label: 'Notifications', route: '/ceo/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
       { label: 'Profile', route: '/ceo/profile', icon: this.svg('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
     ];
@@ -520,11 +531,19 @@ export class CeoSidebarComponent implements OnChanges, OnDestroy {
         ],
       },
       {
+        label: 'Business',
+        expanded: false,
+        items: [
+          { label: 'Sales Pipeline', route: '/ceo/sales', icon: this.svg('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6') },
+          { label: 'Follow-ups', route: '/ceo/followups', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Receivables', route: '/ceo/receivables', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
+        ],
+      },
+      {
         label: 'Intelligence',
         expanded: false,
         items: [
           { label: 'Reports', route: '/ceo/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
-          { label: 'Registers', route: '/ceo/registers', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
         ],
       },
       {

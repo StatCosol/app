@@ -30,7 +30,12 @@ export class RecurringInvoiceCron {
   ) {}
 
   @Cron('0 0 9 1 * *')
-  async runMonthly(): Promise<{ due: number; ok: number; failed: number; skippedNoEmail: number }> {
+  async runMonthly(): Promise<{
+    due: number;
+    ok: number;
+    failed: number;
+    skippedNoEmail: number;
+  }> {
     const today = new Date().toISOString().slice(0, 10);
     this.log.log(`Recurring invoice run starting for date=${today}`);
 

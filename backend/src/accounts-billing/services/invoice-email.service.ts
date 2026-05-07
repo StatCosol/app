@@ -64,7 +64,10 @@ export class InvoiceEmailService {
         `Invoice ${invoice.invoiceNumber}`,
         `<p>${body.replace(/\n/g, '<br>')}</p>`,
         {
-          name: this.config.get<string>('INVOICE_FROM_NAME', 'StatCo Solutions'),
+          name: this.config.get<string>(
+            'INVOICE_FROM_NAME',
+            'StatCo Solutions',
+          ),
           email: this.config.get<string>(
             'INVOICE_FROM_EMAIL',
             'finance@statcosol.com',

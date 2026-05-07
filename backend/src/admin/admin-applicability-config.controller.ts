@@ -19,6 +19,16 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AdminApplicabilityConfigService } from './admin-applicability-config.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+
+const applicabilityExcelUploadOptions = makeSafeUploadOptions({
+  memory: true,
+  maxMb: 5,
+  allowedMimes: [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+  ],
+});
 import {
   CreateComplianceItemDto,
   UpdateComplianceItemDto,
@@ -159,11 +169,9 @@ export class AdminApplicabilityConfigController {
   @ApiOperation({ summary: 'Bulk Upload Compliance Items from Excel' })
   @ApiConsumes('multipart/form-data')
   @Post('compliance-items/bulk-upload')
-  @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
-  )
+  @UseInterceptors(FileInterceptor('file', applicabilityExcelUploadOptions))
   async bulkUploadComplianceItems(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded');
+    assertSafeFile(file);
     const ext = file.originalname?.split('.').pop()?.toLowerCase();
     if (!['xlsx', 'xls'].includes(ext || '')) {
       throw new BadRequestException('Only .xlsx or .xls files are accepted');

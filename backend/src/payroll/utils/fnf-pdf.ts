@@ -104,10 +104,7 @@ function drawHeader(
   resetX(doc);
 }
 
-function drawFooter(
-  doc: PDFKit.PDFDocument,
-  client: FnfPdfInput['client'],
-) {
+function drawFooter(doc: PDFKit.PDFDocument, client: FnfPdfInput['client']) {
   doc.moveDown(2);
   resetX(doc);
   doc
@@ -121,11 +118,9 @@ function drawFooter(
   resetX(doc);
 }
 
-function drawKeyValue(
-  doc: PDFKit.PDFDocument,
-  pairs: Array<[string, string]>,
-) {
-  const colW = (doc.page.width - doc.page.margins.left - doc.page.margins.right) / 2;
+function drawKeyValue(doc: PDFKit.PDFDocument, pairs: Array<[string, string]>) {
+  const colW =
+    (doc.page.width - doc.page.margins.left - doc.page.margins.right) / 2;
   const startX = doc.page.margins.left;
   let y = doc.y;
   pairs.forEach(([k, v], idx) => {
@@ -251,7 +246,7 @@ export async function generateFnfPdfBuffer(
 
       doc.end();
     } catch (err) {
-      reject(err);
+      reject(err instanceof Error ? err : new Error(String(err)));
     }
   });
 }
@@ -276,7 +271,12 @@ function renderSettlementStatement(
     ['Designation', input.employee.designation || '-'],
     ['Department', input.employee.department || '-'],
     ['Date of Joining', fmtDate(input.employee.dateOfJoining)],
-    ['Last Working Day', fmtDate(input.separation.lastWorkingDay || input.separation.separationDate)],
+    [
+      'Last Working Day',
+      fmtDate(
+        input.separation.lastWorkingDay || input.separation.separationDate,
+      ),
+    ],
     ['Separation Reason', input.separation.reason || '-'],
     ['PAN', input.employee.pan || '-'],
   ]);
@@ -318,7 +318,8 @@ function renderSettlementStatement(
   doc.moveDown(2);
   resetX(doc);
   const sigY = doc.y;
-  const colW = (doc.page.width - doc.page.margins.left - doc.page.margins.right) / 2;
+  const colW =
+    (doc.page.width - doc.page.margins.left - doc.page.margins.right) / 2;
   doc
     .font('Helvetica')
     .fontSize(10)
@@ -335,19 +336,14 @@ function renderSettlementStatement(
       width: colW,
       align: 'right',
     })
-    .text(
-      'Authorised Signatory',
-      doc.page.margins.left + colW,
-      sigY + 14,
-      { width: colW, align: 'right' },
-    );
+    .text('Authorised Signatory', doc.page.margins.left + colW, sigY + 14, {
+      width: colW,
+      align: 'right',
+    });
   resetX(doc);
 }
 
-function renderRelievingLetter(
-  doc: PDFKit.PDFDocument,
-  input: FnfPdfInput,
-) {
+function renderRelievingLetter(doc: PDFKit.PDFDocument, input: FnfPdfInput) {
   drawHeader(doc, input.client, 'Relieving Letter');
 
   doc
@@ -376,7 +372,9 @@ function renderRelievingLetter(
   doc.moveDown(0.4);
   resetX(doc);
 
-  const lwd = fmtDate(input.separation.lastWorkingDay || input.separation.separationDate);
+  const lwd = fmtDate(
+    input.separation.lastWorkingDay || input.separation.separationDate,
+  );
   const doj = fmtDate(input.employee.dateOfJoining);
   const body =
     'This is to confirm that you have been relieved from the services of ' +
@@ -411,12 +409,16 @@ function renderExperienceCertificate(
   doc.moveDown(1.2);
   resetX(doc);
 
-  doc.font('Helvetica-Bold').text('TO WHOM IT MAY CONCERN', { align: 'center' });
+  doc
+    .font('Helvetica-Bold')
+    .text('TO WHOM IT MAY CONCERN', { align: 'center' });
   doc.moveDown(1);
   resetX(doc);
 
   const doj = fmtDate(input.employee.dateOfJoining);
-  const lwd = fmtDate(input.separation.lastWorkingDay || input.separation.separationDate);
+  const lwd = fmtDate(
+    input.separation.lastWorkingDay || input.separation.separationDate,
+  );
   const body =
     'This is to certify that ' +
     (input.employee.fatherName ? 'Mr./Ms. ' : '') +
@@ -427,7 +429,9 @@ function renderExperienceCertificate(
     input.client.name +
     ' as ' +
     (input.employee.designation || 'an employee') +
-    (input.employee.department ? ' in the ' + input.employee.department + ' department' : '') +
+    (input.employee.department
+      ? ' in the ' + input.employee.department + ' department'
+      : '') +
     ' from ' +
     doj +
     ' to ' +
@@ -435,17 +439,17 @@ function renderExperienceCertificate(
     '.\n\n' +
     'During the tenure of employment with us, we found him/her to be sincere, hardworking and dedicated towards the assigned responsibilities. His/her conduct during the employment was satisfactory.\n\n' +
     'We wish him/her all the best for future endeavours.';
-  doc.font('Helvetica').fontSize(11).text(body, { align: 'justify', lineGap: 3 });
+  doc
+    .font('Helvetica')
+    .fontSize(11)
+    .text(body, { align: 'justify', lineGap: 3 });
   doc.moveDown(1);
   resetX(doc);
 
   drawFooter(doc, input.client);
 }
 
-function renderNoDuesCertificate(
-  doc: PDFKit.PDFDocument,
-  input: FnfPdfInput,
-) {
+function renderNoDuesCertificate(doc: PDFKit.PDFDocument, input: FnfPdfInput) {
   drawHeader(doc, input.client, 'No Dues Certificate');
 
   doc
@@ -460,7 +464,12 @@ function renderNoDuesCertificate(
     ['Employee Code', input.employee.employeeCode],
     ['Designation', input.employee.designation || '-'],
     ['Date of Joining', fmtDate(input.employee.dateOfJoining)],
-    ['Last Working Day', fmtDate(input.separation.lastWorkingDay || input.separation.separationDate)],
+    [
+      'Last Working Day',
+      fmtDate(
+        input.separation.lastWorkingDay || input.separation.separationDate,
+      ),
+    ],
     ['Separation Reason', input.separation.reason || '-'],
   ]);
 

@@ -309,7 +309,7 @@ export class BillingInvoiceViewComponent implements OnInit {
           // Also trigger a download with a sensible filename
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${(invNum || 'invoice').replace(/[\/\\]/g, '-')}.pdf`;
+          a.download = `${(invNum || 'invoice').replace(/[/\\]/g, '-')}.pdf`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);

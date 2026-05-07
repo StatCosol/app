@@ -7,8 +7,8 @@ import PDFDocument from 'pdfkit';
 import { BillingSetting, Invoice } from '../entities';
 import { InvoicesService } from './invoices.service';
 
-const BRAND = '#0a2656';        // dark navy (Solutions)
-const BRAND_LIGHT = '#3ec6ff';   // cyan/light blue (StatCo)
+const BRAND = '#0a2656'; // dark navy (Solutions)
+const BRAND_LIGHT = '#3ec6ff'; // cyan/light blue (StatCo)
 const LIGHT_BG = '#f8fafc';
 const BORDER = '#e2e8f0';
 const TEXT = '#1e293b';
@@ -35,14 +35,15 @@ export class InvoicePdfService {
   ): Promise<{ buffer: Buffer; fileName: string; pdfPath: string }> {
     const invoice = await this.invoicesService.findOne(invoiceId);
     const settings =
-      (await this.settingsRepo.findOne({ where: {} })) || ({} as BillingSetting);
+      (await this.settingsRepo.findOne({ where: {} })) ||
+      ({} as BillingSetting);
 
     const uploadsDir = path.join(process.cwd(), 'uploads', 'invoices');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const fileName = `${invoice.invoiceNumber.replace(/[\/\\]/g, '-')}.pdf`;
+    const fileName = `${invoice.invoiceNumber.replace(/[/\\]/g, '-')}.pdf`;
     const filePath = path.join(uploadsDir, fileName);
 
     const buffer = await this.buildPdfBuffer(invoice, settings);
@@ -62,7 +63,10 @@ export class InvoicePdfService {
     return { buffer, fileName, pdfPath };
   }
 
-  private buildPdfBuffer(invoice: Invoice, settings: BillingSetting): Promise<Buffer> {
+  private buildPdfBuffer(
+    invoice: Invoice,
+    settings: BillingSetting,
+  ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({
         size: 'A4',
@@ -80,7 +84,7 @@ export class InvoicePdfService {
         this.renderInvoice(doc, invoice, settings);
         doc.end();
       } catch (err) {
-        reject(err);
+        reject(err instanceof Error ? err : new Error(String(err)));
       }
     });
   }
@@ -102,7 +106,9 @@ export class InvoicePdfService {
     const statcoText = 'StatCo';
     const statcoW = doc.widthOfString(statcoText);
     const wordmarkH = doc.heightOfString(statcoText);
-    doc.fillColor(BRAND_LIGHT).text(statcoText, left, headerTop, { lineBreak: false });
+    doc
+      .fillColor(BRAND_LIGHT)
+      .text(statcoText, left, headerTop, { lineBreak: false });
     doc
       .fillColor(BRAND)
       .text(' Solutions', left + statcoW, headerTop, { lineBreak: false });
@@ -166,7 +172,9 @@ export class InvoicePdfService {
     doc.y += 14;
 
     // ── Centered "TAX INVOICE" title ──
-    const titleText = (invoice.invoiceType || 'TAX_INVOICE').replace(/_/g, ' ').toUpperCase();
+    const titleText = (invoice.invoiceType || 'TAX_INVOICE')
+      .replace(/_/g, ' ')
+      .toUpperCase();
     doc
       .font('Helvetica-Bold')
       .fontSize(16)
@@ -211,7 +219,14 @@ export class InvoicePdfService {
     doc.fontSize(9).fillColor(TEXT).font('Helvetica');
     const metaY = doc.y;
     const metaColW = contentW / 3;
-    this.metaCell(doc, left, metaY, metaColW, 'Invoice Date', this.fmtDate(invoice.invoiceDate));
+    this.metaCell(
+      doc,
+      left,
+      metaY,
+      metaColW,
+      'Invoice Date',
+      this.fmtDate(invoice.invoiceDate),
+    );
     this.metaCell(
       doc,
       left + metaColW,
@@ -232,7 +247,11 @@ export class InvoicePdfService {
     doc.y = metaY + 22;
 
     // ── Items table ──
-    const headers: Array<{ label: string; w: number; align: 'left' | 'right' | 'center' }> = [
+    const headers: Array<{
+      label: string;
+      w: number;
+      align: 'left' | 'right' | 'center';
+    }> = [
       { label: '#', w: 18, align: 'center' },
       { label: 'Description', w: 0, align: 'left' },
       { label: 'Qty', w: 28, align: 'center' },
@@ -254,16 +273,30 @@ export class InvoicePdfService {
     const totalsW = 240;
     const totalsX = pageW - right - totalsW;
     const intraState = +(invoice.cgstAmount || 0) > 0;
-    const totalsRows: Array<{ label: string; value: string; bold?: boolean; brand?: boolean }> = [
+    const totalsRows: Array<{
+      label: string;
+      value: string;
+      bold?: boolean;
+      brand?: boolean;
+    }> = [
       { label: 'Sub Total', value: this.inr(invoice.subTotal) },
       { label: 'Discount', value: this.inr(invoice.discountTotal) },
       { label: 'Taxable Value', value: this.inr(invoice.taxableValue) },
     ];
     if (intraState) {
-      totalsRows.push({ label: `CGST @ ${invoice.cgstRate}%`, value: this.inr(invoice.cgstAmount) });
-      totalsRows.push({ label: `SGST @ ${invoice.sgstRate}%`, value: this.inr(invoice.sgstAmount) });
+      totalsRows.push({
+        label: `CGST @ ${invoice.cgstRate}%`,
+        value: this.inr(invoice.cgstAmount),
+      });
+      totalsRows.push({
+        label: `SGST @ ${invoice.sgstRate}%`,
+        value: this.inr(invoice.sgstAmount),
+      });
     } else {
-      totalsRows.push({ label: `IGST @ ${invoice.igstRate}%`, value: this.inr(invoice.igstAmount) });
+      totalsRows.push({
+        label: `IGST @ ${invoice.igstRate}%`,
+        value: this.inr(invoice.igstAmount),
+      });
     }
     totalsRows.push({ label: 'Round Off', value: this.inr(invoice.roundOff) });
     totalsRows.push({
@@ -280,10 +313,20 @@ export class InvoicePdfService {
         doc.rect(totalsX, ty, totalsW, rowH).fill(BRAND);
         doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(10);
       } else {
-        doc.rect(totalsX, ty, totalsW, rowH).strokeColor(BORDER).lineWidth(0.5).stroke();
-        doc.fillColor(TEXT).font(row.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
+        doc
+          .rect(totalsX, ty, totalsW, rowH)
+          .strokeColor(BORDER)
+          .lineWidth(0.5)
+          .stroke();
+        doc
+          .fillColor(TEXT)
+          .font(row.bold ? 'Helvetica-Bold' : 'Helvetica')
+          .fontSize(9);
       }
-      doc.text(row.label, totalsX + 6, ty + 5, { width: totalsW / 2, align: 'left' });
+      doc.text(row.label, totalsX + 6, ty + 5, {
+        width: totalsW / 2,
+        align: 'left',
+      });
       doc.text(row.value, totalsX + totalsW / 2, ty + 5, {
         width: totalsW / 2 - 6,
         align: 'right',
@@ -304,10 +347,18 @@ export class InvoicePdfService {
       `IFSC: ${settings.ifscCode || ''}`,
       `Branch: ${settings.branchName || ''}`,
     ]);
-    this.infoBox(doc, left + footColW + 10, footY, footColW, footH, 'Declaration', [
-      settings.termsAndConditions ||
-        'We declare that this invoice shows the actual price of the services provided and that all particulars are true and correct.',
-    ]);
+    this.infoBox(
+      doc,
+      left + footColW + 10,
+      footY,
+      footColW,
+      footH,
+      'Declaration',
+      [
+        settings.termsAndConditions ||
+          'We declare that this invoice shows the actual price of the services provided and that all particulars are true and correct.',
+      ],
+    );
     doc.x = left;
     doc.y = footY + footH + 20;
 
@@ -394,7 +445,11 @@ export class InvoicePdfService {
   ): void {
     doc.rect(x, y, w, h).fill(LIGHT_BG);
     doc.rect(x, y, w, h).strokeColor(BORDER).lineWidth(0.5).stroke();
-    doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9).text(title, x + 8, y + 6);
+    doc
+      .fillColor(BRAND)
+      .font('Helvetica-Bold')
+      .fontSize(9)
+      .text(title, x + 8, y + 6);
     doc.fillColor(TEXT).font('Helvetica').fontSize(9);
     let ly = y + 20;
     if (lines[0]) {
@@ -418,8 +473,16 @@ export class InvoicePdfService {
     label: string,
     value: string,
   ): void {
-    doc.fillColor(MUTED).font('Helvetica').fontSize(8).text(label, x, y, { width: w });
-    doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(10).text(value, x, y + 10, { width: w });
+    doc
+      .fillColor(MUTED)
+      .font('Helvetica')
+      .fontSize(8)
+      .text(label, x, y, { width: w });
+    doc
+      .fillColor(TEXT)
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .text(value, x, y + 10, { width: w });
   }
 
   private itemsTable(
@@ -427,7 +490,11 @@ export class InvoicePdfService {
     startX: number,
     startY: number,
     totalW: number,
-    headers: Array<{ label: string; w: number; align: 'left' | 'right' | 'center' }>,
+    headers: Array<{
+      label: string;
+      w: number;
+      align: 'left' | 'right' | 'center';
+    }>,
     invoice: Invoice,
   ): void {
     const headerH = 22;
@@ -451,12 +518,15 @@ export class InvoicePdfService {
 
     let curY = drawHeader(startY);
 
-    const items = (invoice.items || []).slice().sort((a, b) => a.sequence - b.sequence);
+    const items = (invoice.items || [])
+      .slice()
+      .sort((a, b) => a.sequence - b.sequence);
     doc.font('Helvetica').fontSize(8).fillColor(TEXT);
 
     items.forEach((item, idx) => {
       const descText =
-        (item.serviceDescription || '') + (item.sacCode ? `\nSAC: ${item.sacCode}` : '');
+        (item.serviceDescription || '') +
+        (item.sacCode ? `\nSAC: ${item.sacCode}` : '');
       const descCol = headers[1];
       const descH = doc.heightOfString(descText, {
         width: descCol.w - padX * 2,
@@ -473,7 +543,11 @@ export class InvoicePdfService {
       if (idx % 2 === 1) {
         doc.rect(startX, curY, totalW, rowH).fill(LIGHT_BG);
       }
-      doc.rect(startX, curY, totalW, rowH).strokeColor(BORDER).lineWidth(0.5).stroke();
+      doc
+        .rect(startX, curY, totalW, rowH)
+        .strokeColor(BORDER)
+        .lineWidth(0.5)
+        .stroke();
 
       const cells = [
         String(idx + 1),
@@ -505,7 +579,11 @@ export class InvoicePdfService {
     });
 
     if (items.length === 0) {
-      doc.rect(startX, curY, totalW, 24).strokeColor(BORDER).lineWidth(0.5).stroke();
+      doc
+        .rect(startX, curY, totalW, 24)
+        .strokeColor(BORDER)
+        .lineWidth(0.5)
+        .stroke();
       doc
         .fillColor(MUTED)
         .font('Helvetica-Oblique')
@@ -529,7 +607,11 @@ export class InvoicePdfService {
   ): void {
     doc.rect(x, y, w, h).fill(LIGHT_BG);
     doc.rect(x, y, w, h).strokeColor(BORDER).lineWidth(0.5).stroke();
-    doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9).text(title, x + 8, y + 6);
+    doc
+      .fillColor(BRAND)
+      .font('Helvetica-Bold')
+      .fontSize(9)
+      .text(title, x + 8, y + 6);
     doc.fillColor(TEXT).font('Helvetica').fontSize(8);
     let ly = y + 20;
     for (const line of lines) {
@@ -549,7 +631,10 @@ export class InvoicePdfService {
     // stay font-agnostic across PDF generators.
     return (
       'Rs. ' +
-      num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      num.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
     );
   }
 

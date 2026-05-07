@@ -266,6 +266,7 @@ export class AuthService {
       PF_TEAM: '/pf-team',
       EMPLOYEE: '/ess',
       ACCOUNTS: '/accounts',
+      SALES: '/sales',
     };
     return redirects[role || ''] || '';
   }

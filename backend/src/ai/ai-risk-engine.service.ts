@@ -682,8 +682,11 @@ export class AiRiskEngineService {
     });
   }
 
-  /** Get high-risk clients across the platform */
-  async getHighRiskClients(limit = 20): Promise<
+  /** Get high-risk clients across the platform (or all assessed clients when includeAll=true) */
+  async getHighRiskClients(
+    limit = 20,
+    includeAll = false,
+  ): Promise<
     Array<{
       id: string;
       client_id: string;
@@ -698,6 +701,10 @@ export class AiRiskEngineService {
       client_code: string;
     }>
   > {
+    const levelFilter = includeAll
+      ? ''
+      : `WHERE ra.risk_level IN ('HIGH', 'CRITICAL')`;
+
     // Get the latest assessment per client ordered by risk score
     const results = await this.dataSource.query(
       `
@@ -707,7 +714,7 @@ export class AiRiskEngineService {
         ra.created_at, c.client_name, c.client_code
       FROM ai_risk_assessments ra
       JOIN clients c ON c.id = ra.client_id
-      WHERE ra.risk_level IN ('HIGH', 'CRITICAL')
+      ${levelFilter}
       ORDER BY ra.client_id, ra.created_at DESC
       LIMIT $1
     `,

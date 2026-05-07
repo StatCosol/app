@@ -35,6 +35,12 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+
+const auditNcUploadOptions = makeSafeUploadOptions({
+  folder: 'audit-nc',
+  maxMb: 10,
+});
 
 // ─── Branch Audit KPI ─────────────────────────────
 @ApiTags('Audits')
@@ -282,6 +288,24 @@ export class AuditorAuditsController {
     return this.auditOutputEngine.getReportHistory(auditId);
   }
 
+  @ApiOperation({ summary: 'Readiness Snapshot (auditor)' })
+  @Get(':id/readiness')
+  readiness(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getReadinessForAuditor(user, id);
+  }
+
+  @ApiOperation({ summary: 'Report Status (auditor)' })
+  @Get(':id/report-status')
+  reportStatus(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getReportStatusForAuditor(user, id);
+  }
+
   @ApiOperation({ summary: 'Review corrected document' })
   @Post('non-compliances/:ncId/review')
   async reviewCorrectedDoc(
@@ -347,6 +371,71 @@ export class AuditorAuditsController {
     @Body() body: { finalRemark?: string },
   ) {
     return this.svc.submitAudit(user, id, body?.finalRemark);
+  }
+
+  @ApiOperation({
+    summary:
+      'Phase 3 — Publish preliminary findings to vendor and start the closure window',
+  })
+  @Post(':id/preliminary-publish')
+  async preliminaryPublish(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { windowDays?: number; remark?: string } = {},
+  ) {
+    return this.svc.preliminaryPublish(user, id, {
+      windowDays: body?.windowDays,
+      remark: body?.remark,
+    });
+  }
+
+  @ApiOperation({
+    summary:
+      'Phase 3 — NC overview (counts + recurring) for an audit (auditor)',
+  })
+  @Get(':id/nc-overview')
+  async listAuditNcs(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.listNcsForAudit(user, id);
+  }
+
+  @ApiOperation({
+    summary:
+      'Phase 5 — Repeat-NC analytics for a client (auditor/CRM/CCO/CEO/Admin)',
+  })
+  @Roles('AUDITOR', 'ADMIN', 'CRM', 'CCO', 'CEO')
+  @Get('analytics/repeat-ncs/:clientId')
+  async repeatNcAnalytics(
+    @CurrentUser() user: ReqUser,
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+  ) {
+    return this.svc.getRepeatNcAnalytics(user, clientId);
+  }
+
+  @ApiOperation({
+    summary: 'Phase 5 — Overdue NCs across the auditor\u2019s assigned audits',
+  })
+  @Get('non-compliances/overdue')
+  async overdueNcs(@CurrentUser() user: ReqUser) {
+    return this.svc.listOverdueNcsForAuditor(user);
+  }
+
+  @ApiOperation({ summary: 'Phase 4 — Download preliminary findings PDF' })
+  @Get(':id/preliminary-report.pdf')
+  async exportPreliminaryReportPdf(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    const buf = await this.svc.exportPreliminaryReportPdf(user, id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="preliminary-findings-${id}.pdf"`,
+      'Content-Length': buf.length,
+    });
+    res.end(buf);
   }
 
   @ApiOperation({ summary: 'Force-complete audit (bypasses pending docs/NCs)' })
@@ -785,14 +874,26 @@ export class ContractorAuditNcController {
     return this.svc.getNonCompliancesForContractor(user);
   }
 
+  @ApiOperation({
+    summary: 'Phase 3 — List NCs for a specific audit (vendor view)',
+  })
+  @Get('audit/:auditId')
+  async listForAudit(
+    @CurrentUser() user: ReqUser,
+    @Param('auditId', ParseUUIDPipe) auditId: string,
+  ) {
+    return this.svc.listNcsForVendor(user, auditId);
+  }
+
   @ApiOperation({ summary: 'Upload corrected file for an NC' })
   @Post(':ncId/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', auditNcUploadOptions))
   async uploadCorrected(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     return this.svc.uploadCorrectedFile(user, ncId, file);
   }
 }
@@ -812,14 +913,26 @@ export class BranchAuditNcController {
     return this.svc.getNonCompliancesForContractor(user);
   }
 
+  @ApiOperation({
+    summary: 'Phase 3 — List NCs for a specific audit (branch view)',
+  })
+  @Get('audit/:auditId')
+  async listForAudit(
+    @CurrentUser() user: ReqUser,
+    @Param('auditId', ParseUUIDPipe) auditId: string,
+  ) {
+    return this.svc.listNcsForVendor(user, auditId);
+  }
+
   @ApiOperation({ summary: 'Upload corrected file for an NC' })
   @Post(':ncId/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', auditNcUploadOptions))
   async uploadCorrected(
     @CurrentUser() user: ReqUser,
     @Param('ncId', ParseUUIDPipe) ncId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     return this.svc.uploadCorrectedFile(user, ncId, file);
   }
 }

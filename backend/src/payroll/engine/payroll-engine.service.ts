@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 
@@ -1142,7 +1138,14 @@ export class PayrollEngineService {
                                        WHERE employee_id = $1 AND leave_type = 'SL' AND ref_type = 'SL_PAID_LEAVE'
                                          AND EXTRACT(YEAR FROM entry_date::date) = $3), 0), 0),
                          last_updated_at = NOW()`,
-          [emp.employeeId, run.clientId, run.periodYear, slAccrued, slUsed, slAccrued - slUsed],
+          [
+            emp.employeeId,
+            run.clientId,
+            run.periodYear,
+            slAccrued,
+            slUsed,
+            slAccrued - slUsed,
+          ],
         );
 
         const updatedSlBal = await qr.manager.findOne(LeaveBalanceEntity, {
@@ -1266,7 +1269,11 @@ export class PayrollEngineService {
       // When payable days = 0, also zero out the non-prorata earnings (ATT_BONUS,
       // OTHER_EARNINGS, ARREAR_ATT_BONUS). ACTUAL_GROSS stays as a reference value.
       if (payableDays === 0) {
-        for (const code of ['ATT_BONUS', 'OTHER_EARNINGS', 'ARREAR_ATT_BONUS']) {
+        for (const code of [
+          'ATT_BONUS',
+          'OTHER_EARNINGS',
+          'ARREAR_ATT_BONUS',
+        ]) {
           if (values[code] !== undefined) values[code] = 0;
         }
       }

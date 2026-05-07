@@ -22,6 +22,7 @@ import { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { EssService } from './ess.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 import {
   UpdateEssProfileDto,
   EssCheckInDto,
@@ -275,23 +276,10 @@ export class EssController {
   @ApiOperation({ summary: 'Upload Document (self)' })
   @Post('documents/upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'employee-documents');
-          fs.mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname).toLowerCase();
-          cb(
-            null,
-            `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
-          );
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({ folder: 'employee-documents', maxMb: 10 }),
+    ),
   )
   async uploadDocument(
     @CurrentUser() user: ReqUser,
@@ -300,7 +288,7 @@ export class EssController {
     @Body('docName') docName: string,
     @Body('expiryDate') expiryDate?: string,
   ) {
-    if (!file) throw new BadRequestException('No file uploaded');
+    assertSafeFile(file);
     if (!docType) throw new BadRequestException('docType is required');
     return this.svc.uploadSelfDocument(user, {
       docType,

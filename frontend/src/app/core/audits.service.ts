@@ -261,6 +261,21 @@ export class AuditsService {
     return this.http.get(`${this.auditorBase}/${auditId}/non-compliances`);
   }
 
+  /** Phase 5 — NC overview (counts + recurring) for an audit. */
+  auditorGetNcOverview(auditId: string): Observable<any> {
+    return this.http.get(`${this.auditorBase}/${auditId}/nc-overview`);
+  }
+
+  /** Phase 5 — Repeat-NC analytics across all audits for a client. */
+  auditorRepeatNcAnalytics(clientId: string): Observable<any> {
+    return this.http.get(`${this.auditorBase}/analytics/repeat-ncs/${clientId}`);
+  }
+
+  /** Phase 5 — Overdue NCs across the calling auditor's audits. */
+  auditorListOverdueNcs(): Observable<any> {
+    return this.http.get(`${this.auditorBase}/non-compliances/overdue`);
+  }
+
   auditorGetSubmissionHistory(auditId: string): Observable<any> {
     return this.http.get(`${this.auditorBase}/${auditId}/submission-history`);
   }
@@ -283,6 +298,10 @@ export class AuditsService {
     return this.http.get(`${this.baseUrl}/api/v1/contractor/audit-non-compliances`);
   }
 
+  contractorListNcsForAudit(auditId: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/v1/contractor/audit-non-compliances/audit/${auditId}`);
+  }
+
   contractorUploadCorrectedFile(ncId: string, file: File): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
@@ -293,10 +312,23 @@ export class AuditsService {
     return this.http.get(`${this.baseUrl}/api/v1/branch/audit-non-compliances`);
   }
 
+  branchListNcsForAudit(auditId: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/v1/branch/audit-non-compliances/audit/${auditId}`);
+  }
+
   branchUploadCorrectedFile(ncId: string, file: File): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
     return this.http.post(`${this.baseUrl}/api/v1/branch/audit-non-compliances/${ncId}/upload`, fd);
+  }
+
+  // ── Phase 3/4: Auditor preliminary publish + report ─────────────
+  auditorPreliminaryPublish(auditId: string, body: { windowDays?: number; remark?: string } = {}): Observable<any> {
+    return this.http.post(`${this.auditorBase}/${auditId}/preliminary-publish`, body);
+  }
+
+  auditorPreliminaryReportUrl(auditId: string): string {
+    return `${this.auditorBase}/${auditId}/preliminary-report.pdf`;
   }
 
   // ── Schedule Automation ────────────────────────────────────────

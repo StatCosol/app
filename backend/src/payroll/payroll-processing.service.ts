@@ -649,7 +649,11 @@ export class PayrollProcessingService {
   async uploadAttendance(
     runId: string,
     file: Express.Multer.File,
-  ): Promise<{ matched: number; skipped: string[]; unrecognisedHeaders?: string[] }> {
+  ): Promise<{
+    matched: number;
+    skipped: string[];
+    unrecognisedHeaders?: string[];
+  }> {
     const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new NotFoundException('Run not found');
 
@@ -858,10 +862,7 @@ export class PayrollProcessingService {
           : 0;
       const approvedLeaveDays =
         approvedLeaveCol > 0
-          ? Math.max(
-              0,
-              this.cellNum(row.getCell(approvedLeaveCol).value) ?? 0,
-            )
+          ? Math.max(0, this.cellNum(row.getCell(approvedLeaveCol).value) ?? 0)
           : 0;
       const plDays =
         plLeaveCol > 0
@@ -1108,7 +1109,10 @@ export class PayrollProcessingService {
                 amount: String(cv.amount),
                 source: 'CALCULATED' as const,
               })
-              .orUpdate(['amount', 'source'], ['run_employee_id', 'component_code'])
+              .orUpdate(
+                ['amount', 'source'],
+                ['run_employee_id', 'component_code'],
+              )
               .execute();
           }
         }
@@ -1217,7 +1221,7 @@ export class PayrollProcessingService {
       .map((emp) => {
         const attendanceLeave = attendanceByRunEmp.get(emp.id) ?? 0;
         const essApps = emp.employeeId
-          ? (appsByEmp.get(emp.employeeId) || [])
+          ? appsByEmp.get(emp.employeeId) || []
           : [];
 
         // Sum overlap days within the period
@@ -1234,8 +1238,7 @@ export class PayrollProcessingService {
           const start = a.fromDate > monthStart ? a.fromDate : monthStart;
           const end = a.toDate < monthEnd ? a.toDate : monthEnd;
           const days =
-            (new Date(end).getTime() - new Date(start).getTime()) /
-              86400000 +
+            (new Date(end).getTime() - new Date(start).getTime()) / 86400000 +
             1;
           const overlapDays = Math.max(0, Math.round(days * 100) / 100);
           essApprovedLeave += overlapDays;
@@ -1250,8 +1253,10 @@ export class PayrollProcessingService {
         }
         essApprovedLeave = Math.round(essApprovedLeave * 100) / 100;
 
-        const diff = Math.round((attendanceLeave - essApprovedLeave) * 100) / 100;
-        let status: 'OK' | 'MISMATCH' | 'MISSING_IN_SHEET' | 'EXTRA_IN_SHEET' = 'OK';
+        const diff =
+          Math.round((attendanceLeave - essApprovedLeave) * 100) / 100;
+        let status: 'OK' | 'MISMATCH' | 'MISSING_IN_SHEET' | 'EXTRA_IN_SHEET' =
+          'OK';
         if (Math.abs(diff) < 0.01) status = 'OK';
         else if (attendanceLeave === 0 && essApprovedLeave > 0)
           status = 'MISSING_IN_SHEET';
@@ -1323,7 +1328,8 @@ export class PayrollProcessingService {
     // For ESS the canonical value is what was approved on the ESS portal.
     // For SHEET we keep the attendance-sheet value as the authoritative one
     // and just sync the ledger to it (dismissal marker stops re-flagging).
-    const newValue = source === 'ESS' ? row.essApprovedLeave : row.attendanceLeave;
+    const newValue =
+      source === 'ESS' ? row.essApprovedLeave : row.attendanceLeave;
 
     await this.compValRepo
       .createQueryBuilder()
@@ -1441,7 +1447,11 @@ export class PayrollProcessingService {
         ? Number(rec.workedHours)
         : null;
       // Derive from in/out times when worked_hours absent
-      if ((workedHours == null || workedHours <= 0) && rec.checkIn && rec.checkOut) {
+      if (
+        (workedHours == null || workedHours <= 0) &&
+        rec.checkIn &&
+        rec.checkOut
+      ) {
         const toMin = (t: string) => {
           const [hh, mm] = t.split(':').map((s) => Number(s));
           return hh * 60 + (mm || 0);
@@ -1664,10 +1674,7 @@ export class PayrollProcessingService {
       for (const cv of cvRows) {
         const re = runEmps.find((r) => r.id === cv.runEmployeeId);
         if (re?.employeeId) {
-          uploadedByEmployeeId.set(
-            re.employeeId,
-            Number(cv.amount) || 0,
-          );
+          uploadedByEmployeeId.set(re.employeeId, Number(cv.amount) || 0);
         }
       }
 

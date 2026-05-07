@@ -31,6 +31,14 @@ const AuditorAiAuditComponent = () =>
   import('./ai-audit/auditor-ai-audit.component').then(
     (m) => m.AuditorAiAuditComponent,
   );
+const AuditorRepeatNcAnalyticsComponent = () =>
+  import('./analytics/auditor-repeat-nc-analytics.component').then(
+    (m) => m.AuditorRepeatNcAnalyticsComponent,
+  );
+const AuditorOverdueNcsComponent = () =>
+  import('./analytics/auditor-overdue-ncs.component').then(
+    (m) => m.AuditorOverdueNcsComponent,
+  );
 export const AUDITOR_ROUTES: Routes = [
   {
     path: 'auditor',
@@ -49,6 +57,8 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'reports', loadComponent: AuditorReportsComponent },
       { path: 'notifications', loadComponent: AuditorNotificationsComponent },
       { path: 'ai-audit', loadComponent: AuditorAiAuditComponent },
+      { path: 'analytics/repeat-ncs', loadComponent: AuditorRepeatNcAnalyticsComponent },
+      { path: 'analytics/overdue-ncs', loadComponent: AuditorOverdueNcsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

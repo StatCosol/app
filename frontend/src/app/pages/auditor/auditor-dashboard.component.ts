@@ -102,6 +102,18 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   // Active tab for My Audits
   auditTab: 'ACTIVE' | 'OVERDUE' | 'DUE_SOON' | 'COMPLETED' = 'ACTIVE';
 
+  // Phase 1 — Quick Audit Selector
+  quickAuditOptions: Array<{ value: string; label: string }> = [
+    { value: '', label: 'Select an audit to start / continue…' },
+  ];
+  selectedQuickAuditId = '';
+  private allActionableAudits: AuditorAuditItem[] = [];
+
+  // Phase 1 — Timeline alert popup
+  showAlertPopup = false;
+  alertItems: Array<{ tone: 'red' | 'amber' | 'blue'; text: string }> = [];
+  private alertShownThisSession = false;
+
   // Data tables
   myAudits: AuditorAuditItem[] = [];
   upcomingAudits: any[] = [];
@@ -267,6 +279,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.loadObservations();
     this.loadEvidence();
     this.loadRecentActivities();
+    this.loadActionableAudits();
   }
 
   /** Load summary KPIs from AuditXpert dashboard API */
@@ -418,6 +431,105 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   setAuditTab(tab: 'ACTIVE' | 'OVERDUE' | 'DUE_SOON' | 'COMPLETED'): void {
     this.auditTab = tab;
     this.loadMyAudits();
+  }
+
+  /** Phase 1 — Load actionable audits (PLANNED + IN_PROGRESS + REVERIFICATION_PENDING)
+   *  for the Quick Audit Selector dropdown. */
+  loadActionableAudits(): void {
+    const params = { ...this.buildFilterParams(), tab: 'ACTIVE', limit: '500' };
+    this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+      next: (response) => {
+        const items = (response?.items || []) as AuditorAuditItem[];
+        // Sort: overdue first, then by due date asc
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const sorted = [...items].sort((a, b) => {
+          const ad = a.dueDate || '9999-12-31';
+          const bd = b.dueDate || '9999-12-31';
+          return ad.localeCompare(bd);
+        });
+        this.allActionableAudits = sorted;
+        this.quickAuditOptions = [
+          { value: '', label: `Select an audit to start / continue… (${sorted.length})` },
+          ...sorted.map((a) => {
+            const overdue = a.dueDate && a.dueDate < todayStr;
+            const due = a.dueDate ? ` · due ${a.dueDate}` : '';
+            const statusTag = a.status ? ` [${a.status.replace(/_/g, ' ')}]` : '';
+            const flag = overdue ? '⚠ ' : '';
+            return {
+              value: a.auditId,
+              label: `${flag}${a.clientName} — ${a.branchName || '—'} — ${a.auditName}${due}${statusTag}`,
+            };
+          }),
+        ];
+        this.computeAlertItems();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.allActionableAudits = [];
+        this.quickAuditOptions = [{ value: '', label: 'No audits available' }];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Phase 1 — Open the audit picked from the quick selector dropdown. */
+  startSelectedAudit(): void {
+    if (!this.selectedQuickAuditId) {
+      this.toast.info('Please select an audit from the dropdown.');
+      return;
+    }
+    this.router.navigate(['/auditor/audits', this.selectedQuickAuditId, 'workspace']);
+  }
+
+  /** Phase 1 — Compute timeline alert items from summary + actionable list. */
+  private computeAlertItems(): void {
+    const items: Array<{ tone: 'red' | 'amber' | 'blue'; text: string }> = [];
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dueToday = this.allActionableAudits.filter((a) => a.dueDate === todayStr).length;
+    const overdue = this.allActionableAudits.filter((a) => a.dueDate && a.dueDate < todayStr).length;
+
+    if (overdue > 0) {
+      items.push({ tone: 'red', text: `${overdue} audit${overdue === 1 ? '' : 's'} overdue.` });
+    }
+    if (dueToday > 0) {
+      items.push({ tone: 'amber', text: `${dueToday} audit${dueToday === 1 ? '' : 's'} due today.` });
+    }
+    const reverification = Number(this.summary?.reverificationPending || 0);
+    if (reverification > 0) {
+      items.push({
+        tone: 'amber',
+        text: `${reverification} audit${reverification === 1 ? '' : 's'} returned for reverification.`,
+      });
+    }
+    const evidencePending = (this.evidence || []).length;
+    if (evidencePending > 0) {
+      items.push({
+        tone: 'blue',
+        text: `${evidencePending} evidence item${evidencePending === 1 ? '' : 's'} awaiting submission.`,
+      });
+    }
+
+    this.alertItems = items;
+
+    // Auto-popup once per session if there is anything red/amber.
+    if (!this.alertShownThisSession && items.some((i) => i.tone === 'red' || i.tone === 'amber')) {
+      this.showAlertPopup = true;
+      this.alertShownThisSession = true;
+    }
+  }
+
+  /** Phase 1 — Dismiss timeline alert popup. */
+  closeAlertPopup(): void {
+    this.showAlertPopup = false;
+  }
+
+  /** Phase 1 — Re-open alerts (header bell). */
+  openAlertPopup(): void {
+    if (this.alertItems.length === 0) {
+      this.toast.info('No timeline alerts right now. You are all caught up.');
+      return;
+    }
+    this.showAlertPopup = true;
   }
 
   /** Open audit for execution */

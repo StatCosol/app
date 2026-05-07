@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -198,6 +198,7 @@ export class CeoReportsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly ceoApi: CeoApiService,
     private readonly toast: ToastService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -220,6 +221,7 @@ export class CeoReportsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.loadingSummary = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
@@ -260,6 +262,7 @@ export class CeoReportsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.loadingPreview = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
@@ -290,6 +293,7 @@ export class CeoReportsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.exportingCsv = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({
@@ -316,6 +320,7 @@ export class CeoReportsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(() => {
           this.exportingPdf = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe({

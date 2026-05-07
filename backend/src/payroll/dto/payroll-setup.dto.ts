@@ -38,7 +38,9 @@ export class UpsertPayrollSetupDto {
   @IsOptional() @IsBoolean() enableAdvanceRecovery?: boolean;
   @IsOptional() @IsString() defaultDeductionCapPct?: string;
   @IsOptional() @IsString() recoveryOrder?: string;
-  @IsOptional() @IsIn(['FIXED_26', 'CALENDAR_DAYS', 'WORKING_DAYS']) wageBasisDays?: 'FIXED_26' | 'CALENDAR_DAYS' | 'WORKING_DAYS';
+  @IsOptional()
+  @IsIn(['FIXED_26', 'CALENDAR_DAYS', 'WORKING_DAYS'])
+  wageBasisDays?: 'FIXED_26' | 'CALENDAR_DAYS' | 'WORKING_DAYS';
   @IsOptional() @IsString() otMultiplier?: string;
   @IsOptional() @IsString() otHoursPerDay?: string;
   @IsOptional() @IsString() otDaysInMonth?: string;

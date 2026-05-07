@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,12 +20,16 @@ import { ClientsService } from '../clients/clients.service';
 import { UsersService } from '../users/users.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { AuditType, Frequency } from '../common/enums';
-import { generateAuditReportPdfBuffer } from './utils/report-pdf';
+import {
+  generateAuditReportPdfBuffer,
+  generatePreliminaryReportPdfBuffer,
+} from './utils/report-pdf';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NonComplianceEngineService } from '../automation/services/non-compliance-engine.service';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { ReqUser } from '../access/access-scope.service';
 import { RejectionMailService } from '../email/rejection-mail.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 export interface BranchAuditKpiItem {
   periodCode: string;
@@ -67,6 +72,7 @@ export class AuditsService implements OnModuleInit {
     private readonly ncEngine: NonComplianceEngineService,
     private readonly auditOutputEngine: AuditOutputEngineService,
     private readonly rejectionMail: RejectionMailService,
+    @Optional() private readonly auditLogs?: AuditLogsService,
   ) {}
 
   async onModuleInit() {
@@ -74,11 +80,28 @@ export class AuditsService implements OnModuleInit {
       await this.dataSource.query(`
         ALTER TABLE audits
           ADD COLUMN IF NOT EXISTS upload_lock_from DATE NULL,
-          ADD COLUMN IF NOT EXISTS upload_lock_until DATE NULL
+          ADD COLUMN IF NOT EXISTS upload_lock_until DATE NULL,
+          ADD COLUMN IF NOT EXISTS preliminary_published_at         timestamptz NULL,
+          ADD COLUMN IF NOT EXISTS preliminary_published_by_user_id uuid        NULL,
+          ADD COLUMN IF NOT EXISTS preliminary_findings_count       int         NULL,
+          ADD COLUMN IF NOT EXISTS vendor_window_days               int         NOT NULL DEFAULT 6
       `);
-      this.logger.log('upload_lock columns ensured on audits table');
+      await this.dataSource.query(`
+        ALTER TABLE audit_non_compliances
+          ADD COLUMN IF NOT EXISTS published_at         timestamptz NULL,
+          ADD COLUMN IF NOT EXISTS vendor_window_until  date        NULL,
+          ADD COLUMN IF NOT EXISTS is_recurring         boolean     NOT NULL DEFAULT false,
+          ADD COLUMN IF NOT EXISTS original_nc_id       uuid        NULL,
+          ADD COLUMN IF NOT EXISTS recurrence_count     int         NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS finding_signature    varchar(64) NULL
+      `);
+      this.logger.log(
+        'audit lifecycle columns ensured (upload_lock + preliminary_publish + vendor_window)',
+      );
     } catch (e: any) {
-      this.logger.error('Failed to ensure upload_lock columns: ' + e.message);
+      this.logger.error(
+        'Failed to ensure audit lifecycle columns: ' + e.message,
+      );
     }
   }
 
@@ -563,6 +586,116 @@ export class AuditsService implements OnModuleInit {
         totalObservations,
         openObservations,
       },
+    };
+  }
+
+  async getReadinessForAuditor(user: ReqUser, id: string) {
+    const audit = await this.getForAuditor(user, id);
+    return this.buildReadinessSnapshot(audit);
+  }
+
+  async getReportStatusForAuditor(user: ReqUser, id: string) {
+    const audit = await this.getForAuditor(user, id);
+    return this.buildReportStatus(audit);
+  }
+
+  private async buildReadinessSnapshot(audit: AuditEntity) {
+    const id = audit.id;
+    const [totalObservations, openObservations] = await Promise.all([
+      this.observationRepo
+        .createQueryBuilder('obs')
+        .where('obs.auditId = :auditId', { auditId: id })
+        .getCount(),
+      this.observationRepo
+        .createQueryBuilder('obs')
+        .where('obs.auditId = :auditId', { auditId: id })
+        .andWhere(
+          `UPPER(COALESCE(obs.status, 'OPEN')) NOT IN ('RESOLVED','CLOSED')`,
+        )
+        .getCount(),
+    ]);
+    const executionStarted = ['IN_PROGRESS', 'COMPLETED'].includes(
+      String(audit.status || '').toUpperCase(),
+    );
+    const checklist = [
+      {
+        key: 'client_scope_linked',
+        label: 'Client scope linked',
+        ok: !!audit.clientId,
+        hint: audit.clientId
+          ? 'Client mapping available'
+          : 'Client scope missing',
+      },
+      {
+        key: 'period_configured',
+        label: 'Period configured',
+        ok: !!audit.periodYear && !!audit.periodCode,
+        hint:
+          audit.periodYear && audit.periodCode
+            ? String(audit.periodCode)
+            : 'Period year/code missing',
+      },
+      {
+        key: 'auditor_assigned',
+        label: 'Auditor assigned',
+        ok: !!audit.assignedAuditorId,
+        hint: audit.assignedAuditorId || 'Assignment required',
+      },
+      {
+        key: 'schedule_locked',
+        label: 'Schedule locked',
+        ok: !!audit.dueDate,
+        hint: audit.dueDate ? String(audit.dueDate) : 'Due date not set',
+      },
+      {
+        key: 'execution_started',
+        label: 'Execution started',
+        ok: executionStarted,
+        hint: executionStarted
+          ? `Current status: ${String(audit.status || '').replace('_', ' ')}`
+          : 'Audit not started',
+      },
+      {
+        key: 'capa_tracking_present',
+        label: 'CAPA tracking present',
+        ok: totalObservations > 0,
+        hint:
+          totalObservations > 0
+            ? `${totalObservations} observations`
+            : 'No observations linked yet',
+      },
+    ];
+    return {
+      auditId: audit.id,
+      checklist,
+      metrics: { totalObservations, openObservations },
+    };
+  }
+
+  private async buildReportStatus(audit: AuditEntity) {
+    const latestReport = await this.getLatestReportRow(audit.id);
+    if (!latestReport) {
+      return {
+        auditId: audit.id,
+        stage: 'NOT_STARTED',
+        status: null,
+        updatedAt: null,
+        finalizedAt: null,
+      };
+    }
+    const status = String(latestReport.status || '').toUpperCase();
+    const stage =
+      status === 'DRAFT'
+        ? 'DRAFT'
+        : ['SUBMITTED', 'APPROVED', 'PUBLISHED'].includes(status)
+          ? 'FINAL'
+          : 'NOT_STARTED';
+    return {
+      auditId: audit.id,
+      stage,
+      status,
+      updatedAt: latestReport.updated_at || null,
+      finalizedAt: latestReport.finalized_at || null,
     };
   }
 
@@ -2292,6 +2425,307 @@ export class AuditsService implements OnModuleInit {
     };
   }
 
+  // ──────────────────────────────────────────────────────────────────
+  // Phase 3 — Preliminary Publish + Vendor 6-Day Window + Recurring NC
+  // ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Auditor publishes preliminary findings to vendor/contractor and starts
+   * the configured vendor closure window (default 6 calendar days).
+   * - Sets audits.preliminary_published_at + actor + finding count
+   * - For every open NC: sets published_at, vendor_window_until, status=AWAITING_REUPLOAD
+   * - Best-effort: marks recurring findings against historical NCs for the same client/branch
+   */
+  async preliminaryPublish(
+    user: ReqUser,
+    auditId: string,
+    opts: { windowDays?: number; remark?: string } = {},
+  ) {
+    this.assertAuditor(user);
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    if (audit.assignedAuditorId !== user.userId) {
+      throw new ForbiddenException(
+        'Only the assigned auditor can publish preliminary findings',
+      );
+    }
+    if (audit.status === 'CLOSED' || audit.status === 'CANCELLED') {
+      throw new BadRequestException(`Audit is ${audit.status}; cannot publish`);
+    }
+
+    const windowDays = Math.max(
+      1,
+      Math.min(30, opts.windowDays ?? audit.vendorWindowDays ?? 6),
+    );
+    const today = new Date();
+    const deadline = new Date(today);
+    deadline.setDate(deadline.getDate() + windowDays);
+    const deadlineStr = deadline.toISOString().slice(0, 10);
+    const now = new Date();
+
+    const openNcs = await this.ncRepo.find({
+      where: { auditId, status: In(['NC_RAISED', 'AWAITING_REUPLOAD']) },
+    });
+
+    let recurringCount = 0;
+    for (const nc of openNcs) {
+      // Recurring detection (best-effort)
+      try {
+        const sig = this.computeFindingSignature(nc.documentName, nc.remark);
+        nc.findingSignature = sig;
+        if (sig) {
+          const prev = await this.ncRepo
+            .createQueryBuilder('n')
+            .innerJoin('audits', 'a', 'a.id = n.audit_id')
+            .where('a.client_id = :cid', { cid: audit.clientId })
+            .andWhere('n.audit_id <> :aid', { aid: auditId })
+            .andWhere('n.finding_signature = :sig', { sig })
+            .orderBy('n.created_at', 'DESC')
+            .limit(1)
+            .getOne();
+          if (prev) {
+            nc.isRecurring = true;
+            nc.originalNcId = prev.originalNcId || prev.id;
+            nc.recurrenceCount = (prev.recurrenceCount || 0) + 1;
+            recurringCount++;
+          }
+        }
+      } catch (e: any) {
+        this.logger.warn(
+          `Recurring NC detection failed for ${nc.id}: ${e?.message}`,
+        );
+      }
+
+      nc.publishedAt = now;
+      nc.vendorWindowUntil = deadlineStr;
+      nc.dueDate = deadline;
+      if (nc.status === 'NC_RAISED') nc.status = 'AWAITING_REUPLOAD';
+    }
+    if (openNcs.length > 0) {
+      await this.ncRepo.save(openNcs);
+    }
+
+    audit.preliminaryPublishedAt = now;
+    audit.preliminaryPublishedByUserId = user.userId;
+    audit.preliminaryFindingsCount = openNcs.length;
+    audit.vendorWindowDays = windowDays;
+    if (audit.status === 'IN_PROGRESS' || audit.status === 'PLANNED') {
+      audit.status = 'CORRECTION_PENDING';
+    }
+    if (opts.remark) {
+      audit.notes = (
+        (audit.notes || '') +
+        `\n[Preliminary publish ${now.toISOString()}] ${opts.remark}`
+      ).trim();
+    }
+    await this.repo.save(audit);
+
+    return {
+      id: audit.id,
+      status: audit.status,
+      preliminaryPublishedAt: audit.preliminaryPublishedAt,
+      vendorWindowUntil: deadlineStr,
+      vendorWindowDays: windowDays,
+      ncsPublished: openNcs.length,
+      recurringFindings: recurringCount,
+      message:
+        openNcs.length > 0
+          ? `Preliminary findings published. Vendor has ${windowDays} day(s) to upload corrections (until ${deadlineStr}).`
+          : 'No open non-compliances to publish.',
+    };
+  }
+
+  /** Stable signature for an NC finding — used to detect recurrence. */
+  private computeFindingSignature(
+    documentName?: string | null,
+    remark?: string | null,
+  ): string | null {
+    const parts = [documentName || '', remark || '']
+      .map((s) =>
+        s
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      )
+      .filter(Boolean);
+    if (parts.length === 0) return null;
+    const joined = parts.join('|');
+    if (joined.length < 4) return null;
+    // Inline djb2 hash — avoid pulling crypto for this hot path
+    let h = 5381;
+    for (let i = 0; i < joined.length; i++) {
+      h = ((h << 5) + h + joined.charCodeAt(i)) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+  }
+
+  /** List NCs for an audit (auditor view). */
+  async listNcsForAudit(user: ReqUser, auditId: string) {
+    this.assertAuditor(user);
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    if (audit.assignedAuditorId !== user.userId) {
+      throw new ForbiddenException('Audit not assigned to you');
+    }
+    const ncs = await this.ncRepo.find({
+      where: { auditId },
+      order: { createdAt: 'DESC' },
+    });
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return {
+      auditId,
+      preliminaryPublishedAt: audit.preliminaryPublishedAt,
+      vendorWindowDays: audit.vendorWindowDays,
+      counts: {
+        total: ncs.length,
+        open: ncs.filter(
+          (n) => n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD',
+        ).length,
+        reuploaded: ncs.filter(
+          (n) =>
+            n.status === 'REUPLOADED' || n.status === 'REVERIFICATION_PENDING',
+        ).length,
+        accepted: ncs.filter(
+          (n) => n.status === 'ACCEPTED' || n.status === 'CLOSED',
+        ).length,
+        recurring: ncs.filter((n) => n.isRecurring).length,
+        overdue: ncs.filter(
+          (n) =>
+            (n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD') &&
+            n.vendorWindowUntil &&
+            n.vendorWindowUntil < todayStr,
+        ).length,
+      },
+      items: ncs.map((n) => ({
+        id: n.id,
+        documentName: n.documentName,
+        remark: n.remark,
+        status: n.status,
+        requestedToRole: n.requestedToRole,
+        publishedAt: n.publishedAt,
+        vendorWindowUntil: n.vendorWindowUntil,
+        dueDate: n.dueDate,
+        isRecurring: n.isRecurring,
+        recurrenceCount: n.recurrenceCount,
+        originalNcId: n.originalNcId,
+        raisedAt: n.raisedAt,
+        closedAt: n.closedAt,
+      })),
+    };
+  }
+
+  /** Phase 4: Export preliminary findings PDF (auditor + post-publish only). */
+  async exportPreliminaryReportPdf(
+    user: ReqUser,
+    auditId: string,
+  ): Promise<Buffer> {
+    this.assertAuditor(user);
+    const audit = await this.repo.findOne({
+      where: { id: auditId },
+      relations: ['client', 'branch'],
+    });
+    if (!audit) throw new NotFoundException('Audit not found');
+    if (!audit.preliminaryPublishedAt) {
+      throw new BadRequestException(
+        'Preliminary findings have not been published yet',
+      );
+    }
+    const ncs = await this.ncRepo.find({
+      where: { auditId },
+      order: { createdAt: 'ASC' },
+    });
+    const visible = ncs.filter((n) => !!n.publishedAt);
+    const earliestDeadline =
+      visible
+        .map((n) => n.vendorWindowUntil)
+        .filter((d): d is string => !!d)
+        .sort()[0] || null;
+    return generatePreliminaryReportPdfBuffer({
+      auditId: audit.id,
+      auditCode: audit.auditCode || audit.id,
+      clientName: audit.client?.clientName || null,
+      branchName: audit.branch?.branchName || null,
+      periodCode: audit.periodCode || null,
+      publishedAt: audit.preliminaryPublishedAt,
+      vendorWindowDays: audit.vendorWindowDays || 6,
+      vendorWindowUntil: earliestDeadline,
+      ncs: visible.map((n) => ({
+        documentName: n.documentName,
+        remark: n.remark,
+        status: n.status,
+        vendorWindowUntil: n.vendorWindowUntil,
+        isRecurring: !!n.isRecurring,
+        recurrenceCount: n.recurrenceCount ?? null,
+      })),
+    });
+  }
+
+  /** List NCs assigned to the calling vendor/contractor. */
+  async listNcsForVendor(user: ReqUser, auditId: string) {
+    if (!user) throw new ForbiddenException('Auth required');
+    const audit = await this.repo.findOne({ where: { id: auditId } });
+    if (!audit) throw new NotFoundException('Audit not found');
+    // Vendor must either be the contractor on this audit, or a CLIENT user for the same client
+    const isContractor = audit.contractorUserId === user.userId;
+    let isClientUser = false;
+    if (!isContractor && user.roleCode === 'CLIENT') {
+      const rows = await this.dataSource.query(
+        `SELECT 1 FROM users WHERE id = $1 AND client_id = $2 AND deleted_at IS NULL LIMIT 1`,
+        [user.userId, audit.clientId],
+      );
+      isClientUser = rows.length > 0;
+    }
+    if (!isContractor && !isClientUser) {
+      throw new ForbiddenException('You do not have access to this audit');
+    }
+
+    if (!audit.preliminaryPublishedAt) {
+      return {
+        auditId,
+        publishedAt: null,
+        message: 'Preliminary findings have not been published yet.',
+        items: [],
+      };
+    }
+
+    const ncs = await this.ncRepo.find({
+      where: { auditId },
+      order: { createdAt: 'DESC' },
+    });
+    const visible = ncs.filter((n) => !!n.publishedAt);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return {
+      auditId,
+      publishedAt: audit.preliminaryPublishedAt,
+      vendorWindowDays: audit.vendorWindowDays,
+      counts: {
+        total: visible.length,
+        open: visible.filter(
+          (n) => n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD',
+        ).length,
+        overdue: visible.filter(
+          (n) =>
+            (n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD') &&
+            n.vendorWindowUntil &&
+            n.vendorWindowUntil < todayStr,
+        ).length,
+      },
+      items: visible.map((n) => ({
+        id: n.id,
+        documentName: n.documentName,
+        remark: n.remark,
+        status: n.status,
+        vendorWindowUntil: n.vendorWindowUntil,
+        isOverdue:
+          (n.status === 'NC_RAISED' || n.status === 'AWAITING_REUPLOAD') &&
+          !!n.vendorWindowUntil &&
+          n.vendorWindowUntil < todayStr,
+        publishedAt: n.publishedAt,
+      })),
+    };
+  }
+
   async submitAudit(user: ReqUser, auditId: string, finalRemark?: string) {
     this.assertAuditor(user);
     const audit = await this.repo.findOne({ where: { id: auditId } });
@@ -2982,7 +3416,91 @@ export class AuditsService implements OnModuleInit {
       // Non-critical automation hooks
     }
 
+    // Phase 5: emit NC review log
+    try {
+      await this.auditLogs?.log({
+        entityType: 'AUDIT_NC',
+        entityId: ncId,
+        action: decision === 'COMPLIED' ? 'NC_ACCEPTED' : 'NC_REJECTED',
+        performedBy: user.userId,
+        performedRole: user.roleCode || null,
+        reason: remark || null,
+        meta: { auditId: nc.auditId },
+      });
+    } catch {
+      /* non-critical */
+    }
+
     return { ncId, status: nc.status, decision };
+  }
+
+  /** Phase 5 — Repeat-NC analytics for a client across all audits. */
+  async getRepeatNcAnalytics(user: ReqUser, clientId: string) {
+    if (!user) throw new ForbiddenException('Auth required');
+    if (
+      !['AUDITOR', 'ADMIN', 'CRM', 'CCO', 'CEO'].includes(user.roleCode || '')
+    ) {
+      throw new ForbiddenException('Insufficient role for analytics');
+    }
+    const rows = await this.dataSource.query(
+      `SELECT nc.finding_signature        AS "signature",
+              MAX(nc.document_name)       AS "documentName",
+              COUNT(*)::int               AS "occurrences",
+              COUNT(DISTINCT nc.audit_id)::int AS "audits",
+              MAX(nc.created_at)          AS "lastSeenAt",
+              MAX(nc.recurrence_count)::int AS "maxRecurrenceCount"
+         FROM audit_non_compliances nc
+         JOIN audits a ON a.id = nc.audit_id
+        WHERE a.client_id = $1
+          AND nc.finding_signature IS NOT NULL
+        GROUP BY nc.finding_signature
+       HAVING COUNT(DISTINCT nc.audit_id) > 1
+        ORDER BY COUNT(*) DESC, MAX(nc.created_at) DESC
+        LIMIT 100`,
+      [clientId],
+    );
+    return {
+      clientId,
+      totalRepeatGroups: rows.length,
+      items: rows,
+    };
+  }
+
+  /** Phase 5 — list overdue NCs across the calling auditor's audits. */
+  async listOverdueNcsForAuditor(user: ReqUser) {
+    this.assertAuditor(user);
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await this.dataSource.query(
+      `SELECT nc.id                       AS "ncId",
+              nc.audit_id                 AS "auditId",
+              a.audit_code                AS "auditCode",
+              a.client_id                 AS "clientId",
+              c.client_name               AS "clientName",
+              a.branch_id                 AS "branchId",
+              b.branchname                AS "branchName",
+              nc.document_name            AS "documentName",
+              nc.remark                   AS "remark",
+              nc.status                   AS "status",
+              nc.vendor_window_until      AS "vendorWindowUntil",
+              nc.requested_to_role        AS "requestedToRole",
+              nc.requested_to_user_id     AS "requestedToUserId",
+              nc.recurrence_count         AS "recurrenceCount",
+              nc.created_at               AS "createdAt",
+              ($1::date - nc.vendor_window_until)::int AS "daysOverdue"
+         FROM audit_non_compliances nc
+         JOIN audits a ON a.id = nc.audit_id
+         LEFT JOIN clients  c ON c.id = a.client_id
+         LEFT JOIN client_branches b ON b.id = a.branch_id
+        WHERE a.assigned_auditor_id = $2
+          AND nc.status IN ('NC_RAISED','AWAITING_REUPLOAD')
+          AND nc.vendor_window_until IS NOT NULL
+          AND nc.vendor_window_until < $1::date
+          AND nc.closed_at IS NULL
+        ORDER BY nc.vendor_window_until ASC
+        LIMIT 500`,
+      [today, user.userId],
+    );
+    return { total: rows.length, asOf: today, items: rows };
   }
 
   // ─── Submission History ────────────────────────────────────────
@@ -3246,6 +3764,20 @@ export class AuditsService implements OnModuleInit {
 
     nc.status = 'REUPLOADED';
     await this.ncRepo.save(nc);
+
+    // Phase 5: emit log
+    try {
+      await this.auditLogs?.log({
+        entityType: 'AUDIT_NC',
+        entityId: nc.id,
+        action: 'NC_REUPLOADED',
+        performedBy: user.userId,
+        performedRole: user.roleCode || null,
+        meta: { auditId: nc.auditId, fileName: file.originalname },
+      });
+    } catch {
+      /* non-critical */
+    }
 
     // Update audit status to REVERIFICATION_PENDING if it was CORRECTION_PENDING
     const audit = await this.repo.findOne({ where: { id: nc.auditId } });

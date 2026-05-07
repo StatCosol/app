@@ -23,6 +23,55 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
 
+// In-memory per-account login throttle (single-replica deployment).
+// Complements the IP-based ThrottlerGuard with a per-email lockout that
+// blunts low-and-slow credential-stuffing across rotating IPs.
+// Threshold: 5 failures within 15 min → locked for 15 min.
+// Resets on successful login.
+const LOGIN_LOCK_MAX_FAILS = 5;
+const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
+type LoginAttemptState = {
+  count: number;
+  firstFailAt: number;
+  lockedUntil: number;
+};
+const loginAttempts = new Map<string, LoginAttemptState>();
+
+function getLockKey(email: string) {
+  return (email || '').trim().toLowerCase();
+}
+
+function assertNotLocked(email: string) {
+  const key = getLockKey(email);
+  const state = loginAttempts.get(key);
+  if (state && state.lockedUntil > Date.now()) {
+    const mins = Math.ceil((state.lockedUntil - Date.now()) / 60000);
+    throw new UnauthorizedException(
+      `Account temporarily locked due to too many failed attempts. Try again in ~${mins} min.`,
+    );
+  }
+}
+
+function recordLoginFailure(email: string) {
+  const key = getLockKey(email);
+  if (!key) return;
+  const now = Date.now();
+  const state = loginAttempts.get(key);
+  if (!state || now - state.firstFailAt > LOGIN_LOCK_WINDOW_MS) {
+    loginAttempts.set(key, { count: 1, firstFailAt: now, lockedUntil: 0 });
+    return;
+  }
+  state.count += 1;
+  if (state.count >= LOGIN_LOCK_MAX_FAILS) {
+    state.lockedUntil = now + LOGIN_LOCK_DURATION_MS;
+  }
+}
+
+function resetLoginAttempts(email: string) {
+  loginAttempts.delete(getLockKey(email));
+}
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
@@ -68,6 +117,7 @@ export class AuthService implements OnModuleInit {
 
   async login(dto: LoginDto, ip?: string, userAgent?: string) {
     const email = (dto.email || '').trim().toLowerCase();
+    assertNotLocked(email);
 
     const user = await this.usersRepo
       .createQueryBuilder('u')
@@ -91,6 +141,7 @@ export class AuthService implements OnModuleInit {
       .getOne();
 
     if (!user) {
+      recordLoginFailure(email);
       this.logLoginEvent(
         email,
         null,
@@ -106,6 +157,7 @@ export class AuthService implements OnModuleInit {
 
     // Block login for inactive or soft-deleted users
     if (!user.isActive || user.deletedAt) {
+      recordLoginFailure(email);
       this.logLoginEvent(
         email,
         user.id,
@@ -122,6 +174,7 @@ export class AuthService implements OnModuleInit {
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isMatch) {
+      recordLoginFailure(email);
       this.logLoginEvent(
         email,
         user.id,
@@ -134,6 +187,8 @@ export class AuthService implements OnModuleInit {
       );
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    resetLoginAttempts(email);
 
     const role = await this.usersService.getRoleById(user.roleId);
 
@@ -207,6 +262,7 @@ export class AuthService implements OnModuleInit {
   async essLogin(dto: EssLoginDto) {
     const email = (dto.email || '').trim().toLowerCase();
     const companyCode = (dto.companyCode || '').trim().toUpperCase();
+    assertNotLocked(email);
 
     const user = await this.usersRepo
       .createQueryBuilder('u')
@@ -233,12 +289,16 @@ export class AuthService implements OnModuleInit {
 
     // Must be active + not deleted
     if (!user.isActive || user.deletedAt) {
+      recordLoginFailure(email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Verify password
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!isMatch) throw new UnauthorizedException('Invalid credentials');
+    if (!isMatch) {
+      recordLoginFailure(email);
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     // Verify role is EMPLOYEE
     const role = await this.usersService.getRoleById(user.roleId);
@@ -270,10 +330,13 @@ export class AuthService implements OnModuleInit {
     const allowedCodes = new Set([clientCode, firstWord, initials]);
 
     if (!user.client || !allowedCodes.has(provided)) {
+      recordLoginFailure(email);
       throw new UnauthorizedException(
         'Company code does not match your account',
       );
     }
+
+    resetLoginAttempts(email);
 
     const tokens = await this.issueTokens(user.id, role.code, user);
 

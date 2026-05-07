@@ -14,7 +14,9 @@ export enum PendingPaymentStatus {
 }
 
 @Entity('pending_payment_followups')
-@Index('uq_pending_payment_followups_invoice', ['invoiceNumber'], { unique: true })
+@Index('uq_pending_payment_followups_invoice', ['invoiceNumber'], {
+  unique: true,
+})
 export class PendingPaymentFollowup {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -54,10 +56,19 @@ export class PendingPaymentFollowup {
   @Column({ name: 'reminder_count', type: 'int', default: 0 })
   reminderCount: number;
 
-  @Column({ name: 'last_reminder_sent_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'last_reminder_sent_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
   lastReminderSentAt: Date | null;
 
-  @Column({ name: 'last_reminder_status', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'last_reminder_status',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   lastReminderStatus: string | null;
 
   @Column({ name: 'last_failure_reason', type: 'text', nullable: true })

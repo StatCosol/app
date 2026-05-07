@@ -627,23 +627,7 @@ export class PayrollController {
   @ApiOperation({ summary: 'Upload FnF settlement document' })
   @Post('fnf/:fnfId/documents')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'fnf-documents');
-          fs.mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname).toLowerCase();
-          cb(
-            null,
-            `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
-          );
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileInterceptor('file', commonUploadOptions('fnf-documents')),
   )
   uploadFnfDocument(
     @CurrentUser() user: ReqUser,
@@ -735,10 +719,7 @@ export class PayrollController {
     const { buffer, filename, mimeType } =
       await this.svc.generateFnfDocumentPdf(user, fnfId, docType, override);
     res.setHeader('Content-Type', mimeType);
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${filename}"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   }
 }

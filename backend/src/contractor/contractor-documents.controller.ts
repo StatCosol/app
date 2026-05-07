@@ -11,9 +11,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -25,45 +22,18 @@ import type {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-const MAX_MB = 10;
-
-const storage = diskStorage({
-  destination: (_req, _file, cb) => {
-    const base = path.join(process.cwd(), 'uploads', 'contractor-documents');
-    ensureDir(base);
-    cb(null, base);
-  },
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, `${Date.now()}_${safe}`);
-  },
+const fileUploadOptions = makeSafeUploadOptions({
+  folder: 'contractor-documents',
+  maxMb: 10,
+  allowedMimes: [
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
 });
-
-const fileUploadOptions = {
-  storage,
-  fileFilter: (
-    _req: unknown,
-    file: { mimetype: string },
-    cb: (err: Error | null, accept: boolean) => void,
-  ) => {
-    const allowed = [
-      'application/pdf',
-      'image/png',
-      'image/jpeg',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new BadRequestException('File type not allowed'), false);
-    }
-    cb(null, true);
-  },
-  limits: { fileSize: MAX_MB * 1024 * 1024 },
-};
 
 @ApiTags('Contractor')
 @ApiBearerAuth('JWT')
@@ -87,6 +57,7 @@ export class ContractorDocumentsController {
     @Body() dto: ContractorDocumentCreateDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     return this.svc.contractorUpload(user, dto, file);
   }
 
@@ -99,6 +70,7 @@ export class ContractorDocumentsController {
     @Body() dto: ContractorDocumentReuploadDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFile(file);
     return this.svc.contractorReupload(user, id, dto, file);
   }
 }

@@ -72,6 +72,30 @@ export class AuditNonComplianceEntity {
   @Column({ name: 'closed_at', type: 'timestamptz', nullable: true })
   closedAt: Date | null;
 
+  // ── Phase 3: vendor window + recurring detection ────────────────
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
+  publishedAt: Date | null;
+
+  @Column({ name: 'vendor_window_until', type: 'date', nullable: true })
+  vendorWindowUntil: string | null;
+
+  @Column({ name: 'is_recurring', type: 'boolean', default: false })
+  isRecurring: boolean;
+
+  @Column({ name: 'original_nc_id', type: 'uuid', nullable: true })
+  originalNcId: string | null;
+
+  @Column({ name: 'recurrence_count', type: 'int', default: 0 })
+  recurrenceCount: number;
+
+  @Column({
+    name: 'finding_signature',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  findingSignature: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

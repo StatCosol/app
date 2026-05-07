@@ -35,6 +35,8 @@ const AiPayrollComponent = () =>
   import('./ai/ai-payroll.component').then((m) => m.AiPayrollComponent);
 const AiConfigComponent = () =>
   import('./ai/ai-config.component').then((m) => m.AiConfigComponent);
+const AiAuditComponent = () =>
+  import('../auditor/ai-audit/auditor-ai-audit.component').then((m) => m.AuditorAiAuditComponent);
 const SlaTrackerComponent = () =>
   import('../../shared/sla/sla-tracker.component').then((m) => m.SlaTrackerComponent);
 const HeatmapComponent = () =>
@@ -94,6 +96,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'digest', loadComponent: AdminDigestComponent },
       { path: 'ai-hub', loadComponent: AiDashboardComponent },
       { path: 'ai-risk', loadComponent: AiRiskComponent },
+      { path: 'ai-audit', loadComponent: AiAuditComponent },
       { path: 'ai-payroll', loadComponent: AiPayrollComponent },
       { path: 'ai-config', loadComponent: AiConfigComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },

@@ -1618,7 +1618,8 @@ export class PayrollService {
     dto: any,
     file: Express.Multer.File,
   ) {
-    if (!user?.id && !user?.userId) throw new BadRequestException('Invalid user');
+    if (!user?.id && !user?.userId)
+      throw new BadRequestException('Invalid user');
     if (!['PAYROLL', 'ADMIN', 'CRM'].includes(user.roleCode)) {
       throw new ForbiddenException('Only payroll/admin/CRM allowed');
     }
@@ -2702,8 +2703,7 @@ export class PayrollService {
       );
       for (const m of masterRows) {
         const monthly =
-          Number(m.monthly_gross) ||
-          (m.ctc ? Number(m.ctc) / 12 : 0);
+          Number(m.monthly_gross) || (m.ctc ? Number(m.ctc) / 12 : 0);
         empMasterByCode.set(m.employee_code, {
           designation: m.designation ?? null,
           monthlyGross: monthly || 0,
@@ -3603,11 +3603,16 @@ export class PayrollService {
   }> {
     const notes: string[] = [];
     const monthlyGross = Number(emp?.monthlyGross || 0);
-    if (!monthlyGross) notes.push('Employee monthly_gross missing — pending salary and leave encashment defaulted to 0.');
+    if (!monthlyGross)
+      notes.push(
+        'Employee monthly_gross missing — pending salary and leave encashment defaulted to 0.',
+      );
 
     // Pending salary — prorated to LWD day-of-month within the separation month.
     let pendingSalary = 0;
-    const lwdStr = (fnf.lastWorkingDay || fnf.separationDate || '') as unknown as string;
+    const lwdStr = (fnf.lastWorkingDay ||
+      fnf.separationDate ||
+      '') as unknown as string;
     if (lwdStr && monthlyGross > 0) {
       const lwd = new Date(lwdStr);
       if (!isNaN(lwd.getTime())) {
@@ -3699,9 +3704,14 @@ export class PayrollService {
           // else 50% of Gross.
           if (!basic && monthlyGross > 0 && emp?.clientId) {
             try {
-              const rows: Array<{ formula: string | null; calc_method: string; fixed_amount: string | null; percentage: string | null; percentage_base: string | null }> =
-                await this.runEmployeeRepo.manager.query(
-                  `SELECT i.formula, i.calc_method, i.fixed_amount::text, i.percentage::text, i.percentage_base
+              const rows: Array<{
+                formula: string | null;
+                calc_method: string;
+                fixed_amount: string | null;
+                percentage: string | null;
+                percentage_base: string | null;
+              }> = await this.runEmployeeRepo.manager.query(
+                `SELECT i.formula, i.calc_method, i.fixed_amount::text, i.percentage::text, i.percentage_base
                      FROM pay_salary_structure_items i
                      JOIN pay_salary_structures s ON s.id = i.structure_id
                      JOIN payroll_components c ON c.id = i.component_id
@@ -3711,8 +3721,8 @@ export class PayrollService {
                       AND upper(c.code) = 'BASIC'
                     ORDER BY s.effective_from DESC NULLS LAST
                     LIMIT 1`,
-                  [emp.clientId],
-                );
+                [emp.clientId],
+              );
               if (rows.length) {
                 const item = rows[0];
                 if (item.calc_method === 'FORMULA' && item.formula) {
@@ -3733,9 +3743,12 @@ export class PayrollService {
                 } else if (item.calc_method === 'FIXED' && item.fixed_amount) {
                   basic = Math.round(Number(item.fixed_amount) || 0);
                   notes.push(`Basic ₹${basic} from client structure (fixed).`);
-                } else if (item.calc_method === 'PERCENTAGE' && item.percentage) {
+                } else if (
+                  item.calc_method === 'PERCENTAGE' &&
+                  item.percentage
+                ) {
                   basic = Math.round(
-                    (Number(item.percentage) || 0) * monthlyGross / 100,
+                    ((Number(item.percentage) || 0) * monthlyGross) / 100,
                   );
                   notes.push(
                     `Basic ₹${basic} from client structure (${item.percentage}% of gross).`,
@@ -3770,9 +3783,7 @@ export class PayrollService {
                   )`,
               [emp.id, fyStartYear, fyEndYear],
             );
-          const workedDaysFy = wdRows.length
-            ? Number(wdRows[0].total) || 0
-            : 0;
+          const workedDaysFy = wdRows.length ? Number(wdRows[0].total) || 0 : 0;
 
           if (basic > 0 && workedDaysFy > 0) {
             bonusArrears = Math.round(((0.0833 * basic) / 26) * workedDaysFy);
@@ -3915,9 +3926,7 @@ export class PayrollService {
 
     const computed = await this.computeFnfBreakup(fnf, emp);
     const saved = (fnf.settlementBreakup as Record<string, unknown>) || {};
-    const hasSaved = Object.values(saved).some(
-      (v) => Number(v as number) > 0,
-    );
+    const hasSaved = Object.values(saved).some((v) => Number(v as number) > 0);
     const hasOverride =
       !!override &&
       [
@@ -3928,7 +3937,12 @@ export class PayrollService {
         override.recoveries,
       ].some((v) => v !== undefined && v !== null);
     const pick = (
-      key: 'pendingSalary' | 'leaveEncashment' | 'bonusArrears' | 'deductions' | 'recoveries',
+      key:
+        | 'pendingSalary'
+        | 'leaveEncashment'
+        | 'bonusArrears'
+        | 'deductions'
+        | 'recoveries',
     ): number => {
       // Priority: explicit user override > saved breakup > computed.
       if (hasOverride) {
@@ -3938,9 +3952,7 @@ export class PayrollService {
       if (hasSaved && saved[key] !== undefined && saved[key] !== null) {
         return Number(saved[key] as number) || 0;
       }
-      return Number(
-        (computed as unknown as Record<string, number>)[key] || 0,
-      );
+      return Number((computed as unknown as Record<string, number>)[key] || 0);
     };
     const breakup = {
       pendingSalary: pick('pendingSalary'),

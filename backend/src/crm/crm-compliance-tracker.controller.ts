@@ -22,6 +22,19 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
+
+const mcdEvidenceUploadOptions = makeSafeUploadOptions({
+  memory: true,
+  maxMb: 10,
+  allowedMimes: [
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
+});
 
 /**
  * CRM Compliance Tracker Controller
@@ -237,15 +250,13 @@ export class CrmComplianceTrackerController {
    */
   @ApiOperation({ summary: 'Upload MCD Item Evidence' })
   @Post('mcd/item/:itemId/upload')
-  @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }),
-  )
+  @UseInterceptors(FileInterceptor('file', mcdEvidenceUploadOptions))
   async uploadMcdItem(
     @CurrentUser() user: ReqUser,
     @Param('itemId') itemId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) throw new BadRequestException('File is required');
+    assertSafeFile(file);
 
     const allowedMimes = new Set([
       'application/pdf',

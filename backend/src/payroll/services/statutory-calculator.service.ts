@@ -141,7 +141,8 @@ export class StatutoryCalculatorService {
           result['PF_ER_FROM_EMP'] =
             actualGross >= pfGrossThreshold ? Math.ceil(totalErPf) : 0;
         } else {
-          result['PF_ER_FROM_EMP'] = actualGross >= 25000 ? Math.ceil(totalErPf) : 0;
+          result['PF_ER_FROM_EMP'] =
+            actualGross >= 25000 ? Math.ceil(totalErPf) : 0;
         }
       } else {
         result['PF_WAGES'] = 0;

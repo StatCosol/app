@@ -17,6 +17,8 @@ export type AuditEntityType =
   | 'RENEWAL_TASK'
   | 'DOCUMENT'
   | 'AUDIT_OBSERVATION'
+  | 'AUDIT'
+  | 'AUDIT_NC'
   | 'MCD'
   | 'NOTIFICATION'
   | 'RECURRING_INVOICE';
@@ -49,7 +51,12 @@ export type AuditAction =
   | 'DUE_DATE_CHANGED'
   | 'OWNER_CHANGED'
   | 'EXPORT_GENERATED'
-  | 'BULK_ACTION';
+  | 'BULK_ACTION'
+  | 'PRELIMINARY_PUBLISHED'
+  | 'NC_REUPLOADED'
+  | 'NC_ACCEPTED'
+  | 'NC_REJECTED'
+  | 'NC_OVERDUE_ESCALATED';
 
 @Entity('audit_logs')
 @Index(['entityType', 'entityId'])

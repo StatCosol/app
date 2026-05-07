@@ -50,7 +50,9 @@ function isFiniteNumber(n: unknown): n is number {
 
 function ensureVarName(name: unknown, label: string): string {
   if (typeof name !== 'string' || !VAR_NAME.test(name)) {
-    throw new Error(`${label} must be UPPER_SNAKE variable name; got: ${String(name)}`);
+    throw new Error(
+      `${label} must be UPPER_SNAKE variable name; got: ${String(name)}`,
+    );
   }
   return name;
 }
@@ -63,7 +65,8 @@ export function serializeFormula(node: FormulaNode | null | undefined): string {
   if (!node) throw new Error('Formula JSON is empty');
   switch (node.type) {
     case 'FIXED':
-      if (!isFiniteNumber(node.value)) throw new Error('FIXED.value must be a number');
+      if (!isFiniteNumber(node.value))
+        throw new Error('FIXED.value must be a number');
       return String(node.value);
 
     case 'VARIABLE':
@@ -71,7 +74,8 @@ export function serializeFormula(node: FormulaNode | null | undefined): string {
 
     case 'PERCENT': {
       const base = ensureVarName(node.base, 'PERCENT.base');
-      if (!isFiniteNumber(node.value)) throw new Error('PERCENT.value must be a number');
+      if (!isFiniteNumber(node.value))
+        throw new Error('PERCENT.value must be a number');
       return `(${base} * ${node.value} / 100)`;
     }
 
@@ -93,9 +97,13 @@ export function serializeFormula(node: FormulaNode | null | undefined): string {
     case 'BALANCE': {
       const total = ensureVarName(node.total, 'BALANCE.total');
       if (!Array.isArray(node.subtract) || node.subtract.length === 0) {
-        throw new Error('BALANCE.subtract must be a non-empty array of variable names');
+        throw new Error(
+          'BALANCE.subtract must be a non-empty array of variable names',
+        );
       }
-      const parts = node.subtract.map((v) => ensureVarName(v, 'BALANCE.subtract item'));
+      const parts = node.subtract.map((v) =>
+        ensureVarName(v, 'BALANCE.subtract item'),
+      );
       return `(${total} - ${parts.join(' - ')})`;
     }
 

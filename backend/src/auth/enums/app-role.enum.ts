@@ -15,4 +15,5 @@ export enum AppRole {
   PAYROLL = 'PAYROLL',
   PF_TEAM = 'PF_TEAM',
   EMPLOYEE = 'EMPLOYEE',
+  SALES = 'SALES',
 }

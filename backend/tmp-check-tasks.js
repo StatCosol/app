@@ -4,7 +4,7 @@ const { Client } = require('pg');
     host: process.env.DB_HOST || 'statcompy-db.postgres.database.azure.com',
     port: +(process.env.DB_PORT || 5432),
     user: process.env.DB_USER || 'Statcocompy',
-    password: process.env.DB_PASS || 'Statco@123',
+    password: process.env.DB_PASS,
     database: process.env.DB_NAME || 'statcompy',
     ssl: { rejectUnauthorized: false },
   });

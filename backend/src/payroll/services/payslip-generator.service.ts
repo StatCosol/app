@@ -457,7 +457,8 @@ export class PayslipGeneratorService {
         : Math.max(0, gross - basic - hra - others - attBonus);
     const otherEarningsRow = otherEarningsBase + otAmount;
     const otherEarningsNoteParts: string[] = [];
-    if ((runEmp as any).otherEarningsNote) otherEarningsNoteParts.push((runEmp as any).otherEarningsNote);
+    if ((runEmp as any).otherEarningsNote)
+      otherEarningsNoteParts.push((runEmp as any).otherEarningsNote);
     if (otAmount > 0) otherEarningsNoteParts.push('incl. OT');
     const otherEarningsLabel = otherEarningsNoteParts.length
       ? `Other Earnings (${otherEarningsNoteParts.join(', ')})`

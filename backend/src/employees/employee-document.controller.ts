@@ -13,8 +13,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as path from 'path';
 import * as fs from 'fs';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -24,6 +22,7 @@ import { EmployeeDocumentService } from './employee-document.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 @ApiTags('Employees')
 @ApiBearerAuth('JWT')
@@ -36,23 +35,10 @@ export class EmployeeDocumentController {
   @Post(':employeeId/upload')
   @Roles('CLIENT', 'ADMIN', 'CRM')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'employee-documents');
-          fs.mkdirSync(dir, { recursive: true });
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const ext = path.extname(file.originalname).toLowerCase();
-          cb(
-            null,
-            `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
-          );
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-    }),
+    FileInterceptor(
+      'file',
+      makeSafeUploadOptions({ folder: 'employee-documents', maxMb: 10 }),
+    ),
   )
   async upload(
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
@@ -62,7 +48,7 @@ export class EmployeeDocumentController {
     @Body('expiryDate') expiryDate: string | undefined,
     @CurrentUser() user: ReqUser,
   ) {
-    if (!file) throw new BadRequestException('No file uploaded');
+    assertSafeFile(file);
     if (!docType) throw new BadRequestException('docType is required');
 
     return this.docService.upload({

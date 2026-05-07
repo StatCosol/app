@@ -99,9 +99,7 @@ export class ClientStructuresController {
     @Query('stateCode') stateCode: string,
     @Query('componentCode') componentCode?: string,
   ) {
-    const codes = componentCode
-      ? [componentCode]
-      : ['PT', 'LWF_EMP', 'LWF_ER'];
+    const codes = componentCode ? [componentCode] : ['PT', 'LWF_EMP', 'LWF_ER'];
     return Promise.all(
       codes.map((code) =>
         this.stateSlab.listEffective({

@@ -100,7 +100,9 @@ export class PendingPaymentFollowupsService {
       return out.map((c) => c.trim());
     };
 
-    const headers = splitLine(lines[0]).map((h) => h.replace(/\s+/g, '').toLowerCase());
+    const headers = splitLine(lines[0]).map((h) =>
+      h.replace(/\s+/g, '').toLowerCase(),
+    );
     const idx: Record<string, number> = {};
     for (const key of [
       'invoicenumber',
@@ -114,7 +116,12 @@ export class PendingPaymentFollowupsService {
     ]) {
       idx[key] = headers.indexOf(key);
     }
-    if (idx['invoicenumber'] < 0 || idx['clientname'] < 0 || idx['clientemail'] < 0 || idx['amount'] < 0) {
+    if (
+      idx['invoicenumber'] < 0 ||
+      idx['clientname'] < 0 ||
+      idx['clientemail'] < 0 ||
+      idx['amount'] < 0
+    ) {
       throw new BadRequestException(
         'CSV missing required headers: invoiceNumber, clientName, clientEmail, amount',
       );
@@ -125,7 +132,8 @@ export class PendingPaymentFollowupsService {
 
     for (let i = 1; i < lines.length; i++) {
       const cols = splitLine(lines[i]);
-      const get = (k: string) => (idx[k] >= 0 ? (cols[idx[k]] ?? '').trim() : '');
+      const get = (k: string) =>
+        idx[k] >= 0 ? (cols[idx[k]] ?? '').trim() : '';
       const invoiceNumber = get('invoicenumber');
       const clientName = get('clientname');
       const clientEmail = get('clientemail');
@@ -141,7 +149,10 @@ export class PendingPaymentFollowupsService {
         continue;
       }
       if (!/^\S+@\S+\.\S+$/.test(clientEmail)) {
-        errors.push({ line: lineNo, reason: `invalid clientEmail: ${clientEmail}` });
+        errors.push({
+          line: lineNo,
+          reason: `invalid clientEmail: ${clientEmail}`,
+        });
         continue;
       }
       if (ccEmail && !/^\S+@\S+\.\S+$/.test(ccEmail)) {
@@ -159,19 +170,19 @@ export class PendingPaymentFollowupsService {
         const s = raw.trim().split(/[ T]/)[0];
         if (!s) return undefined;
         // yyyy-mm-dd or yyyy/mm/dd
-        let m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+        let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
         if (m) {
           const [, yyyy, mm, dd] = m;
           return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
         }
         // dd/mm/yyyy or dd-mm-yyyy (Indian/EU default)
-        m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
         if (m) {
           const [, dd, mm, yyyy] = m;
           return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
         }
         // dd/mm/yy or dd-mm-yy (2-digit year — pivot at 70)
-        m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+        m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2})$/);
         if (m) {
           const [, dd, mm, yy] = m;
           const n = parseInt(yy, 10);
@@ -179,11 +190,22 @@ export class PendingPaymentFollowupsService {
           return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
         }
         // dd-MMM-yyyy e.g. 01-May-2026 or 1/May/2026
-        m = s.match(/^(\d{1,2})[\/\-]([A-Za-z]{3,9})[\/\-](\d{4})$/);
+        m = s.match(/^(\d{1,2})[-/]([A-Za-z]{3,9})[-/](\d{4})$/);
         if (m) {
           const months: Record<string, string> = {
-            jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-            jul: '07', aug: '08', sep: '09', sept: '09', oct: '10', nov: '11', dec: '12',
+            jan: '01',
+            feb: '02',
+            mar: '03',
+            apr: '04',
+            may: '05',
+            jun: '06',
+            jul: '07',
+            aug: '08',
+            sep: '09',
+            sept: '09',
+            oct: '10',
+            nov: '11',
+            dec: '12',
           };
           const mm = months[m[2].toLowerCase().slice(0, 3)];
           if (mm) return `${m[3]}-${mm}-${m[1].padStart(2, '0')}`;
@@ -201,7 +223,10 @@ export class PendingPaymentFollowupsService {
       const invoiceDateIso = isoDate(invoiceDate);
       const dueDateIso = isoDate(dueDate);
       if (invoiceDate && !invoiceDateIso) {
-        errors.push({ line: lineNo, reason: `invalid invoiceDate: ${invoiceDate}` });
+        errors.push({
+          line: lineNo,
+          reason: `invalid invoiceDate: ${invoiceDate}`,
+        });
         continue;
       }
       if (dueDate && !dueDateIso) {
@@ -230,7 +255,8 @@ export class PendingPaymentFollowupsService {
   ): Promise<UploadResult> {
     if (!file) throw new BadRequestException('No file uploaded');
     const ext = (file.originalname || '').split('.').pop()?.toLowerCase();
-    if (ext !== 'csv') throw new BadRequestException('Only .csv files are accepted');
+    if (ext !== 'csv')
+      throw new BadRequestException('Only .csv files are accepted');
 
     const { rows, errors } = this.parseCsv(file.buffer);
     if (rows.length === 0) {
@@ -326,7 +352,9 @@ export class PendingPaymentFollowupsService {
   async findAll(query: { status?: string; page?: number; limit?: number }) {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(query.limit || 50, 200);
-    const qb = this.repo.createQueryBuilder('p').orderBy('p.uploadedAt', 'DESC');
+    const qb = this.repo
+      .createQueryBuilder('p')
+      .orderBy('p.uploadedAt', 'DESC');
     if (query.status && query.status !== 'ALL') {
       qb.andWhere('p.status = :status', { status: query.status });
     }
@@ -396,7 +424,10 @@ export class PendingPaymentFollowupsService {
   // Runs every day at 09:00 Asia/Kolkata time. Sends one reminder per
   // PENDING follow-up that has not been paused. PAID / CANCELLED rows
   // and rows with remindersPaused=true are skipped.
-  @Cron('0 9 * * *', { timeZone: 'Asia/Kolkata', name: 'pendingPaymentDailyReminder' })
+  @Cron('0 9 * * *', {
+    timeZone: 'Asia/Kolkata',
+    name: 'pendingPaymentDailyReminder',
+  })
   async runDailyReminders(): Promise<void> {
     const due = await this.repo.find({
       where: {
@@ -498,17 +529,21 @@ export class PendingPaymentFollowupsService {
       <p>Regards,<br/>StatCo Solutions — Accounts Team</p>
     `;
 
-    const fromName = this.config.get<string>('INVOICE_FROM_NAME')
-      || this.config.get<string>('SMTP_FROM_NAME', 'StatCo Solutions');
-    const fromEmail = this.config.get<string>('INVOICE_FROM_EMAIL')
-      || this.config.get<string>('SMTP_FROM_EMAIL')
-      || this.config.get<string>('SMTP_USER', '');
+    const fromName =
+      this.config.get<string>('INVOICE_FROM_NAME') ||
+      this.config.get<string>('SMTP_FROM_NAME', 'StatCo Solutions');
+    const fromEmail =
+      this.config.get<string>('INVOICE_FROM_EMAIL') ||
+      this.config.get<string>('SMTP_FROM_EMAIL') ||
+      this.config.get<string>('SMTP_USER', '');
     const smtpUser = this.config.get<string>('SMTP_USER', '');
     // Many SMTP relays (Zoho, etc.) reject sending from any address other
     // than the authenticated user. Fall back silently to SMTP_USER when the
     // configured From doesn't match.
     const safeFromEmail =
-      smtpUser && fromEmail && fromEmail.toLowerCase() !== smtpUser.toLowerCase()
+      smtpUser &&
+      fromEmail &&
+      fromEmail.toLowerCase() !== smtpUser.toLowerCase()
         ? smtpUser
         : fromEmail;
 
@@ -566,8 +601,10 @@ export class PendingPaymentFollowupsService {
 
   // ── CSV template ────────────────────────────────────────────────────
   buildCsvTemplate(): string {
-    const header = 'invoiceNumber,clientName,clientEmail,ccEmail,amount,invoiceDate,dueDate,notes';
-    const sample = 'INV-2024-001,Acme Pvt Ltd,accounts@acme.example,cfo@acme.example,12500.00,2024-12-15,2025-01-14,"Reminder #1"';
+    const header =
+      'invoiceNumber,clientName,clientEmail,ccEmail,amount,invoiceDate,dueDate,notes';
+    const sample =
+      'INV-2024-001,Acme Pvt Ltd,accounts@acme.example,cfo@acme.example,12500.00,2024-12-15,2025-01-14,"Reminder #1"';
     return `${header}\n${sample}\n`;
   }
 }
