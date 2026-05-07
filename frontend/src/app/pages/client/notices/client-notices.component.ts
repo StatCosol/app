@@ -1,7 +1,7 @@
-import { Component, NgZone, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, finalize, takeUntil, timeout } from 'rxjs';
+import { Subject, takeUntil, timeout } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { LoadingSpinnerComponent } from '../../../shared/ui/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
@@ -91,9 +91,17 @@ export class ClientNoticesComponent implements OnInit, OnDestroy {
   statuses = ['RECEIVED', 'UNDER_REVIEW', 'ACTION_REQUIRED', 'RESPONSE_DRAFTED', 'RESPONSE_SUBMITTED', 'CLOSED', 'ESCALATED'];
   severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-  constructor(private api: NoticesService, private zone: NgZone) {}
-  ngOnInit() { this.load(); this.api.clientKpis().pipe(takeUntil(this.destroy$)).subscribe({ next: k => this.kpis = k, error: () => {} }); }
+  constructor(private api: NoticesService, private zone: NgZone, private cdr: ChangeDetectorRef) {}
+  ngOnInit() { this.load(); this.api.clientKpis().pipe(takeUntil(this.destroy$)).subscribe({ next: k => { this.kpis = k; this.cdr.markForCheck(); }, error: () => {} }); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+
+  private settle(arr: Notice[]) {
+    this.zone.run(() => {
+      this.notices = arr;
+      this.loading = false;
+      this.cdr.detectChanges();
+    });
+  }
 
   load() {
     this.loading = true;
@@ -101,26 +109,24 @@ export class ClientNoticesComponent implements OnInit, OnDestroy {
     if (this.search) f.search = this.search;
     if (this.statusFilter) f.status = this.statusFilter;
     if (this.severityFilter) f.severity = this.severityFilter;
-    // Watchdog: if the request truly hangs (network stall, interceptor swallow,
-    // change-detection miss outside Angular zone), force the spinner off after 20s.
+    // Hard safety: no matter what happens (interceptor swallow, zone miss,
+    // observable never completes) force the spinner off after 12s.
     const watchdog = setTimeout(() => {
-      if (this.loading) {
-        this.zone.run(() => { this.loading = false; });
-      }
-    }, 20000);
+      if (this.loading) this.settle(this.notices ?? []);
+    }, 12000);
     this.api.clientList(f).pipe(
       takeUntil(this.destroy$),
-      timeout(15000),
-      finalize(() => {
-        clearTimeout(watchdog);
-        this.zone.run(() => { this.loading = false; });
-      }),
+      timeout(10000),
     ).subscribe({
       next: (d: any) => {
+        clearTimeout(watchdog);
         const arr = Array.isArray(d) ? d : (d?.data ?? d?.items ?? []);
-        this.notices = arr;
+        this.settle(arr);
       },
-      error: () => { this.notices = []; },
+      error: () => {
+        clearTimeout(watchdog);
+        this.settle([]);
+      },
     });
   }
 
