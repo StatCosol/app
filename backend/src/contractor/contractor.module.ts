@@ -30,6 +30,7 @@ import { ContractorDashboardService } from './contractor-dashboard.service';
 import { UsersModule } from '../users/users.module';
 import { AssignmentsModule } from '../assignments/assignments.module';
 import { AuditEntity } from '../audits/entities/audit.entity';
+import { AuditObservationEntity } from '../audits/entities/audit-observation.entity';
 import { AuditsModule } from '../audits/audits.module';
 import { AuthModule } from '../auth/auth.module';
 import { AiModule } from '../ai/ai.module';
@@ -72,6 +73,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
       ContractorEmployeeEntity,
       MinimumWageEntity,
       AuditEntity,
+      AuditObservationEntity,
       ClraPeEstablishment,
       ClraContractor,
       ClraContractorAssignment,

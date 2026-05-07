@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 import { AuditEntity } from '../audits/entities/audit.entity';
+import { AuditObservationEntity } from '../audits/entities/audit-observation.entity';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 import { ReqUser } from '../access/access-scope.service';
 
@@ -38,8 +39,67 @@ export class ContractorDocumentsService {
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
     @InjectRepository(AuditEntity)
     private readonly auditRepo: Repository<AuditEntity>,
+    @InjectRepository(AuditObservationEntity)
+    private readonly observationRepo: Repository<AuditObservationEntity>,
     private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
+
+  /**
+   * Validate that an audit (and optional observation) the contractor is
+   * attaching a document to actually belongs to the contractor's client +
+   * the requested branch (and, when the audit is contractor-scoped, to
+   * the same contractor). Prevents UUID-guessing cross-tenant attaches
+   * that would otherwise surface in another auditor's review list.
+   */
+  private async assertAuditScope(params: {
+    auditId: string | null | undefined;
+    observationId: string | null | undefined;
+    clientId: string;
+    branchId: string;
+    contractorUserId: string;
+  }): Promise<void> {
+    const { auditId, observationId, clientId, branchId, contractorUserId } =
+      params;
+    if (!auditId) {
+      if (observationId) {
+        throw new BadRequestException(
+          'observationId requires a matching auditId',
+        );
+      }
+      return;
+    }
+    const audit = await this.auditRepo.findOne({
+      where: { id: auditId },
+      select: ['id', 'clientId', 'branchId', 'contractorUserId'],
+    });
+    if (!audit) throw new BadRequestException('Audit not found');
+    if (audit.clientId !== clientId) {
+      throw new BadRequestException('Audit does not belong to this client');
+    }
+    if (audit.branchId && audit.branchId !== branchId) {
+      throw new BadRequestException('Audit does not belong to this branch');
+    }
+    if (
+      audit.contractorUserId &&
+      audit.contractorUserId !== contractorUserId
+    ) {
+      throw new BadRequestException(
+        'Audit is not assigned to this contractor',
+      );
+    }
+    if (observationId) {
+      const obs = await this.observationRepo.findOne({
+        where: { id: observationId },
+        select: ['id', 'auditId'],
+      });
+      if (!obs) throw new BadRequestException('Observation not found');
+      if (obs.auditId !== auditId) {
+        throw new BadRequestException(
+          'Observation does not belong to this audit',
+        );
+      }
+    }
+  }
 
   /**
    * Throws if the audit has an active upload lock window today.
@@ -103,6 +163,15 @@ export class ContractorDocumentsService {
     if (!link) {
       throw new BadRequestException('Contractor is not mapped to this branch');
     }
+
+    // Validate audit/observation scope before any further side-effects.
+    await this.assertAuditScope({
+      auditId: dto.auditId ?? null,
+      observationId: dto.observationId ?? null,
+      clientId,
+      branchId: dto.branchId,
+      contractorUserId: user.id,
+    });
 
     // Check upload lock window for this audit (if provided)
     await this.assertUploadNotLocked(dto.auditId);

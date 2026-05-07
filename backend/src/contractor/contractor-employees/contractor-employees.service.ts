@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { ContractorEmployeeEntity } from './entities/contractor-employee.entity';
 import { MinimumWageService } from './minimum-wage.service';
 import { UserEntity } from '../../users/entities/user.entity';
+import { BranchContractorEntity } from '../../branches/entities/branch-contractor.entity';
 
 const SKILL_CATEGORIES = [
   'UNSKILLED',
@@ -61,7 +62,31 @@ export class ContractorEmployeesService {
     private readonly minWage: MinimumWageService,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    @InjectRepository(BranchContractorEntity)
+    private readonly branchContractorRepo: Repository<BranchContractorEntity>,
   ) {}
+
+  /**
+   * Confirm the contractor user is mapped to (clientId, branchId) in
+   * branch_contractor. Without this, a contractor can submit any
+   * branchId from the same client (or even another client) in the
+   * request body and create employees there.
+   */
+  private async assertContractorBranch(
+    clientId: string,
+    branchId: string,
+    contractorUserId: string,
+  ): Promise<void> {
+    const link = await this.branchContractorRepo.findOne({
+      where: { clientId, branchId, contractorUserId },
+      select: ['id'],
+    });
+    if (!link) {
+      throw new BadRequestException(
+        'Contractor is not mapped to this branch',
+      );
+    }
+  }
 
   /** Resolve the contractor user's schedule of employment (cached not needed; light query). */
   private async resolveSchedule(
@@ -97,6 +122,14 @@ export class ContractorEmployeesService {
     if (status !== undefined && status !== null) out.status = status;
     if (monthlySalary !== undefined) out.monthlySalary = monthlySalary;
     if (dailyWage !== undefined) out.dailyWage = dailyWage;
+    // Tenancy fields must NEVER be mutated by the caller through update().
+    // create() supplies them via explicit args; strip them defensively here
+    // so that an Object.assign() in update() can't move an employee across
+    // tenants/branches/contractors via crafted request body.
+    delete (out as any).clientId;
+    delete (out as any).branchId;
+    delete (out as any).contractorUserId;
+    delete (out as any).id;
     return out;
   }
 
@@ -107,6 +140,7 @@ export class ContractorEmployeesService {
     dto: Partial<ContractorEmployeeEntity>,
   ): Promise<ContractorEmployeeEntity> {
     if (!dto.name?.trim()) throw new BadRequestException('Name is required');
+    await this.assertContractorBranch(clientId, branchId, contractorUserId);
     const prepared = this.prepare(dto);
 
     // Item #4b: hard-validate against state+skill+schedule min wage.
@@ -153,6 +187,14 @@ export class ContractorEmployeesService {
     let created = 0;
     let failed = 0;
 
+    // Pre-load this contractor's allowed branches in this client so each
+    // row's branchId can be validated cheaply (no per-row DB roundtrip).
+    const allowedLinks = await this.branchContractorRepo.find({
+      where: { clientId, contractorUserId },
+      select: ['branchId'],
+    });
+    const allowedBranchIds = new Set(allowedLinks.map((l) => l.branchId));
+
     // Resolve schedule of employment once (shared across all rows for this contractor).
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
 
@@ -169,6 +211,15 @@ export class ContractorEmployeesService {
       if (!branchId) {
         failed++;
         results.push({ index: i, ok: false, error: 'Branch is required' });
+        continue;
+      }
+      if (!allowedBranchIds.has(branchId)) {
+        failed++;
+        results.push({
+          index: i,
+          ok: false,
+          error: 'Contractor is not mapped to this branch',
+        });
         continue;
       }
       // Skill is required at bulk-upload time (Phase 1 contract).

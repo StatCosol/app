@@ -34,7 +34,7 @@ export class ClraAssignmentsController {
   // ─────────────── PE Establishments ───────────────
 
   @Get('pe-establishments')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CLIENT_ADMIN', 'CRM')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CLIENT', 'CRM')
   listPeEstablishments(@Query('clientId') clientId: string) {
     return this.svc.listPeEstablishments(clientId);
   }
@@ -46,7 +46,7 @@ export class ClraAssignmentsController {
   }
 
   @Get('pe-establishments/:id')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CLIENT_ADMIN', 'CRM')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CLIENT', 'CRM')
   getPeEstablishment(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getPeEstablishment(id);
   }
@@ -63,7 +63,7 @@ export class ClraAssignmentsController {
   // ─────────────── Contractors ───────────────
 
   @Get('contractors')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listContractors() {
     return this.svc.listContractors();
   }
@@ -75,7 +75,7 @@ export class ClraAssignmentsController {
   }
 
   @Get('contractors/:id')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   getContractor(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getContractor(id);
   }
@@ -92,7 +92,7 @@ export class ClraAssignmentsController {
   // ─────────────── Assignments ───────────────
 
   @Get('assignments')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listAssignments(
     @Query('contractorId') contractorId: string,
     @Query('peEstablishmentId') peEstablishmentId: string,
@@ -107,7 +107,7 @@ export class ClraAssignmentsController {
   }
 
   @Get('assignments/:id')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   getAssignment(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getAssignment(id);
   }
@@ -124,7 +124,7 @@ export class ClraAssignmentsController {
   // ─────────────── Workers ───────────────
 
   @Get('workers')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listWorkers(@Query('contractorId') contractorId: string) {
     return this.svc.listWorkers(contractorId);
   }
@@ -136,7 +136,7 @@ export class ClraAssignmentsController {
   }
 
   @Get('workers/:id')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   getWorker(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getWorker(id);
   }
@@ -153,7 +153,7 @@ export class ClraAssignmentsController {
   // ─────────────── Deployments ───────────────
 
   @Get('assignments/:assignmentId/deployments')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listDeployments(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
     return this.svc.listDeployments(assignmentId);
   }
@@ -165,7 +165,7 @@ export class ClraAssignmentsController {
   }
 
   @Get('deployments/:id')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   getDeployment(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getDeployment(id);
   }
@@ -182,7 +182,7 @@ export class ClraAssignmentsController {
   // ─────────────── Wage Periods ───────────────
 
   @Get('assignments/:assignmentId/wage-periods')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listWagePeriods(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
     return this.svc.listWagePeriods(assignmentId);
   }
@@ -194,7 +194,7 @@ export class ClraAssignmentsController {
   }
 
   @Get('wage-periods/:id')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   getWagePeriod(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getWagePeriod(id);
   }
@@ -208,7 +208,7 @@ export class ClraAssignmentsController {
   // ─────────────── Attendance ───────────────
 
   @Get('wage-periods/:wagePeriodId/attendance')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listAttendance(@Param('wagePeriodId', ParseUUIDPipe) wagePeriodId: string) {
     return this.svc.listAttendance(wagePeriodId);
   }
@@ -222,7 +222,7 @@ export class ClraAssignmentsController {
   // ─────────────── Wages ───────────────
 
   @Get('wage-periods/:wagePeriodId/wages')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listWages(@Param('wagePeriodId', ParseUUIDPipe) wagePeriodId: string) {
     return this.svc.listWages(wagePeriodId);
   }
@@ -236,7 +236,7 @@ export class ClraAssignmentsController {
   // ─────────────── Register Runs ───────────────
 
   @Get('assignments/:assignmentId/register-runs')
-  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT_ADMIN')
+  @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listRegisterRuns(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
     return this.svc.listRegisterRuns(assignmentId);
   }
