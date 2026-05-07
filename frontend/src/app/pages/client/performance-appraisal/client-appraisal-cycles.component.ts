@@ -12,6 +12,7 @@ import { AppraisalCycle } from '../../../core/models/appraisal.models';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
     <div class="page-container">
       <div class="page-header">

@@ -12,6 +12,7 @@ import { EmployeeAppraisal, AppraisalCycle } from '../../../core/models/appraisa
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
     <div class="page-container">
       <div class="page-header">

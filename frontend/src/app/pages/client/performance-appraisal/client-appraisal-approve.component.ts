@@ -12,6 +12,7 @@ import { EmployeeAppraisal, EmployeeAppraisalItem } from '../../../core/models/a
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../shared/client-theme.scss', './client-appraisal-theme.scss'],
   template: `
     <div class="page-container" *ngIf="appraisal">
       <div class="page-header">
