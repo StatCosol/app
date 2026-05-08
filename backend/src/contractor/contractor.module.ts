@@ -65,6 +65,7 @@ import {
   CrmContractorComputationController,
 } from './contractor-computation.controller';
 import { ContractorComputationService } from './contractor-computation.service';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { ContractorComputationService } from './contractor-computation.service';
     ListQueriesModule,
     ComplianceModule,
     NotificationsModule,
+    AccessModule,
   ],
   controllers: [
     ContractorController,
