@@ -78,7 +78,9 @@ export class ContractorComputationService {
         'c.basic_wage AS "basicWage"',
         'c.other_earnings AS "otherEarnings"',
         'c.gross_wage AS "grossWage"',
+        'c.pf_wage AS "pfWage"',
         'c.pf_deduction AS "pfDeduction"',
+        'c.pf_employer_contribution AS "pfEmployerContribution"',
         'c.esi_deduction AS "esiDeduction"',
         'c.pt_deduction AS "ptDeduction"',
         'c.net_salary AS "netSalary"',
@@ -308,9 +310,30 @@ export class ContractorComputationService {
       `${periodMonth}-01`,
     );
     const wage = quote?.dailyWage ?? mcdDailyWage ?? 0;
-    const basicWage = this.round(wage * daysWorked);
-    const grossWage = this.round(basicWage + otherEarnings);
-    const pfDeduction = this.round(Math.min(basicWage, 15000) * 0.12);
+    const basicWage = this.round(
+      this.optionalNum(raw['basic_wage'] ?? raw['basic']) ?? wage * daysWorked,
+    );
+    const daWage = this.round(this.num(raw['da'] ?? raw['dearness_allowance']));
+    const hraWage = this.round(this.num(raw['hra']));
+    const regularAllowance = this.round(
+      this.num(raw['special_allowance']) +
+        this.num(raw['other_allowance']) +
+        this.num(raw['regular_allowance']) +
+        this.num(raw['universal_allowance']),
+    );
+    const conveyance = this.round(this.num(raw['conveyance']));
+    const basicDaWage = this.round(basicWage + daWage);
+    const grossWage = this.round(
+      basicDaWage + hraWage + regularAllowance + conveyance + otherEarnings,
+    );
+    const pf = this.computePf({
+      basicDaWage,
+      hraWage,
+      regularAllowance,
+      ceilingEnabled: this.bool(raw['pf_ceiling_enabled'], true),
+    });
+    const pfDeduction = pf.employee;
+    const pfEmployerContribution = pf.employer;
     const esiDeduction =
       grossWage > 0 && grossWage <= 21000 ? this.round(grossWage * 0.0075) : 0;
     const ptDeduction = grossWage <= 15000 ? 0 : grossWage <= 20000 ? 150 : 200;
@@ -344,7 +367,9 @@ export class ContractorComputationService {
       basicWage,
       otherEarnings: this.round(otherEarnings),
       grossWage,
+      pfWage: pf.wage,
       pfDeduction,
+      pfEmployerContribution,
       esiDeduction,
       ptDeduction,
       netSalary,
@@ -494,6 +519,44 @@ export class ContractorComputationService {
   private optionalNum(value: unknown) {
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
+  }
+
+  private computePf(input: {
+    basicDaWage: number;
+    hraWage: number;
+    regularAllowance: number;
+    ceilingEnabled: boolean;
+  }) {
+    const genuineHraLimit = this.round(input.basicDaWage * 0.4);
+    const excessHra = Math.max(0, input.hraWage - genuineHraLimit);
+    const uncappedWage = this.round(
+      input.basicDaWage + input.regularAllowance + excessHra,
+    );
+    const wage = this.round(
+      input.ceilingEnabled ? Math.min(uncappedWage, 15000) : uncappedWage,
+    );
+    const contribution = this.round(wage * 0.12);
+    return {
+      wage,
+      employee: contribution,
+      employer: contribution,
+    };
+  }
+
+  private bool(value: unknown, fallback: boolean) {
+    if (value == null || value === '') return fallback;
+    if (typeof value === 'boolean') return value;
+    if (
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'bigint'
+    ) {
+      return fallback;
+    }
+    const s = value.toString().trim().toLowerCase();
+    if (['true', 'yes', 'y', '1', 'enabled'].includes(s)) return true;
+    if (['false', 'no', 'n', '0', 'disabled'].includes(s)) return false;
+    return fallback;
   }
 
   private num(value: unknown) {

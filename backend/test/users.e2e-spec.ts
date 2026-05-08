@@ -6,6 +6,7 @@ import { UsersService } from '../src/users/users.service';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { RolesGuard } from '../src/auth/roles.guard';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 
 describe('UsersController (e2e) - /api/admin/users/list', () => {
   let app: INestApplication;
@@ -41,6 +42,7 @@ describe('UsersController (e2e) - /api/admin/users/list', () => {
       providers: [
         { provide: UsersService, useValue: usersServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
+        { provide: DataSource, useValue: {} },
       ],
     })
       .overrideGuard(JwtAuthGuard)

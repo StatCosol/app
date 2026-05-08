@@ -102,7 +102,9 @@ import {
           <div>Net {{ money(row.netSalary) }}</div>
         </ng-template>
         <ng-template uiTableCell="deductions" let-row>
-          <div>PF {{ money(row.pfDeduction) }}</div>
+          <div>PF Wage {{ money(row.pfWage) }}</div>
+          <div>PF Employee {{ money(row.pfDeduction) }}</div>
+          <div>PF Employer {{ money(row.pfEmployerContribution) }}</div>
           <div>ESI {{ money(row.esiDeduction) }}</div>
           <div>PT {{ money(row.ptDeduction) }}</div>
         </ng-template>
@@ -148,7 +150,7 @@ export class CrmContractorComputationComponent implements OnInit, OnDestroy {
     { key: 'daysWorked', header: 'Days', width: '70px', align: 'center' },
     { key: 'wage', header: 'Daily Wage', width: '130px' },
     { key: 'computed', header: 'Computed Salary', width: '150px' },
-    { key: 'deductions', header: 'Deductions', width: '130px' },
+    { key: 'deductions', header: 'Deductions', width: '160px' },
     { key: 'status', header: 'Status', width: '220px' },
   ];
 

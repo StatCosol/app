@@ -108,6 +108,16 @@ export class ContractorMcdComputationEntity {
   grossWage: number;
 
   @Column({
+    name: 'pf_wage',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  pfWage: number;
+
+  @Column({
     name: 'pf_deduction',
     type: 'numeric',
     precision: 12,
@@ -115,6 +125,16 @@ export class ContractorMcdComputationEntity {
     transformer: numericTransformer,
   })
   pfDeduction: number;
+
+  @Column({
+    name: 'pf_employer_contribution',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    transformer: numericTransformer,
+  })
+  pfEmployerContribution: number;
 
   @Column({
     name: 'esi_deduction',
