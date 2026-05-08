@@ -142,36 +142,38 @@ jobs:
           PGPASSWORD: postgres
         run: |
           # Apply baseline schema FIRST so the `roles`, `users`, etc. tables
-          # exist before the obsolete migrations seed into them. The
-          # cross-platform runner picks this up via BASELINE_FILE ordering
-          # too, but applying it directly here lets us interleave the
-          # obsolete migrations (which create legacy tables that the dated
-          # migrations depend on) before the dated migrations run.
+          # exist before the obsolete migrations seed into them.
           if [ -f migrations/statco_schema_final.sql ]; then
             echo "Applying baseline migrations/statco_schema_final.sql"
             psql -h localhost -p 5432 -U postgres -d statcompy \
               -v ON_ERROR_STOP=1 -f migrations/statco_schema_final.sql
           fi
 
-          # Apply obsolete migrations that the cross-platform runner skips
-          # (it only globs the top-level migrations dir). These create
-          # legacy tables (e.g. contractor_employees) and seeds that later
-          # dated migrations + main.ts boot patches expect to exist.
-          for obs in \
-            migrations/obsolete/20260127_hrms_phase1_schema.sql \
-            migrations/obsolete/20260220_ess_employee_self_service.sql; do
-            if [ -f "$obs" ]; then
-              echo "Applying $obs"
-              psql -h localhost -p 5432 -U postgres -d statcompy \
-                -v ON_ERROR_STOP=1 -f "$obs"
-            fi
-          done
+          # Apply early obsolete migration that creates legacy tables
+          # (e.g. contractor_employees) which later DATED migrations
+          # depend on. Must run AFTER baseline (needs `roles`) and
+          # BEFORE dated migrations.
+          if [ -f migrations/obsolete/20260127_hrms_phase1_schema.sql ]; then
+            echo "Applying migrations/obsolete/20260127_hrms_phase1_schema.sql"
+            psql -h localhost -p 5432 -U postgres -d statcompy \
+              -v ON_ERROR_STOP=1 -f migrations/obsolete/20260127_hrms_phase1_schema.sql
+          fi
 
           # Use the cross-platform migration runner so CI mirrors prod and
           # automatically picks up every chronologically-ordered SQL file
           # (all migrations are idempotent: CREATE/ADD ... IF NOT EXISTS).
           # Baseline is re-checked via checksum and skipped if unchanged.
           npm run db:migrate:sql
+
+          # Apply LATE obsolete migration that ALTERs tables created by
+          # dated migrations (e.g. employee_nominations from
+          # 20260217_payroll_statutory_engine.sql). Must run AFTER the
+          # cross-platform runner has applied those dated migrations.
+          if [ -f migrations/obsolete/20260220_ess_employee_self_service.sql ]; then
+            echo "Applying migrations/obsolete/20260220_ess_employee_self_service.sql"
+            psql -h localhost -p 5432 -U postgres -d statcompy \
+              -v ON_ERROR_STOP=1 -f migrations/obsolete/20260220_ess_employee_self_service.sql
+          fi
 
           psql -h localhost -p 5432 -U postgres -d statcompy \
             -v ON_ERROR_STOP=1 <<'SQL'
