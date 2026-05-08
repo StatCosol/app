@@ -58,7 +58,9 @@ export class AuditScheduleEngineService {
         afr.contractor_id,
         afr.is_active
       FROM audit_frequency_rules afr
+      JOIN clients c ON c.id = afr.client_id
       WHERE afr.is_active = true
+        AND COALESCE(c.is_deleted, false) = false
       `,
     );
 
@@ -279,7 +281,10 @@ export class AuditScheduleEngineService {
     clientId?: string;
     auditType?: string;
   }) {
-    const where: string[] = ['s.auditor_id = $1'];
+    const where: string[] = [
+      's.auditor_id = $1',
+      'COALESCE(c.is_deleted, false) = false',
+    ];
     const values: any[] = [params.auditorId];
     let idx = 2;
 

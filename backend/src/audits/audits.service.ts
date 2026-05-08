@@ -1044,7 +1044,8 @@ export class AuditsService implements OnModuleInit {
       .leftJoinAndSelect('a.client', 'client')
       .leftJoinAndSelect('a.branch', 'branch')
       .leftJoinAndSelect('a.contractorUser', 'contractor')
-      .where('a.assignedAuditorId = :uid', { uid: user.userId });
+      .where('a.assignedAuditorId = :uid', { uid: user.userId })
+      .andWhere('COALESCE(client.is_deleted, false) = false');
 
     if (q.frequency) {
       qb.andWhere('a.frequency = :freq', { freq: q.frequency });
@@ -1112,7 +1113,8 @@ export class AuditsService implements OnModuleInit {
           clientId: user.clientId,
           contractorAuditType: 'CONTRACTOR',
         },
-      );
+      )
+      .andWhere('COALESCE(client.is_deleted, false) = false');
 
     if (q.status) {
       qb.andWhere('a.status = :st', { st: q.status });
