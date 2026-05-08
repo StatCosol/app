@@ -82,7 +82,8 @@ export class ClientAuditsComponent implements OnDestroy {
     ).subscribe({
       next: (res: any) => {
         this.loading = false;
-        this.audits = res || [];
+        const rows = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
+        this.audits = rows;
         // Transform data for table display
         this.audits = this.audits.map(audit => ({
           ...audit,
