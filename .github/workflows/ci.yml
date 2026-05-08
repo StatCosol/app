@@ -130,6 +130,7 @@ jobs:
           password="$(openssl rand -base64 24 | tr -d '\n' | tr '/+' 'AB')"
           echo "DEFAULT_SEED_PASSWORD=$password" >> "$GITHUB_ENV"
           echo "SMOKE_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "SEED_CEO_PASSWORD=$password" >> "$GITHUB_ENV"
 
       - name: Apply SQL migrations
         working-directory: backend
