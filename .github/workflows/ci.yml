@@ -197,9 +197,26 @@ jobs:
 
       - name: Start backend (prod)
         run: |
+          set -x
           npm run build
-          nohup npm run start:prod > ../backend_ci.log 2>&1 &
-          echo $! > ../backend_ci.pid
+          ls -la dist/src/main.js
+          node --version
+          # Run synchronously for 5 seconds first to capture any immediate
+          # crash output, then background the surviving process.
+          (timeout 8 node dist/src/main.js > ../backend_ci.log 2>&1 &)
+          sleep 8
+          echo "--- backend_ci.log after 8s warm-up ---"
+          cat ../backend_ci.log || true
+          echo "--- /warm-up tail ---"
+          # If the warm-up died, restart for the polling loop.
+          if ! pgrep -f "node dist/src/main.js" >/dev/null; then
+            echo "Warm-up process exited, restarting in background"
+            nohup node dist/src/main.js >> ../backend_ci.log 2>&1 &
+            echo $! > ../backend_ci.pid
+          else
+            echo "Warm-up still alive, capturing PID"
+            pgrep -f "node dist/src/main.js" | head -1 > ../backend_ci.pid
+          fi
         working-directory: backend
 
       - name: Wait for health
