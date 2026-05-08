@@ -141,17 +141,22 @@ jobs:
           DB_NAME: statcompy
           PGPASSWORD: postgres
         run: |
-          # Use the cross-platform migration runner FIRST so the main
-          # schema (creates `roles`, `users`, etc.) exists before we apply
-          # the obsolete migrations that INSERT INTO roles / depend on
-          # those tables. All migrations are idempotent
-          # (CREATE/ADD ... IF NOT EXISTS).
-          npm run db:migrate:sql
+          # Apply baseline schema FIRST so the `roles`, `users`, etc. tables
+          # exist before the obsolete migrations seed into them. The
+          # cross-platform runner picks this up via BASELINE_FILE ordering
+          # too, but applying it directly here lets us interleave the
+          # obsolete migrations (which create legacy tables that the dated
+          # migrations depend on) before the dated migrations run.
+          if [ -f migrations/statco_schema_final.sql ]; then
+            echo "Applying baseline migrations/statco_schema_final.sql"
+            psql -h localhost -p 5432 -U postgres -d statcompy \
+              -v ON_ERROR_STOP=1 -f migrations/statco_schema_final.sql
+          fi
 
-          # Then apply obsolete migrations that the cross-platform runner
-          # skips (it only globs the top-level migrations dir). These add
-          # legacy tables / seeds the active migrations + main.ts boot
-          # patches expect.
+          # Apply obsolete migrations that the cross-platform runner skips
+          # (it only globs the top-level migrations dir). These create
+          # legacy tables (e.g. contractor_employees) and seeds that later
+          # dated migrations + main.ts boot patches expect to exist.
           for obs in \
             migrations/obsolete/20260127_hrms_phase1_schema.sql \
             migrations/obsolete/20260220_ess_employee_self_service.sql; do
@@ -161,6 +166,12 @@ jobs:
                 -v ON_ERROR_STOP=1 -f "$obs"
             fi
           done
+
+          # Use the cross-platform migration runner so CI mirrors prod and
+          # automatically picks up every chronologically-ordered SQL file
+          # (all migrations are idempotent: CREATE/ADD ... IF NOT EXISTS).
+          # Baseline is re-checked via checksum and skipped if unchanged.
+          npm run db:migrate:sql
 
           psql -h localhost -p 5432 -U postgres -d statcompy \
             -v ON_ERROR_STOP=1 <<'SQL'
