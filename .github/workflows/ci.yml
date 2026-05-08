@@ -141,9 +141,17 @@ jobs:
           DB_NAME: statcompy
           PGPASSWORD: postgres
         run: |
-          # Apply obsolete migrations that the cross-platform runner skips
-          # (it only globs the top-level migrations dir). These create tables
-          # the active migrations + main.ts boot patches expect.
+          # Use the cross-platform migration runner FIRST so the main
+          # schema (creates `roles`, `users`, etc.) exists before we apply
+          # the obsolete migrations that INSERT INTO roles / depend on
+          # those tables. All migrations are idempotent
+          # (CREATE/ADD ... IF NOT EXISTS).
+          npm run db:migrate:sql
+
+          # Then apply obsolete migrations that the cross-platform runner
+          # skips (it only globs the top-level migrations dir). These add
+          # legacy tables / seeds the active migrations + main.ts boot
+          # patches expect.
           for obs in \
             migrations/obsolete/20260127_hrms_phase1_schema.sql \
             migrations/obsolete/20260220_ess_employee_self_service.sql; do
@@ -153,11 +161,6 @@ jobs:
                 -v ON_ERROR_STOP=1 -f "$obs"
             fi
           done
-
-          # Use the cross-platform migration runner so CI mirrors prod and
-          # automatically picks up every chronologically-ordered SQL file
-          # (all migrations are idempotent: CREATE/ADD ... IF NOT EXISTS).
-          npm run db:migrate:sql
 
           psql -h localhost -p 5432 -U postgres -d statcompy \
             -v ON_ERROR_STOP=1 <<'SQL'
