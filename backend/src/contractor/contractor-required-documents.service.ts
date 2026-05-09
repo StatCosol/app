@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { ContractorRequiredDocumentEntity } from './entities/contractor-required-document.entity';
 import { UserEntity } from '../users/entities/user.entity';
+import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
 
 export interface AddRequiredDocDto {
   clientId: string;
@@ -18,6 +19,8 @@ export class ContractorRequiredDocumentsService {
     private readonly repo: Repository<ContractorRequiredDocumentEntity>,
     @InjectRepository(UserEntity)
     private readonly usersRepo: Repository<UserEntity>,
+    @InjectRepository(BranchContractorEntity)
+    private readonly branchContractorRepo: Repository<BranchContractorEntity>,
   ) {}
 
   /** List all required doc types for a contractor under a client (optionally filtered by branch). */
@@ -62,13 +65,36 @@ export class ContractorRequiredDocumentsService {
       );
     }
 
-    // Validate that the contractorUserId belongs to a CONTRACTOR-role user
+    // Validate that the contractorUserId belongs to a CONTRACTOR-role user.
+    // UserEntity.role has `select: false`, so we must explicitly request it.
     const contractorUser = await this.usersRepo.findOne({
       where: { id: dto.contractorUserId },
+      select: ['id', 'role'],
     });
     if (!contractorUser || contractorUser.role !== 'CONTRACTOR') {
       throw new BadRequestException(
         `User ${dto.contractorUserId} is not a valid CONTRACTOR user`,
+      );
+    }
+
+    // Validate the contractor is mapped to this client (and branch when set)
+    // via branch_contractor; otherwise reject so a CRM/admin cannot create
+    // required-doc rows for unrelated tenants/branches.
+    const mapping = await this.branchContractorRepo.findOne({
+      where: dto.branchId
+        ? {
+            clientId: dto.clientId,
+            branchId: dto.branchId,
+            contractorUserId: dto.contractorUserId,
+          }
+        : {
+            clientId: dto.clientId,
+            contractorUserId: dto.contractorUserId,
+          },
+    });
+    if (!mapping) {
+      throw new BadRequestException(
+        'Contractor is not mapped to this client/branch',
       );
     }
 

@@ -400,7 +400,13 @@ export class CeoDashboardService {
   }) {
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
-    const search = query.search || '';
+    const search = (query.search || '').trim();
+    const params: unknown[] = [limit, offset];
+    let searchClause = '';
+    if (search) {
+      params.push(`%${search}%`);
+      searchClause = `AND (c.client_name ILIKE $${params.length} OR c.client_code ILIKE $${params.length})`;
+    }
 
     const sql = `
       SELECT
@@ -421,12 +427,12 @@ export class CeoDashboardService {
       LEFT JOIN users crm ON c.assigned_crm_id = crm.id
       LEFT JOIN users auditor ON c.assigned_auditor_id = auditor.id
       WHERE c.is_active = true AND c.is_deleted = false
-        ${search ? `AND (c.client_name ILIKE '%${search}%' OR c.client_code ILIKE '%${search}%')` : ''}
+        ${searchClause}
       ORDER BY c.client_name
       LIMIT $1 OFFSET $2
     `;
 
-    return await this.dataSource.query(sql, [limit, offset]);
+    return await this.dataSource.query(sql, params);
   }
 
   /**

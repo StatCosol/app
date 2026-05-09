@@ -13,6 +13,7 @@ import {
 import { ComplianceDocumentVisibilityEntity } from './entities/compliance-document-visibility.entity';
 import { CompanySettingsEntity } from './entities/company-settings.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
+import { BranchEntity } from '../branches/entities/branch.entity';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { UploadComplianceDocumentDto } from './dto/upload-compliance-document.dto';
 import { ListComplianceDocumentsDto } from './dto/list-compliance-documents.dto';
@@ -47,6 +48,8 @@ export class ComplianceDocumentsService {
     private readonly settingsRepo: Repository<CompanySettingsEntity>,
     @InjectRepository(ClientAssignmentCurrentEntity)
     private readonly assignmentsRepo: Repository<ClientAssignmentCurrentEntity>,
+    @InjectRepository(BranchEntity)
+    private readonly branchRepo: Repository<BranchEntity>,
     private readonly branchAccess: BranchAccessService,
   ) {}
 
@@ -64,6 +67,34 @@ export class ComplianceDocumentsService {
       throw new BadRequestException(
         `File type ${file.mimetype} is not allowed`,
       );
+    }
+
+    if (!dto.clientId) throw new BadRequestException('clientId is required');
+
+    // Scope check: CRM must be assigned to this client; CLIENT user must
+    // belong to it. ADMIN bypasses.
+    if (role === 'CRM') {
+      const assignment = await this.assignmentsRepo.findOne({
+        where: { assignedToUserId: userId, clientId: dto.clientId },
+      });
+      if (!assignment)
+        throw new ForbiddenException('Not assigned to this client');
+    }
+
+    // If a branchId is supplied, it MUST belong to the same client. Then,
+    // for CRM/CLIENT users, also verify the user is allowed to write to it.
+    if (dto.branchId) {
+      const branch = await this.branchRepo.findOne({
+        where: { id: dto.branchId, clientId: dto.clientId },
+        select: ['id'],
+      });
+      if (!branch)
+        throw new BadRequestException(
+          'branchId does not belong to clientId',
+        );
+      if (role === 'CLIENT') {
+        await this.branchAccess.assertBranchAccess(userId, dto.branchId);
+      }
     }
 
     // Save file to disk
@@ -245,11 +276,34 @@ export class ComplianceDocumentsService {
   // ══════════════════════════════════════════════════════════
   // SOFT DELETE
   // ══════════════════════════════════════════════════════════
-  async softDelete(docId: string, userId: string): Promise<void> {
+  async softDelete(
+    docId: string,
+    userId: string,
+    role: string = 'CRM',
+    clientId?: string,
+  ): Promise<void> {
     const doc = await this.docRepo.findOne({
       where: { id: docId, isDeleted: false },
     });
     if (!doc) throw new NotFoundException('Document not found');
+
+    // Scope check mirrors getDocumentForDownload
+    if (role === 'CRM') {
+      const assignment = await this.assignmentsRepo.findOne({
+        where: { assignedToUserId: userId, clientId: doc.clientId },
+      });
+      if (!assignment)
+        throw new ForbiddenException('Not assigned to this client');
+    } else if (role === 'CLIENT') {
+      if (clientId && doc.clientId !== clientId)
+        throw new ForbiddenException('Access denied');
+      const isMaster = await this.branchAccess.isMasterUser(userId);
+      if (!isMaster && doc.branchId) {
+        await this.branchAccess.assertBranchAccess(userId, doc.branchId);
+      }
+    }
+    // ADMIN bypasses
+
     doc.isDeleted = true;
     doc.deletedAt = new Date();
     doc.deletedBy = userId;

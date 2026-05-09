@@ -4,15 +4,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 import { EscalationEntity } from './entities/escalation.entity';
-import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class EscalationsService {
   constructor(
     @InjectRepository(EscalationEntity)
     private readonly repo: Repository<EscalationEntity>,
+    private readonly scope: AccessScopeService,
   ) {}
 
   async list(
@@ -24,6 +25,11 @@ export class EscalationsService {
 
     if (q.status) where.status = q.status;
     if (q.branchId) where.branchId = q.branchId;
+
+    if (user.roleCode === 'CCO') {
+      await this.scope.assertCcoClientAllowed(user, clientId);
+      if (q.branchId) await this.scope.assertCcoBranchAllowed(user, q.branchId);
+    }
 
     // Branch user can only view own branch
     const roleCode: string = user.roleCode;
@@ -44,12 +50,19 @@ export class EscalationsService {
 
   /** List ALL escalations across all clients (admin view) */
   async listAll(
-    _user: ReqUser,
+    user: ReqUser,
     q: { status?: string; branchId?: string },
   ): Promise<{ items: EscalationEntity[] }> {
     const where: FindOptionsWhere<EscalationEntity> = {};
     if (q.status) where.status = q.status;
     if (q.branchId) where.branchId = q.branchId;
+
+    if (user.roleCode === 'CCO') {
+      const clientIds = await this.scope.getCcoClientIds(user.userId ?? user.id);
+      if (!clientIds.length) return { items: [] };
+      if (q.branchId) await this.scope.assertCcoBranchAllowed(user, q.branchId);
+      where.clientId = In(clientIds);
+    }
 
     const rows = await this.repo.find({
       where,
@@ -68,6 +81,11 @@ export class EscalationsService {
   ): Promise<EscalationEntity> {
     const row = await this.repo.findOne({ where: { id, clientId } });
     if (!row) throw new NotFoundException('Escalation not found');
+
+    if (user.roleCode === 'CCO') {
+      await this.scope.assertCcoClientAllowed(user, row.clientId);
+      if (row.branchId) await this.scope.assertCcoBranchAllowed(user, row.branchId);
+    }
 
     // Branch user restriction
     const roleCode: string = user.roleCode;

@@ -101,10 +101,12 @@ export class FilesService {
         clientId: string;
         category: string;
         assignedToUserId: string | null;
+        createdByUserId: string;
       }> = await this.hmfRepo.manager.query(
         `SELECT t.client_id            AS "clientId",
                 t.category             AS "category",
-                t.assigned_to_user_id  AS "assignedToUserId"
+                t.assigned_to_user_id  AS "assignedToUserId",
+                t.created_by_user_id   AS "createdByUserId"
            FROM helpdesk_message_files hmf
            JOIN helpdesk_messages hm ON hm.id = hmf.message_id
            JOIN helpdesk_tickets  t  ON t.id  = hm.ticket_id
@@ -125,13 +127,14 @@ export class FilesService {
         if (!['PF', 'ESI', 'PAYSLIP'].includes(ticket.category)) {
           throw new ForbiddenException();
         }
-        if (
-          ticket.assignedToUserId &&
-          ticket.assignedToUserId !== user.id
-        ) {
+        if (ticket.assignedToUserId !== user.id) {
           throw new ForbiddenException();
         }
         return;
+      }
+      if (user.roleCode === 'EMPLOYEE') {
+        if (ticket.createdByUserId === user.id) return;
+        throw new ForbiddenException();
       }
       throw new ForbiddenException();
     }

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -35,6 +36,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService } from '../access/access-scope.service';
 import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 const auditNcUploadOptions = makeSafeUploadOptions({
@@ -52,6 +54,7 @@ export class AuditKpiController {
   constructor(
     private readonly svc: AuditsService,
     private readonly branchAccess: BranchAccessService,
+    private readonly accessScope: AccessScopeService,
   ) {}
 
   @ApiOperation({ summary: 'Get Branch Kpi' })
@@ -64,6 +67,9 @@ export class AuditKpiController {
   ) {
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
+    }
+    if (user.roleCode === 'CCO') {
+      await this.accessScope.assertCcoBranchAllowed(user, branchId);
     }
     return this.svc.getBranchAuditKpi(branchId, from, to);
   }
@@ -78,6 +84,9 @@ export class AuditKpiController {
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
+    if (user.roleCode === 'CCO') {
+      await this.accessScope.assertCcoBranchAllowed(user, branchId);
+    }
     return this.svc.getBranchAuditKpiSingle(branchId, periodCode);
   }
 }
@@ -89,6 +98,8 @@ export class CrmAuditsController {
   constructor(
     private readonly svc: AuditsService,
     private readonly auditOutputEngine: AuditOutputEngineService,
+    private readonly ds: DataSource,
+    private readonly branchAccess: BranchAccessService,
   ) {}
 
   @ApiOperation({ summary: 'List' })
@@ -105,7 +116,23 @@ export class CrmAuditsController {
 
   @ApiOperation({ summary: 'Latest report for an audit' })
   @Get(':id/latest-report')
-  async getLatestReport(@Param('id', ParseUUIDPipe) id: string) {
+  async getLatestReport(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const [audit] = await this.ds.query(
+      `SELECT client_id AS "clientId", branch_id AS "branchId"
+         FROM audits
+        WHERE id = $1
+        LIMIT 1`,
+      [id],
+    );
+    if (!audit || audit.clientId !== user.clientId) {
+      throw new ForbiddenException('Audit not in client scope');
+    }
+    if (audit.branchId) {
+      await this.branchAccess.assertBranchAccess(user.userId, audit.branchId);
+    }
     return this.auditOutputEngine.getLatestReport(id);
   }
 

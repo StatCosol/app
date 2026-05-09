@@ -30,6 +30,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AutomationModule } from '../automation/automation.module';
 import { EmailModule } from '../email/email.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     NotificationsModule,
     EmailModule,
     AuditLogsModule,
+    AccessModule,
     forwardRef(() => AutomationModule),
   ],
   controllers: [

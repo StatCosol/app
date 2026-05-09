@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   Controller,
+  ForbiddenException,
   Get,
   Logger,
   UseGuards,
@@ -12,6 +14,7 @@ import { DataSource } from 'typeorm';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { BranchAccessService } from '../auth/branch-access.service';
 
 /**
  * Branch-portal report endpoints.
@@ -32,7 +35,67 @@ import { ReqUser } from '../access/access-scope.service';
 )
 export class BranchReportsController {
   private readonly logger = new Logger(BranchReportsController.name);
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly branchAccess: BranchAccessService,
+  ) {}
+
+  /**
+   * Resolve and validate the effective branchId for a report query.
+   *
+   *  - If the caller is a branch user (has user_branches mappings), they
+   *    MUST be filtered to one of those branches. If they pass an unmapped
+   *    branchId we throw; if they omit it we coerce to their first allowed
+   *    branch so we never return aggregate-client data.
+   *  - For master users (no user_branches rows): if a branchId is passed,
+   *    we still verify it belongs to their clientId via
+   *    branch_access.assertBranchAccess (no-op for masters) AND a manual
+   *    `client_branches.clientid` lookup, to prevent another tenant's
+   *    branch UUID from being used.
+   *  - Returns the validated branchId or `null` (master + no branchId).
+   */
+  private async resolveBranchScope(
+    user: ReqUser,
+    suppliedBranchId?: string,
+  ): Promise<string | null> {
+    if (!user?.clientId) {
+      throw new ForbiddenException('Tenant context required');
+    }
+
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      user.clientId,
+    );
+
+    if (suppliedBranchId) {
+      // Validate the branch belongs to this client (prevents cross-tenant
+      // branch UUID injection by master users with multi-client tokens or
+      // CEO/CCO/ADMIN roles).
+      const owned = await this.dataSource.query(
+        `SELECT 1 FROM client_branches WHERE id = $1 AND clientid = $2 LIMIT 1`,
+        [suppliedBranchId, user.clientId],
+      );
+      if (!owned?.length) {
+        throw new BadRequestException('branchId does not belong to your client');
+      }
+      if (allowed !== 'ALL' && !allowed.includes(suppliedBranchId)) {
+        throw new ForbiddenException('You do not have access to this branch');
+      }
+      return suppliedBranchId;
+    }
+
+    // No branchId supplied. Branch users get coerced to their first allowed
+    // branch so they never see all-client data.
+    if (allowed !== 'ALL') {
+      if (!allowed.length) {
+        throw new ForbiddenException(
+          'Branch user has no branch mappings; cannot run report',
+        );
+      }
+      return allowed[0];
+    }
+    return null;
+  }
 
   /**
    * Registration Expiry Report
@@ -47,6 +110,7 @@ export class BranchReportsController {
   ) {
     const clientId = user.clientId;
     if (!clientId) return { data: [] };
+    branchId = (await this.resolveBranchScope(user, branchId)) ?? undefined;
 
     const params: unknown[] = [clientId];
     let branchFilter = '';
@@ -130,6 +194,7 @@ export class BranchReportsController {
   ) {
     const clientId = user.clientId;
     if (!clientId) return { data: [] };
+    branchId = (await this.resolveBranchScope(user, branchId)) ?? undefined;
 
     const params: unknown[] = [clientId];
     let idx = 2;
@@ -229,6 +294,7 @@ export class BranchReportsController {
 
     const y = year ? parseInt(year, 10) : new Date().getFullYear();
     const m = month ? parseInt(month, 10) : new Date().getMonth() + 1;
+    branchId = (await this.resolveBranchScope(user, branchId)) ?? undefined;
 
     const params: unknown[] = [clientId, y, m];
     let branchFilter = '';
@@ -292,6 +358,7 @@ export class BranchReportsController {
   ) {
     const clientId = user.clientId;
     if (!clientId) return { data: [], summary: {} };
+    branchId = (await this.resolveBranchScope(user, branchId)) ?? undefined;
 
     const params: unknown[] = [clientId];
     let branchFilter = '';
@@ -364,6 +431,7 @@ export class BranchReportsController {
   ) {
     const clientId = user.clientId;
     if (!clientId) return { data: [], summary: {} };
+    branchId = (await this.resolveBranchScope(user, branchId)) ?? undefined;
 
     const params: unknown[] = [clientId];
     let branchFilter = '';
@@ -429,6 +497,7 @@ export class BranchReportsController {
   ) {
     const clientId = user.clientId;
     if (!clientId) return { data: [], summary: {} };
+    branchId = (await this.resolveBranchScope(user, branchId)) ?? undefined;
 
     // month format: YYYY-MM (default: current month)
     const now = new Date();

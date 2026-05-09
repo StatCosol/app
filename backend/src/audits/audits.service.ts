@@ -1107,6 +1107,14 @@ export class AuditsService implements OnModuleInit {
           a.contractorUserId IS NULL
           AND a.clientId = :clientId
           AND a.auditType = :contractorAuditType
+          AND (
+            a.branchId IS NULL
+            OR a.branchId IN (
+              SELECT bc.branch_id FROM branch_contractor bc
+              WHERE bc.contractor_user_id = :uid
+                AND bc.client_id = :clientId
+            )
+          )
         ))`,
         {
           uid: user.userId,
@@ -2018,6 +2026,30 @@ export class AuditsService implements OnModuleInit {
     }
 
     if (sourceTable === 'branch_documents') {
+      // AX-H2: ensure the branch document is actually scoped to this audit
+      // (either explicitly via audit_id, or via matching client/branch).
+      const docRows = await this.dataSource.query(
+        `SELECT audit_id, client_id, branch_id
+         FROM branch_documents WHERE id = $1`,
+        [docId],
+      );
+      if (!docRows.length) {
+        throw new NotFoundException('Document not found');
+      }
+      const d = docRows[0] as {
+        audit_id?: string | null;
+        client_id?: string | null;
+        branch_id?: string | null;
+      };
+      const matchesAudit =
+        (d.audit_id && d.audit_id === auditId) ||
+        (d.client_id === audit.clientId &&
+          (audit.branchId ? d.branch_id === audit.branchId : true));
+      if (!matchesAudit) {
+        throw new ForbiddenException(
+          'Document does not belong to this audit',
+        );
+      }
       await this.dataSource.query(
         `UPDATE branch_documents
          SET status = $1,
@@ -2029,6 +2061,33 @@ export class AuditsService implements OnModuleInit {
         [newStatus, remarks || null, user.userId, docId],
       );
     } else {
+      // AX-H2: ensure the contractor document is in scope of this audit.
+      const docRows = await this.dataSource.query(
+        `SELECT audit_id, client_id, branch_id, contractor_user_id
+         FROM contractor_documents WHERE id = $1`,
+        [docId],
+      );
+      if (!docRows.length) {
+        throw new NotFoundException('Document not found');
+      }
+      const d = docRows[0] as {
+        audit_id?: string | null;
+        client_id?: string | null;
+        branch_id?: string | null;
+        contractor_user_id?: string | null;
+      };
+      const matchesAudit =
+        (d.audit_id && d.audit_id === auditId) ||
+        (d.client_id === audit.clientId &&
+          (audit.branchId ? d.branch_id === audit.branchId : true) &&
+          (audit.contractorUserId
+            ? d.contractor_user_id === audit.contractorUserId
+            : true));
+      if (!matchesAudit) {
+        throw new ForbiddenException(
+          'Document does not belong to this audit',
+        );
+      }
       await this.dataSource.query(
         `UPDATE contractor_documents
          SET status = $1,
@@ -3444,6 +3503,19 @@ export class AuditsService implements OnModuleInit {
     ) {
       throw new ForbiddenException('Insufficient role for analytics');
     }
+    if (user.roleCode === 'CCO') {
+      const rows = await this.dataSource.query(
+        `SELECT 1
+           FROM clients c
+           INNER JOIN users crm ON crm.id = c.assigned_crm_id
+          WHERE c.id = $1
+            AND crm.owner_cco_id = $2
+            AND crm.deleted_at IS NULL
+          LIMIT 1`,
+        [clientId, user.userId ?? user.id],
+      );
+      if (!rows.length) throw new ForbiddenException('Client not in CCO scope');
+    }
     const rows = await this.dataSource.query(
       `SELECT nc.finding_signature        AS "signature",
               MAX(nc.document_name)       AS "documentName",
@@ -3834,6 +3906,19 @@ export class AuditsService implements OnModuleInit {
     scheduleId: string,
     userId: string,
   ): Promise<{ auditId: string; created: boolean }> {
+    // AX-H1: ensure the caller is the auditor assigned to the schedule (or
+    // an audit derived from it). Without this, any AUDITOR-role user could
+    // open another auditor's workspace via a guessed schedule UUID.
+    const sched = await this.dataSource.query(
+      `SELECT auditor_user_id FROM audit_schedules WHERE id = $1`,
+      [scheduleId],
+    );
+    if (!sched.length) throw new NotFoundException('Schedule not found');
+    const assignedAuditorId = sched[0].auditor_user_id as string | null;
+    if (assignedAuditorId && assignedAuditorId !== userId) {
+      throw new ForbiddenException('Schedule is not assigned to you');
+    }
+
     // Check if an audit already points to this schedule
     const existing = await this.dataSource.query(
       `SELECT id FROM audits WHERE schedule_id = $1 LIMIT 1`,

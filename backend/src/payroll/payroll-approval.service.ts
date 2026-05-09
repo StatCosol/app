@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -121,6 +122,19 @@ export class PayrollApprovalService {
     if (run.status !== 'SUBMITTED') {
       throw new BadRequestException(
         `Cannot approve: run is "${run.status}". Only SUBMITTED runs can be approved.`,
+      );
+    }
+
+    // PD-H3: maker-checker — the user who submitted (prepared) a run cannot
+    // also approve it. ADMIN is allowed to override (emergency / single-admin
+    // tenants) since it already has full payroll privileges.
+    if (
+      user?.roleCode !== 'ADMIN' &&
+      run.submittedByUserId &&
+      run.submittedByUserId === approvedByUserId
+    ) {
+      throw new ForbiddenException(
+        'You submitted this run; a different user must approve it.',
       );
     }
 

@@ -250,6 +250,55 @@ export class AccessScopeService {
     }
   }
 
+  async getCcoClientIds(ccoUserId: string): Promise<string[]> {
+    const rows = await this.clientRepo.manager.query(
+      `SELECT c.id
+         FROM clients c
+         INNER JOIN users crm ON crm.id = c.assigned_crm_id
+        WHERE crm.owner_cco_id = $1
+          AND crm.deleted_at IS NULL
+          AND (c.is_deleted = false OR c.is_deleted IS NULL)`,
+      [ccoUserId],
+    );
+    return rows.map((r: { id: string }) => r.id);
+  }
+
+  async assertCcoClientAllowed(user: ReqUser, clientId: string): Promise<void> {
+    if (user.roleCode !== 'CCO') return;
+    const ccoId = user.userId ?? user.id;
+    const rows = await this.clientRepo.manager.query(
+      `SELECT 1
+         FROM clients c
+         INNER JOIN users crm ON crm.id = c.assigned_crm_id
+        WHERE c.id = $1
+          AND crm.owner_cco_id = $2
+          AND crm.deleted_at IS NULL
+          AND (c.is_deleted = false OR c.is_deleted IS NULL)
+        LIMIT 1`,
+      [clientId, ccoId],
+    );
+    if (!rows.length) throw new ForbiddenException('Client not in CCO scope');
+  }
+
+  async assertCcoBranchAllowed(user: ReqUser, branchId: string): Promise<void> {
+    if (user.roleCode !== 'CCO') return;
+    const ccoId = user.userId ?? user.id;
+    const rows = await this.branchRepo.manager.query(
+      `SELECT 1
+         FROM client_branches b
+         INNER JOIN clients c ON c.id = b.clientid
+         INNER JOIN users crm ON crm.id = c.assigned_crm_id
+        WHERE b.id = $1
+          AND crm.owner_cco_id = $2
+          AND crm.deleted_at IS NULL
+          AND (b.isdeleted = false OR b.isdeleted IS NULL)
+          AND (c.is_deleted = false OR c.is_deleted IS NULL)
+        LIMIT 1`,
+      [branchId, ccoId],
+    );
+    if (!rows.length) throw new ForbiddenException('Branch not in CCO scope');
+  }
+
   /** Throws ForbiddenException if the user cannot operate on this branch */
   async assertBranchAllowed(user: ReqUser, branchId: string): Promise<void> {
     const scope = await this.getScope(user);

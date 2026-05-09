@@ -10,6 +10,42 @@ import { ReqUser } from '../access/access-scope.service';
 export class CcoService {
   constructor(private readonly dataSource: DataSource) {}
 
+  private ccoApprovalVisibilitySql(alias = 'dr') {
+    return `(
+      ${alias}.required_approver_user_id = $1
+      OR (
+        ${alias}.required_approver_user_id IS NULL
+        AND ${alias}.required_approver_role = 'CCO'
+        AND (
+          (
+            ${alias}.entity_type = 'USER'
+            AND EXISTS (
+              SELECT 1
+              FROM users target_user
+              LEFT JOIN clients target_client ON target_client.id = target_user.client_id
+              LEFT JOIN users target_crm ON target_crm.id = target_client.assigned_crm_id
+              WHERE target_user.id = ${alias}.entity_id
+                AND (
+                  target_user.owner_cco_id = $1
+                  OR target_crm.owner_cco_id = $1
+                )
+            )
+          )
+          OR (
+            ${alias}.entity_type = 'CLIENT'
+            AND EXISTS (
+              SELECT 1
+              FROM clients target_client
+              INNER JOIN users target_crm ON target_crm.id = target_client.assigned_crm_id
+              WHERE target_client.id = ${alias}.entity_id
+                AND target_crm.owner_cco_id = $1
+            )
+          )
+        )
+      )
+    )`;
+  }
+
   // --- Real DB query for CRMs under this CCO ---
   async getCrmsUnderMe(user: ReqUser) {
     const ccoId = user.userId ?? user.id;
@@ -78,10 +114,7 @@ export class CcoService {
        FROM deletion_requests dr
        LEFT JOIN users requester   ON requester.id = dr.requested_by_user_id
        LEFT JOIN users target_user ON dr.entity_type = 'USER' AND target_user.id = dr.entity_id
-       WHERE (
-           dr.required_approver_user_id = $1
-           OR (dr.required_approver_user_id IS NULL AND dr.required_approver_role = 'CCO')
-         )
+       WHERE ${this.ccoApprovalVisibilitySql('dr')}
        ORDER BY dr.created_at DESC`,
       [ccoId],
     );
@@ -105,8 +138,7 @@ export class CcoService {
       `SELECT id, status FROM deletion_requests
        WHERE id = $1
          AND status = 'PENDING'
-         AND (required_approver_user_id = $2
-              OR (required_approver_user_id IS NULL AND required_approver_role = 'CCO'))`,
+         AND ${this.ccoApprovalVisibilitySql('deletion_requests').replaceAll('$1', '$2')}`,
       [id, ccoId],
     );
     if (!request)
@@ -157,8 +189,7 @@ export class CcoService {
       `SELECT id, status FROM deletion_requests
        WHERE id = $1
          AND status = 'PENDING'
-         AND (required_approver_user_id = $2
-              OR (required_approver_user_id IS NULL AND required_approver_role = 'CCO'))`,
+         AND ${this.ccoApprovalVisibilitySql('deletion_requests').replaceAll('$1', '$2')}`,
       [id, ccoId],
     );
     if (!request)

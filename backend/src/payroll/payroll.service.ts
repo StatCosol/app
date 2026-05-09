@@ -871,7 +871,7 @@ export class PayrollService {
       clientTemplateId: savedLink.id,
       effectiveFrom: savedLink.effective_from,
       effectiveTo: savedLink.effective_to,
-      downloadUrl: `/api/payroll/clients/${clientId}/template/download`,
+      downloadUrl: `/api/v1/payroll/clients/${clientId}/template/download`,
     };
   }
 
@@ -887,7 +887,7 @@ export class PayrollService {
       fileType: active.template.fileType,
       effectiveFrom: active.effective_from,
       effectiveTo: active.effective_to ?? null,
-      downloadUrl: `/api/payroll/clients/${clientId}/template/download`,
+      downloadUrl: `/api/v1/payroll/clients/${clientId}/template/download`,
     };
   }
 
@@ -918,7 +918,7 @@ export class PayrollService {
       fileType: active.template.fileType,
       effectiveFrom: active.effective_from,
       effectiveTo: active.effective_to ?? null,
-      downloadUrl: `/api/client/payroll/template/download`,
+      downloadUrl: `/api/v1/client/payroll/template/download`,
     };
   }
 
@@ -3457,6 +3457,7 @@ export class PayrollService {
   async updateFnfStatus(user: ReqUser, fnfId: string, dto: UpdateFnfStatusDto) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId);
     if (!dto?.status) throw new BadRequestException('status is required');
 
     const fromStatus = this.normalizeFnfStatus(fnf.status);
@@ -3546,9 +3547,12 @@ export class PayrollService {
     return { success: true, status: toStatus };
   }
 
-  async getFnfDetail(_user: ReqUser, fnfId: string) {
+  async getFnfDetail(user: ReqUser, fnfId: string) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId, {
+      allowReadOnly: true,
+    });
 
     const emp = await this.employeeRepo.findOne({
       where: { id: fnf.employeeId },
@@ -3838,6 +3842,9 @@ export class PayrollService {
   ) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F case not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId, {
+      allowReadOnly: true,
+    });
 
     const doc = this.fnfDocRepo.create({
       fnfId,
@@ -3855,9 +3862,12 @@ export class PayrollService {
     return this.fnfDocRepo.save(doc);
   }
 
-  async listFnfDocuments(_user: ReqUser, fnfId: string) {
+  async listFnfDocuments(user: ReqUser, fnfId: string) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F case not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId, {
+      allowReadOnly: true,
+    });
 
     return this.fnfDocRepo.find({
       where: { fnfId },
@@ -3865,15 +3875,19 @@ export class PayrollService {
     });
   }
 
-  async getFnfDocument(_user: ReqUser, docId: string) {
+  async getFnfDocument(user: ReqUser, docId: string) {
     const doc = await this.fnfDocRepo.findOne({ where: { id: docId } });
     if (!doc) throw new BadRequestException('Document not found');
+    await this.assertPayrollAccessToClient(user, doc.clientId, {
+      allowReadOnly: true,
+    });
     return doc;
   }
 
-  async deleteFnfDocument(_user: ReqUser, docId: string) {
+  async deleteFnfDocument(user: ReqUser, docId: string) {
     const doc = await this.fnfDocRepo.findOne({ where: { id: docId } });
     if (!doc) throw new BadRequestException('Document not found');
+    await this.assertPayrollAccessToClient(user, doc.clientId);
     // Remove physical file if it exists
     if (fs.existsSync(doc.filePath)) {
       fs.unlinkSync(doc.filePath);
@@ -3889,10 +3903,10 @@ export class PayrollService {
    * controller to stream as a download.
    */
   async generateFnfDocumentPdf(
-    _user: ReqUser,
+    user: ReqUser,
     fnfId: string,
     docType: string,
-    override?: {
+    _override?: {
       pendingSalary?: number;
       leaveEncashment?: number;
       bonusArrears?: number;
@@ -3901,8 +3915,23 @@ export class PayrollService {
       settlementAmount?: number;
     },
   ): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
+    // PD-H2: ignore caller-supplied override values entirely. The PDF must
+    // reflect the persisted F&F record (settlementBreakup / settlementAmount)
+    // so that what is downloaded equals what was approved by Payroll.
+    const override: {
+      pendingSalary?: number;
+      leaveEncashment?: number;
+      bonusArrears?: number;
+      deductions?: number;
+      recoveries?: number;
+      settlementAmount?: number;
+    } = {};
+    void _override;
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F case not found');
+    await this.assertPayrollAccessToClient(user, fnf.clientId, {
+      allowReadOnly: true,
+    });
 
     const allowed = [
       'SETTLEMENT_STATEMENT',

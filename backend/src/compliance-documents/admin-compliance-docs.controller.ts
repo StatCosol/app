@@ -100,7 +100,7 @@ export class AdminComplianceDocsController {
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: ReqUser) {
-    await this.svc.softDelete(id, user.id);
+    await this.svc.softDelete(id, user.id, 'ADMIN');
     return { message: 'Document deleted' };
   }
 }

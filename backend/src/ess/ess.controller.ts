@@ -340,7 +340,7 @@ export class EssController {
   ) {
     if (!user.employeeId)
       throw new BadRequestException('No employee record linked');
-    return this.appraisalSvc.findOne(id);
+    return this.appraisalSvc.findOne(id, user.employeeId);
   }
 
   @ApiOperation({ summary: 'Submit self-review ratings' })
@@ -385,18 +385,32 @@ export class BranchApprovalsController {
 
   @ApiOperation({ summary: 'Approve Nomination' })
   @Put('nominations/:id/approve')
-  approveNomination(@CurrentUser() user: ReqUser, @Param('id') id: string) {
-    return this.svc.approveNomination(id, user?.id);
+  async approveNomination(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      user.clientId!,
+    );
+    return this.svc.approveNomination(id, user?.id, user.clientId!, allowed);
   }
 
   @ApiOperation({ summary: 'Reject Nomination' })
   @Put('nominations/:id/reject')
-  rejectNomination(
+  async rejectNomination(
     @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() body: RejectReasonDto,
   ) {
-    return this.svc.rejectNomination(id, user?.id, body?.reason);
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      user.clientId!,
+    );
+    return this.svc.rejectNomination(
+      id,
+      user?.id,
+      body?.reason,
+      user.clientId!,
+      allowed,
+    );
   }
 
   // ── Leave Applications ─────────────────────────────────
@@ -416,18 +430,32 @@ export class BranchApprovalsController {
 
   @ApiOperation({ summary: 'Approve Leave' })
   @Put('leaves/:id/approve')
-  approveLeave(@CurrentUser() user: ReqUser, @Param('id') id: string) {
-    return this.svc.approveLeave(id, user?.id);
+  async approveLeave(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      user.clientId!,
+    );
+    return this.svc.approveLeave(id, user?.id, user.clientId!, allowed);
   }
 
   @ApiOperation({ summary: 'Reject Leave' })
   @Put('leaves/:id/reject')
-  rejectLeave(
+  async rejectLeave(
     @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() body: RejectReasonDto,
   ) {
-    return this.svc.rejectLeave(id, user?.id, body?.reason);
+    const allowed = await this.branchAccess.getAllowedBranchIds(
+      user.userId,
+      user.clientId!,
+    );
+    return this.svc.rejectLeave(
+      id,
+      user?.id,
+      body?.reason,
+      user.clientId!,
+      allowed,
+    );
   }
 }
 

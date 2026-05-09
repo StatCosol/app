@@ -1,4 +1,4 @@
-import { Component, OnInit , ChangeDetectionStrategy} from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PfTeamApiService, HdTicket } from '../pf-team-api.service';
@@ -146,7 +146,7 @@ export class PfTeamDashboardComponent implements OnInit {
     OTHER: '#64748b',
   };
 
-  constructor(private api: PfTeamApiService) {}
+  constructor(private api: PfTeamApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.api.listTickets().subscribe({
@@ -195,6 +195,7 @@ export class PfTeamDashboardComponent implements OnInit {
           .filter((t) => t.status === 'OPEN')
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 5);
+        this.cdr.markForCheck();
       },
       error: () => {},
     });

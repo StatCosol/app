@@ -61,7 +61,8 @@ export class EscalationsController {
       throw new ForbiddenException('Auditor access denied');
     }
 
-    const clientId = user.clientId || body.clientId;
+    const clientId =
+      user.roleCode === 'CCO' ? body.clientId : user.clientId || body.clientId;
     if (!clientId) throw new ForbiddenException('Client not mapped');
 
     return this.escalationsService.update(clientId, user, id, body);
