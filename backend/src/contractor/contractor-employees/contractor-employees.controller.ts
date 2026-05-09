@@ -25,7 +25,10 @@ import { BranchAccessService } from '../../auth/branch-access.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CONTRACTOR')
 export class ContractorEmployeesController {
-  constructor(private readonly svc: ContractorEmployeesService) {}
+  constructor(
+    private readonly svc: ContractorEmployeesService,
+    private readonly branchAccess: BranchAccessService,
+  ) {}
 
   @ApiOperation({ summary: 'List own employees' })
   @Get()
@@ -53,6 +56,7 @@ export class ContractorEmployeesController {
     if (!clientId) throw new BadRequestException('Client context required');
     const branchId = body.branchId || user.branchIds?.[0];
     if (!branchId) throw new BadRequestException('Branch is required');
+    await this.branchAccess.assertBranchAccess(user.userId, branchId);
     return this.svc.create(clientId, branchId, user.userId, body);
   }
 
@@ -99,11 +103,25 @@ export class ContractorEmployeesController {
     const clientId = user.clientId;
     if (!clientId) throw new BadRequestException('Client context required');
     const defaultBranchId = body.branchId || user.branchIds?.[0];
+    if (defaultBranchId) {
+      await this.branchAccess.assertBranchAccess(user.userId, defaultBranchId);
+    }
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    const rowBranches = Array.from(
+      new Set(
+        rows
+          .map((r) => (r && typeof r.branchId === 'string' ? r.branchId : null))
+          .filter((b): b is string => !!b && b !== defaultBranchId),
+      ),
+    );
+    for (const b of rowBranches) {
+      await this.branchAccess.assertBranchAccess(user.userId, b);
+    }
     return this.svc.bulkCreate(
       clientId,
       user.userId,
       defaultBranchId,
-      body.rows || [],
+      rows,
     );
   }
 }

@@ -247,8 +247,17 @@ export class ContractorComputationService {
       input.branchId ?? undefined,
     );
 
+    if (!Array.isArray(input.rows)) {
+      throw new BadRequestException('rows must be an array');
+    }
+    const MAX_ROWS = 1000;
+    if (input.rows.length > MAX_ROWS) {
+      throw new BadRequestException(`rows must not exceed ${MAX_ROWS} items`);
+    }
+    const rows = input.rows;
+
     const output: ContractorMcdComputationEntity[] = [];
-    for (let i = 0; i < input.rows.length; i++) {
+    for (let i = 0; i < rows.length; i++) {
       output.push(
         await this.computeOne(
           clientId,
@@ -257,7 +266,7 @@ export class ContractorComputationService {
           input.periodMonth,
           input.uploadId ?? null,
           i + 1,
-          input.rows[i],
+          rows[i],
         ),
       );
     }
