@@ -9,6 +9,8 @@ interface SidebarGroup {
   label: string;
   items: SidebarItem[];
   expanded?: boolean;
+  route?: string;
+  icon?: SafeHtml;
 }
 
 interface SidebarItem {
@@ -91,17 +93,30 @@ interface SidebarItem {
           <div
             *ngFor="let group of navGroups"
           >
-            <div
-              class="sidebar-section"
-              [class.active]="group.expanded"
-              (click)="toggleGroup(group)"
+            <a
+              *ngIf="group.route; else expandableGroup"
+              [routerLink]="group.route"
+              routerLinkActive="sidebar-section-active"
+              [routerLinkActiveOptions]="{ exact: true }"
+              (click)="onNavClick()"
+              class="sidebar-section sidebar-section-link"
             >
+              <span *ngIf="group.icon" class="sidebar-icon" [innerHTML]="group.icon"></span>
               <span class="section-label">{{ group.label }}</span>
-              <svg class="chevron" [class.open]="group.expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-            <div class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
+            </a>
+            <ng-template #expandableGroup>
+              <div
+                class="sidebar-section"
+                [class.active]="group.expanded"
+                (click)="toggleGroup(group)"
+              >
+                <span class="section-label">{{ group.label }}</span>
+                <svg class="chevron" [class.open]="group.expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </ng-template>
+            <div *ngIf="!group.route" class="space-y-0.5 sidebar-submenu" [style.display]="group.expanded ? 'block' : 'none'">
               <a
                 *ngFor="let item of group.items"
                 [routerLink]="item.route"
@@ -228,6 +243,15 @@ interface SidebarItem {
 
     .sidebar-section.active {
       color: #FFFFFF;
+    }
+
+    .sidebar-section-link {
+      text-decoration: none;
+    }
+
+    .sidebar-section-link.sidebar-section-active {
+      color: #FFFFFF;
+      background: #2267AD;
     }
 
     .section-label {
@@ -496,8 +520,13 @@ export class AdminSidebarComponent implements OnDestroy {
         items: [
           { label: 'Dashboard', route: '/admin/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
           { label: 'Reports', route: '/admin/reports', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
-          { label: 'Archive & Recovery', route: '/admin/archive', icon: this.svg('M4 4h16v5H4V4zm2 2v1h12V6H6zm-2 6h16v8H4v-8zm5 3h6') },
         ],
+      },
+      {
+        label: 'Archive & Recovery',
+        route: '/admin/archive',
+        icon: this.svg('M4 4h16v5H4V4zm2 2v1h12V6H6zm-2 6h16v8H4v-8zm5 3h6'),
+        items: [],
       },
       {
         label: 'User & Client Management',
