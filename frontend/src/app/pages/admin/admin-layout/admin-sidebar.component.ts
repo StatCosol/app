@@ -505,6 +505,8 @@ export class AdminSidebarComponent implements OnDestroy {
       { label: 'Digest',        route: '/admin/digest',                 icon: this.svg('M3 5h18v3H3V5zm0 5h18v9H3v-9zm3 3h6v1H6v-1zm0 3h8v1H6v-1z') },
       { label: 'Latest News',   route: '/admin/news',                   icon: this.svg('M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z') },
       { label: 'SLA',           route: '/admin/sla',                    icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+      { label: 'Risk Heatmap',  route: '/admin/heatmap',                icon: this.svg('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z') },
+      { label: 'Risk Trend',    route: '/admin/risk-trend',             icon: this.svg('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6') },
       { label: 'Escalations',   route: '/admin/escalations',            icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
       { label: 'Helpdesk',      route: '/admin/helpdesk',               icon: this.svg('M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z') },
       { label: 'Audit Logs',    route: '/admin/audit-logs',             icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
@@ -557,6 +559,8 @@ export class AdminSidebarComponent implements OnDestroy {
         expanded: false,
         items: [
           { label: 'SLA Tracker', route: '/admin/sla', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Risk Heatmap', route: '/admin/heatmap', icon: this.svg('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z') },
+          { label: 'Risk Trend', route: '/admin/risk-trend', icon: this.svg('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6') },
           { label: 'Escalations', route: '/admin/escalations', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
           { label: 'Notifications', route: '/admin/notifications', icon: this.svg('M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
           { label: 'Digest', route: '/admin/digest', icon: this.svg('M3 5h18v3H3V5zm0 5h18v9H3v-9zm3 3h6v1H6v-1zm0 3h8v1H6v-1z') },
@@ -571,6 +575,7 @@ export class AdminSidebarComponent implements OnDestroy {
         items: [
           { label: 'AI Hub', route: '/admin/ai-hub', icon: this.svg('M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z') },
           { label: 'AI Risk Analysis', route: '/admin/ai-risk', icon: this.svg('M13 10V3L4 14h7v7l9-11h-7z') },
+          { label: 'AI Audit', route: '/admin/ai-audit', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'AI Payroll', route: '/admin/ai-payroll', icon: this.svg('M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z') },
           { label: 'AI Config', route: '/admin/ai-config', icon: this.svg('M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4') },
         ],
