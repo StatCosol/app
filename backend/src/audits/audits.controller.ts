@@ -35,6 +35,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuditOutputEngineService } from '../automation/services/audit-output-engine.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ReqUser } from '../access/access-scope.service';
+import { AccessScopeService } from '../access/access-scope.service';
 import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 const auditNcUploadOptions = makeSafeUploadOptions({
@@ -52,6 +53,7 @@ export class AuditKpiController {
   constructor(
     private readonly svc: AuditsService,
     private readonly branchAccess: BranchAccessService,
+    private readonly accessScope: AccessScopeService,
   ) {}
 
   @ApiOperation({ summary: 'Get Branch Kpi' })
@@ -65,6 +67,9 @@ export class AuditKpiController {
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
     }
+    if (user.roleCode === 'CCO') {
+      await this.accessScope.assertCcoBranchAllowed(user, branchId);
+    }
     return this.svc.getBranchAuditKpi(branchId, from, to);
   }
 
@@ -77,6 +82,9 @@ export class AuditKpiController {
   ) {
     if (user.roleCode === 'CLIENT' || user.roleCode === 'BRANCH') {
       await this.branchAccess.assertBranchAccess(user.userId, branchId);
+    }
+    if (user.roleCode === 'CCO') {
+      await this.accessScope.assertCcoBranchAllowed(user, branchId);
     }
     return this.svc.getBranchAuditKpiSingle(branchId, periodCode);
   }

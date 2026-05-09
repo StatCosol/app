@@ -3503,6 +3503,19 @@ export class AuditsService implements OnModuleInit {
     ) {
       throw new ForbiddenException('Insufficient role for analytics');
     }
+    if (user.roleCode === 'CCO') {
+      const rows = await this.dataSource.query(
+        `SELECT 1
+           FROM clients c
+           INNER JOIN users crm ON crm.id = c.assigned_crm_id
+          WHERE c.id = $1
+            AND crm.owner_cco_id = $2
+            AND crm.deleted_at IS NULL
+          LIMIT 1`,
+        [clientId, user.userId ?? user.id],
+      );
+      if (!rows.length) throw new ForbiddenException('Client not in CCO scope');
+    }
     const rows = await this.dataSource.query(
       `SELECT nc.finding_signature        AS "signature",
               MAX(nc.document_name)       AS "documentName",

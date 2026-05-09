@@ -53,6 +53,15 @@ export class EscalationListService {
       branchPath: 'e.branchId',
     });
 
+    if (user.roleCode === 'CCO') {
+      const clientIds = await this.scope.getCcoClientIds(user.userId ?? user.id);
+      if (!clientIds.length) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere('e.clientId IN (:...ccoClientIds)', { ccoClientIds: clientIds });
+      }
+    }
+
     const cid = this.scope.resolveClientId(user, q.clientId);
     if (cid) qb.andWhere('e.clientId = :cid', { cid });
 

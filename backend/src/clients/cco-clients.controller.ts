@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   Logger,
@@ -56,9 +57,29 @@ export class CcoClientsController {
 
   @ApiOperation({ summary: 'Create' })
   @Post()
-  create(@Body() dto: CreateClientDto) {
+  async create(@CurrentUser() user: ReqUser, @Body() dto: CreateClientDto) {
     this.logger.log('POST /api/cco/clients', dto);
-    return this.clientsService.create(dto);
+    const ccoId = this.ccoIdOrNull(user);
+    if (ccoId) {
+      if (!dto.assignedCrmId) {
+        throw new BadRequestException(
+          'assignedCrmId is required for CCO client creation',
+        );
+      }
+      await this.clientsService.assertUserOwnedByCco(
+        dto.assignedCrmId,
+        ccoId,
+        'CRM',
+      );
+      if (dto.assignedAuditorId) {
+        await this.clientsService.assertUserOwnedByCco(
+          dto.assignedAuditorId,
+          ccoId,
+          'AUDITOR',
+        );
+      }
+    }
+    return this.clientsService.create(dto, user.userId ?? user.id, user.roleCode);
   }
 
   @ApiOperation({ summary: 'Assign' })
