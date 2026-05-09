@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AdminApplicabilityConfigService } from '../../../core/admin-applicability-config.service';
 import {
   PageHeaderComponent,
@@ -469,17 +470,23 @@ export class EngineConfigComponent implements OnInit {
     let done = 0;
     const check = () => { if (++done >= 3) this.loading = false; };
 
-    this.api.listComplianceItems().subscribe({
-      next: (items) => { this.complianceItems = items; this.rebuildComplianceSelectOptions(); check(); },
-      error: () => check(),
+    // Use finalize so loading is always cleared, even if the observable
+    // completes silently or errors. Defensive null checks on the body
+    // protect against unexpected response shapes.
+    this.api.listComplianceItems().pipe(finalize(check)).subscribe({
+      next: (items) => {
+        this.complianceItems = Array.isArray(items) ? items : [];
+        this.rebuildComplianceSelectOptions();
+      },
+      error: (err) => console.error('[engine-config] listComplianceItems failed', err),
     });
-    this.api.listPackages().subscribe({
-      next: (pkgs) => { this.packages = pkgs; check(); },
-      error: () => check(),
+    this.api.listPackages().pipe(finalize(check)).subscribe({
+      next: (pkgs) => { this.packages = Array.isArray(pkgs) ? pkgs : []; },
+      error: (err) => console.error('[engine-config] listPackages failed', err),
     });
-    this.api.listRules().subscribe({
-      next: (rules) => { this.rules = rules; check(); },
-      error: () => check(),
+    this.api.listRules().pipe(finalize(check)).subscribe({
+      next: (rules) => { this.rules = Array.isArray(rules) ? rules : []; },
+      error: (err) => console.error('[engine-config] listRules failed', err),
     });
   }
 
