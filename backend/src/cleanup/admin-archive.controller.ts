@@ -262,4 +262,71 @@ export class AdminArchiveController {
   ) {
     return this.clientsService.restore(id, user?.userId, user?.roleCode);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Retention Snapshots (18-month JSONB archive in client_deletion_archive)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** List all retention-archive rows (registers, payroll, audit reports, contractors) */
+  @ApiOperation({ summary: 'List Retention Snapshots' })
+  @Get('retention')
+  async listRetentionSnapshots() {
+    try {
+      const rows = await this.dataSource.query(`
+        SELECT
+          a.id,
+          a.client_id     AS "clientId",
+          a.client_code   AS "clientCode",
+          a.client_name   AS "clientName",
+          a.archived_at   AS "archivedAt",
+          a.purge_after   AS "purgeAfter",
+          a.delete_reason AS "deleteReason",
+          au.name         AS "archivedByName",
+          GREATEST(0, EXTRACT(DAY FROM (a.purge_after - NOW()))::int) AS "daysRemaining",
+          COALESCE(jsonb_array_length(a.registers_snapshot), 0)            AS "registersCount",
+          COALESCE(jsonb_array_length(a.payroll_snapshot->'runs'), 0)      AS "payrollRunsCount",
+          COALESCE(jsonb_array_length(a.audit_reports_snapshot->'reports'), 0) AS "auditReportsCount",
+          COALESCE(jsonb_array_length(a.contractors_snapshot->'accounts'), 0)  AS "contractorsCount"
+        FROM client_deletion_archive a
+        LEFT JOIN users au ON au.id = a.archived_by
+        WHERE a.purged = false
+        ORDER BY a.archived_at DESC
+      `);
+      return rows;
+    } catch (err: any) {
+      // Table may not exist in older environments
+      if (err?.code === '42P01') return [];
+      throw err;
+    }
+  }
+
+  /** Get the full JSONB snapshot for one archived client */
+  @ApiOperation({ summary: 'Get Retention Snapshot Detail' })
+  @Get('retention/:id')
+  async getRetentionSnapshot(@Param('id', ParseUUIDPipe) id: string) {
+    const [row] = await this.dataSource.query(
+      `
+      SELECT
+        a.id,
+        a.client_id      AS "clientId",
+        a.client_code    AS "clientCode",
+        a.client_name    AS "clientName",
+        a.archived_at    AS "archivedAt",
+        a.purge_after    AS "purgeAfter",
+        a.delete_reason  AS "deleteReason",
+        au.name          AS "archivedByName",
+        a.registers_snapshot     AS "registersSnapshot",
+        a.payroll_snapshot       AS "payrollSnapshot",
+        a.audit_reports_snapshot AS "auditReportsSnapshot",
+        a.contractors_snapshot   AS "contractorsSnapshot",
+        a.meta                   AS "meta"
+      FROM client_deletion_archive a
+      LEFT JOIN users au ON au.id = a.archived_by
+      WHERE a.id = $1
+      `,
+      [id],
+    );
+    if (!row) throw new NotFoundException('Retention snapshot not found');
+    return row;
+  }
 }

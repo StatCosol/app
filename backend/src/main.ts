@@ -24,8 +24,13 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+  // bufferLogs:true swallows all Nest framework logs (and any startup
+  // errors) until useLogger() is called and flushes them. In production
+  // we keep buffering on so pino owns formatting; everywhere else (dev,
+  // CI, test) keep logs going straight to stdout so failures are visible.
+  const useBufferedLogs = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    bufferLogs: true,
+    bufferLogs: useBufferedLogs,
   });
 
   // Wire pino as the application logger
@@ -722,4 +727,22 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   logger.log(`Server running on http://0.0.0.0:${port}`);
 }
-void bootstrap();
+
+// Surface bootstrap failures to stderr so CI/Docker logs capture them even
+// when bufferLogs:true is enabled and the pino logger never gets wired up.
+bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error('[Bootstrap] FATAL:', err && (err.stack || err.message || err));
+  process.exit(1);
+});
+
+// Catch silent killers: unhandled promise rejections and uncaught exceptions
+// that occur during early bootstrap before Nest's logger is ready.
+process.on('unhandledRejection', (reason) => {
+  // eslint-disable-next-line no-console
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  // eslint-disable-next-line no-console
+  console.error('[uncaughtException]', err && (err.stack || err.message || err));
+});

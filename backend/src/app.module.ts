@@ -77,21 +77,29 @@ import { SalesModule } from './sales/sales.module';
     }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        pinoHttp: {
-          level:
-            config.get<string>('NODE_ENV') === 'production' ? 'info' : 'debug',
-          transport:
-            config.get<string>('NODE_ENV') !== 'production'
+      useFactory: (config: ConfigService) => {
+        const env = config.get<string>('NODE_ENV');
+        const isProd = env === 'production';
+        // Avoid pino-pretty transport in CI / non-TTY environments — the
+        // pino transport runs in a Worker thread and silently fails to
+        // load pino-pretty in some hosted CI runners (no output, no error,
+        // process eventually exits with all logs swallowed). Only enable
+        // the pretty transport when stdout is an interactive TTY.
+        const useTransport = !isProd && process.stdout.isTTY === true;
+        return {
+          pinoHttp: {
+            level: isProd ? 'info' : 'debug',
+            transport: useTransport
               ? {
                   target: 'pino-pretty',
                   options: { colorize: true, singleLine: true },
                 }
               : undefined,
-          autoLogging: { ignore: (req: any) => req.url === '/api/v1/health' },
-          redact: ['req.headers.authorization', 'req.headers.cookie'],
-        },
-      }),
+            autoLogging: { ignore: (req: any) => req.url === '/api/v1/health' },
+            redact: ['req.headers.authorization', 'req.headers.cookie'],
+          },
+        };
+      },
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

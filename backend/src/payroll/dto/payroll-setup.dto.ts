@@ -52,6 +52,12 @@ export class CreatePayrollComponentDto {
   @IsOptional()
   @IsIn(['EARNING', 'DEDUCTION', 'EMPLOYER', 'INFO'])
   componentType?: 'EARNING' | 'DEDUCTION' | 'EMPLOYER' | 'INFO';
+  @IsOptional() @IsBoolean() isTaxable?: boolean;
+  @IsOptional() @IsBoolean() affectsPfWage?: boolean;
+  @IsOptional() @IsBoolean() affectsEsiWage?: boolean;
+  @IsOptional() @IsBoolean() isRequired?: boolean;
+  @IsOptional() @IsInt() displayOrder?: number;
+  @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
 export class UpdatePayrollComponentDto {

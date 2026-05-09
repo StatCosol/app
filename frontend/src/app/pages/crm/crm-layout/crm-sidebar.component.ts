@@ -508,6 +508,7 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Compliance Tracker', route: '/crm/compliance-tracker', icon: this.svg('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Compliance Tasks', route: '/crm/compliance/tasks', icon: this.svg('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4') },
           { label: 'Returns / Filings', route: '/crm/returns', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
           { label: 'Registrations & Licenses', route: '/crm/registrations', icon: this.svg('M9 12h6m-6 4h6M9 8h2M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z') },
           { label: 'Document Review Center', route: '/crm/branch-docs-review', icon: this.svg('M9 12h6m-6 4h6M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z') },
@@ -515,6 +516,8 @@ export class CrmSidebarComponent implements OnChanges, OnDestroy {
           { label: 'SLA Tracker', route: '/crm/sla', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Escalations', route: '/crm/escalations', icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
           { label: 'Expiry & Renewals', route: '/crm/expiry-tasks', icon: this.svg('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z') },
+          { label: 'Renewals Workspace', route: '/crm/renewals', icon: this.svg('M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15') },
+          { label: 'Amendments', route: '/crm/amendments', icon: this.svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z') },
           { label: 'Notices', route: '/crm/notices', icon: this.svg('M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z') },
           { label: 'Minimum Wages', route: '/crm/minimum-wages', icon: this.svg('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Contractor Computation', route: '/crm/contractor-computation', icon: this.svg('M9 7h6m-6 4h6m-6 4h3m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v10a2 2 0 01-2 2z') },

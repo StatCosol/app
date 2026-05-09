@@ -230,7 +230,12 @@ export class PayrollProcessingController {
     @Param('runId') runId: string,
     @CurrentUser() user: ReqUser,
   ) {
-    await this.loadRunForUser(runId, user);
+    const run = await this.loadRunForUser(runId, user);
+    if (run.status === 'APPROVED') {
+      throw new ConflictException(
+        'Approved runs are locked. Roll back to DRAFT before reprocessing.',
+      );
+    }
     return this.engineSvc.processWithEngine(runId);
   }
 
