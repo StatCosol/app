@@ -1662,6 +1662,19 @@ export class UsersService implements OnModuleInit {
       .orderBy('r.requestedAt', 'DESC');
 
     const rows = await qb.getMany();
+    const visibleRows =
+      roleCode === 'CCO'
+        ? (
+            await Promise.all(
+              rows.map(async (row) =>
+                row.requiredApproverUserId ||
+                (await this.isDeletionRequestInCcoScope(row.entityType, row.entityId, userId))
+                  ? row
+                  : null,
+              ),
+            )
+          ).filter(Boolean)
+        : rows;
 
     // Enrich with friendly labels for UI (entity + requester)
     const cleanEmail = (e: string) =>
@@ -1677,7 +1690,7 @@ export class UsersService implements OnModuleInit {
       createdAt: Date;
       updatedAt: Date | null;
     }[] = [];
-    for (const r of rows) {
+    for (const r of visibleRows) {
       let entityLabel: string | null = null;
       if (r.entityType === 'USER') {
         const u = await this.usersRepo.findOne({ where: { id: r.entityId } });
@@ -1713,6 +1726,42 @@ export class UsersService implements OnModuleInit {
       });
     }
     return result;
+  }
+
+  private async isDeletionRequestInCcoScope(
+    entityType: string,
+    entityId: string,
+    ccoUserId: string,
+  ): Promise<boolean> {
+    if (entityType === 'USER') {
+      const rows = await this.dataSource.query(
+        `SELECT 1
+           FROM users target_user
+           LEFT JOIN clients target_client ON target_client.id = target_user.client_id
+           LEFT JOIN users target_crm ON target_crm.id = target_client.assigned_crm_id
+          WHERE target_user.id = $1
+            AND (
+              target_user.owner_cco_id = $2
+              OR target_crm.owner_cco_id = $2
+            )
+          LIMIT 1`,
+        [entityId, ccoUserId],
+      );
+      return rows.length > 0;
+    }
+    if (entityType === 'CLIENT') {
+      const rows = await this.dataSource.query(
+        `SELECT 1
+           FROM clients target_client
+           INNER JOIN users target_crm ON target_crm.id = target_client.assigned_crm_id
+          WHERE target_client.id = $1
+            AND target_crm.owner_cco_id = $2
+          LIMIT 1`,
+        [entityId, ccoUserId],
+      );
+      return rows.length > 0;
+    }
+    return false;
   }
   // --- My Profile (api/me) ---
   async getMe(userId: string) {
@@ -1827,6 +1876,16 @@ export class UsersService implements OnModuleInit {
       if (req.requiredApproverRole !== approverRoleCode) {
         throw new UnauthorizedException('Not allowed');
       }
+      if (
+        approverRoleCode === 'CCO' &&
+        !(await this.isDeletionRequestInCcoScope(
+          req.entityType,
+          req.entityId,
+          approverUserId,
+        ))
+      ) {
+        throw new UnauthorizedException('Not your approval request');
+      }
     }
 
     // Execute soft delete based on entity type
@@ -1878,6 +1937,16 @@ export class UsersService implements OnModuleInit {
     } else {
       if (req.requiredApproverRole !== approverRoleCode) {
         throw new UnauthorizedException('Not allowed');
+      }
+      if (
+        approverRoleCode === 'CCO' &&
+        !(await this.isDeletionRequestInCcoScope(
+          req.entityType,
+          req.entityId,
+          approverUserId,
+        ))
+      ) {
+        throw new UnauthorizedException('Not your approval request');
       }
     }
 

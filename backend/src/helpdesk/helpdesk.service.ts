@@ -160,6 +160,25 @@ export class HelpdeskService {
   async assignTicket(ticketId: string, dto: AssignTicketDto) {
     const t = await this.ticketRepo.findOne({ where: { id: ticketId } });
     if (!t) throw new BadRequestException('Ticket not found');
+    if (dto.assignedToUserId) {
+      const [assignee] = await this.dataSource.query(
+        `SELECT u.id, r.code AS "roleCode"
+           FROM users u
+           INNER JOIN roles r ON r.id = u.role_id
+          WHERE u.id = $1
+            AND u.deleted_at IS NULL
+            AND u.is_active = true
+          LIMIT 1`,
+        [dto.assignedToUserId],
+      );
+      if (!assignee) throw new BadRequestException('Assignee not found');
+      if (
+        (PF_TEAM_CATEGORIES as readonly string[]).includes(t.category) &&
+        assignee.roleCode !== 'PF_TEAM'
+      ) {
+        throw new BadRequestException('PF tickets must be assigned to PF Team');
+      }
+    }
     t.assignedToUserId = dto.assignedToUserId;
     if (t.status === 'OPEN' && dto.assignedToUserId) {
       t.status = 'IN_PROGRESS';
@@ -236,8 +255,9 @@ export class HelpdeskService {
         throw new ForbiddenException('Not assigned to this client');
     }
     if (user?.roleCode === 'PF_TEAM') {
-      this.assertPfTeamScope(t, user.id);
+      this.assertPfTeamScope(t, user.id, true);
     }
+    this.assertEmployeeTicketScope(t, user);
     // Create a system message for the file upload, then attach the file
     const message = this.msgRepo.create({
       message: `File uploaded: ${file.originalname ?? file.filename ?? 'file'}`,
@@ -378,26 +398,41 @@ export class HelpdeskService {
     if (user?.roleCode === 'PF_TEAM') {
       this.assertPfTeamScope(t, user.id);
     }
+    this.assertEmployeeTicketScope(t, user);
     return t;
   }
 
   async clientCreateTicket(user: ReqUser, dto: CreateTicketDto) {
+    const category = String(dto.category || '').toUpperCase();
+    const priority = String(dto.priority || 'NORMAL').toUpperCase();
+    const allowedCategories = [
+      ...PF_TEAM_CATEGORIES,
+      'COMPLIANCE',
+      'GENERIC',
+    ];
+    if (!allowedCategories.includes(category)) {
+      throw new BadRequestException('Invalid ticket category');
+    }
+    if (!(HELP_DESK_PRIORITY as readonly string[]).includes(priority)) {
+      throw new BadRequestException('Invalid ticket priority');
+    }
     const now = new Date();
     const hours =
-      (dto.priority ?? 'NORMAL') === 'CRITICAL'
+      priority === 'CRITICAL'
         ? 24
-        : (dto.priority ?? 'NORMAL') === 'HIGH'
+        : priority === 'HIGH'
           ? 48
-          : (dto.priority ?? 'NORMAL') === 'LOW'
+          : priority === 'LOW'
             ? 120
             : 72; // NORMAL = 72h
     const slaDue = new Date(now.getTime() + hours * 60 * 60 * 1000);
     const ticket = this.ticketRepo.create({
       ...dto,
+      category,
       clientId: user.clientId!,
       createdByUserId: user.id,
       status: 'OPEN',
-      priority: dto.priority ?? 'NORMAL',
+      priority,
       slaDueAt: slaDue,
     });
     return this.ticketRepo.save(ticket);
@@ -415,6 +450,10 @@ export class HelpdeskService {
 
     if (user?.roleCode === 'CLIENT' && user.clientId !== t.clientId) {
       throw new ForbiddenException('Invalid client');
+    }
+    if (user?.roleCode === 'PF_TEAM') {
+      this.assertPfTeamScope(t, user.id, true);
+      this.assertPfStatusTransition(t.status, dto.status);
     }
     t.status = dto.status;
     return this.ticketRepo.save(t);
@@ -438,7 +477,8 @@ export class HelpdeskService {
         throw new ForbiddenException('Not assigned to this client');
     }
     if (user.roleCode === 'PF_TEAM') {
-      this.assertPfTeamScope(t, user.id);
+      this.assertPfTeamScope(t, user.id, true);
+      this.assertPfStatusTransition(t.status, dto.status);
     }
     // ADMIN allowed unconditionally
     t.status = dto.status;
@@ -449,7 +489,11 @@ export class HelpdeskService {
    * PF Team scope: ticket category must be a PF/ESI/PAYSLIP type, and if the
    * ticket is already assigned, it must be assigned to the requesting PF user.
    */
-  private assertPfTeamScope(t: HelpdeskTicketEntity, userId: string) {
+  private assertPfTeamScope(
+    t: HelpdeskTicketEntity,
+    userId: string,
+    requireAssignment = false,
+  ) {
     if (
       !(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)
     ) {
@@ -457,6 +501,27 @@ export class HelpdeskService {
     }
     if (t.assignedToUserId && t.assignedToUserId !== userId) {
       throw new ForbiddenException('Ticket assigned to another PF user');
+    }
+    if (requireAssignment && !t.assignedToUserId) {
+      throw new ForbiddenException('Claim or assign the ticket before updating');
+    }
+  }
+
+  private assertPfStatusTransition(current: string, next: string) {
+    if (next === 'CLOSED') {
+      throw new BadRequestException(
+        'PF Team must resolve the ticket before admin/client closure',
+      );
+    }
+    if (current === 'OPEN' && next === 'RESOLVED') {
+      throw new BadRequestException('Move ticket to IN_PROGRESS before resolve');
+    }
+  }
+
+  private assertEmployeeTicketScope(t: HelpdeskTicketEntity, user: ReqUser) {
+    if (user.roleCode !== 'EMPLOYEE') return;
+    if (t.createdByUserId !== user.id) {
+      throw new ForbiddenException('Not your ticket');
     }
   }
 
@@ -488,6 +553,7 @@ export class HelpdeskService {
     if (user?.roleCode === 'PF_TEAM') {
       this.assertPfTeamScope(t, user.id);
     }
+    this.assertEmployeeTicketScope(t, user);
     const qb = this.msgRepo
       .createQueryBuilder('m')
       .leftJoin('users', 'u', 'u.id = m.sender_user_id')
@@ -513,8 +579,9 @@ export class HelpdeskService {
         throw new ForbiddenException('Not assigned to this client');
     }
     if (user?.roleCode === 'PF_TEAM') {
-      this.assertPfTeamScope(t, user.id);
+      this.assertPfTeamScope(t, user.id, true);
     }
+    this.assertEmployeeTicketScope(t, user);
     const message = this.msgRepo.create({
       message: dto.message,
       ticketId,
@@ -536,24 +603,29 @@ export class HelpdeskService {
   }
 
   async essCreateTicket(user: ReqUser, dto: CreateTicketDto) {
+    const category = String(dto.category || '').toUpperCase();
+    const priority = String(dto.priority || 'NORMAL').toUpperCase();
     const allowedCategories = ['PF', 'ESI', 'PAYSLIP'];
-    if (!allowedCategories.includes(dto.category)) {
+    if (!allowedCategories.includes(category)) {
       throw new BadRequestException(
         `Category must be one of: ${allowedCategories.join(', ')}`,
       );
     }
+    if (!(HELP_DESK_PRIORITY as readonly string[]).includes(priority)) {
+      throw new BadRequestException('Invalid ticket priority');
+    }
     const now = new Date();
     const hours =
-      (dto.priority ?? 'NORMAL') === 'CRITICAL'
+      priority === 'CRITICAL'
         ? 24
-        : (dto.priority ?? 'NORMAL') === 'HIGH'
+        : priority === 'HIGH'
           ? 48
-          : (dto.priority ?? 'NORMAL') === 'LOW'
+          : priority === 'LOW'
             ? 120
             : 72;
     const slaDue = new Date(now.getTime() + hours * 60 * 60 * 1000);
     const ticket = this.ticketRepo.create({
-      category: dto.category,
+      category,
       subCategory: dto.subCategory ?? null,
       description: dto.description,
       clientId: user.clientId!,
@@ -561,7 +633,7 @@ export class HelpdeskService {
       employeeRef: user.employeeId ?? null,
       createdByUserId: user.id,
       status: 'OPEN',
-      priority: dto.priority ?? 'NORMAL',
+      priority,
       slaDueAt: slaDue,
     });
     return this.ticketRepo.save(ticket);

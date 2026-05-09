@@ -403,9 +403,12 @@ export class CeoController {
   async dashboard(@CurrentUser() user: ReqUser) {
     const ceoUserId = user.userId;
 
-    const pendingApprovals = await this.approvalRepo.count({
-      where: { status: 'PENDING', requestedTo: { id: ceoUserId } },
-    });
+    const pendingApprovals = (
+      await this.usersService.listPendingDeletionRequestsForApprover(
+        ceoUserId,
+        user.roleCode,
+      )
+    ).length;
 
     // Real queries for escalations, overdue, compliance pending
     const [escalationRow] = await this.dataSource
@@ -445,17 +448,15 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Approval' })
   @Get('approvals/:id')
-  async approval(@Param('id') id: string) {
-    const approval = await this.approvalRepo.findOne({
-      where: { id: Number(id) },
-      relations: ['requestedBy', 'requestedTo'],
-    });
-
-    if (approval) {
-      return approval;
-    }
-
-    throw new NotFoundException(`Approval with id ${id} not found`);
+  async approval(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+    const approvals =
+      await this.usersService.listPendingDeletionRequestsForApprover(
+        user.userId,
+        user.roleCode,
+      );
+    const approval = approvals.find((row) => String(row.id) === String(id));
+    if (!approval) throw new NotFoundException(`Approval with id ${id} not found`);
+    return approval;
   }
 
   @ApiOperation({ summary: 'Approve' })
@@ -541,7 +542,7 @@ export class CeoController {
        LEFT JOIN clients c ON c.id = ct.client_id
        LEFT JOIN client_branches b ON b.id = ct.branch_id
        LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
-       WHERE ct.id = $1`,
+       WHERE ct.id = $1 AND ct.escalated_at IS NOT NULL`,
       [id],
     );
     if (!row) throw new NotFoundException(`Escalation ${id} not found`);
@@ -608,12 +609,18 @@ export class CeoController {
   ) {
     const numId = Number(id);
     if (isNaN(numId)) throw new BadRequestException('Invalid escalation ID');
-    // Verify escalation exists
     const [row] = await this.dataSource.query(
       `SELECT id FROM compliance_tasks WHERE id = $1 AND escalated_at IS NOT NULL`,
       [id],
     );
     if (!row) throw new NotFoundException(`Escalation ${id} not found`);
+    await this.dataSource.query(
+      `UPDATE compliance_tasks
+          SET remarks = NULLIF(CONCAT_WS(E'\n', remarks, $2), ''),
+              updated_at = NOW()
+        WHERE id = $1 AND escalated_at IS NOT NULL`,
+      [id, body?.message ?? ''],
+    );
     return { id, message: body?.message ?? '' };
   }
 
@@ -623,11 +630,26 @@ export class CeoController {
     @Param('id') id: string,
     @Body() body: { ccoId: number; note?: string },
   ) {
-    return {
-      id,
-      assignedTo: body?.ccoId ?? null,
-      note: body?.note ?? '',
-    };
+    const [cco] = await this.dataSource.query(
+      `SELECT u.id
+         FROM users u
+         INNER JOIN roles r ON r.id = u.role_id AND r.code = 'CCO'
+        WHERE u.id = $1 AND u.deleted_at IS NULL AND u.is_active = true
+        LIMIT 1`,
+      [body?.ccoId],
+    );
+    if (!cco) throw new BadRequestException('Invalid CCO assignee');
+    const result = await this.dataSource.query(
+      `UPDATE compliance_tasks
+          SET assigned_to_user_id = $2,
+              remarks = NULLIF(CONCAT_WS(E'\n', remarks, $3), ''),
+              updated_at = NOW()
+        WHERE id = $1 AND escalated_at IS NOT NULL
+        RETURNING id`,
+      [id, body.ccoId, body?.note ?? ''],
+    );
+    if (!result.length) throw new NotFoundException(`Escalation ${id} not found`);
+    return { id, assignedTo: body.ccoId, note: body?.note ?? '' };
   }
 
   @ApiOperation({ summary: 'Escalation Close' })
@@ -639,15 +661,24 @@ export class CeoController {
     if (isNaN(Number(id)))
       throw new BadRequestException('Invalid escalation ID');
     let dbWriteOk = true;
-    await this.dataSource
+    const updated = await this.dataSource
       .query(
-        `UPDATE compliance_tasks SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1`,
-        [id],
+        `UPDATE compliance_tasks
+            SET status = 'COMPLETED',
+                remarks = NULLIF(CONCAT_WS(E'\n', remarks, $2), ''),
+                updated_at = NOW()
+          WHERE id = $1 AND escalated_at IS NOT NULL
+          RETURNING id`,
+        [id, body?.resolutionNote ?? ''],
       )
       .catch((e) => {
         dbWriteOk = false;
         this.logger.warn(`Escalation close failed for ${id}`, e?.message);
+        return [];
       });
+    if (dbWriteOk && !updated.length) {
+      throw new NotFoundException(`Escalation ${id} not found`);
+    }
     return {
       id,
       // CLOSED is the UI-facing status; DB stores COMPLETED. Keep both

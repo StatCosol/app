@@ -871,7 +871,7 @@ export class PayrollService {
       clientTemplateId: savedLink.id,
       effectiveFrom: savedLink.effective_from,
       effectiveTo: savedLink.effective_to,
-      downloadUrl: `/api/payroll/clients/${clientId}/template/download`,
+      downloadUrl: `/api/v1/payroll/clients/${clientId}/template/download`,
     };
   }
 
@@ -887,7 +887,7 @@ export class PayrollService {
       fileType: active.template.fileType,
       effectiveFrom: active.effective_from,
       effectiveTo: active.effective_to ?? null,
-      downloadUrl: `/api/payroll/clients/${clientId}/template/download`,
+      downloadUrl: `/api/v1/payroll/clients/${clientId}/template/download`,
     };
   }
 
@@ -918,7 +918,7 @@ export class PayrollService {
       fileType: active.template.fileType,
       effectiveFrom: active.effective_from,
       effectiveTo: active.effective_to ?? null,
-      downloadUrl: `/api/client/payroll/template/download`,
+      downloadUrl: `/api/v1/client/payroll/template/download`,
     };
   }
 

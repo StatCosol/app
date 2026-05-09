@@ -1,12 +1,16 @@
 import {
   UnauthorizedException,
   Controller,
+  Delete,
   Get,
+  Post,
   Query,
   Req,
   Res,
   ForbiddenException,
   BadRequestException,
+  Body,
+  Param,
 } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -61,6 +65,36 @@ export class FilesController {
     return res.download(resolved);
   }
 
+  @ApiOperation({ summary: 'Create upload SAS token' })
+  @Post('sas-token')
+  requestSasToken(@Body() _body: { fileName?: string; folder?: string }) {
+    throw new BadRequestException(
+      'Direct blob upload is not configured. Use module upload endpoints.',
+    );
+  }
+
+  @ApiOperation({ summary: 'Confirm blob upload' })
+  @Post('confirm')
+  confirmUpload() {
+    throw new BadRequestException(
+      'Direct blob upload is not configured. Use module upload endpoints.',
+    );
+  }
+
+  @ApiOperation({ summary: 'Get blob download URL' })
+  @Get('download-url')
+  getDownloadUrl() {
+    throw new BadRequestException(
+      'Direct blob download URLs are not configured. Use /api/v1/files/download?p=...',
+    );
+  }
+
+  @ApiOperation({ summary: 'Delete blob' })
+  @Delete(':blobName')
+  deleteBlob(@Param('blobName') _blobName: string) {
+    throw new BadRequestException('Direct blob deletion is not configured.');
+  }
+
   private async authenticateRequest(req: Request): Promise<ReqUser> {
     const authHeader = req.headers.authorization || '';
     const bearerToken = authHeader.startsWith('Bearer ')
@@ -97,6 +131,7 @@ export class FilesController {
         'CRM',
         'AUDITOR',
         'CONTRACTOR',
+        'EMPLOYEE',
       ].includes(roleCode)
     ) {
       throw new ForbiddenException(

@@ -518,7 +518,7 @@ export class EssService {
 
     // Check if record already exists
     const existing = await this.ds.query(
-      `SELECT id, check_in AS "checkIn" FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
+      `SELECT id, check_in AS "checkIn", status FROM attendance_records WHERE employee_id = $1 AND date = $2::date`,
       [empId, today],
     );
 
@@ -537,6 +537,11 @@ export class EssService {
     if (existing.length) {
       // Update existing record (e.g. admin-seeded WEEK_OFF or HOLIDAY shouldn't be overwritten)
       const rec = existing[0];
+      if (['WEEK_OFF', 'HOLIDAY'].includes(String(rec.status || '').toUpperCase())) {
+        throw new BadRequestException(
+          'Self check-in is not allowed on a holiday or week off',
+        );
+      }
       await this.ds.query(
         `UPDATE attendance_records
          SET check_in = $1, status = 'PRESENT', capture_method = $2,
@@ -1053,7 +1058,7 @@ export class EssService {
     const saved = await this.nomRepo.save(nom);
 
     // Save members
-    const members = (dto.members ?? []).filter((m) => m.memberName?.trim());
+    const members = this.validateNominationMembers(dto.members ?? []);
     if (members.length) {
       const entities = members.map((m) =>
         this.nomMemberRepo.create({
@@ -1073,6 +1078,42 @@ export class EssService {
     }
 
     return { id: saved.id, status: saved.status };
+  }
+
+  private validateNominationMembers<T extends {
+    memberName?: string;
+    sharePct?: number;
+    isMinor?: boolean;
+    guardianName?: string;
+    guardianRelationship?: string;
+  }>(members: T[]): T[] {
+    const clean = members.filter((m) => m.memberName?.trim());
+    if (!clean.length) return clean;
+
+    let total = 0;
+    for (const member of clean) {
+      const share = Number(member.sharePct ?? 0);
+      if (!Number.isFinite(share) || share <= 0 || share > 100) {
+        throw new BadRequestException(
+          'Each nomination member share must be between 1 and 100',
+        );
+      }
+      if (
+        member.isMinor &&
+        (!member.guardianName?.trim() ||
+          !member.guardianRelationship?.trim())
+      ) {
+        throw new BadRequestException(
+          'Minor nomination members require guardian name and relationship',
+        );
+      }
+      total += share;
+      member.sharePct = share;
+    }
+    if (Math.abs(total - 100) > 0.001) {
+      throw new BadRequestException('Nomination member shares must total 100');
+    }
+    return clean;
   }
 
   // Submit a DRAFT nomination
@@ -1124,7 +1165,7 @@ export class EssService {
     await this.nomRepo.save(nom);
 
     // Replace members if provided
-    const members = (dto.members ?? []).filter((m) => m.memberName?.trim());
+    const members = this.validateNominationMembers(dto.members ?? []);
     if (members.length) {
       await this.nomMemberRepo.delete({ nominationId });
       const entities = members.map((m) =>
@@ -1180,7 +1221,7 @@ export class EssService {
     }
     await this.nomRepo.save(nom);
 
-    const members = (dto.members ?? []).filter((m) => m.memberName?.trim());
+    const members = this.validateNominationMembers(dto.members ?? []);
     if (members.length) {
       await this.nomMemberRepo.delete({ nominationId });
       const entities = members.map((m) =>
@@ -1248,7 +1289,10 @@ export class EssService {
 
     // Calculate total days (simple: calendar days inclusive)
     const diffMs = to.getTime() - from.getTime();
-    const totalDays = dto.totalDays ?? Math.ceil(diffMs / 86400000) + 1;
+    const totalDays = Math.ceil(diffMs / 86400000) + 1;
+    if (!Number.isFinite(totalDays) || totalDays <= 0) {
+      throw new BadRequestException('Invalid leave date range');
+    }
 
     // Check balance
     const yr = from.getFullYear();
@@ -1356,9 +1400,33 @@ export class EssService {
     }));
   }
 
-  async approveNomination(nomId: string, userId: string) {
+  private assertClientBranchScope(
+    row: { clientId: string; branchId?: string | null },
+    clientId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
+    if (clientId && row.clientId !== clientId) {
+      throw new ForbiddenException('Not in client scope');
+    }
+    if (
+      allowedBranchIds &&
+      allowedBranchIds !== 'ALL' &&
+      row.branchId &&
+      !allowedBranchIds.includes(row.branchId)
+    ) {
+      throw new ForbiddenException('Not in branch scope');
+    }
+  }
+
+  async approveNomination(
+    nomId: string,
+    userId: string,
+    clientId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
     const nom = await this.nomRepo.findOne({ where: { id: nomId } });
     if (!nom) throw new NotFoundException('Nomination not found');
+    this.assertClientBranchScope(nom, clientId, allowedBranchIds);
     if (nom.status !== 'SUBMITTED')
       throw new BadRequestException('Not in SUBMITTED status');
     nom.status = 'APPROVED';
@@ -1368,9 +1436,16 @@ export class EssService {
     return { ok: true };
   }
 
-  async rejectNomination(nomId: string, userId: string, reason?: string) {
+  async rejectNomination(
+    nomId: string,
+    userId: string,
+    reason?: string,
+    clientId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
     const nom = await this.nomRepo.findOne({ where: { id: nomId } });
     if (!nom) throw new NotFoundException('Nomination not found');
+    this.assertClientBranchScope(nom, clientId, allowedBranchIds);
     if (nom.status !== 'SUBMITTED')
       throw new BadRequestException('Not in SUBMITTED status');
     nom.status = 'REJECTED';
@@ -1546,8 +1621,9 @@ export class EssService {
     type?: 'LEAVE' | 'NOMINATION',
   ) {
     const item = await this.getClientApprovalById(clientId, id, type);
-    if (item.type === 'NOMINATION') return this.approveNomination(id, userId);
-    return this.approveLeave(id, userId);
+    if (item.type === 'NOMINATION')
+      return this.approveNomination(id, userId, clientId);
+    return this.approveLeave(id, userId, clientId);
   }
 
   async rejectClientApproval(
@@ -1559,13 +1635,19 @@ export class EssService {
   ) {
     const item = await this.getClientApprovalById(clientId, id, type);
     if (item.type === 'NOMINATION')
-      return this.rejectNomination(id, userId, reason);
-    return this.rejectLeave(id, userId, reason);
+      return this.rejectNomination(id, userId, reason, clientId);
+    return this.rejectLeave(id, userId, reason, clientId);
   }
 
-  async approveLeave(leaveId: string, userId: string) {
+  async approveLeave(
+    leaveId: string,
+    userId: string,
+    clientId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
     const app = await this.leaveAppRepo.findOne({ where: { id: leaveId } });
     if (!app) throw new NotFoundException('Leave application not found');
+    this.assertClientBranchScope(app, clientId, allowedBranchIds);
     if (app.status !== 'SUBMITTED')
       throw new BadRequestException('Not in SUBMITTED status');
 
@@ -1579,6 +1661,9 @@ export class EssService {
       // Debit leave balance
       const yr = new Date(app.fromDate).getFullYear();
       const totalDays = parseFloat(app.totalDays);
+      if (!Number.isFinite(totalDays) || totalDays <= 0) {
+        throw new BadRequestException('Invalid leave total days');
+      }
       await mgr
         .createQueryBuilder()
         .update(LeaveBalanceEntity)
@@ -1611,9 +1696,16 @@ export class EssService {
     });
   }
 
-  async rejectLeave(leaveId: string, userId: string, reason?: string) {
+  async rejectLeave(
+    leaveId: string,
+    userId: string,
+    reason?: string,
+    clientId?: string,
+    allowedBranchIds?: string[] | 'ALL',
+  ) {
     const app = await this.leaveAppRepo.findOne({ where: { id: leaveId } });
     if (!app) throw new NotFoundException('Leave application not found');
+    this.assertClientBranchScope(app, clientId, allowedBranchIds);
     if (app.status !== 'SUBMITTED')
       throw new BadRequestException('Not in SUBMITTED status');
     app.status = 'REJECTED';

@@ -102,7 +102,7 @@ export class EmployeeAppraisalsService {
     return { data: rows, total, page, pageSize };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, employeeId?: string) {
     const appraisal = await this.dataSource.query(
       `
       SELECT ea.*, e.employee_code, e.name AS employee_name, e.department, e.designation,
@@ -114,8 +114,9 @@ export class EmployeeAppraisalsService {
       LEFT JOIN client_branches b ON ea.branch_id = b.id
       JOIN appraisal_cycles ac ON ea.cycle_id = ac.id
       WHERE ea.id = $1
+        ${employeeId ? 'AND ea.employee_id = $2' : ''}
     `,
-      [id],
+      employeeId ? [id, employeeId] : [id],
     );
 
     if (!appraisal.length) throw new NotFoundException('Appraisal not found');
