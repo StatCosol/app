@@ -4,6 +4,7 @@ import { ComplianceDocLibraryEntity } from './entities/compliance-document.entit
 import { ComplianceDocumentVisibilityEntity } from './entities/compliance-document-visibility.entity';
 import { CompanySettingsEntity } from './entities/company-settings.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
+import { BranchEntity } from '../branches/entities/branch.entity';
 import { ComplianceDocumentsService } from './compliance-documents.service';
 import { ClientComplianceDocsController } from './client-compliance-docs.controller';
 import { CrmComplianceDocsController } from './crm-compliance-docs.controller';
@@ -18,6 +19,7 @@ import { AuthModule } from '../auth/auth.module';
       ComplianceDocumentVisibilityEntity,
       CompanySettingsEntity,
       ClientAssignmentCurrentEntity,
+      BranchEntity,
     ]),
   ],
   controllers: [
