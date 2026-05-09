@@ -155,6 +155,7 @@ export class AuditorDashboardController {
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
          LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
          INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
+           AND (a.branch_id IS NULL OR ct.branch_id IS NULL OR a.branch_id = ct.branch_id)
          LEFT JOIN clients  c ON c.id = ct.client_id
          LEFT JOIN client_branches b ON b.id = ct.branch_id
          WHERE ct.status IN ('PENDING', 'PENDING_REVIEW')
@@ -213,6 +214,7 @@ export class AuditorDashboardController {
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
          INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
+           AND (a.branch_id IS NULL OR ct.branch_id IS NULL OR a.branch_id = ct.branch_id)
          LEFT JOIN clients c ON c.id = ct.client_id
          WHERE ce.id = $2
          LIMIT 1`,
@@ -269,6 +271,7 @@ export class AuditorDashboardController {
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
          INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
+           AND (a.branch_id IS NULL OR ct.branch_id IS NULL OR a.branch_id = ct.branch_id)
          WHERE ce.id = $2
          LIMIT 1`,
         [auditorId, evidenceId],

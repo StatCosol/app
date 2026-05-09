@@ -699,25 +699,13 @@ export class PayrollController {
     @CurrentUser() user: ReqUser,
     @Param('fnfId', ParseUUIDPipe) fnfId: string,
     @Param('docType') docType: string,
-    @Query() q: Record<string, string>,
     @Res() res: Response,
   ) {
-    const num = (k: string): number | undefined => {
-      const v = q?.[k];
-      if (v === undefined || v === null || v === '') return undefined;
-      const n = Number(v);
-      return isNaN(n) ? undefined : n;
-    };
-    const override = {
-      pendingSalary: num('pendingSalary'),
-      leaveEncashment: num('leaveEncashment'),
-      bonusArrears: num('bonusArrears'),
-      deductions: num('deductions'),
-      recoveries: num('recoveries'),
-      settlementAmount: num('settlementAmount'),
-    };
+    // PD-H2: do not accept override query params; the service always uses
+    // the persisted F&F record so the downloaded PDF matches what Payroll
+    // approved.
     const { buffer, filename, mimeType } =
-      await this.svc.generateFnfDocumentPdf(user, fnfId, docType, override);
+      await this.svc.generateFnfDocumentPdf(user, fnfId, docType);
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);

@@ -422,12 +422,15 @@ export class LegitxComplianceService {
        LEFT JOIN users u ON u.id = a.assigned_auditor_id
        LEFT JOIN latest_report lr ON lr.audit_id = a.id AND lr.rn = 1
        WHERE a.period_year = $1
-         ${clientId ? 'AND a.client_id = $2' : ''}
+         AND ($2::uuid IS NULL OR a.client_id = $2)
          AND (SUBSTRING(a.period_code FROM 6 FOR 2) = LPAD($3::text, 2, '0') OR a.period_code LIKE $4)
        ORDER BY a.created_at DESC`,
-        clientId
-          ? [year, month, month, `${year}-${String(month).padStart(2, '0')}%`]
-          : [year, month, month, `${year}-${String(month).padStart(2, '0')}%`],
+        [
+          year,
+          clientId ?? null,
+          month,
+          `${year}-${String(month).padStart(2, '0')}%`,
+        ],
       )
       .catch((e) => {
         this.logger.warn('audits query failed', e?.message);

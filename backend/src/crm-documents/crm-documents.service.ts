@@ -283,9 +283,16 @@ export class CrmDocumentsService {
     } else if (role === 'BRANCH_USER') {
       // Branch user: branch-scoped docs must match a mapped branch; company docs
       // are visible when the user's mapped branches belong to the same client.
+      // Note: 'ALL' is treated as "no explicit mappings"; a true branch user
+      // must have a concrete branch list, otherwise we deny branch-scoped
+      // access to prevent master-style users from downloading branch docs
+      // outside their mapping.
       const branchIds = opts?.allowedBranchIds;
       if (doc.branchId) {
-        if (branchIds !== 'ALL' && !branchIds?.includes(doc.branchId)) {
+        if (
+          !Array.isArray(branchIds) ||
+          !branchIds.includes(doc.branchId)
+        ) {
           throw new ForbiddenException(
             'You do not have access to this document',
           );

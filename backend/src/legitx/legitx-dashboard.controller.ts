@@ -28,6 +28,47 @@ export class LegitxDashboardController {
   ) {}
 
   /**
+   * Tenant scope guard.
+   *
+   *  - **CLIENT/PAYROLL/CRM/AUDITOR/CCO/CEO/ADMIN with a clientId** are
+   *    allowed; the per-branch check below validates any supplied branchId.
+   *  - **BRANCH users** must always be filtered to one of their assigned
+   *    branches. If the caller did not pass a branchId, we coerce it to
+   *    their first allowed branch so the service does not aggregate the
+   *    full client.
+   *  - **Staff roles without a clientId on their JWT** (e.g. legacy ADMIN
+   *    tokens) MUST supply either a clientId or a branchId in the query;
+   *    otherwise we refuse to return cross-tenant aggregates.
+   */
+  private async assertTenantScope(
+    user: ReqUser,
+    query: DashboardQueryDto,
+  ): Promise<void> {
+    // BRANCH users: always require a branch filter.
+    const role = (user?.roleCode || '').toUpperCase();
+    if (role === 'BRANCH') {
+      const branchIds = await this.branchAccess.getUserBranchIds(user.userId);
+      if (branchIds.length === 0) {
+        throw new ForbiddenException(
+          'Branch user has no branch mappings; cannot query dashboard',
+        );
+      }
+      if (!query.branchId) {
+        // Default to their first allowed branch so we never aggregate the
+        // whole client.
+        query.branchId = branchIds[0];
+      }
+    }
+
+    // Staff roles with no JWT clientId must provide a clientId/branchId.
+    if (!user?.clientId && !query.clientId && !query.branchId) {
+      throw new ForbiddenException(
+        'A clientId or branchId is required for this dashboard query',
+      );
+    }
+  }
+
+  /**
    * If the caller carries a clientId on their JWT (CLIENT/BRANCH/PAYROLL,
    * and CRM/AUDITOR scoped to a single client), make sure any branchId
    * supplied in the query string actually belongs to one of their mapped
@@ -57,11 +98,12 @@ export class LegitxDashboardController {
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: DashboardQueryDto,
   ) {
+    await this.assertTenantScope(user, query);
     await this.assertBranchScope(user, query.branchId);
     return this.dashboardService.getSummary(
       user?.id,
       query,
-      user?.clientId ?? null,
+      user?.clientId ?? query.clientId ?? null,
     );
   }
 
@@ -72,11 +114,12 @@ export class LegitxDashboardController {
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: DashboardQueryDto,
   ) {
+    await this.assertTenantScope(user, query);
     await this.assertBranchScope(user, query.branchId);
     return this.dashboardService.getSummary(
       user?.id,
       query,
-      user?.clientId ?? null,
+      user?.clientId ?? query.clientId ?? null,
     );
   }
 }

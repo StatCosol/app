@@ -33,6 +33,10 @@ export class DashboardQueryDto {
 
   @IsOptional()
   @IsUUID()
+  clientId?: string;
+
+  @IsOptional()
+  @IsUUID()
   contractorId?: string;
 
   @IsOptional()

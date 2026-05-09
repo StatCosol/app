@@ -37,13 +37,23 @@ export class AuditorObservationsService {
     const audit = await this.auditRepo.findOne({ where: { id: auditId } });
     if (!audit) throw new NotFoundException('Audit not found');
 
-    // Verify auditor is assigned to the client
-    const assignment = await this.assignmentsService.isClientAssignedToAuditor(
-      audit.clientId,
-      auditorUserId,
-    );
-    if (!assignment) {
-      throw new ForbiddenException('You are not assigned to this audit');
+    // AX-H3: a CRM-style assignment to the client is not enough — the
+    // observation tool is per-audit, so require the audit be assigned to the
+    // calling auditor specifically. Falls back to the client-assignment check
+    // only when no auditor is assigned (legacy data).
+    if (audit.assignedAuditorId) {
+      if (audit.assignedAuditorId !== auditorUserId) {
+        throw new ForbiddenException('You are not assigned to this audit');
+      }
+    } else {
+      const assignment =
+        await this.assignmentsService.isClientAssignedToAuditor(
+          audit.clientId,
+          auditorUserId,
+        );
+      if (!assignment) {
+        throw new ForbiddenException('You are not assigned to this audit');
+      }
     }
 
     return audit;
