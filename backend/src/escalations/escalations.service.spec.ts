@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EscalationsService } from './escalations.service';
 import { EscalationEntity } from './entities/escalation.entity';
+import { AccessScopeService } from '../access/access-scope.service';
 
 describe('EscalationsService', () => {
   let service: EscalationsService;
@@ -22,6 +23,14 @@ describe('EscalationsService', () => {
               orderBy: jest.fn().mockReturnThis(),
               getMany: jest.fn().mockResolvedValue([]),
             }),
+          },
+        },
+        {
+          provide: AccessScopeService,
+          useValue: {
+            assertCcoClientAllowed: jest.fn().mockResolvedValue(undefined),
+            assertCcoBranchAllowed: jest.fn().mockResolvedValue(undefined),
+            getCcoClientIds: jest.fn().mockResolvedValue([]),
           },
         },
       ],
