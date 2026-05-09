@@ -192,13 +192,17 @@ export class AdminActionsService {
         };
       }
 
+      // Capture outgoing user id BEFORE mutating `current` below, so the
+      // "notify old assignee" block still targets the previous user.
+      const oldAssignedToUserId = current?.assignedToUserId ?? null;
+
       // Record history for outgoing assignment (if exists)
       if (current) {
         await histRepo.save(
           histRepo.create({
             clientId: dto.clientId,
             assignmentType: dto.assignmentType,
-            assignedToUserId: current.assignedToUserId,
+            assignedToUserId: oldAssignedToUserId!,
             startDate: current.startDate,
             endDate: new Date(effectiveDate),
             changedByUserId: adminUser.id,
@@ -241,6 +245,35 @@ export class AdminActionsService {
         );
       }
 
+      // Write-through to the legacy `client_assignments` table so the admin
+      // dashboards/reports/readiness queries that still read from it stay in
+      // sync with `client_assignments_current`. Uses ON CONFLICT on the
+      // unique (client_id) index. crm_/auditor_assigned_from records the
+      // role-specific rotation window for reports.
+      const userCol =
+        dto.assignmentType === 'CRM' ? 'crm_user_id' : 'auditor_user_id';
+      const fromCol =
+        dto.assignmentType === 'CRM'
+          ? 'crm_assigned_from'
+          : 'auditor_assigned_from';
+      const toCol =
+        dto.assignmentType === 'CRM'
+          ? 'crm_assigned_to'
+          : 'auditor_assigned_to';
+      await manager.query(
+        `INSERT INTO client_assignments
+            (client_id, ${userCol}, start_date, ${fromCol}, ${toCol}, status, created_by)
+          VALUES ($1, $2, $3::date, $3::date, NULL, 'ACTIVE', $4)
+          ON CONFLICT (client_id) DO UPDATE
+            SET ${userCol} = EXCLUDED.${userCol},
+                ${fromCol} = EXCLUDED.${fromCol},
+                ${toCol} = NULL,
+                status = 'ACTIVE',
+                end_date = NULL,
+                updated_at = NOW()`,
+        [dto.clientId, dto.newUserId, effectiveDate, adminUser.id],
+      );
+
       // Optional notifications
       if (dto.notifyParties) {
         const subject = `${dto.assignmentType} Assignment Updated`;
@@ -263,12 +296,12 @@ export class AdminActionsService {
         );
 
         // Notify old assignee (if exists)
-        if (current?.assignedToUserId) {
+        if (oldAssignedToUserId && oldAssignedToUserId !== dto.newUserId) {
           await notifRepo.save(
             notifRepo.create({
               createdByUserId: adminUser.id,
               createdByRole: 'ADMIN',
-              assignedToUserId: current.assignedToUserId,
+              assignedToUserId: oldAssignedToUserId,
               assignedToRole: dto.assignmentType,
               clientId: dto.clientId,
               branchId: null,

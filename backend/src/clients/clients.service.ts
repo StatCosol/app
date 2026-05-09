@@ -867,8 +867,8 @@ export class ClientsService {
       //    teams stop seeing this client in their work queues. We leave
       //    historical runs / payslips intact.
       await safe(
-        'payroll_client_assignment',
-        `UPDATE payroll_client_assignment
+        'payroll_client_assignments',
+        `UPDATE payroll_client_assignments
             SET status = 'INACTIVE', updated_at = NOW()
           WHERE client_id = $1
             AND status <> 'INACTIVE'`,
@@ -897,8 +897,8 @@ export class ClientsService {
             AND is_active = true`,
       );
       await safe(
-        'client_department_contact',
-        `UPDATE client_department_contact
+        'client_department_contacts',
+        `UPDATE client_department_contacts
             SET is_active = false
           WHERE client_id = $1
             AND is_active = true`,
