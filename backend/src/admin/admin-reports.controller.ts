@@ -288,8 +288,8 @@ export class AdminReportsController {
              ca.client_id,
              'CRM'::text as "assignmentType",
              ca.crm_user_id as "assignedUserId",
-             ca.start_date as "assignedOn",
-             ca.end_date as "rotationDueOn",
+             ca.crm_assigned_from as "assignedOn",
+             ca.crm_assigned_to as "rotationDueOn",
              ca.status,
              ca.created_at as "createdAt",
              ca.updated_at as "updatedAt"
@@ -303,8 +303,8 @@ export class AdminReportsController {
              ca.client_id,
              'AUDITOR'::text as "assignmentType",
              ca.auditor_user_id as "assignedUserId",
-             ca.start_date as "assignedOn",
-             ca.end_date as "rotationDueOn",
+             ca.auditor_assigned_from as "assignedOn",
+             ca.auditor_assigned_to as "rotationDueOn",
              ca.status,
              ca.created_at as "createdAt",
              ca.updated_at as "updatedAt"
