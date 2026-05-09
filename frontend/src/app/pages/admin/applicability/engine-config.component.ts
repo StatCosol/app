@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -375,6 +375,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 export class EngineConfigComponent implements OnInit {
   private readonly api = inject(AdminApplicabilityConfigService);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly zone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   tabs = [
     { key: 'items', label: 'Compliance Items' },
@@ -468,25 +470,32 @@ export class EngineConfigComponent implements OnInit {
   loadAll() {
     this.loading = true;
     let done = 0;
-    const check = () => { if (++done >= 3) this.loading = false; };
+    // Some HTTP responses arrive outside Angular's zone (interceptor chain
+    // wraps payloads through `from(promise)` for crypto). Force change
+    // detection on every emission so template counters and `loading` flag
+    // reflect the latest state.
+    const tick = () => this.zone.run(() => this.cdr.markForCheck());
+    const check = () => {
+      if (++done >= 3) {
+        this.zone.run(() => { this.loading = false; this.cdr.markForCheck(); });
+      }
+    };
 
-    // Use finalize so loading is always cleared, even if the observable
-    // completes silently or errors. Defensive null checks on the body
-    // protect against unexpected response shapes.
     this.api.listComplianceItems().pipe(finalize(check)).subscribe({
       next: (items) => {
         this.complianceItems = Array.isArray(items) ? items : [];
         this.rebuildComplianceSelectOptions();
+        tick();
       },
-      error: (err) => console.error('[engine-config] listComplianceItems failed', err),
+      error: (err) => { console.error('[engine-config] listComplianceItems failed', err); tick(); },
     });
     this.api.listPackages().pipe(finalize(check)).subscribe({
-      next: (pkgs) => { this.packages = Array.isArray(pkgs) ? pkgs : []; },
-      error: (err) => console.error('[engine-config] listPackages failed', err),
+      next: (pkgs) => { this.packages = Array.isArray(pkgs) ? pkgs : []; tick(); },
+      error: (err) => { console.error('[engine-config] listPackages failed', err); tick(); },
     });
     this.api.listRules().pipe(finalize(check)).subscribe({
-      next: (rules) => { this.rules = Array.isArray(rules) ? rules : []; },
-      error: (err) => console.error('[engine-config] listRules failed', err),
+      next: (rules) => { this.rules = Array.isArray(rules) ? rules : []; tick(); },
+      error: (err) => { console.error('[engine-config] listRules failed', err); tick(); },
     });
   }
 
