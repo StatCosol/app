@@ -98,6 +98,8 @@ export class CrmAuditsController {
   constructor(
     private readonly svc: AuditsService,
     private readonly auditOutputEngine: AuditOutputEngineService,
+    private readonly ds: DataSource,
+    private readonly branchAccess: BranchAccessService,
   ) {}
 
   @ApiOperation({ summary: 'List' })

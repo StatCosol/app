@@ -1401,7 +1401,7 @@ export class EssService {
   }
 
   private assertClientBranchScope(
-    row: { clientId: string; branchId?: string | null },
+    row: { clientId?: string | null; branchId?: string | null },
     clientId?: string,
     allowedBranchIds?: string[] | 'ALL',
   ) {

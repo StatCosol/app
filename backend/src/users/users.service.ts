@@ -1691,6 +1691,7 @@ export class UsersService implements OnModuleInit {
       updatedAt: Date | null;
     }[] = [];
     for (const r of visibleRows) {
+      if (!r) continue;
       let entityLabel: string | null = null;
       if (r.entityType === 'USER') {
         const u = await this.usersRepo.findOne({ where: { id: r.entityId } });

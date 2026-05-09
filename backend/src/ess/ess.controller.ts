@@ -395,7 +395,7 @@ export class BranchApprovalsController {
 
   @ApiOperation({ summary: 'Reject Nomination' })
   @Put('nominations/:id/reject')
-  rejectNomination(
+  async rejectNomination(
     @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() body: RejectReasonDto,
@@ -440,7 +440,7 @@ export class BranchApprovalsController {
 
   @ApiOperation({ summary: 'Reject Leave' })
   @Put('leaves/:id/reject')
-  rejectLeave(
+  async rejectLeave(
     @CurrentUser() user: ReqUser,
     @Param('id') id: string,
     @Body() body: RejectReasonDto,
