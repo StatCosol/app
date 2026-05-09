@@ -10,6 +10,7 @@ export interface Client {
   status?: string;
   branchesCount?: number;
   totalEmployees?: number;
+  contractorsCount?: number;
   registeredAddress?: string;
   state?: string;
   industry?: string;
@@ -18,6 +19,7 @@ export interface Client {
   primaryContactMobile?: string;
   companyCode?: string;
   logoUrl?: string;
+  crmOnBehalfEnabled?: boolean;
 }
 
 export interface Branch {
@@ -29,6 +31,9 @@ export interface Branch {
   employeeCount?: number;
   contractorCount?: number;
   status?: string;
+  establishmentType?: string;
+  city?: string;
+  pincode?: string;
   
   // Two-letter state code used for compliance applicability (e.g., TS, AP)
   stateCode?: string | null;
@@ -131,6 +136,10 @@ export class AdminClientsService {
     return this.http.post(`${this.apiUrl}/clients/${id}/restore`, {});
   }
 
+  toggleCrmOnBehalf(id: string, enabled: boolean): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/clients/${id}/crm-on-behalf`, { enabled });
+  }
+
   getReadinessCheck(clientId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/clients/${clientId}/readiness`);
   }
@@ -194,7 +203,7 @@ export class AdminClientsService {
     return this.http.post(`${this.apiUrl}/clients/${clientId}/branches`, payload);
   }
 
-  updateBranch(branchId: string, payload: Branch): Observable<any> {
+  updateBranch(branchId: string, payload: Partial<Branch>): Observable<any> {
     return this.http.put(`${this.apiUrl}/branches/${branchId}`, payload);
   }
 

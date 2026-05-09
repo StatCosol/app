@@ -1,20 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AiUsageLogEntity } from './entities/ai-usage-log.entity';
 
 /** Per-model pricing (USD per 1K tokens) — update as rates change */
 const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {
+  'gpt-4.1': { prompt: 0.002, completion: 0.008 },
+  'gpt-4.1-mini': { prompt: 0.0004, completion: 0.0016 },
+  'gpt-4.1-nano': { prompt: 0.0001, completion: 0.0004 },
   'gpt-4o': { prompt: 0.0025, completion: 0.01 },
   'gpt-4o-mini': { prompt: 0.00015, completion: 0.0006 },
-  'gpt-4-turbo': { prompt: 0.01, completion: 0.03 },
-  'gpt-3.5-turbo': { prompt: 0.0005, completion: 0.0015 },
+  'o3-mini': { prompt: 0.0011, completion: 0.0044 },
 };
 
 @Injectable()
 export class AiCostTrackingService {
-  private readonly logger = new Logger(AiCostTrackingService.name);
-
   constructor(
     @InjectRepository(AiUsageLogEntity)
     private readonly usageRepo: Repository<AiUsageLogEntity>,
@@ -30,7 +30,8 @@ export class AiCostTrackingService {
     completionTokens: number;
   }) {
     const totalTokens = params.promptTokens + params.completionTokens;
-    const pricing = MODEL_PRICING[params.model] ?? MODEL_PRICING['gpt-4o-mini'];
+    const pricing =
+      MODEL_PRICING[params.model] ?? MODEL_PRICING['gpt-4.1-mini'];
     const cost =
       (params.promptTokens / 1000) * pricing.prompt +
       (params.completionTokens / 1000) * pricing.completion;

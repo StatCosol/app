@@ -1,4 +1,6 @@
--- Seed provided users with hashed password Statco@123 (bcrypt)
+-- Seed provided users with hashed password (bcrypt). The default seed
+-- password is documented in the internal onboarding wiki — do NOT inline it
+-- here. Override via SEED_DEFAULT_PASSWORD env if your seed script supports it.
 WITH data(email, name, role_id, user_code, password_hash) AS (
   VALUES
     ('slvmgmtconsultants@gmail.com','SLV CRM','ff8a300d-36eb-4d85-8a23-c393f8107211'::uuid,'CRM001','$2b$10$oUECOEpd78UtYgvSnkX8l.jqFLX0JxghfZeefvDWKVykTl0E03kbW'),

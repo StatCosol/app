@@ -65,7 +65,7 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
           <div class="header-top">
             <div class="header-info">
               <div class="header-name">
-                {{ emp.firstName }} {{ emp.lastName || '' }}
+                {{ emp.name }}
                 <ui-status-badge [status]="emp.isActive ? 'ACTIVE' : 'INACTIVE'" class="ml-2"></ui-status-badge>
                 <span *ngIf="emp.approvalStatus === 'PENDING'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Pending Approval</span>
                 <span *ngIf="emp.approvalStatus === 'REJECTED'" class="ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Rejected</span>
@@ -79,10 +79,60 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <ui-button *ngIf="emp.approvalStatus === 'PENDING'" variant="primary" (clicked)="approveEmployee()">Approve</ui-button>
               <ui-button *ngIf="emp.approvalStatus === 'PENDING'" variant="danger" (clicked)="rejectEmployee()">Reject</ui-button>
               <ui-button variant="primary" (clicked)="editEmployee()">Edit</ui-button>
-              <ui-button *ngIf="emp.isActive && emp.email && emp.approvalStatus !== 'PENDING'" variant="secondary" [disabled]="provisioningEss" (clicked)="provisionEssLogin()">
+              <ui-button variant="outline" [disabled]="downloadingLetter" (clicked)="downloadAppointmentLetter()">
+                {{ downloadingLetter ? 'Downloading...' : 'Appointment Letter (PDF)' }}
+              </ui-button>
+              <ui-button variant="outline" [disabled]="downloadingDocx" (clicked)="downloadAppointmentLetterDocx()">
+                {{ downloadingDocx ? 'Downloading...' : 'Appointment Letter (Word)' }}
+              </ui-button>
+              <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="secondary" [disabled]="provisioningEss || !hasValidEmail()" (clicked)="provisionEssLogin()"
+                [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
               <ui-button *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'" variant="danger" (clicked)="confirmDeactivate()">Deactivate</ui-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ESS Credentials Card (persistent after provisioning) -->
+        <div *ngIf="essResult?.generatedPassword" class="ess-credentials-card">
+          <div class="ess-cred-header">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <h4 class="text-sm font-semibold text-green-800">ESS Login Created Successfully</h4>
+            </div>
+            <button (click)="essResult = null" class="text-gray-400 hover:text-gray-600 p-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <p class="text-xs text-amber-700 mb-3">
+            <svg class="w-3.5 h-3.5 inline -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Copy these credentials now. The password will not be shown again.
+          </p>
+          <div class="ess-cred-fields">
+            <div class="ess-cred-row">
+              <span class="ess-cred-label">Email</span>
+              <span class="ess-cred-value">{{ essResult.email }}</span>
+              <button class="ess-copy-btn" (click)="copyCredential(essResult.email)" title="Copy email">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ess-cred-row">
+              <span class="ess-cred-label">Password</span>
+              <span class="ess-cred-value font-mono">{{ essResult.generatedPassword }}</span>
+              <button class="ess-copy-btn" (click)="copyCredential(essResult.generatedPassword)" title="Copy password">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -103,9 +153,9 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             <div class="info-section">
               <h4 class="info-section-title">Personal Information</h4>
               <div class="info-rows">
-                <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">{{ emp.firstName }} {{ emp.lastName || '' }}</span></div>
+                <div class="info-row"><span class="info-label">Name as per Aadhaar</span><span class="info-value">{{ emp.name }}</span></div>
                 <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ emp.gender || '-' }}</span></div>
-                <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">DOB as per Aadhaar</span><span class="info-value">{{ emp.dateOfBirth || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Father's Name</span><span class="info-value">{{ emp.fatherName || '-' }}</span></div>
               </div>
             </div>
@@ -134,9 +184,10 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
                 <div class="info-row"><span class="info-label">Employee Code</span><span class="info-value font-mono">{{ emp.employeeCode }}</span></div>
                 <div class="info-row"><span class="info-label">Designation</span><span class="info-value">{{ emp.designation || '-' }}</span></div>
                 <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
-                <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
                 <div *ngIf="emp.dateOfExit" class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
                 <div class="info-row"><span class="info-label">State</span><span class="info-value">{{ emp.stateCode || '-' }}</span></div>
+                <div class="info-row"><span class="info-label">CTC (Annual)</span><span class="info-value">{{ emp.ctc ? '₹' + (emp.ctc | number:'1.0-0') : '-' }}</span></div>
               </div>
             </div>
 
@@ -170,16 +221,23 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
             <div class="nom-header">
               <ui-status-badge [status]="nom.nominationType"></ui-status-badge>
               <span *ngIf="nom.declarationDate" class="text-xs text-gray-500 ml-2">Declared: {{ nom.declarationDate }}</span>
+              <ui-button variant="outline" size="sm" class="ml-auto"
+                         [disabled]="printingNomination === nom.nominationType"
+                         (clicked)="printNomination(nom.nominationType)">
+                {{ printingNomination === nom.nominationType ? 'Preparing...' : 'Print / Download PDF' }}
+              </ui-button>
             </div>
             <div *ngIf="nom.members && nom.members.length" class="nom-members">
               <div class="nom-member-row header">
-                <span>Name</span><span>Relationship</span><span>Share %</span><span>Minor</span>
+                <span>Name</span><span>Relationship</span><span>DOB</span><span>Share %</span><span>Address</span><span>Minor / Guardian</span>
               </div>
               <div *ngFor="let m of nom.members" class="nom-member-row">
                 <span>{{ m.memberName }}</span>
                 <span>{{ m.relationship || '-' }}</span>
+                <span>{{ m.dateOfBirth || '-' }}</span>
                 <span>{{ m.sharePct }}%</span>
-                <span>{{ m.isMinor ? 'Yes (' + (m.guardianName || '-') + ')' : 'No' }}</span>
+                <span>{{ m.address || '-' }}</span>
+                <span>{{ m.isMinor ? 'Yes — ' + (m.guardianName || '-') + (m.guardianRelationship ? ' (' + m.guardianRelationship + ')' : '') : 'No' }}</span>
               </div>
             </div>
             <div *ngIf="nom.witnessName" class="text-xs text-gray-500 mt-2">
@@ -193,8 +251,8 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <ui-form-select label="Nomination Type *" [options]="nomTypeOptions"
                               [(ngModel)]="nomForm.nominationType"></ui-form-select>
               <div class="form-field">
-                <label class="form-label">Declaration Date</label>
-                <input type="date" class="form-date-input" [(ngModel)]="nomForm.declarationDate" />
+                <label class="form-label" for="ced-declaration-date">Declaration Date</label>
+                <input autocomplete="off" id="ced-declaration-date" name="declarationDate" type="date" class="form-date-input" [(ngModel)]="nomForm.declarationDate" />
               </div>
               <ui-form-input label="Witness Name" [(ngModel)]="nomForm.witnessName"></ui-form-input>
               <ui-form-input label="Witness Address" [(ngModel)]="nomForm.witnessAddress"></ui-form-input>
@@ -209,15 +267,24 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <div *ngFor="let m of nomForm.members; let i = index" class="member-row">
                 <ui-form-input label="Name *" [(ngModel)]="m.memberName"></ui-form-input>
                 <ui-form-input label="Relationship" [(ngModel)]="m.relationship"></ui-form-input>
+                <div class="form-field">
+                  <label class="form-label" [attr.for]="'ced-nom-dob-' + i">Date of Birth</label>
+                  <input autocomplete="off" [id]="'ced-nom-dob-' + i" [name]="'nomDob' + i" type="date" class="form-date-input" [(ngModel)]="m.dateOfBirth" />
+                </div>
                 <ui-form-input label="Share %" type="number" [(ngModel)]="m.sharePct"></ui-form-input>
-                <div class="flex items-end gap-2">
-                  <label class="flex items-center gap-1 text-xs mt-5">
-                    <input type="checkbox" [(ngModel)]="m.isMinor"> Minor
+                <ui-form-input class="full" label="Address" [(ngModel)]="m.address"></ui-form-input>
+                <div class="member-actions">
+                  <label class="flex items-center gap-1 text-xs">
+                    <input autocomplete="off" [id]="'ced-is-minor-' + i" [name]="'isMinor' + i" type="checkbox" [(ngModel)]="m.isMinor"> Minor (under 18)
                   </label>
                   <button *ngIf="nomForm.members.length > 1"
-                    class="text-xs text-red-600 hover:underline mt-5" (click)="removeNomMember(i)">Remove</button>
+                    class="text-xs text-red-600 hover:underline ml-auto" (click)="removeNomMember(i)">Remove</button>
                 </div>
-                <ui-form-input *ngIf="m.isMinor" label="Guardian Name" [(ngModel)]="m.guardianName"></ui-form-input>
+                <div *ngIf="m.isMinor" class="guardian-block">
+                  <ui-form-input label="Guardian Name" [(ngModel)]="m.guardianName"></ui-form-input>
+                  <ui-form-input label="Guardian Relationship" [(ngModel)]="m.guardianRelationship"></ui-form-input>
+                  <ui-form-input class="full" label="Guardian Address" [(ngModel)]="m.guardianAddress"></ui-form-input>
+                </div>
               </div>
             </div>
 
@@ -280,12 +347,12 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
               <ui-form-select label="Document Type *" [options]="docTypeOptions" [(ngModel)]="docUpload.docType"></ui-form-select>
               <ui-form-input label="Document Name" [(ngModel)]="docUpload.docName" placeholder="e.g. Aadhaar Card"></ui-form-input>
               <div class="form-field">
-                <label class="form-label">Expiry Date</label>
-                <input type="date" class="form-date-input" [(ngModel)]="docUpload.expiryDate" />
+                <label class="form-label" for="ced-expiry-date">Expiry Date</label>
+                <input autocomplete="off" id="ced-expiry-date" name="expiryDate" type="date" class="form-date-input" [(ngModel)]="docUpload.expiryDate" />
               </div>
               <div class="form-field">
-                <label class="form-label">File (max 10 MB)</label>
-                <input type="file" (change)="onDocFileSelected($event)" class="text-sm border border-gray-300 rounded-lg p-2 bg-white" />
+                <label class="form-label" for="ced-file-max10mb">File (max 10 MB)</label>
+                <input id="ced-file-max10mb" type="file" (change)="onDocFileSelected($event)" class="text-sm border border-gray-300 rounded-lg p-2 bg-white" />
               </div>
             </div>
             <div class="mt-3 flex items-center gap-3">
@@ -360,8 +427,8 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
           <ui-modal *ngIf="showRevisionModal" title="New Salary Revision" (closed)="showRevisionModal = false">
             <div class="grid grid-cols-2 gap-3">
               <div class="form-field">
-                <label class="form-label">Effective Date *</label>
-                <input type="date" class="form-date-input" [(ngModel)]="revisionForm.effectiveDate" />
+                <label class="form-label" for="ced-effective-date">Effective Date *</label>
+                <input autocomplete="off" id="ced-effective-date" name="effectiveDate" type="date" class="form-date-input" [(ngModel)]="revisionForm.effectiveDate" />
               </div>
               <ui-form-input label="Previous CTC (₹) *" type="number" [(ngModel)]="revisionForm.previousCtc"></ui-form-input>
               <ui-form-input label="New CTC (₹) *" type="number" [(ngModel)]="revisionForm.newCtc"></ui-form-input>
@@ -438,18 +505,40 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
       }
       .nom-header { display: flex; align-items: center; margin-bottom: 0.5rem; }
       .nom-members { font-size: 0.9rem; margin-top: 0.75rem; }
-      .nom-member-row { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1.5fr; gap: 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid #f3f4f6; }
+      .nom-member-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 0.7fr 1.6fr 1.6fr; gap: 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid #f3f4f6; font-size: 0.85rem; }
       .nom-member-row.header { font-weight: 600; color: #374151; border-bottom-color: #d1d5db; }
       .nom-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
       .member-row {
         display: grid;
-        grid-template-columns: 1fr 1fr 0.5fr 0.75fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        margin-bottom: 0.75rem;
+      }
+      .member-row .full { grid-column: 1 / -1; }
+      .member-row .member-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-top: 0.25rem;
+        border-top: 1px dashed #e5e7eb;
+      }
+      .member-row .guardian-block {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         gap: 0.5rem;
         padding: 0.5rem;
-        background: #f9fafb;
+        margin-top: 0.25rem;
+        background: #ffffff;
+        border: 1px dashed #d1d5db;
         border-radius: 0.375rem;
-        margin-bottom: 0.5rem;
       }
+      .member-row .guardian-block .full { grid-column: 1 / -1; }
       .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
       .form-label { font-size: 0.875rem; font-weight: 500; color: #374151; }
       .form-date-input {
@@ -478,6 +567,60 @@ type DetailTab = 'profile' | 'nominations' | 'forms' | 'documents' | 'salary';
         .nom-form-grid { grid-template-columns: 1fr; }
         .member-row { grid-template-columns: 1fr; }
         .header-top { flex-direction: column; }
+      }
+
+      .ess-credentials-card {
+        background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+        border: 1px solid #86efac;
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+      }
+      .ess-cred-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      .ess-cred-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .ess-cred-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: white;
+        border: 1px solid #d1fae5;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+      }
+      .ess-cred-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #6b7280;
+        min-width: 64px;
+      }
+      .ess-cred-value {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #111827;
+        word-break: break-all;
+      }
+      .ess-copy-btn {
+        background: none;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        padding: 0.25rem;
+        cursor: pointer;
+        color: #6b7280;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .ess-copy-btn:hover {
+        color: #4f46e5;
+        border-color: #4f46e5;
       }
     `,
   ],
@@ -526,6 +669,10 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
   provisioningEss = false;
   essResult: any = null;
   essError = '';
+
+  // Appointment Letter
+  downloadingLetter = false;
+  downloadingDocx = false;
 
   // Documents
   documents: EmployeeDocument[] = [];
@@ -612,35 +759,81 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
     this.router.navigate(['/client/employees', this.employeeId, 'edit']);
   }
 
-  async confirmDeactivate(): Promise<void> {
-    if (!this.emp || !(await this.dialog.confirm('Deactivate Employee', `Deactivate ${this.emp.firstName} ${this.emp.lastName || ''}?`, { variant: 'danger', confirmText: 'Deactivate' }))) return;
+  downloadAppointmentLetter(): void {
+    if (this.downloadingLetter) return;
+    this.downloadingLetter = true;
+    this.svc.downloadAppointmentLetter(this.employeeId).pipe(
+      finalize(() => { this.downloadingLetter = false; this.cdr.detectChanges(); }),
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Appointment_Letter_${this.emp?.employeeCode || 'employee'}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to generate appointment letter'),
+    });
+  }
+
+  downloadAppointmentLetterDocx(): void {
+    if (this.downloadingDocx) return;
+    this.downloadingDocx = true;
+    this.svc.downloadAppointmentLetter(this.employeeId, 'docx').pipe(
+      finalize(() => { this.downloadingDocx = false; this.cdr.detectChanges(); }),
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Appointment_Letter_${this.emp?.employeeCode || 'employee'}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to generate appointment letter'),
+    });
+  }
+
+  confirmDeactivate(): void {
+    if (!this.emp || !confirm(`Deactivate ${this.emp.name}?`)) return;
     this.svc.deactivate(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadEmployee(),
       error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
     });
   }
 
-  async approveEmployee(): Promise<void> {
+  approveEmployee(): void {
     if (!this.emp) return;
-    if (!(await this.dialog.confirm('Approve Employee', `Approve registration of ${this.emp.firstName} ${this.emp.lastName || ''}?`, { confirmText: 'Approve' }))) return;
+    if (!confirm(`Approve registration of ${this.emp.name}?`)) return;
     this.svc.approve(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee approved'); this.loadEmployee(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to approve'),
     });
   }
 
-  async rejectEmployee(): Promise<void> {
+  rejectEmployee(): void {
     if (!this.emp) return;
-    if (!(await this.dialog.confirm('Reject Employee', `Reject registration of ${this.emp.firstName} ${this.emp.lastName || ''}? The employee will be deactivated.`, { variant: 'danger', confirmText: 'Reject' }))) return;
+    if (!confirm(`Reject registration of ${this.emp.name}? The employee will be deactivated.`)) return;
     this.svc.reject(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee rejected'); this.loadEmployee(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to reject'),
     });
   }
 
-  async provisionEssLogin(): Promise<void> {
-    if (!this.emp || !this.emp.email) return;
-    if (!(await this.dialog.confirm('Create ESS Login', `Create ESS login for ${this.emp.firstName} ${this.emp.lastName || ''}?\nEmail: ${this.emp.email}`))) return;
+  hasValidEmail(): boolean {
+    if (!this.emp?.email) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.emp.email);
+  }
+
+  provisionEssLogin(): void {
+    if (!this.emp || !this.hasValidEmail()) {
+      this.toast.error('Please add a valid email address for this employee first');
+      return;
+    }
+    if (!confirm(`Create ESS login for ${this.emp.name}?\nEmail: ${this.emp.email}`)) return;
     this.provisioningEss = true;
     this.essResult = null;
     this.essError = '';
@@ -653,10 +846,12 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.provisioningEss = false;
         this.essResult = res;
-        const msg = res.generatedPassword
-          ? `ESS login created!\nEmail: ${res.email}\nPassword: ${res.generatedPassword}\n\nPlease share these credentials with the employee.`
-          : `ESS login created for ${res.email}`;
-        this.toast.success(msg);
+        if (res.generatedPassword) {
+          this.toast.success('ESS login created — see credentials below');
+        } else {
+          this.toast.success(`ESS login created for ${res.email}`);
+        }
+        this.cdr.detectChanges();
       },
       error: (e) => {
         this.provisioningEss = false;
@@ -668,6 +863,13 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.router.navigate(['/client/employees']);
+  }
+
+  copyCredential(value: string): void {
+    navigator.clipboard.writeText(value).then(
+      () => this.toast.success('Copied to clipboard'),
+      () => this.toast.error('Failed to copy'),
+    );
   }
 
   // ── Nominations ─────────────────────────────────────────────
@@ -689,13 +891,27 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
       declarationDate: '',
       witnessName: '',
       witnessAddress: '',
-      members: [{ memberName: '', relationship: '', sharePct: 100, isMinor: false, guardianName: '' }],
+      members: [this.blankNomMember(100)],
     };
     this.showNomModal = true;
   }
 
   addNomMember(): void {
-    this.nomForm.members.push({ memberName: '', relationship: '', sharePct: 0, isMinor: false, guardianName: '' });
+    this.nomForm.members.push(this.blankNomMember(0));
+  }
+
+  private blankNomMember(sharePct: number): any {
+    return {
+      memberName: '',
+      relationship: '',
+      dateOfBirth: '',
+      sharePct,
+      address: '',
+      isMinor: false,
+      guardianName: '',
+      guardianRelationship: '',
+      guardianAddress: '',
+    };
   }
 
   removeNomMember(i: number): void {
@@ -761,6 +977,27 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
           this.formGenError = true;
         },
       });
+  }
+
+  // Print/Download nomination form (streamed PDF)
+  printingNomination = '';
+  printNomination(formType: string): void {
+    if (this.printingNomination) return;
+    this.printingNomination = formType;
+    this.svc.printNominationForm(this.employeeId, formType).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.printingNomination = ''; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${formType}_Nomination_${this.emp?.employeeCode || 'employee'}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to download nomination form'),
+    });
   }
 
   // ── Documents ───────────────────────────────────────────────

@@ -168,7 +168,35 @@ th {
 }
 
 .compact table {
-  min-width: 560px;
+  min-width: 520px;
+}
+
+.history-table {
+  table-layout: auto;
+  min-width: 0;
+}
+
+.history-table th.period,
+.history-table td.period {
+  text-align: left;
+  min-width: 120px;
+}
+
+.history-table th.metric,
+.history-table td.metric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-table th:first-child,
+.history-table td:first-child {
+  padding-left: 0.75rem;
+}
+
+.history-table th:last-child,
+.history-table td:last-child {
+  padding-right: 0.75rem;
 }
 
 .danger {

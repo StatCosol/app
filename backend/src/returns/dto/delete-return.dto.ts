@@ -1,8 +1,8 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class DeleteReturnDto {
-  @IsOptional()
+  @IsNotEmpty({ message: 'Reason is required when deleting a return' })
   @IsString()
   @MaxLength(500)
-  reason?: string;
+  reason: string;
 }

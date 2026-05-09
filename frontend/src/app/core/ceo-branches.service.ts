@@ -44,8 +44,8 @@ export class CeoBranchesService {
   }
 
   exportReport(type: string, month: string): Observable<Blob> {
-    return this.http.get(`${environment.apiBaseUrl || ''}/api/v1/ceo/reports/${type}`, {
-      params: new HttpParams().set('month', month),
+    return this.http.get(`${environment.apiBaseUrl || ''}/api/v1/ceo/reports/export`, {
+      params: new HttpParams().set('type', type).set('period', month).set('month', month),
       responseType: 'blob',
     });
   }

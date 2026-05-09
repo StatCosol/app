@@ -2,6 +2,11 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import {
+  ClientComplianceSummary,
+  ComplianceCalendarItem,
+  ReminderNotificationItem,
+} from './models/returns.models';
 
 @Injectable({ providedIn: 'root' })
 export class ReturnsService {
@@ -19,8 +24,10 @@ export class ReturnsService {
     return this.http.get(`${this.baseUrl}/api/v1/client/returns/filings`, { params });
   }
 
-  listTypes(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/api/v1/client/returns/types`);
+  listTypes(branchId?: string): Observable<any> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get(`${this.baseUrl}/api/v1/client/returns/types`, { params });
   }
 
   createFiling(payload: any): Observable<any> {
@@ -42,5 +49,46 @@ export class ReturnsService {
 
   submitFiling(id: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/v1/client/returns/filings/${id}/submit`, {});
+  }
+
+  // ── Client Master visibility endpoints ──
+
+  getClientReturns(clientId: string, branchId?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/client/returns-visibility/${clientId}`, { params });
+  }
+
+  getClientExpiryTasks(clientId: string, branchId?: string): Observable<any[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<any[]>(`${this.baseUrl}/api/v1/client/expiry-visibility/${clientId}`, { params });
+  }
+
+  getClientComplianceSummary(clientId: string, branchId?: string): Observable<ClientComplianceSummary> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<ClientComplianceSummary>(
+      `${this.baseUrl}/api/v1/client/compliance-summary/${clientId}`,
+      { params },
+    );
+  }
+
+  getComplianceCalendar(clientId: string, branchId?: string): Observable<ComplianceCalendarItem[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<ComplianceCalendarItem[]>(
+      `${this.baseUrl}/api/v1/client/compliance-calendar/${clientId}`,
+      { params },
+    );
+  }
+
+  getReminderNotifications(clientId: string, branchId?: string): Observable<ReminderNotificationItem[]> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId);
+    return this.http.get<ReminderNotificationItem[]>(
+      `${this.baseUrl}/api/v1/client/compliance-reminders/${clientId}`,
+      { params },
+    );
   }
 }

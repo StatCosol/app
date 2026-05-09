@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -12,8 +13,13 @@ export class UploadCrmDocumentDto {
   clientId!: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  branchId!: string;
+  @IsOptional()
+  branchId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['COMPANY', 'BRANCH'])
+  scope?: 'COMPANY' | 'BRANCH';
 
   @IsOptional()
   @IsString()

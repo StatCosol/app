@@ -1,0 +1,134 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: statcompy-rg
+  ACR_NAME: statcompyacr001
+  ACR_LOGIN_SERVER: statcompyacr001.azurecr.io
+  BACKEND_IMAGE: statcompy-backend
+  FRONTEND_IMAGE: statcompy-frontend
+  BACKEND_APP: statcompy-backend
+  FRONTEND_APP: statcompy-frontend
+  CONTAINER_ENV: statcompy-env
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ github.sha }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      # ── Build & Push Backend Image ──
+      - name: Build and push backend
+        run: |
+          docker build \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:latest \
+            ./backend
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }} --all-tags
+
+      # ── Build & Push Frontend Image ──
+      - name: Build and push frontend
+        run: |
+          docker build \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:latest \
+            ./frontend
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }} --all-tags
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend Container App
+        run: |
+          az containerapp update \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      - name: Verify backend health
+        run: |
+          BACKEND_FQDN=$(az containerapp show \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "Backend URL: https://${BACKEND_FQDN}"
+          for i in {1..12}; do
+            if curl -fsS "https://${BACKEND_FQDN}/api/v1/health"; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Backend health check pending..."
+            sleep 10
+          done
+          echo "Backend health check failed"
+          exit 1
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-backend]
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy frontend Container App
+        run: |
+          az containerapp update \
+            --name ${{ env.FRONTEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+      - name: Show deployment URLs
+        run: |
+          BACKEND_FQDN=$(az containerapp show \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          FRONTEND_FQDN=$(az containerapp show \
+            --name ${{ env.FRONTEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "Backend:  https://${BACKEND_FQDN}"
+          echo "Frontend: https://${FRONTEND_FQDN}"
+
+      - name: Verify frontend health
+        run: |
+          FRONTEND_FQDN=$(az containerapp show \
+            --name ${{ env.FRONTEND_APP }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          for i in {1..12}; do
+            if curl -fsSI "https://${FRONTEND_FQDN}/app/" >/dev/null; then
+              echo "Frontend is healthy"
+              exit 0
+            fi
+            echo "Frontend health check pending..."
+            sleep 10
+          done
+          echo "Frontend health check failed"
+          exit 1

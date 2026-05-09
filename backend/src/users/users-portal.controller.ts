@@ -6,21 +6,26 @@ import {
   Post,
   Param,
   ParseUUIDPipe,
-  Req,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UsersService } from './users.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
+@ApiTags('Users Portal')
+@ApiBearerAuth()
 @Controller({ path: 'users', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class UsersPortalController {
   constructor(private readonly usersService: UsersService) {}
 
+  @ApiOperation({ summary: 'List users' })
   @Get()
   async list() {
     const rows = await this.usersService.listUsersWithRoleCode();
@@ -34,6 +39,7 @@ export class UsersPortalController {
     }));
   }
 
+  @ApiOperation({ summary: 'Create user' })
   @Post()
   async create(
     @Body()
@@ -93,6 +99,7 @@ export class UsersPortalController {
     return created;
   }
 
+  @ApiOperation({ summary: 'Update user' })
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -105,8 +112,8 @@ export class UsersPortalController {
       isActive?: boolean;
       mobile?: string;
     },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.usersService.updateUserFromPortal(id, dto, req.user?.userId);
+    return this.usersService.updateUserFromPortal(id, dto, user?.userId);
   }
 }

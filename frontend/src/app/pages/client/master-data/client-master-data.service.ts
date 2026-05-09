@@ -19,8 +19,9 @@ export class ClientMasterDataService {
   constructor(private http: HttpClient) {}
 
   // Departments
-  listDepartments(): Observable<MasterItem[]> {
-    return this.http.get<any>(`${this.base}/departments`).pipe(
+  listDepartments(clientId?: string): Observable<MasterItem[]> {
+    const params = clientId ? `?clientId=${clientId}` : '';
+    return this.http.get<any>(`${this.base}/departments${params}`).pipe(
       map(res => Array.isArray(res) ? res : res?.data ?? []),
     );
   }
@@ -32,8 +33,9 @@ export class ClientMasterDataService {
   }
 
   // Grades
-  listGrades(): Observable<MasterItem[]> {
-    return this.http.get<any>(`${this.base}/grades`).pipe(
+  listGrades(clientId?: string): Observable<MasterItem[]> {
+    const params = clientId ? `?clientId=${clientId}` : '';
+    return this.http.get<any>(`${this.base}/grades${params}`).pipe(
       map(res => Array.isArray(res) ? res : res?.data ?? []),
     );
   }

@@ -21,6 +21,7 @@ import {
   SafetyDocumentsApi,
 } from '../../../core/api/safety-documents.api';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 import {
   ActionButtonComponent,
   EmptyStateComponent,
@@ -86,8 +87,8 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
     { key: 'registrations', label: 'Registrations' },
     { key: 'safety', label: 'Safety' },
     { key: 'audits', label: 'Audits' },
-    { key: 'employees', label: 'Employees' },
-    { key: 'contractors', label: 'Contractors' },
+    { key: 'employees', label: 'On-Role Employees' },
+    { key: 'contractors', label: 'Contract Employees' },
   ];
 
   tabLoading: Record<WorkspaceTab, boolean> = {
@@ -159,6 +160,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
     private readonly auditsSvc: ClientAuditsService,
     private readonly employeesSvc: ClientEmployeesService,
     private readonly contractorsSvc: ClientContractorsService,
+    private readonly protectedFiles: ProtectedFileService,
   ) {
     this.isMasterUser = this.auth.isMasterUser();
   }
@@ -242,7 +244,14 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
 
   openPath(path?: string | null): void {
     if (!path) return;
-    window.open(this.auth.authenticateUrl(path), '_blank');
+    this.protectedFiles
+      .open(path)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to open file.');
+        },
+      });
   }
 
   documentPath(row: any): string {
@@ -602,7 +611,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
       )
       .subscribe(({ summary, tasks, returns, audit }) => {
         this.complianceSummary = summary;
-        this.complianceTasks = this.toArray((tasks as any)?.items || (tasks as any)?.data || tasks);
+        this.complianceTasks = this.toArray(tasks?.items || tasks?.data || tasks);
         this.complianceReturns = returns;
         this.complianceAudit = audit;
 
@@ -653,7 +662,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe((res: any) => {
-        this.returns = this.toArray((res as any)?.data || res);
+        this.returns = this.toArray(res?.data || res);
         this.rebuildPendingPanel();
       });
   }
@@ -672,7 +681,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe((res: any) => {
-        this.registrations = this.toArray((res as any)?.data || res);
+        this.registrations = this.toArray(res?.data || res);
         this.rebuildPendingPanel();
       });
   }
@@ -711,7 +720,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe((res: any) => {
-        const rows = this.toArray((res as any)?.data || res);
+        const rows = this.toArray(res?.data || res);
         this.audits = rows.filter((row) => this.matchBranch(row));
         this.rebuildPendingPanel();
       });
@@ -756,7 +765,7 @@ export class BranchDetailComponent implements OnInit, OnDestroy {
         }),
       )
       .subscribe(({ rows, branchView }) => {
-        this.contractors = this.toArray((rows as any)?.data || rows);
+        this.contractors = this.toArray(rows?.data || rows);
         this.contractorBranchView = branchView;
         this.rebuildPendingPanel();
       });

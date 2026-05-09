@@ -2,13 +2,29 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BranchesService } from '../branches/branches.service';
-import { UsersService } from '../users/users.service';
+import { UsersService, ContractorRow } from '../users/users.service';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { ContractorRequiredDocumentEntity } from './entities/contractor-required-document.entity';
 
 const PENALTY_MISSING = 10;
 const PENALTY_REJECTED = 15;
 const PENALTY_EXPIRED = 8;
+
+interface DocStats {
+  uploadedDistinct: number;
+  rejectedCount: number;
+  expiredCount: number;
+}
+
+interface MonthlyDocStats {
+  totalDocs: number;
+  approvedDocs: number;
+  rejectedDocs: number;
+  pendingReviewDocs: number;
+  uploadedDocs: number;
+  expiredDocs: number;
+  uploadedDistinct: number;
+}
 
 const monthKey = (d: Date) =>
   `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -103,7 +119,7 @@ export class ContractorDashboardService {
     }
     const rows = await qb.groupBy('r.contractor_user_id').getRawMany();
     const map = new Map<string, number>();
-    rows.forEach((r: any) =>
+    rows.forEach((r: { contractorId: string; requiredCount: string }) =>
       map.set(String(r.contractorId), Number(r.requiredCount || 0)),
     );
     return map;
@@ -116,7 +132,7 @@ export class ContractorDashboardService {
     start: Date,
     end: Date,
   ) {
-    if (!contractorIds.length) return new Map<string, any>();
+    if (!contractorIds.length) return new Map<string, DocStats>();
     const qb = this.docRepo
       .createQueryBuilder('d')
       .select('d.contractor_user_id', 'contractorId')
@@ -138,13 +154,19 @@ export class ContractorDashboardService {
       qb.andWhere('d.branch_id IN (:...branchIds)', { branchIds });
     }
     const rows = await qb.groupBy('d.contractor_user_id').getRawMany();
-    const map = new Map<string, any>();
-    rows.forEach((r: any) =>
-      map.set(String(r.contractorId), {
-        uploadedDistinct: Number(r.uploadedDistinct || 0),
-        rejectedCount: Number(r.rejectedCount || 0),
-        expiredCount: Number(r.expiredCount || 0),
-      }),
+    const map = new Map<string, DocStats>();
+    rows.forEach(
+      (r: {
+        contractorId: string;
+        uploadedDistinct: string;
+        rejectedCount: string;
+        expiredCount: string;
+      }) =>
+        map.set(String(r.contractorId), {
+          uploadedDistinct: Number(r.uploadedDistinct || 0),
+          rejectedCount: Number(r.rejectedCount || 0),
+          expiredCount: Number(r.expiredCount || 0),
+        }),
     );
     return map;
   }
@@ -156,7 +178,7 @@ export class ContractorDashboardService {
     start: Date,
     end: Date,
   ) {
-    if (!contractorIds.length) return new Map<string, any>();
+    if (!contractorIds.length) return new Map<string, MonthlyDocStats>();
     const qb = this.docRepo
       .createQueryBuilder('d')
       .select('d.contractor_user_id', 'contractorId')
@@ -193,17 +215,27 @@ export class ContractorDashboardService {
     }
 
     const rows = await qb.groupBy('d.contractor_user_id').getRawMany();
-    const map = new Map<string, any>();
-    rows.forEach((r: any) =>
-      map.set(String(r.contractorId), {
-        totalDocs: Number(r.totalDocs || 0),
-        approvedDocs: Number(r.approvedDocs || 0),
-        rejectedDocs: Number(r.rejectedDocs || 0),
-        pendingReviewDocs: Number(r.pendingReviewDocs || 0),
-        uploadedDocs: Number(r.uploadedDocs || 0),
-        expiredDocs: Number(r.expiredDocs || 0),
-        uploadedDistinct: Number(r.uploadedDistinct || 0),
-      }),
+    const map = new Map<string, MonthlyDocStats>();
+    rows.forEach(
+      (r: {
+        contractorId: string;
+        totalDocs: string;
+        approvedDocs: string;
+        rejectedDocs: string;
+        pendingReviewDocs: string;
+        uploadedDocs: string;
+        expiredDocs: string;
+        uploadedDistinct: string;
+      }) =>
+        map.set(String(r.contractorId), {
+          totalDocs: Number(r.totalDocs || 0),
+          approvedDocs: Number(r.approvedDocs || 0),
+          rejectedDocs: Number(r.rejectedDocs || 0),
+          pendingReviewDocs: Number(r.pendingReviewDocs || 0),
+          uploadedDocs: Number(r.uploadedDocs || 0),
+          expiredDocs: Number(r.expiredDocs || 0),
+          uploadedDistinct: Number(r.uploadedDistinct || 0),
+        }),
     );
     return map;
   }
@@ -215,7 +247,7 @@ export class ContractorDashboardService {
     start: Date,
     end: Date,
   ) {
-    if (!contractorIds.length) return new Map<string, any>();
+    if (!contractorIds.length) return new Map<string, Record<string, number>>();
     const requiredMap = await this.getRequiredCounts(
       clientId,
       contractorIds,
@@ -235,7 +267,7 @@ export class ContractorDashboardService {
       end,
     );
 
-    const result = new Map<string, any>();
+    const result = new Map<string, Record<string, number>>();
     contractorIds.forEach((id) => {
       const requiredCount = requiredMap.get(id) ?? 0;
       const doc = docMap.get(id) ?? {
@@ -282,8 +314,8 @@ export class ContractorDashboardService {
     return result;
   }
 
-  private dedupeContractors(rows: any[]) {
-    const seen = new Map<string, any>();
+  private dedupeContractors(rows: ContractorRow[]) {
+    const seen = new Map<string, ContractorRow>();
     for (const r of rows) {
       if (!seen.has(r.id)) seen.set(r.id, r);
     }
@@ -300,11 +332,11 @@ export class ContractorDashboardService {
     let branches = await this.branchesService.findByClient(clientId);
     if (branchIdsOverride?.length) {
       const allow = new Set(branchIdsOverride.map(String));
-      branches = branches.filter((b: any) => allow.has(String(b.id)));
+      branches = branches.filter((b) => allow.has(String(b.id)));
     }
 
-    const branchIds = branches.map((b: any) => b.id);
-    const branchMap = new Map(branches.map((b: any) => [String(b.id), b]));
+    const branchIds = branches.map((b) => b.id);
+    const branchMap = new Map(branches.map((b) => [String(b.id), b]));
 
     if (!branchIds.length) {
       return {
@@ -330,7 +362,7 @@ export class ContractorDashboardService {
       };
     }
 
-    const contractorIds = contractors.map((c: any) => c.id);
+    const contractorIds = contractors.map((c) => c.id);
     const requiredMap = await this.getRequiredCounts(
       clientId,
       contractorIds,
@@ -350,7 +382,7 @@ export class ContractorDashboardService {
       end,
     );
 
-    const scored = contractors.map((c: any) => {
+    const scored = contractors.map((c) => {
       const required = requiredMap.get(c.id) ?? 0;
       const doc = docMap.get(c.id) ?? {
         uploadedDistinct: 0,
@@ -371,9 +403,7 @@ export class ContractorDashboardService {
         name: c.name,
         branchId: c.branchId,
         branchName: c.branchId
-          ? branchMap.get(String(c.branchId))?.branchName ||
-            branchMap.get(String(c.branchId))?.name ||
-            null
+          ? branchMap.get(String(c.branchId))?.branchName || null
           : null,
         score,
         uploadPercent,
@@ -421,9 +451,7 @@ export class ContractorDashboardService {
   async branchOverview(clientId: string, branchId: string, month?: string) {
     const { start, end } = this.parseMonth(month);
     const branches = await this.branchesService.findByClient(clientId);
-    const allowed = branches.find(
-      (b: any) => String(b.id) === String(branchId),
-    );
+    const allowed = branches.find((b) => String(b.id) === String(branchId));
     if (!allowed)
       throw new BadRequestException('Branch not found for this client');
     const branchIds = [allowed.id];
@@ -439,7 +467,7 @@ export class ContractorDashboardService {
       };
     }
 
-    const contractorIds = contractors.map((c: any) => c.id);
+    const contractorIds = contractors.map((c) => c.id);
     const requiredMap = await this.getRequiredCounts(
       clientId,
       contractorIds,
@@ -459,7 +487,7 @@ export class ContractorDashboardService {
       end,
     );
 
-    const scored = contractors.map((c: any) => {
+    const scored = contractors.map((c) => {
       const required = requiredMap.get(c.id) ?? 0;
       const doc = docMap.get(c.id) ?? {
         uploadedDistinct: 0,
@@ -514,7 +542,7 @@ export class ContractorDashboardService {
 
     return {
       branchId: allowed.id,
-      branchName: (allowed as any).branchName || (allowed as any).name || null,
+      branchName: allowed.branchName || null,
       branchUploadPercent,
       branchScore,
       branchAuditRiskPoints,
@@ -563,13 +591,19 @@ export class ContractorDashboardService {
       .groupBy("to_char(date_trunc('month', d.created_at), 'YYYY-MM')")
       .getRawMany();
 
-    const statMap = new Map<string, any>();
-    rows.forEach((r: any) =>
-      statMap.set(String(r.month), {
-        uploadedDistinct: Number(r.uploadedDistinct || 0),
-        rejectedCount: Number(r.rejectedCount || 0),
-        expiredCount: Number(r.expiredCount || 0),
-      }),
+    const statMap = new Map<string, DocStats>();
+    rows.forEach(
+      (r: {
+        month: string;
+        uploadedDistinct: string;
+        rejectedCount: string;
+        expiredCount: string;
+      }) =>
+        statMap.set(String(r.month), {
+          uploadedDistinct: Number(r.uploadedDistinct || 0),
+          rejectedCount: Number(r.rejectedCount || 0),
+          expiredCount: Number(r.expiredCount || 0),
+        }),
     );
 
     // Audit risk points per month for this contractor
@@ -586,7 +620,7 @@ export class ContractorDashboardService {
         rejectedCount: 0,
         expiredCount: 0,
       };
-      const { score, missing } = this.score(
+      const { score } = this.score(
         requiredCount,
         stat.uploadedDistinct,
         stat.rejectedCount,
@@ -627,8 +661,9 @@ export class ContractorDashboardService {
   ): Promise<Map<string, number>> {
     if (!contractorIds.length) return new Map();
 
-    const rows: any[] = await this.docRepo.manager.query(
-      `SELECT a.contractor_user_id AS "contractorId",
+    const rows: Array<{ contractorId: string; riskPoints: string }> =
+      await this.docRepo.manager.query(
+        `SELECT a.contractor_user_id AS "contractorId",
               SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 4
                        WHEN ao.risk = 'HIGH' THEN 3
                        WHEN ao.risk = 'MEDIUM' THEN 2
@@ -641,8 +676,8 @@ export class ContractorDashboardService {
          AND ao.created_at >= $3
          AND ao.created_at < $4
        GROUP BY a.contractor_user_id`,
-      [clientId, contractorIds, start, end],
-    );
+        [clientId, contractorIds, start, end],
+      );
 
     const map = new Map<string, number>();
     rows.forEach((r) =>
@@ -661,8 +696,9 @@ export class ContractorDashboardService {
     start: Date,
     end: Date,
   ): Promise<Map<string, number>> {
-    const rows: any[] = await this.docRepo.manager.query(
-      `SELECT to_char(date_trunc('month', ao.created_at), 'YYYY-MM') AS "month",
+    const rows: Array<{ month: string; riskPoints: string }> =
+      await this.docRepo.manager.query(
+        `SELECT to_char(date_trunc('month', ao.created_at), 'YYYY-MM') AS "month",
               SUM(CASE WHEN ao.risk = 'CRITICAL' THEN 4
                        WHEN ao.risk = 'HIGH' THEN 3
                        WHEN ao.risk = 'MEDIUM' THEN 2
@@ -675,8 +711,8 @@ export class ContractorDashboardService {
          AND ao.created_at >= $3
          AND ao.created_at < $4
        GROUP BY to_char(date_trunc('month', ao.created_at), 'YYYY-MM')`,
-      [clientId, contractorId, start, end],
-    );
+        [clientId, contractorId, start, end],
+      );
 
     const map = new Map<string, number>();
     rows.forEach((r) => map.set(String(r.month), Number(r.riskPoints || 0)));

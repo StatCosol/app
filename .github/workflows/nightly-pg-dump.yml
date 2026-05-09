@@ -1,0 +1,143 @@
+name: Nightly PG Logical Dump
+
+# Takes a nightly compressed pg_dump (custom format) of the production
+# database and uploads it to a private blob container `pgdumps` on
+# `statcompystorage` (GRS).
+#
+# Why on top of Azure PITR?
+#   - Logical dumps are portable (can restore to any PG instance / version >= source).
+#   - Independent backup chain: protects against subscription-level loss.
+#   - Human-restorable with `pg_restore` (no Azure portal dependency).
+#
+# Retention: 90 days for current dumps, 35 days for prior versions
+# (enforced by the lifecycle rule on the storage account).
+#
+# Aligned with docs/policies/BACKUP_AND_DR_POLICY.md.
+
+on:
+  schedule:
+    # 18:00 UTC = 23:30 IST (after EOD, before midnight payroll jobs)
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  RG: statcompy-rg
+  CA_NAME: statcompy-backend
+  PG_HOST: statcompy-db.postgres.database.azure.com
+  PG_USER: Statcocompy
+  PG_DB: statcompy
+  STORAGE_ACCOUNT: statcompystorage
+  STORAGE_CONTAINER: pgdumps
+
+jobs:
+  dump:
+    name: pg_dump -> blob
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install PostgreSQL client 16
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          pg_dump --version
+
+      - name: Get this runner's public IP
+        id: ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> "$GITHUB_OUTPUT"
+
+      - name: Open temporary PG firewall rule
+        run: |
+          az postgres flexible-server firewall-rule create \
+            -g "$RG" -n statcompy-db \
+            -r "ghdump-${{ github.run_id }}" \
+            --start-ip-address "${{ steps.ip.outputs.ip }}" \
+            --end-ip-address   "${{ steps.ip.outputs.ip }}" \
+            --output none
+
+      - name: Fetch DB password from Container App secret
+        id: pwd
+        run: |
+          PWD=$(az containerapp secret show \
+            -g "$RG" -n "$CA_NAME" --secret-name db-pass \
+            --query value -o tsv)
+          echo "::add-mask::$PWD"
+          echo "PGPASSWORD=$PWD" >> "$GITHUB_ENV"
+
+      - name: Run pg_dump (custom format, level 6 zstd-equivalent gzip)
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          OUT="statcompy-${STAMP}.dump"
+          echo "DUMP_FILE=$OUT" >> "$GITHUB_ENV"
+          pg_dump \
+            --host="$PG_HOST" \
+            --username="$PG_USER" \
+            --dbname="$PG_DB" \
+            --format=custom \
+            --compress=6 \
+            --no-owner --no-privileges \
+            --verbose \
+            --file="$OUT" 2> pg_dump.log | tail -50 || (tail -100 pg_dump.log && exit 1)
+          ls -lh "$OUT"
+          sha256sum "$OUT" | tee "${OUT}.sha256"
+
+      - name: Upload dump to blob (GRS)
+        run: |
+          set -euo pipefail
+          KEY=$(az storage account keys list -g "$RG" -n "$STORAGE_ACCOUNT" --query "[0].value" -o tsv)
+          az storage blob upload \
+            --account-name "$STORAGE_ACCOUNT" --account-key "$KEY" \
+            --container-name "$STORAGE_CONTAINER" \
+            --name "$DUMP_FILE" \
+            --file "$DUMP_FILE" \
+            --tier Cool \
+            --overwrite false \
+            --output none
+          az storage blob upload \
+            --account-name "$STORAGE_ACCOUNT" --account-key "$KEY" \
+            --container-name "$STORAGE_CONTAINER" \
+            --name "${DUMP_FILE}.sha256" \
+            --file "${DUMP_FILE}.sha256" \
+            --overwrite false \
+            --output none
+          echo "Uploaded $DUMP_FILE ($(stat -c%s "$DUMP_FILE") bytes)"
+
+      - name: Always — remove temporary firewall rule
+        if: always()
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            -g "$RG" -n statcompy-db \
+            -r "ghdump-${{ github.run_id }}" \
+            --yes --output none || true
+
+      - name: Always — wipe local dump
+        if: always()
+        run: |
+          rm -f "${DUMP_FILE:-}" "${DUMP_FILE:-}.sha256" pg_dump.log || true
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Nightly PG dump complete"
+            echo ""
+            echo "- **Database:** \`$PG_DB\` on \`$PG_HOST\`"
+            echo "- **Blob:** \`$STORAGE_ACCOUNT/$STORAGE_CONTAINER/$DUMP_FILE\`"
+            echo "- **Tier:** Cool"
+            echo "- **Retention:** 90 days (current) / 35 days (versions) via lifecycle rule"
+          } >> "$GITHUB_STEP_SUMMARY"

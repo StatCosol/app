@@ -84,7 +84,7 @@ export class NotificationsService {
     const queryType = (r?.queryType ?? r?.query_type ?? r?.query_type?.toUpperCase?.()) as NotificationQueryType;
     return {
       id: String(r?.id ?? ''),
-      queryType: (queryType || 'TECHNICAL') as any,
+      queryType: (queryType || 'TECHNICAL') as NotificationQueryType,
       subject: (r?.subject ?? r?.title ?? null) ? String(r?.subject ?? r?.title) : null,
       clientId: r?.clientId ?? r?.client_id ?? null,
       branchId: r?.branchId ?? r?.branch_id ?? null,
@@ -105,7 +105,7 @@ export class NotificationsService {
     const t = {
       id: String(thread?.id ?? ''),
       status: (thread?.status ?? 'OPEN') as NotificationStatus,
-      queryType: (q || 'TECHNICAL') as any,
+      queryType: (q || 'TECHNICAL') as NotificationQueryType,
       clientId: thread?.clientId ?? thread?.client_id ?? null,
       branchId: thread?.branchId ?? thread?.branch_id ?? null,
       subject: (thread?.subject ?? thread?.title ?? null) ? String(thread?.subject ?? thread?.title) : null,
@@ -117,10 +117,10 @@ export class NotificationsService {
       threadId: String(m?.threadId ?? m?.thread_id ?? m?.notificationId ?? m?.notification_id ?? t.id),
       message: String(m?.message ?? ''),
       createdAt: String(m?.createdAt ?? m?.created_at ?? ''),
-      from: m?.from ?? m?.sender ?? m?.createdBy ?? (m?.sender_user_id ? { id: m.sender_user_id } : null),
+      from: m?.from ?? m?.sender ?? m?.createdBy ?? (m?.sender_user_id ? { id: m.sender_user_id, name: null, roleCode: null, email: null } : null),
     }));
 
-    return { thread: t, messages: normalizedMessages } as any;
+    return { thread: t, messages: normalizedMessages };
   }
 
   createQuery(payload: CreateNotificationPayload) {
@@ -156,7 +156,7 @@ export class NotificationsService {
       .get<{ data?: any[]; rows?: any[]; total: number }>(`${this.baseUrl}/inbox`, { params: p })
       .pipe(
         map((res) => ({
-          data: ((res?.data ?? res?.rows ?? []) as any[]).map((r) => this.normalizeThreadRow(r)),
+          data: (res?.data ?? res?.rows ?? []).map((r) => this.normalizeThreadRow(r)),
           total: Number(res?.total ?? 0),
         })),
       );
@@ -179,7 +179,7 @@ export class NotificationsService {
       .get<{ data?: any[]; rows?: any[]; total: number }>(`${this.baseUrl}/my`, { params: p })
       .pipe(
         map((res) => ({
-          data: ((res?.data ?? res?.rows ?? []) as any[]).map((r) => this.normalizeThreadRow(r)),
+          data: (res?.data ?? res?.rows ?? []).map((r) => this.normalizeThreadRow(r)),
           total: Number(res?.total ?? 0),
         })),
       );
@@ -203,7 +203,7 @@ export class NotificationsService {
       })
       .pipe(
         map((res) => ({
-          data: ((res?.data ?? res?.rows ?? []) as any[]).map((r) => this.normalizeThreadRow(r)),
+          data: (res?.data ?? res?.rows ?? []).map((r) => this.normalizeThreadRow(r)),
           total: Number(res?.total ?? 0),
         })),
       );

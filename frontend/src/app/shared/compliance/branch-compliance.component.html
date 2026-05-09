@@ -3,100 +3,110 @@
     <div>
       <h1 class="title">Branch Compliance</h1>
       <div class="sub">
-        Showing applicable rules for this branch only.
-        <span *ngIf="stateCode">State: <b>{{ stateCode }}</b></span>
-        <span *ngIf="establishmentType"> &bull; Type: <b>{{ establishmentType }}</b></span>
+        Branch-level operating view for schedule health, compliance completion, and workflow routing.
+      </div>
+      <div class="flex flex-wrap gap-2.5 mt-2.5 text-xs text-slate-600">
+        <span *ngIf="clientName"><strong>{{ clientName }}</strong><span *ngIf="clientCode"> | {{ clientCode }}</span></span>
+        <span *ngIf="selectedBranch">Branch: <strong>{{ selectedBranch?.name }}</strong><span *ngIf="selectedBranch?.branchCode"> | {{ selectedBranch?.branchCode }}</span></span>
+        <span *ngIf="stateCode">State: <strong>{{ stateCode }}</strong></span>
+        <span *ngIf="establishmentType">Type: <strong>{{ establishmentType }}</strong></span>
+        <span>Compliance Month: <strong>{{ monthLabel }}</strong></span>
       </div>
     </div>
 
     <div class="controls">
-      <input type="month" [(ngModel)]="month" (change)="load()" />
+      <input autocomplete="off" id="bc-month" type="month" name="compMonth" [(ngModel)]="month" (change)="load()" />
 
-      <select [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length===1">
+      <select id="bc-branch-id" name="compBranchId" [(ngModel)]="branchId" (change)="load()">
         <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
       </select>
 
-      <select [(ngModel)]="module" (change)="load()">
+      <select id="bc-module" name="compModule" [(ngModel)]="module" (change)="load()">
         <option value="ALL">All</option>
         <option value="RETURNS">Returns</option>
         <option value="MCD">MCD</option>
       </select>
+
+      <button class="btn2" type="button" (click)="load()">Refresh</button>
     </div>
   </div>
 
-  <div *ngIf="loading" class="muted" style="padding:8px 0;">Loading…</div>
+  <div *ngIf="loading" class="muted py-2">Loading...</div>
+
+  <div *ngIf="errorMessage" class="error-banner">
+    Warning: {{ errorMessage }}
+  </div>
 
   <div class="cards" *ngIf="!loading">
     <div class="card">
       <div class="k">Total Applicable Items</div>
       <div class="v">{{ total }}</div>
+      <div class="muted mt-1">{{ returnsCount }} returns | {{ mcdCount }} MCD</div>
     </div>
     <div class="card">
-      <div class="k">Returns</div>
-      <div class="v">{{ returnsCount }}</div>
+      <div class="k">Completed</div>
+      <div class="v">{{ completedCount }}</div>
+      <div class="muted mt-1">Uploaded against current month</div>
     </div>
     <div class="card">
-      <div class="k">MCD</div>
-      <div class="v">{{ mcdCount }}</div>
+      <div class="k">Pending</div>
+      <div class="v">{{ pendingCount }}</div>
+      <div class="muted mt-1">Still awaiting upload</div>
     </div>
     <div class="card">
-      <div class="k">High/Critical</div>
-      <div class="v">{{ highCritical }}</div>
+      <div class="k">Overdue</div>
+      <div class="v">{{ overdueCount }}</div>
+      <div class="muted mt-1">Past due date or closed window</div>
     </div>
-    <div class="card" style="border-left:4px solid #3b82f6;">
-      <div class="k">Upload Completion</div>
-      <div class="v">{{ completionPercent }}%</div>
-      <div class="muted" style="margin-top:4px;">{{ uploaded }}/{{ totalApplicableCodes }} items uploaded</div>
+    <div class="card border-l-4 border-blue-500">
+      <div class="k">Due Soon</div>
+      <div class="v">{{ dueSoonCount }}</div>
+      <div class="muted mt-1">Due in 7 days or window closing</div>
     </div>
     <div class="card" [style.border-left]="'4px solid ' + (riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#eab308':'#22c55e')">
-      <div class="k">Inspection Probability</div>
-      <div class="v" [style.color]="riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#92400e':'#166534'">{{ inspectionProbability }}%</div>
-      <div class="muted" style="margin-top:4px;">
+      <div class="k">Compliance Score</div>
+      <div class="v" [style.color]="riskLevel==='CRITICAL'?'#dc2626':riskLevel==='HIGH'?'#f97316':riskLevel==='MODERATE'?'#92400e':'#166534'">{{ completionPercent }}%</div>
+      <div class="muted mt-1">
         <span [class]="'badge ' + riskLevel">{{ riskLevel }}</span>
-        <span style="margin-left:6px;">{{ riskReasons[0] || '—' }}</span>
+        <span class="ml-1.5">{{ highCritical }} high/critical items | {{ inspectionProbability }}% inspection probability</span>
       </div>
     </div>
   </div>
 
-  <!-- Completion Trend Graph -->
   <app-compliance-trend *ngIf="!loading && branchId" [branchId]="branchId" [months]="6"></app-compliance-trend>
 
-  <!-- Smart Action Plan -->
   <div *ngIf="!loading && branchId && actionPlan.length > 0"
-       style="background:#fff;border:1px solid #f1f5f9;border-radius:16px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04);">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-      <span style="font-size:18px;">🎯</span>
-      <span style="font-size:15px;font-weight:800;color:#0f172a;">What To Fix — Action Plan</span>
-      <span *ngIf="actionPlanLoading" class="muted" style="margin-left:8px;">Loading…</span>
+       class="bg-white border border-slate-100 rounded-2xl px-5 py-[18px] my-3 shadow-sm">
+    <div class="flex items-center gap-2 mb-3">
+      <span class="text-sm font-extrabold text-slate-900">What To Fix</span>
+      <span *ngIf="actionPlanLoading" class="muted ml-2">Loading...</span>
     </div>
 
     <div *ngFor="let a of actionPlan; let i = index"
-         style="display:flex;gap:12px;padding:12px 0;"
+         class="flex gap-3 py-3"
          [style.border-top]="i > 0 ? '1px solid #f1f5f9' : 'none'">
-      <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:#fff;"
+      <div class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-white"
            [style.background]="a.priority==='CRITICAL'?'#dc2626':a.priority==='HIGH'?'#f97316':a.priority==='MEDIUM'?'#eab308':a.priority==='LOW'?'#22c55e':'#94a3b8'">
         {{ i + 1 }}
       </div>
-      <div style="flex:1;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-          <span [class]="'badge ' + a.priority" style="font-size:10px;padding:2px 8px;">{{ a.priority }}</span>
-          <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">{{ a.category }}</span>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span [class]="'badge ' + a.priority" class="text-[10px] px-2 py-0.5">{{ a.priority }}</span>
+          <span class="text-xs text-slate-500 font-bold uppercase tracking-wide">{{ a.category }}</span>
         </div>
-        <div style="font-size:13px;color:#1e293b;line-height:1.5;">{{ a.text }}</div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px;font-style:italic;">
-          💡 {{ a.impact }}
+        <div class="text-sm text-slate-800 leading-normal">{{ a.text }}</div>
+        <div class="text-xs text-slate-500 mt-1 italic">
+          {{ a.impact }}
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════ Forecast + Summary Row ═══════ -->
-  <div *ngIf="!loading && branchId" class="cards" style="grid-template-columns:1fr 1fr;">
+  <div *ngIf="!loading && branchId" class="cards grid-cols-2">
     <app-risk-forecast [branchId]="branchId"></app-risk-forecast>
     <app-compliance-summary [branchId]="branchId" [month]="month"></app-compliance-summary>
   </div>
 
-  <!-- ═══════ Inspection Simulation Panel ═══════ -->
   <app-risk-simulator *ngIf="!loading && branchId" [branchId]="branchId" [month]="month"></app-risk-simulator>
 
   <div class="tbl" *ngIf="!loading">
@@ -105,29 +115,49 @@
         <tr>
           <th>Module</th>
           <th>Compliance Item</th>
+          <th>Frequency</th>
           <th>Due / Window</th>
+          <th>Signal</th>
           <th>Priority</th>
-          <th style="width:180px;">Action</th>
+          <th class="w-[220px]">Action</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let it of items">
+        <tr *ngFor="let it of items"
+            class="table-row"
+            [class.table-row--selected]="isSelected(it)"
+            (click)="selectOverviewItem(it)">
           <td>{{ it.module }}</td>
 
           <td>
-            <div style="font-weight:900;">{{ it.name }}</div>
-            <div class="muted" style="margin-top:4px;">
-              Code: {{ it.code }} &bull; Frequency: {{ it.frequency }}
+            <div class="font-black">{{ it.name }}</div>
+            <div class="muted mt-1">
+              Code: {{ it.code }}
+            </div>
+          </td>
+
+          <td>{{ it.frequency }}</td>
+
+          <td>
+            <div *ngIf="it.dueDate" class="leading-relaxed">
+              <div class="font-bold text-slate-900">{{ formatDate(it.dueDate) }}</div>
+              <div class="muted text-xs">{{ daysLabel(it) }}</div>
+            </div>
+            <div *ngIf="it.windowOpen && it.windowClose" class="leading-normal">
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-slate-900 text-sm">{{ formatDate(it.windowOpen) }}</span>
+                <span class="text-slate-400 text-xs">to</span>
+                <span class="font-bold text-slate-900 text-sm">{{ formatDate(it.windowClose) }}</span>
+              </div>
+              <div class="mt-1.5 h-1 bg-slate-200 rounded overflow-hidden">
+                <div [style.width.%]="windowProgress(it)" [style.background]="windowProgressColor(it)" class="h-full rounded transition-[width] duration-300"></div>
+              </div>
+              <div class="muted text-xs mt-0.5">{{ windowDaysLabel(it) }}</div>
             </div>
           </td>
 
           <td>
-            <div *ngIf="it.dueDate">
-              <b>Due:</b> {{ it.dueDate }}
-            </div>
-            <div *ngIf="it.windowOpen && it.windowClose">
-              <b>Window:</b> {{ it.windowOpen }} &rarr; {{ it.windowClose }}
-            </div>
+            <span [class]="scheduleSignalClass(it)">{{ scheduleSignalLabel(it) }}</span>
           </td>
 
           <td>
@@ -135,15 +165,51 @@
           </td>
 
           <td>
-            <button class="btn" (click)="upload(it)">Upload</button>
-            <button class="btn2" style="margin-left:8px;" (click)="load()">Refresh</button>
+            <button class="btn" type="button" (click)="openUploadWorkspace(it); $event.stopPropagation()">{{ workspaceLabel(it) }}</button>
           </td>
         </tr>
 
         <tr *ngIf="items.length===0">
-          <td colspan="5" class="muted" style="text-align:center;padding:20px;">No applicable items for this selection</td>
+          <td colspan="7" class="muted text-center p-5">No applicable items for this selection</td>
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div class="detail-panel" *ngIf="!loading && selectedOverviewItem as item">
+    <div class="detail-head">
+      <div>
+        <div class="detail-title">{{ item.name }}</div>
+        <div class="detail-sub">{{ item.code }} | {{ item.module }} | {{ item.frequency }}</div>
+      </div>
+      <span [class]="scheduleSignalClass(item)">{{ scheduleSignalLabel(item) }}</span>
+    </div>
+
+    <div class="detail-copy">{{ detailSummary(item) }}</div>
+
+    <div class="detail-grid">
+      <div class="detail-tile">
+        <span class="detail-tile-label">Schedule</span>
+        <span class="detail-tile-value">{{ scheduleText(item) }}</span>
+      </div>
+      <div class="detail-tile">
+        <span class="detail-tile-label">Priority</span>
+        <span class="detail-tile-value">{{ item.priority }}</span>
+      </div>
+      <div class="detail-tile">
+        <span class="detail-tile-label">Branch</span>
+        <span class="detail-tile-value">{{ selectedBranch?.name || '-' }}</span>
+      </div>
+      <div class="detail-tile">
+        <span class="detail-tile-label">Recommended Action</span>
+        <span class="detail-tile-value">{{ detailCtaLabel(item) }}</span>
+      </div>
+    </div>
+
+    <div class="detail-actions">
+      <button class="btn" type="button" (click)="openUploadWorkspace(item)">{{ detailCtaLabel(item) }}</button>
+      <button *ngIf="canOpenDocumentLibrary(item)" class="btn2" type="button" (click)="openDocumentLibrary(item)">{{ documentLibraryLabel(item) }}</button>
+      <button class="btn2" type="button" (click)="load()">Refresh Schedule</button>
+    </div>
   </div>
 </div>

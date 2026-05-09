@@ -1,27 +1,56 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
   <ui-page-header
-    title="Monthly Compliance Data (MCD)"
-    description="Upload monthly compliance documents for CRM review"
+    title="Compliance Upload Center"
+    description="Upload monthly compliance documents and handle reupload requests"
     icon="upload"
   ></ui-page-header>
 
+  <!-- Tab switcher -->
+  <div class="flex gap-1 border-b border-gray-200">
+    <button
+      type="button"
+      (click)="activeTab = 'uploads'"
+      [class]="activeTab === 'uploads'
+        ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
+        : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
+      Monthly Uploads
+    </button>
+    <button
+      type="button"
+      (click)="activeTab = 'reupload'"
+      [class]="activeTab === 'reupload'
+        ? 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600 -mb-px'
+        : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
+      Returned for Reupload
+    </button>
+  </div>
+
+  <!-- Reupload inbox (always mounted; toggled via [hidden] so first tab click is instant) -->
+  <app-client-reupload-inbox [hidden]="activeTab !== 'reupload'"></app-client-reupload-inbox>
+
+  <!-- Monthly uploads content (existing) -->
+  <div *ngIf="activeTab === 'uploads'">
+  <div *ngIf="hasFocusTarget()" class="card border border-sky-200 bg-sky-50 text-sky-900">
+    <div class="text-sm font-semibold">Focused from Branch Compliance</div>
+    <div class="text-sm">{{ focusSummaryText() }}</div>
+  </div>
   <div class="card space-y-4">
     <div class="flex flex-wrap gap-3 items-center">
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Branch</span>
-        <select class="form-select" [(ngModel)]="filters.branchId" (change)="loadTasks()">
+        <select id="cm-branch-id" name="branchId" class="form-select" [(ngModel)]="filters.branchId" (change)="loadTasks()">
           <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
         </select>
       </label>
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Month</span>
-        <select class="form-select" [(ngModel)]="filters.month" (change)="loadTasks()">
+        <select id="cm-month" name="month" class="form-select" [(ngModel)]="filters.month" (change)="loadTasks()">
           <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
         </select>
       </label>
       <label class="flex items-center gap-2 text-sm text-gray-600">
         <span class="text-gray-700 font-semibold">Year</span>
-        <select class="form-select" [(ngModel)]="filters.year" (change)="loadTasks()">
+        <select id="cm-year" name="year" class="form-select" [(ngModel)]="filters.year" (change)="loadTasks()">
           <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
         </select>
       </label>
@@ -42,7 +71,7 @@
       <ui-empty-state title="No tasks found" description="No monthly compliance tasks for the selected period."></ui-empty-state>
     </div>
 
-    <div *ngIf="!loading && tasks.length" class="overflow-x-auto -mx-2">
+    <div *ngIf="!loading && tasks.length" class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-2">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -58,9 +87,10 @@
         </thead>
         <tbody class="divide-y divide-gray-100 bg-white">
           <ng-container *ngFor="let t of tasks">
-            <tr>
+            <tr [ngClass]="{ 'bg-sky-50 ring-1 ring-inset ring-sky-200': isFocusedTask(t) }">
               <td class="px-4 py-3">
                 <div class="text-sm font-semibold text-gray-900">{{ t.complianceTitle || t.title }}</div>
+                <div *ngIf="isFocusedTask(t)" class="mt-1 text-xs font-semibold text-sky-700">Targeted item</div>
                 <div class="text-xs text-gray-500" *ngIf="t.description">{{ t.description }}</div>
               </td>
               <td class="px-4 py-3 text-sm text-gray-800">{{ t.branchName }}</td>
@@ -98,7 +128,7 @@
                   >
                     {{ uploading[t.id] ? 'Uploading...' : 'Upload file' }}
                   </ui-button>
-                  <input
+                  <input autocomplete="off" [id]="'cm-note-' + t.id" [name]="'note_' + t.id"
                     class="form-input w-40"
                     placeholder="Notes (optional)"
                     [(ngModel)]="notes[t.id]"
@@ -131,33 +161,54 @@
                       <span *ngIf="item.unitType" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{{ item.unitType }}</span>
                       <span *ngIf="item.stateCode" class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">State: {{ item.stateCode }}</span>
                       <span *ngIf="item.required === false" class="px-2 py-0.5 rounded bg-amber-50 text-amber-700">Optional</span>
+                      <span *ngIf="item.uploadedByRole === 'CRM'" class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">Uploaded by CRM</span>
+                      <span *ngIf="item.uploadedByRole === 'CLIENT'" class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700">Uploaded by Client</span>
                     </div>
-                    <div *ngIf="item.remarks" class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">{{ item.remarks }}</div>
+                    <div *ngIf="item.remarks" class="text-xs text-amber-700 bg-amber-50 rounded mt-2 px-2 py-1">
+                      <strong *ngIf="(item.status||'').toUpperCase()==='REJECTED'">Rejection Reason: </strong>{{ item.remarks }}
+                    </div>
                   </div>
                   <div class="flex items-center gap-3 flex-wrap">
                     <span class="text-xs font-semibold px-2 py-1 rounded" [ngClass]="{
-                      'bg-green-50 text-green-700': (item.status||'').toUpperCase()==='VERIFIED',
+                      'bg-green-50 text-green-700': (item.status||'').toUpperCase()==='VERIFIED' || (item.status||'').toUpperCase()==='APPROVED',
                       'bg-amber-50 text-amber-700': (item.status||'').toUpperCase()==='SUBMITTED',
                       'bg-rose-50 text-rose-700': (item.status||'').toUpperCase()==='REJECTED',
-                      'bg-slate-100 text-slate-700': true
+                      'bg-slate-100 text-slate-700': (item.status||'').toUpperCase()==='PENDING'
                     }">{{ itemStatusLabel(item) }}</span>
                     <span class="text-xs text-gray-600">{{ item.evidenceCount || 0 }} file(s)</span>
                   </div>
+                  <!-- Evidence files list -->
+                  <div *ngIf="item.evidenceFiles?.length" class="w-full mt-2 space-y-1">
+                    <div *ngFor="let ev of item.evidenceFiles" class="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1">
+                      <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                      </svg>
+                      <a [href]="ev.filePath" target="_blank" class="text-blue-600 hover:underline truncate flex-1" [title]="ev.fileName">{{ ev.fileName }}</a>
+                      <span class="text-gray-400 flex-shrink-0">{{ ev.createdAt | date:'shortDate' }}</span>
+                      <span *ngIf="ev.notes" class="text-gray-500 italic truncate max-w-[120px]" [title]="ev.notes">{{ ev.notes }}</span>
+                    </div>
+                  </div>
                   <div class="flex items-center gap-2 flex-wrap">
-                    <input type="file" class="hidden" #itemFile accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onItemFileSelected(t, item, $event)" />
-                    <ui-button
-                      variant="secondary"
-                      [disabled]="statusBlocked(t) || uploadingItem[t.id + '-' + item.id] || !isWindowOpen(t)"
-                      (clicked)="itemFile.click()"
-                    >
-                      {{ uploadingItem[t.id + '-' + item.id] ? 'Uploading...' : 'Upload' }}
-                    </ui-button>
-                    <input
-                      class="form-input w-40"
-                      placeholder="Notes (optional)"
-                      [(ngModel)]="itemNotes[t.id + '-' + item.id]"
-                      [disabled]="statusBlocked(t)"
-                    />
+                    <!-- Block upload if CRM uploaded this item -->
+                    <ng-container *ngIf="item.uploadedByRole === 'CRM'">
+                      <span class="text-xs text-indigo-600 font-medium">View only — Uploaded by CRM</span>
+                    </ng-container>
+                    <ng-container *ngIf="item.uploadedByRole !== 'CRM'">
+                      <input type="file" class="hidden" #itemFile accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onItemFileSelected(t, item, $event)" />
+                      <ui-button
+                        variant="secondary"
+                        [disabled]="statusBlocked(t) || uploadingItem[t.id + '-' + item.id] || !isWindowOpen(t) || (item.status||'').toUpperCase()==='APPROVED' || (item.status||'').toUpperCase()==='VERIFIED'"
+                        (clicked)="itemFile.click()"
+                      >
+                        {{ uploadingItem[t.id + '-' + item.id] ? 'Uploading...' : ((item.status||'').toUpperCase()==='REJECTED' ? 'Re-upload' : 'Upload') }}
+                      </ui-button>
+                      <input autocomplete="off" [id]="'cm-item-note-' + t.id + '-' + item.id" [name]="'item_note_' + t.id + '_' + item.id"
+                        class="form-input w-40"
+                        placeholder="Notes (optional)"
+                        [(ngModel)]="itemNotes[t.id + '-' + item.id]"
+                        [disabled]="statusBlocked(t)"
+                      />
+                    </ng-container>
                   </div>
                 </div>
               </div>
@@ -167,5 +218,6 @@
         </tbody>
       </table>
     </div>
+  </div>
   </div>
 </div>

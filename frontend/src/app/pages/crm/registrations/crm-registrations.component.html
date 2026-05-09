@@ -5,23 +5,24 @@
       <h1 class="title">Registrations &amp; Licenses</h1>
       <p class="sub">CRM can add/edit/delete branch registrations. Client &amp; Branch users can view expiry tracking.</p>
     </div>
+    <ui-client-context-strip [inline]="true"></ui-client-context-strip>
+  </div>
 
-    <div class="controls">
-      <select [(ngModel)]="selectedBranchId" (change)="load()">
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
-      </select>
+  <div class="toolbar">
+    <select id="cr-selected-branch-id" name="selectedBranchId" [(ngModel)]="selectedBranchId" (change)="load()">
+      <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+    </select>
 
-      <input type="text" placeholder="Search…" [(ngModel)]="q" (input)="applyFilters()" />
+    <input autocomplete="off" id="cr-q" name="q" type="text" placeholder="Search…" [(ngModel)]="q" (input)="applyFilters()" />
 
-      <select [(ngModel)]="statusFilter" (change)="applyFilters()">
-        <option value="all">All Status</option>
-        <option value="ACTIVE">Active</option>
-        <option value="EXPIRING_SOON">Expiring Soon</option>
-        <option value="EXPIRED">Expired</option>
-      </select>
+    <select id="cr-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (change)="applyFilters()">
+      <option value="all">All Status</option>
+      <option value="ACTIVE">Active</option>
+      <option value="EXPIRING_SOON">Expiring Soon</option>
+      <option value="EXPIRED">Expired</option>
+    </select>
 
-      <button class="btn" (click)="openCreate()" [disabled]="!selectedBranchId">+ Add</button>
-    </div>
+    <button type="button" class="btn" (click)="openCreate()" [disabled]="!selectedBranchId">+ Add</button>
   </div>
 
   <div *ngIf="loading" class="muted" style="padding:12px 0;">Loading…</div>
@@ -59,7 +60,7 @@
           <th>Days</th>
           <th>Status</th>
           <th>Docs</th>
-          <th style="width:190px;">Actions</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -113,21 +114,21 @@
           </td>
 
           <!-- Actions column -->
-          <td>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn secondary" (click)="openEdit(r)">Edit</button>
+          <td class="actions-cell">
+            <div style="display:inline-flex; gap:5px; align-items:center;">
+              <button type="button" class="btn secondary sm" (click)="openEdit(r)">Edit</button>
 
-              <label class="btn secondary" style="cursor:pointer; margin:0;">
+              <label class="btn secondary sm" style="cursor:pointer; margin:0;">
                 Upload
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="uploadFile($event, r, 'document')" />
               </label>
 
-              <label class="btn secondary" style="cursor:pointer; margin:0;">
+              <label class="btn secondary sm" style="cursor:pointer; margin:0;">
                 Renewal
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="uploadFile($event, r, 'renewal')" />
               </label>
 
-              <button class="btn danger" (click)="deleteRow(r)" [disabled]="deletingId === r.id">
+              <button type="button" class="btn danger sm" (click)="deleteRow(r)" [disabled]="deletingId === r.id">
                 {{ deletingId === r.id ? '…' : 'Delete' }}
               </button>
             </div>
@@ -150,8 +151,8 @@
         {{ editingId ? 'Edit Registration / License' : 'Add Registration / License' }}
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn secondary" (click)="closeForm()">Cancel</button>
-        <button class="btn" (click)="save()" [disabled]="saving">
+        <button type="button" class="btn secondary" (click)="closeForm()">Cancel</button>
+        <button type="button" class="btn" (click)="save()" [disabled]="saving">
           {{ saving ? 'Saving…' : 'Save' }}
         </button>
       </div>
@@ -159,39 +160,52 @@
 
     <div class="grid">
       <div>
-        <label>Branch *</label>
-        <select [(ngModel)]="form.branchId">
+        <label for="cr-branch-id">Branch *</label>
+        <select id="cr-branch-id" name="branchId" [(ngModel)]="form.branchId">
           <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
         </select>
       </div>
 
       <div>
-        <label>Registration / License Type *</label>
-        <select [(ngModel)]="form.type">
+        <label for="cr-type">Registration / License Type *</label>
+        <select id="cr-type" name="type" [(ngModel)]="form.type">
           <option value="">Select…</option>
           <option *ngFor="let t of regTypes" [value]="t">{{ t }}</option>
         </select>
       </div>
 
       <div>
-        <label>Registration Number</label>
-        <input [(ngModel)]="form.registrationNumber" placeholder="Eg: AP/12345/2026" />
+        <label for="cr-registration-number">Registration Number</label>
+        <input autocomplete="off" id="cr-registration-number" name="registrationNumber" [(ngModel)]="form.registrationNumber" placeholder="Eg: AP/12345/2026" />
       </div>
 
       <div>
-        <label>Issuing Authority</label>
-        <input [(ngModel)]="form.authority" placeholder="Eg: Factories Dept / EPFO / ESIC" />
+        <label for="cr-authority">Issuing Authority</label>
+        <input autocomplete="off" id="cr-authority" name="authority" [(ngModel)]="form.authority" placeholder="Eg: Factories Dept / EPFO / ESIC" />
       </div>
 
       <div>
-        <label>Issued Date</label>
-        <input type="date" [(ngModel)]="form.issuedDate" />
+        <label for="cr-issued-date">Issued Date</label>
+        <input autocomplete="off" id="cr-issued-date" name="issuedDate" type="date" [(ngModel)]="form.issuedDate" />
       </div>
 
       <div>
-        <label>Expiry Date</label>
-        <input type="date" [(ngModel)]="form.expiryDate" />
+        <label for="cr-expiry-date">Expiry Date</label>
+        <input autocomplete="off" id="cr-expiry-date" name="expiryDate" type="date" [(ngModel)]="form.expiryDate" />
         <div class="muted" style="margin-top:6px;">Leave empty if there is no expiry.</div>
+      </div>
+
+      <div>
+        <span class="block font-medium">Document (PDF, PNG, JPG)</span>
+        <div *ngIf="existingDocumentUrl && !documentFile" class="flex items-center gap-2 mb-1.5">
+          <a [href]="existingDocumentUrl" target="_blank" class="btn secondary text-xs px-2 py-1">📄 View current</a>
+        </div>
+        <label class="btn secondary cursor-pointer inline-flex items-center gap-1.5 m-0">
+          {{ documentFile ? '📎 ' + documentFile.name : 'Choose file…' }}
+          <input type="file" accept=".pdf,.png,.jpg,.jpeg" hidden (change)="onFormFileSelected($event)" />
+        </label>
+        <button *ngIf="documentFile" type="button" class="btn secondary ml-1.5 text-xs px-2 py-1" (click)="removeFormFile()">✕ Remove</button>
+        <div class="muted" style="margin-top:6px;">Optional. Upload a scanned copy of the registration certificate or license.</div>
       </div>
     </div>
 

@@ -1,8 +1,8 @@
 <div class="page-wrap">
   <header class="page-head card">
     <div>
-      <h1>Observations Verification</h1>
-      <p>Track observation lifecycle with branch response, CAPA details, evidence preview, verification actions, and ageing visibility.</p>
+      <h1>Reverification</h1>
+      <p>Recheck corrected submissions, review open non-compliances, and close only the assigned scheduled audit items that are ready for verification.</p>
     </div>
     <div class="head-controls">
       <button type="button" class="btn btn-secondary" [disabled]="!filterAuditId" (click)="exportPdf()">Export PDF</button>
@@ -31,31 +31,31 @@
     <div class="filter-row">
       <label>
         Audit
-        <select [(ngModel)]="filterAuditId" (ngModelChange)="loadObservations()">
+        <select id="ao-filter-audit-id" name="filterAuditId" [(ngModel)]="filterAuditId" (ngModelChange)="loadObservations()">
           <option value="">All assigned audits</option>
           <option *ngFor="let audit of audits" [value]="audit.id">
-            {{ audit.auditCode || audit.id }} | {{ audit.periodCode || '-' }}
+            {{ audit.auditCode || 'Audit' }} | {{ audit.periodCode || '-' }}
           </option>
         </select>
       </label>
 
       <label>
         Status
-        <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+        <select id="ao-filter-status" name="filterStatus" [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
           <option *ngFor="let status of statusOptions" [value]="status">{{ status || 'All' }}</option>
         </select>
       </label>
 
       <label>
         Risk
-        <select [(ngModel)]="filterRisk" (ngModelChange)="applyFilters()">
+        <select id="ao-filter-risk" name="filterRisk" [(ngModel)]="filterRisk" (ngModelChange)="applyFilters()">
           <option *ngFor="let risk of riskOptions" [value]="risk">{{ risk || 'All' }}</option>
         </select>
       </label>
 
       <label class="search-box">
         Search
-        <input type="search" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
+        <input autocomplete="off" id="ao-filter-search" type="search" name="filterSearch" [(ngModel)]="filterSearch" (ngModelChange)="applyFilters()" placeholder="Clause / recommendation / text" />
       </label>
 
       <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
@@ -126,12 +126,12 @@
 
         <label class="field">
           Branch Reply / Elaborated Response
-          <textarea rows="3" [(ngModel)]="branchResponseDraft" placeholder="Branch response or verification context"></textarea>
+          <textarea autocomplete="off" id="ao-branch-response-draft" name="branchResponseDraft" rows="3" [(ngModel)]="branchResponseDraft" placeholder="Branch response or verification context"></textarea>
         </label>
 
         <label class="field">
           Verification Notes
-          <textarea rows="2" [(ngModel)]="verificationNotes" placeholder="Notes for verify/reopen actions"></textarea>
+          <textarea autocomplete="off" id="ao-verification-notes" name="verificationNotes" rows="2" [(ngModel)]="verificationNotes" placeholder="Notes for verify/reopen actions"></textarea>
         </label>
 
         <div class="action-row">
@@ -189,12 +189,12 @@
       <article class="card" *ngIf="selected as item">
         <header class="section-head">
           <h2>CAPA Detail Card</h2>
-          <span>{{ item.id }}</span>
+          <span>{{ item.observationTitle || item.title || 'Observation' }}</span>
         </header>
 
         <label class="field">
           Corrective / Preventive Action
-          <textarea rows="3" [(ngModel)]="capaDraft" placeholder="Define owner action and closure details"></textarea>
+          <textarea autocomplete="off" id="ao-capa-draft" name="capaDraft" rows="3" [(ngModel)]="capaDraft" placeholder="Define owner action and closure details"></textarea>
         </label>
 
         <div class="action-row">

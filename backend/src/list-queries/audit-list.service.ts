@@ -62,6 +62,8 @@ export class AuditListService {
         qb.andWhere('a.periodCode LIKE :pc', {
           pc: `%${String(m).padStart(2, '0')}%`,
         });
+    } else if (q.year) {
+      qb.andWhere('a.periodYear = :py', { py: Number(q.year) });
     }
 
     applySearch(qb, q.q, this.searchFields);

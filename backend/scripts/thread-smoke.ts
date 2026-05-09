@@ -21,11 +21,17 @@ type TestResult = {
 const HOST = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
 const API_BASE = `${HOST.replace(/\/$/, '')}/api/v1`;
 
-const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? 'admin@statcosol.com';
-const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD ?? 'Admin@123';
+const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? 'it_admin@statcosol.com';
+const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD;
 
 const CLIENT_EMAIL = process.env.SMOKE_CLIENT_EMAIL ?? 'testclient@test.com';
 const CLIENT_PASSWORD = process.env.SMOKE_CLIENT_PASSWORD ?? 'Test@123';
+
+if (!ADMIN_PASSWORD) {
+  throw new Error(
+    'SMOKE_ADMIN_PASSWORD must be set before running thread smoke tests.',
+  );
+}
 
 const REPORT_PATH =
   process.env.THREAD_SMOKE_REPORT ??

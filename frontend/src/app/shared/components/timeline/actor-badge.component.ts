@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'actor-badge',
+  selector: 'ui-actor-badge',
   standalone: true,
   imports: [CommonModule],
   template: `

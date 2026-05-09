@@ -1,4 +1,5 @@
 import { Controller, Get, Logger, Query, UseGuards } from '@nestjs/common';
+import { CacheControl } from '../common/decorators/cache-control.decorator';
 import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -30,6 +31,7 @@ export class AdminDashboardController {
   @Roles('ADMIN', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Get Available States' })
   @Get('states')
+  @CacheControl(300)
   async getAvailableStates() {
     try {
       // Get distinct state codes from branches table
@@ -68,7 +70,7 @@ export class AdminDashboardController {
 
       // Return as simple array
       return states
-        .map((s: any) => s.state_code)
+        .map((s: { state_code: string | null }) => s.state_code)
         .filter((code: string | null) => code !== null);
     } catch (error) {
       this.logger.error('Error fetching states:', error);
@@ -79,6 +81,7 @@ export class AdminDashboardController {
   @Roles('ADMIN', 'CEO', 'CCO')
   @ApiOperation({ summary: 'Clients Minimal' })
   @Get('clients-minimal')
+  @CacheControl(120)
   async clientsMinimal() {
     return this.dataSource.query(
       `SELECT id, client_name AS name
@@ -303,15 +306,12 @@ export class AdminDashboardController {
         [since15d],
       );
 
-      // Count unassigned clients
+      // Count unassigned clients (missing CRM or Auditor)
       const [unassignedClientsRow] = await this.dataSource.query(
         `SELECT COUNT(*)::int AS n FROM clients c
          WHERE (c.is_deleted = false OR c.is_deleted IS NULL)
            AND (c.is_active = true OR c.is_active IS NULL)
-           AND NOT EXISTS (
-             SELECT 1 FROM client_assignments ca
-             WHERE ca.client_id = c.id AND ca.status = 'ACTIVE'
-           )`,
+           AND (c.assigned_crm_id IS NULL OR c.assigned_auditor_id IS NULL)`,
       );
 
       // Count failed notifications (7 days)
@@ -615,11 +615,8 @@ export class AdminDashboardController {
           COALESCE(bc.cnt, 0)::int AS "branchCount",
           (c.assigned_crm_id IS NOT NULL) AS "hasCrm",
           EXISTS(
-            SELECT 1 FROM client_users cu
-            JOIN users u ON cu.user_id = u.id
-            JOIN roles r ON u.role_id = r.id
-            WHERE cu.client_id = c.id AND r.code = 'PAYROLL'
-              AND u.is_active = true AND u.deleted_at IS NULL
+            SELECT 1 FROM payroll_client_assignments pca
+            WHERE pca.client_id = c.id AND pca.status = 'ACTIVE'
           ) AS "hasPayrollUser",
           EXISTS(
             SELECT 1 FROM client_users cu
@@ -640,13 +637,9 @@ export class AdminDashboardController {
           AND (c.is_active = true OR c.is_active IS NULL)
           AND (
             c.assigned_crm_id IS NULL
-            OR c.assigned_auditor_id IS NULL
             OR NOT EXISTS(
-              SELECT 1 FROM client_users cu
-              JOIN users u ON cu.user_id = u.id
-              JOIN roles r ON u.role_id = r.id
-              WHERE cu.client_id = c.id AND r.code = 'PAYROLL'
-                AND u.is_active = true AND u.deleted_at IS NULL
+              SELECT 1 FROM payroll_client_assignments pca
+              WHERE pca.client_id = c.id AND pca.status = 'ACTIVE'
             )
             OR NOT EXISTS(
               SELECT 1 FROM client_users cu
@@ -738,11 +731,8 @@ export class AdminDashboardController {
         SELECT COUNT(*)::int AS n FROM clients c
         WHERE (c.is_deleted = false OR c.is_deleted IS NULL) AND (c.is_active = true OR c.is_active IS NULL)
           AND NOT EXISTS(
-            SELECT 1 FROM client_users cu
-            JOIN users u ON cu.user_id = u.id
-            JOIN roles r ON u.role_id = r.id
-            WHERE cu.client_id = c.id AND r.code = 'PAYROLL'
-              AND u.is_active = true AND u.deleted_at IS NULL
+            SELECT 1 FROM payroll_client_assignments pca
+            WHERE pca.client_id = c.id AND pca.status = 'ACTIVE'
           )
       `);
 

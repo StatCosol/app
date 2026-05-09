@@ -10,6 +10,7 @@ import { LegitxDashboardService } from '../../../core/legitx-dashboard.service';
 import { DashboardService } from '../../../core/dashboard.service';
 import { AuthService } from '../../../core/auth.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { TaskCenterService, TaskSummary, SystemTask } from '../../../core/task-center.service';
 
 @Component({
   selector: 'app-branch-dashboard',
@@ -60,6 +61,10 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
   topVendors: VendorScore[] = [];
   bottomVendors: VendorScore[] = [];
 
+  // Task Center
+  taskSummary: TaskSummary = { open: 0, overdue: 0, dueSoon: 0, total: 0 };
+  pendingTasks: SystemTask[] = [];
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -68,6 +73,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
     private dashboardService: DashboardService,
     private authService: AuthService,
     private branchesService: ClientBranchesService,
+    private taskCenterService: TaskCenterService,
   ) {}
 
   ngOnInit(): void {
@@ -93,20 +99,43 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
 
     const [year, month] = this.currentMonth.split('-');
 
+    // Load task center data in parallel
+    const user = this.authService.getUser();
+    this.taskCenterService.getMySummary({
+      role: 'BRANCH',
+      userId: user?.userId || user?.id,
+      branchId: this.branchId || undefined,
+    }).pipe(takeUntil(this.destroy$), catchError(() => of({ open: 0, overdue: 0, dueSoon: 0, total: 0 })))
+      .subscribe(summary => {
+        this.taskSummary = summary;
+        this.cdr.markForCheck();
+      });
+
+    this.taskCenterService.getMyItems({
+      role: 'BRANCH',
+      userId: user?.userId || user?.id,
+      branchId: this.branchId || undefined,
+      status: 'OPEN',
+    }).pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(tasks => {
+        this.pendingTasks = tasks.slice(0, 10);
+        this.cdr.markForCheck();
+      });
+
     forkJoin({
       legitx: this.legitxService.getSummary({
         month: +month,
         year: +year,
         branchId: this.branchId || undefined,
-      }),
+      }).pipe(catchError(() => of(null as any))),
       pfEsi: this.dashboardService.getClientPfEsiSummary({
         month: this.currentMonth,
         branchId: this.branchId || undefined,
-      }),
+      }).pipe(catchError(() => of(null as any))),
       contractor: this.dashboardService.getClientContractorUploadSummary({
         month: this.currentMonth,
         branchId: this.branchId || undefined,
-      }),
+      }).pipe(catchError(() => of(null as any))),
       branchDash: this.branchId
         ? this.branchesService.getDashboard(this.branchId, this.currentMonth).pipe(catchError(() => of(null)))
         : of(null),
@@ -159,7 +188,7 @@ export class BranchDashboardComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
         this.cdr.markForCheck();
       },

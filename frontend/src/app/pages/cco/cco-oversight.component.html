@@ -218,12 +218,16 @@
         </div>
 
         <div class="filter-row">
-          <input
+          <label for="oversight-search" class="sr-only">Search escalations</label>
+          <input autocomplete="off"
+            id="oversight-search"
+            name="search"
             type="text"
             placeholder="Search by client, branch, CRM, owner, or id..."
             [(ngModel)]="search"
             (ngModelChange)="applyQueueFilters()" />
-          <select [(ngModel)]="statusFilter" (ngModelChange)="onStatusFilterChange()">
+          <label for="oversight-status" class="sr-only">Status filter</label>
+          <select id="oversight-status" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="onStatusFilterChange()">
             <option value="ALL">All</option>
             <option value="OVERDUE">Overdue</option>
             <option value="PENDING">Pending</option>
@@ -240,7 +244,6 @@
           <table>
             <thead>
               <tr>
-                <th>Task ID</th>
                 <th>Client</th>
                 <th>Branch</th>
                 <th>CRM</th>
@@ -253,7 +256,6 @@
             </thead>
             <tbody>
               <tr *ngFor="let row of filteredQueue | slice:0:20">
-                <td>{{ row.id }}</td>
                 <td>{{ row.client }}</td>
                 <td>{{ row.branch }}</td>
                 <td>{{ row.crmName }}</td>

@@ -23,8 +23,6 @@ const CeoNotificationsComponent = () =>
   import('./ceo-notifications.component').then((m) => m.CeoNotificationsComponent);
 const CeoProfileComponent = () =>
   import('./ceo-profile.component').then((m) => m.CeoProfileComponent);
-const CeoRegistersComponent = () =>
-  import('./registers/ceo-registers.component').then((m) => m.CeoRegistersComponent);
 const CeoBranchesComponent = () =>
   import('./branches/ceo-branches.component').then((m) => m.CeoBranchesComponent);
 const CeoBranchDetailComponent = () =>
@@ -42,8 +40,10 @@ export const CEO_ROUTES: Routes = [
       { path: 'oversight', loadComponent: CeoOversightComponent },
       { path: 'branches', loadComponent: CeoBranchesComponent },
       { path: 'branches/:branchId', loadComponent: CeoBranchDetailComponent },
+      { path: 'sales', loadComponent: () => import('./sales/ceo-sales-summary.component').then(m => m.CeoSalesSummaryComponent) },
+      { path: 'followups', loadComponent: () => import('./sales/ceo-sales-followups.component').then(m => m.CeoSalesFollowupsComponent) },
+      { path: 'receivables', loadComponent: () => import('./receivables/ceo-receivables.component').then(m => m.CeoReceivablesComponent) },
       { path: 'reports', loadComponent: CeoExecutiveReportsPageComponent },
-      { path: 'registers', loadComponent: CeoRegistersComponent },
       { path: 'notifications', loadComponent: CeoNotificationsComponent },
       { path: 'profile', loadComponent: CeoProfileComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },

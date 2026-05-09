@@ -14,7 +14,7 @@ import {
 
 type UserCtx = { id: string; role: string };
 
-function toInt(v: any, def: number, min: number, max: number) {
+function toInt(v: unknown, def: number, min: number, max: number) {
   const n = Number(v ?? def);
   return Math.min(Math.max(n, min), max);
 }
@@ -112,7 +112,7 @@ export class NotificationsInboxService {
 
     // If moved back to OPEN, clear readAt (optional)
     if (dto.status === 'OPEN') {
-      n.readAt = null as any;
+      n.readAt = null;
     }
 
     await repo.save(n);

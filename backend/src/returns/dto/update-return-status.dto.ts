@@ -8,6 +8,7 @@ export class UpdateReturnStatusDto {
     'PENDING',
     'SUBMITTED',
     'IN_PROGRESS',
+    'NOT_APPLICABLE',
   ] satisfies ReturnStatus[])
   status!: ReturnStatus;
 

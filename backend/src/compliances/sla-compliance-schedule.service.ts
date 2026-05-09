@@ -29,7 +29,7 @@ export class SlaComplianceScheduleService {
    * with actual due dates / window dates resolved.
    */
   buildMonthSchedule(params: {
-    branch: BranchEntity;
+    branch?: BranchEntity;
     applicable: ApplicableRule[];
     month: string; // "YYYY-MM"
   }): ScheduleEntry[] {

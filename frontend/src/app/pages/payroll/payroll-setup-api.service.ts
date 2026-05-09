@@ -15,6 +15,7 @@ export type PayrollClientSetup = {
   esiEmployerRate: number;
   esiEmployeeRate: number;
   pfWageCeiling: number;
+  pfGrossThreshold: number;
   esiWageCeiling: number;
   payCycle: string;
   effectiveFrom: string;
@@ -35,6 +36,8 @@ export type PayrollClientSetup = {
   enableAdvanceRecovery: boolean;
   defaultDeductionCapPct: number;
   recoveryOrder: string;
+  wageBasisDays: 'FIXED_26' | 'CALENDAR_DAYS' | 'WORKING_DAYS';
+  otMultiplier: number;
 };
 
 export type PayrollComponent = {

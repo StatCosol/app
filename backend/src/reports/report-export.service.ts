@@ -59,7 +59,7 @@ export class ReportExportService {
          ORDER BY client_name, branch_name`,
       );
 
-      rows.forEach((r: any) => ws.addRow(r));
+      rows.forEach((r: Record<string, unknown>) => ws.addRow(r));
       ws.getColumn('compliance_percent').numFmt = '0.00';
     });
   }
@@ -93,7 +93,7 @@ export class ReportExportService {
          ORDER BY days_overdue DESC`,
       );
 
-      rows.forEach((r: any) => ws.addRow(r));
+      rows.forEach((r: Record<string, unknown>) => ws.addRow(r));
       ws.getColumn('due_date').numFmt = 'yyyy-mm-dd';
     });
   }
@@ -132,7 +132,7 @@ export class ReportExportService {
          ORDER BY days_past_due DESC`,
       );
 
-      rows.forEach((r: any) => ws.addRow(r));
+      rows.forEach((r: Record<string, unknown>) => ws.addRow(r));
       ws.getColumn('start_date').numFmt = 'yyyy-mm-dd';
       ws.getColumn('rotation_due_date').numFmt = 'yyyy-mm-dd';
     });

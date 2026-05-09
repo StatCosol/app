@@ -7,16 +7,19 @@ import {
   Body,
   Param,
   UseGuards,
-  Req,
   Query,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { BranchesService } from './branches.service';
+import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateBranchDto } from './dto/update-branch.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CompliancesService } from '../compliances/compliances.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Branches')
 @ApiBearerAuth('JWT')
@@ -26,22 +29,17 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 export class BranchesController {
   constructor(
     private readonly service: BranchesService,
-    private readonly compliancesService: CompliancesService,
+    private readonly _compliancesService: CompliancesService,
   ) {}
 
   @ApiOperation({ summary: 'Create' })
   @Post('clients/:clientId/branches')
   create(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Body() dto: any,
-    @Req() req: any,
+    @Body() dto: CreateBranchDto,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.service.create(
-      clientId,
-      dto,
-      req.user?.userId,
-      req.user?.roleCode,
-    );
+    return this.service.create(clientId, dto, user?.userId, user?.roleCode);
   }
 
   @ApiOperation({ summary: 'Find By Client' })
@@ -64,7 +62,7 @@ export class BranchesController {
 
   @ApiOperation({ summary: 'Update' })
   @Put('branches/:id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: any) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateBranchDto) {
     // recomputeForBranch() is already called inside service.update(),
     // so we do NOT call recomputeBranchComplianceApplicability here.
     return this.service.update(id, dto).then((updated) => {
@@ -78,12 +76,12 @@ export class BranchesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string | null,
     @Query('mode') mode: string | undefined,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.service.delete(
       id,
-      req.user?.userId,
-      req.user?.roleCode,
+      user?.userId,
+      user?.roleCode,
       reason ?? null,
       mode === 'force' ? 'force' : 'request',
     );
@@ -91,8 +89,11 @@ export class BranchesController {
 
   @ApiOperation({ summary: 'Restore' })
   @Post('branches/:id/restore')
-  restore(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.service.restore(id, req.user?.userId, req.user?.roleCode);
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    return this.service.restore(id, user?.userId, user?.roleCode);
   }
 
   // ---- Contractors per branch ----
@@ -138,12 +139,12 @@ export class BranchesController {
   async saveApplicableCompliances(
     @Param('id', ParseUUIDPipe) branchId: string,
     @Body('complianceIds') complianceIds: string[],
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.service.saveApplicableCompliances(
       branchId,
       complianceIds,
-      req.user?.userId,
+      user?.userId,
     );
   }
 }

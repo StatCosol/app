@@ -58,7 +58,7 @@ export class ContractorTaskDetailComponent implements OnInit, OnDestroy {
   load() {
     this.loading = true;
     this.api
-      .contractorListTasks({})
+      .getContractorTaskById(this.id)
       .pipe(
         takeUntil(this.destroy$),
         timeout(10000),
@@ -70,8 +70,7 @@ export class ContractorTaskDetailComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: any) => {
           this.loading = false;
-          const list = res?.data || res || [];
-          this.task = list.find((t: any) => String(t.id) === String(this.id));
+          this.task = res;
           this.evidence = this.task?.evidence || [];
           this.cdr.detectChanges();
         },

@@ -70,7 +70,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = '';
 
-    const handleLoadError = (label: string) => (err: unknown) => {
+    const handleLoadError = (label: string) => () => {
       if (!this.error) this.error = `Some data failed to load (${label})`;
       return of([]);
     };
@@ -89,7 +89,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
           // Backend only exposes GET /api/admin/payroll-assignments/:clientId.
           const calls = this.clients.map((c) =>
             this.api.getCurrentAssignment(c.id).pipe(
-              catchError((err) => {
+              catchError(() => {
                 return of(null);
               }),
             ),
@@ -113,7 +113,7 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
           this.assignments = normalized;
           this.cdr.detectChanges();
         },
-        error: (err) => {
+        error: () => {
           this.error = 'Failed to load payroll assignments';
           this.loading = false;
           this.cdr.detectChanges();
@@ -153,11 +153,11 @@ export class AdminPayrollAssignmentsComponent implements OnInit, OnDestroy {
   }
 
   clientName(clientId: string): string {
-    return this.clients.find((c) => c.id === clientId)?.name || clientId;
+    return this.clients.find((c) => c.id === clientId)?.name || '—';
   }
 
   payrollUserName(userId: string): string {
-    return this.payrollUsers.find((u) => u.id === userId)?.name || userId;
+    return this.payrollUsers.find((u) => u.id === userId)?.name || '—';
   }
 
   private rebuildSelectOptions(): void {

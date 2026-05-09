@@ -85,8 +85,7 @@ export interface PfEsiChallanRow {
 export interface PayrollEmployee {
   id: string;
   employeeCode: string;
-  firstName: string;
-  lastName: string | null;
+  name: string;
   designation: string | null;
   department: string | null;
   dateOfJoining: string | null;
@@ -115,6 +114,8 @@ export interface PayrollEmployeeDetail extends PayrollEmployee {
   stateCode?: string | null;
   pfApplicableFrom?: string | null;
   esiApplicableFrom?: string | null;
+  pfServiceStartDate?: string | null;
+  basicAtPfStart?: number | null;
   runHistory: PayrollRunHistoryItem[];
 }
 
@@ -195,6 +196,14 @@ export interface PayrollFnfDetail extends PayrollFnfItem {
   remarks: string | null;
   checklist: PayrollFnfChecklistItem[];
   settlementBreakup?: Record<string, number> | null;
+  computedBreakup?: {
+    pendingSalary: number;
+    leaveEncashment: number;
+    bonusArrears: number;
+    deductions: number;
+    recoveries: number;
+    notes?: string[];
+  } | null;
   history: PayrollFnfHistoryEvent[];
   initiatedBy: string | null;
   approvedBy: string | null;
@@ -206,6 +215,16 @@ export class PayrollApiService {
   private base = `${environment.apiBaseUrl}/api/v1/payroll`;
 
   constructor(private http: HttpClient) {}
+
+  /** Get branches for a given client (for dropdown lookups) */
+  getOptionBranches(clientId?: string): Observable<{ id: string; branchName: string; branchType?: string; stateCode?: string }[]> {
+    let params = new HttpParams();
+    if (clientId) params = params.set('clientId', clientId);
+    return this.http.get<{ id: string; branchName: string; branchType?: string; stateCode?: string }[]>(
+      `${this.base}/options/branches`,
+      { params },
+    );
+  }
 
   getSummary(): Observable<PayrollSummary> {
     return this.http.get<any>(`${this.base}/summary`).pipe(
@@ -329,20 +348,38 @@ export class PayrollApiService {
           .map((r: any) => {
             const title = String(r?.title || '');
             const registerType = String(r?.registerType ?? r?.register_type ?? '');
+            const rt = registerType.toUpperCase();
             const blob = `${title} ${registerType}`.toLowerCase();
-            const looksPfEsi =
-              blob.includes('pf') ||
-              blob.includes('epf') ||
-              blob.includes('ecr') ||
-              blob.includes('esi') ||
-              blob.includes('esic') ||
-              blob.includes('challan') ||
-              blob.includes('return');
-            if (!looksPfEsi) return null;
+
+            // Branch-wise contribution registers (PF_REGISTER / ESI_REGISTER and similar
+            // monthly contribution registers) are downloadable from the Registers page.
+            // The PF/ESI compliance dashboard only surfaces contribution FILES & challans:
+            // PF ECR, PF Challan, ESI Contribution/Return, ESI Challan.
+            const ALLOWED_TYPES = new Set([
+              'ECR',
+              'ESI',
+              'PF_CHALLAN_REGISTER',
+              'ESI_CHALLAN_REGISTER',
+            ]);
+            const allowedByType = ALLOWED_TYPES.has(rt);
+            const allowedByTitle =
+              !rt && (
+                blob.includes('ecr') ||
+                blob.includes('challan') ||
+                blob.includes('esi contribution') ||
+                blob.includes('esi return') ||
+                blob.includes('pf return')
+              );
+            const isContributionRegister =
+              blob.includes('contribution register') ||
+              rt === 'PF_REGISTER' ||
+              rt === 'ESI_REGISTER';
+            if (isContributionRegister) return null;
+            if (!allowedByType && !allowedByTitle) return null;
 
             let scheme: PfEsiChallanRow['scheme'] = 'UNKNOWN';
-            if (blob.includes('esi') || blob.includes('esic')) scheme = 'ESI';
-            else if (blob.includes('pf') || blob.includes('epf') || blob.includes('ecr')) scheme = 'PF';
+            if (rt.startsWith('ESI') || blob.includes('esi') || blob.includes('esic')) scheme = 'ESI';
+            else if (rt === 'ECR' || rt.startsWith('PF') || blob.includes('pf') || blob.includes('epf') || blob.includes('ecr')) scheme = 'PF';
 
             return {
               id: String(r?.id ?? ''),
@@ -389,6 +426,28 @@ export class PayrollApiService {
           this.saveBlob(blob, fileName);
         }),
       );
+  }
+
+  uploadPfEsiRecord(input: {
+    file: File;
+    clientId: string;
+    title: string;
+    registerType: string;
+    category?: string;
+    periodYear?: number;
+    periodMonth?: number;
+    branchId?: string;
+  }): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', input.file);
+    fd.append('clientId', input.clientId);
+    fd.append('title', input.title);
+    fd.append('registerType', input.registerType);
+    fd.append('category', input.category || 'RECORD');
+    if (input.periodYear) fd.append('periodYear', String(input.periodYear));
+    if (input.periodMonth) fd.append('periodMonth', String(input.periodMonth));
+    if (input.branchId) fd.append('branchId', input.branchId);
+    return this.http.post(`${this.base}/registers-records`, fd);
   }
 
   // ── Employees ──
@@ -589,6 +648,74 @@ export class PayrollApiService {
     });
   }
 
+  // ── F&F Settlement Documents ──
+  uploadFnfDocument(fnfId: string, file: File, docType: string, docName: string, remarks?: string): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('docType', docType);
+    fd.append('docName', docName);
+    if (remarks) fd.append('remarks', remarks);
+    return this.http.post(`${this.base}/fnf/${fnfId}/documents`, fd);
+  }
+
+  listFnfDocuments(fnfId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/fnf/${fnfId}/documents`);
+  }
+
+  downloadFnfDocument(docId: string, docName: string): void {
+    this.http.get(`${this.base}/fnf/documents/${docId}/download`, { responseType: 'blob' }).subscribe((blob) => {
+      this.saveBlob(blob, docName || 'document');
+    });
+  }
+
+  /**
+   * Generate a settlement document on-the-fly (auto-filled from F&F data) and
+   * trigger a PDF download in the browser. docType is one of:
+   * SETTLEMENT_STATEMENT, RELIEVING_LETTER, EXPERIENCE_CERTIFICATE,
+   * NO_DUES_CERTIFICATE.
+   */
+  generateFnfDocument(
+    fnfId: string,
+    docType: string,
+    fileName: string,
+    override?: {
+      pendingSalary?: number;
+      leaveEncashment?: number;
+      bonusArrears?: number;
+      deductions?: number;
+      recoveries?: number;
+      settlementAmount?: number;
+    },
+  ): void {
+    const params: Record<string, string> = {};
+    if (override) {
+      const keys: Array<keyof NonNullable<typeof override>> = [
+        'pendingSalary',
+        'leaveEncashment',
+        'bonusArrears',
+        'deductions',
+        'recoveries',
+        'settlementAmount',
+      ];
+      for (const k of keys) {
+        const v = override[k];
+        if (v !== undefined && v !== null && !isNaN(Number(v))) {
+          params[k] = String(Number(v));
+        }
+      }
+    }
+    this.http
+      .get(`${this.base}/fnf/${fnfId}/generate/${docType}`, {
+        responseType: 'blob',
+        params,
+      })
+      .subscribe((blob) => this.saveBlob(blob, fileName));
+  }
+
+  deleteFnfDocument(docId: string): Observable<any> {
+    return this.http.delete(`${this.base}/fnf/documents/${docId}`);
+  }
+
   // ── Report Downloads ──
   downloadBankStatement(params?: { runId?: string; clientId?: string; year?: number; month?: number }): void {
     const q = new URLSearchParams();
@@ -622,16 +749,19 @@ export class PayrollApiService {
   }
 
   private downloadCsv(url: string): void {
-    this.http.get(url, { responseType: 'blob' }).subscribe((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      const match = url.match(/filename="?([^"&]+)"?/);
-      a.download = match ? match[1] : 'report.csv';
-      // Extract filename from Content-Disposition if available or use a default
-      a.download = 'report.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
+    this.http
+      .get(url, { responseType: 'blob', observe: 'response' })
+      .subscribe((res) => {
+        const blob = res.body as Blob;
+        if (!blob) return;
+        // Prefer the filename advertised by the server in Content-Disposition;
+        // fall back to a sensible default. Avoid the previous regex-against-URL
+        // hack which always produced 'report.csv' regardless of the response.
+        const fileName =
+          this.fileNameFromDisposition(res.headers.get('content-disposition')) ||
+          'report.csv';
+        this.saveBlob(blob, fileName);
+      });
   }
 
   private saveBlob(blob: Blob, fileName: string): void {

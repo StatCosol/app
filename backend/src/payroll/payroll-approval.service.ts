@@ -2,11 +2,12 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PayrollRunEntity } from './entities/payroll-run.entity';
+import { PayrollProcessingService } from './payroll-processing.service';
+import { AccessScopeService, ReqUser } from '../access/access-scope.service';
 
 /**
  * Payroll Approval Workflow
@@ -22,11 +23,18 @@ export class PayrollApprovalService {
   constructor(
     @InjectRepository(PayrollRunEntity)
     private readonly runRepo: Repository<PayrollRunEntity>,
+    private readonly processingSvc: PayrollProcessingService,
+    private readonly access: AccessScopeService,
   ) {}
 
   /** Submit a processed run for approval */
-  async submitForApproval(runId: string, submittedByUserId: string) {
+  async submitForApproval(
+    runId: string,
+    submittedByUserId: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'PROCESSED') {
       throw new BadRequestException(
@@ -34,27 +42,81 @@ export class PayrollApprovalService {
       );
     }
 
-    run.status = 'SUBMITTED';
-    run.submittedByUserId = submittedByUserId;
-    run.submittedAt = new Date();
-    run.approvedByUserId = null;
-    run.approvedAt = null;
-    run.approvalComments = null;
-    run.rejectedByUserId = null;
-    run.rejectedAt = null;
-    run.rejectionReason = null;
-    await this.runRepo.save(run);
+    // Pre-submit gate: leave & OT validations must be clean. Any unresolved
+    // mismatch (attendance leave ≠ ESS approved, or sheet OT ≠ branch/ESS OT)
+    // blocks submission with a clear, actionable message.
+    const [leaveVal, otVal] = await Promise.all([
+      this.processingSvc.leaveValidation(runId),
+      this.processingSvc.otValidation(runId),
+    ]);
+    const leaveMismatches = (leaveVal?.rows ?? []).filter(
+      (r: any) => r.status && r.status !== 'OK',
+    );
+    const otMismatches = (otVal?.rows ?? []).filter(
+      (r: any) => r.status && r.status !== 'OK',
+    );
+    if (leaveMismatches.length || otMismatches.length) {
+      const parts: string[] = [];
+      if (leaveMismatches.length) {
+        const sample = leaveMismatches
+          .slice(0, 5)
+          .map((r: any) => r.empCode)
+          .join(', ');
+        parts.push(
+          `${leaveMismatches.length} leave mismatch(es)${leaveMismatches.length > 5 ? ` (e.g. ${sample}, …)` : ` (${sample})`}`,
+        );
+      }
+      if (otMismatches.length) {
+        const sample = otMismatches
+          .slice(0, 5)
+          .map((r: any) => r.empCode)
+          .join(', ');
+        parts.push(
+          `${otMismatches.length} OT mismatch(es)${otMismatches.length > 5 ? ` (e.g. ${sample}, …)` : ` (${sample})`}`,
+        );
+      }
+      throw new BadRequestException(
+        `Cannot submit for approval until leave & OT validations are clean. Pending: ${parts.join('; ')}. Resolve each mismatch on the Leave/OT Validation screens, then try again.`,
+      );
+    }
+
+    // Atomic transition: only succeed if status is still PROCESSED.
+    const result = await this.runRepo.update(
+      { id: runId, status: 'PROCESSED' },
+      {
+        status: 'SUBMITTED',
+        submittedByUserId,
+        submittedAt: new Date(),
+        approvedByUserId: null,
+        approvedAt: null,
+        approvalComments: null,
+        rejectedByUserId: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+    );
+    if (!result.affected) {
+      throw new BadRequestException(
+        'Run state changed concurrently. Please refresh and try again.',
+      );
+    }
 
     return {
-      id: run.id,
-      status: run.status,
+      id: runId,
+      status: 'SUBMITTED' as const,
       message: 'Run submitted for approval',
     };
   }
 
   /** Approve a submitted run */
-  async approveRun(runId: string, approvedByUserId: string, comments?: string) {
+  async approveRun(
+    runId: string,
+    approvedByUserId: string,
+    comments?: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'SUBMITTED') {
       throw new BadRequestException(
@@ -62,21 +124,40 @@ export class PayrollApprovalService {
       );
     }
 
-    run.status = 'APPROVED';
-    run.approvedByUserId = approvedByUserId;
-    run.approvedAt = new Date();
-    run.approvalComments = comments ?? null;
-    run.rejectedByUserId = null;
-    run.rejectedAt = null;
-    run.rejectionReason = null;
-    await this.runRepo.save(run);
+    const result = await this.runRepo.update(
+      { id: runId, status: 'SUBMITTED' },
+      {
+        status: 'APPROVED',
+        approvedByUserId,
+        approvedAt: new Date(),
+        approvalComments: comments ?? null,
+        rejectedByUserId: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+    );
+    if (!result.affected) {
+      throw new BadRequestException(
+        'Run state changed concurrently. Please refresh and try again.',
+      );
+    }
 
-    return { id: run.id, status: run.status, message: 'Run approved' };
+    return {
+      id: runId,
+      status: 'APPROVED' as const,
+      message: 'Run approved',
+    };
   }
 
   /** Reject a submitted run back to drafts */
-  async rejectRun(runId: string, rejectedByUserId: string, reason: string) {
+  async rejectRun(
+    runId: string,
+    rejectedByUserId: string,
+    reason: string,
+    user?: ReqUser,
+  ) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
     if (run.status !== 'SUBMITTED') {
       throw new BadRequestException(
@@ -88,25 +169,40 @@ export class PayrollApprovalService {
       throw new BadRequestException('Rejection reason is required');
     }
 
-    run.status = 'REJECTED';
-    run.rejectedByUserId = rejectedByUserId;
-    run.rejectedAt = new Date();
-    run.rejectionReason = reason;
-    run.approvedByUserId = null;
-    run.approvedAt = null;
-    run.approvalComments = null;
-    await this.runRepo.save(run);
+    const result = await this.runRepo.update(
+      { id: runId, status: 'SUBMITTED' },
+      {
+        status: 'REJECTED',
+        rejectedByUserId,
+        rejectedAt: new Date(),
+        rejectionReason: reason,
+        approvedByUserId: null,
+        approvedAt: null,
+        approvalComments: null,
+      },
+    );
+    if (!result.affected) {
+      throw new BadRequestException(
+        'Run state changed concurrently. Please refresh and try again.',
+      );
+    }
 
-    return { id: run.id, status: run.status, message: 'Run rejected', reason };
+    return {
+      id: runId,
+      status: 'REJECTED' as const,
+      message: 'Run rejected',
+      reason,
+    };
   }
 
-  /** Revert a rejected run to DRAFT so it can be reprocessed */
-  async revertToDraft(runId: string) {
+  /** Revert a rejected or approved run to DRAFT so it can be reprocessed */
+  async revertToDraft(runId: string, user?: ReqUser) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
 
-    if (run.status !== 'REJECTED') {
+    if (run.status !== 'REJECTED' && run.status !== 'APPROVED') {
       throw new BadRequestException(
-        `Cannot revert: run is "${run.status}". Only REJECTED runs can be reverted.`,
+        `Cannot revert: run is "${run.status}". Only REJECTED or APPROVED runs can be reverted.`,
       );
     }
 
@@ -124,8 +220,9 @@ export class PayrollApprovalService {
   }
 
   /** Get approval status details */
-  async getApprovalStatus(runId: string) {
+  async getApprovalStatus(runId: string, user?: ReqUser) {
     const run = await this.findRun(runId);
+    if (user) await this.access.assertClientAllowed(user, run.clientId);
     return {
       id: run.id,
       status: run.status,

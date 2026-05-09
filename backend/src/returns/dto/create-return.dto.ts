@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -19,10 +20,12 @@ export class CreateReturnDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
   lawType!: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(120)
   returnType!: string;
 
   @IsInt()

@@ -139,7 +139,7 @@ export class ComplianceService {
         const events = [
           ...comments.map((c: any) => ({
             type: 'COMMENT',
-            actor: c?.userName || c?.user?.name || `User #${c?.userId || '-'}`,
+            actor: c?.userName || c?.user?.name || 'Unknown user',
             message: c?.message || '',
             at: c?.createdAt || c?.created_at || null,
           })),

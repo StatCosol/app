@@ -7,11 +7,11 @@
     </div>
 
     <div class="controls">
-      <select [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1" class="ctrl-select">
+      <select id="st-branch-id" name="slaBranchId" [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1" class="ctrl-select">
         <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
       </select>
 
-      <select [(ngModel)]="module" (change)="load()" class="ctrl-select">
+      <select id="st-module" name="slaModule" [(ngModel)]="module" (change)="load()" class="ctrl-select">
         <option value="ALL">All Modules</option>
         <option value="REGISTRATION">Registrations</option>
         <option value="MCD">MCD</option>
@@ -19,7 +19,7 @@
         <option value="AUDIT">Audit</option>
       </select>
 
-      <select [(ngModel)]="status" (change)="load()" class="ctrl-select">
+      <select id="st-status" name="slaStatus" [(ngModel)]="status" (change)="load()" class="ctrl-select">
         <option value="OPEN">Open</option>
         <option value="IN_PROGRESS">In Progress</option>
         <option value="OVERDUE">Overdue</option>

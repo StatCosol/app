@@ -11,21 +11,23 @@
     </div>
 
     <div class="controls">
-      <input type="month" [(ngModel)]="month" (change)="load()" />
-      <select [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1">
+      <label for="mu-month" class="sr-only">Month</label>
+      <input autocomplete="off" id="mu-month" name="month" type="month" [(ngModel)]="month" (change)="load()" />
+      <label for="mu-branch" class="sr-only">Branch</label>
+      <select id="mu-branch" name="branchId" [(ngModel)]="branchId" (change)="load()" [disabled]="branches.length <= 1">
         <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
       </select>
     </div>
   </div>
 
   <!-- Loading -->
-  <div *ngIf="loading" class="muted" style="padding: 12px 0;">Loading compliance items…</div>
+  <div *ngIf="loading" class="muted py-3">Loading compliance items…</div>
 
   <!-- Overall Progress -->
   <ng-container *ngIf="!loading && allItems.length > 0">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+    <div class="flex justify-between items-center mb-1">
       <span class="muted">Upload Progress</span>
-      <span style="font-weight: 800; font-size: 13px;">{{ overallProgress }}%</span>
+      <span class="font-extrabold text-sm">{{ overallProgress }}%</span>
     </div>
     <div class="progress-bar">
       <div
@@ -52,7 +54,7 @@
         class="item"
         [class.item-focus]="focusCode === it.code"
       >
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="flex justify-between items-start">
           <div>
             <div class="item-name">{{ it.name }}</div>
             <div class="item-meta">{{ it.code }} &bull; {{ it.frequency }} &bull; <span [class]="'badge ' + it.priority">{{ it.priority }}</span></div>
@@ -60,16 +62,17 @@
         </div>
 
         <!-- Uploaded docs -->
-        <div *ngIf="docsByCode[it.code]?.length" class="upload-row" style="flex-wrap: wrap;">
+        <div *ngIf="docsByCode[it.code]?.length" class="upload-row flex-wrap">
           <div class="doc-chip" *ngFor="let d of docsByCode[it.code]">
             {{ d.fileName }}
-            <button (click)="deleteDoc(d)" title="Delete">&times;</button>
+            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete">&times;</button>
           </div>
         </div>
 
         <!-- Upload input -->
         <div class="upload-row">
-          <input type="file" (change)="onFileSelected($event, it)" style="font-size: 12px;" />
+          <label class="sr-only" [attr.for]="'mcd-file-' + it.code">Upload file for {{ it.name }}</label>
+          <input [id]="'mcd-file-' + it.code" type="file" (change)="onFileSelected($event, it)" class="text-xs" />
         </div>
       </div>
     </div>
@@ -86,7 +89,7 @@
         class="item"
         [class.item-focus]="focusCode === it.code"
       >
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="flex justify-between items-start">
           <div>
             <div class="item-name">{{ it.name }}</div>
             <div class="item-meta">{{ it.code }} &bull; {{ it.frequency }} &bull; <span [class]="'badge ' + it.priority">{{ it.priority }}</span></div>
@@ -94,16 +97,17 @@
         </div>
 
         <!-- Uploaded docs -->
-        <div *ngIf="docsByCode[it.code]?.length" class="upload-row" style="flex-wrap: wrap;">
+        <div *ngIf="docsByCode[it.code]?.length" class="upload-row flex-wrap">
           <div class="doc-chip" *ngFor="let d of docsByCode[it.code]">
             {{ d.fileName }}
-            <button (click)="deleteDoc(d)" title="Delete">&times;</button>
+            <button type="button" [disabled]="deleting" (click)="deleteDoc(d)" title="Delete">&times;</button>
           </div>
         </div>
 
         <!-- Upload input -->
         <div class="upload-row">
-          <input type="file" (change)="onFileSelected($event, it)" style="font-size: 12px;" />
+          <label class="sr-only" [attr.for]="'returns-file-' + it.code">Upload file for {{ it.name }}</label>
+          <input [id]="'returns-file-' + it.code" type="file" (change)="onFileSelected($event, it)" class="text-xs" />
         </div>
       </div>
     </div>
@@ -111,7 +115,7 @@
   </div>
 
   <!-- Empty state -->
-  <div class="section" *ngIf="!loading && mcdItems.length === 0 && returnsItems.length === 0" style="margin-top: 16px;">
+  <div class="section mt-4" *ngIf="!loading && mcdItems.length === 0 && returnsItems.length === 0">
     <div class="empty-state">
       No applicable compliance items for this branch and month.<br />
       <span class="muted">Try a different month or check branch configuration.</span>

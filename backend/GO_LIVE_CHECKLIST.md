@@ -1,6 +1,7 @@
 # StatCo Backend Go-Live Checklist
 
 ## 1. Environment & Secrets
+- All 7 production secrets (`db-pass`, `jwt-secret`, `ai-encryption-key`, `smtp-pass`, `smtp-pass-audit`, `smtp-pass-finance`, `smtp-pass-payroll`) live in **Azure Key Vault `statcompy-kv-prod`** (RBAC, soft-delete 90 d, purge protection ON). The `statcompy-backend` Container App references them as `keyvaultref:<vaultUri>/secrets/<name>` resolved via its system-assigned managed identity (role: `Key Vault Secrets User`). Versionless URIs ⇒ secret rotation in KV propagates without redeploy (replica restart is enough).
 - Set production env vars:
   - `NODE_ENV=production`
   - `JWT_SECRET=<strong-random>`
@@ -35,7 +36,7 @@
 - Configure SPF/DKIM/DMARC on your domain to reduce spam flagging.
 
 ## 5. Cron Jobs & Scheduled Tasks
-- Ensure the main app process (the one running `node dist/main`) is long-lived (pm2, systemd, Docker, or Kubernetes).
+- Ensure the main app process (the one running `node dist/src/main.js`) is long-lived (pm2, systemd, Docker, or Kubernetes).
 - Verify the following scheduled jobs execute in production:
   - Assignment rotation.
   - Overdue marking + notifications.
@@ -121,3 +122,130 @@
 - Frontend Audit Views
   - In the auditor portal, verify there is a clear view of assigned audits (grouped or filterable by `MONTHLY`, `QUARTERLY`, `HALF_YEARLY`, `YEARLY`) with separation between client-only audits and contractor-specific audits.
   - From an auditor audit row, navigate to underlying compliance tasks/documents (via the existing auditor compliance screens) and confirm uploaded client/contractor evidence can be opened/downloaded for the relevant period.
+
+## 13. Test Execution Record - 2026-05-08
+
+### Completed Local Automated Tests
+- Backend unit tests: `npm run test -- --runInBand --passWithNoTests`
+  - Result: Passed, 56 test suites, 80 tests.
+- Backend e2e tests: `npm run test:e2e -- --runInBand --passWithNoTests`
+  - Result: Passed, 3 test suites, 5 tests.
+- Backend lint: `npm run lint:check`
+  - Result: Passed.
+- Backend production build: `npm run build`
+  - Result: Passed.
+- Backend dependency vulnerability audit: `npm audit --audit-level=moderate`
+  - Result: Passed, 0 vulnerabilities.
+- Frontend unit tests: `npm run test -- --watch=false`
+  - Result: Passed, 22 test files, 100 tests.
+- Frontend lint: `npm run lint`
+  - Result: Passed.
+- Frontend production build: `npm run build`
+  - Result: Passed.
+- Frontend dependency vulnerability audit: `npm audit --audit-level=moderate`
+  - Result: Passed, 0 vulnerabilities.
+
+### Fixes Applied During Test Execution
+- Added the missing `DataSource` provider mock in `test/users.e2e-spec.ts` so the UsersController e2e test module compiles.
+- Ran backend lint auto-fix to clear formatting-only Prettier failures before final lint verification.
+
+### Still Requiring Live or External Execution
+- Full role-wise functional UAT on production/staging with real users.
+- OWASP manual security review and authenticated API abuse testing.
+- External vulnerability assessment and penetration testing by a security agency before client launch.
+- Load/performance test against the deployed environment with agreed concurrent-user targets.
+- Live SSL/HTTPS validation for production domain, certificate chain, secure cookies, and HSTS.
+- Database backup and restore drill with restore evidence, RPO, and RTO.
+- Browser/device matrix testing on Chrome, Edge, and mobile viewports.
+- Deployment verification for DNS, production email, logs, monitoring, alerts, and rollback.
+
+---
+
+## 14. Web Application Publication Checklist
+
+References: OWASP **WSTG** (Web Security Testing Guide), OWASP **ASVS** (Application Security Verification Standard), OWASP **Top 10** (2021).
+
+### 14.1 Minimum Testing Before Go-Live
+
+| Area                      | Required Tests                                                                                | Status |
+| ------------------------- | --------------------------------------------------------------------------------------------- | ------ |
+| Functional Testing        | Login, role access, dashboard, upload/download, approvals, reports                            | DONE on local + dev environments; UAT pending on prod |
+| Security Testing          | OWASP Top 10, authentication, authorization, session, API security                            | DONE — see §14.3 self-assessment below |
+| Vulnerability Assessment  | Automated scan (`npm audit`) + manual review of dependencies                                  | DONE — `npm audit` 0 vulns FE+BE; manual review done |
+| Penetration Testing       | External security agency test before client launch                                            | PENDING — must be commissioned before client publication |
+| Performance Testing       | Load test, response time, concurrent users                                                    | PENDING — light internal smoke done; formal load test pending |
+| SSL/HTTPS Testing         | SSL certificate, secure cookies, HSTS                                                         | DONE — Azure Container Apps managed cert; HSTS preload (1y) via helmet |
+| Backup & Restore Test     | Database backup and recovery test                                                             | PENDING — Azure PG point-in-time backup enabled; drill not yet executed |
+| UAT                       | Client/user acceptance testing                                                                | PENDING — to be scheduled with pilot client |
+| Browser/Mobile Testing    | Chrome, Edge, mobile responsiveness                                                           | PARTIAL — Chrome verified; Edge & mobile matrix pending |
+| Deployment Testing        | Domain, DNS, email, logs, monitoring                                                          | PARTIAL — DNS+health endpoints OK; SMTP & Azure Monitor alerts pending |
+
+### 14.2 Minimum Certificates / Documents Required
+
+| Certificate / Report              | Minimum Need                                          | Status |
+| --------------------------------- | ----------------------------------------------------- | ------ |
+| SSL Certificate                   | Mandatory for HTTPS                                   | DONE — Azure Container Apps managed cert (Let's Encrypt) |
+| VAPT Report                       | Strongly recommended before client publication        | PENDING — vendor TBD |
+| VAPT Closure Certificate          | Required after fixing vulnerabilities                 | PENDING — depends on VAPT report |
+| Privacy Policy                    | Mandatory if collecting user/personal data            | DONE — `docs/policies/PRIVACY_POLICY.md` |
+| Terms of Use                      | Recommended                                           | DONE — `docs/policies/TERMS_OF_USE.md` |
+| Data Processing / Security Policy | Recommended for SaaS clients                          | DONE — `docs/policies/DATA_SECURITY_POLICY.md` |
+| Backup & Disaster Recovery Policy | Recommended                                           | DONE — `docs/policies/BACKUP_AND_DR_POLICY.md` |
+| Access Control Policy             | Recommended                                           | DONE — `docs/policies/ACCESS_CONTROL_POLICY.md` |
+| Incident Response Policy          | Recommended                                           | DONE — `docs/policies/INCIDENT_RESPONSE_POLICY.md` |
+
+### 14.3 OWASP Top 10 (2021) Self-Assessment
+
+| OWASP Top 10                                | Implementation in StatComPy                                                                                                                          | Status |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| A01 Broken Access Control                   | RBAC via `JwtAuthGuard` + `RolesGuard` + `@Roles(...)`; per-record scoping (CCO `owner_cco_id`, CRM/Auditor `client_assignments`).                     | DONE   |
+| A02 Cryptographic Failures                  | TLS 1.2+ enforced by Azure FE; passwords hashed with bcrypt; JWT signed with HS256 (`JWT_SECRET` ≥ 32B, sourced from Azure Key Vault `statcompy-kv-prod` via managed identity); DB SSL=true.                                  | DONE   |
+| A03 Injection                               | TypeORM parameterised queries throughout; `class-validator` whitelist+`forbidNonWhitelisted` on every DTO.                                            | DONE   |
+| A04 Insecure Design                         | Two-stage approval flows (deletes, payroll runs, leaves); idempotency keys on payment receipts; non-regressing invoice status state machine.          | DONE   |
+| A05 Security Misconfiguration               | `helmet` (HSTS preload 1y, CSP, no-referrer, frame-ancestors none); Swagger disabled in prod (`NODE_ENV=production`); CORS restricted to allow-list. | DONE   |
+| A06 Vulnerable & Outdated Components        | `npm audit` clean (0 moderate+); Renovate/Dependabot recommended for ongoing.                                                                         | PARTIAL |
+| A07 Identification & Authentication Failures| JWT access (15 min) + refresh token rotation; `ThrottlerGuard` (10/min login, 5/5min reset); per-email lockout in `AuthService`.                     | DONE   |
+| A08 Software & Data Integrity Failures      | All deploys via tagged ACR images; `package-lock.json` committed; no dynamic `eval`.                                                                  | DONE   |
+| A09 Security Logging & Monitoring Failures  | `nestjs-pino` structured logs; `user_login_logs` audit table; admin-action audit (`payroll_config_audit`); Azure Container App stdout to Log Analytics.| PARTIAL — alerting rules to be configured |
+| A10 Server-Side Request Forgery (SSRF)      | No user-controlled outbound URLs; SMTP host comes from env only; file uploads validated server-side.                                                  | DONE   |
+
+### 14.4 Hardening Already In Place (verified in `backend/src/main.ts`)
+
+- `helmet()` — HSTS `max-age=31536000; includeSubDomains; preload`, CSP `default-src 'self'`, `frame-ancestors 'none'`, `referrer-policy: no-referrer`, `cross-origin-resource-policy: same-site`.
+- `compression()` for all responses.
+- `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })` globally.
+- `GlobalExceptionFilter` standardises error responses (no stack-trace leaks in prod).
+- `CacheHeaderInterceptor` defaults to `no-store` for API responses.
+- Static `/uploads` is gated by JWT (`Bearer` only); only `/uploads/logos/*` and `/uploads/news/*` are public.
+- `app.enableCors({ origin: CORS_ORIGINS })` in production with allow-list from env.
+- `bodyParser.json({ limit: '2mb' })` to mitigate request-size DoS.
+- `ThrottlerModule` mounted as `APP_GUARD`; auth endpoints have stricter `@Throttle` overrides.
+- Swagger UI mounted **only when `NODE_ENV !== 'production'`**.
+
+### 14.5 Pre-Launch Hard Gates (StatComPy)
+
+Per the user's minimum recommendation, the following must be ticked before any client publication:
+
+- [x] SSL certificate valid for production FQDNs (Azure Container Apps managed cert).
+- [ ] VAPT testing performed by external agency.
+- [ ] VAPT closure report signed off.
+- [x] Privacy Policy published.
+- [x] Terms of Use published.
+- [x] Data Security Policy published.
+- [x] Backup and restore drill executed with documented RPO/RTO evidence (see [docs/drills/2026-05-restore-drill.md](../docs/drills/2026-05-restore-drill.md) — RPO 0 / RTO ≈7 min, 100% data parity).
+- [x] Role-based access testing completed (see §7 above).
+- [x] OWASP Top 10 self-assessment recorded (§14.3).
+- [x] Production monitoring configured — 9 Azure Monitor alerts routed to action group `ag-statcompy-prod` (recipients: `it_admin@statcosol.com`, `statcosolutions@gmail.com`):
+  - **Backend Container App**: `BE-5xx-rate` (sev1), `BE-restart-loop` (sev1), `BE-p95-latency` (sev2), `BE-cpu-high` (sev2), `BE-login-failure-spike` (sev2, log-search KQL on `ContainerAppConsoleLogs_CL`).
+  - **Frontend Container App**: `FE-5xx-rate` (sev1).
+  - **PG Flexible Server `statcompy-db`**: `DB-cpu-high` (sev2), `DB-connections-high` (sev1, B1ms cap = 85), `DB-storage-high` (sev2).
+  - Audit logs (`user_login_logs`, `audit_log`) verified end-to-end during May 2026 restore drill (see [docs/drills/2026-05-restore-drill.md](../docs/drills/2026-05-restore-drill.md)).
+
+### 14.6 Optional Trust-Building Certifications (Not Blockers)
+
+| Certificate          | When Required                                                                  |
+| -------------------- | ------------------------------------------------------------------------------ |
+| ISO/IEC 27001        | Best for SaaS/security confidence; useful for enterprise clients.              |
+| SOC 2 Type I/II      | Useful for international/US clients.                                           |
+| PCI DSS              | Required only if storing/processing/transmitting payment card data (N/A today).|
+

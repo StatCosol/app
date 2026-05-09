@@ -18,20 +18,20 @@
   <!-- ═══ Controls ═══ -->
   <div class="cal-controls">
     <!-- CRM: Client selector -->
-    <select *ngIf="isCrm && clients.length" [(ngModel)]="selectedClientId"
+    <select id="cc-selected-client-id" *ngIf="isCrm && clients.length" name="calClientId" [(ngModel)]="selectedClientId"
             (ngModelChange)="onClientChange()" class="cal-select">
       <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
     </select>
 
     <!-- Branch selector -->
-    <select *ngIf="branches.length > 1" [(ngModel)]="selectedBranchId"
+    <select *ngIf="branches.length > 1" name="calBranchId" [(ngModel)]="selectedBranchId"
             (ngModelChange)="reload()" class="cal-select">
       <option value="">All Branches</option>
       <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
     </select>
 
     <!-- Module filter -->
-    <select [(ngModel)]="module" (ngModelChange)="reload()" class="cal-select">
+    <select id="cc-module" name="calModule" [(ngModel)]="module" (ngModelChange)="reload()" class="cal-select">
       <option value="ALL">All Modules</option>
       <option value="REGISTRATION">Registrations</option>
       <option value="MCD">MCD</option>
@@ -40,13 +40,13 @@
 
     <!-- Month navigation -->
     <div class="cal-month-nav">
-      <button class="cal-nav-btn" (click)="prevMonth()" title="Previous month">
+      <button type="button" class="cal-nav-btn" (click)="prevMonth()" title="Previous month">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
       </button>
-      <input type="month" [(ngModel)]="month" (change)="reload()" class="cal-month-input" />
-      <button class="cal-nav-btn" (click)="nextMonth()" title="Next month">
+      <input autocomplete="off" id="cc-month" type="month" name="calMonth" [(ngModel)]="month" (change)="reload()" class="cal-month-input" />
+      <button type="button" class="cal-nav-btn" (click)="nextMonth()" title="Next month">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
@@ -55,14 +55,14 @@
 
     <!-- View toggle -->
     <div class="cal-view-toggle">
-      <button [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Calendar view">
+      <button type="button" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Calendar view">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/>
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 10h16M10 4v16"/>
         </svg>
       </button>
-      <button [class.active]="viewMode === 'list'" (click)="viewMode = 'list'" title="List view">
+      <button type="button" [class.active]="viewMode === 'list'" (click)="viewMode = 'list'" title="List view">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 6h16M4 12h16M4 18h16"/>

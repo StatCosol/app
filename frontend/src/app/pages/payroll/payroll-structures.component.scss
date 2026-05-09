@@ -53,6 +53,7 @@
   font-size: 0.72rem;
   color: #6b7280;
   font-weight: 600;
+  margin-bottom: 0;
 }
 
 .summary-grid {
@@ -204,6 +205,27 @@ th {
   letter-spacing: 0.04em;
   font-weight: 700;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.section-header td {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.4rem 0.62rem;
+  border-bottom: none;
+}
+
+.subtotal-row td {
+  border-top: 1px dashed #d1d5db;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.76rem;
+  padding: 0.38rem 0.62rem;
+}
+
+.net-pay-row th {
+  font-size: 0.85rem;
+  color: #111827;
+  border-top: 2px solid #111827;
+  padding: 0.55rem 0.62rem;
 }
 
 tbody tr.selected {
@@ -645,3 +667,20 @@ textarea:focus {
     grid-column: auto;
   }
 }
+
+.live-preview-panel { margin-top: 16px; padding: 12px 14px; border: 1px solid #d1d9e0; border-radius: 8px; background: #f8fafc; }
+.live-preview-panel .lp-header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.live-preview-panel .lp-header small { color: #6b7280; }
+.live-preview-panel .lp-body { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.live-preview-panel .lp-inputs { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 4px; }
+.live-preview-panel .lp-inputs textarea { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; resize: vertical; }
+.live-preview-panel .lp-error { margin-top: 8px; padding: 8px 10px; background: #fef2f2; color: #991b1b; border-radius: 6px; font-size: 13px; }
+.live-preview-panel .lp-result { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.live-preview-panel .lp-result .lp-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 8px; background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; }
+.live-preview-panel .lp-result .lp-value { font-weight: 600; color: #047857; }
+.live-preview-panel .lp-resolved { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.live-preview-panel .lp-chip { padding: 2px 8px; background: #e0f2fe; border-radius: 999px; color: #075985; font-family: ui-monospace, SFMono-Regular, monospace; }
+.slab-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.slab-grid th, .slab-grid td { padding: 4px 6px; border-bottom: 1px solid #e5e7eb; }
+.slab-grid input[type=number] { width: 100%; }
+

@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 
@@ -77,12 +78,17 @@ export class CrmComplianceTasksComponent implements OnInit, OnDestroy {
     private api: ComplianceApiService,
     private dialog: ConfirmDialogService,
     private toast: ToastService,
+    private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.loadKpis();
     this.load();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/crm/dashboard']);
   }
 
   loadKpis(): void {

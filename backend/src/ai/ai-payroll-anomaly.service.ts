@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AiPayrollAnomalyEntity } from './entities/ai-payroll-anomaly.entity';
@@ -6,13 +6,11 @@ import { AiCoreService } from './ai-core.service';
 
 @Injectable()
 export class AiPayrollAnomalyService {
-  private readonly logger = new Logger(AiPayrollAnomalyService.name);
-
   constructor(
     @InjectRepository(AiPayrollAnomalyEntity)
     private readonly anomalyRepo: Repository<AiPayrollAnomalyEntity>,
     private readonly dataSource: DataSource,
-    private readonly aiCore: AiCoreService,
+    private readonly _aiCore: AiCoreService,
   ) {}
 
   /** Detect payroll anomalies for a client/run using rule-based + AI analysis */
@@ -26,7 +24,7 @@ export class AiPayrollAnomalyService {
     const minWageViolations = await this.dataSource
       .query(
         `
-      SELECT e.id as employee_id, e.first_name, e.last_name, e.basic_salary, e.gross_salary,
+      SELECT e.id as employee_id, e.name, e.basic_salary, e.gross_salary,
              b.id as branch_id, b.statecode
       FROM employees e
       LEFT JOIN client_branches b ON b.id = e.branch_id
@@ -45,9 +43,9 @@ export class AiPayrollAnomalyService {
         payrollRunId: payrollRunId || null,
         anomalyType: 'MIN_WAGE_VIOLATION',
         severity: 'HIGH',
-        description: `Employee ${emp.first_name} ${emp.last_name} — Basic salary ₹${emp.basic_salary} may be below minimum wage threshold for ${emp.statecode || 'the state'}.`,
+        description: `Employee ${emp.name} — Basic salary ₹${emp.basic_salary} may be below minimum wage threshold for ${emp.statecode || 'the state'}.`,
         details: {
-          employeeName: `${emp.first_name} ${emp.last_name}`,
+          employeeName: emp.name,
           basicSalary: emp.basic_salary,
           state: emp.statecode,
         },
@@ -60,7 +58,7 @@ export class AiPayrollAnomalyService {
     const pfMismatches = await this.dataSource
       .query(
         `
-      SELECT e.id as employee_id, e.first_name, e.last_name,
+      SELECT e.id as employee_id, e.name,
              e.basic_salary,
              esd.pf_number, esd.employee_pf_contribution, esd.employer_pf_contribution,
              b.id as branch_id
@@ -84,7 +82,7 @@ export class AiPayrollAnomalyService {
         payrollRunId: payrollRunId || null,
         anomalyType: 'PF_CONTRIBUTION_MISMATCH',
         severity: 'MEDIUM',
-        description: `Employee ${emp.first_name} ${emp.last_name} — PF contribution mismatch: Employee ₹${emp.employee_pf_contribution} vs Employer ₹${emp.employer_pf_contribution}.`,
+        description: `Employee ${emp.name} — PF contribution mismatch: Employee ₹${emp.employee_pf_contribution} vs Employer ₹${emp.employer_pf_contribution}.`,
         details: {
           employeePF: emp.employee_pf_contribution,
           employerPF: emp.employer_pf_contribution,
@@ -102,7 +100,7 @@ export class AiPayrollAnomalyService {
     const salarySpikes = await this.dataSource
       .query(
         `
-      SELECT e.id as employee_id, e.first_name, e.last_name,
+      SELECT e.id as employee_id, e.name,
              e.basic_salary, e.gross_salary,
              b.id as branch_id
       FROM employees e
@@ -123,7 +121,7 @@ export class AiPayrollAnomalyService {
         employeeId: emp.employee_id,
         anomalyType: 'SUSPICIOUS_SALARY_STRUCTURE',
         severity: 'MEDIUM',
-        description: `Employee ${emp.first_name} ${emp.last_name} — Basic salary (₹${emp.basic_salary}) is less than 30% of gross (₹${emp.gross_salary}). May be structured to minimize PF contributions.`,
+        description: `Employee ${emp.name} — Basic salary (₹${emp.basic_salary}) is less than 30% of gross (₹${emp.gross_salary}). May be structured to minimize PF contributions.`,
         details: {
           basicSalary: emp.basic_salary,
           grossSalary: emp.gross_salary,
@@ -138,7 +136,7 @@ export class AiPayrollAnomalyService {
     const unregistered = await this.dataSource
       .query(
         `
-      SELECT e.id as employee_id, e.first_name, e.last_name,
+      SELECT e.id as employee_id, e.name,
              esd.pf_number, esd.esi_number,
              e.date_of_joining, b.id as branch_id
       FROM employees e
@@ -162,7 +160,7 @@ export class AiPayrollAnomalyService {
         employeeId: emp.employee_id,
         anomalyType: 'MISSING_STATUTORY_REGISTRATION',
         severity: 'HIGH',
-        description: `Employee ${emp.first_name} ${emp.last_name} — Missing ${missing.join(' & ')} registration. Joined ${emp.date_of_joining?.toISOString?.()?.split('T')[0] || 'over 30 days ago'}.`,
+        description: `Employee ${emp.name} — Missing ${missing.join(' & ')} registration. Joined ${emp.date_of_joining?.toISOString?.()?.split('T')[0] || 'over 30 days ago'}.`,
         details: {
           missingRegistrations: missing,
           dateOfJoining: emp.date_of_joining,

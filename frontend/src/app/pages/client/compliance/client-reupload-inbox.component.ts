@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { ComplianceApiService } from '../../../shared/services/compliance-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
@@ -27,6 +28,7 @@ export class ClientReuploadInboxComponent implements OnInit {
     private api: ComplianceApiService,
     private toast: ToastService,
     private dialog: ConfirmDialogService,
+    private zone: NgZone,
   ) {}
 
   ngOnInit() {
@@ -172,16 +174,29 @@ export class ClientReuploadInboxComponent implements OnInit {
 
   load() {
     this.loading = true;
-    this.api.clientListReuploadRequests({}).subscribe({
-      next: (res: any) => {
-        this.rows = Array.isArray(res) ? res : (res?.data || res?.items || []);
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-        this.toast.error('Failed to load reupload requests.');
-      },
-    });
+    // Safety net: if the request truly hangs (network stall, interceptor swallow,
+    // change-detection miss outside Angular zone), force the spinner off after 20s.
+    const watchdog = setTimeout(() => {
+      if (this.loading) {
+        this.zone.run(() => { this.loading = false; });
+      }
+    }, 20000);
+    this.api.clientListReuploadRequests({})
+      .pipe(finalize(() => {
+        clearTimeout(watchdog);
+        // Ensure loading flips even if next/error never fired (e.g. unsubscribe).
+        this.zone.run(() => { this.loading = false; });
+      }))
+      .subscribe({
+        next: (res: any) => {
+          this.rows = Array.isArray(res) ? res : (res?.data || res?.items || []);
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+          this.toast.error('Failed to load reupload requests.');
+        },
+      });
   }
 
   onFileChange(reqId: string, e: any) {

@@ -1,12 +1,12 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ToastService } from '../../../shared/toast/toast.service';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import {
   UnitsApiService,
-  UnitFacts,
   UnitFactsDto,
   ApplicableCompliance,
   RecomputeResult,
@@ -47,6 +47,10 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
         <div class="flex gap-3">
           <ui-button
             variant="secondary"
+            (clicked)="goBack()"
+          >← Back</ui-button>
+          <ui-button
+            variant="secondary"
             [loading]="recomputing"
             (clicked)="recompute()"
           >Recompute</ui-button>
@@ -78,16 +82,16 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
           <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <!-- State Code -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
-              <select [(ngModel)]="factsForm.stateCode" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <label for="ba-state" class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
+              <select id="ba-state" name="stateCode" [(ngModel)]="factsForm.stateCode" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                 <option value="">Select State</option>
                 <option *ngFor="let s of stateOptions" [value]="s.value">{{ s.label }}</option>
               </select>
             </div>
             <!-- Establishment Type -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Establishment Type</label>
-              <select [(ngModel)]="factsForm.establishmentType" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <label for="ba-estab-type" class="block text-sm font-medium text-gray-700 mb-1.5">Establishment Type</label>
+              <select id="ba-estab-type" name="establishmentType" [(ngModel)]="factsForm.establishmentType" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                 <option value="FACTORY">Factory</option>
                 <option value="ESTABLISHMENT">Establishment</option>
                 <option value="BOTH">Both</option>
@@ -95,48 +99,48 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             </div>
             <!-- Hazardous -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Hazardous</label>
-              <select [(ngModel)]="factsForm.isHazardous" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
+              <label for="ba-hazardous" class="block text-sm font-medium text-gray-700 mb-1.5">Hazardous</label>
+              <select id="ba-hazardous" name="isHazardous" [(ngModel)]="factsForm.isHazardous" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm">
                 <option [ngValue]="false">Non-Hazardous</option>
                 <option [ngValue]="true">Hazardous</option>
               </select>
             </div>
             <!-- Headcounts -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Total Employees</label>
-              <input type="number" [(ngModel)]="factsForm.employeeTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <label for="ba-emp-total" class="block text-sm font-medium text-gray-700 mb-1.5">Total Employees</label>
+              <input autocomplete="off" type="number" id="ba-emp-total" name="employeeTotal" [(ngModel)]="factsForm.employeeTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Male Employees</label>
-              <input type="number" [(ngModel)]="factsForm.employeeMale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <label for="ba-emp-male" class="block text-sm font-medium text-gray-700 mb-1.5">Male Employees</label>
+              <input autocomplete="off" type="number" id="ba-emp-male" name="employeeMale" [(ngModel)]="factsForm.employeeMale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Female Employees</label>
-              <input type="number" [(ngModel)]="factsForm.employeeFemale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <label for="ba-emp-female" class="block text-sm font-medium text-gray-700 mb-1.5">Female Employees</label>
+              <input autocomplete="off" type="number" id="ba-emp-female" name="employeeFemale" [(ngModel)]="factsForm.employeeFemale" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Contract Workers</label>
-              <input type="number" [(ngModel)]="factsForm.contractWorkersTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <label for="ba-contract-workers" class="block text-sm font-medium text-gray-700 mb-1.5">Contract Workers</label>
+              <input autocomplete="off" type="number" id="ba-contract-workers" name="contractWorkersTotal" [(ngModel)]="factsForm.contractWorkersTotal" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Total Contractors</label>
-              <input type="number" [(ngModel)]="factsForm.contractorsCount" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <label for="ba-contractors" class="block text-sm font-medium text-gray-700 mb-1.5">Total Contractors</label>
+              <input autocomplete="off" type="number" id="ba-contractors" name="contractorsCount" [(ngModel)]="factsForm.contractorsCount" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Industry Category</label>
-              <input type="text" [(ngModel)]="factsForm.industryCategory" placeholder="e.g. Chemicals, IT, Manufacturing" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              <label for="ba-industry" class="block text-sm font-medium text-gray-700 mb-1.5">Industry Category</label>
+              <input autocomplete="off" type="text" id="ba-industry" name="industryCategory" [(ngModel)]="factsForm.industryCategory" placeholder="e.g. Chemicals, IT, Manufacturing" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <!-- Toggle fields -->
             <div class="flex items-center gap-3">
-              <input type="checkbox" [(ngModel)]="factsForm.isBocwProject" id="bocw" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
+              <input autocomplete="off" type="checkbox" name="isBocwProject" [(ngModel)]="factsForm.isBocwProject" id="bocw" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
               <label for="bocw" class="text-sm text-gray-700">BOCW Project</label>
             </div>
             <div class="flex items-center gap-3">
-              <input type="checkbox" [(ngModel)]="factsForm.hasCanteen" id="canteen" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
+              <input autocomplete="off" type="checkbox" name="hasCanteen" [(ngModel)]="factsForm.hasCanteen" id="canteen" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
               <label for="canteen" class="text-sm text-gray-700">Has Canteen</label>
             </div>
             <div class="flex items-center gap-3">
-              <input type="checkbox" [(ngModel)]="factsForm.hasCreche" id="creche" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
+              <input autocomplete="off" type="checkbox" name="hasCreche" [(ngModel)]="factsForm.hasCreche" id="creche" class="h-4 w-4 text-blue-600 rounded border-gray-300" />
               <label for="creche" class="text-sm text-gray-700">Has Creche</label>
             </div>
           </div>
@@ -197,7 +201,7 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
             </div>
           </div>
           <div *ngIf="loadingApplicable" class="p-8 text-center text-gray-400">Loading applicability...</div>
-          <div *ngIf="!loadingApplicable">
+          <div *ngIf="!loadingApplicable" class="max-h-[600px] overflow-y-auto">
             <div *ngFor="let group of applicabilityGroups" class="border-b border-gray-100 last:border-b-0">
               <div class="px-6 py-3 bg-gray-50 flex items-center justify-between cursor-pointer" (click)="toggleGroupExpand(group.key)">
                 <div class="flex items-center gap-2">
@@ -270,20 +274,20 @@ const _DEFAULT_PACKAGE_ID_KEY = 'DEFAULT_INDIA';
       <ui-modal *ngIf="overrideModal" title="Override Compliance" (closed)="overrideModal = null">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Compliance</label>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Compliance</span>
             <p class="text-sm text-gray-900 font-medium">{{ overrideModal.compliance.name }}</p>
             <p class="text-xs text-gray-500">{{ overrideModal.compliance.code }}</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Action</label>
-            <select [(ngModel)]="overrideAction" class="w-full rounded-lg border-gray-300 shadow-sm text-sm">
+            <label for="ba-override-action" class="block text-sm font-medium text-gray-700 mb-1.5">Action</label>
+            <select id="ba-override-action" name="overrideAction" [(ngModel)]="overrideAction" class="w-full rounded-lg border-gray-300 shadow-sm text-sm">
               <option value="ENABLE">Force Enable (make applicable)</option>
               <option value="DISABLE">Force Disable (make not applicable)</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason (mandatory, min 5 chars)</label>
-            <textarea [(ngModel)]="overrideReason" rows="3" placeholder="Explain why this override is needed..."
+            <label for="ba-override-reason" class="block text-sm font-medium text-gray-700 mb-1.5">Reason (mandatory, min 5 chars)</label>
+            <textarea autocomplete="off" id="ba-override-reason" name="overrideReason" [(ngModel)]="overrideReason" rows="3" placeholder="Explain why this override is needed..."
               class="w-full rounded-lg border-gray-300 shadow-sm text-sm"></textarea>
           </div>
           <div class="flex justify-end gap-3">
@@ -344,8 +348,11 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
     RETURN: 'Returns',
   };
 
+  private readonly toast = inject(ToastService);
+
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private unitsApi: UnitsApiService,
     private cdr: ChangeDetectorRef,
   ) {}
@@ -355,6 +362,10 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
       this.branchId = params['branchId'] || params['id'] || '';
       if (this.branchId) this.loadAll();
     });
+  }
+
+  goBack(): void {
+    this.router.navigate(['/admin/applicability']);
   }
 
   ngOnDestroy(): void {
@@ -391,6 +402,7 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
           };
         }
       },
+      error: (err) => this.toast.error('Load Error', err?.error?.message || 'Failed to load branch facts'),
     });
   }
 
@@ -410,6 +422,7 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
           .map(i => i.compliance?.code)
           .filter(Boolean);
       },
+      error: (err) => this.toast.error('Load Error', err?.error?.message || 'Failed to load applicability data'),
     });
   }
 
@@ -440,7 +453,10 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
     this.unitsApi.upsertFacts(this.branchId, this.factsForm).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.savingFacts = false; this.cdr.detectChanges(); }),
-    ).subscribe();
+    ).subscribe({
+      next: () => this.toast.success('Saved', 'Branch facts saved successfully'),
+      error: (err) => this.toast.error('Save Error', err?.error?.message || 'Failed to save branch facts'),
+    });
   }
 
   recompute(): void {
@@ -475,8 +491,10 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (res) => {
         this.recomputeResult = res;
+        this.toast.success('Recomputed', `${res.applicable} applicable out of ${res.computed} compliances`);
         this.loadApplicable();
       },
+      error: (err) => this.toast.error('Recompute Error', err?.error?.message || 'Failed to recompute applicability'),
     });
   }
 
@@ -539,11 +557,17 @@ export class BranchApplicabilityComponent implements OnInit, OnDestroy {
         ).subscribe({
           next: () => {
             this.pendingOverrides = [];
+            this.toast.success('Saved', 'All changes saved successfully');
             this.loadApplicable();
           },
+          error: (err) => this.toast.error('Save Error', err?.error?.message || 'Failed to save applicability'),
         });
       },
-      error: () => { this.saving = false; this.cdr.detectChanges(); },
+      error: (err) => {
+        this.saving = false;
+        this.cdr.detectChanges();
+        this.toast.error('Save Error', err?.error?.message || 'Failed to save branch facts');
+      },
     });
   }
 

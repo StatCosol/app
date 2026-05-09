@@ -36,9 +36,13 @@ export class RolesGuard implements CanActivate {
     // Build the effective roles for this user.
     // CLIENT users with userType=BRANCH also match the BRANCH_DESK virtual role
     // so that @Roles('BRANCH_DESK') controllers are accessible to branch users.
+    // PAYROLL users also match the PAYDEK virtual role for paydek-prefixed endpoints.
     const effectiveRoles: string[] = [user.roleCode];
     if (user.roleCode === 'CLIENT' && user.userType === 'BRANCH') {
       effectiveRoles.push('BRANCH_DESK');
+    }
+    if (user.roleCode === 'PAYROLL') {
+      effectiveRoles.push('PAYDEK');
     }
 
     const hasRole = requiredRoles.some((r) => effectiveRoles.includes(r));

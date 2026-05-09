@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Query,
-  Req,
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +12,8 @@ import { CalendarQueryDto } from './dto/calendar-query.dto';
 import { CalendarService } from './calendar.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Calendar')
 @ApiBearerAuth('JWT')
@@ -29,9 +30,8 @@ export class CalendarController {
   @Get()
   async getCalendar(
     @Query() q: CalendarQueryDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
     const roleCode: string = user.roleCode;
 
     // Block auditor explicitly
@@ -44,7 +44,7 @@ export class CalendarController {
 
     if (roleCode === 'CLIENT') {
       // CLIENT user: clientId from JWT, branchIds from JWT (empty = master)
-      clientId = user.clientId;
+      clientId = user.clientId!;
       if (!clientId) throw new ForbiddenException('Client not mapped');
       branchIds = user.branchIds ?? [];
     } else if (roleCode === 'CRM') {
@@ -53,7 +53,7 @@ export class CalendarController {
       if (!clientId) throw new ForbiddenException('clientId required for CRM');
       const assigned = await this.assignmentsService.isClientAssignedToCrm(
         clientId,
-        user.sub ?? user.userId,
+        user.userId,
       );
       if (!assigned) throw new ForbiddenException('Client not assigned to you');
     } else {

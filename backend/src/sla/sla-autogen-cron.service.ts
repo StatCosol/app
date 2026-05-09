@@ -2,10 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { SlaComplianceResolverService } from '../compliances/sla-compliance-resolver.service';
-import {
-  SlaComplianceScheduleService,
-  ScheduleEntry,
-} from '../compliances/sla-compliance-schedule.service';
+import { SlaComplianceScheduleService } from '../compliances/sla-compliance-schedule.service';
 
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -28,7 +25,7 @@ export class SlaAutogenCronService {
   async runDaily(): Promise<void> {
     this.logger.log('SLA auto-generation started...');
 
-    const branches: any[] = await this.ds.query(
+    const branches: { id: string; clientid: string }[] = await this.ds.query(
       `SELECT id, clientid FROM client_branches
        WHERE isdeleted = false AND status = 'ACTIVE'`,
     );
@@ -38,9 +35,9 @@ export class SlaAutogenCronService {
       try {
         const c = await this.generateForBranch(b.clientid, b.id);
         created += c;
-      } catch (err: any) {
+      } catch (err: unknown) {
         this.logger.warn(
-          `SLA autogen failed for branch ${b.id}: ${err.message}`,
+          `SLA autogen failed for branch ${b.id}: ${(err as Error).message}`,
         );
       }
     }
@@ -70,14 +67,15 @@ export class SlaAutogenCronService {
     branchId: string,
     today: Date,
   ): Promise<number> {
-    const regs: any[] = await this.ds.query(
-      `SELECT id, type, expiry_date
+    const regs: { id: string; type: string; expiry_date: string }[] =
+      await this.ds.query(
+        `SELECT id, type, expiry_date
        FROM branch_registrations
        WHERE client_id = $1 AND branch_id = $2
          AND status <> 'DELETED'
          AND expiry_date IS NOT NULL`,
-      [clientId, branchId],
-    );
+        [clientId, branchId],
+      );
 
     let count = 0;
     for (const r of regs) {
@@ -126,7 +124,6 @@ export class SlaAutogenCronService {
   ): Promise<number> {
     const y = today.getFullYear();
     const m = today.getMonth();
-    const dayOfMonth = today.getDate();
     const month = `${y}-${String(m + 1).padStart(2, '0')}`;
     let count = 0;
 
@@ -135,7 +132,6 @@ export class SlaAutogenCronService {
 
     // Build schedule for current month
     const entries = this.schedule.buildMonthSchedule({
-      branch: {} as any, // branch not needed by schedule builder
       applicable,
       month,
     });
@@ -145,7 +141,6 @@ export class SlaAutogenCronService {
     const nextY = m + 1 > 11 ? y + 1 : y;
     const nextMonth = `${nextY}-${String(nextM + 1).padStart(2, '0')}`;
     const nextEntries = this.schedule.buildMonthSchedule({
-      branch: {} as any,
       applicable,
       month: nextMonth,
     });
@@ -254,7 +249,7 @@ export class SlaAutogenCronService {
     dueDate: string,
   ): Promise<boolean> {
     // Check if non-CLOSED task already exists for this source_key + due_date
-    const existing: any[] = await this.ds.query(
+    const existing: { id: string; status: string }[] = await this.ds.query(
       `SELECT id, status FROM sla_tasks
        WHERE client_id = $1 AND branch_id = $2
          AND module = $3 AND source_key = $4 AND due_date = $5

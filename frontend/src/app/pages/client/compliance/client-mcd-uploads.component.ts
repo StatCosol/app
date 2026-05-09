@@ -80,7 +80,8 @@ export class ClientMcdUploadsComponent implements OnDestroy {
         this.loading = false;
         this.tasks = (res?.data || res || []).map((t: any) => ({
           ...t,
-          complianceTitle: t.complianceTitle || t.title || t.compliance?.title,
+          complianceTitle: t.complianceTitle || t.compliance?.complianceName || t.title,
+          complianceCode: t.complianceCode || t.compliance?.code || t.code || '',
           branchName: t.branchName || t.branch?.branchName || '-',
           dueDate: t.dueDate || this.computeDueDateString(t),
           window: this.windowDates(t),

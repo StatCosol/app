@@ -46,7 +46,7 @@ export class CompliancePctService {
 
   async branchPct(branchId: string, month?: string): Promise<PctSummary> {
     const monthFilter = month ? `AND to_char(ct.due_date, 'YYYY-MM') = $2` : '';
-    const params: any[] = [branchId];
+    const params: unknown[] = [branchId];
     if (month) params.push(month);
 
     const sql = `
@@ -84,7 +84,7 @@ export class CompliancePctService {
     month?: string,
   ): Promise<BranchPctRow[]> {
     const monthFilter = month ? `AND to_char(ct.due_date, 'YYYY-MM') = $2` : '';
-    const params: any[] = [clientId];
+    const params: unknown[] = [clientId];
     if (month) params.push(month);
 
     const sql = `
@@ -128,7 +128,7 @@ export class CompliancePctService {
     month?: string,
   ): Promise<PctSummary> {
     const monthFilter = month ? `AND to_char(ct.due_date, 'YYYY-MM') = $2` : '';
-    const params: any[] = [clientId];
+    const params: unknown[] = [clientId];
     if (month) params.push(month);
 
     const sql = `
@@ -164,7 +164,7 @@ export class CompliancePctService {
 
   async branchWeightedPct(branchId: string, month?: string): Promise<number> {
     const monthFilter = month ? `AND to_char(ct.due_date, 'YYYY-MM') = $2` : '';
-    const params: any[] = [branchId];
+    const params: unknown[] = [branchId];
     if (month) params.push(month);
 
     const sql = `
@@ -213,9 +213,6 @@ export class CompliancePctService {
 
     if (totalWeight === 0) return 0;
 
-    // Redistribute empty weights proportionally
-    const pct =
-      (weightedSum / totalWeight) * (totalWeight + emptyKeys.length * 0);
     return Math.round((weightedSum / totalWeight) * 100) / 100;
   }
 

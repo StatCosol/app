@@ -76,8 +76,8 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
           </div>
 
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Remarks (required for rejection)</label>
-            <textarea [(ngModel)]="remarks" rows="3" placeholder="Optional remarks..."
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="ad-remarks">Remarks (required for rejection)</label>
+            <textarea autocomplete="off" id="ad-remarks" name="remarks" [(ngModel)]="remarks" rows="3" placeholder="Optional remarks..."
                       class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"></textarea>
           </div>
 

@@ -7,15 +7,15 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Clients')
 @ApiBearerAuth('JWT')
-@Controller({ path: 'admin/clients-legacy', version: '1' })
+@Controller({ path: 'admin/clients', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @ApiOperation({ summary: 'List With Aggregates' })
-  @Get('list-with-aggregates')
+  @Get('with-aggregates')
   async listWithAggregates() {
-    return this.clientsService.listWithAggregates();
+    return this.clientsService.listClients();
   }
 }

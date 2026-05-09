@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'action-footer-bar',
+  selector: 'ui-action-footer-bar',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -21,6 +21,7 @@ export class ActionFooterBarComponent {
   @Input() saveLabel = 'Save';
   @Input() saveDisabled = false;
 
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() cancel = new EventEmitter<void>();
   @Output() save = new EventEmitter<void>();
 }

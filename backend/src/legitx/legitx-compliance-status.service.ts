@@ -6,7 +6,6 @@ import {
   ComplianceTaskRow,
   ContractorImpactRow,
   AuditImpactResponse,
-  AuditObservationRow,
 } from './legitx-compliance-status.types';
 
 type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -163,28 +162,12 @@ export class LegitxComplianceStatusService {
     );
 
     // Get audit scores per branch
-    const auditParams: any[] = [p.year];
+    const auditParams: unknown[] = [p.year];
     let auditWhere = 'WHERE a.period_year = $1';
     if (p.clientId) {
       auditParams.push(p.clientId);
       auditWhere += ` AND a.client_id = $${auditParams.length}`;
     }
-
-    const auditScores = await this.safeMany<{
-      client_id: string;
-      score: number;
-    }>(
-      `SELECT a.client_id,
-              COALESCE(AVG(a.score_percent), 0)::int AS score
-       FROM audits a
-       ${auditWhere} AND a.status = 'COMPLETED'
-       GROUP BY a.client_id`,
-      auditParams,
-      [],
-    );
-    const auditScoreMap = new Map(
-      auditScores.map((a) => [a.client_id, a.score]),
-    );
 
     // Get observation counts for risk calc
     const obsRows = await this.getObsCountsByBranch(p);
@@ -268,6 +251,7 @@ export class LegitxComplianceStatusService {
 
     const rows = await this.safeMany<{
       task_id: number;
+      compliance_id: number | null;
       compliance_name: string;
       law_name: string | null;
       frequency: string;
@@ -279,6 +263,7 @@ export class LegitxComplianceStatusService {
     }>(
       `SELECT
          ct.id AS task_id,
+         ct.compliance_id,
          COALESCE(ct.title, cm.compliance_name, 'Task') AS compliance_name,
          cm.law_name,
          ct.frequency,
@@ -306,7 +291,16 @@ export class LegitxComplianceStatusService {
 
     const today = new Date();
 
-    return rows.map((r) => {
+    // Deduplicate tasks with same compliance+branch (within same period filtered by WHERE)
+    const seenKeys = new Set<string>();
+    const dedupedRows = rows.filter((r) => {
+      const key = `${r.compliance_id}|${r.branch_id}`;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
+
+    return dedupedRows.map((r) => {
       const dueDate = r.due_date ? new Date(r.due_date) : null;
       const delayDays =
         dueDate && dueDate < today
@@ -338,7 +332,7 @@ export class LegitxComplianceStatusService {
     mostCompliant: ContractorImpactRow[];
   }> {
     const conditions: string[] = [];
-    const qParams: any[] = [];
+    const qParams: unknown[] = [];
 
     if (p.clientId) {
       qParams.push(p.clientId);
@@ -431,7 +425,7 @@ export class LegitxComplianceStatusService {
 
   async getAuditImpact(p: StatusQueryParams): Promise<AuditImpactResponse> {
     const conditions: string[] = ['a.period_year = $1'];
-    const qParams: any[] = [p.year];
+    const qParams: unknown[] = [p.year];
 
     if (p.clientId) {
       qParams.push(p.clientId);
@@ -533,7 +527,7 @@ export class LegitxComplianceStatusService {
       'r.period_year = $1',
       '(r.period_month IS NULL OR r.period_month = $2)',
     ];
-    const qParams: any[] = [p.year, p.month];
+    const qParams: unknown[] = [p.year, p.month];
 
     if (p.clientId) {
       qParams.push(p.clientId);
@@ -623,14 +617,14 @@ export class LegitxComplianceStatusService {
   // ───────────── Helpers ─────────────
 
   private buildTaskWhere(p: StatusQueryParams): {
-    params: any[];
+    params: unknown[];
     where: string;
   } {
     const conditions: string[] = [
       'ct.period_year = $1',
       '(ct.period_month IS NULL OR ct.period_month = $2)',
     ];
-    const params: any[] = [p.year, p.month];
+    const params: unknown[] = [p.year, p.month];
 
     if (p.clientId) {
       params.push(p.clientId);
@@ -658,7 +652,7 @@ export class LegitxComplianceStatusService {
     p: StatusQueryParams,
   ): Promise<{ high: number; critical: number }> {
     const conditions: string[] = ['a.period_year = $1'];
-    const qParams: any[] = [p.year];
+    const qParams: unknown[] = [p.year];
 
     if (p.clientId) {
       qParams.push(p.clientId);
@@ -680,7 +674,7 @@ export class LegitxComplianceStatusService {
   }
 
   private async getObsCountsByBranch(
-    p: StatusQueryParams,
+    _p: StatusQueryParams,
   ): Promise<Map<string, { high: number; critical: number }>> {
     // Since audits are at client level (no branch_id), we return empty map
     // When audits get branch_id, this can be enhanced
@@ -689,27 +683,27 @@ export class LegitxComplianceStatusService {
 
   private async safeOne<T>(
     sql: string,
-    params: any[],
+    params: unknown[],
     fallback: T,
   ): Promise<T> {
     try {
       const row = await this.db.one<T>(sql, params);
       return (row as T) ?? fallback;
-    } catch (err: any) {
-      this.logger.debug(`SQL one failed: ${err?.message ?? err}`);
+    } catch (err: unknown) {
+      this.logger.debug(`SQL one failed: ${(err as Error)?.message ?? err}`);
       return fallback;
     }
   }
 
   private async safeMany<T>(
     sql: string,
-    params: any[],
+    params: unknown[],
     fallback: T[],
   ): Promise<T[]> {
     try {
       return (await this.db.many<T>(sql, params)) ?? fallback;
-    } catch (err: any) {
-      this.logger.debug(`SQL many failed: ${err?.message ?? err}`);
+    } catch (err: unknown) {
+      this.logger.debug(`SQL many failed: ${(err as Error)?.message ?? err}`);
       return fallback;
     }
   }

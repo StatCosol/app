@@ -6,14 +6,14 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
-  Req,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { CompliancesService } from './compliances.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -40,13 +40,13 @@ export class CompliancesController {
   saveBranchCompliances(
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Body() dto: { clientId: string; complianceIds: string[] },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
     return this.service.saveBranchCompliances(
       branchId,
       dto.clientId,
       dto.complianceIds,
-      req?.user?.userId ?? null,
+      user.userId,
     );
   }
 

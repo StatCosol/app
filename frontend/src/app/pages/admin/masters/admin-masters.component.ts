@@ -27,6 +27,8 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
   filteredComplianceMasters: any[] = [];
   searchTerm = '';
   stateFilter = '';
+  lawFilter = '';
+  lawFilterOptions: SelectOption[] = [{ value: '', label: 'All Acts' }];
   complianceForm: any = this.resetComplianceForm();
   editingComplianceId: string | null = null;
 
@@ -51,19 +53,24 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
   auditCategoryForm: any = { name: '', description: '' };
   editingAuditCategoryId: string | null = null;
 
+  // Bulk Upload
+  bulkFile: File | null = null;
+  bulkUploading = false;
+  bulkResult: { inserted: number; skipped: number; errors: { row: number; reason: string }[] } | null = null;
+
   frequencyOptions = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'EVENT_BASED'];
   frequencySelectOptions: SelectOption[] = [];
   statusSelectOptions: SelectOption[] = [];
 
   complianceColumns: TableColumn[] = [
-    { key: 'complianceName', header: 'Compliance Name', sortable: false },
-    { key: 'lawName', header: 'Law Name', sortable: false },
-    { key: 'lawFamily', header: 'Law Family', sortable: false },
-    { key: 'frequency', header: 'Frequency', sortable: false },
-    { key: 'stateScope', header: 'State', sortable: false },
-    { key: 'headcount', header: 'Headcount', sortable: false },
-    { key: 'isActive', header: 'Status', sortable: false },
-    { key: 'actions', header: 'Actions', sortable: false },
+    { key: 'complianceName', header: 'Compliance Name', sortable: false, width: '20%' },
+    { key: 'lawName', header: 'Law Name', sortable: false, width: '18%' },
+    { key: 'lawFamily', header: 'Law Family', sortable: false, width: '12%' },
+    { key: 'frequency', header: 'Frequency', sortable: false, width: '10%' },
+    { key: 'stateScope', header: 'State', sortable: false, width: '7%' },
+    { key: 'headcount', header: 'Headcount', sortable: false, width: '9%' },
+    { key: 'isActive', header: 'Status', sortable: false, width: '8%' },
+    { key: 'actions', header: 'Actions', sortable: false, width: '16%' },
   ];
 
   auditCategoryColumns: TableColumn[] = [
@@ -109,6 +116,7 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (res: any) => {
         this.complianceMasters = res || [];
+        this.buildLawFilterOptions();
         this.applyFilters();
         this.cdr.detectChanges();
       },
@@ -175,6 +183,48 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     this.api.deleteComplianceMaster(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.deletingId = null; this.cdr.detectChanges(); this.loadComplianceMasters(); },
       error: () => { this.deletingId = null; this.cdr.detectChanges(); },
+    });
+  }
+
+  // ============ Bulk Upload ============
+  onBulkFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.bulkFile = input.files?.[0] || null;
+    this.bulkResult = null;
+  }
+
+  uploadBulkFile() {
+    if (!this.bulkFile || this.bulkUploading) return;
+    this.bulkUploading = true;
+    this.bulkResult = null;
+    this.api.bulkUploadComplianceMasters(this.bulkFile).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.bulkUploading = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res: any) => {
+        this.bulkResult = res;
+        this.bulkFile = null;
+        // Reset file input
+        const fileInput = document.getElementById('bulkFileInput') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+        this.loadComplianceMasters();
+      },
+      error: (err: any) => {
+        this.bulkResult = { inserted: 0, skipped: 0, errors: [{ row: 0, reason: err?.error?.message || 'Upload failed' }] };
+      },
+    });
+  }
+
+  downloadTemplate() {
+    this.api.downloadComplianceTemplate().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'compliance-masters-template.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
     });
   }
 
@@ -246,7 +296,18 @@ export class AdminMastersComponent implements OnInit, OnDestroy {
     if (this.stateFilter) {
       items = items.filter(m => (m.stateScope || 'ALL').toUpperCase().includes(this.stateFilter));
     }
+    if (this.lawFilter) {
+      items = items.filter(m => (m.lawName || '') === this.lawFilter);
+    }
     this.filteredComplianceMasters = items;
+  }
+
+  buildLawFilterOptions(): void {
+    const laws = [...new Set(this.complianceMasters.map(m => m.lawName).filter(Boolean))].sort();
+    this.lawFilterOptions = [
+      { value: '', label: 'All Acts' },
+      ...laws.map(l => ({ value: l, label: l })),
+    ];
   }
 
   exportCsv(): void {

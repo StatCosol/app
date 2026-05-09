@@ -74,9 +74,19 @@
   background: #dbeafe;
 }
 
+.error-banner {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -154,9 +164,11 @@
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #ffffff;
-  min-height: 540px;
+  min-height: 420px;
+  max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .panel-head {
@@ -226,14 +238,26 @@
   flex-direction: column;
   gap: 0.5rem;
   overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.detail {
+  overflow-y: auto;
 }
 
 .list-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 0.65rem;
   padding: 0.65rem 0.75rem;
   text-align: left;
   background: #ffffff;
+  cursor: pointer;
+  font: inherit;
 }
 
 .list-row:hover {
@@ -256,28 +280,45 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+  min-width: 0;
 }
 
 .row-title {
   font-size: 0.85rem;
   font-weight: 700;
   color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .row-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem;
   color: #475569;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .row-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.72rem;
   color: #64748b;
   margin-top: 0.2rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.row-status {
-  margin-top: 0.45rem;
+.row-separator {
+  color: #94a3b8;
+}
+
+.row-footer {
+  margin-top: 0.4rem;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -285,9 +326,9 @@
 }
 
 .row-due {
-  margin-top: 0.35rem;
   font-size: 0.72rem;
   color: #334155;
+  margin-right: auto;
 }
 
 .marker {
@@ -446,6 +487,35 @@
 
 .btn-link:hover {
   background: #dbeafe;
+}
+
+.btn-na {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #94a3b8;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.btn-na:hover {
+  background: #e2e8f0;
+}
+
+.btn-na:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.na-note {
+  font-size: 0.82rem;
+  color: #475569;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+}
+
+.required {
+  color: #ef4444;
 }
 
 .timeline {

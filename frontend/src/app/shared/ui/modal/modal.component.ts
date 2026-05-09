@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
@@ -6,9 +6,10 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 @Component({
   selector: 'ui-modal',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
   template: `
-    <div *ngIf="isOpen" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+    <div *ngIf="isOpen" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? 'modal-title-' + modalUid : null">
       <!-- Backdrop -->
       <div
         class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
@@ -24,11 +25,12 @@ export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
           <!-- Header -->
           <div *ngIf="title || showCloseButton" class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 *ngIf="title" class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+            <h3 *ngIf="title" [id]="'modal-title-' + modalUid" class="text-lg font-semibold text-gray-900">{{ title }}</h3>
             <button
               *ngIf="showCloseButton"
               type="button"
               class="rounded-lg p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
+              aria-label="Close dialog"
               (click)="close()">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -58,6 +60,8 @@ export class ModalComponent {
   @Input() showFooter = true;
   @Input() closeOnBackdrop = true;
   @Input() closeOnEscape = true;
+
+  readonly modalUid = Math.random().toString(36).substring(2, 9);
 
   @Output() closed = new EventEmitter<void>();
 

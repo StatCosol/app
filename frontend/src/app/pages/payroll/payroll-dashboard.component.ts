@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { forkJoin, of, Subject } from 'rxjs';
-import { timeout, finalize, catchError, takeUntil } from 'rxjs/operators';
+import { forkJoin, Subject } from 'rxjs';
+import { timeout, finalize, takeUntil } from 'rxjs/operators';
 import { PayrollApiService, PayrollSummary, PayrollClient } from './payroll-api.service';
 import { PayrollRunsService, PayrollRunSummary } from './payroll-runs.service';
 import {
@@ -18,6 +18,7 @@ import {
 @Component({
   selector: 'app-payroll-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,
@@ -82,13 +83,9 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     forkJoin({
-      summary: this.payrollApi.getSummary().pipe(timeout(10000), catchError(() => of({
-        assignedClients: 0, totalEmployees: 0, activeEmployees: 0, exitedEmployees: 0,
-        pendingRuns: 0, completedThisMonth: 0, totalRuns: 0, pfPending: 0, esiPending: 0,
-        joinersThisMonth: 0, leaversThisMonth: 0,
-      } as PayrollSummary))),
-      clients: this.payrollApi.getAssignedClients().pipe(timeout(10000), catchError(() => of([] as PayrollClient[]))),
-      runs: this.runsService.listRuns({}).pipe(timeout(10000), catchError(() => of([] as PayrollRunSummary[]))),
+      summary: this.payrollApi.getSummary().pipe(timeout(10000)),
+      clients: this.payrollApi.getAssignedClients().pipe(timeout(10000)),
+      runs: this.runsService.listRuns({}).pipe(timeout(10000)),
     }).pipe(
       takeUntil(this.destroy$),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
@@ -116,7 +113,7 @@ export class PayrollDashboardComponent implements OnInit, OnDestroy {
   }
 
   openRun(row: PayrollRunSummary): void {
-    this.router.navigate(['/payroll/runs'], { queryParams: { runId: row.id } });
+    this.router.navigate(['/payroll/clients'], { queryParams: { runId: row.id } });
   }
 
   goTo(route: string): void {

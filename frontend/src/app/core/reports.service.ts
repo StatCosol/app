@@ -70,7 +70,7 @@ export class ReportsService {
   /* ── CSV export utility ────────────────────────────────── */
 
   static exportCsv(rows: any[], columns: { key: string; label: string }[], filename: string): void {
-    if (!rows?.length) { console.warn('No data to export.'); return; }
+    if (!rows?.length) return;
     const header = columns.map(c => `"${c.label}"`).join(',');
     const body = rows.map(r =>
       columns.map(c => {

@@ -20,6 +20,8 @@ type UploadedFile = {
   size?: number;
 };
 
+type DocumentScope = 'COMPANY' | 'BRANCH';
+
 @Injectable()
 export class CrmDocumentsService {
   private readonly allowedMimeTypes = new Set([
@@ -69,12 +71,52 @@ export class CrmDocumentsService {
     clientId: string,
   ): Promise<void> {
     const result = await this.docRepo.manager.query(
-      `SELECT id FROM client_branches WHERE id = $1 AND clientid = $2 AND (deletedat IS NULL)`,
+      `SELECT id FROM client_branches WHERE id = $1 AND clientid = $2 AND isactive = TRUE AND isdeleted = FALSE`,
       [branchId, clientId],
     );
     if (!result?.length) {
       throw new BadRequestException('Branch does not belong to this client');
     }
+  }
+
+  private resolveScope(input?: {
+    branchId?: string | null;
+    scope?: string | null;
+  }): DocumentScope {
+    const normalized = (input?.scope || '').toUpperCase();
+    const scope: DocumentScope =
+      normalized === 'COMPANY' || normalized === 'BRANCH'
+        ? (normalized as DocumentScope)
+        : input?.branchId
+          ? 'BRANCH'
+          : 'COMPANY';
+
+    if (scope === 'BRANCH' && !input?.branchId) {
+      throw new BadRequestException(
+        'branchId is required when scope is BRANCH',
+      );
+    }
+    if (scope === 'COMPANY' && input?.branchId) {
+      throw new BadRequestException(
+        'branchId must be empty when scope is COMPANY',
+      );
+    }
+    return scope;
+  }
+
+  async getClientIdsForBranchIds(branchIds: string[]): Promise<string[]> {
+    if (!branchIds.length) return [];
+    const rows = await this.docRepo.manager.query(
+      `SELECT DISTINCT clientid
+         FROM client_branches
+        WHERE id = ANY($1::uuid[])
+          AND isactive = TRUE
+          AND isdeleted = FALSE`,
+      [branchIds],
+    );
+    return rows
+      .map((row: { clientid: string | null | undefined }) => row.clientid)
+      .filter((value: string | null | undefined) => !!value);
   }
 
   /* ───────── CRM: upload ───────── */
@@ -84,9 +126,13 @@ export class CrmDocumentsService {
     file: UploadedFile,
     crmUserId: string,
   ): Promise<CrmUnitDocumentEntity> {
+    const scope = this.resolveScope(dto);
+
     // Access check
     await this.assertCrmAssigned(dto.clientId, crmUserId);
-    await this.assertBranchBelongsToClient(dto.branchId, dto.clientId);
+    if (scope === 'BRANCH' && dto.branchId) {
+      await this.assertBranchBelongsToClient(dto.branchId, dto.clientId);
+    }
 
     // File validation
     if (!file || !file.buffer) {
@@ -98,14 +144,15 @@ export class CrmDocumentsService {
       );
     }
 
-    // Build path: uploads/crm-documents/{clientId}/{branchId}/{month}/...
+    // Build path: uploads/crm-documents/{clientId}/{scope}/{branchId|company}/{month}/...
     const monthDir = dto.month || 'no-month';
     const dir = path.join(
       process.cwd(),
       'uploads',
       'crm-documents',
       dto.clientId,
-      dto.branchId,
+      scope.toLowerCase(),
+      dto.branchId || 'company',
       monthDir,
     );
     fs.mkdirSync(dir, { recursive: true });
@@ -124,7 +171,8 @@ export class CrmDocumentsService {
     // Save to DB
     const doc = this.docRepo.create({
       clientId: dto.clientId,
-      branchId: dto.branchId,
+      scope,
+      branchId: scope === 'BRANCH' ? dto.branchId! : null,
       month: dto.month || null,
       lawCategory: dto.lawCategory,
       documentType: dto.documentType,
@@ -136,6 +184,9 @@ export class CrmDocumentsService {
       fileSize: file.size || null,
       uploadedBy: crmUserId,
       remarks: dto.remarks || null,
+      uploadedByRole: 'CRM',
+      actingOnBehalf: true,
+      originalOwnerRole: scope === 'BRANCH' ? 'BRANCH' : 'CLIENT',
     });
 
     return this.docRepo.save(doc);
@@ -148,6 +199,7 @@ export class CrmDocumentsService {
     filters: {
       clientId?: string;
       branchId?: string;
+      scope?: DocumentScope;
       month?: string;
       lawCategory?: string;
       documentType?: string;
@@ -166,6 +218,9 @@ export class CrmDocumentsService {
     }
     if (filters.branchId) {
       qb.andWhere('d.branchId = :branchId', { branchId: filters.branchId });
+    }
+    if (filters.scope) {
+      qb.andWhere('d.scope = :scope', { scope: filters.scope });
     }
     if (filters.month) {
       qb.andWhere('d.month = :month', { month: filters.month });
@@ -206,7 +261,11 @@ export class CrmDocumentsService {
     docId: string,
     userId: string,
     role: string,
-    opts?: { allowedBranchIds?: string[] | 'ALL'; clientId?: string },
+    opts?: {
+      allowedBranchIds?: string[] | 'ALL';
+      allowedClientIds?: string[];
+      clientId?: string;
+    },
   ): Promise<{ absolutePath: string; fileName: string; mimeType: string }> {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc || doc.deletedAt) {
@@ -222,14 +281,17 @@ export class CrmDocumentsService {
         throw new ForbiddenException('You do not have access to this document');
       }
     } else if (role === 'BRANCH_USER') {
-      // Branch user: only if their branch matches
+      // Branch user: branch-scoped docs must match a mapped branch; company docs
+      // are visible when the user's mapped branches belong to the same client.
       const branchIds = opts?.allowedBranchIds;
-      if (branchIds !== 'ALL') {
-        if (!branchIds?.includes(doc.branchId)) {
+      if (doc.branchId) {
+        if (branchIds !== 'ALL' && !branchIds?.includes(doc.branchId)) {
           throw new ForbiddenException(
             'You do not have access to this document',
           );
         }
+      } else if (!opts?.allowedClientIds?.includes(doc.clientId)) {
+        throw new ForbiddenException('You do not have access to this document');
       }
     }
 
@@ -251,6 +313,7 @@ export class CrmDocumentsService {
     clientId: string,
     filters: {
       branchId?: string;
+      scope?: DocumentScope;
       month?: string;
       lawCategory?: string;
       documentType?: string;
@@ -263,6 +326,9 @@ export class CrmDocumentsService {
 
     if (filters.branchId) {
       qb.andWhere('d.branchId = :branchId', { branchId: filters.branchId });
+    }
+    if (filters.scope) {
+      qb.andWhere('d.scope = :scope', { scope: filters.scope });
     }
     if (filters.month) {
       qb.andWhere('d.month = :month', { month: filters.month });
@@ -287,17 +353,35 @@ export class CrmDocumentsService {
   async listForBranch(
     branchIds: string[],
     filters: {
+      scope?: DocumentScope;
       month?: string;
       lawCategory?: string;
       documentType?: string;
     },
   ): Promise<CrmUnitDocumentEntity[]> {
     if (!branchIds.length) return [];
+    const clientIds = await this.getClientIdsForBranchIds(branchIds);
 
     const qb = this.docRepo
       .createQueryBuilder('d')
-      .where('d.deletedAt IS NULL')
-      .andWhere('d.branchId IN (:...branchIds)', { branchIds });
+      .where('d.deletedAt IS NULL');
+
+    if (filters.scope === 'BRANCH') {
+      qb.andWhere('d.branchId IN (:...branchIds)', { branchIds });
+    } else if (filters.scope === 'COMPANY') {
+      if (!clientIds.length) return [];
+      qb.andWhere('d.branchId IS NULL').andWhere(
+        'd.clientId IN (:...clientIds)',
+        { clientIds },
+      );
+    } else if (clientIds.length) {
+      qb.andWhere(
+        '(d.branchId IN (:...branchIds) OR (d.branchId IS NULL AND d.clientId IN (:...clientIds)))',
+        { branchIds, clientIds },
+      );
+    } else {
+      qb.andWhere('d.branchId IN (:...branchIds)', { branchIds });
+    }
 
     if (filters.month) {
       qb.andWhere('d.month = :month', { month: filters.month });

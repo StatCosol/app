@@ -17,7 +17,7 @@ export class DbService {
    * @param params - Array of parameter values
    * @returns Single row as typed object
    */
-  async one<T>(sql: string, params: any[] = []): Promise<T> {
+  async one<T>(sql: string, params: unknown[] = []): Promise<T> {
     const rows = await this.dataSource.query(sql, params);
     return rows[0] as T;
   }
@@ -28,7 +28,7 @@ export class DbService {
    * @param params - Array of parameter values
    * @returns Array of rows as typed objects
    */
-  async many<T>(sql: string, params: any[] = []): Promise<T[]> {
+  async many<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     return this.dataSource.query(sql, params);
   }
 
@@ -38,7 +38,7 @@ export class DbService {
    * @param params - Array of parameter values
    * @returns Scalar value
    */
-  async scalar<T = number>(sql: string, params: any[] = []): Promise<T> {
+  async scalar<T = number>(sql: string, params: unknown[] = []): Promise<T> {
     const rows = await this.dataSource.query(sql, params);
     return rows[0]?.[Object.keys(rows[0])[0]] as T;
   }

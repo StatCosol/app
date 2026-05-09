@@ -1,15 +1,16 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
-import { AuthService } from '../../../core/auth.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   BranchComplianceDocService,
   ComplianceDoc,
 } from '../../../core/branch-compliance-doc.service';
 import {
+  ActionButtonComponent,
   StatusBadgeComponent,
   PageHeaderComponent,
   ModalComponent,
@@ -17,11 +18,12 @@ import {
   TableCellDirective,
   TableColumn,
 } from '../../../shared/ui';
+import { ProtectedFileService } from '../../../shared/files/services/protected-file.service';
 
 @Component({
   selector: 'app-crm-branch-docs-review',
   standalone: true,
-  imports: [CommonModule, FormsModule, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
+  imports: [CommonModule, FormsModule, ActionButtonComponent, StatusBadgeComponent, PageHeaderComponent, ModalComponent, DataTableComponent, TableCellDirective],
   templateUrl: './crm-branch-docs-review.component.html',
   styles: [`
     .page-container { max-width: 1400px; margin: 0 auto; padding: 0 1rem; }
@@ -55,25 +57,27 @@ import {
     .doc-table tr:hover { background: #f8fafc; }
     .btn-approve {
       display: inline-flex; align-items: center; gap: 0.375rem;
-      padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 600;
-      color: white; background: #22c55e; border: none; border-radius: 0.5rem;
+      padding: 0.25rem 0.5rem; font-size: 0.6875rem; font-weight: 600;
+      color: white; background: #22c55e; border: none; border-radius: 0.375rem;
       cursor: pointer; transition: opacity 0.2s;
     }
     .btn-approve:hover { opacity: 0.9; }
     .btn-reject {
-      display: inline-flex; align-items: center; gap: 0.375rem;
-      padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 600;
-      color: white; background: #f97316; border: none; border-radius: 0.5rem;
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      padding: 0.25rem 0.5rem; font-size: 0.6875rem; font-weight: 600;
+      color: white; background: #f97316; border: none; border-radius: 0.375rem;
       cursor: pointer; transition: opacity 0.2s;
     }
     .btn-reject:hover { opacity: 0.9; }
     .btn-outline {
-      display: inline-flex; align-items: center; gap: 0.375rem;
-      padding: 0.375rem 0.75rem; font-size: 0.75rem; font-weight: 500;
-      color: #3b82f6; border: 1px solid #bfdbfe; border-radius: 0.5rem;
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      padding: 0.25rem 0.5rem; font-size: 0.6875rem; font-weight: 500;
+      color: #3b82f6; border: 1px solid #bfdbfe; border-radius: 0.375rem;
       background: white; cursor: pointer; transition: all 0.2s;
     }
     .btn-outline:hover { background: #eff6ff; }
+    .action-btn-group { display: flex; flex-direction: column; gap: 0.25rem; width: 100%; }
+    .action-btn { width: 100%; justify-content: center; }
     .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
       background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.5rem; }
     .skeleton--kpi { height: 80px; }
@@ -103,13 +107,13 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   kpis: any = null;
 
   readonly docColumns: TableColumn[] = [
-    { key: 'branch', header: 'Branch', width: '20%' },
-    { key: 'document', header: 'Document', width: '18%' },
-    { key: 'period', header: 'Period', width: '10%' },
+    { key: 'branch', header: 'Branch', width: '18%' },
+    { key: 'document', header: 'Document', width: '22%' },
+    { key: 'period', header: 'Period', width: '11%' },
     { key: 'frequency', header: 'Frequency', width: '10%' },
-    { key: 'status', header: 'Status', width: '12%' },
-    { key: 'version', header: 'Version', width: '8%' },
-    { key: 'actions', header: 'Actions', width: '22%' },
+    { key: 'status', header: 'Status', width: '10%' },
+    { key: 'version', header: 'Version', width: '7%' },
+    { key: 'actions', header: 'Actions', width: '14%' },
   ];
 
   // Filters
@@ -152,13 +156,23 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
 
   years: number[] = [];
 
-  constructor(private complianceDoc: BranchComplianceDocService, private auth: AuthService, private toast: ToastService, private cdr: ChangeDetectorRef) {
+  constructor(
+    private complianceDoc: BranchComplianceDocService,
+    private toast: ToastService,
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private protectedFiles: ProtectedFileService,
+  ) {
     const currentYear = new Date().getFullYear();
     this.years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
   }
 
   ngOnInit(): void {
     this.load();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/crm/dashboard']);
   }
 
   ngOnDestroy(): void {
@@ -185,6 +199,7 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
     this.complianceDoc.getCrmKpis({
       year: this.selectedYear,
       month: this.selectedMonth || undefined,
+      frequency: this.selectedFrequency || undefined,
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
@@ -236,7 +251,15 @@ export class CrmBranchDocsReviewComponent implements OnInit, OnDestroy {
   }
 
   viewDoc(doc: ComplianceDoc): void {
-    if (doc.uploadedFileUrl) window.open(this.auth.authenticateUrl(doc.uploadedFileUrl), '_blank');
+    if (!doc.uploadedFileUrl) return;
+    this.protectedFiles
+      .open(doc.uploadedFileUrl, doc.uploadedFileName || doc.returnName)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Unable to open document.');
+        },
+      });
   }
 
   getPeriodLabel(doc: ComplianceDoc): string {

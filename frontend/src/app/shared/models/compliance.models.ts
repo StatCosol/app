@@ -93,6 +93,11 @@ export interface ComplianceTaskDto {
   /** Last CRM remark (approval/rejection) */
   remarks?: string | null;
 
+  /** Who approved this task */
+  approvedByUserId?: string | null;
+  approvedAt?: string | null;
+  approvedBy?: { name?: string; [key: string]: any } | null;
+
   createdAt?: string;
   updatedAt?: string;
 

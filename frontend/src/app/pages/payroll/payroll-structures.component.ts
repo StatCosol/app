@@ -21,7 +21,14 @@ import {
   PayrollComponent as SetupComponent,
   PayrollSetupApiService,
 } from './payroll-setup-api.service';
+import { ClientMasterDataService, MasterItem } from '../client/master-data/client-master-data.service';
+import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import {
+  FormulaBuilderComponent,
+  FormulaNode,
+} from './formula-builder/formula-builder.component';
 
 const SCOPE_OPTIONS = [
   'TENANT',
@@ -55,6 +62,13 @@ interface StructureFormModel {
   ruleSetId: string;
 }
 
+interface SlabRow {
+  from: number | null;
+  to: number | null;
+  amount: number | null;
+  percent: number | null;
+}
+
 interface ItemFormModel {
   componentId: string;
   calcMethod: CalcMethod;
@@ -67,6 +81,7 @@ interface ItemFormModel {
   roundingMode: string;
   priority: number;
   enabled: boolean;
+  slabs: SlabRow[];
 }
 
 interface GuardrailCheck {
@@ -78,7 +93,12 @@ interface GuardrailCheck {
 @Component({
   selector: 'app-payroll-structures',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ClientContextStripComponent,
+    FormulaBuilderComponent,
+  ],
   templateUrl: './payroll-structures.component.html',
   styleUrls: ['./payroll-structures.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +120,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   components: SetupComponent[] = [];
   ruleSets: RuleSet[] = [];
+
+  // Lookup data for dropdowns
+  branchOptions: { id: string; branchName: string }[] = [];
+  departmentOptions: MasterItem[] = [];
+  gradeOptions: MasterItem[] = [];
+  employeeOptions: { id: string; label: string }[] = [];
 
   structureSearch = '';
   structureStatusFilter: 'ALL' | 'ACTIVE' | 'INACTIVE' = 'ALL';
@@ -129,7 +155,24 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     employeeId: '',
   };
   previewRows: Array<{ component: string; amount: number }> = [];
+  previewEarnings: Array<{ component: string; amount: number }> = [];
+  previewDeductions: Array<{ component: string; amount: number }> = [];
+  previewEmployer: Array<{ component: string; amount: number }> = [];
+  previewNetPay = 0;
+  previewTotalEarnings = 0;
+  previewTotalDeductions = 0;
   previewTotal = 0;
+
+  // Phase 2D — per-component live preview (inside item modal)
+  livePreviewInputsText = 'GROSS=25000\nBASIC=12500\nHRA=5000';
+  livePreviewBusy = false;
+  livePreviewError: string | null = null;
+  livePreviewResult: {
+    value: number;
+    rawValue: number;
+    baseAmount?: number;
+    resolvedInputs: Record<string, number>;
+  } | null = null;
 
   readonly scopeOptions = SCOPE_OPTIONS;
   readonly calcMethodOptions = CALC_METHOD_OPTIONS;
@@ -142,12 +185,18 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     private readonly engineApi: PayrollEngineApiService,
     private readonly payrollApi: PayrollApiService,
     private readonly setupApi: PayrollSetupApiService,
+    private readonly masterDataSvc: ClientMasterDataService,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
-    this.loadClients();
+    const routeClientId = this.route.snapshot.paramMap.get('clientId') || '';
+    if (routeClientId) {
+      this.selectedClientId = routeClientId;
+      this.onClientChange();
+    }
   }
 
   ngOnDestroy(): void {
@@ -157,6 +206,10 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   get activeStructureCount(): number {
     return this.structures.filter((s) => s.isActive).length;
+  }
+
+  get inactiveStructureCount(): number {
+    return this.structures.filter((s) => !s.isActive).length;
   }
 
   get currentVersionCount(): number {
@@ -303,7 +356,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   get componentOptions(): Array<{ value: string; label: string }> {
     return this.components.map((c) => ({
       value: String(c.id),
-      label: `${c.code || 'COMP'} - ${c.name || c.id}`,
+      label: `${c.code || 'COMP'} - ${c.name || '(Unnamed)'}`,
     }));
   }
 
@@ -350,6 +403,26 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     this.items = [];
     this.previewRows = [];
     this.previewTotal = 0;
+
+    // Load lookup data for dropdowns
+    this.payrollApi.getOptionBranches(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(b => { this.branchOptions = b || []; this.cdr.markForCheck(); });
+    this.masterDataSvc.listDepartments(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(d => { this.departmentOptions = d || []; this.cdr.markForCheck(); });
+    this.masterDataSvc.listGrades(this.selectedClientId)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe(g => { this.gradeOptions = g || []; this.cdr.markForCheck(); });
+    this.payrollApi.getEmployees({ clientId: this.selectedClientId, limit: 500 })
+      .pipe(takeUntil(this.destroy$), catchError(() => of({ data: [], total: 0 })))
+      .subscribe(res => {
+        this.employeeOptions = (res?.data || []).map(e => ({
+          id: e.id,
+          label: `${e.employeeCode || ''} – ${e.name || ''}`.trim(),
+        }));
+        this.cdr.markForCheck();
+      });
 
     forkJoin({
       structures: this.engineApi
@@ -483,8 +556,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
   }
 
   deleteStructure(structure: SalaryStructure): void {
+    if (structure.isActive) {
+      this.toast.error('Active structure cannot be deleted. Activate another version first.');
+      return;
+    }
     const ok = window.confirm(
-      `Delete "${structure.name}"? Existing mappings will be disabled for this version.`,
+      `Delete "${structure.name}" permanently? Its mapped items for this inactive version will also be removed.`,
     );
     if (!ok) return;
     this.engineApi
@@ -497,6 +574,51 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
         },
         error: (err) => this.toast.error(err?.error?.message || 'Failed to delete structure'),
       });
+  }
+
+  cleanupInactiveStructures(): void {
+    const inactive = this.structures.filter((row) => !row.isActive);
+    if (!inactive.length) {
+      this.toast.success('No inactive structures to remove');
+      return;
+    }
+
+    const ok = window.confirm(
+      `Delete ${inactive.length} inactive structure(s)? Active structure(s) will be kept.`,
+    );
+    if (!ok) return;
+
+    this.saving = true;
+    const deleteReqs = inactive.map((row) =>
+      this.engineApi.deleteStructure(row.id).pipe(
+        catchError((err) => of({ __error: err, __id: row.id })),
+      ),
+    );
+
+    forkJoin(deleteReqs)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (results) => {
+          const failed = results.filter((r: any) => !!r?.__error).length;
+          if (failed > 0) {
+            this.toast.error(`${failed} structure(s) could not be deleted`);
+          } else {
+            this.toast.success('Inactive structures removed');
+          }
+          this.refreshStructures();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Failed to clean up inactive structures'),
+      });
+  }
+
+  canDeleteStructure(structure: SalaryStructure): boolean {
+    return !structure.isActive;
   }
 
   activateStructure(structure: SalaryStructure): void {
@@ -538,6 +660,111 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ── Approval workflow (Phase 2B) ──────────────────────────
+  submitForApproval(structure: SalaryStructure): void {
+    if (!window.confirm(`Submit "${structure.name}" for approval?`)) return;
+    this.saving = true;
+    this.engineApi
+      .submitStructure(structure.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Submitted for approval');
+          this.refreshStructures(structure.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Submit failed'),
+      });
+  }
+
+  approveStructure(structure: SalaryStructure): void {
+    if (!window.confirm(`Approve "${structure.name}"? It will become eligible for activation.`)) return;
+    this.saving = true;
+    this.engineApi
+      .approveStructure(structure.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Structure approved');
+          this.refreshStructures(structure.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Approval failed'),
+      });
+  }
+
+  rejectStructure(structure: SalaryStructure): void {
+    const reason = (window.prompt('Rejection reason (required):') || '').trim();
+    if (!reason) {
+      this.toast.error('Rejection reason is required');
+      return;
+    }
+    this.saving = true;
+    this.engineApi
+      .rejectStructure(structure.id, reason)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Structure rejected');
+          this.refreshStructures(structure.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Reject failed'),
+      });
+  }
+
+  withdrawStructure(structure: SalaryStructure): void {
+    if (!window.confirm(`Withdraw submission of "${structure.name}" back to DRAFT?`)) return;
+    this.saving = true;
+    this.engineApi
+      .withdrawStructure(structure.id)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Submission withdrawn');
+          this.refreshStructures(structure.id);
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Withdraw failed'),
+      });
+  }
+
+  approvalStatusClass(status: SalaryStructure['approvalStatus']): string {
+    switch (status) {
+      case 'APPROVED': return 'badge badge--good';
+      case 'PENDING':  return 'badge badge--warn';
+      case 'REJECTED': return 'badge badge--bad';
+      default:         return 'badge badge--muted';
+    }
+  }
+
+  canSubmit(s: SalaryStructure): boolean {
+    return s.approvalStatus === 'DRAFT' || s.approvalStatus === 'REJECTED';
+  }
+  canApprove(s: SalaryStructure): boolean { return s.approvalStatus === 'PENDING'; }
+  canReject(s: SalaryStructure): boolean { return s.approvalStatus === 'PENDING'; }
+  canWithdraw(s: SalaryStructure): boolean { return s.approvalStatus === 'PENDING'; }
+
   loadItems(structureId: string): void {
     this.loadingItems = true;
     this.engineApi
@@ -569,6 +796,9 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   openEditItem(item: StructureItem): void {
     this.editingItem = item;
+    const rawSlabs = (item.slabRef && Array.isArray((item.slabRef as any).slabs))
+      ? ((item.slabRef as any).slabs as Array<any>)
+      : [];
     this.itemForm = {
       componentId: String(item.componentId || ''),
       calcMethod: item.calcMethod,
@@ -581,6 +811,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       roundingMode: item.roundingMode || 'ROUND',
       priority: item.priority || 10,
       enabled: item.enabled,
+      slabs: rawSlabs.map((s) => ({
+        from: s?.from ?? null,
+        to: s?.to ?? null,
+        amount: s?.amount ?? null,
+        percent: s?.percent ?? null,
+      })),
     };
     this.showItemModal = true;
   }
@@ -590,6 +826,57 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     this.itemForm.percentage = null;
     this.itemForm.percentageBase = 'BASIC';
     this.itemForm.formula = '';
+    if (this.itemForm.calcMethod === 'SLAB' && !this.itemForm.slabs.length) {
+      this.addSlab();
+    } else if (this.itemForm.calcMethod !== 'SLAB') {
+      this.itemForm.slabs = [];
+    }
+  }
+
+  // ── Slab editor (Phase 2C) ─────────────────────────────────
+  addSlab(): void {
+    const last = this.itemForm.slabs[this.itemForm.slabs.length - 1];
+    const nextFrom = last && Number(last.to) > 0 ? Number(last.to) + 1 : 0;
+    this.itemForm.slabs = [
+      ...this.itemForm.slabs,
+      { from: nextFrom, to: null, amount: null, percent: null },
+    ];
+  }
+
+  removeSlab(idx: number): void {
+    this.itemForm.slabs = this.itemForm.slabs.filter((_, i) => i !== idx);
+  }
+
+  moveSlab(idx: number, delta: -1 | 1): void {
+    const next = idx + delta;
+    if (next < 0 || next >= this.itemForm.slabs.length) return;
+    const arr = [...this.itemForm.slabs];
+    const tmp = arr[idx];
+    arr[idx] = arr[next];
+    arr[next] = tmp;
+    this.itemForm.slabs = arr;
+  }
+
+  trackSlab(idx: number): number { return idx; }
+
+  private validateSlabs(): string | null {
+    const slabs = this.itemForm.slabs;
+    if (!slabs.length) return 'Add at least one slab row';
+    let prevTo = -Infinity;
+    for (let i = 0; i < slabs.length; i++) {
+      const s = slabs[i];
+      const from = Number(s.from);
+      const to = s.to == null || s.to === ('' as any) ? Infinity : Number(s.to);
+      if (Number.isNaN(from) || from < 0) return `Row ${i + 1}: invalid "from"`;
+      if (Number.isNaN(to) || to < from) return `Row ${i + 1}: "to" must be >= "from"`;
+      if (from <= prevTo) return `Row ${i + 1}: ranges must not overlap (from > previous to)`;
+      const hasAmount = s.amount != null && !Number.isNaN(Number(s.amount));
+      const hasPercent = s.percent != null && !Number.isNaN(Number(s.percent));
+      if (!hasAmount && !hasPercent) return `Row ${i + 1}: amount or percent is required`;
+      if (hasAmount && hasPercent) return `Row ${i + 1}: set either amount OR percent, not both`;
+      prevTo = to === Infinity ? Number.MAX_SAFE_INTEGER : to;
+    }
+    return null;
   }
 
   insertFormulaToken(token: string): void {
@@ -600,6 +887,153 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
     const code = this.getComponentCode(componentId) || this.getComponentName(componentId);
     const token = code.replace(/\s+/g, '_').toUpperCase();
     this.itemForm.formula = `${this.itemForm.formula || ''}${token}`;
+  }
+
+  // ── Visual Formula Builder (no-code tree) ───────────────────────────
+  showVisualBuilder = false;
+  visualFormulaNode: FormulaNode | null = null;
+  visualBuilderError: string | null = null;
+  visualBuilderVariables: string[] = [
+    'GROSS',
+    'BASIC',
+    'HRA',
+    'CONVEYANCE',
+    'SPECIAL',
+    'CTC',
+    'PF_WAGE',
+    'ESI_WAGE',
+    'MIN_WAGE',
+    'WORKED_DAYS',
+    'PAYABLE_DAYS',
+    'LOP_DAYS',
+    'PRESENT_DAYS',
+    'OT_HOURS',
+  ];
+
+  toggleVisualBuilder(): void {
+    this.showVisualBuilder = !this.showVisualBuilder;
+    if (this.showVisualBuilder && !this.visualFormulaNode) {
+      this.visualFormulaNode = { type: 'FIXED', value: null };
+    }
+    this.cdr.markForCheck();
+  }
+
+  onVisualFormulaChange(node: FormulaNode | null): void {
+    this.visualFormulaNode = node;
+    this.visualBuilderError = null;
+    if (!node) {
+      return;
+    }
+    this.engineApi
+      .serializeFormula(node)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.itemForm.formula = res.formulaText;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.visualBuilderError =
+            err?.error?.message || err?.message || 'Invalid formula tree';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  // ── Phase 2D: Live preview for the item being edited ─────────────────
+  /**
+   * Parse "GROSS=25000\nBASIC=12500" or comma/whitespace separated KEY=VAL pairs
+   * into a numeric variable map for the preview API.
+   */
+  private parseLiveInputs(): Record<string, number> {
+    const out: Record<string, number> = {};
+    const text = (this.livePreviewInputsText || '').trim();
+    if (!text) return out;
+    const tokens = text.split(/[\s,;]+/).filter(Boolean);
+    for (const tk of tokens) {
+      const m = tk.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(-?\d+(?:\.\d+)?)$/);
+      if (m) {
+        out[m[1].toUpperCase()] = Number(m[2]);
+      }
+    }
+    return out;
+  }
+
+  runLivePreview(): void {
+    if (!this.selectedStructure) return;
+    this.livePreviewError = null;
+    this.livePreviewResult = null;
+
+    if (this.itemForm.calcMethod === 'SLAB') {
+      const slabErr = this.validateSlabs();
+      if (slabErr) {
+        this.livePreviewError = slabErr;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    const inputs = this.parseLiveInputs();
+    let slabRef: Record<string, unknown> | null = null;
+    if (this.itemForm.calcMethod === 'SLAB') {
+      slabRef = {
+        slabs: this.itemForm.slabs.map((s) => {
+          const to = s.to == null || (s.to as unknown as string) === ''
+            ? Number.MAX_SAFE_INTEGER
+            : Number(s.to);
+          const row: Record<string, number> = { from: Number(s.from), to };
+          if (s.amount != null && (s.amount as unknown as string) !== '') {
+            row['amount'] = Number(s.amount);
+          }
+          if (s.percent != null && (s.percent as unknown as string) !== '') {
+            row['percent'] = Number(s.percent);
+          }
+          return row;
+        }),
+      };
+    }
+
+    this.livePreviewBusy = true;
+    this.cdr.markForCheck();
+
+    this.engineApi
+      .previewComponent({
+        clientId: this.selectedStructure.clientId,
+        calcMethod: this.itemForm.calcMethod,
+        fixedAmount: this.itemForm.fixedAmount ?? null,
+        percentage: this.itemForm.percentage ?? null,
+        percentageBase: (this.itemForm.percentageBase as any) ?? 'BASIC',
+        formula: this.itemForm.formula || null,
+        slabRef,
+        minAmount: this.itemForm.minAmount ?? null,
+        maxAmount: this.itemForm.maxAmount ?? null,
+        roundingMode: this.itemForm.roundingMode || 'NEAREST_RUPEE',
+        inputs,
+      })
+      .subscribe({
+        next: (res) => {
+          this.livePreviewBusy = false;
+          if (res.error) {
+            this.livePreviewError = res.error;
+            this.livePreviewResult = null;
+          } else {
+            this.livePreviewResult = res;
+          }
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.livePreviewBusy = false;
+          this.livePreviewError =
+            err?.error?.message || err?.message || 'Preview failed';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  livePreviewInputKeys(): string[] {
+    return this.livePreviewResult
+      ? Object.keys(this.livePreviewResult.resolvedInputs)
+      : [];
   }
 
   saveItem(): void {
@@ -621,8 +1055,27 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       this.toast.error('Formula is required for FORMULA method');
       return;
     }
+    if (this.itemForm.calcMethod === 'SLAB') {
+      const err = this.validateSlabs();
+      if (err) {
+        this.toast.error(err);
+        return;
+      }
+    }
 
     this.saving = true;
+    const slabPayload = this.itemForm.calcMethod === 'SLAB'
+      ? {
+          slabs: this.itemForm.slabs.map((s) => {
+            const out: any = { from: Number(s.from) || 0 };
+            if (s.to != null && (s.to as any) !== '') out.to = Number(s.to);
+            else out.to = Number.MAX_SAFE_INTEGER;
+            if (s.amount != null && (s.amount as any) !== '') out.amount = Number(s.amount);
+            if (s.percent != null && (s.percent as any) !== '') out.percent = Number(s.percent);
+            return out;
+          }),
+        }
+      : null;
     const payload: Partial<StructureItem> = {
       componentId: this.itemForm.componentId,
       calcMethod: this.itemForm.calcMethod,
@@ -630,6 +1083,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       percentage: this.itemForm.calcMethod === 'PERCENT' ? this.itemForm.percentage : null,
       percentageBase: this.itemForm.calcMethod === 'PERCENT' ? this.itemForm.percentageBase : null,
       formula: this.itemForm.calcMethod === 'FORMULA' ? this.itemForm.formula.trim() : null,
+      slabRef: slabPayload,
       minAmount: this.itemForm.minAmount,
       maxAmount: this.itemForm.maxAmount,
       roundingMode: this.itemForm.roundingMode,
@@ -709,12 +1163,49 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (result) => {
-          const rows = Object.entries(result || {}).map(([component, amount]) => ({
-            component,
-            amount: Number(amount || 0),
-          }));
-          this.previewRows = rows.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-          this.previewTotal = this.previewRows.reduce((acc, row) => acc + (Number(row.amount) || 0), 0);
+          const entries = Object.entries(result || {});
+
+          // Hidden intermediate/info keys
+          const hiddenKeys = new Set([
+            'ACTUAL_GROSS', 'PF_WAGE', 'PF_WAGES', 'ESI_WAGE', 'ESI_WAGES',
+            'GROSS', 'PF_EPS', 'PF_DIFF',
+          ]);
+          // Deduction keys (employee-side)
+          const deductionKeys = new Set(['PF_EMP', 'ESI_EMP', 'PT', 'LWF_EMP', 'PF_ER_FROM_EMP']);
+          // Employer contribution keys
+          const employerKeys = new Set(['PF_ER', 'ESI_ER', 'LWF_ER']);
+
+          const earnings: Array<{ component: string; amount: number }> = [];
+          const deductions: Array<{ component: string; amount: number }> = [];
+          const employer: Array<{ component: string; amount: number }> = [];
+          let netPay = 0;
+
+          for (const [key, val] of entries) {
+            const amount = Number(val || 0);
+            if (key === 'NET_PAY') {
+              netPay = amount;
+              continue;
+            }
+            if (hiddenKeys.has(key)) continue;
+            if (deductionKeys.has(key)) {
+              if (amount !== 0) deductions.push({ component: key, amount });
+            } else if (employerKeys.has(key)) {
+              if (amount !== 0) employer.push({ component: key, amount });
+            } else {
+              earnings.push({ component: key, amount });
+            }
+          }
+
+          this.previewEarnings = earnings.sort((a, b) => b.amount - a.amount);
+          this.previewDeductions = deductions.sort((a, b) => b.amount - a.amount);
+          this.previewEmployer = employer.sort((a, b) => b.amount - a.amount);
+          this.previewNetPay = netPay;
+          this.previewTotalEarnings = earnings.reduce((s, r) => s + r.amount, 0);
+          this.previewTotalDeductions = deductions.reduce((s, r) => s + r.amount, 0);
+
+          // Also keep flat rows for backward compat
+          this.previewRows = [...earnings, ...deductions, ...employer];
+          this.previewTotal = netPay;
         },
         error: (err) => this.toast.error(err?.error?.message || 'Preview calculation failed'),
       });
@@ -763,6 +1254,9 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
 
   activateGuardReason(structure: SalaryStructure, includeMappingCheck = false): string | null {
     if (structure.isActive) return 'Version is already active.';
+    if (structure.approvalStatus !== 'APPROVED') {
+      return `Structure must be APPROVED before activation (current: ${structure.approvalStatus}).`;
+    }
     if (this.isFutureVersion(structure)) {
       return `Cannot activate before effective date ${this.formatDate(structure.effectiveFrom)}.`;
     }
@@ -862,8 +1356,12 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
         return item.formula || '-';
       case 'BALANCING':
         return 'Auto balancing';
-      case 'SLAB':
-        return 'Slab based';
+      case 'SLAB': {
+        const slabs = (item.slabRef && Array.isArray((item.slabRef as any).slabs))
+          ? ((item.slabRef as any).slabs as Array<any>)
+          : [];
+        return slabs.length ? `${slabs.length} slab(s)` : 'Slab based';
+      }
       default:
         return '-';
     }
@@ -934,6 +1432,7 @@ export class PayrollStructuresComponent implements OnInit, OnDestroy {
       roundingMode: 'ROUND',
       priority: 10,
       enabled: true,
+      slabs: [],
     };
   }
 

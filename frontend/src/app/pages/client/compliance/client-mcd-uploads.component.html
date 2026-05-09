@@ -3,20 +3,20 @@
 <div class="filters">
   <label *ngIf="!singleBranch">
     Branch
-    <select [(ngModel)]="filters.branchId" (change)="loadTasks()">
+    <select id="cmu-branch-id" name="branchId" [(ngModel)]="filters.branchId" (change)="loadTasks()">
       <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name }}</option>
     </select>
   </label>
   <span *ngIf="singleBranch" class="text-sm text-gray-600">Branch: {{ branches[0]?.branchName || branches[0]?.name || '' }}</span>
   <label>
     Month
-    <select [(ngModel)]="filters.month" (change)="loadTasks()">
+    <select id="cmu-month" name="month" [(ngModel)]="filters.month" (change)="loadTasks()">
       <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
     </select>
   </label>
   <label>
     Year
-    <select [(ngModel)]="filters.year" (change)="loadTasks()">
+    <select id="cmu-year" name="year" [(ngModel)]="filters.year" (change)="loadTasks()">
       <option *ngFor="let y of yearOptions" [value]="y">{{ y }}</option>
     </select>
   </label>
@@ -40,15 +40,12 @@
       <ui-status-badge [status]="task.status"></ui-status-badge>
       <span class="files">Evidence: {{ task.evidenceCount || 0 }} file(s)</span>
     </div>
-    <div class="actions" *ngIf="!isMasterUser && task.canUpload; else locked">
+    <div class="actions" *ngIf="task.canUpload; else locked">
       <input #fileInput type="file" hidden accept=".pdf,.png,.jpg,.jpeg,.xlsx" (change)="onFileSelected(task, $event)" />
       <button type="button" (click)="fileInput.click()" [disabled]="uploading[task.id]">{{ uploading[task.id] ? 'Uploading...' : 'Upload file' }}</button>
     </div>
     <ng-template #locked>
-      <div class="locked" *ngIf="isMasterUser; else windowLocked">Only branch users can upload MCD documents.</div>
-      <ng-template #windowLocked>
-        <div class="locked">Uploads allowed from 20th to 25th of the following month.</div>
-      </ng-template>
+      <div class="locked">Uploads allowed from 20th to 27th of the following month.</div>
     </ng-template>
   </div>
 </section>

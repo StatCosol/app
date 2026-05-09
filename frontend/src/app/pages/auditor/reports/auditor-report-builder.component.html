@@ -4,10 +4,17 @@
       <h1>Audit Report Builder</h1>
       <p>Draft and finalize audit reports with section editor, observation import, internal/client versions, and export lock controls.</p>
     </div>
-    <div class="head-controls">
-      <a class="btn btn-ghost" routerLink="/auditor/reports">Back to Reports</a>
-    </div>
+    <ui-client-context-strip
+      [inline]="true"
+      [clientName]="audit?.client?.clientName || ''"
+      [clientCode]="audit?.client?.clientCode || ''"
+      [badges]="[{label: 'Audit', value: audit?.auditCode || ''}]">
+    </ui-client-context-strip>
   </header>
+
+  <div class="head-controls" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:14px;">
+    <a class="btn btn-ghost" routerLink="/auditor/reports">Back to Reports</a>
+  </div>
 
   <div *ngIf="loading" class="loader">Loading report builder...</div>
 
@@ -15,7 +22,7 @@
     <section class="summary-grid">
       <article class="summary-card">
         <span class="label">Audit</span>
-        <strong>{{ audit?.auditCode || auditId }}</strong>
+        <strong>{{ audit?.auditCode || 'Loading...' }}</strong>
         <span class="sub">{{ audit?.periodCode || '-' }}</span>
       </article>
       <article class="summary-card summary-card--info">
@@ -63,27 +70,27 @@
 
         <label class="field">
           Executive Summary
-          <textarea rows="3" [(ngModel)]="model.executiveSummary" [disabled]="!canEdit"></textarea>
+          <textarea autocomplete="off" id="arb-executive-summary" rows="3" name="executiveSummary" [(ngModel)]="model.executiveSummary" [disabled]="!canEdit"></textarea>
         </label>
 
         <label class="field">
           Scope
-          <textarea rows="3" [(ngModel)]="model.scope" [disabled]="!canEdit"></textarea>
+          <textarea autocomplete="off" id="arb-scope" rows="3" name="scope" [(ngModel)]="model.scope" [disabled]="!canEdit"></textarea>
         </label>
 
         <label class="field">
           Methodology
-          <textarea rows="3" [(ngModel)]="model.methodology" [disabled]="!canEdit"></textarea>
+          <textarea autocomplete="off" id="arb-methodology" rows="3" name="methodology" [(ngModel)]="model.methodology" [disabled]="!canEdit"></textarea>
         </label>
 
         <label class="field">
           Findings
-          <textarea rows="5" [(ngModel)]="model.findings" [disabled]="!canEdit"></textarea>
+          <textarea autocomplete="off" id="arb-findings" rows="5" name="findings" [(ngModel)]="model.findings" [disabled]="!canEdit"></textarea>
         </label>
 
         <label class="field">
           Recommendations
-          <textarea rows="5" [(ngModel)]="model.recommendations" [disabled]="!canEdit"></textarea>
+          <textarea autocomplete="off" id="arb-recommendations" rows="5" name="recommendations" [(ngModel)]="model.recommendations" [disabled]="!canEdit"></textarea>
         </label>
       </article>
 

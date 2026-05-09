@@ -40,8 +40,8 @@
           <h3 class="text-sm font-semibold text-gray-900 mb-3">Filters</h3>
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Search</label>
-              <input
+              <label class="block text-xs font-medium text-gray-600 mb-1" for="an-q">Search</label>
+              <input autocomplete="off" id="an-q" name="q"
                 class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 type="text"
                 placeholder="Subject, client, branch..."
@@ -49,8 +49,8 @@
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
-                <select
+                <label class="block text-xs font-medium text-gray-600 mb-1" for="an-status">Status</label>
+                <select id="an-status" name="status"
                   class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   [(ngModel)]="filters.status"
                   (change)="onServerFilterChanged()">
@@ -58,8 +58,8 @@
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
-                <select
+                <label class="block text-xs font-medium text-gray-600 mb-1" for="an-query-type">Type</label>
+                <select id="an-query-type" name="queryType"
                   class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   [(ngModel)]="filters.queryType"
                   (change)="onServerFilterChanged()">
@@ -69,8 +69,8 @@
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">From Role</label>
-                <select
+                <label class="block text-xs font-medium text-gray-600 mb-1" for="an-from-role">From Role</label>
+                <select id="an-from-role" name="fromRole"
                   class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   [(ngModel)]="filters.fromRole"
                   (change)="onLocalFilterChanged()">
@@ -78,8 +78,8 @@
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Priority</label>
-                <select
+                <label class="block text-xs font-medium text-gray-600 mb-1" for="an-priority">Priority</label>
+                <select id="an-priority" name="priority"
                   class="w-full rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   [(ngModel)]="filters.priority"
                   (change)="onLocalFilterChanged()">
@@ -88,7 +88,7 @@
               </div>
             </div>
             <label class="flex items-center gap-2 text-sm text-gray-700">
-              <input
+              <input autocomplete="off" id="an-unread-only" name="unreadOnly"
                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 type="checkbox"
                 [(ngModel)]="filters.unreadOnly"
@@ -109,11 +109,11 @@
           </div>
 
           <div class="p-3">
-            <thread-inbox-list
+            <ui-thread-inbox-list
               [items]="inboxItems"
               [selectedId]="selectedId"
               (selected)="onInboxSelected($event)">
-            </thread-inbox-list>
+            </ui-thread-inbox-list>
           </div>
 
           <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between text-sm">
@@ -130,7 +130,7 @@
         <article class="bg-white border border-gray-200 rounded-xl" *ngIf="selectedId; else pickThread">
           <div class="px-6 py-4 border-b border-gray-200" *ngIf="selectedThread as thread">
             <div class="space-y-3">
-              <entity-header-strip
+              <ui-entity-header-strip
                 [title]="thread.subject || '(No subject)'"
                 [subtitle]="'Type: ' + thread.type"
                 [meta]="[
@@ -139,16 +139,16 @@
                   { label: 'Role', value: roleLabel(selectedTicket?.fromRole) },
                   { label: 'Client', value: selectedTicket?.clientName || '-' }
                 ]">
-              </entity-header-strip>
+              </ui-entity-header-strip>
 
               <div class="flex flex-wrap items-center gap-2">
-                <status-chip [status]="thread.status"></status-chip>
-                <sla-priority-strip
+                <ui-status-chip [status]="thread.status"></ui-status-chip>
+                <ui-sla-priority-strip
                   [priority]="selectedTicket?.priority || 'LOW'"
                   [status]="thread.status"
                   [openedAt]="selectedTicket?.lastMessageAt || selectedTicket?.createdAt || null"
                   [slaHours]="24">
-                </sla-priority-strip>
+                </ui-sla-priority-strip>
               </div>
 
               <div class="flex flex-wrap items-center gap-2">
@@ -178,21 +178,21 @@
           <ui-loading-spinner *ngIf="loadingDetail" text="Loading thread detail..."></ui-loading-spinner>
 
           <div *ngIf="!loadingDetail && selectedThread" class="px-6 py-4 space-y-4 max-h-[56vh] overflow-y-auto">
-            <thread-message-panel [messages]="threadMessages"></thread-message-panel>
+            <ui-thread-message-panel [messages]="threadMessages"></ui-thread-message-panel>
 
             <div>
               <div class="text-xs font-semibold text-gray-500 uppercase mb-2">Activity Timeline</div>
-              <shared-timeline [events]="threadTimelineEvents" emptyMessage="No timeline events yet."></shared-timeline>
+              <ui-shared-timeline [events]="threadTimelineEvents" emptyMessage="No timeline events yet."></ui-shared-timeline>
             </div>
           </div>
 
           <div class="px-6 py-4 border-t border-gray-200" *ngIf="selectedThread">
-            <reply-composer
+            <ui-reply-composer
               *ngIf="!isClosedState(); else closedThreadMessage"
               placeholder="Type your reply..."
               [busy]="sending"
               (send)="sendReply($event)">
-            </reply-composer>
+            </ui-reply-composer>
             <ng-template #closedThreadMessage>
               <div class="text-sm text-gray-600">This thread is closed. Reopen it to send a reply.</div>
             </ng-template>

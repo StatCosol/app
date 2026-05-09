@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
 
 export class ListCrmDocumentsDto {
   @IsOptional()
@@ -8,6 +8,11 @@ export class ListCrmDocumentsDto {
   @IsOptional()
   @IsUUID()
   branchId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['COMPANY', 'BRANCH'])
+  scope?: 'COMPANY' | 'BRANCH';
 
   @IsOptional()
   @IsString()

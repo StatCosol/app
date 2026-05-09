@@ -5,14 +5,16 @@ import {
   Param,
   Body,
   UseGuards,
-  Request,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { SalaryRevisionService } from './salary-revision.service';
+import { CreateSalaryRevisionDto } from './dto/employees.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Employees')
 @ApiBearerAuth('JWT')
@@ -24,8 +26,9 @@ export class SalaryRevisionController {
   @ApiOperation({ summary: 'Create' })
   @Post()
   @Roles('CLIENT', 'ADMIN', 'PAYROLL')
-  create(@Body() dto: any, @Request() req: any) {
-    return this.service.create(dto, req.user.userId);
+  create(@Body() dto: CreateSalaryRevisionDto, @CurrentUser() user: ReqUser) {
+    dto.clientId = dto.clientId || user.clientId!;
+    return this.service.create(dto, user.userId);
   }
 
   @ApiOperation({ summary: 'List' })
@@ -33,9 +36,9 @@ export class SalaryRevisionController {
   @Roles('CLIENT', 'ADMIN', 'PAYROLL')
   list(
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
-    @Request() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.service.listForEmployee(req.user.clientId, employeeId);
+    return this.service.listForEmployee(user.clientId!, employeeId);
   }
 
   @ApiOperation({ summary: 'Find One' })

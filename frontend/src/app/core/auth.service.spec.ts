@@ -5,11 +5,12 @@ describe('AuthService', () => {
   let service: AuthService;
   const mockHttp = { post: vi.fn(), get: vi.fn() } as any;
   const mockRouter = { navigate: vi.fn().mockResolvedValue(true) } as any;
+  const mockCrypto = { setKey: vi.fn(), clearKey: vi.fn() } as any;
 
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();
-    service = new AuthService(mockHttp, mockRouter);
+    service = new AuthService(mockHttp, mockRouter, mockCrypto);
   });
 
   describe('getAccessToken', () => {
@@ -147,14 +148,30 @@ describe('AuthService', () => {
       expect(service.authenticateUrl('')).toBe('');
     });
 
-    it('appends token with ? separator', () => {
+    it('does not append token for ordinary API urls', () => {
       sessionStorage.setItem('accessToken', 'mytoken');
-      expect(service.authenticateUrl('/api/file')).toBe('/api/file?token=mytoken');
+      expect(service.authenticateUrl('/api/file')).toBe('/api/file');
     });
 
-    it('appends token with & separator when url has query', () => {
+    it('does not append token to private upload urls', () => {
       sessionStorage.setItem('accessToken', 'mytoken');
-      expect(service.authenticateUrl('/api/file?id=1')).toBe('/api/file?id=1&token=mytoken');
+      expect(service.authenticateUrl('/uploads/private/file.pdf')).toBe(
+        '/uploads/private/file.pdf',
+      );
+    });
+
+    it('does not append token to dedicated file download urls', () => {
+      sessionStorage.setItem('accessToken', 'mytoken');
+      expect(service.authenticateUrl('/api/v1/files/download?p=/tmp/test.pdf')).toBe(
+        '/api/v1/files/download?p=/tmp/test.pdf',
+      );
+    });
+
+    it('does not append token to public logo urls', () => {
+      sessionStorage.setItem('accessToken', 'mytoken');
+      expect(service.authenticateUrl('/uploads/logos/client.svg')).toBe(
+        '/uploads/logos/client.svg',
+      );
     });
   });
 

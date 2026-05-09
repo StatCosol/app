@@ -11,6 +11,7 @@ import { AiRequestEntity } from './entities/ai-request.entity';
 import { AiResponseEntity } from './entities/ai-response.entity';
 import { AiDocumentCheckEntity } from './entities/ai-document-check.entity';
 import { AiUsageLogEntity } from './entities/ai-usage-log.entity';
+import { AuditRemarkMasterEntity } from './entities/audit-remark-master.entity';
 
 import { AiCoreService } from './ai-core.service';
 import { AiRiskEngineService } from './ai-risk-engine.service';
@@ -21,6 +22,7 @@ import { AiQueryDraftService } from './ai-query-draft.service';
 import { AiDocumentCheckService } from './ai-document-check.service';
 import { AiRiskCacheInvalidatorService } from './ai-risk-cache-invalidator.service';
 import { AiCostTrackingService } from './ai-cost-tracking.service';
+import { AiAuditObservationLearningService } from './ai-audit-observation-learning.service';
 import { AiController } from './ai.controller';
 import { AuthModule } from '../auth/auth.module';
 
@@ -38,6 +40,7 @@ import { AuthModule } from '../auth/auth.module';
       AiResponseEntity,
       AiDocumentCheckEntity,
       AiUsageLogEntity,
+      AuditRemarkMasterEntity,
     ]),
   ],
   controllers: [AiController],
@@ -51,6 +54,7 @@ import { AuthModule } from '../auth/auth.module';
     AiDocumentCheckService,
     AiRiskCacheInvalidatorService,
     AiCostTrackingService,
+    AiAuditObservationLearningService,
   ],
   exports: [
     AiCoreService,
@@ -62,6 +66,7 @@ import { AuthModule } from '../auth/auth.module';
     AiDocumentCheckService,
     AiRiskCacheInvalidatorService,
     AiCostTrackingService,
+    AiAuditObservationLearningService,
   ],
 })
 export class AiModule {}

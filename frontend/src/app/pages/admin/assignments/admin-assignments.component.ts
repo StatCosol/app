@@ -105,7 +105,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = '';
 
-    const handleLoadError = (label: string) => (err: unknown) => {
+    const handleLoadError = (label: string) => () => {
       if (!this.error) {
         this.error = `Some data failed to load (${label})`;
       }
@@ -148,8 +148,14 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
         
         // Build name maps for template performance
         this.buildNameMaps();
+
+        // Re-resolve history assignee names now that user maps are populated
+        this.assignmentHistory = this.assignmentHistory.map(row => ({
+          ...row,
+          assigneeName: this.userNameById[(row as any).assigneeId ?? ''] || (row as any).assigneeId || '—',
+        }));
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
         this.error = 'Failed to load data';
       },
@@ -158,7 +164,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
     this.historyLoading = true;
     this.service.getAssignmentHistory().pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         return of([]);
       }),
       takeUntil(this.destroy$),
@@ -206,7 +212,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
 
     const mapped = arr.map((item: any) => {
       const id = String(item?.id ?? '');
-      const name = item?.clientName || `Client #${id}`;
+      const name = item?.clientName || '—';
       
       return {
         id,
@@ -307,7 +313,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
 
   getUserName(userId?: string | null): string {
     if (!userId) return '—';
-    return this.userNameById[userId] ?? `User #${userId}`;
+    return this.userNameById[userId] ?? '—';
   }
 
   getStatus(row: { crmId?: string | null; auditorId?: string | null; crm?: string | null; auditor?: string | null }): string {
@@ -342,7 +348,8 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
       return {
         clientId: row?.clientId ?? row?.client_id ?? row?.client?.id ?? '',
         assignmentType: assignmentType ?? '—',
-        assigneeName: assignedId,
+        assigneeId: assignedId,
+        assigneeName: this.userNameById[assignedId ?? ''] || assignedId || '—',
         crmId: assignmentType === 'CRM' ? assignedId : null,
         auditorId: assignmentType === 'AUDITOR' ? assignedId : null,
         crm: assignmentType === 'CRM' ? assignedId : null,
@@ -377,7 +384,7 @@ export class AdminAssignmentsComponent implements OnInit, OnDestroy {
         }
         this.loadAll();
       },
-      error: (err) => {
+      error: () => {
         this.removingClientId = null;
         this.loading = false;
       },

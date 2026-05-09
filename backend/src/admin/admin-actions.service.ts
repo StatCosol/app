@@ -8,9 +8,15 @@ import { DataSource } from 'typeorm';
 import { AdminNotifyDto } from './dto/admin-notify.dto';
 import { AdminReassignDto } from './dto/admin-reassign.dto';
 import { NotificationEntity } from '../notifications/entities/notification.entity';
+import { NotificationMessageEntity } from '../notifications/entities/notification-message.entity';
 import { ClientAssignmentCurrentEntity } from '../assignments/entities/client-assignment-current.entity';
 import { ClientAssignmentHistoryEntity } from '../assignments/entities/client-assignment-history.entity';
 import { calcRotationDueOn } from './helpers/rotation';
+
+const DENORM_ASSIGNMENT_COL: Record<string, string> = {
+  CRM: 'assigned_crm_id',
+  AUDITOR: 'assigned_auditor_id',
+};
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -40,31 +46,49 @@ export class AdminActionsService {
    * @param dto - Notification details
    * @returns Status and notification ID
    */
-  async notify(adminUser: { id: string; role: string }, dto: AdminNotifyDto) {
-    if (adminUser.role !== 'ADMIN') {
+  async notify(
+    adminUser: { id: string; role: string; roleCode?: string },
+    dto: AdminNotifyDto,
+  ) {
+    if ((adminUser.roleCode || adminUser.role) !== 'ADMIN') {
       throw new BadRequestException(
         'Only ADMIN can send admin action notifications.',
       );
     }
 
-    const repo = this.dataSource.getRepository(NotificationEntity);
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(NotificationEntity);
+      const msgRepo = manager.getRepository(NotificationMessageEntity);
 
-    const n = repo.create({
-      createdByUserId: adminUser.id,
-      createdByRole: 'ADMIN',
-      assignedToUserId: dto.targetUserId,
-      assignedToRole: dto.targetRole,
-      clientId: dto.clientId ?? null,
-      branchId: dto.branchId ?? null,
-      queryType: dto.queryType ?? 'SYSTEM',
-      subject: dto.subject,
-      status: 'OPEN',
-      priority: 2,
-      isArchived: false,
+      const n = repo.create({
+        createdByUserId: adminUser.id,
+        createdByRole: 'ADMIN',
+        assignedToUserId: dto.targetUserId,
+        assignedToRole: dto.targetRole,
+        clientId: dto.clientId ?? null,
+        branchId: dto.branchId ?? null,
+        queryType: dto.queryType ?? 'SYSTEM',
+        subject: dto.subject,
+        status: 'OPEN',
+        priority: 2,
+        isArchived: false,
+      });
+
+      const saved = await repo.save(n);
+
+      // Persist the first message body so recipients see a populated thread
+      // (matches the normal notification creation path in NotificationsService).
+      await msgRepo.save(
+        msgRepo.create({
+          notificationId: saved.id,
+          senderUserId: adminUser.id,
+          message: dto.message,
+          attachmentPath: null,
+        }),
+      );
+
+      return { status: 'SENT', notificationId: saved.id };
     });
-
-    const saved = await repo.save(n);
-    return { status: 'SENT', notificationId: saved.id };
   }
 
   /**
@@ -97,6 +121,44 @@ export class AdminActionsService {
     const rotationDueOn = calcRotationDueOn(dto.assignmentType, effectiveDate);
 
     return this.dataSource.transaction(async (manager) => {
+      // ---- Validate clientId exists ----
+      const clientRows: Array<{ id: string }> = await manager.query(
+        `SELECT id FROM clients WHERE id = $1 LIMIT 1`,
+        [dto.clientId],
+      );
+      if (!clientRows.length) {
+        throw new NotFoundException(`Client ${dto.clientId} not found.`);
+      }
+
+      // ---- Validate newUserId has the matching role ----
+      const expectedRole =
+        dto.assignmentType === 'CRM'
+          ? 'CRM'
+          : dto.assignmentType === 'AUDITOR'
+            ? 'AUDITOR'
+            : null;
+      if (!expectedRole) {
+        throw new BadRequestException(
+          `Unsupported assignmentType: ${dto.assignmentType}`,
+        );
+      }
+      const userRows: Array<{ code: string | null }> = await manager.query(
+        `SELECT r.code
+           FROM users u
+           LEFT JOIN roles r ON r.id = u.role_id
+          WHERE u.id = $1
+          LIMIT 1`,
+        [dto.newUserId],
+      );
+      if (!userRows.length) {
+        throw new NotFoundException(`User ${dto.newUserId} not found.`);
+      }
+      if ((userRows[0].code ?? '').toUpperCase() !== expectedRole) {
+        throw new BadRequestException(
+          `User ${dto.newUserId} is not a ${expectedRole} user.`,
+        );
+      }
+
       const assignRepo = manager.getRepository(ClientAssignmentCurrentEntity);
       const histRepo = manager.getRepository(ClientAssignmentHistoryEntity);
       const notifRepo = manager.getRepository(NotificationEntity);
@@ -162,16 +224,26 @@ export class AdminActionsService {
             }),
           );
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         throw new ConflictException(
           'Active assignment already exists. Please retry.',
+        );
+      }
+
+      // Sync the denormalised assigned_crm_id / assigned_auditor_id column on
+      // clients so dashboard / CCO / CEO queries reading those columns reflect
+      // the new assignment.
+      const denormCol = DENORM_ASSIGNMENT_COL[dto.assignmentType];
+      if (denormCol) {
+        await manager.query(
+          `UPDATE clients SET "${denormCol}" = $1 WHERE id = $2`,
+          [dto.newUserId, dto.clientId],
         );
       }
 
       // Optional notifications
       if (dto.notifyParties) {
         const subject = `${dto.assignmentType} Assignment Updated`;
-        const msg = `Assignment updated for client. Effective: ${effectiveDate}. Next rotation due: ${rotationDueOn}. Reason: ${dto.reason}`;
 
         // Notify new assignee
         await notifRepo.save(

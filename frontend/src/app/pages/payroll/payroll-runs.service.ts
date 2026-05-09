@@ -66,7 +66,9 @@ export class PayrollRunsService {
   listRunEmployees(runId: string): Observable<PayrollRunEmployeeRow[]> {
     return this.http.get<any>(`${this.base}/runs/${runId}/employees`).pipe(
       map((res) => {
-        const arr = Array.isArray(res) ? res : (res?.data ?? res?.rows ?? []);
+        const arr = Array.isArray(res)
+          ? res
+          : (res?.employees ?? res?.data ?? res?.rows ?? []);
         return (arr || []).map((r: any) => ({
           employeeId: String(r?.employeeId ?? r?.employee_id ?? r?.id ?? ''),
           empCode: r?.empCode ?? r?.employeeCode ?? r?.emp_code ?? null,

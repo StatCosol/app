@@ -90,7 +90,6 @@ export class MonthlyDocumentsService {
     fs.mkdirSync(dir, { recursive: true });
 
     const ts = Date.now();
-    const ext = path.extname(file.originalname) || '.pdf';
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const diskName = `${ts}_${code}_${safeName}`;
     const filePath = path.join(dir, diskName);

@@ -88,10 +88,10 @@ export class SafetyRequirementService {
   }
 
   async getStatus(branchId: string) {
-    const payload = await this.getRequired(branchId);
-    const required = Array.isArray((payload as any)?.required)
-      ? ((payload as any).required as Array<{ uploadStatus?: string | null; uploaded?: boolean }>)
-      : [];
+    const { required, message } = (await this.getRequired(branchId)) as {
+      required: Array<{ uploadStatus?: string | null; uploaded?: boolean }>;
+      message?: string | null;
+    };
 
     const total = required.length;
     const uploaded = required.filter((row) => {
@@ -111,7 +111,7 @@ export class SafetyRequirementService {
       missing,
       expired,
       completenessPct: total > 0 ? Math.round((uploaded / total) * 100) : 0,
-      message: (payload as any)?.message ?? null,
+      message: message ?? null,
     };
   }
 

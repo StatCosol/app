@@ -8,6 +8,7 @@ import { finalize, map, takeUntil, timeout } from 'rxjs/operators';
 
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth.service';
+import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   ActionButtonComponent,
@@ -17,6 +18,10 @@ import {
   PageHeaderComponent,
   StatusBadgeComponent,
 } from '../../../shared/ui';
+import {
+  ProtectedFileHandle,
+  ProtectedFileService,
+} from '../../../shared/files/services/protected-file.service';
 
 type SourceType = 'GENERATED' | 'MANUAL';
 
@@ -73,27 +78,30 @@ type RegisterRow = {
         <div class="filter-grid">
           <label>
             <span>Year</span>
-            <input type="number" [(ngModel)]="q.periodYear" placeholder="2026" />
+            <input autocomplete="off" type="number" id="reg-year" name="periodYear" [(ngModel)]="q.periodYear" placeholder="2026" />
           </label>
           <label>
             <span>Month</span>
-            <input type="number" [(ngModel)]="q.periodMonth" placeholder="1-12" />
+            <input autocomplete="off" type="number" id="reg-month" name="periodMonth" [(ngModel)]="q.periodMonth" placeholder="1-12" />
           </label>
           <label>
             <span>Category</span>
-            <select [(ngModel)]="q.category">
+            <select id="reg-category" name="category" [(ngModel)]="q.category">
               <option value="">All Categories</option>
               <option value="REGISTER">REGISTER</option>
               <option value="RECORD">RECORD</option>
             </select>
           </label>
           <label>
-            <span>Branch ID</span>
-            <input type="text" [(ngModel)]="q.branchId" placeholder="Branch id" />
+            <span>Branch</span>
+            <select id="reg-branch" name="branchId" [(ngModel)]="q.branchId">
+              <option value="">All Branches</option>
+              <option *ngFor="let b of branches" [value]="b.id">{{ b.branchCode ? b.branchCode + ' – ' : '' }}{{ b.name || b.branchName }}</option>
+            </select>
           </label>
           <label>
             <span>Source</span>
-            <select [(ngModel)]="q.sourceType" (ngModelChange)="applyLocalFilters()">
+            <select id="reg-source" name="sourceType" [(ngModel)]="q.sourceType" (ngModelChange)="applyLocalFilters()">
               <option value="">All</option>
               <option value="GENERATED">Generated</option>
               <option value="MANUAL">Manual</option>
@@ -101,8 +109,10 @@ type RegisterRow = {
           </label>
           <label class="wide">
             <span>Search</span>
-            <input
+            <input autocomplete="off"
               type="text"
+              id="reg-search"
+              name="search"
               [(ngModel)]="q.search"
               (ngModelChange)="applyLocalFilters()"
               placeholder="Title, register type, branch, file name" />
@@ -265,6 +275,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
   packDownloading = false;
   error = '';
   isBranch = false;
+  branches: any[] = [];
 
   page = 1;
   readonly pageSize = 15;
@@ -283,6 +294,7 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
   previewMode: 'pdf' | 'image' | 'unsupported' = 'unsupported';
   previewUrl: SafeResourceUrl | null = null;
   previewRow: RegisterRow | null = null;
+  private previewHandle: ProtectedFileHandle | null = null;
 
   private readonly base = `${environment.apiBaseUrl}/api/v1/client/payroll/registers-records`;
 
@@ -292,14 +304,21 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     private readonly sanitizer: DomSanitizer,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly branchSvc: ClientBranchesService,
+    private readonly protectedFiles: ProtectedFileService,
   ) {}
 
   ngOnInit(): void {
     this.isBranch = this.auth.isBranchUser();
+    this.branchSvc.list().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (list) => { this.branches = list || []; this.cdr.markForCheck(); },
+      error: () => {},
+    });
     this.reload();
   }
 
   ngOnDestroy(): void {
+    this.releasePreviewHandle();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -395,9 +414,23 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     this.previewRow = row;
     this.previewTitle = row.title || 'Register Preview';
     this.previewMode = this.resolvePreviewMode(row.fileType);
-    const url = this.auth.authenticateUrl(this.downloadUrl(row));
-    this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
-    this.previewOpen = true;
+    this.releasePreviewHandle();
+    this.protectedFiles
+      .fetch(this.downloadUrl(row), row.fileName || row.title || null)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (file) => {
+          this.previewHandle = file;
+          this.previewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+            file.objectUrl,
+          );
+          this.previewOpen = true;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Could not load preview.');
+        },
+      });
   }
 
   closePreview(): void {
@@ -405,23 +438,24 @@ export class ClientRegistersComponent implements OnInit, OnDestroy {
     this.previewRow = null;
     this.previewUrl = null;
     this.previewMode = 'unsupported';
+    this.releasePreviewHandle();
   }
 
   download(row: RegisterRow): void {
-    const authUrl = this.auth.authenticateUrl(this.downloadUrl(row));
-    this.http.get(authUrl, { responseType: 'blob' }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = row.fileName || `register_${row.id}`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1200);
-      },
-      error: (err) => {
-        this.toast.error(err?.error?.message || 'Could not download register.');
-      },
-    });
+    this.protectedFiles
+      .download(this.downloadUrl(row), row.fileName || `register_${row.id}`)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {},
+        error: (err) => {
+          this.toast.error(err?.error?.message || 'Could not download register.');
+        },
+      });
+  }
+
+  private releasePreviewHandle(): void {
+    this.previewHandle?.revoke();
+    this.previewHandle = null;
   }
 
   downloadPack(): void {

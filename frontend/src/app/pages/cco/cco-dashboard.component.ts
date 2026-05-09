@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -42,6 +42,7 @@ interface OversightItem {
 @Component({
   selector: 'app-cco-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule, FormsModule, PageHeaderComponent, ActionButtonComponent, StatusBadgeComponent,
     DataTableComponent, TableCellDirective, LoadingSpinnerComponent, EmptyStateComponent,

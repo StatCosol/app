@@ -1,0 +1,247 @@
+<div class="page">
+  <ui-page-header
+    title="Notice & Inspection Tracker"
+    subtitle="Track department notices, show-cause orders, inspections, and response timelines">
+    <button class="btn btn-primary btn-sm" (click)="toggleCreate()">
+      {{ showCreate ? 'Cancel' : '+ New Notice' }}
+    </button>
+  </ui-page-header>
+
+  <!-- KPI Cards -->
+  <section class="kpi-grid" *ngIf="kpis">
+    <div class="kpi-card">
+      <span class="kpi-val">{{ kpis.total }}</span>
+      <span class="kpi-lbl">Total</span>
+    </div>
+    <div class="kpi-card kpi--warn">
+      <span class="kpi-val">{{ kpis.actionRequired }}</span>
+      <span class="kpi-lbl">Action Required</span>
+    </div>
+    <div class="kpi-card kpi--danger">
+      <span class="kpi-val">{{ kpis.overdue }}</span>
+      <span class="kpi-lbl">Overdue</span>
+    </div>
+    <div class="kpi-card kpi--danger">
+      <span class="kpi-val">{{ kpis.critical }}</span>
+      <span class="kpi-lbl">Critical</span>
+    </div>
+    <div class="kpi-card kpi--info">
+      <span class="kpi-val">{{ kpis.responseSubmitted }}</span>
+      <span class="kpi-lbl">Responded</span>
+    </div>
+    <div class="kpi-card kpi--ok">
+      <span class="kpi-val">{{ kpis.closed }}</span>
+      <span class="kpi-lbl">Closed</span>
+    </div>
+    <div class="kpi-card kpi--esc">
+      <span class="kpi-val">{{ kpis.escalated }}</span>
+      <span class="kpi-lbl">Escalated</span>
+    </div>
+  </section>
+
+  <!-- Create Form -->
+  <section class="create-form" *ngIf="showCreate">
+    <h3 class="text-sm font-semibold text-gray-800 mb-3">New Notice</h3>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Client *</label>
+        <select [(ngModel)]="newNotice.clientId" class="field">
+          <option value="">Select Client</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Notice Type</label>
+        <select [(ngModel)]="newNotice.noticeType" class="field">
+          <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Department *</label>
+        <input type="text" [(ngModel)]="newNotice.departmentName" class="field" placeholder="e.g. Labour Department" />
+      </div>
+      <div class="form-field">
+        <label>Reference No.</label>
+        <input type="text" [(ngModel)]="newNotice.referenceNo" class="field" placeholder="Optional" />
+      </div>
+      <div class="form-field" style="grid-column: 1 / -1">
+        <label>Subject *</label>
+        <input type="text" [(ngModel)]="newNotice.subject" class="field" placeholder="Brief subject line" />
+      </div>
+      <div class="form-field">
+        <label>Notice Date</label>
+        <input type="date" [(ngModel)]="newNotice.noticeDate" class="field" />
+      </div>
+      <div class="form-field">
+        <label>Received Date</label>
+        <input type="date" [(ngModel)]="newNotice.receivedDate" class="field" />
+      </div>
+      <div class="form-field">
+        <label>Response Due Date</label>
+        <input type="date" [(ngModel)]="newNotice.responseDueDate" class="field" />
+      </div>
+      <div class="form-field">
+        <label>Severity</label>
+        <select [(ngModel)]="newNotice.severity" class="field">
+          <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+      <div class="form-field" style="grid-column: 1 / -1">
+        <label>Description</label>
+        <textarea [(ngModel)]="newNotice.description" class="field" rows="2" placeholder="Optional details"></textarea>
+      </div>
+      <div class="form-field">
+        <button class="btn btn-primary btn-sm" [disabled]="saving" (click)="saveNotice()">
+          {{ saving ? 'Saving...' : 'Create Notice' }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Filters -->
+  <section class="filters">
+    <div class="filter-row">
+      <input type="text" class="field field--search" placeholder="Search subject, code, department..."
+        [(ngModel)]="search" (input)="applyFilters()" />
+      <select class="field" [(ngModel)]="clientFilter" (change)="applyFilters()">
+        <option value="">All Clients</option>
+        <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName }}</option>
+      </select>
+      <select class="field field--sm" [(ngModel)]="statusFilter" (change)="applyFilters()">
+        <option value="">All Statuses</option>
+        <option *ngFor="let s of statuses" [value]="s">{{ s.replace('_', ' ') }}</option>
+      </select>
+      <select class="field field--sm" [(ngModel)]="severityFilter" (change)="applyFilters()">
+        <option value="">All Severity</option>
+        <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
+      </select>
+      <select class="field field--sm" [(ngModel)]="typeFilter" (change)="applyFilters()">
+        <option value="">All Types</option>
+        <option *ngFor="let t of types" [value]="t">{{ t.replace('_', ' ') }}</option>
+      </select>
+    </div>
+  </section>
+
+  <ui-loading-spinner *ngIf="loading" text="Loading notices..."></ui-loading-spinner>
+
+  <ui-empty-state *ngIf="!loading && !filtered.length"
+    title="No notices found"
+    description="No notices match current filters. Create a new notice or adjust filters.">
+  </ui-empty-state>
+
+  <!-- Notice List + Detail -->
+  <div class="workspace" *ngIf="!loading && filtered.length">
+    <!-- List Panel -->
+    <div class="list-panel">
+      <div class="table-wrap">
+        <table class="table table--compact">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Client</th>
+              <th>Subject</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Due</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let n of filtered; trackBy: trackById"
+                [class.active]="selected?.id === n.id"
+                [class.overdue]="isOverdue(n)"
+                (click)="selectNotice(n)"
+                style="cursor: pointer">
+              <td class="font-mono text-xs">{{ n.noticeCode }}</td>
+              <td>{{ n.client?.clientName || '—' }}</td>
+              <td class="max-w-[200px] truncate">{{ n.subject }}</td>
+              <td><span class="badge">{{ n.noticeType.replace('_', ' ') }}</span></td>
+              <td>
+                <span class="badge border" [ngClass]="severityColor(n.severity)">{{ n.severity }}</span>
+              </td>
+              <td>
+                <span *ngIf="n.responseDueDate" [class.text-red-600]="isOverdue(n)">
+                  {{ n.responseDueDate }}
+                </span>
+                <span *ngIf="!n.responseDueDate" class="text-gray-400">—</span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="statusColor(n.status)">{{ n.status.replace('_', ' ') }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-panel" *ngIf="selected">
+      <header class="detail-head">
+        <div>
+          <h3>{{ selected.noticeCode }}</h3>
+          <span class="text-xs text-gray-500">{{ selected.subject }}</span>
+        </div>
+        <button class="close-btn" (click)="closeDetail()">✕</button>
+      </header>
+      <div class="detail-body">
+        <!-- Meta info -->
+        <div class="meta-grid">
+          <div><span class="meta-lbl">Client</span><span class="meta-val">{{ selected.client?.clientName }}</span></div>
+          <div><span class="meta-lbl">Branch</span><span class="meta-val">{{ selected.branch?.branchName || 'N/A' }}</span></div>
+          <div><span class="meta-lbl">Department</span><span class="meta-val">{{ selected.departmentName }}</span></div>
+          <div><span class="meta-lbl">Type</span><span class="meta-val">{{ selected.noticeType }}</span></div>
+          <div><span class="meta-lbl">Reference</span><span class="meta-val">{{ selected.referenceNo || '—' }}</span></div>
+          <div><span class="meta-lbl">Notice Date</span><span class="meta-val">{{ selected.noticeDate }}</span></div>
+          <div><span class="meta-lbl">Received</span><span class="meta-val">{{ selected.receivedDate }}</span></div>
+          <div><span class="meta-lbl">Response Due</span><span class="meta-val" [class.text-red-600]="isOverdue(selected)">{{ selected.responseDueDate || '—' }}</span></div>
+          <div><span class="meta-lbl">Severity</span><span class="badge border" [ngClass]="severityColor(selected.severity)">{{ selected.severity }}</span></div>
+          <div><span class="meta-lbl">Status</span><span class="badge" [ngClass]="statusColor(selected.status)">{{ selected.status.replace('_', ' ') }}</span></div>
+        </div>
+
+        <!-- Description -->
+        <div *ngIf="selected.description" class="mt-3">
+          <span class="meta-lbl">Description</span>
+          <p class="text-sm text-gray-700 mt-1">{{ selected.description }}</p>
+        </div>
+
+        <!-- Status Actions -->
+        <div class="mt-4" *ngIf="selected.status !== 'CLOSED'">
+          <span class="meta-lbl">Update Status</span>
+          <div class="flex flex-wrap gap-2 mt-1">
+            <button *ngFor="let s of statuses"
+              [disabled]="s === selected.status"
+              (click)="updateStatus(selected, s)"
+              class="mini-btn"
+              [class.active]="s === selected.status">
+              {{ s.replace('_', ' ') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Documents -->
+        <div class="mt-4" *ngIf="selected.documents?.length">
+          <span class="meta-lbl">Documents ({{ selected.documents?.length }})</span>
+          <ul class="doc-list">
+            <li *ngFor="let d of selected.documents">
+              <a [href]="d.fileUrl" target="_blank" class="text-blue-600 text-xs hover:underline">{{ d.fileName }}</a>
+              <span class="text-gray-400 text-xs ml-2">{{ d.documentType }} · {{ d.uploadedAt | date:'short' }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="mt-4" *ngIf="selected.activityLog?.length">
+          <span class="meta-lbl">Activity Log</span>
+          <ul class="activity-list">
+            <li *ngFor="let a of selected.activityLog">
+              <span class="text-xs font-medium">{{ a.action }}</span>
+              <span *ngIf="a.fromStatus" class="text-xs text-gray-500"> {{ a.fromStatus }} → {{ a.toStatus }}</span>
+              <span class="text-xs text-gray-400 ml-1">by {{ a.actionBy?.name || a.actionRole }} · {{ a.createdAt | date:'short' }}</span>
+              <span *ngIf="a.remarks" class="text-xs text-gray-500 block">{{ a.remarks }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

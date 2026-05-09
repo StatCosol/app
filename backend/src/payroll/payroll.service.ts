@@ -7,8 +7,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { Request } from 'express';
-import { Multer } from 'multer';
+import { Response } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as ExcelJS from 'exceljs';
@@ -32,7 +31,18 @@ import {
 import { SaveClientPayslipLayoutDto } from './dto/save-client-payslip-layout.dto';
 import { UpdatePayrollInputStatusDto } from './dto/update-payroll-input-status.dto';
 import { ClientUpdatePayrollInputStatusDto } from './dto/client-update-payroll-input-status.dto';
-import { generatePayslipPdfBuffer } from './utils/payslip-pdf';
+import {
+  ClientCreatePayrollInputDto,
+  ClientUploadPayrollInputFileDto,
+  ClientUploadRegisterRecordDto,
+  ClientUpdatePayrollSettingsDto,
+} from './dto/client-payroll-input.dto';
+import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
+import { SaveClientComponentsDto } from './dto/save-client-components.dto';
+import { CreatePayrollQueryDto } from './dto/payroll-query.dto';
+import { CreateFnfDto, UpdateFnfStatusDto } from './dto/payroll-fnf.dto';
+import { generatePayslipPdfBuffer, loadLogoBuffer } from './utils/payslip-pdf';
+import { PayrollRunComponentValueEntity } from './entities/payroll-run-component-value.entity';
 import { IsNull } from 'typeorm';
 import { PayrollClientPayslipLayoutEntity } from './entities/payroll-client-payslip-layout.entity';
 import { PayrollTemplate } from './entities/payroll-template.entity';
@@ -40,10 +50,18 @@ import { PayrollTemplateComponent } from './entities/payroll-template-component.
 import { PayrollClientTemplate } from './entities/payroll-client-template.entity';
 import { PayrollClientSettings } from './entities/payroll-client-settings.entity';
 import { AuditEntity } from '../audits/entities/audit.entity';
+import { AuditType } from '../common/enums';
 import { PayrollQueryEntity } from './entities/payroll-query.entity';
 import { PayrollQueryMessageEntity } from './entities/payroll-query-message.entity';
 import { PayrollFnfEntity } from './entities/payroll-fnf.entity';
 import { PayrollFnfEventEntity } from './entities/payroll-fnf-event.entity';
+import { PayrollFnfDocumentEntity } from './entities/payroll-fnf-document.entity';
+import { PayrollRunItemEntity } from './entities/payroll-run-item.entity';
+import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
+import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
+import { AttendanceService } from '../attendance/attendance.service';
+import { ReqUser } from '../access/access-scope.service';
+import { evaluateFormula } from './engine/expression';
 
 @Injectable()
 export class PayrollService {
@@ -79,7 +97,7 @@ export class PayrollService {
     @InjectRepository(PayrollTemplate)
     private readonly templateRepo: Repository<PayrollTemplate>,
     @InjectRepository(PayrollTemplateComponent)
-    private readonly templateCompRepo: Repository<PayrollTemplateComponent>,
+    private readonly _templateCompRepo: Repository<PayrollTemplateComponent>,
     @InjectRepository(PayrollClientTemplate)
     private readonly clientTemplateRepo: Repository<PayrollClientTemplate>,
     @InjectRepository(PayrollClientSettings)
@@ -94,7 +112,14 @@ export class PayrollService {
     private readonly fnfRepo: Repository<PayrollFnfEntity>,
     @InjectRepository(PayrollFnfEventEntity)
     private readonly fnfEventRepo: Repository<PayrollFnfEventEntity>,
+    @InjectRepository(PayrollFnfDocumentEntity)
+    private readonly fnfDocRepo: Repository<PayrollFnfDocumentEntity>,
+    @InjectRepository(LeaveLedgerEntity)
+    private readonly leaveLedgerRepo: Repository<LeaveLedgerEntity>,
+    @InjectRepository(LeaveBalanceEntity)
+    private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
     private readonly notificationsSvc: NotificationsService,
+    private readonly attendanceService: AttendanceService,
   ) {}
 
   ymLabel(year: number, month: number) {
@@ -102,21 +127,166 @@ export class PayrollService {
     return `${year}-${String(month).padStart(2, '0')}`;
   }
 
-  private normalizeHeader(value: any): string {
-    if (value === null || value === undefined) return '';
-    const raw = String(value).replace(/\s+/g, ' ').trim().toLowerCase();
+  /**
+   * Enrich component values with leave/attendance data computed from source tables.
+   * This ensures payslips always show correct EL_ACCRUED, EL_PAID_LEAVE_DAYS, and HOLIDAYS
+   * even for runs processed before these component values were added to the engine.
+   */
+  private async enrichLeaveAttendanceValues(
+    cv: Record<string, number>,
+    employeeId: string | null,
+    clientId: string,
+    year: number,
+    month: number,
+  ): Promise<void> {
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+
+    // ── EL_ACCRUED: read from ledger if available, else compute from WORKED_DAYS / 20 ──
+    if (employeeId) {
+      try {
+        const elEntries = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        let accrued = 0;
+        for (const entry of elEntries) {
+          if (
+            entry.refType === 'EL_ACCRUAL' &&
+            entry.remarks?.includes(monthStr)
+          ) {
+            accrued += Math.abs(Number(entry.qty) || 0);
+          }
+        }
+        cv['EL_ACCRUED'] = Math.round(accrued * 100) / 100;
+      } catch {
+        // Fallback to formula
+        if (cv['WORKED_DAYS'] !== undefined) {
+          cv['EL_ACCRUED'] = Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
+        } else if (cv['EL_ACCRUED'] === undefined) {
+          cv['EL_ACCRUED'] = 0;
+        }
+      }
+    } else {
+      if (cv['WORKED_DAYS'] !== undefined) {
+        cv['EL_ACCRUED'] = Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
+      } else if (cv['EL_ACCRUED'] === undefined) {
+        cv['EL_ACCRUED'] = 0;
+      }
+    }
+
+    // ── EL_PAID_LEAVE_DAYS: from leave ledger ──
+    if (employeeId) {
+      try {
+        const elEntries = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        let paidLeaveDays = 0;
+        for (const entry of elEntries) {
+          if (
+            entry.refType === 'EL_PAID_LEAVE' &&
+            entry.remarks?.includes(monthStr)
+          ) {
+            paidLeaveDays += Math.abs(Number(entry.qty) || 0);
+          }
+        }
+        cv['EL_PAID_LEAVE_DAYS'] = paidLeaveDays;
+      } catch {
+        if (cv['EL_PAID_LEAVE_DAYS'] === undefined)
+          cv['EL_PAID_LEAVE_DAYS'] = 0;
+      }
+
+      // ── EL_BALANCE: as-of end of payslip month ──
+      // Year-aggregate available includes future-month accruals (e.g. May
+      // accrual booked Apr 30). For this month's view, sum opening + ledger
+      // entries whose tagged benefit month <= current month.
+      try {
+        const elBal = await this.leaveBalanceRepo.findOne({
+          where: { employeeId, year, leaveType: 'EL' },
+        });
+        const opening = elBal ? parseFloat(elBal.opening) || 0 : 0;
+        const allEl = await this.leaveLedgerRepo.find({
+          where: { employeeId, leaveType: 'EL' },
+        });
+        const tagRe = /(\d{4})-(\d{2})/;
+        let accrual = 0;
+        let used = 0;
+        for (const entry of allEl) {
+          const m = entry.remarks?.match(tagRe);
+          let entryYear: number;
+          let entryMonth: number;
+          if (m) {
+            entryYear = Number(m[1]);
+            entryMonth = Number(m[2]);
+          } else {
+            const d = new Date(entry.entryDate as unknown as string);
+            entryYear = d.getUTCFullYear();
+            entryMonth = d.getUTCMonth() + 1;
+          }
+          if (entryYear !== year) continue;
+          if (entryMonth > month) continue;
+          const qty = Math.abs(Number(entry.qty) || 0);
+          if (entry.refType === 'EL_ACCRUAL') accrual += qty;
+          else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
+        }
+        cv['EL_BALANCE'] = Math.max(
+          Math.round((opening + accrual - used) * 100) / 100,
+          0,
+        );
+      } catch {
+        if (cv['EL_BALANCE'] === undefined) cv['EL_BALANCE'] = 0;
+      }
+    } else {
+      if (cv['EL_PAID_LEAVE_DAYS'] === undefined) cv['EL_PAID_LEAVE_DAYS'] = 0;
+      if (cv['EL_BALANCE'] === undefined) cv['EL_BALANCE'] = 0;
+    }
+
+    // ── HOLIDAYS: always recompute from attendance ──
+    try {
+      const summaries = await this.attendanceService.getMonthlySummary({
+        clientId,
+        year,
+        month,
+      });
+      if (employeeId) {
+        const empSummary = summaries.find((s) => s.employeeId === employeeId);
+        cv['HOLIDAYS'] = empSummary?.holidays ?? 0;
+        cv['WEEK_OFFS'] = empSummary?.weekOffs ?? 0;
+      }
+    } catch {
+      if (cv['HOLIDAYS'] === undefined) cv['HOLIDAYS'] = 0;
+    }
+  }
+
+  private normalizeHeader(value: unknown): string {
+    const raw = this.textFromCell(value)
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
     return raw.replace(/[^a-z0-9 ]/g, '').trim();
   }
 
-  private cellValue(value: any): any {
+  private cellValue(value: unknown): unknown {
     if (value && typeof value === 'object') {
-      if ('result' in value) return value.result;
-      if ('text' in value) return value.text;
+      if ('result' in value) return (value as Record<string, unknown>).result;
+      if ('text' in value) return (value as Record<string, unknown>).text;
     }
     return value;
   }
 
-  private numberFromCell(value: any): number | null {
+  private textFromCell(value: unknown): string {
+    const normalized = this.cellValue(value);
+    if (normalized === null || normalized === undefined) return '';
+    if (
+      typeof normalized === 'string' ||
+      typeof normalized === 'number' ||
+      typeof normalized === 'boolean' ||
+      typeof normalized === 'bigint'
+    ) {
+      return String(normalized).trim();
+    }
+    return '';
+  }
+
+  private numberFromCell(value: unknown): number | null {
     const v = this.cellValue(value);
     if (v === null || v === undefined || v === '') return null;
     const n = Number(v);
@@ -158,11 +328,11 @@ export class PayrollService {
   }
 
   async clientUpdatePayrollInputStatus(
-    user: any,
+    user: ReqUser,
     payrollInputId: string,
     dto: ClientUpdatePayrollInputStatusDto,
   ) {
-    this.ensureClientUser(user);
+    await this.ensureClientPayrollAccess(user);
     const input = await this.inputRepo.findOne({
       where: { id: payrollInputId },
     });
@@ -174,8 +344,8 @@ export class PayrollService {
     const toStatus = dto.status as PayrollInputStatus; // SUBMITTED | CANCELLED
     this.assertClientTransition(fromStatus, toStatus);
     input.status = toStatus;
-    (input as any).statusUpdatedAt = new Date();
-    (input as any).statusUpdatedByUserId = user.id;
+    input.statusUpdatedAt = new Date();
+    input.statusUpdatedByUserId = user.id;
     const shouldNotifyPayroll =
       toStatus === PayrollInputStatus.SUBMITTED &&
       (fromStatus === PayrollInputStatus.NEEDS_CLARIFICATION ||
@@ -211,8 +381,11 @@ export class PayrollService {
     return saved;
   }
 
-  async clientGetPayrollInputStatusHistory(user: any, payrollInputId: string) {
-    this.ensureClientUser(user);
+  async clientGetPayrollInputStatusHistory(
+    user: ReqUser,
+    payrollInputId: string,
+  ) {
+    await this.ensureClientPayrollAccess(user);
     const input = await this.inputRepo.findOne({
       where: { id: payrollInputId },
     });
@@ -225,7 +398,7 @@ export class PayrollService {
     });
   }
 
-  private ensureClientUser(user: any) {
+  private ensureClientUser(user: ReqUser) {
     const isClient =
       !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
     const isBranchUser = user?.userType === 'BRANCH';
@@ -238,7 +411,7 @@ export class PayrollService {
   }
 
   /** Allows both MASTER and BRANCH client users */
-  private ensureClientOrBranchUser(user: any) {
+  private ensureClientOrBranchUser(user: ReqUser) {
     const isClient =
       !!user?.id && user?.roleCode === 'CLIENT' && !!user?.clientId;
     if (!isClient) {
@@ -248,10 +421,25 @@ export class PayrollService {
     }
   }
 
+  /** Allows master users always; branch users only if toggle is on */
+  private async ensureClientPayrollAccess(user: ReqUser) {
+    this.ensureClientOrBranchUser(user);
+    if (user.userType === 'BRANCH') {
+      const toggles = await this.getClientAccessToggles(user.clientId!);
+      if (!toggles.allowBranchPayrollAccess) {
+        throw new ForbiddenException(
+          'Payroll access has not been enabled for branch users',
+        );
+      }
+    }
+  }
+
   private async getClientAccessToggles(clientId: string): Promise<{
     allowBranchPayrollAccess: boolean;
     allowBranchWageRegisters: boolean;
     allowBranchSalaryRegisters: boolean;
+    payrollBranchScope: 'ALL' | 'SELECTED';
+    payrollAllowedBranchIds: string[];
   }> {
     const row = await this.clientSettingsRepo.findOne({ where: { clientId } });
     const s = row?.settings || {};
@@ -259,16 +447,24 @@ export class PayrollService {
       allowBranchPayrollAccess: s.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: s.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: s.allowBranchSalaryRegisters === true,
+      payrollBranchScope:
+        s.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+      payrollAllowedBranchIds: Array.isArray(s.payrollAllowedBranchIds)
+        ? s.payrollAllowedBranchIds
+        : [],
     };
   }
 
-  async clientGetPayrollSettings(user: any) {
+  async clientGetPayrollSettings(user: ReqUser) {
     this.ensureClientOrBranchUser(user);
-    const toggles = await this.getClientAccessToggles(user.clientId);
+    const toggles = await this.getClientAccessToggles(user.clientId!);
     return { clientId: user.clientId, ...toggles };
   }
 
-  async clientUpdatePayrollSettings(user: any, dto: any) {
+  async clientUpdatePayrollSettings(
+    user: ReqUser,
+    dto: ClientUpdatePayrollSettingsDto,
+  ) {
     this.ensureClientOrBranchUser(user);
     if (user.userType !== 'MASTER') {
       throw new ForbiddenException(
@@ -277,7 +473,7 @@ export class PayrollService {
     }
 
     const existing = await this.clientSettingsRepo.findOne({
-      where: { clientId: user.clientId },
+      where: { clientId: user.clientId! },
     });
 
     const next = {
@@ -285,12 +481,20 @@ export class PayrollService {
       allowBranchPayrollAccess: dto?.allowBranchPayrollAccess === true,
       allowBranchWageRegisters: dto?.allowBranchWageRegisters === true,
       allowBranchSalaryRegisters: dto?.allowBranchSalaryRegisters === true,
+      payrollBranchScope:
+        dto?.payrollBranchScope === 'SELECTED' ? 'SELECTED' : 'ALL',
+      payrollAllowedBranchIds:
+        dto?.payrollBranchScope === 'SELECTED'
+          ? Array.isArray(dto?.payrollAllowedBranchIds)
+            ? dto.payrollAllowedBranchIds
+            : []
+          : [],
     };
 
     const row = existing
       ? Object.assign(existing, { settings: next, updatedBy: user.userId })
       : this.clientSettingsRepo.create({
-          clientId: user.clientId,
+          clientId: user.clientId!,
           settings: next,
           updatedBy: user.userId,
         });
@@ -300,7 +504,7 @@ export class PayrollService {
   }
 
   private async assertPayrollAccessToClient(
-    payrollUser: any,
+    payrollUser: ReqUser,
     clientId: string,
     opts?: { allowReadOnly?: boolean },
   ) {
@@ -338,7 +542,7 @@ export class PayrollService {
     throw new ForbiddenException('Only payroll/admin allowed');
   }
 
-  async getAssignedClients(user: any) {
+  async getAssignedClients(user: ReqUser) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user?.roleCode)) {
       throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
@@ -369,8 +573,11 @@ export class PayrollService {
       .getRawMany();
   }
 
-  async clientCreatePayrollInput(user: any, dto: any) {
-    this.ensureClientUser(user);
+  async clientCreatePayrollInput(
+    user: ReqUser,
+    dto: ClientCreatePayrollInputDto,
+  ) {
+    await this.ensureClientPayrollAccess(user);
     if (!dto?.title || !dto?.periodYear || !dto?.periodMonth) {
       throw new BadRequestException(
         'title, periodYear, periodMonth are required',
@@ -379,9 +586,14 @@ export class PayrollService {
     if (dto.periodMonth < 1 || dto.periodMonth > 12) {
       throw new BadRequestException('periodMonth must be 1..12');
     }
+    // Branch users can only create inputs for their own branch
+    const branchId =
+      user.userType === 'BRANCH' && user.branchIds?.length
+        ? user.branchIds[0]
+        : (dto.branchId ?? null);
     const row = this.inputRepo.create({
-      clientId: user.clientId,
-      branchId: dto.branchId ?? null,
+      clientId: user.clientId!,
+      branchId,
       periodYear: Number(dto.periodYear),
       periodMonth: Number(dto.periodMonth),
       title: dto.title.trim(),
@@ -392,13 +604,18 @@ export class PayrollService {
     return this.inputRepo.save(row);
   }
 
-  async clientListPayrollInputs(user: any, q: any) {
-    this.ensureClientUser(user);
+  async clientListPayrollInputs(user: ReqUser, q: Record<string, any>) {
+    await this.ensureClientPayrollAccess(user);
     const qb = this.inputRepo
       .createQueryBuilder('p')
       .where('p.client_id = :cid', { cid: user.clientId })
       .orderBy('p.created_at', 'DESC');
-    if (q?.branchId) qb.andWhere('p.branch_id = :bid', { bid: q.branchId });
+    // Branch users only see inputs for their own branch(es)
+    if (user.userType === 'BRANCH' && user.branchIds?.length) {
+      qb.andWhere('p.branch_id IN (:...ubids)', { ubids: user.branchIds });
+    } else if (q?.branchId) {
+      qb.andWhere('p.branch_id = :bid', { bid: q.branchId });
+    }
     if (q?.periodYear)
       qb.andWhere('p.period_year = :y', { y: Number(q.periodYear) });
     if (q?.periodMonth)
@@ -406,7 +623,7 @@ export class PayrollService {
     if (q?.status) qb.andWhere('p.status = :s', { s: q.status });
     const rows = await qb.getMany();
     if (!rows.length) return [];
-    const ids = rows.map((r: any) => r.id);
+    const ids = rows.map((r) => r.id);
     const counts = await this.fileRepo
       .createQueryBuilder('f')
       .select('f.payroll_input_id', 'payrollInputId')
@@ -416,7 +633,7 @@ export class PayrollService {
       .getRawMany<{ payrollInputId: string; cnt: string }>();
     const mapCnt = new Map<string, number>();
     for (const c of counts) mapCnt.set(c.payrollInputId, Number(c.cnt || 0));
-    return rows.map((p: any) => ({
+    return rows.map((p) => ({
       id: p.id,
       clientId: p.clientId,
       branchId: p.branchId ?? null,
@@ -430,13 +647,61 @@ export class PayrollService {
     }));
   }
 
+  async clientListPayrollRuns(user: ReqUser, q: Record<string, any>) {
+    await this.ensureClientPayrollAccess(user);
+    const qb = this.runRepo
+      .createQueryBuilder('r')
+      .where('r.client_id = :cid', { cid: user.clientId })
+      .orderBy('r.created_at', 'DESC');
+
+    if (user.userType === 'BRANCH' && user.branchIds?.length) {
+      qb.andWhere('(r.branch_id IN (:...ubids) OR r.branch_id IS NULL)', {
+        ubids: user.branchIds,
+      });
+    } else if (q?.branchId) {
+      qb.andWhere('r.branch_id = :bid', { bid: q.branchId });
+    }
+    if (q?.periodYear)
+      qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
+    if (q?.periodMonth)
+      qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
+    if (q?.status) qb.andWhere('r.status = :s', { s: q.status });
+
+    const runs = await qb.getMany();
+    if (!runs.length) return [];
+
+    const runIds = runs.map((r) => r.id);
+    const empCounts = await this.runEmployeeRepo
+      .createQueryBuilder('e')
+      .select('e.run_id', 'runId')
+      .addSelect('COUNT(1)', 'cnt')
+      .where('e.run_id IN (:...runIds)', { runIds })
+      .groupBy('e.run_id')
+      .getRawMany<{ runId: string; cnt: string }>();
+    const cntMap = new Map<string, number>();
+    for (const c of empCounts) cntMap.set(c.runId, Number(c.cnt || 0));
+
+    return runs.map((r) => ({
+      id: r.id,
+      clientId: r.clientId,
+      branchId: r.branchId ?? null,
+      periodYear: r.periodYear,
+      periodMonth: r.periodMonth,
+      title: r.title ?? `Payroll Run`,
+      status: r.status,
+      createdAt: r.createdAt,
+      employeeCount: cntMap.get(r.id) ?? 0,
+      type: 'RUN' as const,
+    }));
+  }
+
   async clientUploadPayrollInputFile(
-    user: any,
+    user: ReqUser,
     payrollInputId: string,
-    dto: any,
-    file: any,
+    dto: ClientUploadPayrollInputFileDto,
+    file: Express.Multer.File,
   ) {
-    this.ensureClientUser(user);
+    await this.ensureClientPayrollAccess(user);
     if (!file) throw new BadRequestException('File is required');
     const input = await this.inputRepo.findOne({
       where: { id: payrollInputId },
@@ -456,8 +721,8 @@ export class PayrollService {
     return this.fileRepo.save(row);
   }
 
-  async clientListPayrollInputFiles(user: any, payrollInputId: string) {
-    this.ensureClientUser(user);
+  async clientListPayrollInputFiles(user: ReqUser, payrollInputId: string) {
+    await this.ensureClientPayrollAccess(user);
     const input = await this.inputRepo.findOne({
       where: { id: payrollInputId },
     });
@@ -468,7 +733,7 @@ export class PayrollService {
       where: { payrollInputId: input.id },
       order: { createdAt: 'DESC' },
     });
-    return files.map((f: any) => ({
+    return files.map((f) => ({
       id: f.id,
       payrollInputId: f.payrollInputId,
       docType: f.docType ?? null,
@@ -481,7 +746,7 @@ export class PayrollService {
     }));
   }
 
-  async payrollListPayrollInputs(user: any, q: any) {
+  async payrollListPayrollInputs(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (
       user?.roleCode !== 'PAYROLL' &&
@@ -530,7 +795,7 @@ export class PayrollService {
     if (q?.status) qb.andWhere('p.status = :s', { s: q.status });
     const rows = await qb.getMany();
     if (!rows.length) return [];
-    const ids = rows.map((r: any) => r.id);
+    const ids = rows.map((r) => r.id);
     const counts = await this.fileRepo
       .createQueryBuilder('f')
       .select('f.payroll_input_id', 'payrollInputId')
@@ -540,7 +805,7 @@ export class PayrollService {
       .getRawMany<{ payrollInputId: string; cnt: string }>();
     const mapCnt = new Map<string, number>();
     for (const c of counts) mapCnt.set(c.payrollInputId, Number(c.cnt || 0));
-    return rows.map((p: any) => ({
+    return rows.map((p) => ({
       id: p.id,
       clientId: p.clientId,
       branchId: p.branchId ?? null,
@@ -571,9 +836,9 @@ export class PayrollService {
   }
 
   async payrollUploadClientTemplate(
-    user: any,
+    user: ReqUser,
     clientId: string,
-    file: any,
+    file: Express.Multer.File,
     dto: { effectiveFrom?: string; effectiveTo?: string },
   ) {
     await this.assertPayrollAccessToClient(user, clientId);
@@ -610,7 +875,7 @@ export class PayrollService {
     };
   }
 
-  async payrollGetClientTemplateMeta(user: any, clientId: string) {
+  async payrollGetClientTemplateMeta(user: ReqUser, clientId: string) {
     await this.assertPayrollAccessToClient(user, clientId);
     const active = await this.getActiveTemplateForClient(clientId);
     if (!active) return { hasTemplate: false };
@@ -626,7 +891,7 @@ export class PayrollService {
     };
   }
 
-  async payrollDownloadClientTemplate(user: any, clientId: string) {
+  async payrollDownloadClientTemplate(user: ReqUser, clientId: string) {
     await this.assertPayrollAccessToClient(user, clientId);
     const active = await this.getActiveTemplateForClient(clientId);
     if (!active)
@@ -642,9 +907,9 @@ export class PayrollService {
     };
   }
 
-  async clientGetPayrollTemplateMeta(user: any) {
+  async clientGetPayrollTemplateMeta(user: ReqUser) {
     this.ensureClientUser(user);
-    const active = await this.getActiveTemplateForClient(user.clientId);
+    const active = await this.getActiveTemplateForClient(user.clientId!);
     if (!active) return { hasTemplate: false };
     return {
       hasTemplate: true,
@@ -657,9 +922,9 @@ export class PayrollService {
     };
   }
 
-  async clientDownloadPayrollTemplate(user: any) {
+  async clientDownloadPayrollTemplate(user: ReqUser) {
     this.ensureClientUser(user);
-    const active = await this.getActiveTemplateForClient(user.clientId);
+    const active = await this.getActiveTemplateForClient(user.clientId!);
     if (!active)
       throw new BadRequestException('No template configured for your client');
     if (!fs.existsSync(active.template.filePath)) {
@@ -674,7 +939,7 @@ export class PayrollService {
   }
 
   async updatePayrollInputStatus(
-    user: any,
+    user: ReqUser,
     payrollInputId: string,
     dto: UpdatePayrollInputStatusDto,
   ) {
@@ -758,7 +1023,7 @@ export class PayrollService {
     return saved;
   }
 
-  async listPayrollInputFilesForPayroll(user: any, payrollInputId: string) {
+  async listPayrollInputFilesForPayroll(user: ReqUser, payrollInputId: string) {
     const input = await this.inputRepo.findOne({
       where: { id: payrollInputId },
     });
@@ -768,7 +1033,7 @@ export class PayrollService {
       where: { payrollInputId: input.id },
       order: { createdAt: 'DESC' },
     });
-    return files.map((f: any) => ({
+    return files.map((f) => ({
       id: f.id,
       payrollInputId: f.payrollInputId,
       docType: f.docType ?? null,
@@ -781,12 +1046,12 @@ export class PayrollService {
     }));
   }
 
-  async downloadPayrollInputFileForClient(user: any, fileId: string) {
-    this.ensureClientUser(user);
-    const file = await this.fileRepo.findOne({ where: { id: fileId } as any });
+  async downloadPayrollInputFileForClient(user: ReqUser, fileId: string) {
+    await this.ensureClientPayrollAccess(user);
+    const file = await this.fileRepo.findOne({ where: { id: fileId } });
     if (!file) throw new BadRequestException('Payroll input file not found');
     const input = await this.inputRepo.findOne({
-      where: { id: file.payrollInputId } as any,
+      where: { id: file.payrollInputId },
     });
     if (!input) throw new BadRequestException('Payroll input not found');
     if (input.clientId !== user.clientId)
@@ -795,12 +1060,12 @@ export class PayrollService {
     return { fileName: file.fileName, fileType: file.fileType, buffer };
   }
 
-  async downloadPayrollInputFileForPayroll(user: any, fileId: string) {
+  async downloadPayrollInputFileForPayroll(user: ReqUser, fileId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    const file = await this.fileRepo.findOne({ where: { id: fileId } as any });
+    const file = await this.fileRepo.findOne({ where: { id: fileId } });
     if (!file) throw new BadRequestException('Payroll input file not found');
     const input = await this.inputRepo.findOne({
-      where: { id: file.payrollInputId } as any,
+      where: { id: file.payrollInputId },
     });
     if (!input) throw new BadRequestException('Payroll input not found');
     await this.assertPayrollAccessToClient(user, input.clientId, {
@@ -810,7 +1075,7 @@ export class PayrollService {
     return { fileName: file.fileName, fileType: file.fileType, buffer };
   }
 
-  async createPayrollRun(user: any, dto: any) {
+  async createPayrollRun(user: ReqUser, dto: CreatePayrollRunDto) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user?.roleCode !== 'PAYROLL' && user?.roleCode !== 'ADMIN') {
       throw new ForbiddenException('Only payroll/admin allowed');
@@ -831,7 +1096,7 @@ export class PayrollService {
         clientId: dto.clientId,
         periodYear: Number(dto.periodYear),
         periodMonth: periodMonth,
-      } as any,
+      },
     });
     if (existing) {
       throw new BadRequestException(
@@ -842,7 +1107,7 @@ export class PayrollService {
     let title = dto?.title?.trim() || null;
     if (dto?.sourcePayrollInputId) {
       const input = await this.inputRepo.findOne({
-        where: { id: dto.sourcePayrollInputId } as any,
+        where: { id: dto.sourcePayrollInputId },
       });
       if (!input)
         throw new BadRequestException('Source payroll input not found');
@@ -860,17 +1125,87 @@ export class PayrollService {
       sourcePayrollInputId: dto.sourcePayrollInputId ?? null,
       title,
     });
-    return this.runRepo.save(row);
+    const savedRun = await this.runRepo.save(row);
+
+    // ── Auto-seed employees from master employee list ──────────────────
+    const whereClause: Record<string, any> = {
+      clientId: dto.clientId,
+      isActive: true,
+    };
+    if (dto.branchId) {
+      whereClause.branchId = dto.branchId;
+    }
+    const masterEmployees = await this.employeeRepo.find({
+      where: whereClause,
+      order: { employeeCode: 'ASC' },
+    });
+
+    if (masterEmployees.length) {
+      const seedEntities = masterEmployees.map((emp) =>
+        this.runEmployeeRepo.create({
+          runId: savedRun.id,
+          clientId: savedRun.clientId,
+          branchId: emp.branchId ?? savedRun.branchId ?? null,
+          employeeId: emp.id,
+          employeeCode: emp.employeeCode,
+          employeeName: emp.name,
+          designation: emp.designation ?? null,
+          uan: emp.uan ?? null,
+          esic: emp.esic ?? null,
+          stateCode: emp.stateCode ?? null,
+        }),
+      );
+
+      await this.runEmployeeRepo.save(seedEntities);
+    }
+
+    return {
+      ...savedRun,
+      employeeCount: masterEmployees.length,
+    };
   }
 
-  async uploadPayrollRunEmployees(user: any, runId: string, file: any) {
+  async deleteDraftPayrollRun(user: ReqUser, runId: string) {
+    if (!user?.id) throw new BadRequestException('Invalid user');
+    if (user?.roleCode !== 'PAYROLL' && user?.roleCode !== 'ADMIN') {
+      throw new ForbiddenException('Only payroll/admin allowed');
+    }
+
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException('Payroll run not found');
+
+    await this.assertPayrollAccessToClient(user, run.clientId);
+
+    const status = String(run.status || '').toUpperCase();
+    if (status === 'APPROVED') {
+      throw new BadRequestException(
+        `Cannot delete run in "${status}" state. Approved runs are locked.`,
+      );
+    }
+
+    await this.runRepo.manager.transaction(async (manager) => {
+      await manager.delete(PayrollRunComponentValueEntity, { runId });
+      await manager.delete(PayrollRunItemEntity, { runId });
+      await manager.delete(PayrollPayslipArchiveEntity, { runId });
+      await manager.delete(PayrollRunEmployeeEntity, { runId });
+      await manager.delete(PayrollRunEntity, { id: runId });
+    });
+
+    return { deleted: true, runId };
+  }
+
+  async uploadPayrollRunEmployees(
+    user: ReqUser,
+    runId: string,
+    file: Express.Multer.File,
+  ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user?.roleCode !== 'PAYROLL' && user?.roleCode !== 'ADMIN') {
       throw new ForbiddenException('Only payroll/admin allowed');
     }
     if (!file) throw new BadRequestException('File is required');
 
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId);
 
@@ -914,12 +1249,50 @@ export class PayrollService {
     const colGross = findCol(['gross']);
     const colTotalDed = findCol(['total deduction', 'total deductions']);
     const colNetPay = findCol(['net salary', 'net pay', 'net']);
-    const colEmployerCost = findCol(['monthly ctc', 'ctc', 'employer cost']);
+    const colMonthlyCtc = findCol([
+      'monthly ctc',
+      'month ctc',
+      'ctc monthly',
+      'total monthly ctc',
+    ]);
+    const colEmployerContribution = findCol([
+      'employer contributions',
+      'employer contribution',
+      'employer cost',
+      'total employer contribution',
+    ]);
+    // Intentionally do not match generic "ctc" / "total ctc" to avoid ingesting annual CTC.
+    const colEmployerCost = colMonthlyCtc || colEmployerContribution;
+    const colPfEmployee = findCol([
+      'pf employee',
+      'employee pf',
+      'pf emp',
+      'pf deduction',
+    ]);
+    const colEsiEmployee = findCol([
+      'esi employee',
+      'employee esi',
+      'esi emp',
+      'esi deduction',
+    ]);
+    const colPt = findCol(['professional tax', 'prof tax', 'pt']);
+    const colPfEmployer = findCol(['pf employer', 'employer pf', 'pf er']);
+    const colEsiEmployer = findCol(['esi employer', 'employer esi', 'esi er']);
+    const colBonus = findCol(['bonus', 'attendance bonus', 'bonus provision']);
 
     if (!colEmployeeName)
       throw new BadRequestException('Required column not found: Name');
 
     const rows: Partial<PayrollRunEmployeeEntity>[] = [];
+    const componentRows: Array<{
+      employeeCode: string;
+      pfEmployee: number | null;
+      esiEmployee: number | null;
+      pt: number | null;
+      pfEmployer: number | null;
+      esiEmployer: number | null;
+      bonus: number | null;
+    }> = [];
     const lastRow = ws.actualRowCount || ws.rowCount || 1;
 
     for (let i = 2; i <= lastRow; i++) {
@@ -927,13 +1300,13 @@ export class PayrollService {
       const nameVal = colEmployeeName
         ? this.cellValue(row.getCell(colEmployeeName).value)
         : null;
-      const employeeName = nameVal ? String(nameVal).trim() : '';
+      const employeeName = this.textFromCell(nameVal);
       if (!employeeName) continue;
 
       const codeVal = colEmployeeCode
         ? this.cellValue(row.getCell(colEmployeeCode).value)
         : null;
-      const employeeCode = codeVal ? String(codeVal).trim() : String(i - 1);
+      const employeeCode = this.textFromCell(codeVal) || String(i - 1);
 
       const designationVal = colDesignation
         ? this.cellValue(row.getCell(colDesignation).value)
@@ -955,6 +1328,22 @@ export class PayrollService {
       const employerCost = colEmployerCost
         ? this.numberFromCell(row.getCell(colEmployerCost).value)
         : null;
+      const pfEmployee = colPfEmployee
+        ? this.numberFromCell(row.getCell(colPfEmployee).value)
+        : null;
+      const esiEmployee = colEsiEmployee
+        ? this.numberFromCell(row.getCell(colEsiEmployee).value)
+        : null;
+      const pt = colPt ? this.numberFromCell(row.getCell(colPt).value) : null;
+      const pfEmployer = colPfEmployer
+        ? this.numberFromCell(row.getCell(colPfEmployer).value)
+        : null;
+      const esiEmployer = colEsiEmployer
+        ? this.numberFromCell(row.getCell(colEsiEmployer).value)
+        : null;
+      const bonus = colBonus
+        ? this.numberFromCell(row.getCell(colBonus).value)
+        : null;
 
       rows.push({
         runId: run.id,
@@ -962,13 +1351,29 @@ export class PayrollService {
         branchId: run.branchId ?? null,
         employeeCode,
         employeeName,
-        designation: designationVal ? String(designationVal).trim() : null,
-        uan: uanVal ? String(uanVal).trim() : null,
-        esic: esicVal ? String(esicVal).trim() : null,
+        designation: this.textFromCell(designationVal) || null,
+        uan: this.textFromCell(uanVal) || null,
+        esic: this.textFromCell(esicVal) || null,
         grossEarnings: String(gross ?? 0),
         totalDeductions: String(totalDed ?? 0),
         netPay: String(netPay ?? 0),
         employerCost: String(employerCost ?? 0),
+        pfEmployee: pfEmployee !== null ? String(pfEmployee) : null,
+        esiEmployee: esiEmployee !== null ? String(esiEmployee) : null,
+        pt: pt !== null ? String(pt) : null,
+        pfEmployer: pfEmployer !== null ? String(pfEmployer) : null,
+        esiEmployer: esiEmployer !== null ? String(esiEmployer) : null,
+        bonus: bonus !== null ? String(bonus) : null,
+      });
+
+      componentRows.push({
+        employeeCode,
+        pfEmployee,
+        esiEmployee,
+        pt,
+        pfEmployer,
+        esiEmployer,
+        bonus,
       });
     }
 
@@ -978,16 +1383,60 @@ export class PayrollService {
       'runId',
       'employeeCode',
     ]);
+
+    const cvRepo = this.runEmployeeRepo.manager.getRepository(
+      PayrollRunComponentValueEntity,
+    );
+    const runEmployees = await this.runEmployeeRepo.find({
+      where: { runId: run.id },
+    });
+    const runEmpByCode = new Map(
+      runEmployees.map((re) => [re.employeeCode, re.id]),
+    );
+    const componentValues: Partial<PayrollRunComponentValueEntity>[] = [];
+
+    for (const row of componentRows) {
+      const runEmployeeId = runEmpByCode.get(row.employeeCode);
+      if (!runEmployeeId) continue;
+
+      const pushComp = (code: string, amount: number | null) => {
+        if (amount === null || amount === undefined) return;
+        componentValues.push({
+          runId: run.id,
+          runEmployeeId,
+          componentCode: code,
+          amount: String(amount),
+          source: 'UPLOADED',
+        });
+      };
+
+      pushComp('PF_EMP', row.pfEmployee);
+      pushComp('ESI_EMP', row.esiEmployee);
+      pushComp('PT', row.pt);
+      pushComp('PF_ER', row.pfEmployer);
+      pushComp('ESI_ER', row.esiEmployer);
+      pushComp('BONUS', row.bonus);
+    }
+
+    if (componentValues.length) {
+      await cvRepo
+        .createQueryBuilder()
+        .insert()
+        .values(componentValues)
+        .orUpdate(['amount', 'source'], ['run_employee_id', 'component_code'])
+        .execute();
+    }
+
     // Keep run status unchanged on employee import. Processing transition
     // is controlled explicitly by the process action.
 
     return { ok: true, runId: run.id, employees: rows.length };
   }
 
-  async clientListRegistersRecords(user: any, q: any) {
+  async clientListRegistersRecords(user: ReqUser, q: Record<string, any>) {
     const qb = await this.buildClientRegistersQuery(user, q);
     const rows = await qb.getMany();
-    return rows.map((r: any) => ({
+    return rows.map((r) => ({
       id: r.id,
       clientId: r.clientId,
       branchId: r.branchId ?? null,
@@ -1009,7 +1458,11 @@ export class PayrollService {
     }));
   }
 
-  async streamClientRegistersPack(user: any, q: any, res: any) {
+  async streamClientRegistersPack(
+    user: ReqUser,
+    q: Record<string, any>,
+    res: Response,
+  ) {
     const qb = await this.buildClientRegistersQuery(user, q);
     const maxRows = Math.min(300, Math.max(1, Number(q?.limit) || 120));
     const rows = await qb.limit(maxRows).getMany();
@@ -1017,7 +1470,9 @@ export class PayrollService {
       throw new BadRequestException('No registers found for selected filters');
     }
 
-    const available = rows.filter((r: any) => r.filePath && fs.existsSync(r.filePath));
+    const available = rows.filter(
+      (r) => r.filePath && fs.existsSync(r.filePath),
+    );
     if (!available.length) {
       throw new BadRequestException('No register files available for download');
     }
@@ -1048,7 +1503,10 @@ export class PayrollService {
     await archive.finalize();
   }
 
-  private async buildClientRegistersQuery(user: any, q: any) {
+  private async buildClientRegistersQuery(
+    user: ReqUser,
+    q: Record<string, any>,
+  ) {
     this.ensureClientOrBranchUser(user);
     const qb = this.rrRepo
       .createQueryBuilder('r')
@@ -1056,14 +1514,14 @@ export class PayrollService {
       .orderBy('r.created_at', 'DESC');
 
     if (user.userType === 'BRANCH') {
-      const toggles = await this.getClientAccessToggles(user.clientId);
+      const toggles = await this.getClientAccessToggles(user.clientId!);
       if (!toggles.allowBranchPayrollAccess) {
         throw new ForbiddenException(
           'Payroll access has not been enabled for branch users',
         );
       }
-      if (user.branchId) {
-        qb.andWhere('r.branch_id = :ub', { ub: user.branchId });
+      if (user.branchIds?.[0]) {
+        qb.andWhere('r.branch_id = :ub', { ub: user.branchIds[0] });
       }
       qb.andWhere('r.approval_status = :approved', { approved: 'APPROVED' });
       if (!toggles.allowBranchWageRegisters) {
@@ -1128,14 +1586,18 @@ export class PayrollService {
     return name;
   }
 
-  async clientUploadRegisterRecord(user: any, dto: any, file: any) {
-    this.ensureClientUser(user);
+  async clientUploadRegisterRecord(
+    user: ReqUser,
+    dto: ClientUploadRegisterRecordDto,
+    file: Express.Multer.File,
+  ) {
+    await this.ensureClientPayrollAccess(user);
     if (!file) throw new BadRequestException('File is required');
     if (!dto?.category || !dto?.title) {
       throw new BadRequestException('category and title are required');
     }
     const row = this.rrRepo.create({
-      clientId: user.clientId,
+      clientId: user.clientId!,
       branchId: dto.branchId ?? null,
       payrollInputId: dto.payrollInputId ?? null,
       category: dto.category,
@@ -1151,7 +1613,38 @@ export class PayrollService {
     return this.rrRepo.save(row);
   }
 
-  async payrollListRegistersRecords(user: any, q: any) {
+  async payrollUploadRegisterRecord(
+    user: ReqUser,
+    dto: any,
+    file: Express.Multer.File,
+  ) {
+    if (!user?.id && !user?.userId)
+      throw new BadRequestException('Invalid user');
+    if (!['PAYROLL', 'ADMIN', 'CRM'].includes(user.roleCode)) {
+      throw new ForbiddenException('Only payroll/admin/CRM allowed');
+    }
+    if (!file) throw new BadRequestException('File is required');
+    if (!dto?.clientId) throw new BadRequestException('clientId is required');
+    if (!dto?.title) throw new BadRequestException('title is required');
+    const row = this.rrRepo.create({
+      clientId: dto.clientId,
+      branchId: dto.branchId ?? null,
+      category: dto.category || 'RECORD',
+      title: dto.title,
+      registerType: dto.registerType ?? null,
+      periodYear: dto.periodYear ? Number(dto.periodYear) : null,
+      periodMonth: dto.periodMonth ? Number(dto.periodMonth) : null,
+      preparedByUserId: user.userId || user.id,
+      fileName: file.originalname,
+      filePath: file.path,
+      fileType: file.mimetype,
+      fileSize: String(file.size),
+      approvalStatus: 'PENDING',
+    });
+    return this.rrRepo.save(row);
+  }
+
+  async payrollListRegistersRecords(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!['PAYROLL', 'ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
       throw new ForbiddenException('Only payroll/admin/CRM/CEO/CCO allowed');
@@ -1189,6 +1682,10 @@ export class PayrollService {
       }
     }
 
+    return { ids, q };
+  }
+
+  private buildPayrollRegistersQb(ids: string[], q: Record<string, any>) {
     const qb = this.rrRepo
       .createQueryBuilder('r')
       .where('r.client_id IN (:...ids)', { ids });
@@ -1200,10 +1697,68 @@ export class PayrollService {
       qb.andWhere('r.period_year = :y', { y: Number(q.periodYear) });
     if (q?.periodMonth)
       qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
+    if (q?.registerType)
+      qb.andWhere('r.register_type = :rt', { rt: q.registerType });
 
     qb.orderBy('r.created_at', 'DESC');
+    return qb;
+  }
+
+  async streamPayrollRegistersPack(
+    user: ReqUser,
+    q: Record<string, any>,
+    res: Response,
+  ) {
+    const scope = await this.payrollListRegistersRecords(user, q);
+    if (Array.isArray(scope)) {
+      throw new BadRequestException('No registers found for selected filters');
+    }
+    const { ids } = scope;
+    const qb = this.buildPayrollRegistersQb(ids, q);
+    const rows = await qb.limit(300).getMany();
+    if (!rows.length) {
+      throw new BadRequestException('No registers found for selected filters');
+    }
+
+    const available = rows.filter(
+      (r) => r.filePath && fs.existsSync(r.filePath),
+    );
+    if (!available.length) {
+      throw new BadRequestException('No register files available for download');
+    }
+
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="registers_pack_${stamp}.zip"`,
+    );
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => {
+      throw err;
+    });
+    archive.pipe(res);
+
+    const used = new Set<string>();
+    for (const row of available) {
+      const period = `${row.periodYear || 'na'}-${row.periodMonth ? String(row.periodMonth).padStart(2, '0') : 'na'}`;
+      const rawName = `${period}_${row.registerType || row.category || 'register'}_${row.fileName || row.id}`;
+      const zipName = this.uniqueZipFileName(rawName, used);
+      archive.file(row.filePath, { name: zipName });
+    }
+
+    await archive.finalize();
+  }
+
+  async payrollListRegistersFormatted(user: ReqUser, q: Record<string, any>) {
+    const scope = await this.payrollListRegistersRecords(user, q);
+    if (Array.isArray(scope)) return scope;
+    const { ids } = scope;
+    const qb = this.buildPayrollRegistersQb(ids, q);
     const rows = await qb.getMany();
-    return rows.map((r: any) => ({
+    return rows.map((r) => ({
       id: r.id,
       clientId: r.clientId,
       branchId: r.branchId ?? null,
@@ -1225,7 +1780,7 @@ export class PayrollService {
     }));
   }
 
-  async getPayrollSummary(user: any, q: any) {
+  async getPayrollSummary(user: ReqUser, _q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (
       user.roleCode !== 'PAYROLL' &&
@@ -1323,7 +1878,7 @@ export class PayrollService {
   }
 
   /** Helper: get assigned client IDs for user */
-  private async getAssignedClientIds(user: any): Promise<string[]> {
+  private async getAssignedClientIds(user: ReqUser): Promise<string[]> {
     if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
       const clients = await this.clientRepo
         .createQueryBuilder('c')
@@ -1343,7 +1898,7 @@ export class PayrollService {
    * Employees listing for PAYROLL role — all employees across assigned clients.
    * Supports search, status filter, client filter, pagination.
    */
-  async getPayrollEmployees(user: any, q: any) {
+  async getPayrollEmployees(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     const clientIds = await this.getAssignedClientIds(user);
     if (!clientIds.length) return { data: [], total: 0 };
@@ -1354,8 +1909,7 @@ export class PayrollService {
       .select([
         'e.id as "id"',
         'e.employee_code as "employeeCode"',
-        'e.first_name as "firstName"',
-        'e.last_name as "lastName"',
+        'e.name as "name"',
         'e.designation as "designation"',
         'e.department as "department"',
         'e.date_of_joining as "dateOfJoining"',
@@ -1385,7 +1939,7 @@ export class PayrollService {
     }
     if (q?.search) {
       qb.andWhere(
-        '(e.first_name ILIKE :s OR e.last_name ILIKE :s OR e.employee_code ILIKE :s OR e.uan ILIKE :s OR e.esic ILIKE :s)',
+        '(e.name ILIKE :s OR e.employee_code ILIKE :s OR e.uan ILIKE :s OR e.esic ILIKE :s)',
         { s: `%${q.search}%` },
       );
     }
@@ -1406,7 +1960,7 @@ export class PayrollService {
 
     const total = await qb.getCount();
 
-    qb.orderBy('e.first_name', 'ASC');
+    qb.orderBy('e.name', 'ASC');
     const page = Math.max(1, Number(q?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(q?.limit) || 25));
     qb.skip((page - 1) * limit).take(limit);
@@ -1418,7 +1972,7 @@ export class PayrollService {
   /**
    * Employee detail for PAYROLL role — fetch a single employee with full info.
    */
-  async getPayrollEmployeeDetail(user: any, employeeId: string) {
+  async getPayrollEmployeeDetail(user: ReqUser, employeeId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     const clientIds = await this.getAssignedClientIds(user);
     if (!clientIds.length) throw new ForbiddenException('No assigned clients');
@@ -1434,7 +1988,7 @@ export class PayrollService {
     });
 
     // Get payroll run history for this employee
-    let runHistory: any[] = [];
+    let runHistory: Record<string, unknown>[] = [];
     try {
       runHistory = await this.runEmployeeRepo
         .createQueryBuilder('re')
@@ -1470,7 +2024,7 @@ export class PayrollService {
    * PF/ESI summary across all clients assigned to the payroll user.
    * Returns per-client PF/ESI registration counts and pending employee lists.
    */
-  async getPfEsiSummary(user: any) {
+  async getPfEsiSummary(user: ReqUser) {
     if (!user?.id) throw new BadRequestException('Invalid user');
 
     // Get assigned client IDs
@@ -1503,7 +2057,7 @@ export class PayrollService {
     }
 
     const DAY_MS = 86400000;
-    const pendingDays = (d: any) => {
+    const pendingDays = (d: Date | string | null) => {
       if (!d) return 0;
       const dt = d instanceof Date ? d : new Date(d + 'T00:00:00Z');
       const diff = Math.floor((Date.now() - dt.getTime()) / DAY_MS);
@@ -1517,10 +2071,13 @@ export class PayrollService {
       .where('c.id IN (:...ids)', { ids: clientIds })
       .getRawMany();
     const clientNameMap = new Map(
-      clientRows.map((r: any) => [r.c_id, r.c_client_name]),
+      clientRows.map((r: { c_id: string; c_client_name: string }) => [
+        r.c_id,
+        r.c_client_name,
+      ]),
     );
 
-    const results: any[] = [];
+    const results: Record<string, unknown>[] = [];
     let totalPfReg = 0,
       totalPfPend = 0,
       totalEsiReg = 0,
@@ -1542,8 +2099,7 @@ export class PayrollService {
         .select([
           'e.id as id',
           'e.employee_code as "employeeCode"',
-          'e.first_name as "firstName"',
-          'e.last_name as "lastName"',
+          'e.name as "name"',
           'e.date_of_joining as "dateOfJoining"',
           'e.pf_applicable_from as "pfApplicableFrom"',
           'e.uan as uan',
@@ -1553,14 +2109,16 @@ export class PayrollService {
         )
         .getRawMany();
 
-      const pfPending = pfPendingRows.map((r: any) => ({
+      const pfPending = pfPendingRows.map((r: Record<string, unknown>) => ({
         employeeId: r.id,
         empCode: r.employeeCode,
-        name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim(),
+        name: r.name || '',
         dateOfJoining: r.dateOfJoining || null,
         uanAvailable: !!r.uan,
         uan: r.uan || null,
-        pendingDays: pendingDays(r.pfApplicableFrom || r.dateOfJoining),
+        pendingDays: pendingDays(
+          (r.pfApplicableFrom || r.dateOfJoining) as Date | string | null,
+        ),
       }));
 
       const esiRegistered = await baseQb
@@ -1573,8 +2131,7 @@ export class PayrollService {
         .select([
           'e.id as id',
           'e.employee_code as "employeeCode"',
-          'e.first_name as "firstName"',
-          'e.last_name as "lastName"',
+          'e.name as "name"',
           'e.date_of_joining as "dateOfJoining"',
           'e.esi_applicable_from as "esiApplicableFrom"',
           'e.esic as "ipNumber"',
@@ -1584,14 +2141,16 @@ export class PayrollService {
         )
         .getRawMany();
 
-      const esiPending = esiPendingRows.map((r: any) => ({
+      const esiPending = esiPendingRows.map((r: Record<string, unknown>) => ({
         employeeId: r.id,
         empCode: r.employeeCode,
-        name: [r.firstName, r.lastName].filter(Boolean).join(' ').trim(),
+        name: r.name || '',
         dateOfJoining: r.dateOfJoining || null,
         ipNumberAvailable: !!r.ipNumber,
         ipNumber: r.ipNumber || null,
-        pendingDays: pendingDays(r.esiApplicableFrom || r.dateOfJoining),
+        pendingDays: pendingDays(
+          (r.esiApplicableFrom || r.dateOfJoining) as Date | string | null,
+        ),
       }));
 
       totalPfReg += pfRegistered;
@@ -1680,7 +2239,7 @@ export class PayrollService {
     return { ok: true };
   }
 
-  async getClientEffectiveComponents(user: any, clientId: string) {
+  async getClientEffectiveComponents(user: ReqUser, clientId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException('Only payroll/admin allowed');
@@ -1691,16 +2250,16 @@ export class PayrollService {
 
     const [master, overrides] = await Promise.all([
       this.compRepo.find({
-        where: { isActive: true } as any,
-        order: { code: 'ASC' } as any,
+        where: { isActive: true },
+        order: { code: 'ASC' },
       }),
-      this.overrideRepo.find({ where: { clientId } as any }),
+      this.overrideRepo.find({ where: { clientId } }),
     ]);
 
     const ovMap = new Map<string, PayrollClientComponentOverrideEntity>();
-    for (const o of overrides as any[]) ovMap.set(o.componentId, o);
+    for (const o of overrides) ovMap.set(o.componentId, o);
 
-    const merged = master.map((c: any) => {
+    const merged = master.map((c) => {
       const ov = ovMap.get(c.id);
 
       const enabled = ov?.enabled ?? true; // default enabled
@@ -1736,7 +2295,11 @@ export class PayrollService {
     return active;
   }
 
-  async saveClientComponentOverrides(user: any, clientId: string, dto: any) {
+  async saveClientComponentOverrides(
+    user: ReqUser,
+    clientId: string,
+    dto: SaveClientComponentsDto,
+  ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException('Only payroll/admin allowed');
@@ -1750,10 +2313,10 @@ export class PayrollService {
 
     for (const it of items) {
       const existing = await this.overrideRepo.findOne({
-        where: { clientId, componentId: it.componentId } as any,
+        where: { clientId, componentId: it.componentId },
       });
 
-      const patch: any = {
+      const patch: Partial<PayrollClientComponentOverrideEntity> = {
         enabled: it.enabled ?? null,
         displayOrder: it.displayOrder ?? null,
         showOnPayslip: it.showOnPayslip ?? null,
@@ -1778,7 +2341,7 @@ export class PayrollService {
     return this.getClientEffectiveComponents(user, clientId);
   }
 
-  async getClientPayslipLayout(user: any, clientId: string) {
+  async getClientPayslipLayout(user: ReqUser, clientId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException('Only payroll/admin allowed');
@@ -1788,7 +2351,7 @@ export class PayrollService {
     await this.assertPayrollAccessToClient(user, clientId);
 
     const row = await this.layoutRepo.findOne({
-      where: { clientId, isActive: true } as any,
+      where: { clientId, isActive: true },
     });
     if (row?.layoutJson) return row.layoutJson;
 
@@ -1826,7 +2389,7 @@ export class PayrollService {
   }
 
   async saveClientPayslipLayout(
-    user: any,
+    user: ReqUser,
     clientId: string,
     dto: SaveClientPayslipLayoutDto,
   ) {
@@ -1841,7 +2404,7 @@ export class PayrollService {
 
     // Validate: ensure component codes exist for this client
     const effective = await this.getClientEffectiveComponents(user, clientId);
-    const codeSet = new Set(effective.map((x: any) => x.code));
+    const codeSet = new Set(effective.map((x) => x.code));
 
     const sections = dto.layout?.sections;
     if (!Array.isArray(sections))
@@ -1867,7 +2430,7 @@ export class PayrollService {
     }
 
     const existing = await this.layoutRepo.findOne({
-      where: { clientId } as any,
+      where: { clientId },
     });
 
     if (existing) {
@@ -1890,9 +2453,9 @@ export class PayrollService {
   /**
    * Download a register/record file for PAYROLL/ADMIN.
    */
-  async downloadRegisterForPayroll(user: any, registerId: string) {
+  async downloadRegisterForPayroll(user: ReqUser, registerId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    const row = await this.rrRepo.findOne({ where: { id: registerId } });
     if (!row) throw new BadRequestException('Register not found');
     await this.assertPayrollAccessToClient(user, row.clientId, {
       allowReadOnly: true,
@@ -1905,12 +2468,12 @@ export class PayrollService {
    * Download a register/record file for CLIENT.
    * Only approved registers can be downloaded by clients.
    */
-  async downloadRegisterForClient(user: any, registerId: string) {
+  async downloadRegisterForClient(user: ReqUser, registerId: string) {
     this.ensureClientOrBranchUser(user);
 
     // Enforce top-level payroll access toggle for branch users
     if (user.userType === 'BRANCH') {
-      const branchToggles = await this.getClientAccessToggles(user.clientId);
+      const branchToggles = await this.getClientAccessToggles(user.clientId!);
       if (!branchToggles.allowBranchPayrollAccess) {
         throw new ForbiddenException(
           'Payroll access has not been enabled for branch users',
@@ -1918,13 +2481,17 @@ export class PayrollService {
       }
     }
 
-    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    const row = await this.rrRepo.findOne({ where: { id: registerId } });
     if (!row) throw new BadRequestException('Register not found');
     if (row.clientId !== user.clientId)
       throw new ForbiddenException('Access denied');
     // Branch users: approved only + same branch
     if (user.userType === 'BRANCH') {
-      if (user.branchId && row.branchId && row.branchId !== user.branchId) {
+      if (
+        user.branchIds?.[0] &&
+        row.branchId &&
+        row.branchId !== user.branchIds[0]
+      ) {
         throw new ForbiddenException('Not your branch register');
       }
       if (row.approvalStatus !== 'APPROVED') {
@@ -1965,7 +2532,7 @@ export class PayrollService {
    * List payroll runs for PAYROLL/ADMIN.
    * Matches frontend: GET /api/payroll/runs?clientId&periodYear&periodMonth&status
    */
-  async listPayrollRuns(user: any, q: any) {
+  async listPayrollRuns(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
 
     // Determine allowed clientIds
@@ -2015,10 +2582,24 @@ export class PayrollService {
       qb.andWhere('r.period_month = :m', { m: Number(q.periodMonth) });
     if (q?.status) qb.andWhere('r.status = :st', { st: q.status });
 
-    const rows = await qb.getRawMany<any>();
+    interface PayrollRunRaw {
+      id: string;
+      clientId: string;
+      clientName: string | null;
+      periodYear: string;
+      periodMonth: string;
+      status: string | null;
+      createdAt: string | null;
+      submittedAt: string | null;
+      approvedAt: string | null;
+      rejectedAt: string | null;
+      rejectionReason: string | null;
+      approvalComments: string | null;
+    }
+    const rows = await qb.getRawMany<PayrollRunRaw>();
 
     // employeeCount (batched)
-    const runIds = rows.map((r: any) => r.id).filter(Boolean);
+    const runIds = rows.map((r) => r.id).filter(Boolean);
     let counts: { runId: string; cnt: string }[] = [];
     if (runIds.length) {
       counts = await this.runEmployeeRepo
@@ -2030,7 +2611,7 @@ export class PayrollService {
         .getRawMany();
     }
     const mapCnt = new Map(counts.map((c) => [c.runId, Number(c.cnt || 0)]));
-    return rows.map((r: any) => ({
+    return rows.map((r) => ({
       id: r.id,
       clientId: r.clientId,
       clientName: r.clientName ?? null,
@@ -2051,26 +2632,115 @@ export class PayrollService {
    * List employees for a payroll run.
    * NOTE: Frontend uses `employeeId` as a path param later; we return employeeCode there.
    */
-  async listPayrollRunEmployees(user: any, runId: string) {
+  async listPayrollRunEmployees(user: ReqUser, runId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId, {
       allowReadOnly: true,
     });
 
     const rows = await this.runEmployeeRepo.find({
-      where: { runId } as any,
-      order: { employeeName: 'ASC' } as any,
+      where: { runId },
+      order: { employeeName: 'ASC' },
     });
-    return rows.map((e) => ({
-      employeeId: e.employeeCode, // IMPORTANT for downloads
-      empCode: e.employeeCode,
-      employeeName: e.employeeName ?? null,
-      grossEarnings: Number(e.grossEarnings ?? 0),
-      totalDeductions: Number(e.totalDeductions ?? 0),
-      netPay: Number(e.netPay ?? 0),
+
+    // Fetch component metadata for the client (for column ordering / labels)
+    const components = await this.runEmployeeRepo.manager.query(
+      `SELECT code, name, component_type, display_order
+       FROM payroll_components
+       WHERE client_id = $1 AND is_active = TRUE
+       ORDER BY display_order ASC, code ASC`,
+      [run.clientId],
+    );
+    const componentMeta = components.map((c: any) => ({
+      code: c.code,
+      name: c.name,
+      type: c.component_type,
+      displayOrder: Number(c.display_order || 0),
     }));
+
+    // Fetch all component values for this run in a single query
+    const valueRows = await this.runEmployeeRepo.manager.query(
+      `SELECT run_employee_id, component_code, amount
+       FROM payroll_run_component_values
+       WHERE run_id = $1`,
+      [runId],
+    );
+    const valuesByEmp = new Map<string, Record<string, number>>();
+    for (const v of valueRows) {
+      const map = valuesByEmp.get(v.run_employee_id) || {};
+      map[v.component_code] = Number(v.amount || 0);
+      valuesByEmp.set(v.run_employee_id, map);
+    }
+
+    // Pull employee master data for designation / actual gross / PF & ESI
+    // applicability so the payroll preview can show registration values.
+    const empCodes = rows.map((r) => r.employeeCode).filter(Boolean);
+    const empMasterByCode = new Map<
+      string,
+      {
+        designation: string | null;
+        monthlyGross: number;
+        pfApplicable: boolean;
+        esiApplicable: boolean;
+      }
+    >();
+    if (empCodes.length) {
+      const masterRows: Array<{
+        employee_code: string;
+        designation: string | null;
+        monthly_gross: string | null;
+        ctc: string | null;
+        pf_applicable: boolean;
+        esi_applicable: boolean;
+      }> = await this.runEmployeeRepo.manager.query(
+        `SELECT employee_code, designation, monthly_gross, ctc,
+                pf_applicable, esi_applicable
+         FROM employees
+         WHERE client_id = $1 AND employee_code = ANY($2::text[])`,
+        [run.clientId, empCodes],
+      );
+      for (const m of masterRows) {
+        const monthly =
+          Number(m.monthly_gross) || (m.ctc ? Number(m.ctc) / 12 : 0);
+        empMasterByCode.set(m.employee_code, {
+          designation: m.designation ?? null,
+          monthlyGross: monthly || 0,
+          pfApplicable: !!m.pf_applicable,
+          esiApplicable: !!m.esi_applicable,
+        });
+      }
+    }
+
+    return {
+      components: componentMeta,
+      employees: rows.map((e) => {
+        const master = empMasterByCode.get(e.employeeCode);
+        return {
+          employeeId: e.employeeCode, // IMPORTANT for downloads
+          empCode: e.employeeCode,
+          employeeName: e.employeeName ?? null,
+          designation: master?.designation ?? e.designation ?? null,
+          uan: e.uan ?? null,
+          esic: e.esic ?? null,
+          monthlyGross: master?.monthlyGross ?? 0,
+          pfApplicable: master?.pfApplicable ?? false,
+          esiApplicable: master?.esiApplicable ?? false,
+          grossEarnings: Number(e.grossEarnings ?? 0),
+          totalDeductions: Number(e.totalDeductions ?? 0),
+          netPay: Number(e.netPay ?? 0),
+          employerCost: Number((e as any).employerCost ?? 0),
+          totalDays: Number(e.totalDays ?? 0),
+          daysPresent: Number(e.daysPresent ?? 0),
+          lopDays: Number(e.lopDays ?? 0),
+          otHours: Number((e as any).otHours ?? 0),
+          otherEarningsNote: (e as any).otherEarningsNote ?? null,
+          otherDeductionsNote: (e as any).otherDeductionsNote ?? null,
+          components: valuesByEmp.get(e.id) || {},
+        };
+      }),
+    };
   }
 
   /**
@@ -2078,49 +2748,72 @@ export class PayrollService {
    * Used by GET /api/payroll/runs/:runId/employees/:employeeId/payslip.pdf
    */
   async generatePayslipPdfForPayroll(
-    user: any,
+    user: ReqUser,
     runId: string,
     employeeId: string,
   ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId, {
       allowReadOnly: true,
     });
 
     const emp = await this.runEmployeeRepo.findOne({
-      where: { runId, employeeCode: employeeId } as any,
+      where: { runId, employeeCode: employeeId },
     });
     if (!emp) throw new BadRequestException('Employee not found in run');
 
     const client = await this.clientRepo.findOne({
-      where: { id: run.clientId } as any,
+      where: { id: run.clientId },
     });
+
+    // Fetch employee record for dateOfJoining
+    const employee = emp.employeeId
+      ? await this.employeeRepo.findOne({ where: { id: emp.employeeId } })
+      : null;
+
+    // Fetch component values for detailed breakdown
+    const cvRepo = this.runEmployeeRepo.manager.getRepository(
+      PayrollRunComponentValueEntity,
+    );
+    const compValues = await cvRepo.find({
+      where: { runId, runEmployeeId: emp.id },
+    });
+    const componentValues: Record<string, number> = {};
+    for (const v of compValues) {
+      componentValues[v.componentCode] = Number(v.amount) || 0;
+    }
+
+    // Enrich with leave/attendance data if missing
+    await this.enrichLeaveAttendanceValues(
+      componentValues,
+      emp.employeeId ?? null,
+      run.clientId,
+      run.periodYear,
+      run.periodMonth,
+    );
+
+    // Load client logo
+    const logoBuffer = loadLogoBuffer(client?.logoUrl);
+
     const buffer = await generatePayslipPdfBuffer({
       header: {
         periodYear: run.periodYear,
         periodMonth: run.periodMonth,
-        clientName:
-          (client as any)?.clientName ??
-          (client as any)?.client_name ??
-          (client as any)?.name ??
-          null,
+        clientName: client?.clientName ?? null,
+        clientAddress: client?.registeredAddress ?? null,
         employeeName: emp.employeeName,
         empCode: emp.employeeCode,
         designation: emp.designation ?? null,
+        dateOfJoining: employee?.dateOfJoining ?? null,
         uan: emp.uan ?? null,
         esic: emp.esic ?? null,
+        logoBuffer,
+        otherEarningsNote: (emp as any).otherEarningsNote ?? null,
+        otherDeductionsNote: (emp as any).otherDeductionsNote ?? null,
       },
-      payslip: {
-        sections: [],
-        totals: {
-          GROSS_EARNINGS: Number(emp.grossEarnings ?? 0),
-          TOTAL_DEDUCTIONS: Number(emp.totalDeductions ?? 0),
-          NET_PAY: Number(emp.netPay ?? 0),
-          CTC: Number(emp.employerCost ?? 0),
-        },
-      },
+      componentValues,
     });
 
     const fileName = `payslip_${run.periodYear}_${String(run.periodMonth).padStart(2, '0')}_${emp.employeeCode}.pdf`;
@@ -2131,35 +2824,20 @@ export class PayrollService {
    * Download archived payslip for a payroll run/employeeCode from payroll_payslip_archives.
    */
   async downloadArchivedPayslipForPayroll(
-    user: any,
+    user: ReqUser,
     runId: string,
     employeeId: string,
   ) {
-    if (!user?.id) throw new BadRequestException('Invalid user');
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
-    if (!run) throw new BadRequestException('Payroll run not found');
-    await this.assertPayrollAccessToClient(user, run.clientId, {
-      allowReadOnly: true,
-    });
-
-    const row = await this.payslipArchiveRepo.findOne({
-      where: { runId, employeeCode: employeeId } as any,
-    });
-    if (!row) throw new BadRequestException('Archived payslip not found');
-    const buffer = fs.readFileSync(row.filePath);
-    return {
-      fileName: row.fileName,
-      fileType: row.fileType || 'application/pdf',
-      buffer,
-    };
+    // Generate on-the-fly with enriched values instead of reading stale archive
+    return this.generatePayslipPdfForPayroll(user, runId, employeeId);
   }
 
   /**
    * Generate and store payslip PDFs into payroll_payslip_archives (idempotent).
    */
-  async archiveRunPayslips(user: any, runId: string) {
+  async archiveRunPayslips(user: ReqUser, runId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId);
     if (String(run.status || '').toUpperCase() !== 'APPROVED') {
@@ -2169,11 +2847,14 @@ export class PayrollService {
     }
 
     const client = await this.clientRepo.findOne({
-      where: { id: run.clientId } as any,
+      where: { id: run.clientId },
     });
     const employees = await this.runEmployeeRepo.find({
-      where: { runId } as any,
+      where: { runId },
     });
+
+    // Load client logo once for all employees
+    const logoBuffer = loadLogoBuffer(client?.logoUrl);
 
     const baseDir = path.join(
       process.cwd(),
@@ -2190,36 +2871,55 @@ export class PayrollService {
       const fileName = `payslip_${run.periodYear}_${String(run.periodMonth).padStart(2, '0')}_${emp.employeeCode}.pdf`;
       const filePath = path.join(baseDir, fileName);
 
+      // Fetch employee record for dateOfJoining
+      const employee = emp.employeeId
+        ? await this.employeeRepo.findOne({ where: { id: emp.employeeId } })
+        : null;
+
+      // Fetch component values for detailed breakdown
+      const cvRepo = this.runEmployeeRepo.manager.getRepository(
+        PayrollRunComponentValueEntity,
+      );
+      const compValues = await cvRepo.find({
+        where: { runId, runEmployeeId: emp.id },
+      });
+      const componentValues: Record<string, number> = {};
+      for (const v of compValues) {
+        componentValues[v.componentCode] = Number(v.amount) || 0;
+      }
+
+      // Enrich with leave/attendance data
+      await this.enrichLeaveAttendanceValues(
+        componentValues,
+        emp.employeeId ?? null,
+        run.clientId,
+        run.periodYear,
+        run.periodMonth,
+      );
+
       const buffer = await generatePayslipPdfBuffer({
         header: {
           periodYear: run.periodYear,
           periodMonth: run.periodMonth,
-          clientName:
-            (client as any)?.clientName ??
-            (client as any)?.client_name ??
-            (client as any)?.name ??
-            null,
+          clientName: client?.clientName ?? null,
+          clientAddress: client?.registeredAddress ?? null,
           employeeName: emp.employeeName,
           empCode: emp.employeeCode,
           designation: emp.designation ?? null,
+          dateOfJoining: employee?.dateOfJoining ?? null,
           uan: emp.uan ?? null,
           esic: emp.esic ?? null,
+          logoBuffer,
+          otherEarningsNote: (emp as any).otherEarningsNote ?? null,
+          otherDeductionsNote: (emp as any).otherDeductionsNote ?? null,
         },
-        payslip: {
-          sections: [],
-          totals: {
-            GROSS_EARNINGS: Number(emp.grossEarnings ?? 0),
-            TOTAL_DEDUCTIONS: Number(emp.totalDeductions ?? 0),
-            NET_PAY: Number(emp.netPay ?? 0),
-            CTC: Number(emp.employerCost ?? 0),
-          },
-        },
+        componentValues,
       });
 
       fs.writeFileSync(filePath, buffer);
 
       const existing = await this.payslipArchiveRepo.findOne({
-        where: { runId, employeeCode: emp.employeeCode } as any,
+        where: { runId, employeeCode: emp.employeeCode },
       });
       if (existing) {
         existing.fileName = fileName;
@@ -2262,9 +2962,9 @@ export class PayrollService {
   /**
    * Streams a ZIP of archived payslips for a run. If not archived yet, it will archive first.
    */
-  async streamPayslipsZip(user: any, runId: string, res: any) {
+  async streamPayslipsZip(user: ReqUser, runId: string, res: Response) {
     if (!user?.id) throw new BadRequestException('Invalid user');
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
     await this.assertPayrollAccessToClient(user, run.clientId);
     if (String(run.status || '').toUpperCase() !== 'APPROVED') {
@@ -2273,15 +2973,11 @@ export class PayrollService {
       );
     }
 
-    const existingCount = await this.payslipArchiveRepo.count({
-      where: { runId } as any,
-    });
-    if (existingCount === 0) {
-      await this.archiveRunPayslips(user, runId);
-    }
+    // Always re-archive to pick up enriched leave/attendance values
+    await this.archiveRunPayslips(user, runId);
 
     const files = await this.payslipArchiveRepo.find({
-      where: { runId } as any,
+      where: { runId },
     });
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader(
@@ -2309,14 +3005,14 @@ export class PayrollService {
   /**
    * Approve a register. PAYROLL or ADMIN only.
    */
-  async approveRegister(user: any, registerId: string) {
+  async approveRegister(user: ReqUser, registerId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException(
         'Only payroll or admin users can approve registers',
       );
     }
-    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    const row = await this.rrRepo.findOne({ where: { id: registerId } });
     if (!row) throw new BadRequestException('Register not found');
     await this.assertPayrollAccessToClient(user, row.clientId);
 
@@ -2334,14 +3030,14 @@ export class PayrollService {
   /**
    * Reject a register. PAYROLL or ADMIN only.
    */
-  async rejectRegister(user: any, registerId: string, reason?: string) {
+  async rejectRegister(user: ReqUser, registerId: string, reason?: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'PAYROLL' && user.roleCode !== 'ADMIN') {
       throw new ForbiddenException(
         'Only payroll or admin users can reject registers',
       );
     }
-    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    const row = await this.rrRepo.findOne({ where: { id: registerId } });
     if (!row) throw new BadRequestException('Register not found');
     await this.assertPayrollAccessToClient(user, row.clientId);
 
@@ -2363,7 +3059,7 @@ export class PayrollService {
    * List registers for AUDITOR. Only registers belonging to clients
    * where the auditor has a PAYROLL-type audit assigned (IN_PROGRESS or PLANNED).
    */
-  async auditorListRegisters(user: any, q: any) {
+  async auditorListRegisters(user: ReqUser, q: Record<string, any>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'AUDITOR') {
       throw new ForbiddenException('Only auditors can access this resource');
@@ -2407,7 +3103,7 @@ export class PayrollService {
 
     qb.orderBy('r.created_at', 'DESC');
     const rows = await qb.getMany();
-    return rows.map((r: any) => ({
+    return rows.map((r) => ({
       id: r.id,
       clientId: r.clientId,
       branchId: r.branchId ?? null,
@@ -2429,12 +3125,12 @@ export class PayrollService {
   /**
    * Download a register for AUDITOR. Only when auditor has PAYROLL audit for the client.
    */
-  async downloadRegisterForAuditor(user: any, registerId: string) {
+  async downloadRegisterForAuditor(user: ReqUser, registerId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (user.roleCode !== 'AUDITOR') {
       throw new ForbiddenException('Only auditors can access this resource');
     }
-    const row = await this.rrRepo.findOne({ where: { id: registerId } as any });
+    const row = await this.rrRepo.findOne({ where: { id: registerId } });
     if (!row) throw new BadRequestException('Register not found');
 
     // Check auditor has payroll audit for this client
@@ -2442,8 +3138,8 @@ export class PayrollService {
       where: {
         assignedAuditorId: user.id,
         clientId: row.clientId,
-        auditType: 'PAYROLL' as any,
-      } as any,
+        auditType: AuditType.PAYROLL,
+      },
     });
     if (
       !audit ||
@@ -2466,7 +3162,7 @@ export class PayrollService {
   }
 
   // --- Payslips listing ---
-  async listPayslips(user: any, q: any) {
+  async listPayslips(_user: ReqUser, q: Record<string, any>) {
     try {
       const qb = this.payslipArchiveRepo.createQueryBuilder('p');
       if (q?.clientId) qb.andWhere('p.client_id = :cid', { cid: q.clientId });
@@ -2489,7 +3185,7 @@ export class PayrollService {
   // PAYROLL QUERIES (TICKETS)
   // ====================
 
-  async listQueries(user: any, q: any) {
+  async listQueries(user: ReqUser, q: Record<string, any>) {
     const clientIds = await this.getAssignedClientIds(user);
     if (!clientIds.length) return { data: [], total: 0 };
 
@@ -2509,7 +3205,7 @@ export class PayrollService {
         'pq.client_id as "clientId"',
         'c.client_name as "clientName"',
         'pq.employee_id as "employeeId"',
-        'CONCAT(e.first_name, \' \', e.last_name) as "employeeName"',
+        'e.name as "employeeName"',
         'u.name as "raisedByName"',
       ])
       .where('pq.client_id IN (:...ids)', { ids: clientIds });
@@ -2533,7 +3229,7 @@ export class PayrollService {
     return { data, total, page, limit };
   }
 
-  async getQueryDetail(user: any, queryId: string) {
+  async getQueryDetail(user: ReqUser, queryId: string) {
     const query = await this.queryRepo.findOne({ where: { id: queryId } });
     if (!query) throw new BadRequestException('Query not found');
 
@@ -2558,7 +3254,9 @@ export class PayrollService {
           .from('users', 'u')
           .where('u.id IN (:...ids)', { ids: senderIds })
           .getRawMany();
-        senderMap = new Map(rows.map((r: any) => [r.id, r.name]));
+        senderMap = new Map(
+          rows.map((r: { id: string; name: string }) => [r.id, r.name]),
+        );
       } catch {
         /* OK */
       }
@@ -2573,7 +3271,7 @@ export class PayrollService {
     };
   }
 
-  async createQuery(user: any, dto: any) {
+  async createQuery(user: ReqUser, dto: CreatePayrollQueryDto) {
     const clientIds = await this.getAssignedClientIds(user);
     if (!dto.clientId || !clientIds.includes(dto.clientId)) {
       throw new ForbiddenException('Invalid client');
@@ -2606,7 +3304,7 @@ export class PayrollService {
     return saved;
   }
 
-  async addQueryMessage(user: any, queryId: string, message: string) {
+  async addQueryMessage(user: ReqUser, queryId: string, message: string) {
     const query = await this.queryRepo.findOne({ where: { id: queryId } });
     if (!query) throw new BadRequestException('Query not found');
 
@@ -2619,17 +3317,17 @@ export class PayrollService {
     );
 
     // Update timestamp
-    await this.queryRepo.update(queryId, { updatedAt: new Date() as any });
+    await this.queryRepo.update(queryId, { updatedAt: new Date() });
     return msg;
   }
 
-  async resolveQuery(user: any, queryId: string, resolution: string) {
+  async resolveQuery(user: ReqUser, queryId: string, resolution: string) {
     const query = await this.queryRepo.findOne({ where: { id: queryId } });
     if (!query) throw new BadRequestException('Query not found');
 
     await this.queryRepo.update(queryId, {
       status: 'RESOLVED',
-      resolvedAt: new Date() as any,
+      resolvedAt: new Date(),
       resolvedBy: user.id,
       resolution,
     });
@@ -2646,7 +3344,7 @@ export class PayrollService {
     return { success: true };
   }
 
-  async updateQueryStatus(user: any, queryId: string, status: string) {
+  async updateQueryStatus(_user: ReqUser, queryId: string, status: string) {
     const query = await this.queryRepo.findOne({ where: { id: queryId } });
     if (!query) throw new BadRequestException('Query not found');
     await this.queryRepo.update(queryId, { status });
@@ -2665,7 +3363,7 @@ export class PayrollService {
     COMPLETED: [],
   };
 
-  async listFnf(user: any, q: any) {
+  async listFnf(user: ReqUser, q: Record<string, any>) {
     const clientIds = await this.getAssignedClientIds(user);
     if (!clientIds.length) return { data: [], total: 0 };
 
@@ -2684,7 +3382,7 @@ export class PayrollService {
         'f.client_id as "clientId"',
         'c.client_name as "clientName"',
         'f.employee_id as "employeeId"',
-        'CONCAT(e.first_name, \' \', e.last_name) as "employeeName"',
+        'e.name as "employeeName"',
         'e.employee_code as "employeeCode"',
       ])
       .where('f.client_id IN (:...ids)', { ids: clientIds });
@@ -2692,10 +3390,9 @@ export class PayrollService {
     if (q?.status) qb.andWhere('f.status = :st', { st: q.status });
     if (q?.clientId) qb.andWhere('f.client_id = :cid', { cid: q.clientId });
     if (q?.search) {
-      qb.andWhere(
-        '(e.first_name ILIKE :s OR e.last_name ILIKE :s OR e.employee_code ILIKE :s)',
-        { s: `%${q.search}%` },
-      );
+      qb.andWhere('(e.name ILIKE :s OR e.employee_code ILIKE :s)', {
+        s: `%${q.search}%`,
+      });
     }
 
     const total = await qb.getCount();
@@ -2707,7 +3404,7 @@ export class PayrollService {
     return { data, total, page, limit };
   }
 
-  async createFnf(user: any, dto: any) {
+  async createFnf(user: ReqUser, dto: CreateFnfDto) {
     const clientIds = await this.getAssignedClientIds(user);
     if (!dto.clientId || !clientIds.includes(dto.clientId)) {
       throw new ForbiddenException('Invalid client');
@@ -2720,7 +3417,9 @@ export class PayrollService {
       where: { id: dto.employeeId },
     });
     if (!employee || employee.clientId !== dto.clientId) {
-      throw new BadRequestException('Employee does not belong to selected client');
+      throw new BadRequestException(
+        'Employee does not belong to selected client',
+      );
     }
 
     const fnf = this.fnfRepo.create({
@@ -2755,7 +3454,7 @@ export class PayrollService {
     return saved;
   }
 
-  async updateFnfStatus(user: any, fnfId: string, dto: any) {
+  async updateFnfStatus(user: ReqUser, fnfId: string, dto: UpdateFnfStatusDto) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F not found');
     if (!dto?.status) throw new BadRequestException('status is required');
@@ -2774,7 +3473,17 @@ export class PayrollService {
       );
     }
 
-    const update: any = { status: toStatus };
+    const update: Partial<
+      Pick<
+        PayrollFnfEntity,
+        | 'status'
+        | 'remarks'
+        | 'checklist'
+        | 'settlementBreakup'
+        | 'approvedBy'
+        | 'settlementAmount'
+      >
+    > = { status: toStatus };
 
     if (dto.remarks !== undefined) {
       update.remarks = String(dto.remarks || '').trim() || null;
@@ -2822,7 +3531,8 @@ export class PayrollService {
         action: 'STATUS_UPDATE',
         remarks: update.remarks ?? fnf.remarks ?? null,
         settlementAmount:
-          update.settlementAmount !== undefined && update.settlementAmount !== null
+          update.settlementAmount !== undefined &&
+          update.settlementAmount !== null
             ? String(update.settlementAmount)
             : null,
         performedBy: user?.id || null,
@@ -2836,7 +3546,7 @@ export class PayrollService {
     return { success: true, status: toStatus };
   }
 
-  async getFnfDetail(user: any, fnfId: string) {
+  async getFnfDetail(_user: ReqUser, fnfId: string) {
     const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
     if (!fnf) throw new BadRequestException('F&F not found');
 
@@ -2851,13 +3561,18 @@ export class PayrollService {
       order: { createdAt: 'ASC' },
     });
 
+    // ── Auto-computed settlement breakup (suggested) ──
+    // Pending Salary  = monthly_gross prorated to LWD-day-of-month
+    // Leave Encash    = available EL × (monthly_gross / 30)
+    // Other lines default 0; user can override on the UI before settling.
+    const computedBreakup = await this.computeFnfBreakup(fnf, emp);
+
     return {
       ...fnf,
-      employeeName: emp
-        ? `${emp.firstName} ${emp.lastName || ''}`.trim()
-        : 'Unknown',
+      employeeName: emp ? emp.name : 'Unknown',
       employeeCode: emp?.employeeCode || '',
       clientName: client?.clientName || 'Unknown',
+      computedBreakup,
       history: history.map((event) => ({
         id: event.id,
         statusFrom: event.statusFrom,
@@ -2865,7 +3580,8 @@ export class PayrollService {
         action: event.action,
         remarks: event.remarks,
         settlementAmount:
-          event.settlementAmount !== null && event.settlementAmount !== undefined
+          event.settlementAmount !== null &&
+          event.settlementAmount !== undefined
             ? Number(event.settlementAmount)
             : null,
         performedBy: event.performedBy,
@@ -2874,16 +3590,435 @@ export class PayrollService {
     };
   }
 
+  private async computeFnfBreakup(
+    fnf: PayrollFnfEntity,
+    emp: EmployeeEntity | null,
+  ): Promise<{
+    pendingSalary: number;
+    leaveEncashment: number;
+    bonusArrears: number;
+    deductions: number;
+    recoveries: number;
+    notes: string[];
+  }> {
+    const notes: string[] = [];
+    const monthlyGross = Number(emp?.monthlyGross || 0);
+    if (!monthlyGross)
+      notes.push(
+        'Employee monthly_gross missing — pending salary and leave encashment defaulted to 0.',
+      );
+
+    // Pending salary — prorated to LWD day-of-month within the separation month.
+    let pendingSalary = 0;
+    const lwdStr = (fnf.lastWorkingDay ||
+      fnf.separationDate ||
+      '') as unknown as string;
+    if (lwdStr && monthlyGross > 0) {
+      const lwd = new Date(lwdStr);
+      if (!isNaN(lwd.getTime())) {
+        const daysInMonth = new Date(
+          lwd.getUTCFullYear(),
+          lwd.getUTCMonth() + 1,
+          0,
+        ).getDate();
+        const dayOfMonth = lwd.getUTCDate();
+        pendingSalary = Math.round((monthlyGross * dayOfMonth) / daysInMonth);
+        const monthName = lwd.toLocaleString('en-IN', {
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'UTC',
+        });
+        notes.push(
+          `Pending salary = monthly_gross (₹${monthlyGross}) × ${dayOfMonth}/${daysInMonth} days of ${monthName} (separation month).`,
+        );
+      }
+    }
+
+    // Leave encashment — Gross/26 × min(available EL, 20).
+    let leaveEncashment = 0;
+    if (emp?.id && monthlyGross > 0) {
+      try {
+        const lb = await this.leaveBalanceRepo.findOne({
+          where: {
+            employeeId: emp.id,
+            year: new Date().getFullYear(),
+            leaveType: 'EL',
+          },
+        });
+        const avail = lb ? parseFloat(lb.available) || 0 : 0;
+        const ENCASH_CAP = 20;
+        const encashable = Math.min(avail, ENCASH_CAP);
+        if (encashable > 0) {
+          const perDay = monthlyGross / 26;
+          leaveEncashment = Math.round(encashable * perDay);
+          const capNote =
+            avail > ENCASH_CAP
+              ? ` (capped at ${ENCASH_CAP} of ${avail} available)`
+              : '';
+          notes.push(
+            `Leave encashment = ${encashable} EL${capNote} × ₹${perDay.toFixed(2)} per day (monthly_gross/26).`,
+          );
+        } else if (avail <= 0) {
+          notes.push('Leave encashment = 0 (no EL balance available).');
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Statutory bonus — 8.33% × Basic / 26 × days worked in current FY (Apr–Mar).
+    let bonusArrears = 0;
+    if (emp?.id) {
+      try {
+        // FY based on LWD month: months 1-3 belong to previous FY (Apr Y-1 – Mar Y).
+        const ref = lwdStr ? new Date(lwdStr) : new Date();
+        if (!isNaN(ref.getTime())) {
+          const refMonth = ref.getUTCMonth() + 1; // 1–12
+          const refYear = ref.getUTCFullYear();
+          const fyStartYear = refMonth >= 4 ? refYear : refYear - 1;
+          const fyEndYear = fyStartYear + 1;
+
+          // Latest BASIC component value seen for this employee on or before LWD;
+          // fall back to monthly_gross × 50% if no payroll history exists.
+          const basicRows: Array<{ amount: string }> =
+            await this.runEmployeeRepo.manager.query(
+              `SELECT cv.amount::text AS amount
+                 FROM payroll_run_component_values cv
+                 JOIN payroll_run_employees re ON re.id = cv.run_employee_id
+                 JOIN payroll_runs pr ON pr.id = re.run_id
+                WHERE re.employee_id = $1
+                  AND upper(cv.component_code) = 'BASIC'
+                ORDER BY pr.period_year DESC, pr.period_month DESC
+                LIMIT 1`,
+              [emp.id],
+            );
+          let basic = basicRows.length ? Number(basicRows[0].amount) || 0 : 0;
+          if (basic > 0) {
+            notes.push(
+              `Basic ₹${basic} taken from latest payroll BASIC component.`,
+            );
+          }
+          // If no payroll history, derive BASIC from the client's active salary
+          // structure (client-defined rule). This honours per-client formulas
+          // such as LMSPL: Basic = Gross if Gross<=15000, 15000 if 15000<Gross<=30000,
+          // else 50% of Gross.
+          if (!basic && monthlyGross > 0 && emp?.clientId) {
+            try {
+              const rows: Array<{
+                formula: string | null;
+                calc_method: string;
+                fixed_amount: string | null;
+                percentage: string | null;
+                percentage_base: string | null;
+              }> = await this.runEmployeeRepo.manager.query(
+                `SELECT i.formula, i.calc_method, i.fixed_amount::text, i.percentage::text, i.percentage_base
+                     FROM pay_salary_structure_items i
+                     JOIN pay_salary_structures s ON s.id = i.structure_id
+                     JOIN payroll_components c ON c.id = i.component_id
+                    WHERE s.client_id = $1
+                      AND s.is_active = true
+                      AND i.enabled = true
+                      AND upper(c.code) = 'BASIC'
+                    ORDER BY s.effective_from DESC NULLS LAST
+                    LIMIT 1`,
+                [emp.clientId],
+              );
+              if (rows.length) {
+                const item = rows[0];
+                if (item.calc_method === 'FORMULA' && item.formula) {
+                  basic = Math.round(
+                    evaluateFormula(item.formula, {
+                      vars: {
+                        ACTUAL_GROSS: monthlyGross,
+                        GROSS: monthlyGross,
+                        WORKED_DAYS: 26,
+                      },
+                      param: () => 0,
+                      earningsSum: () => monthlyGross,
+                    }),
+                  );
+                  notes.push(
+                    `Basic ₹${basic} computed from client salary-structure formula: ${item.formula}.`,
+                  );
+                } else if (item.calc_method === 'FIXED' && item.fixed_amount) {
+                  basic = Math.round(Number(item.fixed_amount) || 0);
+                  notes.push(`Basic ₹${basic} from client structure (fixed).`);
+                } else if (
+                  item.calc_method === 'PERCENTAGE' &&
+                  item.percentage
+                ) {
+                  basic = Math.round(
+                    ((Number(item.percentage) || 0) * monthlyGross) / 100,
+                  );
+                  notes.push(
+                    `Basic ₹${basic} from client structure (${item.percentage}% of gross).`,
+                  );
+                }
+              }
+            } catch (err) {
+              notes.push(
+                `Basic structure lookup failed (${(err as Error).message}); using fallback.`,
+              );
+            }
+          }
+          if (!basic && monthlyGross > 0) {
+            basic = Math.round(monthlyGross * 0.5);
+            notes.push(
+              `Basic not found in payroll history or client structure — assumed 50% of monthly_gross = ₹${basic}.`,
+            );
+          }
+
+          // Sum of WORKED_DAYS for runs whose period falls inside this FY.
+          const wdRows: Array<{ total: string | null }> =
+            await this.runEmployeeRepo.manager.query(
+              `SELECT COALESCE(SUM(cv.amount), 0)::text AS total
+                 FROM payroll_run_component_values cv
+                 JOIN payroll_run_employees re ON re.id = cv.run_employee_id
+                 JOIN payroll_runs pr ON pr.id = re.run_id
+                WHERE re.employee_id = $1
+                  AND upper(cv.component_code) = 'WORKED_DAYS'
+                  AND (
+                    (pr.period_year = $2 AND pr.period_month >= 4)
+                    OR (pr.period_year = $3 AND pr.period_month <= 3)
+                  )`,
+              [emp.id, fyStartYear, fyEndYear],
+            );
+          const workedDaysFy = wdRows.length ? Number(wdRows[0].total) || 0 : 0;
+
+          if (basic > 0 && workedDaysFy > 0) {
+            bonusArrears = Math.round(((0.0833 * basic) / 26) * workedDaysFy);
+            notes.push(
+              `Statutory bonus = 8.33% × Basic (₹${basic}) / 26 × ${workedDaysFy} days worked in FY ${fyStartYear}-${String(fyEndYear).slice(-2)}.`,
+            );
+          } else if (workedDaysFy <= 0) {
+            notes.push(
+              `Bonus = 0 (no WORKED_DAYS recorded for FY ${fyStartYear}-${String(fyEndYear).slice(-2)}).`,
+            );
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return {
+      pendingSalary,
+      leaveEncashment,
+      bonusArrears,
+      deductions: 0,
+      recoveries: 0,
+      notes,
+    };
+  }
+
   private normalizeFnfStatus(input: string): string {
-    const normalized = String(input || '').trim().toUpperCase();
+    const normalized = String(input || '')
+      .trim()
+      .toUpperCase();
     if (!normalized) return 'INITIATED';
     return normalized;
   }
 
-  async processPayrollRun(user: any, runId: string) {
+  // ====================
+  // F&F DOCUMENTS
+  // ====================
+
+  async uploadFnfDocument(
+    user: ReqUser,
+    fnfId: string,
+    file: {
+      fileName: string;
+      filePath: string;
+      fileSize: number;
+      mimeType?: string;
+    },
+    docType: string,
+    docName: string,
+    remarks?: string,
+  ) {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F case not found');
+
+    const doc = this.fnfDocRepo.create({
+      fnfId,
+      clientId: fnf.clientId,
+      employeeId: fnf.employeeId,
+      docType,
+      docName,
+      fileName: file.fileName,
+      filePath: file.filePath,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType ?? null,
+      uploadedBy: user.userId || user.id,
+      remarks: remarks || null,
+    });
+    return this.fnfDocRepo.save(doc);
+  }
+
+  async listFnfDocuments(_user: ReqUser, fnfId: string) {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F case not found');
+
+    return this.fnfDocRepo.find({
+      where: { fnfId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getFnfDocument(_user: ReqUser, docId: string) {
+    const doc = await this.fnfDocRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new BadRequestException('Document not found');
+    return doc;
+  }
+
+  async deleteFnfDocument(_user: ReqUser, docId: string) {
+    const doc = await this.fnfDocRepo.findOne({ where: { id: docId } });
+    if (!doc) throw new BadRequestException('Document not found');
+    // Remove physical file if it exists
+    if (fs.existsSync(doc.filePath)) {
+      fs.unlinkSync(doc.filePath);
+    }
+    await this.fnfDocRepo.remove(doc);
+    return { deleted: true };
+  }
+
+  /**
+   * Generate a settlement document PDF on-the-fly from F&F case data.
+   * Uses saved settlementBreakup if present, otherwise falls back to the
+   * auto-computed suggestion. Returns buffer + suggested filename for the
+   * controller to stream as a download.
+   */
+  async generateFnfDocumentPdf(
+    _user: ReqUser,
+    fnfId: string,
+    docType: string,
+    override?: {
+      pendingSalary?: number;
+      leaveEncashment?: number;
+      bonusArrears?: number;
+      deductions?: number;
+      recoveries?: number;
+      settlementAmount?: number;
+    },
+  ): Promise<{ buffer: Buffer; filename: string; mimeType: string }> {
+    const fnf = await this.fnfRepo.findOne({ where: { id: fnfId } });
+    if (!fnf) throw new BadRequestException('F&F case not found');
+
+    const allowed = [
+      'SETTLEMENT_STATEMENT',
+      'RELIEVING_LETTER',
+      'EXPERIENCE_CERTIFICATE',
+      'NO_DUES_CERTIFICATE',
+    ];
+    const dt = String(docType || '').toUpperCase();
+    if (!allowed.includes(dt)) {
+      throw new BadRequestException(
+        'Unsupported docType. Allowed: ' + allowed.join(', '),
+      );
+    }
+
+    const emp = await this.employeeRepo.findOne({
+      where: { id: fnf.employeeId },
+    });
+    const client = await this.clientRepo.findOne({
+      where: { id: fnf.clientId },
+    });
+
+    const computed = await this.computeFnfBreakup(fnf, emp);
+    const saved = (fnf.settlementBreakup as Record<string, unknown>) || {};
+    const hasSaved = Object.values(saved).some((v) => Number(v as number) > 0);
+    const hasOverride =
+      !!override &&
+      [
+        override.pendingSalary,
+        override.leaveEncashment,
+        override.bonusArrears,
+        override.deductions,
+        override.recoveries,
+      ].some((v) => v !== undefined && v !== null);
+    const pick = (
+      key:
+        | 'pendingSalary'
+        | 'leaveEncashment'
+        | 'bonusArrears'
+        | 'deductions'
+        | 'recoveries',
+    ): number => {
+      // Priority: explicit user override > saved breakup > computed.
+      if (hasOverride) {
+        const v = (override as Record<string, number | undefined>)[key];
+        if (v !== undefined && v !== null) return Number(v) || 0;
+      }
+      if (hasSaved && saved[key] !== undefined && saved[key] !== null) {
+        return Number(saved[key] as number) || 0;
+      }
+      return Number((computed as unknown as Record<string, number>)[key] || 0);
+    };
+    const breakup = {
+      pendingSalary: pick('pendingSalary'),
+      leaveEncashment: pick('leaveEncashment'),
+      bonusArrears: pick('bonusArrears'),
+      deductions: pick('deductions'),
+      recoveries: pick('recoveries'),
+    };
+
+    const computedNet =
+      breakup.pendingSalary +
+      breakup.leaveEncashment +
+      breakup.bonusArrears -
+      breakup.deductions -
+      breakup.recoveries;
+    const netAmount =
+      override?.settlementAmount !== undefined &&
+      override?.settlementAmount !== null
+        ? Number(override.settlementAmount) || 0
+        : fnf.settlementAmount !== null && fnf.settlementAmount !== undefined
+          ? Number(fnf.settlementAmount)
+          : computedNet;
+
+    const { generateFnfPdfBuffer } = await import('./utils/fnf-pdf');
+    const buffer = await generateFnfPdfBuffer({
+      docType: dt as
+        | 'SETTLEMENT_STATEMENT'
+        | 'RELIEVING_LETTER'
+        | 'EXPERIENCE_CERTIFICATE'
+        | 'NO_DUES_CERTIFICATE',
+      client: {
+        name: client?.clientName || 'Company',
+        address: client?.registeredAddress || null,
+        logoUrl: client?.logoUrl || null,
+      },
+      employee: {
+        name: emp?.name || 'Employee',
+        employeeCode: emp?.employeeCode || '-',
+        designation: emp?.designation || null,
+        department: emp?.department || null,
+        fatherName: emp?.fatherName || null,
+        dateOfJoining: emp?.dateOfJoining || null,
+        pan: emp?.pan || null,
+        uan: emp?.uan || null,
+      },
+      separation: {
+        separationDate: fnf.separationDate,
+        lastWorkingDay: fnf.lastWorkingDay,
+        reason: fnf.reason,
+      },
+      settlement: { ...breakup, netAmount },
+      issueDate: new Date().toISOString().slice(0, 10),
+      remarks: fnf.remarks,
+    });
+
+    const safeName = (emp?.name || 'employee')
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const filename = `${dt}_${safeName}_${emp?.employeeCode || ''}.pdf`;
+    return { buffer, filename, mimeType: 'application/pdf' };
+  }
+
+  async processPayrollRun(user: ReqUser, runId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
 
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
 
     await this.assertPayrollAccessToClient(user, run.clientId);
@@ -2900,7 +4035,7 @@ export class PayrollService {
     }
 
     const employeeCount = await this.runEmployeeRepo.count({
-      where: { runId } as any,
+      where: { runId },
     });
     if (employeeCount <= 0) {
       throw new BadRequestException(
@@ -2922,10 +4057,10 @@ export class PayrollService {
     return this.runRepo.save(run);
   }
 
-  async approvePayrollRun(user: any, runId: string) {
+  async approvePayrollRun(user: ReqUser, runId: string) {
     if (!user?.id) throw new BadRequestException('Invalid user');
 
-    const run = await this.runRepo.findOne({ where: { id: runId } as any });
+    const run = await this.runRepo.findOne({ where: { id: runId } });
     if (!run) throw new BadRequestException('Payroll run not found');
 
     await this.assertPayrollAccessToClient(user, run.clientId);
@@ -2949,5 +4084,185 @@ export class PayrollService {
     await this.archiveRunPayslips(user, runId);
 
     return saved;
+  }
+
+  // ====================
+  // ONE-TIME: Seed March 2026 EL from paysheet
+  // ====================
+  async seedMarchEl(runId: string) {
+    const { MARCH_2026_SHEET_DATA } = await import('./march-2026-el-data');
+
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException('Payroll run not found');
+
+    const year = run.periodYear;
+    const month = run.periodMonth;
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const entryDate = `${monthStr}-01`;
+
+    // Get all employees in this run
+    const runEmps = await this.runEmployeeRepo.find({ where: { runId } });
+
+    const results: {
+      empCode: string;
+      action: string;
+      elAccrued?: number;
+      paidLeave?: number;
+      balance?: number;
+    }[] = [];
+
+    for (const re of runEmps) {
+      const empCode = re.employeeCode;
+      const sheetRow = MARCH_2026_SHEET_DATA[empCode];
+      if (!sheetRow) {
+        results.push({ empCode, action: 'SKIP_NOT_IN_SHEET' });
+        continue;
+      }
+
+      // Look up master employee for DOJ
+      const masterEmp = re.employeeId
+        ? await this.employeeRepo.findOne({ where: { id: re.employeeId } })
+        : null;
+
+      // Skip employees who joined in the same month as the payroll run
+      if (masterEmp?.dateOfJoining) {
+        const doj = new Date(masterEmp.dateOfJoining);
+        if (doj.getFullYear() === year && doj.getMonth() + 1 === month) {
+          results.push({ empCode, action: 'SKIP_MARCH_JOINER' });
+          continue;
+        }
+      }
+
+      const elAccrued = Math.round((sheetRow.workDays / 20) * 100) / 100;
+      const paidLeave = sheetRow.paidLeave;
+
+      if (!re.employeeId) {
+        results.push({ empCode, action: 'SKIP_NO_EMPLOYEE_ID' });
+        continue;
+      }
+
+      // Delete existing EL ledger entries for this month (idempotent)
+      await this.leaveLedgerRepo
+        .createQueryBuilder()
+        .delete()
+        .where('employee_id = :empId', { empId: re.employeeId })
+        .andWhere('leave_type = :lt', { lt: 'EL' })
+        .andWhere('remarks LIKE :m', { m: `%${monthStr}%` })
+        .execute();
+
+      // Ledger: EL accrual (credit)
+      if (elAccrued > 0) {
+        await this.leaveLedgerRepo.save(
+          this.leaveLedgerRepo.create({
+            employeeId: re.employeeId,
+            clientId: run.clientId,
+            leaveType: 'EL',
+            entryDate,
+            qty: String(elAccrued),
+            refType: 'EL_ACCRUAL',
+            refId: run.id,
+            remarks: `EL accrual for ${monthStr}: ${elAccrued} days`,
+          }),
+        );
+      }
+
+      // Ledger: EL paid leave (debit)
+      if (paidLeave > 0) {
+        await this.leaveLedgerRepo.save(
+          this.leaveLedgerRepo.create({
+            employeeId: re.employeeId,
+            clientId: run.clientId,
+            leaveType: 'EL',
+            entryDate,
+            qty: String(-paidLeave),
+            refType: 'EL_PAID_LEAVE',
+            refId: run.id,
+            remarks: `EL paid leave for ${monthStr}: ${paidLeave} days`,
+          }),
+        );
+      }
+
+      // Upsert leave_balances
+      await this.leaveBalanceRepo.query(
+        `INSERT INTO leave_balances (id, employee_id, client_id, year, leave_type, opening, accrued, used, lapsed, available, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, 'EL', 0, $4, $5, 0, $6, NOW())
+         ON CONFLICT (employee_id, year, leave_type)
+         DO UPDATE SET accrued   = COALESCE((
+                         SELECT SUM(ABS(qty)) FROM leave_ledger
+                         WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
+                           AND EXTRACT(YEAR FROM entry_date::date) = $3
+                       ), 0),
+                       used      = COALESCE((
+                         SELECT SUM(ABS(qty)) FROM leave_ledger
+                         WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
+                           AND EXTRACT(YEAR FROM entry_date::date) = $3
+                       ), 0),
+                       available = GREATEST(leave_balances.opening
+                         + COALESCE((
+                             SELECT SUM(ABS(qty)) FROM leave_ledger
+                             WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
+                               AND EXTRACT(YEAR FROM entry_date::date) = $3
+                           ), 0)
+                         - COALESCE((
+                             SELECT SUM(ABS(qty)) FROM leave_ledger
+                             WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
+                               AND EXTRACT(YEAR FROM entry_date::date) = $3
+                           ), 0), 0),
+                       last_updated_at = NOW()`,
+        [
+          re.employeeId,
+          run.clientId,
+          year,
+          elAccrued,
+          paidLeave,
+          Math.max(elAccrued - paidLeave, 0),
+        ],
+      );
+
+      const balance = Math.max(
+        Math.round((elAccrued - paidLeave) * 100) / 100,
+        0,
+      );
+      results.push({
+        empCode,
+        action: 'SEEDED',
+        elAccrued,
+        paidLeave,
+        balance,
+      });
+    }
+
+    return { runId, month: monthStr, results };
+  }
+
+  /** One-time: remove employees from a run that are not in the March paysheet */
+  async removeNotInSheet(runId: string) {
+    const { MARCH_2026_SHEET_DATA } = await import('./march-2026-el-data');
+
+    const run = await this.runRepo.findOne({ where: { id: runId } });
+    if (!run) throw new BadRequestException('Payroll run not found');
+
+    const runEmps = await this.runEmployeeRepo.find({ where: { runId } });
+    const removed: string[] = [];
+
+    for (const re of runEmps) {
+      if (!MARCH_2026_SHEET_DATA[re.employeeCode]) {
+        // Delete archive record
+        await this.payslipArchiveRepo.delete({
+          runId,
+          employeeCode: re.employeeCode,
+        });
+        // Delete component values
+        const cvRepo = this.runEmployeeRepo.manager.getRepository(
+          PayrollRunComponentValueEntity,
+        );
+        await cvRepo.delete({ runId, runEmployeeId: re.id });
+        // Delete from run employees
+        await this.runEmployeeRepo.delete({ id: re.id });
+        removed.push(re.employeeCode);
+      }
+    }
+
+    return { runId, removed };
   }
 }

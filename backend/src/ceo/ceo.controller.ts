@@ -1,13 +1,14 @@
 import {
   Controller,
   Get,
-  Req,
   UseGuards,
   Post,
   Param,
   Body,
   Query,
   NotFoundException,
+  BadRequestException,
+  Logger,
   Res,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -19,6 +20,8 @@ import { ApprovalEntity } from '../users/entities/approval.entity';
 import { UsersService } from '../users/users.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('CEO')
 @ApiBearerAuth('JWT')
@@ -26,12 +29,32 @@ import { Response } from 'express';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CEO')
 export class CeoController {
+  private readonly logger = new Logger(CeoController.name);
   constructor(
     @InjectRepository(ApprovalEntity)
     private readonly approvalRepo: Repository<ApprovalEntity>,
     private readonly usersService: UsersService,
     private readonly dataSource: DataSource,
   ) {}
+
+  private toDisplayString(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      return String(value);
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '';
+    }
+  }
 
   private resolvePeriod(period?: string): {
     year: number;
@@ -42,10 +65,14 @@ export class CeoController {
   } {
     const now = new Date();
     const fallback = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-    const safePeriod = /^\d{4}-\d{2}$/.test(period || '') ? (period as string) : fallback;
+    const safePeriod = /^\d{4}-\d{2}$/.test(period || '')
+      ? (period as string)
+      : fallback;
 
     const start = new Date(`${safePeriod}-01T00:00:00.000Z`);
-    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+    const end = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
+    );
 
     return {
       year: start.getUTCFullYear(),
@@ -56,20 +83,29 @@ export class CeoController {
     };
   }
 
-  private toCsv(columns: string[], rows: Array<Record<string, any>>): string {
+  private toCsv(
+    columns: string[],
+    rows: Array<Record<string, unknown>>,
+  ): string {
     const escape = (v: unknown) => {
-      const str = v == null ? '' : String(v);
+      const str = this.toDisplayString(v);
       return `"${str.replace(/"/g, '""')}"`;
     };
     const header = columns.map((c) => escape(c)).join(',');
-    const body = rows.map((row) => columns.map((c) => escape(row[c])).join(',')).join('\n');
+    const body = rows
+      .map((row) => columns.map((c) => escape(row[c])).join(','))
+      .join('\n');
     return [header, body].filter(Boolean).join('\n');
   }
 
   private async getReportsSummaryData(period?: string) {
     const p = this.resolvePeriod(period);
 
-    const auditRows = await this.dataSource
+    type AuditRow = { status: string; count: number; avgScore?: number | null };
+    type TaskRow = { status: string; count: number };
+    type ObsRow = { risk: string; count: number };
+
+    const auditRows: AuditRow[] = await this.dataSource
       .query(
         `SELECT status, COUNT(*)::int AS count, ROUND(AVG(score)::numeric, 1) AS "avgScore"
          FROM audits
@@ -80,7 +116,7 @@ export class CeoController {
       )
       .catch(() => []);
 
-    const taskRows = await this.dataSource
+    const taskRows: TaskRow[] = await this.dataSource
       .query(
         `SELECT status, COUNT(*)::int AS count
          FROM compliance_tasks
@@ -102,14 +138,14 @@ export class CeoController {
       )
       .catch(() => [{ n: 0 }]);
 
-    const obsRows = await this.dataSource
+    const obsRows: ObsRow[] = await this.dataSource
       .query(
         `SELECT risk, COUNT(*)::int AS count
          FROM audit_observations
          WHERE status IN ('OPEN', 'ACKNOWLEDGED')
          GROUP BY risk`,
       )
-      .catch(() => []);
+      .catch(() => [] as ObsRow[]);
 
     const [clientRow] = await this.dataSource
       .query(
@@ -121,33 +157,48 @@ export class CeoController {
       )
       .catch(() => [{ clients: 0, branches: 0 }]);
 
-    const auditTotal = auditRows.reduce((sum: number, row: any) => sum + Number(row.count || 0), 0);
-    const completedAudits = Number(
-      auditRows.find((row: any) => row.status === 'COMPLETED')?.count || 0,
+    const auditTotal = auditRows.reduce(
+      (sum, row) => sum + Number(row.count || 0),
+      0,
     );
-    const avgScore = auditRows.find((row: any) => row.status === 'COMPLETED')?.avgScore ?? null;
+    const completedAudits = Number(
+      auditRows.find((row) => row.status === 'COMPLETED')?.count || 0,
+    );
+    const avgScore =
+      auditRows.find((row) => row.status === 'COMPLETED')?.avgScore ?? null;
 
-    const totalTasks = taskRows.reduce((sum: number, row: any) => sum + Number(row.count || 0), 0);
-    const overdueTasks = Number(taskRows.find((row: any) => row.status === 'OVERDUE')?.count || 0);
-    const completedTasks = Number(taskRows.find((row: any) => row.status === 'APPROVED')?.count || 0);
+    const totalTasks = taskRows.reduce(
+      (sum, row) => sum + Number(row.count || 0),
+      0,
+    );
+    const overdueTasks = Number(
+      taskRows.find((row) => row.status === 'OVERDUE')?.count || 0,
+    );
+    const completedTasks = Number(
+      taskRows.find((row) => row.status === 'APPROVED')?.count || 0,
+    );
     const taskCompletionRate =
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    const openObservations = obsRows.reduce((sum: number, row: any) => sum + Number(row.count || 0), 0);
+    const openObservations = obsRows.reduce(
+      (sum, row) => sum + Number(row.count || 0),
+      0,
+    );
     const criticalObservations = Number(
-      obsRows.find((row: any) => row.risk === 'CRITICAL')?.count || 0,
+      obsRows.find((row) => row.risk === 'CRITICAL')?.count || 0,
     );
 
     const packs = [
       {
         id: 'audit-summary',
         title: 'Audit Summary',
-        description: 'Completion status and score snapshot for the selected period',
+        description:
+          'Completion status and score snapshot for the selected period',
         metrics: {
           total: auditTotal,
           completed: completedAudits,
           avgScore,
-          breakdown: auditRows.reduce((map: any, row: any) => {
+          breakdown: auditRows.reduce<Record<string, number>>((map, row) => {
             map[row.status] = row.count;
             return map;
           }, {}),
@@ -181,7 +232,7 @@ export class CeoController {
         metrics: {
           total: openObservations,
           critical: criticalObservations,
-          byRisk: obsRows.reduce((map: any, row: any) => {
+          byRisk: obsRows.reduce<Record<string, number>>((map, row) => {
             map[row.risk || 'UNRATED'] = row.count;
             return map;
           }, {}),
@@ -349,11 +400,11 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Dashboard' })
   @Get('dashboard')
-  async dashboard(@Req() req: any) {
-    const ceoUserId = req.user.userId;
+  async dashboard(@CurrentUser() user: ReqUser) {
+    const ceoUserId = user.userId;
 
     const pendingApprovals = await this.approvalRepo.count({
-      where: { status: 'PENDING', requestedTo: { id: ceoUserId } as any },
+      where: { status: 'PENDING', requestedTo: { id: ceoUserId } },
     });
 
     // Real queries for escalations, overdue, compliance pending
@@ -385,8 +436,7 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Approvals' })
   @Get('approvals')
-  async approvals(@Req() req: any) {
-    const user = req.user;
+  async approvals(@CurrentUser() user: ReqUser) {
     return this.usersService.listPendingDeletionRequestsForApprover(
       user.userId,
       user.roleCode,
@@ -410,8 +460,7 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Approve' })
   @Post('approvals/:id/approve')
-  async approve(@Param('id') id: string, @Req() req: any) {
-    const user = req.user;
+  async approve(@Param('id') id: string, @CurrentUser() user: ReqUser) {
     return this.usersService.approveDeletionRequest(
       id,
       user.userId,
@@ -424,9 +473,8 @@ export class CeoController {
   async reject(
     @Param('id') id: string,
     @Body() body: { remarks?: string; reason?: string },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    const user = req.user;
     const remarks = body?.remarks || body?.reason || '';
     return this.usersService.rejectDeletionRequest(
       id,
@@ -440,12 +488,24 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Escalations' })
   @Get('escalations')
-  async escalations(@Query() query: any) {
+  async escalations(@Query() query: Record<string, string>) {
     try {
-      const status = query.status ? String(query.status).toUpperCase() : null;
+      const requested = query.status
+        ? String(query.status).toUpperCase()
+        : null;
+      // Translate UI-facing status filter back to DB-facing values.
+      const dbStatus = requested
+        ? requested === 'CLOSED'
+          ? 'COMPLETED'
+          : requested === 'OPEN'
+            ? 'PENDING'
+            : requested
+        : null;
       const rows = await this.dataSource.query(
-          `SELECT
+        `SELECT
            ct.id,
+           ct.client_id    AS "clientId",
+           ct.branch_id    AS "branchId",
            c.client_name   AS "clientName",
            b.branchname    AS "branchName",
            ct.status,
@@ -460,9 +520,10 @@ export class CeoController {
            AND ($1::text IS NULL OR ct.status = $1)
          ORDER BY ct.escalated_at DESC
          LIMIT 200`,
-        [status],
+        [dbStatus],
       );
-      return { items: rows, total: rows.length, query };
+      const items = rows.map((r: any) => this.mapEscalationRow(r));
+      return { items, total: items.length, query };
     } catch {
       return { items: [], total: 0, query };
     }
@@ -471,16 +532,72 @@ export class CeoController {
   @ApiOperation({ summary: 'Escalation' })
   @Get('escalations/:id')
   async escalation(@Param('id') id: string) {
+    if (isNaN(Number(id)))
+      throw new BadRequestException('Invalid escalation ID');
     const [row] = await this.dataSource.query(
-      `SELECT ct.*, c.client_name AS "clientName", b.branchname AS "branchName"
+      `SELECT ct.*, c.client_name AS "clientName", b.branchname AS "branchName",
+              COALESCE(cm.law_family, cm.law_name, 'GENERAL') AS category
        FROM compliance_tasks ct
        LEFT JOIN clients c ON c.id = ct.client_id
        LEFT JOIN client_branches b ON b.id = ct.branch_id
+       LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
        WHERE ct.id = $1`,
       [id],
     );
     if (!row) throw new NotFoundException(`Escalation ${id} not found`);
-    return { ...row, comments: [] };
+    const mapped = this.mapEscalationRow({
+      id: row.id,
+      clientId: row.client_id,
+      branchId: row.branch_id,
+      clientName: row.clientName,
+      branchName: row.branchName,
+      status: row.status,
+      dueDate: row.due_date,
+      escalatedAt: row.escalated_at,
+      category: row.category,
+    });
+    return { ...mapped, raw: row, comments: [] };
+  }
+
+  /**
+   * Normalise compliance_tasks rows into the contract the CEO escalations
+   * UI expects: { id, subject, priority, createdAt, status:OPEN|IN_PROGRESS|RESOLVED|CLOSED, … }.
+   * - status: PENDING→OPEN, COMPLETED→CLOSED, others passthrough.
+   * - priority: derived from how overdue the due_date is.
+   * - subject: human label "<category> — <branch> (<client>)".
+   * - createdAt: aliased from escalated_at so the UI can sort/filter by it.
+   */
+  private mapEscalationRow(r: any) {
+    const rawStatus = String(r.status || '').toUpperCase();
+    const status =
+      rawStatus === 'PENDING'
+        ? 'OPEN'
+        : rawStatus === 'COMPLETED'
+          ? 'CLOSED'
+          : rawStatus;
+    const due = r.dueDate ? new Date(r.dueDate) : null;
+    const overdueDays = due
+      ? Math.floor((Date.now() - due.getTime()) / (24 * 3600 * 1000))
+      : 0;
+    let priority = 'LOW';
+    if (overdueDays > 14) priority = 'CRITICAL';
+    else if (overdueDays > 7) priority = 'HIGH';
+    else if (overdueDays > 0) priority = 'MEDIUM';
+    const subject = `${r.category || 'GENERAL'} — ${r.branchName || 'Branch'} (${r.clientName || 'Client'})`;
+    return {
+      id: r.id,
+      clientId: r.clientId,
+      branchId: r.branchId,
+      clientName: r.clientName,
+      branchName: r.branchName,
+      category: r.category,
+      subject,
+      priority,
+      status,
+      dueDate: r.dueDate,
+      escalatedAt: r.escalatedAt,
+      createdAt: r.escalatedAt,
+    };
   }
 
   @ApiOperation({ summary: 'Escalation Comment' })
@@ -489,13 +606,15 @@ export class CeoController {
     @Param('id') id: string,
     @Body() body: { message: string },
   ) {
+    const numId = Number(id);
+    if (isNaN(numId)) throw new BadRequestException('Invalid escalation ID');
     // Verify escalation exists
     const [row] = await this.dataSource.query(
       `SELECT id FROM compliance_tasks WHERE id = $1 AND escalated_at IS NOT NULL`,
       [id],
     );
     if (!row) throw new NotFoundException(`Escalation ${id} not found`);
-    return { id: Number(id), message: body?.message ?? '' };
+    return { id, message: body?.message ?? '' };
   }
 
   @ApiOperation({ summary: 'Escalation Assign' })
@@ -505,7 +624,7 @@ export class CeoController {
     @Body() body: { ccoId: number; note?: string },
   ) {
     return {
-      id: Number(id),
+      id,
       assignedTo: body?.ccoId ?? null,
       note: body?.note ?? '',
     };
@@ -517,15 +636,23 @@ export class CeoController {
     @Param('id') id: string,
     @Body() body: { resolutionNote?: string },
   ) {
+    if (isNaN(Number(id)))
+      throw new BadRequestException('Invalid escalation ID');
+    let dbWriteOk = true;
     await this.dataSource
       .query(
         `UPDATE compliance_tasks SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1`,
         [id],
       )
-      .catch(() => {});
+      .catch((e) => {
+        dbWriteOk = false;
+        this.logger.warn(`Escalation close failed for ${id}`, e?.message);
+      });
     return {
-      id: Number(id),
-      status: 'CLOSED',
+      id,
+      // CLOSED is the UI-facing status; DB stores COMPLETED. Keep both
+      // contracts in lockstep with mapEscalationRow().
+      status: dbWriteOk ? 'CLOSED' : 'OPEN',
       resolutionNote: body?.resolutionNote ?? '',
     };
   }
@@ -538,8 +665,10 @@ export class CeoController {
         `SELECT
            cco.id        AS "ccoId",
            cco.name      AS "ccoName",
+           cco.email     AS "ccoEmail",
            COUNT(DISTINCT crm.id)::int  AS "totalCrms",
            COUNT(DISTINCT cl.id)::int   AS "totalClients",
+           COALESCE(SUM(CASE WHEN ct.status IN ('PENDING','IN_PROGRESS') THEN 1 ELSE 0 END), 0)::int AS "pendingCount",
            COALESCE(SUM(CASE WHEN ct.status = 'OVERDUE' THEN 1 ELSE 0 END), 0)::int AS "overdueCount"
          FROM users cco
          INNER JOIN roles rc ON rc.id = cco.role_id AND rc.code = 'CCO'
@@ -547,7 +676,7 @@ export class CeoController {
          LEFT JOIN clients cl ON cl.assigned_crm_id = crm.id AND (cl.is_deleted = false OR cl.is_deleted IS NULL)
          LEFT JOIN compliance_tasks ct ON ct.client_id = cl.id
          WHERE cco.is_active = true AND cco.deleted_at IS NULL
-         GROUP BY cco.id, cco.name
+         GROUP BY cco.id, cco.name, cco.email
          ORDER BY "overdueCount" DESC`,
       );
       return { ccoSummary: rows };
@@ -564,7 +693,7 @@ export class CeoController {
   ) {
     try {
       const rows = await this.dataSource.query(
-          `SELECT
+        `SELECT
            ct.id,
            cl.client_name AS "clientName",
            b.branchname   AS "branchName",
@@ -589,9 +718,9 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Notifications' })
   @Get('notifications')
-  async notifications(@Req() req: any) {
+  async notifications(@CurrentUser() user: ReqUser) {
     try {
-      const ceoUserId = req.user.userId;
+      const ceoUserId = user.userId;
       const rows = await this.dataSource.query(
         `SELECT
            n.id,
@@ -614,11 +743,14 @@ export class CeoController {
 
   @ApiOperation({ summary: 'Mark Notification Read' })
   @Post('notifications/:id/read')
-  async markNotificationRead(@Param('id') id: string, @Req() req: any) {
+  async markNotificationRead(
+    @Param('id') id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     try {
       await this.dataSource.query(
         `UPDATE notifications SET is_read = true, updated_at = NOW() WHERE id = $1 AND user_id = $2`,
-        [id, req.user.userId],
+        [id, user.userId],
       );
     } catch {
       // Ignore failures to keep this action idempotent for the client.
@@ -675,7 +807,7 @@ export class CeoController {
     }
 
     const preview = await this.getReportPreviewData(type, period);
-    const columns = (preview.columns || []).map((c: any) => c.key);
+    const columns = (preview.columns || []).map((c: { key: string }) => c.key);
     const csv = this.toCsv(columns, preview.rows || []);
     const periodLabel = preview.period || this.resolvePeriod(period).label;
     const fileName = `ceo-${preview.type || 'report'}-${periodLabel}.csv`;

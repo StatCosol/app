@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { ComplianceApiService } from '../../../shared/services/compliance-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
@@ -23,10 +24,16 @@ export class BranchReuploadInboxComponent implements OnInit {
   statusTab: 'OPEN' | 'SUBMITTED' | 'REJECTED' | 'REVERIFIED' | 'ALL' = 'OPEN';
   q = '';
 
+  showNaModal = false;
+  naRow: any = null;
+  naRemarks = '';
+  markingNa = false;
+
   constructor(
     private api: ComplianceApiService,
     private toast: ToastService,
     private dialog: ConfirmDialogService,
+    private zone: NgZone,
   ) {}
 
   ngOnInit() {
@@ -168,16 +175,29 @@ export class BranchReuploadInboxComponent implements OnInit {
 
   load() {
     this.loading = true;
-    this.api.branchListReuploadRequests({}).subscribe({
-      next: (res: any) => {
-        this.rows = Array.isArray(res) ? res : (res?.data || res?.items || []);
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-        this.toast.error('Failed to load reupload requests.');
-      },
-    });
+    // Safety net: if the request truly hangs (network stall, interceptor swallow,
+    // change-detection miss outside Angular zone), force the spinner off after 20s.
+    const watchdog = setTimeout(() => {
+      if (this.loading) {
+        this.zone.run(() => { this.loading = false; });
+      }
+    }, 20000);
+    this.api.branchListReuploadRequests({})
+      .pipe(finalize(() => {
+        clearTimeout(watchdog);
+        // Ensure loading flips even if next/error never fired (e.g. unsubscribe).
+        this.zone.run(() => { this.loading = false; });
+      }))
+      .subscribe({
+        next: (res: any) => {
+          this.rows = Array.isArray(res) ? res : (res?.data || res?.items || []);
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+          this.toast.error('Failed to load reupload requests.');
+        },
+      });
   }
 
   onFileChange(reqId: string, e: any) {
@@ -227,6 +247,37 @@ export class BranchReuploadInboxComponent implements OnInit {
       error: () => {
         this.submittingId = null;
         this.toast.error('Submit failed.');
+      },
+    });
+  }
+
+  openNaModal(row: any): void {
+    this.naRow = row;
+    this.naRemarks = '';
+    this.showNaModal = true;
+  }
+
+  closeNaModal(): void {
+    this.showNaModal = false;
+    this.naRow = null;
+    this.naRemarks = '';
+  }
+
+  submitMarkNa(): void {
+    const reqId = this.id(this.naRow);
+    if (!reqId || !this.naRemarks.trim()) return;
+
+    this.markingNa = true;
+    this.api.branchReuploadMarkNotApplicable(reqId, this.naRemarks.trim()).subscribe({
+      next: () => {
+        this.markingNa = false;
+        this.toast.success('Marked as Not Applicable');
+        this.closeNaModal();
+        this.load();
+      },
+      error: (err: any) => {
+        this.markingNa = false;
+        this.toast.error(err?.error?.message || 'Failed. Please try again.');
       },
     });
   }

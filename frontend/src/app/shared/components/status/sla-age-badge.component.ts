@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'sla-age-badge',
+  selector: 'ui-sla-age-badge',
   standalone: true,
   imports: [CommonModule],
   template: `<span class="chip" [ngClass]="isBreached ? 'bad' : 'ok'">{{ ageLabel }}</span>`,

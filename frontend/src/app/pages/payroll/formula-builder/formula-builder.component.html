@@ -1,0 +1,159 @@
+<!--
+  Visual Formula Builder template.
+  The whole tree is recursive: each branch renders the node-type picker plus
+  the inputs for the chosen type. We use a `holder` object so type changes
+  can replace the whole sub-tree without losing parent reactivity.
+-->
+<div class="fb-root" *ngIf="value">
+  <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: value }, root: true }"></ng-container>
+
+  <div class="fb-preview">
+    <span class="fb-preview-label">Preview:</span>
+    <code class="fb-preview-text">{{ previewText() }}</code>
+  </div>
+</div>
+
+<ng-template #nodeTpl let-holder let-root="root">
+  <div class="fb-node" [class.fb-root-node]="root">
+    <div class="fb-row">
+      <label class="fb-type">
+        <select [ngModel]="holder.current.type"
+                (ngModelChange)="changeType(holder, $event); value = holder.current; emit()">
+          <option *ngFor="let t of nodeTypes" [value]="t.key">{{ t.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- FIXED -->
+    <div class="fb-row" *ngIf="holder.current.type === 'FIXED'">
+      <label>Amount
+        <input type="number" [(ngModel)]="holder.current.value" (ngModelChange)="emit()" />
+      </label>
+    </div>
+
+    <!-- VARIABLE -->
+    <div class="fb-row" *ngIf="holder.current.type === 'VARIABLE'">
+      <label>Variable
+        <select [(ngModel)]="holder.current.name" (ngModelChange)="emit()">
+          <option *ngFor="let v of variables" [value]="v">{{ v }}</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- PERCENT -->
+    <div class="fb-row" *ngIf="holder.current.type === 'PERCENT'">
+      <label>Percent
+        <input type="number" step="0.01" [(ngModel)]="holder.current.value" (ngModelChange)="emit()" />
+      </label>
+      <span class="fb-of">% of</span>
+      <label>Base
+        <select [(ngModel)]="holder.current.base" (ngModelChange)="emit()">
+          <option *ngFor="let v of variables" [value]="v">{{ v }}</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- OP -->
+    <ng-container *ngIf="holder.current.type === 'OP'">
+      <div class="fb-row">
+        <label>Operator
+          <select [(ngModel)]="holder.current.op" (ngModelChange)="emit()">
+            <option *ngFor="let o of arithOps" [value]="o">{{ o }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="fb-children">
+        <div class="fb-child">
+          <div class="fb-child-label">Left</div>
+          <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.left } }"></ng-container>
+        </div>
+        <div class="fb-child">
+          <div class="fb-child-label">Right</div>
+          <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.right } }"></ng-container>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- MAX / MIN -->
+    <ng-container *ngIf="holder.current.type === 'MAX' || holder.current.type === 'MIN'">
+      <div class="fb-children">
+        <div class="fb-child" *ngFor="let v of holder.current.values; let i = index; trackBy: trackByIndex">
+          <div class="fb-child-label">
+            Value {{ i + 1 }}
+            <button type="button" class="fb-mini-btn"
+                    *ngIf="holder.current.values.length > 2"
+                    (click)="removeValue(holder.current, i)">remove</button>
+          </div>
+          <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.values[i] } }"></ng-container>
+        </div>
+      </div>
+      <div class="fb-row">
+        <button type="button" class="fb-add-btn" (click)="addValue(holder.current)">+ Add value</button>
+      </div>
+    </ng-container>
+
+    <!-- BALANCE -->
+    <ng-container *ngIf="holder.current.type === 'BALANCE'">
+      <div class="fb-row">
+        <label>Total
+          <select [(ngModel)]="holder.current.total" (ngModelChange)="emit()">
+            <option *ngFor="let v of variables" [value]="v">{{ v }}</option>
+          </select>
+        </label>
+        <span class="fb-of">minus</span>
+      </div>
+      <div class="fb-row" *ngFor="let s of holder.current.subtract; let i = index; trackBy: trackByIndex">
+        <label>
+          <select [(ngModel)]="holder.current.subtract[i]" (ngModelChange)="emit()">
+            <option *ngFor="let v of variables" [value]="v">{{ v }}</option>
+          </select>
+        </label>
+        <button type="button" class="fb-mini-btn"
+                *ngIf="holder.current.subtract.length > 1"
+                (click)="removeSubtract(holder.current, i)">remove</button>
+      </div>
+      <div class="fb-row">
+        <button type="button" class="fb-add-btn" (click)="addSubtract(holder.current)">+ Subtract another</button>
+      </div>
+    </ng-container>
+
+    <!-- IF -->
+    <ng-container *ngIf="holder.current.type === 'IF'">
+      <div class="fb-section">
+        <div class="fb-section-title">If</div>
+        <div class="fb-children">
+          <div class="fb-child">
+            <div class="fb-child-label">Left</div>
+            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.condition.left } }"></ng-container>
+          </div>
+          <div class="fb-child fb-child-narrow">
+            <div class="fb-child-label">Op</div>
+            <select [(ngModel)]="holder.current.condition.op" (ngModelChange)="emit()">
+              <option *ngFor="let o of compareOps" [value]="o">{{ o }}</option>
+            </select>
+          </div>
+          <div class="fb-child">
+            <div class="fb-child-label">Right</div>
+            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.condition.right } }"></ng-container>
+          </div>
+        </div>
+      </div>
+      <div class="fb-section">
+        <div class="fb-section-title">Then</div>
+        <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.then } }"></ng-container>
+      </div>
+      <div class="fb-section">
+        <div class="fb-section-title">Else</div>
+        <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: { current: holder.current.else } }"></ng-container>
+      </div>
+    </ng-container>
+
+    <!-- RAW -->
+    <div class="fb-row" *ngIf="holder.current.type === 'RAW'">
+      <label class="fb-grow">Expression
+        <input type="text" [(ngModel)]="holder.current.expr" (ngModelChange)="emit()"
+               placeholder="e.g. ROUND(BASIC * 0.5, 0)" />
+      </label>
+    </div>
+  </div>
+</ng-template>

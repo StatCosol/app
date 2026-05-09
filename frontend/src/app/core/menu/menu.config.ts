@@ -24,7 +24,8 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Dashboard', route: '/cco/dashboard', roles: ['CCO'] },
   { label: 'CRM Management', route: '/cco/crms-under-me', roles: ['CCO'] },
   { label: 'Approvals', route: '/cco/approvals', roles: ['CCO'] },
-  { label: 'Escalations', route: '/cco/oversight', roles: ['CCO'] },
+  { label: 'Oversight', route: '/cco/oversight', roles: ['CCO'] },
+  { label: 'Escalations', route: '/cco/escalations', roles: ['CCO'] },
   { label: 'Registers', route: '/cco/registers', roles: ['CCO'] },
   { label: 'Notifications', route: '/cco/notifications', roles: ['CCO'] },
   { label: 'Reports', route: '/cco/crm-performance', roles: ['CCO'] },
@@ -44,7 +45,7 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Compliance Tracker', route: '/crm/compliance-tracker', roles: ['CRM'] },
   { label: 'Returns / Filings', route: '/crm/returns', roles: ['CRM'] },
   { label: 'Schedule Audit', route: '/crm/audits', roles: ['CRM'] },
-  { label: 'Helpdesk', route: '/crm/helpdesk', roles: ['CRM'] },
+  { label: 'Helpdesk / Notifications', route: '/crm/helpdesk', roles: ['CRM'] },
   { label: 'Reports', route: '/crm/reports', roles: ['CRM'] },
   { label: 'Compliance Calendar', route: '/crm/calendar', roles: ['CRM'] },
   { label: 'Risk Heatmap', route: '/crm/heatmap', roles: ['CRM'] },
@@ -55,8 +56,9 @@ export const APP_MENUS: MenuItem[] = [
   // AUDITOR (AuditXpert)
   { label: 'Dashboard', route: '/auditor/dashboard', roles: ['AUDITOR'] },
   { label: 'Audits', route: '/auditor/audits', roles: ['AUDITOR'] },
-  { label: 'Registers', route: '/auditor/registers', roles: ['AUDITOR'] },
-  { label: 'Compliance', route: '/auditor/compliance', roles: ['AUDITOR'] },
+  { label: 'Observations', route: '/auditor/observations', roles: ['AUDITOR'] },
+  { label: 'Reports', route: '/auditor/reports', roles: ['AUDITOR'] },
+  { label: 'Notifications', route: '/auditor/notifications', roles: ['AUDITOR'] },
 
   // CLIENT (LegitX) — navigation handled by sidebar in client-layout
 
@@ -67,10 +69,14 @@ export const APP_MENUS: MenuItem[] = [
   { label: 'Notifications', route: '/contractor/notifications', roles: ['CONTRACTOR'] },
   { label: 'Support', route: '/contractor/support', roles: ['CONTRACTOR'] },
 
+  // PF_TEAM
+  { label: 'Dashboard', route: '/pf-team/dashboard', roles: ['PF_TEAM'] },
+  { label: 'Tickets', route: '/pf-team/tickets', roles: ['PF_TEAM'] },
+
   // PAYROLL
   { label: 'Dashboard', route: '/payroll/dashboard', roles: ['PAYROLL'] },
   { label: 'Clients', route: '/payroll/clients', roles: ['PAYROLL'] },
-  { label: 'Runs', route: '/payroll/runs', roles: ['PAYROLL'] },
-  { label: 'Setup', route: '/payroll/setup', roles: ['PAYROLL'] },
-  { label: 'Registers', route: '/payroll/registers', roles: ['PAYROLL'] },
+  { label: 'Runs (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
+  { label: 'Setup (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
+  { label: 'Registers (select client)', route: '/payroll/clients', roles: ['PAYROLL'] },
 ];

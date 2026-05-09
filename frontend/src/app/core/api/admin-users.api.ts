@@ -11,6 +11,7 @@ export interface UserDto {
   roleCode: string;
   isActive?: boolean;
   roleId?: string;
+  mobile?: string | null;
   client?: { id: string; name: string };
   branches?: Array<{ id: string; name: string }>;
   [key: string]: any;
@@ -99,6 +100,14 @@ export class AdminUsersApi {
 
   getActiveUsersByRole(role: string) {
     return this.http.get<any[]>(`${this.baseUrl}/api/v1/admin/users/active-by-role/${role}`);
+  }
+
+  getCcoCrmUsers() {
+    return this.http.get<UserDto[]>(`${this.baseUrl}/api/v1/cco/users/crms`);
+  }
+
+  getCcoAuditorUsers() {
+    return this.http.get<UserDto[]>(`${this.baseUrl}/api/v1/cco/users/auditors`);
   }
 
   createUser(payload: any) {

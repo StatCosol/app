@@ -4,7 +4,7 @@ import { TimelineEvent } from './timeline.model';
 import { TimelineEventCardComponent } from './timeline-event-card.component';
 
 @Component({
-  selector: 'shared-timeline',
+  selector: 'ui-shared-timeline',
   standalone: true,
   imports: [CommonModule, TimelineEventCardComponent],
   template: `
@@ -12,7 +12,7 @@ import { TimelineEventCardComponent } from './timeline-event-card.component';
       <div *ngIf="!events.length" class="text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg p-4 text-center">
         {{ emptyMessage }}
       </div>
-      <timeline-event-card *ngFor="let e of displayEvents" [event]="e"></timeline-event-card>
+      <ui-timeline-event-card *ngFor="let e of displayEvents" [event]="e"></ui-timeline-event-card>
     </div>
   `,
 })

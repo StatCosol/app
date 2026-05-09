@@ -134,7 +134,11 @@ export class NominationsService {
     const emp = await this.ensureEmployeeScope(user, employeeId);
 
     const nom = await this.nomRepo.findOne({
-      where: { employeeId: emp.id, nominationType: nominationType as any },
+      where: {
+        employeeId: emp.id,
+        nominationType:
+          nominationType as EmployeeNominationEntity['nominationType'],
+      },
     });
     if (!nom) return { employeeId, nominationType, nominees: [] };
 
@@ -154,7 +158,7 @@ export class NominationsService {
       order: { createdAt: 'DESC' },
     });
 
-    const result: any[] = [];
+    const result: Array<Record<string, unknown>> = [];
     for (const nom of nominations) {
       const members = await this.memRepo.find({
         where: { nominationId: nom.id },
@@ -184,7 +188,8 @@ export class NominationsService {
     const nom = await this.nomRepo.findOne({
       where: {
         employeeId: emp.id,
-        nominationType: dto.formType as any,
+        nominationType:
+          dto.formType as EmployeeNominationEntity['nominationType'],
       },
     });
     if (!nom) {
@@ -272,9 +277,7 @@ export class NominationsService {
 
       // Employee details
       doc.fontSize(11).text(`Employee Code: ${emp.employeeCode}`);
-      doc.text(
-        `Employee Name: ${emp.firstName ?? ''}${emp.lastName ? ' ' + emp.lastName : ''}`.trim(),
-      );
+      doc.text(`Employee Name: ${emp.name ?? ''}`);
       doc.text(`Designation: ${emp.designation ?? ''}`);
       doc.text(`State: ${emp.stateCode ?? ''}`);
       doc.text(`Date of Joining: ${emp.dateOfJoining ?? ''}`);

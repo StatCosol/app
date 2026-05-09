@@ -254,11 +254,14 @@ $radius:  14px;
 }
 
 .form-card {
-  width: min(470px, 100%);
-  background: #ffffff;
+  width: 100%;
+  max-width: 560px;
+  background: rgba(255, 255, 255, .85);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-radius: 20px;
   padding: 40px 34px 30px;
-  border: 1px solid rgba(15, 23, 42, .07);
+  border: 1px solid rgba(255, 255, 255, .6);
   box-shadow:
     0 24px 80px rgba(16, 24, 40, .10),
     0 4px 12px rgba(16, 24, 40, .06);
@@ -269,7 +272,8 @@ $radius:  14px;
 .form-brand {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 24px;
 }
 
@@ -278,7 +282,7 @@ $radius:  14px;
 .form-brand .form-head {
   margin: 0;
 
-  h2 { margin: 0; font-size: 22px; font-weight: 700; color: $text; letter-spacing: -.2px; }
+  h2 { margin: 0; font-size: clamp(22px, 4vw, 32px); font-weight: 700; color: $text; letter-spacing: -.2px; }
   p  { margin: 4px 0 0; color: $muted; font-size: 13px; }
 }
 
@@ -287,6 +291,7 @@ $radius:  14px;
   display: none;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 20px;
 }
 .mobile-logo { height: 30px; width: auto; }
@@ -324,16 +329,18 @@ $radius:  14px;
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0 14px;
-  height: 46px;
-  border-radius: $radius;
-  border: 1.5px solid rgba(15, 23, 42, .12);
-  background: #F8FAFD;
+  height: 48px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(15, 23, 42, .22);
+  background: #F0F4FA;
   transition: .2s ease;
 
   &.focused {
     border-color: $accent;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, .14);
     background: #fff;
   }
 
@@ -344,11 +351,22 @@ $radius:  14px;
     background: transparent;
     font-size: 14px;
     color: $text;
-    padding: 0;
-    padding-right: 6px;
+    padding: 0 6px 0 2px;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
 
-    &::placeholder { color: rgba(15, 23, 42, .35); }
+    &::placeholder { color: rgba(15, 23, 42, .55); }
     &:disabled { opacity: .55; }
+
+    /* Prevent browser autofill from overriding text/background */
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus {
+      -webkit-text-fill-color: $text;
+      -webkit-box-shadow: 0 0 0px 1000px #F0F4FA inset;
+      transition: background-color 9999s ease-in-out 0s;
+    }
   }
 }
 
@@ -428,24 +446,24 @@ $radius:  14px;
 /* Submit button */
 .submit-btn {
   width: 100%;
-  height: 52px;
+  height: 44px;
   border: 0;
-  border-radius: $radius;
-  background: linear-gradient(135deg, #1D4ED8 0%, $accent 50%, #3B82F6 100%);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1e3a6e 0%, #2563eb 100%);
   color: #fff;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 8px 28px rgba(37, 99, 235, .30);
+  box-shadow: 0 6px 22px rgba(14, 58, 110, .28);
   transition: all .25s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 40px rgba(37, 99, 235, .42);
-    background: linear-gradient(135deg, #1E40AF 0%, #2563EB 50%, #3B82F6 100%);
+    box-shadow: 0 14px 40px rgba(14, 58, 110, .42);
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
   }
 
-  &:active { transform: translateY(0); box-shadow: 0 6px 20px rgba(37, 99, 235, .28); }
+  &:active { transform: translateY(0); box-shadow: 0 6px 20px rgba(14, 58, 110, .28); }
   &:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
 }
 
@@ -555,8 +573,8 @@ $radius:  14px;
   .form-logo { height: 40px; }
   .form-brand .form-head h2 { font-size: 19px; }
   .form { gap: 14px; }
-  .field-input { height: 42px; }
-  .submit-btn { height: 46px; font-size: 14px; }
+  .field-input { height: 44px; }
+  .submit-btn { height: 44px; font-size: 13px; }
   .divider { margin: 14px 0 10px; }
   .trust-row { margin-top: 12px; }
 }
@@ -572,7 +590,7 @@ $radius:  14px;
   .form-brand { margin-bottom: 12px; }
   .form-logo { height: 36px; }
   .form { gap: 10px; }
-  .field-input { height: 40px; }
+  .field-input { height: 42px; }
   .submit-btn { height: 42px; }
   .divider { margin: 10px 0 8px; }
   .support-row { gap: 12px; }
@@ -611,11 +629,18 @@ $radius:  14px;
     min-height: 100dvh;
     overflow-y: auto;
     background: linear-gradient(175deg, #EEF2F9 0%, #F7F9FE 100%);
+    padding: 24px;
   }
 
   .mobile-brand { display: flex; }
+  .form-logo { display: none; }
+  .form-brand { gap: 0; }
 
   .form-card {
+    max-width: 560px;
+    width: 100%;
+    padding: 28px 24px 24px;
+    border-radius: 18px;
     box-shadow:
       0 16px 60px rgba(16, 24, 40, .12),
       0 2px 8px rgba(16, 24, 40, .06);
@@ -625,18 +650,21 @@ $radius:  14px;
 /* Large phones (landscape / phablets) */
 @media (max-width: 640px) {
   .form-panel { padding: 24px 18px; }
-  .form-card { padding: 30px 24px 24px; border-radius: 18px; }
+  .form-card { max-width: 100%; padding: 24px 20px; border-radius: 16px; }
+  .form-brand { gap: 10px; margin-bottom: 18px; }
+  .mobile-brand { gap: 8px; }
   .support-row { gap: 14px; }
 }
 
 /* Phones */
 @media (max-width: 480px) {
   .form-panel { padding: 16px 12px; }
-  .form-card { padding: 24px 18px 20px; border-radius: 16px; }
-  .form-head h2 { font-size: 20px; }
+  .form-card { padding: 16px; border-radius: 14px; }
+  .form-brand { gap: 8px; margin-bottom: 16px; }
+  .form-head h2 { font-size: clamp(22px, 6vw, 26px); }
   .form-logo { height: 40px; }
   .field-input { height: 44px; }
-  .submit-btn { height: 48px; font-size: 14px; }
+  .submit-btn { height: 44px; font-size: 14px; }
   .trust-row { gap: 6px; }
   .trust-pill { font-size: 10px; padding: 4px 8px; }
   .support-link { font-size: 11.5px; }
@@ -651,7 +679,7 @@ $radius:  14px;
   .form-logo { height: 36px; }
   .field-label { font-size: 12px; }
   .field-input { height: 42px; padding: 0 10px; }
-  .submit-btn { height: 44px; }
+  .submit-btn { height: 42px; }
   .forgot { font-size: 12px; }
   .remember { font-size: 12px; }
   .divider { margin: 16px 0 12px; }

@@ -3,13 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContractorDocumentEntity } from './entities/contractor-document.entity';
 import { BranchContractorEntity } from '../branches/entities/branch-contractor.entity';
+import { AuditEntity } from '../audits/entities/audit.entity';
+import { AuditObservationEntity } from '../audits/entities/audit-observation.entity';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
+import { ReqUser } from '../access/access-scope.service';
 
 export type ContractorDocumentCreateDto = {
   clientId?: string; // optional: will default to logged-in user's clientId
   branchId: string;
   docType: string;
   title: string;
+  month?: string | null; // YYYY-MM — which month this document belongs to
   auditId?: string | null;
   observationId?: string | null;
 };
@@ -33,13 +37,106 @@ export class ContractorDocumentsService {
     private readonly repo: Repository<ContractorDocumentEntity>,
     @InjectRepository(BranchContractorEntity)
     private readonly branchContractorRepo: Repository<BranchContractorEntity>,
+    @InjectRepository(AuditEntity)
+    private readonly auditRepo: Repository<AuditEntity>,
+    @InjectRepository(AuditObservationEntity)
+    private readonly observationRepo: Repository<AuditObservationEntity>,
     private readonly riskCache: AiRiskCacheInvalidatorService,
   ) {}
 
+  /**
+   * Validate that an audit (and optional observation) the contractor is
+   * attaching a document to actually belongs to the contractor's client +
+   * the requested branch (and, when the audit is contractor-scoped, to
+   * the same contractor). Prevents UUID-guessing cross-tenant attaches
+   * that would otherwise surface in another auditor's review list.
+   */
+  private async assertAuditScope(params: {
+    auditId: string | null | undefined;
+    observationId: string | null | undefined;
+    clientId: string;
+    branchId: string;
+    contractorUserId: string;
+  }): Promise<void> {
+    const { auditId, observationId, clientId, branchId, contractorUserId } =
+      params;
+    if (!auditId) {
+      if (observationId) {
+        throw new BadRequestException(
+          'observationId requires a matching auditId',
+        );
+      }
+      return;
+    }
+    const audit = await this.auditRepo.findOne({
+      where: { id: auditId },
+      select: ['id', 'clientId', 'branchId', 'contractorUserId'],
+    });
+    if (!audit) throw new BadRequestException('Audit not found');
+    if (audit.clientId !== clientId) {
+      throw new BadRequestException('Audit does not belong to this client');
+    }
+    if (audit.branchId && audit.branchId !== branchId) {
+      throw new BadRequestException('Audit does not belong to this branch');
+    }
+    if (
+      audit.contractorUserId &&
+      audit.contractorUserId !== contractorUserId
+    ) {
+      throw new BadRequestException(
+        'Audit is not assigned to this contractor',
+      );
+    }
+    if (observationId) {
+      const obs = await this.observationRepo.findOne({
+        where: { id: observationId },
+        select: ['id', 'auditId'],
+      });
+      if (!obs) throw new BadRequestException('Observation not found');
+      if (obs.auditId !== auditId) {
+        throw new BadRequestException(
+          'Observation does not belong to this audit',
+        );
+      }
+    }
+  }
+
+  /**
+   * Throws if the audit has an active upload lock window today.
+   *
+   * @param auditId       Audit the document is tied to (null = no lock check).
+   * @param opts.allowRejectedReupload
+   *                      If true, the lock is bypassed (item #10:
+   *                      contractors may always re-upload a previously
+   *                      REJECTED document, even while the audit window
+   *                      is locked, so that auditor-flagged corrections
+   *                      can be addressed without unlocking everything).
+   */
+  private async assertUploadNotLocked(
+    auditId: string | null | undefined,
+    opts?: { allowRejectedReupload?: boolean },
+  ): Promise<void> {
+    if (!auditId) return;
+    if (opts?.allowRejectedReupload) return;
+    const audit = await this.auditRepo.findOne({
+      where: { id: auditId },
+      select: ['id', 'uploadLockFrom', 'uploadLockUntil'],
+    });
+    if (!audit) return; // unknown audit — let the upload proceed
+    const { uploadLockFrom, uploadLockUntil } = audit;
+    if (!uploadLockFrom || !uploadLockUntil) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (today >= uploadLockFrom && today <= uploadLockUntil) {
+      throw new BadRequestException(
+        `Document uploads are locked by the auditor until ${uploadLockUntil}. Please wait for the lock period to end before uploading.`,
+      );
+    }
+  }
+
   async contractorUpload(
-    user: any,
+    user: ReqUser,
     dto: ContractorDocumentCreateDto,
-    file: any,
+    file: Express.Multer.File,
   ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {
@@ -67,6 +164,31 @@ export class ContractorDocumentsService {
       throw new BadRequestException('Contractor is not mapped to this branch');
     }
 
+    // Validate audit/observation scope before any further side-effects.
+    await this.assertAuditScope({
+      auditId: dto.auditId ?? null,
+      observationId: dto.observationId ?? null,
+      clientId,
+      branchId: dto.branchId,
+      contractorUserId: user.id,
+    });
+
+    // Check upload lock window for this audit (if provided)
+    await this.assertUploadNotLocked(dto.auditId);
+
+    // Resolve doc_month: use provided month or fall back to current YYYY-MM
+    let docMonth: string | null = null;
+    if (dto.month?.trim()) {
+      const m = dto.month.trim();
+      if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) {
+        docMonth = m;
+      }
+    }
+    if (!docMonth) {
+      const now = new Date();
+      docMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
+
     const row = this.repo.create({
       contractorUserId: user.id,
       clientId,
@@ -75,6 +197,7 @@ export class ContractorDocumentsService {
       title: dto.title,
       auditId: dto.auditId ?? null,
       observationId: dto.observationId ?? null,
+      docMonth,
       fileName: file.originalname,
       filePath: file.path,
       fileType: file.mimetype ?? null,
@@ -107,7 +230,7 @@ export class ContractorDocumentsService {
     };
   }
 
-  async contractorList(user: any, q: any) {
+  async contractorList(user: ReqUser, q: Record<string, string>) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {
       throw new BadRequestException('Contractor is not linked to a client');
@@ -158,7 +281,7 @@ export class ContractorDocumentsService {
   }
 
   /** CRM/Admin listing: can list any contractor's documents within a client. */
-  async listByClient(user: any, q: any) {
+  async listByClient(_user: ReqUser, q: Record<string, string>) {
     if (!q?.clientId) throw new BadRequestException('clientId is required');
 
     const qb = this.repo
@@ -208,7 +331,7 @@ export class ContractorDocumentsService {
   }
 
   async reviewDocument(
-    user: any,
+    user: ReqUser,
     id: string,
     dto: ContractorDocumentReviewDto,
   ) {
@@ -245,10 +368,10 @@ export class ContractorDocumentsService {
   }
 
   async contractorReupload(
-    user: any,
+    user: ReqUser,
     id: string,
     dto: ContractorDocumentReuploadDto,
-    file: any,
+    file: Express.Multer.File,
   ) {
     if (!user?.id) throw new BadRequestException('Invalid user');
     if (!user?.clientId) {
@@ -273,6 +396,12 @@ export class ContractorDocumentsService {
     if (!link) {
       throw new BadRequestException('Contractor is not mapped to this branch');
     }
+
+    // Item #10: re-uploads of REJECTED docs bypass the audit upload lock —
+    // contractors must always be able to address auditor-flagged corrections.
+    await this.assertUploadNotLocked(doc.auditId, {
+      allowRejectedReupload: doc.status === 'REJECTED',
+    });
 
     doc.fileName = file.originalname;
     doc.filePath = file.path;

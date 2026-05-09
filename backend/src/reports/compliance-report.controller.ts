@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
@@ -16,9 +17,9 @@ export class ComplianceReportController {
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM')
   @ApiOperation({ summary: 'Summary' })
   @Get()
-  async summary(@CurrentUser() user: any) {
+  async summary(@CurrentUser() user: ReqUser) {
     const role = user?.roleCode;
-    const params: any[] = [];
+    const params: unknown[] = [];
     let sql = 'SELECT * FROM vw_compliance_coverage';
 
     if (role === 'CRM') {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { SharedFilePreviewData } from './file-preview.model';
 
 @Component({
-  selector: 'file-metadata-header',
+  selector: 'ui-file-metadata-header',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -16,7 +16,7 @@ import { SharedFilePreviewData } from './file-preview.model';
             <span *ngIf="file?.status">Status: {{ file?.status }}</span>
             <span *ngIf="file?.uploadedAt">Uploaded: {{ file?.uploadedAt | date:'d MMM y, h:mm a' }}</span>
             <span *ngIf="file?.uploaderName">By: {{ file?.uploaderName }}</span>
-            <span *ngIf="file?.fileSize != null">Size: {{ formatSize(file?.fileSize) }}</span>
+            <span *ngIf="file?.fileSize !== null && file?.fileSize !== undefined">Size: {{ formatSize(file?.fileSize) }}</span>
             <span *ngIf="file?.dueDate">Due: {{ file?.dueDate | date:'d MMM y' }}</span>
           </div>
         </div>

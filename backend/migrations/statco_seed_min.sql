@@ -9,7 +9,8 @@ VALUES
   ('CRM','CRM', true),
   ('AUDITOR','Auditor', true),
   ('CLIENT','Client User', true),
-  ('CONTRACTOR','Contractor', true)
+  ('CONTRACTOR','Contractor', true),
+  ('SALES','Sales / Business Development', true)
 ON CONFLICT (code) DO NOTHING;
 
 -- NOTE: Sample clients removed. Add real clients via the Admin UI or dedicated migration.

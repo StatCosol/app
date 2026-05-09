@@ -2,7 +2,7 @@
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'entity-header-strip',
+  selector: 'ui-entity-header-strip',
   standalone: true,
   imports: [CommonModule],
   template: `

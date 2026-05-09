@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -12,9 +13,11 @@ import { AuditEntity } from './entities/audit.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { AiRiskCacheInvalidatorService } from '../ai/ai-risk-cache-invalidator.service';
 import { generateObservationsPdfBuffer } from './utils/observations-pdf';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class AuditorObservationsService {
+  private readonly logger = new Logger(AuditorObservationsService.name);
   constructor(
     @InjectRepository(AuditObservationEntity)
     private readonly observationRepo: Repository<AuditObservationEntity>,
@@ -46,7 +49,7 @@ export class AuditorObservationsService {
     return audit;
   }
 
-  async listForAuditor(user: any, auditId?: string) {
+  async listForAuditor(user: ReqUser, auditId?: string) {
     if (auditId) {
       await this.verifyAuditorAccess(user.userId, auditId);
       const observations = await this.observationRepo.find({
@@ -60,7 +63,7 @@ export class AuditorObservationsService {
     // Get all audits assigned to this auditor
     const assignments =
       await this.assignmentsService.getAssignedClientsForAuditor(user.userId);
-    const clientIds = assignments.map((c: any) => c.id);
+    const clientIds = assignments.map((c: { id: string }) => c.id);
 
     if (clientIds.length === 0) return [];
 
@@ -78,7 +81,7 @@ export class AuditorObservationsService {
     });
   }
 
-  async getOne(user: any, id: string) {
+  async getOne(user: ReqUser, id: string) {
     const observation = await this.observationRepo.findOne({
       where: { id },
       relations: ['category', 'audit'],
@@ -92,7 +95,7 @@ export class AuditorObservationsService {
   }
 
   async create(
-    user: any,
+    user: ReqUser,
     dto: {
       auditId: string;
       categoryId?: string;
@@ -142,12 +145,31 @@ export class AuditorObservationsService {
     // Invalidate risk cache — fetch audit for branchId
     const audit = await this.auditRepo.findOne({ where: { id: dto.auditId } });
     if (audit?.branchId)
-      this.riskCache.invalidateBranch(audit.branchId).catch(() => {});
+      this.riskCache
+        .invalidateBranch(audit.branchId)
+        .catch((e) =>
+          this.logger.warn('Risk cache invalidation failed', e?.message),
+        );
 
     return saved;
   }
 
-  async update(user: any, id: string, dto: any) {
+  async update(
+    user: ReqUser,
+    id: string,
+    dto: Partial<{
+      observation: string;
+      consequences: string | null;
+      complianceRequirements: string | null;
+      elaboration: string | null;
+      clause: string | null;
+      recommendation: string | null;
+      risk: string | null;
+      status: string;
+      categoryId: string | null;
+      evidenceFilePaths: string[];
+    }>,
+  ) {
     const observation = await this.getOne(user, id);
 
     if (dto.observation !== undefined)
@@ -173,20 +195,27 @@ export class AuditorObservationsService {
     if (observation.audit?.branchId)
       this.riskCache
         .invalidateBranch(observation.audit.branchId)
-        .catch(() => {});
+        .catch((e) =>
+          this.logger.warn('Risk cache invalidation failed', e?.message),
+        );
 
     return saved;
   }
 
-  async delete(user: any, id: string) {
+  async delete(user: ReqUser, id: string) {
     const observation = await this.getOne(user, id);
     const branchId = observation.audit?.branchId;
     await this.observationRepo.remove(observation);
-    if (branchId) this.riskCache.invalidateBranch(branchId).catch(() => {});
+    if (branchId)
+      this.riskCache
+        .invalidateBranch(branchId)
+        .catch((e) =>
+          this.logger.warn('Risk cache invalidation failed', e?.message),
+        );
     return { message: 'Observation deleted successfully' };
   }
 
-  async verifyClosure(user: any, id: string, remarks?: string) {
+  async verifyClosure(user: ReqUser, id: string, remarks?: string) {
     const observation = await this.getOne(user, id);
     const currentStatus = String(observation.status || '').toUpperCase();
     if (!['RESOLVED', 'ACKNOWLEDGED'].includes(currentStatus)) {
@@ -207,12 +236,14 @@ export class AuditorObservationsService {
     if (observation.audit?.branchId) {
       this.riskCache
         .invalidateBranch(observation.audit.branchId)
-        .catch(() => {});
+        .catch((e) =>
+          this.logger.warn('Risk cache invalidation failed', e?.message),
+        );
     }
     return saved;
   }
 
-  async reopen(user: any, id: string, remarks?: string) {
+  async reopen(user: ReqUser, id: string, remarks?: string) {
     const observation = await this.getOne(user, id);
     const currentStatus = String(observation.status || '').toUpperCase();
     if (!['CLOSED', 'RESOLVED'].includes(currentStatus)) {
@@ -233,7 +264,9 @@ export class AuditorObservationsService {
     if (observation.audit?.branchId) {
       this.riskCache
         .invalidateBranch(observation.audit.branchId)
-        .catch(() => {});
+        .catch((e) =>
+          this.logger.warn('Risk cache invalidation failed', e?.message),
+        );
     }
     return saved;
   }
@@ -243,8 +276,14 @@ export class AuditorObservationsService {
     return `${existing}\n${next}`;
   }
 
-  async exportPdf(user: any, auditId: string): Promise<Buffer> {
-    const audit = await this.verifyAuditorAccess(user.userId, auditId);
+  async exportPdf(user: ReqUser, auditId: string): Promise<Buffer> {
+    await this.verifyAuditorAccess(user.userId, auditId);
+
+    // Load client relation for name
+    const auditWithClient = await this.auditRepo.findOne({
+      where: { id: auditId },
+      relations: ['client'],
+    });
 
     const observations = await this.observationRepo.find({
       where: { auditId },
@@ -254,7 +293,7 @@ export class AuditorObservationsService {
 
     return generateObservationsPdfBuffer({
       auditId,
-      clientName: (audit as any).clientName ?? null,
+      clientName: auditWithClient?.client?.clientName ?? null,
       rows: observations.map((o) => ({
         sequenceNumber: o.sequenceNumber,
         observation: o.observation,

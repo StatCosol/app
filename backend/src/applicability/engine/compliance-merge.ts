@@ -18,9 +18,9 @@ export function strongerSource(
 }
 
 export function mergeExplain(
-  base: Record<string, any>,
-  add: Record<string, any>,
-): Record<string, any> {
+  base: Record<string, unknown>,
+  add: Record<string, unknown>,
+): Record<string, unknown> {
   const rules = [
     ...((base?.rules as string[]) ?? []),
     ...((add?.rules as string[]) ?? []),

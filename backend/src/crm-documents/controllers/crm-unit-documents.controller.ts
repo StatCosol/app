@@ -4,20 +4,25 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
-  Req,
   Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { CrmDocumentsService } from '../crm-documents.service';
 import { UploadCrmDocumentDto } from '../dto/upload-crm-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { ReqUser } from '../../access/access-scope.service';
+import {
+  makeSafeUploadOptions,
+  assertSafeFile,
+} from '../../common/safe-upload';
 
 /**
  * CRM-only controller for unit document uploads.
@@ -34,17 +39,15 @@ export class CrmUnitDocumentsController {
   @ApiOperation({ summary: 'File Interceptor' })
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async upload(
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadCrmDocumentDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    const doc = await this.svc.upload(dto, file, req.user.id);
+    assertSafeFile(file);
+    const doc = await this.svc.upload(dto, file, user.id);
     return {
       id: doc.id,
       fileName: doc.fileName,
@@ -55,10 +58,14 @@ export class CrmUnitDocumentsController {
   /** List documents (CRM sees only assigned clients) */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Req() req: any, @Query() query: any) {
-    return this.svc.listForCrm(req.user.id, {
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    return this.svc.listForCrm(user.id, {
       clientId: query.clientId,
       branchId: query.branchId,
+      scope: query.scope as 'COMPANY' | 'BRANCH' | undefined,
       month: query.month,
       lawCategory: query.lawCategory,
       documentType: query.documentType,
@@ -69,12 +76,12 @@ export class CrmUnitDocumentsController {
   @ApiOperation({ summary: 'Download' })
   @Get(':id/download')
   async download(
-    @Param('id') id: string,
-    @Req() req: any,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
     const { absolutePath, fileName, mimeType } =
-      await this.svc.getDocumentForDownload(id, req.user.id, 'CRM');
+      await this.svc.getDocumentForDownload(id, user.id, 'CRM');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(fileName)}"`,
@@ -86,8 +93,11 @@ export class CrmUnitDocumentsController {
   /** Soft-delete a document (CRM can delete own uploads) */
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
-  async remove(@Param('id') id: string, @Req() req: any) {
-    await this.svc.softDelete(id, req.user.id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    await this.svc.softDelete(id, user.id);
     return { deleted: true };
   }
 }

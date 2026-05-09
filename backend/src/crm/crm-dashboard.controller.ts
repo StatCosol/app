@@ -1,12 +1,23 @@
-import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CrmDashboardService } from './crm-dashboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  DashboardWindowQueryDto,
+  DashboardTabQueryDto,
+  DashboardBaseQueryDto,
+  DashboardStatusQueryDto,
+  DashboardBranchQueryDto,
+  DashboardLimitQueryDto,
+  DashboardDaysQueryDto,
+} from '../common/dto/dashboard-query.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /** Convert snake_case object keys to camelCase */
-function toCamel(obj: any): any {
+function toCamel(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(toCamel);
   if (obj !== null && typeof obj === 'object') {
     return Object.fromEntries(
@@ -23,7 +34,7 @@ function toCamel(obj: any): any {
  * CRM Dashboard Controller
  * Endpoints for CRM compliance owner dashboard
  * Requires CRM role
- * ⚠️ CRITICAL: All queries are scoped to CRM's assigned clients via req.user.id
+ * ⚠️ CRITICAL: All queries are scoped to CRM's assigned clients via user.id
  */
 @ApiTags('CRM')
 @ApiBearerAuth('JWT')
@@ -47,8 +58,11 @@ export class CrmDashboardController {
    */
   @ApiOperation({ summary: 'Get Summary' })
   @Get('summary')
-  async getSummary(@Req() req, @Query() query: any) {
-    const data = await this.dashboardService.getSummary(req.user.id, query);
+  async getSummary(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardWindowQueryDto,
+  ) {
+    const data = await this.dashboardService.getSummary(user.id, query);
     return toCamel(data);
   }
 
@@ -65,11 +79,11 @@ export class CrmDashboardController {
    */
   @ApiOperation({ summary: 'Get Due Compliances' })
   @Get('due-compliances')
-  async getDueCompliances(@Req() req, @Query() query: any) {
-    const rows = await this.dashboardService.getDueCompliances(
-      req.user.id,
-      query,
-    );
+  async getDueCompliances(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardTabQueryDto,
+  ) {
+    const rows = await this.dashboardService.getDueCompliances(user.id, query);
     return { items: toCamel(rows) };
   }
 
@@ -81,9 +95,12 @@ export class CrmDashboardController {
    */
   @ApiOperation({ summary: 'Get Low Coverage Branches' })
   @Get('low-coverage-branches')
-  async getLowCoverageBranches(@Req() req, @Query() query: any) {
+  async getLowCoverageBranches(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardBaseQueryDto,
+  ) {
     const rows = await this.dashboardService.getLowCoverageBranches(
-      req.user.id,
+      user.id,
       query,
     );
     return { items: toCamel(rows) };
@@ -103,8 +120,11 @@ export class CrmDashboardController {
    */
   @ApiOperation({ summary: 'Get Queries' })
   @Get('queries')
-  async getQueries(@Req() req, @Query() query: any) {
-    const rows = await this.dashboardService.getQueries(req.user.id, query);
+  async getQueries(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardStatusQueryDto,
+  ) {
+    const rows = await this.dashboardService.getQueries(user.id, query);
     return { items: toCamel(rows) };
   }
 
@@ -121,9 +141,12 @@ export class CrmDashboardController {
    */
   @ApiOperation({ summary: 'Get Pending Documents' })
   @Get('pending-documents')
-  async getPendingDocuments(@Req() req, @Query() query: any) {
+  async getPendingDocuments(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardBranchQueryDto,
+  ) {
     const rows = await this.dashboardService.getPendingDocuments(
-      req.user.id,
+      user.id,
       query,
     );
     return { items: toCamel(rows) };
@@ -134,44 +157,44 @@ export class CrmDashboardController {
   /** GET /api/v1/crm/dashboard/kpis — 8 KPI cards */
   @ApiOperation({ summary: 'Get Kpis' })
   @Get('kpis')
-  async getKpis(@Req() req) {
-    const data = await this.dashboardService.getKpis(req.user.id);
+  async getKpis(@CurrentUser() user: ReqUser) {
+    const data = await this.dashboardService.getKpis(user.id);
     return toCamel(data);
   }
 
   /** GET /api/v1/crm/dashboard/priority-today — urgent items */
   @ApiOperation({ summary: 'Get Priority Today' })
   @Get('priority-today')
-  async getPriorityToday(@Req() req, @Query() query: any) {
-    const limit = Math.min(parseInt(query.limit, 10) || 20, 50);
-    const rows = await this.dashboardService.getPriorityToday(
-      req.user.id,
-      limit,
-    );
+  async getPriorityToday(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardLimitQueryDto,
+  ) {
+    const limit = Math.min(query.limit || 20, 50);
+    const rows = await this.dashboardService.getPriorityToday(user.id, limit);
     return { items: toCamel(rows) };
   }
 
   /** GET /api/v1/crm/dashboard/top-risk-clients — ranked by compliance */
   @ApiOperation({ summary: 'Get Top Risk Clients' })
   @Get('top-risk-clients')
-  async getTopRiskClients(@Req() req, @Query() query: any) {
-    const limit = Math.min(parseInt(query.limit, 10) || 10, 50);
-    const rows = await this.dashboardService.getTopRiskClients(
-      req.user.id,
-      limit,
-    );
+  async getTopRiskClients(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardLimitQueryDto,
+  ) {
+    const limit = Math.min(query.limit || 10, 50);
+    const rows = await this.dashboardService.getTopRiskClients(user.id, limit);
     return { items: toCamel(rows) };
   }
 
   /** GET /api/v1/crm/dashboard/upcoming-audits — next N days */
   @ApiOperation({ summary: 'Get Upcoming Audits' })
   @Get('upcoming-audits')
-  async getUpcomingAudits(@Req() req, @Query() query: any) {
-    const days = Math.min(parseInt(query.days, 10) || 15, 90);
-    const rows = await this.dashboardService.getUpcomingAudits(
-      req.user.id,
-      days,
-    );
+  async getUpcomingAudits(
+    @CurrentUser() user: ReqUser,
+    @Query() query: DashboardDaysQueryDto,
+  ) {
+    const days = Math.min(query.days || 15, 90);
+    const rows = await this.dashboardService.getUpcomingAudits(user.id, days);
     return { items: toCamel(rows) };
   }
 }

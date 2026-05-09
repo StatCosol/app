@@ -2,7 +2,10 @@
   <ui-page-header
     title="Amendments Workspace"
     subtitle="Amendment queue with detail review, authority reference context, timeline, and movement controls">
-    <ui-button variant="secondary" size="sm" (clicked)="load(page)">Refresh</ui-button>
+    <div class="flex items-center gap-2">
+      <ui-button variant="secondary" size="sm" (clicked)="goBack()">← Back</ui-button>
+      <ui-button variant="secondary" size="sm" (clicked)="load(page)">Refresh</ui-button>
+    </div>
   </ui-page-header>
 
   <div class="summary-grid">
@@ -16,20 +19,20 @@
 
   <div class="filter-bar">
     <div class="filter-field">
-      <label>Month</label>
-      <input type="month" class="filter-input" [(ngModel)]="month" />
+      <label for="ca-month">Month</label>
+      <input autocomplete="off" id="ca-month" name="month" type="month" class="filter-input" [(ngModel)]="month" />
     </div>
     <div class="filter-field">
-      <label>Client</label>
-      <input type="text" class="filter-input" [(ngModel)]="clientId" placeholder="Client ID" />
+      <label for="ca-client-id">Client</label>
+      <input autocomplete="off" id="ca-client-id" name="clientId" type="text" class="filter-input" [(ngModel)]="clientId" placeholder="Client ID" />
     </div>
     <div class="filter-field">
-      <label>Branch</label>
-      <input type="text" class="filter-input" [(ngModel)]="branchId" placeholder="Branch ID" />
+      <label for="ca-branch-id">Branch</label>
+      <input autocomplete="off" id="ca-branch-id" name="branchId" type="text" class="filter-input" [(ngModel)]="branchId" placeholder="Branch ID" />
     </div>
     <div class="filter-field filter-field--wide">
-      <label>Search</label>
-      <input
+      <label for="ca-q">Search</label>
+      <input autocomplete="off" id="ca-q" name="q"
         type="text"
         class="filter-input"
         [(ngModel)]="q"
@@ -37,8 +40,8 @@
         (keyup.enter)="load(1)" />
     </div>
     <div class="filter-field">
-      <label>Sort</label>
-      <select class="filter-input" [(ngModel)]="sortMode" (change)="load(page)">
+      <label for="ca-sort-mode">Sort</label>
+      <select id="ca-sort-mode" name="sortMode" class="filter-input" [(ngModel)]="sortMode" (change)="load(page)">
         <option value="DUE_ASC">Due Date - Earliest</option>
         <option value="DUE_DESC">Due Date - Latest</option>
         <option value="UPDATED_DESC">Last Updated</option>
@@ -55,7 +58,7 @@
       <h3>Branch-wise Pending View</h3>
       <span>Click branch row to filter queue</span>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap max-h-[600px] overflow-y-auto">
       <table class="queue-table queue-table--compact">
         <thead>
           <tr>
@@ -104,7 +107,7 @@
         <h3>Amendment Queue</h3>
         <span>Page {{ page }} of {{ totalPages() }}</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap max-h-[600px] overflow-y-auto">
         <table class="queue-table">
           <thead>
             <tr>

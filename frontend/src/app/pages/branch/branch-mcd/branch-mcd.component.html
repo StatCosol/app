@@ -6,22 +6,24 @@
 
   <div class="toolbar">
     <div class="toolbar-group">
-      <label class="field-label">Month</label>
-      <select class="field-select" [(ngModel)]="selectedMonth" (change)="onPeriodChange()">
+      <label class="field-label" for="mcd-month">Month</label>
+      <select id="mcd-month" name="selectedMonth" class="field-select" [(ngModel)]="selectedMonth" (change)="onPeriodChange()">
         <option *ngFor="let month of months" [ngValue]="month.value">{{ month.label }}</option>
       </select>
     </div>
 
     <div class="toolbar-group">
-      <label class="field-label">Year</label>
-      <select class="field-select" [(ngModel)]="selectedYear" (change)="onPeriodChange()">
+      <label class="field-label" for="mcd-year">Year</label>
+      <select id="mcd-year" name="selectedYear" class="field-select" [(ngModel)]="selectedYear" (change)="onPeriodChange()">
         <option *ngFor="let year of years" [ngValue]="year">{{ year }}</option>
       </select>
     </div>
 
     <div class="toolbar-group toolbar-group--wide">
-      <label class="field-label">Search</label>
-      <input
+      <label class="field-label" for="mcd-search">Search</label>
+      <input autocomplete="off"
+        id="mcd-search"
+        name="searchTerm"
         class="field-input"
         type="text"
         placeholder="Search by return name, code, law area"
@@ -30,34 +32,35 @@
     </div>
 
     <div class="toolbar-group">
-      <label class="field-label">Status</label>
-      <select class="field-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
+      <label class="field-label" for="mcd-status">Status</label>
+      <select id="mcd-status" name="statusFilter" class="field-select" [(ngModel)]="statusFilter" (change)="applyFilters()">
         <option value="ALL">All items</option>
         <option value="PENDING_UPLOAD">Pending upload</option>
         <option value="QUERY_PENDING">Query pending</option>
         <option value="SUBMITTED">Submitted</option>
         <option value="APPROVED">Approved</option>
+        <option value="NOT_APPLICABLE">Not applicable</option>
       </select>
     </div>
 
     <div class="toolbar-group">
-      <label class="field-label">Law Area</label>
-      <select class="field-select" [(ngModel)]="lawAreaFilter" (change)="applyFilters()">
+      <label class="field-label" for="mcd-law-area">Law Area</label>
+      <select id="mcd-law-area" name="lawAreaFilter" class="field-select" [(ngModel)]="lawAreaFilter" (change)="applyFilters()">
         <option value="ALL">All law areas</option>
         <option *ngFor="let law of lawAreas" [value]="law">{{ law }}</option>
       </select>
     </div>
 
     <div class="toolbar-group">
-      <label class="field-label">Category</label>
-      <select class="field-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
+      <label class="field-label" for="mcd-category">Category</label>
+      <select id="mcd-category" name="categoryFilter" class="field-select" [(ngModel)]="categoryFilter" (change)="applyFilters()">
         <option value="ALL">All categories</option>
         <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
       </select>
     </div>
 
-    <button class="btn-refresh" (click)="load(selectedItem?.returnCode)">Refresh</button>
-    <button class="btn-refresh" (click)="exportMonthSheet()">Export Month Sheet</button>
+    <button type="button" class="btn-refresh" (click)="load(selectedItem?.returnCode)">Refresh</button>
+    <button type="button" class="btn-refresh" (click)="exportMonthSheet()">Export Month Sheet</button>
   </div>
 
   <div class="summary-grid">
@@ -102,6 +105,10 @@
     </div>
   </div>
 
+  <div *ngIf="errorMessage" class="error-banner">
+    ⚠ {{ errorMessage }}
+  </div>
+
   <div class="workbench">
     <section class="panel">
       <header class="panel-head">
@@ -127,16 +134,20 @@
           (click)="selectItem(item)">
           <div class="row-main">
             <span class="row-title">{{ item.returnName }}</span>
-            <span class="row-code">{{ item.returnCode }}</span>
-          </div>
-          <div class="row-sub">{{ item.lawArea }}<span *ngIf="item.category"> | {{ item.category }}</span></div>
-          <div class="row-status">
             <ui-status-badge [status]="statusOf(item)" size="sm"></ui-status-badge>
+          </div>
+          <div class="row-sub">
+            <span class="row-code">{{ item.returnCode }}</span>
+            <span class="row-separator">&middot;</span>
+            <span>{{ item.lawArea }}</span>
+            <span *ngIf="item.category"> | {{ item.category }}</span>
+          </div>
+          <div class="row-footer">
+            <span class="row-due">{{ dueLabel(item) }}</span>
             <span class="marker marker--due" *ngIf="isDueNow(item)">Due now</span>
             <span class="marker marker--query" *ngIf="isQueryPending(item)">Pending query</span>
             <span class="marker marker--overdue" *ngIf="isOverdue(item)">Overdue</span>
           </div>
-          <div class="row-due">{{ dueLabel(item) }}</div>
         </button>
       </div>
     </section>
@@ -199,6 +210,13 @@
             *ngIf="canUpload(item)"
             (click)="openUploadModal(item)">
             {{ statusOf(item) === 'REUPLOAD_REQUIRED' ? 'Reupload Document' : 'Upload Document' }}
+          </button>
+          <button
+            type="button"
+            class="btn-na"
+            *ngIf="canMarkNa(item)"
+            (click)="openNaModal(item)">
+            Mark Not Applicable
           </button>
           <button
             type="button"
@@ -265,8 +283,8 @@
       </div>
 
       <div class="upload-remarks">
-        <label class="field-label">Remarks (optional)</label>
-        <textarea
+        <label class="field-label" for="bm-upload-remarks">Remarks (optional)</label>
+        <textarea autocomplete="off" id="bm-upload-remarks" name="uploadRemarks"
           class="field-textarea"
           [(ngModel)]="uploadRemarks"
           rows="3"
@@ -277,6 +295,42 @@
         <button class="btn-secondary" type="button" (click)="closeUploadModal()">Cancel</button>
         <button class="btn-primary" type="button" [disabled]="!selectedFile || uploading" (click)="submitUpload()">
           {{ uploading ? 'Uploading...' : 'Upload' }}
+        </button>
+      </div>
+    </div>
+    <div slot="footer"></div>
+  </ui-modal>
+
+  <ui-modal
+    *ngIf="showNaModal"
+    [isOpen]="showNaModal"
+    [title]="'Mark Not Applicable: ' + (naTarget?.returnName || '')"
+    size="md"
+    (closed)="closeNaModal()">
+    <div class="upload-body">
+      <div class="upload-meta">
+        <strong>Return:</strong> {{ naTarget?.returnCode }}<br>
+        <strong>Period:</strong> {{ selectedMonthLabel }} {{ selectedYear }}
+      </div>
+
+      <div class="na-note">
+        This item will be marked as <strong>Not Applicable</strong> for this period.
+        Please provide a reason below.
+      </div>
+
+      <div class="upload-remarks">
+        <label class="field-label" for="bm-na-remarks">Reason / Remarks <span class="required">*</span></label>
+        <textarea autocomplete="off" id="bm-na-remarks" name="naRemarks"
+          class="field-textarea"
+          [(ngModel)]="naRemarks"
+          rows="3"
+          placeholder="Why is this item not applicable for this period?"></textarea>
+      </div>
+
+      <div class="upload-actions">
+        <button class="btn-secondary" type="button" (click)="closeNaModal()">Cancel</button>
+        <button class="btn-na" type="button" [disabled]="!naRemarks.trim() || markingNa" (click)="submitMarkNa()">
+          {{ markingNa ? 'Saving...' : 'Confirm Not Applicable' }}
         </button>
       </div>
     </div>

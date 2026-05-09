@@ -4,7 +4,10 @@ import {
   Get,
   MethodNotAllowedException,
   Post,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -20,7 +23,10 @@ import { Public } from './public.decorator';
 @ApiBearerAuth('JWT')
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Public()
   @ApiOperation({ summary: 'GET login not allowed (use POST)' })
@@ -33,8 +39,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Login with email and password' })
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.ip;
+    const userAgent = req.headers['user-agent'] || undefined;
+    return this.auth.login(dto, ip, userAgent);
   }
 
   @Public()
@@ -74,5 +84,13 @@ export class AuthController {
   @Throttle({ default: { ttl: 300000, limit: 5 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto);
+  }
+
+  @Public()
+  @ApiOperation({ summary: 'Get session configuration (idle timeout)' })
+  @Get('session-config')
+  getSessionConfig() {
+    const timeoutSec = this.config.get<number>('JWT_ACCESS_EXPIRES_SEC', 900);
+    return { idleTimeoutMs: timeoutSec * 1000 };
   }
 }

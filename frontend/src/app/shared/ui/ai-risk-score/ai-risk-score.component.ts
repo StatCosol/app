@@ -119,7 +119,7 @@ export class AiRiskScoreComponent implements OnChanges, OnDestroy {
         this.loading = false;
         this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.errorMsg = 'Failed to load risk score';
         this.loading = false;
         this.cdr.markForCheck();

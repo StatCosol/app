@@ -5,7 +5,7 @@
       <div class="card">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold text-gray-900">Inbox</h2>
-          <select class="rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light text-sm" [(ngModel)]="status" (change)="page = 1; loadInbox()">
+          <select id="i-status" name="inboxStatus" class="rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light text-sm" [(ngModel)]="status" (change)="page = 1; loadInbox()">
             <option value="all">All</option>
             <option value="OPEN">Open</option>
             <option value="IN_PROGRESS">In Progress</option>
@@ -16,7 +16,7 @@
         </div>
 
         <label class="flex items-center mb-3 text-sm" *ngIf="!adminAll">
-          <input type="checkbox" class="rounded border-gray-300 text-statco-blue focus:ring-statco-blue-light mr-2" [(ngModel)]="unreadOnly" (change)="page = 1; loadInbox()" />
+          <input autocomplete="off" id="i-unread-only" type="checkbox" name="unreadOnly" class="rounded border-gray-300 text-statco-blue focus:ring-statco-blue-light mr-2" [(ngModel)]="unreadOnly" (change)="page = 1; loadInbox()" />
           Unread only
         </label>
 
@@ -83,7 +83,7 @@
           </div>
 
           <div *ngIf="thread.status !== 'CLOSED'" class="border-t border-gray-200 pt-4">
-            <textarea
+            <textarea autocomplete="off" id="i-reply-text" name="replyText"
               class="w-full rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light mb-3"
               [(ngModel)]="replyText"
               rows="3"

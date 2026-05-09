@@ -11,12 +11,14 @@ import {
   DataTableComponent,
   TableCellDirective,
   TableColumn,
+  ClientContextStripComponent,
 } from '../../../shared/ui';
 import {
   ComplianceDocumentsService,
   ComplianceDocument,
   DocCategory,
 } from '../../../core/compliance-documents.service';
+import { CrmClientsApi, BranchDto } from '../../../core/api/crm-clients.api';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
@@ -31,6 +33,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     EmptyStateComponent,
     DataTableComponent,
     TableCellDirective,
+    ClientContextStripComponent,
   ],
   templateUrl: './crm-compliance-docs.component.html',
   styleUrls: ['./crm-compliance-docs.component.scss'],
@@ -46,6 +49,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
 
   readonly docColumns: TableColumn[] = [
     { key: 'title', header: 'Title' },
+    { key: 'branch', header: 'Branch' },
     { key: 'category', header: 'Category' },
     { key: 'period', header: 'Period' },
     { key: 'file', header: 'File' },
@@ -71,6 +75,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
   filters: any = {
     category: '',
     subCategory: '',
+    branchId: '',
     search: '',
   };
 
@@ -85,10 +90,11 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
   ];
 
   showUploadForm = false;
-  branches: any[] = [];
+  branches: BranchDto[] = [];
 
   constructor(
     private readonly docsSvc: ComplianceDocumentsService,
+    private readonly crmClients: CrmClientsApi,
     private readonly toast: ToastService,
     private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
@@ -101,6 +107,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
       if (params['clientId']) {
         this.clientId = params['clientId'];
         this.loadDocuments();
+        this.loadBranches();
       }
     });
     this.loadCategories();
@@ -118,6 +125,26 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  loadBranches() {
+    if (!this.clientId) return;
+    // CRM-scoped branches for this client — powers the upload-form selector
+    // and the list filter, replacing the legacy free-text Branch ID input.
+    this.crmClients.getBranchesForClient(this.clientId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => {
+          this.branches = Array.isArray(rows) ? rows : [];
+          this.cdr.detectChanges();
+        },
+        error: () => { this.branches = []; },
+      });
+  }
+
+  getBranchName(branchId: string | null | undefined): string {
+    if (!branchId) return 'All Branches';
+    return this.branches.find((b) => b.id === branchId)?.branchName || branchId;
   }
 
   onCategoryChange() {
@@ -207,6 +234,7 @@ export class CrmComplianceDocsComponent implements OnInit, OnDestroy {
     this.loading = true;
     const params: Record<string, any> = { clientId: this.clientId };
     if (this.filters.category) params['category'] = this.filters.category;
+    if (this.filters.branchId) params['branchId'] = this.filters.branchId;
     if (this.filters.search) params['search'] = this.filters.search;
 
     this.docsSvc

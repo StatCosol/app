@@ -25,13 +25,15 @@ export class ComplianceApplicabilityService {
     const branchRepo = this.ds.getRepository(BranchEntity);
     const complianceRepo = this.ds.getRepository(ComplianceMasterEntity);
 
-    const branch = await branchRepo.findOne({ where: { id: branchId } });
+    const branch = await branchRepo.findOne({
+      where: { id: branchId, isActive: true, isDeleted: false },
+    });
     if (!branch) throw new NotFoundException('Branch not found');
 
     // Fetch active compliances (ordered by name for deterministic upsert order)
     const compliances = await complianceRepo.find({
-      where: { isActive: true as any },
-      order: { complianceName: 'ASC' as any },
+      where: { isActive: true },
+      order: { complianceName: 'ASC' },
     });
 
     let updated = 0;
@@ -90,8 +92,7 @@ export class ComplianceApplicabilityService {
     branch: BranchEntity,
     compliance: ComplianceMasterEntity,
   ): Promise<ApplicabilityResult> {
-    const branchCategory =
-      (branch as any).branchCategory ?? branch.branchType ?? BranchType.HO;
+    const branchCategory = branch.branchType ?? BranchType.HO;
     const stateCode = branch.stateCode ?? null;
     const headcount = Number(branch.headcount ?? 0);
 
@@ -113,13 +114,11 @@ export class ComplianceApplicabilityService {
     }
 
     // 2) Fall back to compliance_master thresholds
-    const min = Number((compliance as any).minHeadcount ?? 0);
+    const min = Number(compliance.minHeadcount ?? 0);
     const max =
-      (compliance as any).maxHeadcount == null
-        ? null
-        : Number((compliance as any).maxHeadcount);
-    const stateScopeRaw = (compliance as any).stateScope ?? null; // e.g. 'ALL' or comma list
-    const lawFamily = (compliance as any).lawFamily ?? null; // e.g. 'FACTORY', 'S&E'
+      compliance.maxHeadcount == null ? null : Number(compliance.maxHeadcount);
+    const stateScopeRaw = compliance.stateScope ?? null; // e.g. 'ALL' or comma list
+    const lawFamily = compliance.lawFamily ?? null; // e.g. 'FACTORY', 'S&E'
 
     // Branch type gate based on lawFamily
     if (lawFamily === 'FACTORY' && branchCategory !== 'FACTORY') {

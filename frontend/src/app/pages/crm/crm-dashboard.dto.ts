@@ -19,6 +19,10 @@ export interface CrmKpis {
   reuploadOpenBranch?: number;
   reuploadSubmittedClient?: number;
   reuploadSubmittedBranch?: number;
+  /* CRM on-behalf upload stats */
+  onBehalfTotal?: number;
+  onBehalfApproved?: number;
+  onBehalfPending?: number;
 }
 
 export interface PriorityItem {

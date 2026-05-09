@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'rejection-reason-box',
+  selector: 'ui-rejection-reason-box',
   standalone: true,
   imports: [CommonModule],
   template: `

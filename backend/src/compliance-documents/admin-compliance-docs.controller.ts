@@ -6,14 +6,12 @@ import {
   Param,
   Post,
   Query,
-  Req,
   Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -21,6 +19,10 @@ import { Roles } from '../auth/roles.decorator';
 import { ComplianceDocumentsService } from './compliance-documents.service';
 import { UploadComplianceDocumentDto } from './dto/upload-compliance-document.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import { CacheControl } from '../common/decorators/cache-control.decorator';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
 @ApiTags('Compliance Documents')
 @ApiBearerAuth('JWT')
@@ -34,23 +36,21 @@ export class AdminComplianceDocsController {
   @ApiOperation({ summary: 'Upload' })
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileInterceptor('file', makeSafeUploadOptions({ memory: true, maxMb: 10 })),
   )
   async upload(
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadComplianceDocumentDto,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    return this.svc.upload(dto, file, req.user.id, 'ADMIN');
+    assertSafeFile(file);
+    return this.svc.upload(dto, file, user.id, 'ADMIN');
   }
 
   /** List documents for any client */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Query() query: any) {
+  async list(@Query() query: Record<string, string>) {
     return this.svc.listForAdmin({
       clientId: query.clientId,
       branchId: query.branchId,
@@ -65,6 +65,7 @@ export class AdminComplianceDocsController {
   /** Get document categories catalog */
   @ApiOperation({ summary: 'Get Categories' })
   @Get('categories')
+  @CacheControl(600)
   getCategories() {
     return this.svc.getCategories();
   }
@@ -72,6 +73,7 @@ export class AdminComplianceDocsController {
   /** Get sub-categories for a given category */
   @ApiOperation({ summary: 'Get Sub Categories' })
   @Get('categories/:category/sub')
+  @CacheControl(600)
   getSubCategories(@Param('category') category: string) {
     return this.svc.getSubCategories(category);
   }
@@ -81,11 +83,11 @@ export class AdminComplianceDocsController {
   @Get(':id/download')
   async download(
     @Param('id') id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
     const { absolutePath, fileName, mimeType } =
-      await this.svc.getDocumentForDownload(id, req.user.id, 'ADMIN');
+      await this.svc.getDocumentForDownload(id, user.id, 'ADMIN');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(fileName)}"`,
@@ -97,8 +99,8 @@ export class AdminComplianceDocsController {
   /** Soft delete a document */
   @ApiOperation({ summary: 'Remove' })
   @Delete(':id')
-  async remove(@Param('id') id: string, @Req() req: any) {
-    await this.svc.softDelete(id, req.user.id);
+  async remove(@Param('id') id: string, @CurrentUser() user: ReqUser) {
+    await this.svc.softDelete(id, user.id);
     return { message: 'Document deleted' };
   }
 }

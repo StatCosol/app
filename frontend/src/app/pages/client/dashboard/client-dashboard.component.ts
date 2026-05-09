@@ -6,6 +6,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -31,6 +32,10 @@ import {
   ComplianceTrendPoint,
 } from '../../../core/branch-compliance-doc.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
+import { ReturnsService } from '../../../core/returns.service';
+import { ComplianceCalendarItem } from '../../../core/models/returns.models';
+import { ComplianceCalendarWidgetComponent } from '../../../shared/components/compliance-calendar-widget/compliance-calendar-widget.component';
+import { ComplianceNotificationCenterComponent } from '../../../shared/components/compliance-notification-center/compliance-notification-center.component';
 // Skeleton loading handled via CSS (no spinner component needed)
 
 type ChartKey =
@@ -44,8 +49,9 @@ type ChartKey =
 
 @Component({
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-client-dashboard',
-  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent],
+  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })
@@ -73,7 +79,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   pfEsiSummary: PfEsiSummaryResponse | null = null;
   contractorSummary: ContractorUploadSummaryResponse | null = null;
 
-  branches: Array<{ id: string | number; name: string }> = [];
+  branches: Array<{ id: string | number; name?: string; branchName?: string }> = [];
   contractors: Array<{ id: string | number; name: string; branchId?: string | number }> = [];
   filteredContractorList: Array<{ id: string | number; name: string; branchId?: string | number }> = [];
 
@@ -100,6 +106,9 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   // ── Company Compliance Intelligence ──
   companySummary: any = null;
   exportingPack = false;
+
+  // ── Compliance Calendar ──
+  calendarItems: ComplianceCalendarItem[] = [];
 
   filters = {
     month: new Date().getMonth() + 1,
@@ -145,11 +154,14 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   readonly palette = {
-    green: '#16a34a',
+    green: '#10b981',
     amber: '#f59e0b',
     red: '#ef4444',
-    blue: '#2563eb',
-    gray: '#9ca3af',
+    blue: '#3b82f6',
+    indigo: '#6366f1',
+    gray: '#94a3b8',
+    teal: '#14b8a6',
+    rose: '#f43f5e',
   };
 
   get selectedBranchId(): string {
@@ -162,11 +174,13 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     private aiRisk: AiRiskApi,
     private complianceDocs: BranchComplianceDocService,
     private clientBranches: ClientBranchesService,
+    private returnsService: ReturnsService,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.load();
+    this.loadCalendar();
   }
 
   ngAfterViewInit(): void {
@@ -242,6 +256,9 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
           this.regSummary = res.regSummary;
           this.regAlerts = res.regAlerts || [];
           this.companySummary = res.companySummary;
+          if (!res.pfEsi && !res.contractor) {
+            this.errorMsg = 'Some dashboard widgets could not be loaded. Partial data shown.';
+          }
           this.branches = res.legitx.meta?.branches ?? [];
           this.contractors = res.legitx.meta?.contractors ?? [];
           this.updateFilteredContractors();
@@ -269,9 +286,7 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   onBranchChange(): void {
-    if (this.filters.branchId === 'ALL') {
-      this.filters.contractorId = 'ALL';
-    }
+    this.filters.contractorId = 'ALL';
     this.updateFilteredContractors();
     this.activeDetail = null;
     this.load();
@@ -314,13 +329,12 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.exportingPack = true;
     this.cdr.markForCheck();
 
-    this.clientBranches.getExportPack(monthStr).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (data: any) => {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    this.clientBranches.downloadExportPackXlsx(monthStr).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (blob: Blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `statcompy-report-${monthStr}.json`;
+        a.download = `compliance-report-${monthStr}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
         this.exportingPack = false;
@@ -383,6 +397,20 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
     }
   }
 
+  private loadCalendar(): void {
+    // clientId is resolved by backend from JWT; pass branchId filter if selected
+    const branchId = this.filters.branchId === 'ALL' ? undefined : String(this.filters.branchId);
+    this.returnsService.getComplianceCalendar('me', branchId)
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(() => of([] as ComplianceCalendarItem[])),
+      )
+      .subscribe(items => {
+        this.calendarItems = items || [];
+        this.cdr.markForCheck();
+      });
+  }
+
   private loadBranchRiskOverview(): void {
     this.riskSub?.unsubscribe();
     if (this.filters.branchId !== 'ALL') {
@@ -441,26 +469,32 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private renderComplianceTrend(): void {
     if (!this.complianceTrendChart || !this.data) return;
     const d = this.data.charts.complianceTrend;
+    const ctx = this.complianceTrendChart.nativeElement.getContext('2d')!;
+    const blueGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    blueGradient.addColorStop(0, 'rgba(59,130,246,0.25)');
+    blueGradient.addColorStop(1, 'rgba(59,130,246,0.02)');
     this.charts.complianceTrend = new Chart(this.complianceTrendChart.nativeElement, {
       type: 'line',
       data: {
         labels: d.labels,
         datasets: [
-          { data: d.overall, label: 'Overall %', borderColor: this.palette.blue, backgroundColor: 'rgba(37,99,235,0.12)', tension: 0.35, fill: true },
-          { data: d.branchAvg, label: 'Branch Avg %', borderColor: this.palette.green, backgroundColor: 'rgba(22,163,74,0.12)', tension: 0.35, fill: false },
-          { data: d.contractorAvg, label: 'Contractor Avg %', borderColor: this.palette.amber, backgroundColor: 'rgba(245,158,11,0.12)', tension: 0.35, fill: false },
+          { data: d.overall, label: 'Overall %', borderColor: this.palette.blue, backgroundColor: blueGradient, tension: 0.4, fill: true, borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#fff', pointBorderWidth: 2 },
+          { data: d.branchAvg, label: 'Branch Avg %', borderColor: this.palette.green, backgroundColor: 'rgba(16,185,129,0.08)', tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderDash: [6, 3] },
+          { data: d.contractorAvg, label: 'Contractor Avg %', borderColor: this.palette.amber, backgroundColor: 'rgba(245,158,11,0.08)', tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderDash: [6, 3] },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        interaction: { intersect: false, mode: 'index' },
         plugins: {
-          legend: { position: 'bottom' },
-          tooltip: { intersect: false, mode: 'index' },
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } } },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', titleFont: { size: 13 }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8, displayColors: true, boxPadding: 4 },
         },
         scales: {
-          y: { min: 0, max: 100, ticks: { callback: (v) => `${v}%` } },
-          x: { grid: { display: false } },
+          y: { min: 0, max: 100, ticks: { callback: (v) => `${v}%`, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
         },
       },
     });
@@ -474,18 +508,22 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       data: {
         labels: d.labels,
         datasets: [
-          { label: 'Done', data: d.done, backgroundColor: this.palette.green, stack: 's' },
-          { label: 'Pending', data: d.pending, backgroundColor: this.palette.amber, stack: 's' },
-          { label: 'Overdue', data: d.overdue, backgroundColor: this.palette.red, stack: 's' },
+          { label: 'Done', data: d.done, backgroundColor: this.palette.green, stack: 's', borderRadius: 4 },
+          { label: 'Pending', data: d.pending, backgroundColor: this.palette.amber, stack: 's', borderRadius: 4 },
+          { label: 'Overdue', data: d.overdue, backgroundColor: this.palette.red, stack: 's', borderRadius: 4 },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 12 } } },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', padding: 12, cornerRadius: 8, boxPadding: 4 },
+        },
         scales: {
-          x: { stacked: true, grid: { display: false } },
-          y: { stacked: true, beginAtZero: true },
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 } } },
         },
       },
     });
@@ -494,20 +532,25 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
   private renderBranchRank(): void {
     if (!this.branchRankChart || !this.data) return;
     const d = this.data.charts.branchComplianceRanking;
+    const barColors = d.values.map((v: number) => v >= 80 ? this.palette.green : v >= 50 ? this.palette.amber : this.palette.red);
     this.charts.branchRank = new Chart(this.branchRankChart.nativeElement, {
       type: 'bar',
       data: {
         labels: d.labels,
-        datasets: [{ data: d.values, label: 'Compliance %', backgroundColor: this.palette.blue }],
+        datasets: [{ data: d.values, label: 'Compliance %', backgroundColor: barColors, borderRadius: 6 }],
       },
       options: {
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', padding: 12, cornerRadius: 8, callbacks: { label: (ctx) => `${ctx.parsed.x}%` } },
+        },
         scales: {
-          x: { min: 0, max: 100, ticks: { callback: (v) => `${v}%` } },
-          y: { grid: { display: false } },
+          x: { min: 0, max: 100, ticks: { callback: (v) => `${v}%`, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          y: { grid: { display: false }, ticks: { font: { size: 11 } } },
         },
       },
     });
@@ -520,13 +563,22 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       type: 'doughnut',
       data: {
         labels: ['Completed', 'Pending', 'Overdue'],
-        datasets: [{ data: [a.completed, a.pending, a.overdue], backgroundColor: [this.palette.green, this.palette.blue, this.palette.red] }],
+        datasets: [{
+          data: [a.completed, a.pending, a.overdue],
+          backgroundColor: [this.palette.green, this.palette.blue, this.palette.red],
+          borderWidth: 0,
+          spacing: 3,
+        }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '70%',
-        plugins: { legend: { position: 'bottom' } },
+        cutout: '72%',
+        animation: { animateRotate: true, duration: 800, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } } },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', padding: 12, cornerRadius: 8 },
+        },
       },
     });
   }
@@ -541,15 +593,21 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
         datasets: [
           {
             data: [p.pendingQueries, p.pfPendingEmployees, p.esiPendingEmployees, p.pendingFF, p.completedFF],
-            backgroundColor: [this.palette.red, this.palette.amber, '#d97706', this.palette.blue, this.palette.green],
+            backgroundColor: [this.palette.rose, this.palette.amber, '#d97706', this.palette.indigo, this.palette.green],
+            borderWidth: 0,
+            spacing: 3,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '65%',
-        plugins: { legend: { position: 'bottom' } },
+        cutout: '72%',
+        animation: { animateRotate: true, duration: 800, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11 } } },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', padding: 12, cornerRadius: 8 },
+        },
       },
     });
   }
@@ -562,19 +620,23 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       data: {
         labels: e.labels,
         datasets: [
-          { label: 'Active', data: e.active, backgroundColor: this.palette.blue, stack: 's' },
-          { label: 'Joiners', data: e.joiners, backgroundColor: this.palette.green, stack: 's' },
-          { label: 'Left', data: e.left, backgroundColor: this.palette.gray, stack: 's' },
-          { label: 'Absconded', data: e.absconded, backgroundColor: this.palette.red, stack: 's' },
+          { label: 'Active', data: e.active, backgroundColor: this.palette.blue, stack: 's', borderRadius: 4 },
+          { label: 'Joiners', data: e.joiners, backgroundColor: this.palette.green, stack: 's', borderRadius: 4 },
+          { label: 'Left', data: e.left, backgroundColor: this.palette.gray, stack: 's', borderRadius: 4 },
+          { label: 'Absconded', data: e.absconded, backgroundColor: this.palette.red, stack: 's', borderRadius: 4 },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'rectRounded', padding: 16, font: { size: 12 } } },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', padding: 12, cornerRadius: 8, boxPadding: 4 },
+        },
         scales: {
-          x: { stacked: true, grid: { display: false } },
-          y: { stacked: true, beginAtZero: true },
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 } } },
         },
       },
     });
@@ -587,15 +649,19 @@ export class ClientDashboardComponent implements OnInit, AfterViewInit, OnDestro
       type: 'bar',
       data: {
         labels: d.labels,
-        datasets: [{ data: d.values, label: 'Contractors', backgroundColor: this.palette.blue }],
+        datasets: [{ data: d.values, label: 'Contractors', backgroundColor: this.palette.indigo, borderRadius: 6, barPercentage: 0.7 }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        animation: { duration: 700, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: 'rgba(15,23,42,0.9)', padding: 12, cornerRadius: 8 },
+        },
         scales: {
-          x: { grid: { display: false } },
-          y: { beginAtZero: true },
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 } } },
         },
       },
     });

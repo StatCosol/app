@@ -45,7 +45,7 @@ export class AuditorObservationsComponent implements OnInit, OnDestroy {
   branchResponseDraft = '';
   capaDraft = '';
 
-  readonly statusOptions = ['', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'CLOSED'];
+  readonly statusOptions = ['', 'OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
   readonly riskOptions = ['', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
   constructor(

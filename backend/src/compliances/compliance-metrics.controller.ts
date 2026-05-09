@@ -4,16 +4,19 @@ import {
   Post,
   Body,
   Query,
-  Req,
+  Res,
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { BranchAccessService } from '../auth/branch-access.service';
 import { ComplianceMetricsService } from './compliance-metrics.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Compliance')
 @ApiBearerAuth('JWT')
@@ -38,9 +41,9 @@ export class ComplianceMetricsController {
   async completion(
     @Query('month') month: string,
     @Query('branchId') branchId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -50,8 +53,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getCompletion({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
       branchId: branchId || undefined,
     });
@@ -73,14 +76,14 @@ export class ComplianceMetricsController {
   async trend(
     @Query('branchId') branchId: string,
     @Query('months') months: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
     return this.metrics.getCompletionTrend({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       branchId,
       months: Number(months) || 6,
     });
@@ -96,9 +99,9 @@ export class ComplianceMetricsController {
   async riskScore(
     @Query('month') month: string,
     @Query('branchId') branchId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -108,8 +111,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getRiskScore({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
       branchId: branchId || undefined,
     });
@@ -125,9 +128,9 @@ export class ComplianceMetricsController {
   async riskRanking(
     @Query('month') month: string,
     @Query('limit') limit: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -137,8 +140,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getRiskRanking({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
       limit: limit ? Number(limit) : 10,
     });
@@ -151,8 +154,8 @@ export class ComplianceMetricsController {
    */
   @ApiOperation({ summary: 'Heatmap' })
   @Get('risk-heatmap')
-  async heatmap(@Query('month') month: string, @Req() req: any) {
-    if (req.user.roleCode === 'AUDITOR') {
+  async heatmap(@Query('month') month: string, @CurrentUser() user: ReqUser) {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -162,8 +165,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getRiskHeatmap({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
     });
   }
@@ -173,9 +176,9 @@ export class ComplianceMetricsController {
   async lowestBranches(
     @Query('month') month: string,
     @Query('limit') limit: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -185,8 +188,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getLowestBranches({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
       limit: limit ? Number(limit) : 10,
     });
@@ -203,9 +206,9 @@ export class ComplianceMetricsController {
   async actionPlan(
     @Query('month') month: string,
     @Query('branchId') branchId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -215,8 +218,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getActionPlan({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
       branchId: branchId || '',
     });
@@ -232,14 +235,14 @@ export class ComplianceMetricsController {
   async forecast(
     @Query('branchId') branchId: string,
     @Query('monthsHistory') monthsHistory: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
     return this.metrics.getRiskForecast({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       branchId,
       monthsHistory: Number(monthsHistory) || 6,
     });
@@ -256,9 +259,9 @@ export class ComplianceMetricsController {
   async summary(
     @Query('month') month: string,
     @Query('branchId') branchId: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -268,8 +271,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getSummary({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
       branchId: branchId || undefined,
     });
@@ -282,8 +285,8 @@ export class ComplianceMetricsController {
    */
   @ApiOperation({ summary: 'Benchmark' })
   @Get('benchmark')
-  async benchmark(@Query('month') month: string, @Req() req: any) {
-    if (req.user.roleCode === 'AUDITOR') {
+  async benchmark(@Query('month') month: string, @CurrentUser() user: ReqUser) {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -293,8 +296,8 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getBenchmark({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
     });
   }
@@ -316,21 +319,18 @@ export class ComplianceMetricsController {
       expiringRegistrations: boolean;
       highCritical: number;
     },
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ) {
-    if (req.user.roleCode === 'AUDITOR') {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
-    if (body.branchId && req.user.roleCode === 'CLIENT') {
-      await this.branchAccess.assertBranchAccess(
-        req.user.userId,
-        body.branchId,
-      );
+    if (body.branchId && user.roleCode === 'CLIENT') {
+      await this.branchAccess.assertBranchAccess(user.userId, body.branchId);
     }
 
     return this.metrics.simulateRisk({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month: body.month,
       branchId: body.branchId,
       completionPercent: body.completionPercent ?? 100,
@@ -347,8 +347,11 @@ export class ComplianceMetricsController {
    */
   @ApiOperation({ summary: 'Export Pack' })
   @Get('export-pack')
-  async exportPack(@Query('month') month: string, @Req() req: any) {
-    if (req.user.roleCode === 'AUDITOR') {
+  async exportPack(
+    @Query('month') month: string,
+    @CurrentUser() user: ReqUser,
+  ) {
+    if (user.roleCode === 'AUDITOR') {
       throw new ForbiddenException('Auditor not allowed');
     }
 
@@ -358,9 +361,48 @@ export class ComplianceMetricsController {
     }
 
     return this.metrics.getExportPack({
-      clientId: req.user.clientId,
-      user: req.user,
+      clientId: user.clientId!,
+      user: user,
       month,
     });
+  }
+
+  /**
+   * GET /api/v1/compliance/export-pack/xlsx?month=YYYY-MM
+   *
+   * Executive report pack as downloadable XLSX file.
+   */
+  @ApiOperation({ summary: 'Export Pack XLSX' })
+  @Get('export-pack/xlsx')
+  async exportPackXlsx(
+    @Query('month') month: string,
+    @CurrentUser() user: ReqUser,
+    @Res() res: Response,
+  ) {
+    if (user.roleCode === 'AUDITOR') {
+      throw new ForbiddenException('Auditor not allowed');
+    }
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      const now = new Date();
+      month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    const data = await this.metrics.getExportPack({
+      clientId: user.clientId!,
+      user: user,
+      month,
+    });
+
+    const buffer = await this.metrics.buildExportPackXlsx(data, month);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="compliance-report-${month}.xlsx"`,
+    );
+    res.end(buffer);
   }
 }

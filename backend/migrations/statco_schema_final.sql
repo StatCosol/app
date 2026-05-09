@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS client_assignments_history (
 
 CREATE TABLE IF NOT EXISTS compliance_master (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code varchar(120) NOT NULL,
   compliance_name varchar(250) NOT NULL,
   law_name varchar(250) NOT NULL,
   law_family varchar(100) NOT NULL,
@@ -188,6 +189,7 @@ CREATE TABLE IF NOT EXISTS compliance_master (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_compliance_master_code ON compliance_master(code);
 
 CREATE TABLE IF NOT EXISTS compliance_applicability (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -358,4 +360,3 @@ CREATE TABLE IF NOT EXISTS deletion_audit (
   remarks text NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-

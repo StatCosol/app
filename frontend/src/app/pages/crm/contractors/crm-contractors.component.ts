@@ -6,13 +6,13 @@ import { finalize, takeUntil, timeout } from 'rxjs/operators';
 import { CrmContractorsService } from '../../../core/crm-contractors.service';
 import { CrmService } from '../../../core/crm.service';
 import { ActivatedRoute } from '@angular/router';
-import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, TableColumn } from '../../../shared/ui';
+import { PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, TableColumn, ClientContextStripComponent } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   standalone: true,
   selector: 'app-crm-contractors',
-  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective],
+  imports: [CommonModule, FormsModule, PageHeaderComponent, LoadingSpinnerComponent, ActionButtonComponent, DataTableComponent, TableCellDirective, ClientContextStripComponent],
   templateUrl: './crm-contractors.component.html',
   styleUrls: ['./crm-contractors.component.scss'],
 })
@@ -22,12 +22,13 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   contractors: any[] = [];
 
   readonly contractorColumns: TableColumn[] = [
-    { key: 'userCode', header: 'User Code' },
-    { key: 'name', header: 'Name' },
-    { key: 'email', header: 'Email' },
-    { key: 'mobile', header: 'Mobile' },
-    { key: 'clientName', header: 'Client' },
-    { key: 'status', header: 'Status' },
+    { key: 'userCode', header: 'User Code', width: '12%' },
+    { key: 'name', header: 'Name', width: '16%' },
+    { key: 'email', header: 'Email', width: '20%' },
+    { key: 'mobile', header: 'Mobile', width: '16%' },
+    { key: 'clientName', header: 'Client', width: '24%' },
+    { key: 'status', header: 'Status', width: '10%' },
+    { key: 'actions', header: 'Actions', width: '14%', align: 'center' },
   ];
   myClients: any[] = [];
   showForm = false;
@@ -40,9 +41,15 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     password: '',
     clientId: '',
     branchIds: [] as string[],
+    scheduledEmployment: '',
   };
 
   registrationResult: any = null;
+  quoteUploadFor: any = null;
+  quoteFile: File | null = null;
+  quoteEffectiveFrom = new Date().toISOString().slice(0, 10);
+  quoteUploading = false;
+  quoteUploadResult: any = null;
 
   constructor(
     private contractorApi: CrmContractorsService,
@@ -74,7 +81,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
 
   loadContractors() {
     this.loading = true;
-    this.contractorApi.listMyContractors().pipe(
+    this.contractorApi.listMyContractors(this.clientId).pipe(
       takeUntil(this.destroy$),
       timeout(10000),
       finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
@@ -98,6 +105,7 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       password: this.generatePassword(),
       clientId: this.clientId || '',
       branchIds: [],
+      scheduledEmployment: '',
     };
   }
 
@@ -110,7 +118,24 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
       password: '',
       clientId: this.clientId || '',
       branchIds: [],
+      scheduledEmployment: '',
     };
+  }
+
+  get emailError(): string {
+    const v = (this.form.email || '').trim();
+    if (!v) return '';
+    if (!v.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Please enter a valid email address';
+    return '';
+  }
+
+  get mobileError(): string {
+    const v = (this.form.mobile || '').trim();
+    if (!v) return '';
+    const cleaned = v.replace(/[\s-]/g, '');
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Mobile must include country code + 10 digits (e.g. +919876543210)';
+    return '';
   }
 
   generatePassword(): string {
@@ -125,6 +150,14 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   registerContractor() {
     if (!this.form.name || !this.form.email || !this.form.password || !this.form.clientId) {
       this.toast.warning('Name, Email, Password, and Client are required');
+      return;
+    }
+    if (this.emailError) {
+      this.toast.warning(this.emailError);
+      return;
+    }
+    if (this.mobileError) {
+      this.toast.warning(this.mobileError);
       return;
     }
 
@@ -147,6 +180,48 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   closeCredentials() {
     this.registrationResult = null;
     this.cancelForm();
+  }
+
+  openQuoteUpload(contractor: any) {
+    this.quoteUploadFor = contractor;
+    this.quoteFile = null;
+    this.quoteUploadResult = null;
+    this.quoteEffectiveFrom = new Date().toISOString().slice(0, 10);
+  }
+
+  closeQuoteUpload() {
+    this.quoteUploadFor = null;
+    this.quoteFile = null;
+    this.quoteUploadResult = null;
+    this.quoteUploading = false;
+  }
+
+  onQuoteFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.quoteFile = input.files?.[0] ?? null;
+  }
+
+  uploadQuote() {
+    if (!this.quoteUploadFor?.id || !this.quoteUploadFor?.clientId || !this.quoteFile) {
+      this.toast.warning('Select quotation Excel file');
+      return;
+    }
+    this.quoteUploading = true;
+    this.contractorApi.uploadQuotationWages({
+      clientId: this.quoteUploadFor.clientId,
+      contractorUserId: this.quoteUploadFor.id,
+      effectiveFrom: this.quoteEffectiveFrom,
+      file: this.quoteFile,
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.quoteUploading = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => {
+        this.quoteUploadResult = res;
+        this.toast.success(`Quotation uploaded: ${res.inserted || 0} inserted, ${res.updated || 0} updated`);
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Quotation upload failed'),
+    });
   }
 
   ngOnDestroy(): void {

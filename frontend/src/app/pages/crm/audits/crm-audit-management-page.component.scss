@@ -66,19 +66,23 @@
 }
 
 .th {
-  padding: 0.7rem 0.8rem;
-  font-size: 0.72rem;
+  padding: 0.5rem 0.55rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-align: left;
   white-space: nowrap;
 }
 
 .td {
-  padding: 0.7rem 0.8rem;
+  padding: 0.5rem 0.55rem;
   border-top: 1px solid #f1f5f9;
-  vertical-align: top;
+  vertical-align: middle;
   color: #111827;
+}
+
+.td-actions {
+  white-space: nowrap;
 }
 
 .row-selected {
@@ -98,10 +102,11 @@
   border: 1px solid #e5e7eb;
   background: #fff;
   color: #374151;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1;
-  padding: 0.35rem 0.45rem;
-  border-radius: 0.45rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.4rem;
+  white-space: nowrap;
 }
 
 .status-action-btn:hover {
@@ -163,6 +168,23 @@
 .report-chip--muted {
   background: #e5e7eb;
   color: #374151;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
 }
 
 .table-overlay {

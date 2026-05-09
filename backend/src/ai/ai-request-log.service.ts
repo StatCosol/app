@@ -8,6 +8,9 @@ import {
 } from './entities/ai-request.entity';
 import { AiResponseEntity } from './entities/ai-response.entity';
 
+type RequestPayload = AiRequestEntity['requestPayload'];
+type ResponsePayload = AiResponseEntity['responseJson'];
+
 /**
  * Logs every AI call into ai_requests + ai_responses for audit trail.
  */
@@ -27,7 +30,7 @@ export class AiRequestLogService {
     module: AiRequestModule;
     entityType?: string;
     entityId?: string;
-    payload: Record<string, any>;
+    payload: RequestPayload;
     createdBy?: string;
     tenantId?: string;
   }): Promise<AiRequestEntity> {
@@ -55,7 +58,7 @@ export class AiRequestLogService {
   async saveResponse(params: {
     aiRequestId: string;
     responseText?: string;
-    responseJson: Record<string, any>;
+    responseJson: ResponsePayload;
     confidence?: number;
     tokensUsed?: number;
     model?: string;
@@ -74,7 +77,7 @@ export class AiRequestLogService {
   /** Complete a request: mark DONE + save response in one call */
   async completeRequest(
     requestId: string,
-    responseJson: Record<string, any>,
+    responseJson: ResponsePayload,
     meta?: {
       confidence?: number;
       tokensUsed?: number;

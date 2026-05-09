@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'status-chip',
+  selector: 'ui-status-chip',
   standalone: true,
   imports: [CommonModule],
   template: `<span class="chip" [ngClass]="klass">{{ label }}</span>`,

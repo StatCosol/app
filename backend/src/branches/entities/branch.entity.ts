@@ -7,13 +7,15 @@ import {
   ManyToMany,
   UpdateDateColumn,
 } from 'typeorm';
-import { BranchType } from '../../common/enums';
 import { UserEntity } from '../../users/entities/user.entity';
 
 @Entity('client_branches')
 export class BranchEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'branch_code', type: 'varchar', length: 50, unique: true })
+  branchCode: string;
 
   @Index('IDX_BRANCHES_CLIENTID')
   @Column({ name: 'clientid', type: 'uuid' })
@@ -61,6 +63,20 @@ export class BranchEntity {
 
   @Column({ name: 'status', type: 'character varying', default: 'ACTIVE' })
   status: string;
+
+  /**
+   * Branch-specific PF establishment code. When set, PF ECR generation runs
+   * per branch and embeds this code; when null, the client-wide code is used
+   * and a single consolidated file is produced.
+   */
+  @Column({ name: 'pf_code', type: 'varchar', length: 40, nullable: true })
+  pfCode: string | null;
+
+  /**
+   * Branch-specific ESI sub/establishment code. Same semantics as pfCode.
+   */
+  @Column({ name: 'esi_code', type: 'varchar', length: 40, nullable: true })
+  esiCode: string | null;
 
   @CreateDateColumn({ name: 'createdat', type: 'timestamptz' })
   createdAt: Date;

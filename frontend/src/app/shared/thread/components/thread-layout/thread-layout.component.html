@@ -8,11 +8,11 @@
       <app-thread-filters (changed)="onFiltersChange($event)"></app-thread-filters>
 
       <div class="p-3">
-        <thread-inbox-list
+        <ui-thread-inbox-list
           [items]="inboxItems"
           [selectedId]="selectedId || ''"
           (selected)="selectInboxItem($event)">
-        </thread-inbox-list>
+        </ui-thread-inbox-list>
       </div>
 
       <div *ngIf="page && page.total > (filters.limit || 20)"
@@ -68,8 +68,8 @@
               <h3 class="text-base font-semibold text-gray-900 truncate">{{ selected.subject }}</h3>
               <div class="flex flex-wrap items-center gap-2 mt-1">
                 <span class="text-xs px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-600">{{ selected.type }}</span>
-                <status-chip [status]="selected.status"></status-chip>
-                <priority-chip [priority]="selectedListItem?.priority || 'LOW'"></priority-chip>
+                <ui-status-chip [status]="selected.status"></ui-status-chip>
+                <ui-priority-chip [priority]="selectedListItem?.priority || 'LOW'"></ui-priority-chip>
               </div>
             </div>
 
@@ -88,11 +88,11 @@
         </div>
 
         <div class="px-4 py-4 space-y-4 overflow-y-auto" style="max-height: 50vh;">
-          <thread-message-panel [messages]="selectedMessages"></thread-message-panel>
+          <ui-thread-message-panel [messages]="selectedMessages"></ui-thread-message-panel>
 
           <div>
             <div class="text-xs font-semibold text-gray-500 uppercase mb-2">Activity Timeline</div>
-            <shared-timeline [events]="selectedTimeline" emptyMessage="No timeline entries."></shared-timeline>
+            <ui-shared-timeline [events]="selectedTimeline" emptyMessage="No timeline entries."></ui-shared-timeline>
           </div>
         </div>
 

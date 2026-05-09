@@ -43,34 +43,34 @@ import {
       <!-- Filters -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Entity Type</label>
-          <select [(ngModel)]="filters.entityType"
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1" for="aal-entity-type">Entity Type</label>
+          <select id="aal-entity-type" name="entityType" [(ngModel)]="filters.entityType"
                   class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
             <option value="">All</option>
             <option *ngFor="let t of entityTypes" [value]="t">{{ t }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Action</label>
-          <select [(ngModel)]="filters.action"
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1" for="aal-action">Action</label>
+          <select id="aal-action" name="action" [(ngModel)]="filters.action"
                   class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
             <option value="">All</option>
             <option *ngFor="let a of actions" [value]="a">{{ a }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Entity ID</label>
-          <input type="text" [(ngModel)]="filters.entityId" placeholder="UUID or partial..."
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1" for="aal-entity-id">Entity ID</label>
+          <input autocomplete="off" id="aal-entity-id" name="entityId" type="text" [(ngModel)]="filters.entityId" placeholder="UUID or partial..."
                  class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">From</label>
-          <input type="date" [(ngModel)]="filters.from"
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1" for="aal-from">From</label>
+          <input autocomplete="off" id="aal-from" name="from" type="date" [(ngModel)]="filters.from"
                  class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm" />
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">To</label>
-          <input type="date" [(ngModel)]="filters.to"
+          <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1" for="aal-to">To</label>
+          <input autocomplete="off" id="aal-to" name="to" type="date" [(ngModel)]="filters.to"
                  class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm" />
         </div>
         <div class="flex items-end">
@@ -237,7 +237,7 @@ export class AdminAuditLogsComponent implements OnInit, OnDestroy {
         next: (data) => {
           this.logs = data;
         },
-        error: (err) => {
+        error: () => {
           this.logs = [];
         },
       });

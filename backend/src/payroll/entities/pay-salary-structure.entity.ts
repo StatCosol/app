@@ -47,6 +47,40 @@ export class PaySalaryStructureEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  // ── Approval workflow (Phase 2B) ────────────────────────────────────
+  // DRAFT  → editor working on it
+  // PENDING → submitted, awaiting approval
+  // APPROVED → eligible to be activated and consumed by the engine
+  // REJECTED → reviewer rejected; editor can re-submit after fixes
+  @Column({
+    name: 'approval_status',
+    type: 'varchar',
+    length: 20,
+    default: 'DRAFT',
+  })
+  approvalStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
+  @Column({ name: 'submitted_by_id', type: 'uuid', nullable: true })
+  submittedById: string | null;
+
+  @Column({ name: 'submitted_at', type: 'timestamptz', nullable: true })
+  submittedAt: Date | null;
+
+  @Column({ name: 'approved_by_id', type: 'uuid', nullable: true })
+  approvedById: string | null;
+
+  @Column({ name: 'approved_at', type: 'timestamptz', nullable: true })
+  approvedAt: Date | null;
+
+  @Column({ name: 'rejected_by_id', type: 'uuid', nullable: true })
+  rejectedById: string | null;
+
+  @Column({ name: 'rejected_at', type: 'timestamptz', nullable: true })
+  rejectedAt: Date | null;
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

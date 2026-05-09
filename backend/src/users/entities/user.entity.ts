@@ -82,6 +82,16 @@ export class UserEntity {
   @Column({ name: 'owner_cco_id', type: 'uuid', nullable: true })
   ownerCcoId: string | null;
 
+  // Labour-law schedule of employment (CONTRACTOR users). Drives
+  // minimum-wage lookup alongside state + skill category.
+  @Column({
+    name: 'scheduled_employment',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
+  scheduledEmployment: string | null;
+
   // Link to employees table for EMPLOYEE role (ESS)
   @Index('IDX_USERS_EMPLOYEEID')
   @Column({

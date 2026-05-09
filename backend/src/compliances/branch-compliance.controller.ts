@@ -3,7 +3,6 @@ import {
   Get,
   Param,
   Query,
-  Req,
   ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +13,8 @@ import { SlaComplianceResolverService } from './sla-compliance-resolver.service'
 import { SlaComplianceScheduleService } from './sla-compliance-schedule.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /**
  * GET /api/v1/branches/:branchId/compliance-items?month=YYYY-MM
@@ -30,17 +31,56 @@ export class BranchComplianceController {
   constructor(
     private readonly resolver: SlaComplianceResolverService,
     private readonly schedule: SlaComplianceScheduleService,
-    private readonly assignments: AssignmentsService,
+    private readonly _assignments: AssignmentsService,
   ) {}
+
+  private returnTypeCode(code: string): string {
+    const normalized = String(code || '')
+      .trim()
+      .toUpperCase();
+    if (!normalized) return '';
+    if (normalized.includes('PF')) return 'PF';
+    if (normalized.includes('ESI')) return 'ESI';
+    if (normalized.includes('PT')) return 'PT';
+    if (normalized.includes('LWF')) return 'LWF';
+    if (normalized.includes('GST')) return 'GST';
+    if (normalized.includes('TDS')) return 'TDS';
+    if (normalized.includes('ROC')) return 'ROC';
+    return normalized;
+  }
+
+  private enrichScheduleItem(item: { module?: string; code?: string }) {
+    const clientWorkspace = item?.module === 'MCD' ? 'MCD' : 'RETURNS';
+    const clientFocusCode =
+      clientWorkspace === 'MCD'
+        ? String(item?.code || '')
+        : this.returnTypeCode(item?.code || '');
+    const documentCategory =
+      item?.module === 'MCD'
+        ? 'MCD'
+        : item?.module === 'RETURNS'
+          ? 'RETURN'
+          : '';
+    const documentSubCategory =
+      item?.module === 'MCD' ? 'MCD' : this.returnTypeCode(item?.code || '');
+
+    return {
+      ...item,
+      branchFocusCode: String(item?.code || ''),
+      clientWorkspace,
+      clientFocusCode,
+      documentCategory,
+      documentSubCategory,
+    };
+  }
 
   @ApiOperation({ summary: 'List Branch Compliance' })
   @Get(':branchId/compliance-items')
   async listBranchCompliance(
     @Param('branchId') branchId: string,
     @Query('month') month: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
   ): Promise<any> {
-    const user = req.user;
     const roleCode: string = user.roleCode;
 
     if (roleCode === 'AUDITOR') {
@@ -76,10 +116,10 @@ export class BranchComplianceController {
 
     return {
       branchId: branch.id,
-      stateCode: (branch as any).stateCode ?? null,
-      establishmentType: (branch as any).establishmentType ?? null,
+      stateCode: branch.stateCode ?? null,
+      establishmentType: branch.establishmentType ?? null,
       month,
-      items,
+      items: items.map((item) => this.enrichScheduleItem(item)),
     };
   }
 }

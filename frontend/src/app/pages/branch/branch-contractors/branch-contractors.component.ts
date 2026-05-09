@@ -21,7 +21,8 @@ import { AuthService } from '../../../core/auth.service';
           <p class="page-subtitle">Contractor-wise document upload status &amp; compliance</p>
         </div>
         <div class="flex items-center gap-3">
-          <input type="month" [(ngModel)]="currentMonth" (change)="loadData()" class="month-picker" />
+          <label for="contractor-month" class="sr-only">Month</label>
+          <input autocomplete="off" id="contractor-month" name="currentMonth" type="month" [(ngModel)]="currentMonth" (change)="loadData()" class="month-picker" />
         </div>
       </div>
 

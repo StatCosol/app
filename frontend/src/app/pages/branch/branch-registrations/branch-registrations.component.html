@@ -70,6 +70,7 @@
       <button
         type="button"
         *ngFor="let tab of statusTabs"
+        class="tab-btn"
         [class.active]="statusFilter === tab"
         (click)="setStatusFilter(tab)"
       >
@@ -80,14 +81,14 @@
     <div class="filter-row">
       <label>
         Type
-        <select [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
+        <select id="br-type-filter" name="typeFilter" [(ngModel)]="typeFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All Types</option>
           <option *ngFor="let t of typeOptions" [value]="t">{{ t }}</option>
         </select>
       </label>
       <label class="search-box">
         Search
-        <input
+        <input autocomplete="off" id="br-search-term" name="searchTerm"
           type="text"
           [(ngModel)]="searchTerm"
           (ngModelChange)="applyFilters()"
@@ -95,17 +96,6 @@
         />
       </label>
       <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
-    </div>
-
-    <div class="type-tabs">
-      <button
-        type="button"
-        *ngFor="let tab of typeTabs"
-        [class.active]="typeFilter === tab"
-        (click)="setTypeTab(tab)"
-      >
-        {{ tab === 'ALL' ? 'All Types' : tab }}
-      </button>
     </div>
   </section>
 
@@ -120,7 +110,7 @@
         <h2>Registration List</h2>
         <span>{{ filteredRegistrations.length }} items</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
@@ -363,9 +353,9 @@
           <h2>Status Timeline</h2>
           <span>{{ selectedTimeline.length }} events</span>
         </div>
-        <shared-timeline
+        <ui-shared-timeline
           [events]="selectedTimeline"
-          [emptyMessage]="'No timeline data available.'"></shared-timeline>
+          [emptyMessage]="'No timeline data available.'"></ui-shared-timeline>
       </article>
 
       <article class="card">
@@ -411,14 +401,14 @@
   <div class="modal-body" *ngIf="wizardStep === 1">
     <label>
       Action
-      <select [(ngModel)]="requestModel.action">
+      <select id="br-action" name="action" [(ngModel)]="requestModel.action">
         <option *ngFor="let action of actions" [value]="action">{{ action }}</option>
       </select>
     </label>
 
     <label *ngIf="requestModel.action !== 'APPLY'">
       Registration
-      <select [(ngModel)]="requestModel.registrationId" (ngModelChange)="onRequestRegistrationChange($event)">
+      <select id="br-registration-id" name="registrationId" [(ngModel)]="requestModel.registrationId" (ngModelChange)="onRequestRegistrationChange($event)">
         <option value="">Select registration</option>
         <option *ngFor="let reg of registrations" [value]="reg.id">
           {{ reg.type }} - {{ reg.registrationNumber || 'No number' }}
@@ -428,35 +418,35 @@
 
     <label *ngIf="requestModel.action === 'APPLY'">
       Registration Type
-      <input type="text" [(ngModel)]="requestModel.registrationType" placeholder="Example: Factory License" />
+      <input autocomplete="off" id="br-registration-type" name="registrationType" type="text" [(ngModel)]="requestModel.registrationType" placeholder="Example: Factory License" />
     </label>
   </div>
 
   <div class="modal-body" *ngIf="wizardStep === 2">
     <label>
       Authority
-      <input type="text" [(ngModel)]="requestModel.authority" placeholder="Issuing authority" />
+      <input autocomplete="off" id="br-authority" name="authority" type="text" [(ngModel)]="requestModel.authority" placeholder="Issuing authority" />
     </label>
     <label>
       Reference Number
-      <input type="text" [(ngModel)]="requestModel.referenceNumber" placeholder="Reference / existing number" />
+      <input autocomplete="off" id="br-reference-number" name="referenceNumber" type="text" [(ngModel)]="requestModel.referenceNumber" placeholder="Reference / existing number" />
     </label>
     <label>
       Target Expiry Date
-      <input type="date" [(ngModel)]="requestModel.targetExpiryDate" />
+      <input autocomplete="off" id="br-target-expiry-date" name="targetExpiryDate" type="date" [(ngModel)]="requestModel.targetExpiryDate" />
     </label>
     <label>
       Notes
-      <textarea [(ngModel)]="requestModel.notes" rows="4" placeholder="Details for CRM review"></textarea>
+      <textarea autocomplete="off" id="br-notes" name="notes" [(ngModel)]="requestModel.notes" rows="4" placeholder="Details for CRM review"></textarea>
     </label>
   </div>
 
   <div class="modal-body" *ngIf="wizardStep === 3">
     <div class="doc-check-grid">
-      <label><input type="checkbox" [(ngModel)]="requestModel.documents.authorityForm" /> Authority form ready</label>
-      <label><input type="checkbox" [(ngModel)]="requestModel.documents.previousLicense" /> Previous license available</label>
-      <label><input type="checkbox" [(ngModel)]="requestModel.documents.identityProof" /> Identity proof ready</label>
-      <label><input type="checkbox" [(ngModel)]="requestModel.documents.amendmentProof" /> Amendment/closure proof ready</label>
+      <label><input autocomplete="off" id="br-authority-form" name="authorityForm" type="checkbox" [(ngModel)]="requestModel.documents.authorityForm" /> Authority form ready</label>
+      <label><input autocomplete="off" id="br-previous-license" name="previousLicense" type="checkbox" [(ngModel)]="requestModel.documents.previousLicense" /> Previous license available</label>
+      <label><input autocomplete="off" id="br-identity-proof" name="identityProof" type="checkbox" [(ngModel)]="requestModel.documents.identityProof" /> Identity proof ready</label>
+      <label><input autocomplete="off" id="br-amendment-proof" name="amendmentProof" type="checkbox" [(ngModel)]="requestModel.documents.amendmentProof" /> Amendment/closure proof ready</label>
     </div>
 
     <div class="review-box">

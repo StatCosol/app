@@ -4,9 +4,16 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CeoDashboardService } from './ceo-dashboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  DashboardBaseQueryDto,
+  DashboardSearchQueryDto,
+  DashboardStatusQueryDto,
+  DashboardMonthsQueryDto,
+  DashboardRankingsQueryDto,
+} from '../common/dto/dashboard-query.dto';
 
 /** Convert snake_case object keys to camelCase */
-function toCamel(obj: any): any {
+function toCamel(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(toCamel);
   if (obj !== null && typeof obj === 'object') {
     return Object.fromEntries(
@@ -42,7 +49,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Summary' })
   @Get('summary')
-  async getSummary(@Query() query: any) {
+  async getSummary(@Query() query: DashboardBaseQueryDto) {
     const data = await this.dashboardService.getSummary(query);
     return toCamel(data);
   }
@@ -58,7 +65,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Client Overview' })
   @Get('client-overview')
-  async getClientOverview(@Query() query: any) {
+  async getClientOverview(@Query() query: DashboardSearchQueryDto) {
     const rows = await this.dashboardService.getClientOverview(query);
     return { items: toCamel(rows) };
   }
@@ -72,7 +79,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Cco Crm Performance' })
   @Get('cco-crm-performance')
-  async getCcoCrmPerformance(@Query() query: any) {
+  async getCcoCrmPerformance(@Query() query: DashboardBaseQueryDto) {
     const rows = await this.dashboardService.getCcoCrmPerformance(query);
     return { items: toCamel(rows) };
   }
@@ -86,7 +93,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Governance Compliance' })
   @Get('governance-compliance')
-  async getGovernanceCompliance(@Query() query: any) {
+  async getGovernanceCompliance(@Query() query: DashboardBaseQueryDto) {
     const data = await this.dashboardService.getGovernanceCompliance(query);
     return toCamel(data);
   }
@@ -102,7 +109,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Recent Escalations' })
   @Get('recent-escalations')
-  async getRecentEscalations(@Query() query: any) {
+  async getRecentEscalations(@Query() query: DashboardStatusQueryDto) {
     const rows = await this.dashboardService.getRecentEscalations(query);
     return { items: toCamel(rows) };
   }
@@ -116,7 +123,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Compliance Trend' })
   @Get('compliance-trend')
-  async getComplianceTrend(@Query() query: any) {
+  async getComplianceTrend(@Query() query: DashboardMonthsQueryDto) {
     const rows = await this.dashboardService.getComplianceTrend(query);
     return { items: toCamel(rows) };
   }
@@ -131,7 +138,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Branch Rankings' })
   @Get('branch-rankings')
-  async getBranchRankings(@Query() query: any) {
+  async getBranchRankings(@Query() query: DashboardRankingsQueryDto) {
     const data = await this.dashboardService.getBranchRankings(query);
     return toCamel(data);
   }
@@ -145,7 +152,7 @@ export class CeoDashboardController {
    */
   @ApiOperation({ summary: 'Get Audit Closure Trend' })
   @Get('audit-closure-trend')
-  async getAuditClosureTrend(@Query() query: any) {
+  async getAuditClosureTrend(@Query() query: DashboardMonthsQueryDto) {
     const rows = await this.dashboardService.getAuditClosureTrend(query);
     return { items: toCamel(rows) };
   }

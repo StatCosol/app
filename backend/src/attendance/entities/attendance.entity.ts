@@ -76,8 +76,86 @@ export class AttendanceEntity {
   @Column({ name: 'source', type: 'varchar', length: 30, default: 'MANUAL' })
   source: 'MANUAL' | 'BIOMETRIC' | 'IMPORT';
 
+  @Column({
+    name: 'capture_method',
+    type: 'varchar',
+    length: 20,
+    default: 'MANUAL',
+  })
+  captureMethod: 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
+
+  @Column({
+    name: 'check_in_lat',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  checkInLat: string | null;
+
+  @Column({
+    name: 'check_in_lng',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  checkInLng: string | null;
+
+  @Column({
+    name: 'check_out_lat',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  checkOutLat: string | null;
+
+  @Column({
+    name: 'check_out_lng',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  checkOutLng: string | null;
+
+  @Column({ name: 'device_info', type: 'varchar', length: 255, nullable: true })
+  deviceInfo: string | null;
+
+  @Column({ name: 'self_marked', type: 'boolean', default: false })
+  selfMarked: boolean;
+
+  @Column({ name: 'short_work_reason', type: 'text', nullable: true })
+  shortWorkReason: string | null;
+
+  @Column({
+    name: 'overtime_type',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  overtimeType: string | null; // 'OT' | 'COFF' | null
+
   @Column({ name: 'leave_application_id', type: 'uuid', nullable: true })
   leaveApplicationId: string | null;
+
+  @Column({
+    name: 'approval_status',
+    type: 'varchar',
+    length: 20,
+    default: 'PENDING',
+  })
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+
+  @Column({ name: 'approved_by_user_id', type: 'uuid', nullable: true })
+  approvedByUserId: string | null;
+
+  @Column({ name: 'approved_at', type: 'timestamptz', nullable: true })
+  approvedAt: Date | null;
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

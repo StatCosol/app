@@ -1,0 +1,1092 @@
+
+> statco-frontend@0.0.0 start
+> ng serve --host 0.0.0.0 --port 4200 --proxy-config proxy.conf.json
+
+[1m[33m
+Warning: This is a simple server for use in testing or debugging Angular applications
+locally. It hasn't been reviewed for security issues.
+
+Binding this server to an open connection can result in compromising your application or
+computer. Using a different host than the one passed to the "--host" flag might result in
+websocket connection issues.
+    [39m[22m
+[33m>[39m Building...
+[32m√[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                                       [2m | [22m[36m119.69 kB[39m[2m | [22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                                         [2m | [22m [36m66.70 kB[39m[2m | [22m
+[32mchunk-I7FOERQT.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m15.13 kB[39m[2m | [22m
+[32mchunk-DPQCEDN7.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m14.27 kB[39m[2m | [22m
+[32mchunk-CYWJ676E.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m13.08 kB[39m[2m | [22m
+[32mchunk-XWLXMCJQ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2MRGE4DP.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2R4RTXY7.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.01 kB[39m[2m | [22m
+[32mchunk-AXBMPDZZ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.97 kB[39m[2m | [22m
+[32mchunk-SBGOE6RK.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.56 kB[39m[2m | [22m
+[32mchunk-IYVNC6PG.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m[36m500 bytes[39m[2m | [22m
+[32mpolyfills.js[39m       [2m | [22m[2mpolyfills[22m                                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                                [2m | [22m[1m239.15 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mchunk-DL4HXGDJ.js[39m  [2m | [22m[2mclient-dashboard-component[22m                   [2m | [22m[36m276.45 kB[39m[2m | [22m
+[32mchunk-GO4V4PLD.js[39m  [2m | [22m[2mauditor-audit-cockpit-page-component[22m         [2m | [22m[36m209.88 kB[39m[2m | [22m
+[32mchunk-WEXEPYKA.js[39m  [2m | [22m[2madmin-clients-component[22m                      [2m | [22m[36m204.58 kB[39m[2m | [22m
+[32mchunk-YKNXBMB4.js[39m  [2m | [22m[2mcrm-returns-workspace-page-component[22m         [2m | [22m[36m181.80 kB[39m[2m | [22m
+[32mchunk-FKXYIHKC.js[39m  [2m | [22m[2mpayroll-structures-builder-page-component[22m    [2m | [22m[36m176.17 kB[39m[2m | [22m
+[32mchunk-SEM3ZUWI.js[39m  [2m | [22m[2mpayroll-setup-tabs-page-component[22m            [2m | [22m[36m159.91 kB[39m[2m | [22m
+[32mchunk-AOWCX7BE.js[39m  [2m | [22m[2mbranch-monthly-compliance-page-component[22m     [2m | [22m[36m159.02 kB[39m[2m | [22m
+[32mchunk-6LEK4GMH.js[39m  [2m | [22m[2mbranch-registrations-page-component[22m          [2m | [22m[36m152.99 kB[39m[2m | [22m
+[32mchunk-774AAYPC.js[39m  [2m | [22m[2mclient-branch-detail-workspace-page-component[22m[2m | [22m[36m150.43 kB[39m[2m | [22m
+[32mchunk-PI2LIP63.js[39m  [2m | [22m[2madmin-dashboard-component[22m                    [2m | [22m[36m139.38 kB[39m[2m | [22m
+[32mchunk-2GENF6GN.js[39m  [2m | [22m[2mcrm-compliance-component[22m                     [2m | [22m[36m131.17 kB[39m[2m | [22m
+[32mchunk-D67VVLHZ.js[39m  [2m | [22m[2mclient-employee-detail-component[22m             [2m | [22m[36m130.63 kB[39m[2m | [22m
+[32mchunk-NXDFOXHI.js[39m  [2m | [22m[2mcrm-audit-management-page-component[22m          [2m | [22m[36m123.50 kB[39m[2m | [22m
+[32mchunk-QAOAFFX3.js[39m  [2m | [22m[2mbranch-audit-observations-page-component[22m     [2m | [22m[36m121.13 kB[39m[2m | [22m
+[32mchunk-JJK7OMTH.js[39m  [2m | [22m[2mpayroll-rule-sets-page-component[22m             [2m | [22m[36m117.68 kB[39m[2m | [22m
+[2m...and 237 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [116.088 seconds] - 2026-03-29T02:51:54.383Z
+
+Watch mode enabled. Watching for file changes...
+NOTE: Raw file sizes do not reflect development server per-request transformations.
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.101:[1m4200[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[33m>[39m Changes detected. Rebuilding...
+[1m[31m[2m8:59:19 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/assignments[31m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:218:20)[39m[22m
+[1m[31m[2m8:59:19 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/assignments/history[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:28 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/clients[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:28 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/users?role=PAYROLL[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:32 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/ceo/branches/279fc837-73fe-4755-8acf-0a8cab7c0b88?month=2026-03[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:38 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/dashboard/assignment-summary[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:38 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/dashboard/unassigned-clients[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:38 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/dashboard/risk-alerts[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:38 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/dashboard/summary[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:38 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/assignments[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:38 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/users?status=INACTIVE&limit=50&page=1[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m8:59:56 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/masters/compliances[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m9:00:05 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/payroll/templates[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m9:00:05 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/admin/clients[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[32m√[39m Changes detected. Rebuilding...
+
+No output file changes.
+
+Application bundle generation complete. [177.450 seconds] - 2026-03-29T03:31:04.076Z
+
+Component update sent to client(s).
+[1m[31m[2m9:08:17 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/pf-team/helpdesk/tickets/44926213-0984-4276-872b-7682c8f521a1[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[1m[31m[2m9:08:27 am[22m[1m [31m[1m[vite][22m[1m[31m [31mhttp proxy error: /api/v1/pf-team/helpdesk/tickets/7f5666fa-3088-4698-897c-0610df2a919c[31m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7)[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                  [2m | [22m[1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                                   [2m | [22m[36m66.70 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                  [2m | [22m[1mRaw size[22m
+[32mchunk-D73LBS7N.js[39m  [2m | [22m[2musers-component[22m                        [2m | [22m[36m90.09 kB[39m[2m | [22m
+[32mchunk-KPBRHBPP.js[39m  [2m | [22m[2madmin-reports-component[22m                [2m | [22m[36m71.61 kB[39m[2m | [22m
+[32mchunk-UCUVLDFH.js[39m  [2m | [22m[2madmin-governance-control-page-component[22m[2m | [22m[36m53.01 kB[39m[2m | [22m
+[32mchunk-Q7SRGL3I.js[39m  [2m | [22m[2mcco-escalations-component[22m              [2m | [22m[36m35.32 kB[39m[2m | [22m
+[32mchunk-OVB6WRGL.js[39m  [2m | [22m[2madmin-helpdesk-detail-component[22m        [2m | [22m[36m34.01 kB[39m[2m | [22m
+[32mchunk-AXZ762I5.js[39m  [2m | [22m[2m-[22m                                      [2m | [22m [36m3.82 kB[39m[2m | [22m
+
+Application bundle generation complete. [7.659 seconds] - 2026-03-29T03:42:53.686Z
+
+Page reload sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                    [2m | [22m[1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                     [2m | [22m[36m66.70 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                    [2m | [22m[1mRaw size[22m
+[32mchunk-CJHLAS55.js[39m  [2m | [22m[2mcco-escalations-component[22m[2m | [22m[36m35.51 kB[39m[2m | [22m
+
+Application bundle generation complete. [6.620 seconds] - 2026-03-29T03:43:02.167Z
+
+Page reload sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [8.869 seconds] - 2026-03-29T03:43:15.735Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:183:10:
+[37m      183 │           [32mthis.dueItems[37m = (due?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }[]' is not assignable to type 'PendingDocument[]'.
+  Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }' is not assignable to type 'PendingDocument'.
+    Types of property 'requestedOn' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:188:10:
+[37m      188 │           [32mthis.pendingDocs[37m = (pendingDocs?.items || []).map((row)...
+          ╵           [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }[]' is not assignable to type 'UpcomingAudit[]'.
+  Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }' is not assignable to type 'UpcomingAudit'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:198:10:
+[37m      198 │           [32mthis.upcomingAudits[37m = (audits?.items || []).map((row) =...
+          ╵           [32m~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:238:10:
+[37m      238 │           [32mthis.dueItems[37m = (res?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [6.057 seconds] - 2026-03-29T03:43:34.502Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:183:10:
+[37m      183 │           [32mthis.dueItems[37m = (due?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }[]' is not assignable to type 'PendingDocument[]'.
+  Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }' is not assignable to type 'PendingDocument'.
+    Types of property 'requestedOn' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:188:10:
+[37m      188 │           [32mthis.pendingDocs[37m = (pendingDocs?.items || []).map((row)...
+          ╵           [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }[]' is not assignable to type 'UpcomingAudit[]'.
+  Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }' is not assignable to type 'UpcomingAudit'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:198:10:
+[37m      198 │           [32mthis.upcomingAudits[37m = (audits?.items || []).map((row) =...
+          ╵           [32m~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:238:10:
+[37m      238 │           [32mthis.dueItems[37m = (res?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [6.042 seconds] - 2026-03-29T03:43:44.848Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:183:10:
+[37m      183 │           [32mthis.dueItems[37m = (due?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }[]' is not assignable to type 'PendingDocument[]'.
+  Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }' is not assignable to type 'PendingDocument'.
+    Types of property 'requestedOn' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:188:10:
+[37m      188 │           [32mthis.pendingDocs[37m = (pendingDocs?.items || []).map((row)...
+          ╵           [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }[]' is not assignable to type 'UpcomingAudit[]'.
+  Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }' is not assignable to type 'UpcomingAudit'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:198:10:
+[37m      198 │           [32mthis.upcomingAudits[37m = (audits?.items || []).map((row) =...
+          ╵           [32m~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:238:10:
+[37m      238 │           [32mthis.dueItems[37m = (res?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [3.494 seconds] - 2026-03-29T03:43:50.952Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:183:10:
+[37m      183 │           [32mthis.dueItems[37m = (due?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }[]' is not assignable to type 'PendingDocument[]'.
+  Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }' is not assignable to type 'PendingDocument'.
+    Types of property 'requestedOn' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:188:10:
+[37m      188 │           [32mthis.pendingDocs[37m = (pendingDocs?.items || []).map((row)...
+          ╵           [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }[]' is not assignable to type 'UpcomingAudit[]'.
+  Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }' is not assignable to type 'UpcomingAudit'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:198:10:
+[37m      198 │           [32mthis.upcomingAudits[37m = (audits?.items || []).map((row) =...
+          ╵           [32m~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:238:10:
+[37m      238 │           [32mthis.dueItems[37m = (res?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [6.060 seconds] - 2026-03-29T03:44:07.511Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:183:10:
+[37m      183 │           [32mthis.dueItems[37m = (due?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }[]' is not assignable to type 'PendingDocument[]'.
+  Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }' is not assignable to type 'PendingDocument'.
+    Types of property 'requestedOn' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:188:10:
+[37m      188 │           [32mthis.pendingDocs[37m = (pendingDocs?.items || []).map((row)...
+          ╵           [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }[]' is not assignable to type 'UpcomingAudit[]'.
+  Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }' is not assignable to type 'UpcomingAudit'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:198:10:
+[37m      198 │           [32mthis.upcomingAudits[37m = (audits?.items || []).map((row) =...
+          ╵           [32m~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:238:10:
+[37m      238 │           [32mthis.dueItems[37m = (res?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [4.484 seconds] - 2026-03-29T03:44:20.465Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:183:10:
+[37m      183 │           [32mthis.dueItems[37m = (due?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }[]' is not assignable to type 'PendingDocument[]'.
+  Type '{ requestedOn: string | null; clientId: string; clientName: string; branchId: string; branchName: string; documentType: string; pendingDays: number; status: string; }' is not assignable to type 'PendingDocument'.
+    Types of property 'requestedOn' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:188:10:
+[37m      188 │           [32mthis.pendingDocs[37m = (pendingDocs?.items || []).map((row)...
+          ╵           [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }[]' is not assignable to type 'UpcomingAudit[]'.
+  Type '{ dueDate: string | null; auditId: string; auditCode: string; auditType: string; clientName: string; branchName: string; auditorName: string; status: string; daysUntil: number; }' is not assignable to type 'UpcomingAudit'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:198:10:
+[37m      198 │           [32mthis.upcomingAudits[37m = (audits?.items || []).map((row) =...
+          ╵           [32m~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }[]' is not assignable to type 'ComplianceDueItem[]'.
+  Type '{ dueDate: string | null; refId: string; clientId: string; clientName: string; branchId: string; branchName: string; category: string; complianceItem: string; daysOverdue: number; risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; status: string; }' is not assignable to type 'ComplianceDueItem'.
+    Types of property 'dueDate' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/crm/crm-dashboard.component.ts:238:10:
+[37m      238 │           [32mthis.dueItems[37m = (res?.items || []).map((row) => ({
+          ╵           [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                                       [2m | [22m[36m119.69 kB[39m[2m | [22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                                         [2m | [22m [36m66.70 kB[39m[2m | [22m
+[32mchunk-I7FOERQT.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m15.13 kB[39m[2m | [22m
+[32mchunk-DPQCEDN7.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m14.27 kB[39m[2m | [22m
+[32mchunk-CYWJ676E.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m13.08 kB[39m[2m | [22m
+[32mchunk-XWLXMCJQ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2MRGE4DP.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2R4RTXY7.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.01 kB[39m[2m | [22m
+[32mchunk-AXBMPDZZ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.97 kB[39m[2m | [22m
+[32mchunk-SBGOE6RK.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.56 kB[39m[2m | [22m
+[32mchunk-IYVNC6PG.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m[36m500 bytes[39m[2m | [22m
+[32mpolyfills.js[39m       [2m | [22m[2mpolyfills[22m                                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                                [2m | [22m[1m239.15 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mchunk-DL4HXGDJ.js[39m  [2m | [22m[2mclient-dashboard-component[22m                   [2m | [22m[36m276.45 kB[39m[2m | [22m
+[32mchunk-GO4V4PLD.js[39m  [2m | [22m[2mauditor-audit-cockpit-page-component[22m         [2m | [22m[36m209.88 kB[39m[2m | [22m
+[32mchunk-WEXEPYKA.js[39m  [2m | [22m[2madmin-clients-component[22m                      [2m | [22m[36m204.58 kB[39m[2m | [22m
+[32mchunk-YKNXBMB4.js[39m  [2m | [22m[2mcrm-returns-workspace-page-component[22m         [2m | [22m[36m181.80 kB[39m[2m | [22m
+[32mchunk-FKXYIHKC.js[39m  [2m | [22m[2mpayroll-structures-builder-page-component[22m    [2m | [22m[36m176.17 kB[39m[2m | [22m
+[32mchunk-SEM3ZUWI.js[39m  [2m | [22m[2mpayroll-setup-tabs-page-component[22m            [2m | [22m[36m159.91 kB[39m[2m | [22m
+[32mchunk-AOWCX7BE.js[39m  [2m | [22m[2mbranch-monthly-compliance-page-component[22m     [2m | [22m[36m159.02 kB[39m[2m | [22m
+[32mchunk-6LEK4GMH.js[39m  [2m | [22m[2mbranch-registrations-page-component[22m          [2m | [22m[36m152.99 kB[39m[2m | [22m
+[32mchunk-774AAYPC.js[39m  [2m | [22m[2mclient-branch-detail-workspace-page-component[22m[2m | [22m[36m150.43 kB[39m[2m | [22m
+[32mchunk-PI2LIP63.js[39m  [2m | [22m[2madmin-dashboard-component[22m                    [2m | [22m[36m139.38 kB[39m[2m | [22m
+[32mchunk-2GENF6GN.js[39m  [2m | [22m[2mcrm-compliance-component[22m                     [2m | [22m[36m131.17 kB[39m[2m | [22m
+[32mchunk-D67VVLHZ.js[39m  [2m | [22m[2mclient-employee-detail-component[22m             [2m | [22m[36m130.63 kB[39m[2m | [22m
+[32mchunk-NXDFOXHI.js[39m  [2m | [22m[2mcrm-audit-management-page-component[22m          [2m | [22m[36m123.50 kB[39m[2m | [22m
+[32mchunk-QAOAFFX3.js[39m  [2m | [22m[2mbranch-audit-observations-page-component[22m     [2m | [22m[36m121.13 kB[39m[2m | [22m
+[32mchunk-JJK7OMTH.js[39m  [2m | [22m[2mpayroll-rule-sets-page-component[22m             [2m | [22m[36m117.68 kB[39m[2m | [22m
+[2m...and 237 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [8.502 seconds] - 2026-03-29T03:45:32.456Z
+
+Page reload sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [23.869 seconds] - 2026-03-29T06:49:49.432Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'verifyResetToken' does not exist on type 'AuthService'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.ts:79:7:
+[37m      79 │       .[32mverifyResetToken[37m(this.email.trim(), this.otp.trim())
+         ╵        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'res' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.ts:82:15:
+[37m      82 │         next: ([32mres[37m) => {
+         ╵                [32m~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'e' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.ts:86:16:
+[37m      86 │         error: ([32me[37m) => {
+         ╵                 [32m^[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [4.901 seconds] - 2026-03-29T06:49:58.749Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"otp"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:15:21:
+[37m      15 │           <h2 *ngIf="[32mstep === 'otp'[37m">Verify Code</h2>
+         ╵                      [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"reset"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:16:21:
+[37m      16 │           <h2 *ngIf="[32mstep === 'reset'[37m">Set New Password</h2>
+         ╵                      [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"done"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:17:21:
+[37m      17 │           <h2 *ngIf="[32mstep === 'done'[37m">Password Reset</h2>
+         ╵                      [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"otp"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:20:20:
+[37m      20 │           <p *ngIf="[32mstep === 'otp'[37m">Enter the code sent to {{ emai...
+         ╵                     [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"reset"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:21:20:
+[37m      21 │           <p *ngIf="[32mstep === 'reset'[37m">Create a new password for yo...
+         ╵                     [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"done"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:22:20:
+[37m      22 │           <p *ngIf="[32mstep === 'done'[37m">Your password has been succes...
+         ╵                     [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"done"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:27:32:
+[37m      27 │       <div class="steps" *ngIf="[32mstep !== 'done'[37m">
+         ╵                                 [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"otp"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:30:46:
+[37m      30 │ ...tep-dot" [class.active]="[32mstep === 'otp'[37m" [class.completed]="ste...
+         ╵                             [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"reset"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:30:81:
+[37m      30 │ ...tive]="step === 'otp'" [class.completed]="[32mstep === 'reset'[37m"></div>
+         ╵                                              [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"reset"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:31:50:
+[37m      31 │ ...<div class="step-line" [class.completed]="[32mstep === 'reset'[37m"></div>
+         ╵                                              [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"reset"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:32:46:
+[37m      32 │ ...    <div class="step-dot" [class.active]="[32mstep === 'reset'[37m"></div>
+         ╵                                              [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'success' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:42:18:
+[37m      42 │       <div *ngIf="[32msuccess[37m" class="form-success">
+         ╵                   [32m~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'success' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:44:11:
+[37m      44 │         {{ [32msuccess[37m }}
+         ╵            [32m~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"otp"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:76:19:
+[37m      76 │       <form *ngIf="[32mstep === 'otp'[37m" class="form" (ngSubmit)="submit...
+         ╵                    [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'submitOtp' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:76:60:
+[37m      76 │ ...form *ngIf="step === 'otp'" class="form" (ngSubmit)="[32msubmitOtp[37m()">
+         ╵                                                         [32m~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'otp' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:84:27:
+[37m      84 │               [(ngModel)]="[32motp[37m"
+         ╵                            [32m~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'otp' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:84:27:
+[37m      84 │               [(ngModel)]="[32motp[37m"
+         ╵                            [32m~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'resendCode' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:105:61:
+[37m      105 │ ...ss="resend-link" (click)="[32mresendCode[37m()" [disabled]="isLoading"...
+          ╵                              [32m~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"reset"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:110:19:
+[37m      110 │       <form *ngIf="[32mstep === 'reset'[37m" class="form" (ngSubmit)="sub...
+          ╵                    [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'submitNewPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:110:62:
+[37m      110 │ ..."step === 'reset'" class="form" (ngSubmit)="[32msubmitNewPassword[37m()">
+          ╵                                                [32m~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showNewPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:117:22:
+[37m      117 │               [type]="[32mshowNewPassword[37m ? 'text' : 'password'"
+          ╵                       [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'newPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:118:27:
+[37m      118 │               [(ngModel)]="[32mnewPassword[37m"
+          ╵                            [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'newPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:118:27:
+[37m      118 │               [(ngModel)]="[32mnewPassword[37m"
+          ╵                            [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showNewPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:125:63:
+[37m      125 │ ...="toggle-pass" (click)="[32mshowNewPassword[37m = !showNewPassword" [d...
+          ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showNewPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:125:82:
+[37m      125 │ ...ick)="showNewPassword = ![32mshowNewPassword[37m" [disabled]="isLoading">
+          ╵                             [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showNewPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:126:27:
+[37m      126 │               <svg *ngIf="![32mshowNewPassword[37m" width="18" height="18...
+          ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showNewPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:127:26:
+[37m      127 │               <svg *ngIf="[32mshowNewPassword[37m" width="18" height="18"...
+          ╵                           [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showConfirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:139:22:
+[37m      139 │               [type]="[32mshowConfirmPassword[37m ? 'text' : 'password'"
+          ╵                       [32m~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'confirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:140:27:
+[37m      140 │               [(ngModel)]="[32mconfirmPassword[37m"
+          ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'confirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:140:27:
+[37m      140 │               [(ngModel)]="[32mconfirmPassword[37m"
+          ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showConfirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:147:63:
+[37m      147 │ ...toggle-pass" (click)="[32mshowConfirmPassword[37m = !showConfirmPasswo...
+          ╵                          [32m~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showConfirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:147:86:
+[37m      147 │ ...howConfirmPassword = ![32mshowConfirmPassword[37m" [disabled]="isLoadi...
+          ╵                          [32m~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showConfirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:148:27:
+[37m      148 │ ...         <svg *ngIf="![32mshowConfirmPassword[37m" width="18" height="...
+          ╵                          [32m~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'showConfirmPassword' does not exist on type 'ForgotPasswordComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:149:26:
+[37m      149 │ ...          <svg *ngIf="[32mshowConfirmPassword[37m" width="18" height="...
+          ╵                          [32m~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"done"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:164:18:
+[37m      164 │       <div *ngIf="[32mstep === 'done'[37m" class="done-section">
+          ╵                   [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2367: This comparison appears to be unintentional because the types 'Step' and '"done"' have no overlap.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/forgot-password/forgot-password.component.html:176:35:
+[37m      176 │       <div class="back-row" *ngIf="[32mstep !== 'done'[37m">
+          ╵                                    [32m~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component ForgotPasswordComponent.
+
+    src/app/pages/forgot-password/forgot-password.component.ts:14:15:
+[37m      14 │   templateUrl: [32m'./forgot-password.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                                       [2m | [22m[36m119.69 kB[39m[2m | [22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                                         [2m | [22m [36m66.70 kB[39m[2m | [22m
+[32mchunk-I7FOERQT.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m15.13 kB[39m[2m | [22m
+[32mchunk-UMJHQS2Q.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m14.08 kB[39m[2m | [22m
+[32mchunk-CYWJ676E.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m13.08 kB[39m[2m | [22m
+[32mchunk-XWLXMCJQ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2MRGE4DP.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2R4RTXY7.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.01 kB[39m[2m | [22m
+[32mchunk-AXBMPDZZ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.97 kB[39m[2m | [22m
+[32mchunk-SBGOE6RK.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.56 kB[39m[2m | [22m
+[32mchunk-IYVNC6PG.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m[36m500 bytes[39m[2m | [22m
+[32mpolyfills.js[39m       [2m | [22m[2mpolyfills[22m                                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                                [2m | [22m[1m238.96 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mchunk-AZHG3LM2.js[39m  [2m | [22m[2mclient-dashboard-component[22m                   [2m | [22m[36m276.45 kB[39m[2m | [22m
+[32mchunk-CZ2JAFVU.js[39m  [2m | [22m[2mauditor-audit-cockpit-page-component[22m         [2m | [22m[36m209.88 kB[39m[2m | [22m
+[32mchunk-O4N7PLLW.js[39m  [2m | [22m[2madmin-clients-component[22m                      [2m | [22m[36m204.58 kB[39m[2m | [22m
+[32mchunk-CVDPMWHN.js[39m  [2m | [22m[2mcrm-returns-workspace-page-component[22m         [2m | [22m[36m181.80 kB[39m[2m | [22m
+[32mchunk-VFZ67HQN.js[39m  [2m | [22m[2mpayroll-structures-builder-page-component[22m    [2m | [22m[36m176.17 kB[39m[2m | [22m
+[32mchunk-DCYXFEVF.js[39m  [2m | [22m[2mpayroll-setup-tabs-page-component[22m            [2m | [22m[36m159.91 kB[39m[2m | [22m
+[32mchunk-6CSJTRVH.js[39m  [2m | [22m[2mbranch-monthly-compliance-page-component[22m     [2m | [22m[36m159.02 kB[39m[2m | [22m
+[32mchunk-QESGXHVW.js[39m  [2m | [22m[2mbranch-registrations-page-component[22m          [2m | [22m[36m152.99 kB[39m[2m | [22m
+[32mchunk-SFCW4YJ6.js[39m  [2m | [22m[2mclient-branch-detail-workspace-page-component[22m[2m | [22m[36m150.43 kB[39m[2m | [22m
+[32mchunk-7HFECYDT.js[39m  [2m | [22m[2madmin-dashboard-component[22m                    [2m | [22m[36m139.38 kB[39m[2m | [22m
+[32mchunk-3PY2XSIA.js[39m  [2m | [22m[2mcrm-compliance-component[22m                     [2m | [22m[36m131.17 kB[39m[2m | [22m
+[32mchunk-T6H4UOZL.js[39m  [2m | [22m[2mclient-employee-detail-component[22m             [2m | [22m[36m130.63 kB[39m[2m | [22m
+[32mchunk-25XRIPOY.js[39m  [2m | [22m[2mcrm-audit-management-page-component[22m          [2m | [22m[36m123.50 kB[39m[2m | [22m
+[32mchunk-XCBTDKXC.js[39m  [2m | [22m[2mbranch-audit-observations-page-component[22m     [2m | [22m[36m121.13 kB[39m[2m | [22m
+[32mchunk-YAD4DWWM.js[39m  [2m | [22m[2mpayroll-rule-sets-page-component[22m             [2m | [22m[36m117.68 kB[39m[2m | [22m
+[2m...and 237 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [5.115 seconds] - 2026-03-29T06:51:02.891Z
+
+Page reload sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                   [2m | [22m[1mRaw size[22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                    [2m | [22m[36m66.83 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                   [2m | [22m[1mRaw size[22m
+[32mchunk-SXNDC2BP.js[39m  [2m | [22m[2mreset-password-component[22m[2m | [22m[36m44.43 kB[39m[2m | [22m
+
+Application bundle generation complete. [11.382 seconds] - 2026-03-29T06:53:22.385Z
+
+Page reload sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+
+No output file changes.
+
+Application bundle generation complete. [5.969 seconds] - 2026-03-29T06:59:15.647Z
+
+Component update sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+Application bundle generation failed. [12.946 seconds] - 2026-03-29T07:03:27.712Z
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'goToForgotPassword' does not exist on type 'EssLoginComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/pages/ess/ess-login/ess-login.component.ts:67:50:
+[37m      67 │ ..."accent-link" (click)="[32mgoToForgotPassword[37m()" href="javascript:v...
+         ╵                           [32m~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                                       [2m | [22m[36m119.69 kB[39m[2m | [22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                                         [2m | [22m [36m67.06 kB[39m[2m | [22m
+[32mchunk-I7FOERQT.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m15.13 kB[39m[2m | [22m
+[32mchunk-UMJHQS2Q.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m14.08 kB[39m[2m | [22m
+[32mchunk-CYWJ676E.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m [36m13.08 kB[39m[2m | [22m
+[32mchunk-XWLXMCJQ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2MRGE4DP.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.07 kB[39m[2m | [22m
+[32mchunk-2R4RTXY7.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m2.01 kB[39m[2m | [22m
+[32mchunk-AXBMPDZZ.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.97 kB[39m[2m | [22m
+[32mchunk-SBGOE6RK.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m  [36m1.56 kB[39m[2m | [22m
+[32mchunk-IYVNC6PG.js[39m  [2m | [22m[2m-[22m                                            [2m | [22m[36m500 bytes[39m[2m | [22m
+[32mpolyfills.js[39m       [2m | [22m[2mpolyfills[22m                                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                                [2m | [22m[1m239.31 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                                        [2m | [22m [1mRaw size[22m
+[32mchunk-AZHG3LM2.js[39m  [2m | [22m[2mclient-dashboard-component[22m                   [2m | [22m[36m276.45 kB[39m[2m | [22m
+[32mchunk-CZ2JAFVU.js[39m  [2m | [22m[2mauditor-audit-cockpit-page-component[22m         [2m | [22m[36m209.88 kB[39m[2m | [22m
+[32mchunk-O4N7PLLW.js[39m  [2m | [22m[2madmin-clients-component[22m                      [2m | [22m[36m204.58 kB[39m[2m | [22m
+[32mchunk-CVDPMWHN.js[39m  [2m | [22m[2mcrm-returns-workspace-page-component[22m         [2m | [22m[36m181.80 kB[39m[2m | [22m
+[32mchunk-VFZ67HQN.js[39m  [2m | [22m[2mpayroll-structures-builder-page-component[22m    [2m | [22m[36m176.17 kB[39m[2m | [22m
+[32mchunk-DCYXFEVF.js[39m  [2m | [22m[2mpayroll-setup-tabs-page-component[22m            [2m | [22m[36m159.91 kB[39m[2m | [22m
+[32mchunk-6CSJTRVH.js[39m  [2m | [22m[2mbranch-monthly-compliance-page-component[22m     [2m | [22m[36m159.02 kB[39m[2m | [22m
+[32mchunk-QESGXHVW.js[39m  [2m | [22m[2mbranch-registrations-page-component[22m          [2m | [22m[36m152.99 kB[39m[2m | [22m
+[32mchunk-SFCW4YJ6.js[39m  [2m | [22m[2mclient-branch-detail-workspace-page-component[22m[2m | [22m[36m150.43 kB[39m[2m | [22m
+[32mchunk-7HFECYDT.js[39m  [2m | [22m[2madmin-dashboard-component[22m                    [2m | [22m[36m139.38 kB[39m[2m | [22m
+[32mchunk-3PY2XSIA.js[39m  [2m | [22m[2mcrm-compliance-component[22m                     [2m | [22m[36m131.17 kB[39m[2m | [22m
+[32mchunk-T6H4UOZL.js[39m  [2m | [22m[2mclient-employee-detail-component[22m             [2m | [22m[36m130.63 kB[39m[2m | [22m
+[32mchunk-25XRIPOY.js[39m  [2m | [22m[2mcrm-audit-management-page-component[22m          [2m | [22m[36m123.50 kB[39m[2m | [22m
+[32mchunk-XCBTDKXC.js[39m  [2m | [22m[2mbranch-audit-observations-page-component[22m     [2m | [22m[36m121.13 kB[39m[2m | [22m
+[32mchunk-YAD4DWWM.js[39m  [2m | [22m[2mpayroll-rule-sets-page-component[22m             [2m | [22m[36m117.68 kB[39m[2m | [22m
+[2m...and 239 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [10.023 seconds] - 2026-03-29T07:03:37.828Z
+
+Page reload sent to client(s).
+[33m>[39m Changes detected. Rebuilding...
+[32m√[39m Changes detected. Rebuilding...
+
+No output file changes.
+
+Application bundle generation complete. [45.210 seconds] - 2026-03-29T08:44:10.383Z
+

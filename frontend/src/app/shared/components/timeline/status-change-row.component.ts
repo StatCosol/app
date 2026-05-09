@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'status-change-row',
+  selector: 'ui-status-change-row',
   standalone: true,
   imports: [CommonModule],
   template: `

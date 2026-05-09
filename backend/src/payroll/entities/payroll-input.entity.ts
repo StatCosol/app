@@ -38,6 +38,12 @@ export class PayrollInputEntity {
   @Column({ type: 'uuid', name: 'submitted_by_user_id' })
   submittedByUserId: string;
 
+  @Column({ type: 'timestamptz', name: 'status_updated_at', nullable: true })
+  statusUpdatedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'status_updated_by_user_id', nullable: true })
+  statusUpdatedByUserId: string | null;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

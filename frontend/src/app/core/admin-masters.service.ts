@@ -30,6 +30,18 @@ export class AdminMastersService {
     return this.http.delete(`${this.baseUrl}/api/v1/admin/masters/compliances/${id}`);
   }
 
+  bulkUploadComplianceMasters(file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${this.baseUrl}/api/v1/admin/masters/compliances/bulk-upload`, formData);
+  }
+
+  downloadComplianceTemplate(): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/api/v1/admin/masters/compliances/template/download`, {
+      responseType: 'blob',
+    });
+  }
+
   // Audit Categories
   listAuditCategories(): Observable<any> {
     return this.http.get(`${this.baseUrl}/api/v1/admin/masters/audit-categories`);

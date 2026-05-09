@@ -19,7 +19,7 @@
         <span>Open the queue you need without navigation overhead</span>
       </div>
       <div class="shortcut-grid">
-        <button
+        <button type="button"
           class="shortcut-btn"
           *ngFor="let item of shortcuts"
           (click)="openShortcut(item)">
@@ -64,6 +64,12 @@
         <div>{{ kpis.reuploadRequiredCount }}</div>
         <p>Pending corrections</p>
       </article>
+
+      <article class="kpi-card" *ngIf="kpis.onBehalfTotal">
+        <h4>On-Behalf Uploads</h4>
+        <div>{{ kpis.onBehalfTotal }}</div>
+        <p>{{ kpis.onBehalfApproved || 0 }} approved · {{ kpis.onBehalfPending || 0 }} pending</p>
+      </article>
     </section>
 
     <section class="grid-2 mb-4">
@@ -73,9 +79,9 @@
           <span>Tab-wise queue</span>
         </div>
         <div class="tabs">
-          <button [class.active]="dueTab==='OVERDUE'" (click)="setDueTab('OVERDUE')">Overdue</button>
-          <button [class.active]="dueTab==='DUE_SOON'" (click)="setDueTab('DUE_SOON')">Due Soon</button>
-          <button [class.active]="dueTab==='THIS_MONTH'" (click)="setDueTab('THIS_MONTH')">This Month</button>
+          <button type="button" [class.active]="dueTab==='OVERDUE'" (click)="setDueTab('OVERDUE')">Overdue</button>
+          <button type="button" [class.active]="dueTab==='DUE_SOON'" (click)="setDueTab('DUE_SOON')">Due Soon</button>
+          <button type="button" [class.active]="dueTab==='THIS_MONTH'" (click)="setDueTab('THIS_MONTH')">This Month</button>
         </div>
         <ui-loading-spinner *ngIf="detailLoading" text="Loading due compliances..." size="md"></ui-loading-spinner>
         <ui-empty-state
@@ -83,7 +89,7 @@
           title="No items in selected tab"
           description="No due compliance records for this view.">
         </ui-empty-state>
-        <div class="table-wrap" *ngIf="!detailLoading && dueItems.length">
+        <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="!detailLoading && dueItems.length">
           <table>
             <thead>
               <tr>
@@ -99,7 +105,7 @@
                 <td>{{ row.clientName }}</td>
                 <td>{{ row.branchName }}</td>
                 <td>{{ row.complianceItem }}</td>
-                <td>{{ row.dueDate | date:'dd MMM yyyy' }}</td>
+                <td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
                 <td>
                   <span class="pill" [class.high]="row.daysOverdue > 7">{{ row.daysOverdue }}d</span>
                 </td>
@@ -115,24 +121,24 @@
           <span>Single workflow entry point</span>
         </div>
         <div class="workflow-cards">
-          <button class="workflow-card" (click)="openShortcut({ label:'Returns', route:'/crm/returns' })">
+          <button type="button" class="workflow-card" (click)="openShortcut({ label:'Returns', route:'/crm/returns' })">
             <h4>Returns</h4>
-            <div>{{ kpis.pendingReviewCount + kpis.reuploadRequiredCount }}</div>
+            <span class="wf-count">{{ kpis.pendingReviewCount + kpis.reuploadRequiredCount }}</span>
             <p>Prepared / reviewed / filed / acknowledged</p>
           </button>
-          <button class="workflow-card" (click)="openWorkflowBoard('RENEWAL')">
+          <button type="button" class="workflow-card" (click)="openWorkflowBoard('RENEWAL')">
             <h4>Renewals</h4>
-            <div>{{ renewalsCount }}</div>
+            <span class="wf-count">{{ renewalsCount }}</span>
             <p>Due-date driven review queue</p>
           </button>
-          <button class="workflow-card" (click)="openWorkflowBoard('AMENDMENT')">
+          <button type="button" class="workflow-card" (click)="openWorkflowBoard('AMENDMENT')">
             <h4>Amendments</h4>
-            <div>{{ amendmentsCount }}</div>
+            <span class="wf-count">{{ amendmentsCount }}</span>
             <p>Status movement controls</p>
           </button>
-          <button class="workflow-card" (click)="openWorkflowBoard('REGISTRATION')">
+          <button type="button" class="workflow-card" (click)="openWorkflowBoard('REGISTRATION')">
             <h4>Registrations</h4>
-            <div>{{ registrationsHintCount }}</div>
+            <span class="wf-count">{{ registrationsHintCount }}</span>
             <p>Registration-heavy overdue hints</p>
           </button>
         </div>
@@ -151,7 +157,7 @@
           description="Coverage exceptions will appear here.">
         </ui-empty-state>
         <div class="list" *ngIf="lowCoverage.length">
-          <button class="list-row" *ngFor="let row of lowCoverage; trackBy: trackById" (click)="openClientWorkspace(row.clientId)">
+          <button type="button" class="list-row" *ngFor="let row of lowCoverage; trackBy: trackById" (click)="openClientWorkspace(row.clientId)">
             <div>
               <strong>{{ row.clientName }}</strong>
               <span>{{ row.branchName }}</span>
@@ -182,7 +188,7 @@
             </div>
             <div class="right">
               <span>{{ row.status }}</span>
-              <small>{{ row.requestedOn | date:'dd MMM' }} · {{ row.pendingDays }}d</small>
+              <small>{{ row.requestedOn ? (row.requestedOn | date:'dd MMM') : '-' }} · {{ row.pendingDays }}d</small>
             </div>
           </div>
         </div>
@@ -261,6 +267,20 @@
       </article>
     </section>
 
+    <section class="mb-4" *ngIf="returnTasksForDashboard.length">
+      <app-compliance-risk-tiles
+        [returnTasks]="returnTasksForDashboard"
+        [expiryTasks]="expiryTasksForDashboard">
+      </app-compliance-risk-tiles>
+    </section>
+
+    <section class="mb-4" *ngIf="returnTasksForDashboard.length">
+      <app-compliance-charts
+        [returnTasks]="returnTasksForDashboard"
+        [expiryTasks]="expiryTasksForDashboard">
+      </app-compliance-charts>
+    </section>
+
     <section class="panel mb-4">
       <div class="section-head">
         <h3>Top Risk Clients</h3>
@@ -271,7 +291,7 @@
         title="No risk clients found"
         description="Risk ranking data is unavailable right now.">
       </ui-empty-state>
-      <div class="table-wrap" *ngIf="riskClients.length">
+      <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="riskClients.length">
         <table>
           <thead>
             <tr>
@@ -311,7 +331,7 @@
         title="No upcoming audits"
         description="No audits scheduled in the next 15 days.">
       </ui-empty-state>
-      <div class="table-wrap" *ngIf="upcomingAudits.length">
+      <div class="table-wrap max-h-[600px] overflow-y-auto" *ngIf="upcomingAudits.length">
         <table>
           <thead>
             <tr>
@@ -328,7 +348,7 @@
               <td>{{ row.auditCode || row.auditType }}</td>
               <td>{{ row.clientName }}</td>
               <td>{{ row.branchName || '-' }}</td>
-              <td>{{ row.dueDate | date:'dd MMM yyyy' }}</td>
+              <td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
               <td>{{ row.daysUntil }}d</td>
               <td><ui-status-badge [status]="row.status"></ui-status-badge></td>
             </tr>

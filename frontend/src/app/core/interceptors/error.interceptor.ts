@@ -1,4 +1,5 @@
 import {
+  HttpContextToken,
   HttpErrorResponse,
   HttpEvent,
   HttpHandlerFn,
@@ -8,6 +9,10 @@ import { inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ApiErrorResponse } from '../models/api-response.model';
+
+/** Set to true on requests where the caller handles errors gracefully and
+ *  should not show the global "Request Failed" toast on failure. */
+export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 
 export function errorInterceptor(
   req: HttpRequest<unknown>,
@@ -40,7 +45,7 @@ export function errorInterceptor(
         message = 'Unable to connect to server.';
       }
 
-      if (error.status !== 401) {
+      if (error.status !== 401 && !req.context.get(SKIP_ERROR_TOAST)) {
         toast.error(title, message);
       }
 

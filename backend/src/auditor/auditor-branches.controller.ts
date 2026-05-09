@@ -1,4 +1,6 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ReqUser } from '../access/access-scope.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -15,9 +17,7 @@ export class AuditorBranchesController {
 
   @ApiOperation({ summary: 'My Branches' })
   @Get('branches')
-  async myBranches(@Request() req) {
-    return this.assignmentsService.getAssignedBranchesForAuditor(
-      req.user.userId,
-    );
+  async myBranches(@CurrentUser() user: ReqUser) {
+    return this.assignmentsService.getAssignedBranchesForAuditor(user.userId);
   }
 }

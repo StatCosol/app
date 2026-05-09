@@ -5,11 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { IsNull } from 'typeorm';
 import { PayrollInputFileEntity } from '../payroll/entities/payroll-input-file.entity';
 import { RegistersRecordEntity } from '../payroll/entities/registers-record.entity';
 import { HelpdeskMessageFileEntity } from '../helpdesk/entities/helpdesk-message-file.entity';
 import { ContractorDocumentEntity } from '../contractor/entities/contractor-document.entity';
 import { PayrollClientAssignmentEntity } from '../payroll/entities/payroll-client-assignment.entity';
+import { ReqUser } from '../access/access-scope.service';
 
 @Injectable()
 export class FilesService {
@@ -27,7 +29,7 @@ export class FilesService {
   ) {}
 
   // Determine if user can access a filePath (by checking known tables)
-  async assertCanDownload(user: any, filePath: string) {
+  async assertCanDownload(user: ReqUser, filePath: string) {
     // 1) contractor_documents
     const cd = await this.cdRepo.findOne({ where: { filePath } });
     if (cd) {
@@ -60,7 +62,7 @@ export class FilesService {
             payrollUserId: user.id,
             clientId: ownerClientId,
             status: 'ACTIVE',
-            endDate: null as any,
+            endDate: IsNull(),
           },
         });
         if (!assignment) throw new ForbiddenException();
@@ -82,7 +84,7 @@ export class FilesService {
             payrollUserId: user.id,
             clientId: rr.clientId,
             status: 'ACTIVE',
-            endDate: null as any,
+            endDate: IsNull(),
           },
         });
         if (!ok) throw new ForbiddenException();
@@ -91,11 +93,46 @@ export class FilesService {
       return; // ADMIN/others
     }
 
-    // 4) helpdesk_message_files (optional)
+    // 4) helpdesk_message_files — join back to the ticket so we enforce
+    // the same role-based scope as the ticket detail/messages endpoints.
     const hmf = await this.hmfRepo.findOne({ where: { filePath } });
     if (hmf) {
-      // simplest: allow PF_TEAM/CLIENT/ADMIN; for strict, join via ticket->clientId
-      if (['PF_TEAM', 'CLIENT', 'ADMIN'].includes(user.roleCode)) return;
+      const rows: Array<{
+        clientId: string;
+        category: string;
+        assignedToUserId: string | null;
+      }> = await this.hmfRepo.manager.query(
+        `SELECT t.client_id            AS "clientId",
+                t.category             AS "category",
+                t.assigned_to_user_id  AS "assignedToUserId"
+           FROM helpdesk_message_files hmf
+           JOIN helpdesk_messages hm ON hm.id = hmf.message_id
+           JOIN helpdesk_tickets  t  ON t.id  = hm.ticket_id
+          WHERE hmf.id = $1
+          LIMIT 1`,
+        [hmf.id],
+      );
+      const ticket = rows[0];
+      if (!ticket) throw new ForbiddenException();
+
+      if (user.roleCode === 'ADMIN') return;
+      if (user.roleCode === 'CLIENT') {
+        if (user.clientId && user.clientId === ticket.clientId) return;
+        throw new ForbiddenException();
+      }
+      if (user.roleCode === 'PF_TEAM') {
+        // PF Team: PF/ESI/PAYSLIP categories only, and respect assignment
+        if (!['PF', 'ESI', 'PAYSLIP'].includes(ticket.category)) {
+          throw new ForbiddenException();
+        }
+        if (
+          ticket.assignedToUserId &&
+          ticket.assignedToUserId !== user.id
+        ) {
+          throw new ForbiddenException();
+        }
+        return;
+      }
       throw new ForbiddenException();
     }
 

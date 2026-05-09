@@ -1,4 +1,4 @@
-<div class="p-6 space-y-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
@@ -6,13 +6,13 @@
       <p class="text-sm text-gray-500 mt-1">Documents flagged by auditors requiring corrected uploads</p>
     </div>
     <div class="flex items-center gap-3">
-      <input
+      <input autocomplete="off" id="cri-q" name="q"
         type="text"
         [(ngModel)]="q"
         placeholder="Search documents..."
         class="rounded-lg border-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-48"
       />
-      <button
+      <button type="button"
         (click)="load()"
         class="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
       >
@@ -23,19 +23,19 @@
 
   <!-- Quick Tabs with counts -->
   <div class="flex flex-wrap gap-2 mb-3">
-    <button class="px-3 py-1 text-sm border rounded"
+    <button type="button" class="px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='OPEN' ? 'bg-black text-white' : ''"
             (click)="setTab('OPEN')">{{ tabLabel('OPEN') }}</button>
-    <button class="px-3 py-1 text-sm border rounded"
+    <button type="button" class="px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='SUBMITTED' ? 'bg-black text-white' : ''"
             (click)="setTab('SUBMITTED')">{{ tabLabel('SUBMITTED') }}</button>
-    <button class="px-3 py-1 text-sm border rounded"
+    <button type="button" class="px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='REJECTED' ? 'bg-black text-white' : ''"
             (click)="setTab('REJECTED')">{{ tabLabel('REJECTED') }}</button>
-    <button class="px-3 py-1 text-sm border rounded"
+    <button type="button" class="px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='REVERIFIED' ? 'bg-black text-white' : ''"
             (click)="setTab('REVERIFIED')">{{ tabLabel('REVERIFIED') }}</button>
-    <button class="px-3 py-1 text-sm border rounded"
+    <button type="button" class="px-3 py-1 text-sm border rounded"
             [ngClass]="statusTab==='ALL' ? 'bg-black text-white' : ''"
             (click)="setTab('ALL')">{{ tabLabel('ALL') }}</button>
   </div>
@@ -131,7 +131,7 @@
                 (change)="onFileChange(id(r), $event)"
                 [disabled]="!canUpload(r)"
               />
-              <input
+              <input autocomplete="off" id="cri-note[id(r)]" name="note[id(r)]"
                 class="mt-2 w-full border rounded-lg p-2 text-sm"
                 placeholder="Note (optional)"
                 [(ngModel)]="note[id(r)]"
@@ -140,14 +140,14 @@
             </div>
           </div>
           <div class="flex gap-3">
-            <button
+            <button type="button"
               (click)="upload(r)"
               [disabled]="!canUpload(r) || uploadingId === id(r)"
               class="px-3 py-2 text-sm border rounded disabled:opacity-50"
             >
               {{ uploadingId === id(r) ? 'Uploading\u2026' : (canUpload(r) ? 'Upload' : 'Upload disabled') }}
             </button>
-            <button
+            <button type="button"
               (click)="submit(r)"
               [disabled]="!canSubmit(r) || submittingId === id(r)"
               class="px-3 py-2 text-sm bg-black text-white rounded disabled:opacity-50"

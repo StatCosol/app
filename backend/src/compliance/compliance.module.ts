@@ -25,6 +25,8 @@ import { AdminComplianceController } from './controllers/admin-compliance.contro
 import { AuditorComplianceController } from './controllers/auditor-compliance.controller';
 import { CommonComplianceController } from './controllers/common-compliance.controller';
 import { BranchReuploadController } from './controllers/branch-reupload.controller';
+import { ClientVisibilityController } from './client-visibility.controller';
+import { ClientVisibilityService } from './client-visibility.service';
 import {
   ComplianceCrmDashboardController,
   ContractorDashboardController,
@@ -69,8 +71,13 @@ import { ComplianceTasksPortalController } from './controllers/compliance-tasks.
     ClientDashboardController,
     AdminRoleDashboardController,
     ComplianceAuditorDashboardController,
+    ClientVisibilityController,
   ],
-  providers: [ComplianceService, ComplianceCronService],
-  exports: [ComplianceService],
+  providers: [
+    ComplianceService,
+    ComplianceCronService,
+    ClientVisibilityService,
+  ],
+  exports: [ComplianceService, ClientVisibilityService],
 })
 export class ComplianceModule {}

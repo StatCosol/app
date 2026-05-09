@@ -32,9 +32,9 @@ export class CreateAuditDto {
   @IsString()
   periodCode: string; // e.g. 2025-01, 2025-Q1, 2025-H1, 2025
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  assignedAuditorId: string;
+  assignedAuditorId?: string;
 
   @IsOptional()
   @IsString()

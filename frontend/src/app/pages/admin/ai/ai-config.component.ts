@@ -53,8 +53,8 @@ import {
 
           <div class="space-y-5">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
-              <select [(ngModel)]="form.provider"
+              <label for="ai-provider" class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+              <select id="ai-provider" name="provider" [(ngModel)]="form.provider"
                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                 <option value="openai">OpenAI</option>
                 <option value="azure">Azure OpenAI</option>
@@ -62,20 +62,28 @@ import {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Model Name</label>
-              <select [(ngModel)]="form.modelName"
+              <label for="ai-model" class="block text-sm font-medium text-gray-700 mb-1">Model Name</label>
+              <select id="ai-model" name="modelName" [(ngModel)]="form.modelName"
                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                <option value="gpt-4o-mini">GPT-4o Mini (fast, cheap)</option>
-                <option value="gpt-4o">GPT-4o (balanced)</option>
-                <option value="gpt-4-turbo">GPT-4 Turbo (powerful)</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo (legacy)</option>
+                <optgroup label="GPT-4.1 Series (Latest)">
+                  <option value="gpt-4.1-nano">GPT-4.1 Nano (fastest, cheapest)</option>
+                  <option value="gpt-4.1-mini">GPT-4.1 Mini (fast, affordable)</option>
+                  <option value="gpt-4.1">GPT-4.1 (flagship)</option>
+                </optgroup>
+                <optgroup label="GPT-4o Series">
+                  <option value="gpt-4o-mini">GPT-4o Mini (compact)</option>
+                  <option value="gpt-4o">GPT-4o (balanced)</option>
+                </optgroup>
+                <optgroup label="Reasoning Models">
+                  <option value="o3-mini">O3 Mini (reasoning)</option>
+                </optgroup>
               </select>
-              <p class="text-xs text-gray-500 mt-1">GPT-4o Mini is the most cost-effective for compliance analysis.</p>
+              <p class="text-xs text-gray-500 mt-1">GPT-4.1 Mini recommended — best cost/performance for compliance analysis.</p>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-              <input type="password" [(ngModel)]="form.apiKey" placeholder="sk-..."
+              <label for="ai-apikey" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+              <input type="password" id="ai-apikey" name="apiKey" autocomplete="off" [(ngModel)]="form.apiKey" placeholder="sk-..."
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500" />
               <p class="text-xs text-gray-500 mt-1">
                 {{ config?.configured ? '🔑 API key is configured. Enter a new key to replace it.' : 'No API key set. The system will use rule-based analysis without an API key.' }}
@@ -83,8 +91,8 @@ import {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Temperature ({{ form.temperature }})</label>
-              <input type="range" [(ngModel)]="form.temperature" min="0" max="1" step="0.05"
+              <label for="ai-temperature" class="block text-sm font-medium text-gray-700 mb-1">Temperature ({{ form.temperature }})</label>
+              <input autocomplete="off" type="range" id="ai-temperature" name="temperature" [(ngModel)]="form.temperature" min="0" max="1" step="0.05"
                      class="w-full accent-blue-600" />
               <div class="flex justify-between text-xs text-gray-400 mt-1">
                 <span>Deterministic (0)</span>
@@ -93,8 +101,8 @@ import {
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
-              <input type="number" [(ngModel)]="form.maxTokens" min="256" max="8192" step="256"
+              <label for="ai-max-tokens" class="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
+              <input autocomplete="off" type="number" id="ai-max-tokens" name="maxTokens" [(ngModel)]="form.maxTokens" min="256" max="8192" step="256"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
               <p class="text-xs text-gray-500 mt-1">Typical range: 1024–4096. Higher values allow more detailed analysis.</p>
             </div>
@@ -131,7 +139,7 @@ export class AiConfigComponent implements OnInit, OnDestroy {
 
   form = {
     provider: 'openai',
-    modelName: 'gpt-4o-mini',
+    modelName: 'gpt-4.1-mini',
     apiKey: '',
     temperature: 0.3,
     maxTokens: 2048,
@@ -169,7 +177,7 @@ export class AiConfigComponent implements OnInit, OnDestroy {
         next: (cfg) => {
           this.config = cfg;
           this.form.provider = cfg.provider || 'openai';
-          this.form.modelName = cfg.modelName || 'gpt-4o-mini';
+          this.form.modelName = cfg.modelName || 'gpt-4.1-mini';
           this.form.temperature = cfg.temperature ?? 0.3;
           this.form.maxTokens = cfg.maxTokens ?? 2048;
           this.form.apiKey = '';

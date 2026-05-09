@@ -42,6 +42,12 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Database dumps
+*.dump
+
+# Write test markers
+_write_test.txt
+
 # temp directory
 .temp
 .tmp
@@ -57,3 +63,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Temp artifacts
 tmpclaude-*
+
+# Uploads directory
+/uploads
+
+# Database backups
+*.sql.bak
+*.dump

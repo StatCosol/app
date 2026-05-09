@@ -169,6 +169,146 @@ interface ReportItem {
           </table>
         </div>
 
+        <!-- Compliance Summary Table -->
+        <div *ngIf="!reportLoading && activeReport.key === 'compliance-summary' && reportData.length > 0" class="overflow-x-auto">
+          <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Branch</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Law</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Task</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Frequency</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Due Date</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+                <td class="px-3 py-2">{{ r.branchName || '—' }}</td>
+                <td class="px-3 py-2 font-medium">{{ r.lawName }}</td>
+                <td class="px-3 py-2">{{ r.taskTitle }}</td>
+                <td class="px-3 py-2 text-xs">{{ r.frequency }}</td>
+                <td class="px-3 py-2">{{ r.dueDate | date:'mediumDate' }}</td>
+                <td class="px-3 py-2">
+                  <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full"
+                    [ngClass]="{
+                      'bg-green-100 text-green-700': r.status === 'APPROVED',
+                      'bg-amber-100 text-amber-700': r.status === 'PENDING' || r.status === 'IN_PROGRESS' || r.status === 'SUBMITTED',
+                      'bg-red-100 text-red-700': r.status === 'OVERDUE' || r.status === 'REJECTED',
+                      'bg-gray-100 text-gray-600': r.status === 'NOT_APPLICABLE'
+                    }">
+                    {{ r.status }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PF/ESIC Registration Status Table -->
+        <div *ngIf="!reportLoading && activeReport.key === 'pf-esic-status' && reportData.length > 0" class="overflow-x-auto">
+          <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Employee</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Code</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Branch</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">UAN (PF)</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">ESIC</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">PF</th>
+                <th class="px-3 py-2 text-center font-medium text-gray-600">ESIC</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+                <td class="px-3 py-2 font-medium">{{ r.name }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ r.employeeCode }}</td>
+                <td class="px-3 py-2">{{ r.branchName || '—' }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ r.uan || '—' }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ r.esic || '—' }}</td>
+                <td class="px-3 py-2 text-center">
+                  <span class="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full"
+                    [ngClass]="r.pfRegistered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                    {{ r.pfRegistered ? 'Yes' : 'No' }}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-center">
+                  <span class="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full"
+                    [ngClass]="r.esicRegistered ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                    {{ r.esicRegistered ? 'Yes' : 'No' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Headcount Report Table -->
+        <div *ngIf="!reportLoading && activeReport.key === 'headcount' && reportData.length > 0" class="overflow-x-auto">
+          <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Branch</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Active</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Inactive</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Male</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Female</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Other</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+                <td class="px-3 py-2 font-medium">{{ r.branchName || 'Unassigned' }}</td>
+                <td class="px-3 py-2 text-right font-semibold text-green-700">{{ r.totalActive }}</td>
+                <td class="px-3 py-2 text-right text-gray-500">{{ r.totalInactive }}</td>
+                <td class="px-3 py-2 text-right">{{ r.male }}</td>
+                <td class="px-3 py-2 text-right">{{ r.female }}</td>
+                <td class="px-3 py-2 text-right">{{ r.other }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Contractor Upload Summary Table -->
+        <div *ngIf="!reportLoading && activeReport.key === 'contractor-uploads' && reportData.length > 0" class="overflow-x-auto">
+          <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Contractor</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">Branch</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Total</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Approved</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Pending</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Rejected</th>
+                <th class="px-3 py-2 text-right font-medium text-gray-600">Approval %</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr *ngFor="let r of reportData" class="hover:bg-gray-50">
+                <td class="px-3 py-2">
+                  <div class="font-medium">{{ r.contractorName }}</div>
+                  <div class="text-xs text-gray-500">{{ r.contractorEmail }}</div>
+                </td>
+                <td class="px-3 py-2">{{ r.branchName || '—' }}</td>
+                <td class="px-3 py-2 text-right font-semibold">{{ r.totalDocs }}</td>
+                <td class="px-3 py-2 text-right text-green-700">{{ r.approved }}</td>
+                <td class="px-3 py-2 text-right text-amber-600">{{ r.pending }}</td>
+                <td class="px-3 py-2 text-right text-red-600">{{ r.rejected }}</td>
+                <td class="px-3 py-2 text-right">
+                  <span class="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full"
+                    [ngClass]="{
+                      'bg-green-100 text-green-700': r.approvalPct >= 80,
+                      'bg-amber-100 text-amber-700': r.approvalPct >= 50 && r.approvalPct < 80,
+                      'bg-red-100 text-red-700': r.approvalPct < 50
+                    }">
+                    {{ r.approvalPct ?? 0 }}%
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div *ngIf="!reportLoading && reportData.length === 0" class="text-center text-gray-500 py-8">
           No data found for this report.
         </div>
@@ -207,10 +347,10 @@ export class BranchReportsComponent {
   summaryPairs: { label: string; value: any }[] = [];
 
   reports: ReportItem[] = [
-    { name: 'Monthly Compliance Summary', description: 'PF, ESIC, PT, LWF challan summary for selected month', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', category: 'Compliance', available: true },
-    { name: 'PF/ESIC Registration Status', description: 'Employee-wise PF and ESIC registration tracker', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', category: 'Compliance', available: true },
-    { name: 'Headcount Report', description: 'Employee and contractor headcount with M/F breakdown', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', category: 'Workforce', available: true },
-    { name: 'Contractor Upload Summary', description: 'Document upload % by contractor for selected month', icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12', category: 'Workforce', available: true },
+    { name: 'Monthly Compliance Summary', description: 'PF, ESIC, PT, LWF challan summary for selected month', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', category: 'Compliance', available: true, key: 'compliance-summary' },
+    { name: 'PF/ESIC Registration Status', description: 'Employee-wise PF and ESIC registration tracker', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', category: 'Compliance', available: true, key: 'pf-esic-status' },
+    { name: 'Headcount Report', description: 'Employee and contractor headcount with M/F breakdown', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', category: 'Workforce', available: true, key: 'headcount' },
+    { name: 'Contractor Upload Summary', description: 'Document upload % by contractor for selected month', icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12', category: 'Workforce', available: true, key: 'contractor-uploads' },
     { name: 'Registration Expiry Report', description: 'All registrations with expiry dates and renewal status', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', category: 'Registrations', available: true, key: 'registration-expiry' },
     { name: 'Audit Observation Report', description: 'Open/closed observations with aging analysis', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', category: 'Audits', available: true, key: 'audit-observations' },
   ];

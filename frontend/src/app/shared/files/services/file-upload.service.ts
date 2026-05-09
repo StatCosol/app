@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpRequest, HttpEventType } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { AzureBlobService } from './azure-blob.service';
 
 export interface UploadProgress {
   progress: number;
@@ -11,10 +12,14 @@ export interface UploadProgress {
 /**
  * Low-level upload helper that wraps HttpClient with reportProgress
  * so callers get progress percentage + final result.
+ *
+ * Supports two modes:
+ * - Legacy: POST FormData to backend endpoint
+ * - Azure Blob: Direct-to-Azure upload via SAS token
  */
 @Injectable({ providedIn: 'root' })
 export class FileUploadService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private blobService: AzureBlobService) {}
 
   /**
    * POST FormData to the given URL while reporting upload progress.
@@ -36,6 +41,21 @@ export class FileUploadService {
         }
         return { progress: 0 };
       }),
+    );
+  }
+
+  /**
+   * Upload a file directly to Azure Blob Storage via SAS token.
+   * @param file    The File object to upload
+   * @param folder  Optional blob container folder prefix
+   * @returns Observable emitting { progress: 0–100, result? }
+   */
+  uploadToAzure(file: File, folder?: string): Observable<UploadProgress> {
+    return this.blobService.upload(file, folder).pipe(
+      map(bp => ({
+        progress: bp.progress,
+        result: bp.result,
+      })),
     );
   }
 }

@@ -1,0 +1,155 @@
+.fb-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fb-node {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-root-node {
+  background: #fff;
+  border-color: #b6c2cf;
+}
+
+.fb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  label {
+    display: inline-flex;
+    flex-direction: column;
+    font-size: 11px;
+    color: #57606a;
+    gap: 2px;
+  }
+
+  select,
+  input[type='number'],
+  input[type='text'] {
+    padding: 4px 6px;
+    font-size: 13px;
+    border: 1px solid #c8cdd2;
+    border-radius: 4px;
+    background: #fff;
+    min-width: 110px;
+  }
+
+  .fb-of {
+    color: #57606a;
+    font-size: 12px;
+    margin: 0 4px;
+  }
+
+  .fb-grow {
+    flex: 1;
+    input { width: 100%; }
+  }
+}
+
+.fb-type select {
+  font-weight: 600;
+  background: #eef3f8;
+}
+
+.fb-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fb-child {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fb-child-narrow {
+  flex: 0 0 80px;
+}
+
+.fb-child-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #57606a;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fb-section {
+  border-left: 3px solid #b6c2cf;
+  padding-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fb-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #24292f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fb-add-btn,
+.fb-mini-btn {
+  background: #eef3f8;
+  border: 1px solid #c8cdd2;
+  color: #1f2937;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover { background: #dde6ef; }
+}
+
+.fb-mini-btn {
+  padding: 1px 6px;
+  font-size: 10.5px;
+  color: #b42318;
+  border-color: #f1c2bb;
+  background: #fff5f4;
+
+  &:hover { background: #fde0db; }
+}
+
+.fb-preview {
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: #0d1117;
+  color: #d2a8ff;
+  border-radius: 4px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.fb-preview-label {
+  color: #8b949e;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fb-preview-text {
+  color: inherit;
+  word-break: break-all;
+}

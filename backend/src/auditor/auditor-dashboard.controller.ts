@@ -7,26 +7,35 @@ import {
   Body,
   Query,
   UseGuards,
-  Req,
   Logger,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuditorDashboardService } from './auditor-dashboard.service';
 import { DataSource } from 'typeorm';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  AuditorSummaryQueryDto,
+  AuditorAuditsQueryDto,
+  AuditorObservationsQueryDto,
+  AuditorReportsQueryDto,
+  UpdateEvidenceStatusDto,
+} from './dto/auditor-dashboard-query.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /**
  * Auditor Dashboard Controller
  * Endpoints for auditor execution dashboard
  * Requires AUDITOR role
- * ⚠️ CRITICAL: All queries are scoped to auditor's assigned audits via req.user.id
+ * ⚠️ CRITICAL: All queries are scoped to auditor's assigned audits via user.id
  */
 @ApiTags('Auditor')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'auditor/dashboard', version: '1' })
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('AUDITOR')
 export class AuditorDashboardController {
   private readonly logger = new Logger(AuditorDashboardController.name);
@@ -49,8 +58,11 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Summary' })
   @Get('summary')
-  async getSummary(@Req() req, @Query() query: any) {
-    return this.dashboardService.getSummary(req.user.id, query);
+  async getSummary(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorSummaryQueryDto,
+  ) {
+    return this.dashboardService.getSummary(user.id, query);
   }
 
   /**
@@ -68,8 +80,12 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Audits' })
   @Get('audits')
-  async getAudits(@Req() req, @Query() query: any) {
-    return this.dashboardService.getAudits(req.user.id, query);
+  async getAudits(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorAuditsQueryDto,
+  ) {
+    const items = await this.dashboardService.getAudits(user.id, query);
+    return { items };
   }
 
   /**
@@ -85,8 +101,12 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Observations' })
   @Get('observations')
-  async getObservations(@Req() req, @Query() query: any) {
-    return this.dashboardService.getObservations(req.user.id, query);
+  async getObservations(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorObservationsQueryDto,
+  ) {
+    const items = await this.dashboardService.getObservations(user.id, query);
+    return { items };
   }
 
   /**
@@ -103,8 +123,12 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Reports' })
   @Get('reports')
-  async getReports(@Req() req, @Query() query: any) {
-    return this.dashboardService.getReports(req.user.id, query);
+  async getReports(
+    @CurrentUser() user: ReqUser,
+    @Query() query: AuditorReportsQueryDto,
+  ) {
+    const items = await this.dashboardService.getReports(user.id, query);
+    return { items };
   }
 
   /**
@@ -113,26 +137,27 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Evidence Pending' })
   @Get('evidence-pending')
-  async getEvidencePending(@Req() req, @Query() query: any) {
+  async getEvidencePending(@CurrentUser() user: ReqUser) {
     try {
-      const auditorId = req.user.id;
+      const auditorId = user.id;
       const items = await this.dataSource.query(
         `SELECT
            ce.id,
-           ce.task_id       AS "taskId",
-           COALESCE(cm.law_family, cm.law_name, 'GENERAL') AS category,
+           ct.client_id     AS "clientId",
+           ct.branch_id     AS "branchId",
+           COALESCE(cm.law_family, cm.law_name, 'Document') AS "evidenceName",
            c.client_name    AS "clientName",
-           b.branchname    AS "branchName",
-           ce.status,
-           ce.uploaded_at   AS "uploadedAt",
-           ct.due_date      AS "dueDate"
+           b.branchname     AS "branchName",
+           ct.status,
+           ce.created_at::date                              AS "requestedOn",
+           GREATEST(0, (CURRENT_DATE - ce.created_at::date)::int) AS "pendingDays"
          FROM compliance_evidence ce
          INNER JOIN compliance_tasks ct ON ct.id = ce.task_id
          LEFT JOIN compliance_master cm ON cm.id = ct.compliance_id
          INNER JOIN audits a ON a.client_id = ct.client_id AND a.assigned_auditor_id = $1
          LEFT JOIN clients  c ON c.id = ct.client_id
          LEFT JOIN client_branches b ON b.id = ct.branch_id
-         WHERE ce.status IN ('PENDING', 'PENDING_REVIEW')
+         WHERE ct.status IN ('PENDING', 'PENDING_REVIEW')
          ORDER BY ct.due_date ASC
          LIMIT 200`,
         [auditorId],
@@ -149,19 +174,17 @@ export class AuditorDashboardController {
    */
   @ApiOperation({ summary: 'Get Activity' })
   @Get('activity')
-  async getActivity(@Req() req) {
+  async getActivity(@CurrentUser() user: ReqUser) {
     try {
-      const auditorId = req.user.id;
+      const auditorId = user.id;
       const items = await this.dataSource.query(
         `SELECT
            al.id,
-           al.action,
-           al.entity_type   AS "entityType",
-           al.entity_id     AS "entityId",
-           al.details,
-           al.created_at    AS "createdAt"
+           'OTHER'           AS "activityType",
+           al.action         AS "description",
+           al.created_at     AS "timestamp"
          FROM audit_logs al
-         WHERE al.user_id = $1
+         WHERE al.performed_by = $1
          ORDER BY al.created_at DESC
          LIMIT 50`,
         [auditorId],
@@ -179,11 +202,11 @@ export class AuditorDashboardController {
   @ApiOperation({ summary: 'Remind Evidence' })
   @Post('evidence/:id/remind')
   async remindEvidence(
-    @Req() req,
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) evidenceId: string,
   ) {
     try {
-      const auditorId = req.user.id;
+      const auditorId = user.id;
       // Verify auditor owns this evidence's audit
       const rows = await this.dataSource.query(
         `SELECT ce.id, ce.task_id, ct.client_id, c.client_name
@@ -201,14 +224,20 @@ export class AuditorDashboardController {
           message: 'Evidence not found or not assigned to you',
         };
       }
-      // Log reminder in audit_logs
+      // Log reminder in audit_logs (schema: entity_type, entity_id, action,
+      // performed_by, snapshot, created_at). Use REMINDER_SENT action and
+      // store the evidence id under entity_id; payload (clientName, kind)
+      // goes into snapshot for traceability.
       await this.dataSource.query(
-        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-         VALUES ($1, 'EVIDENCE_REMINDER', 'COMPLIANCE_EVIDENCE', $2, $3)`,
+        `INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot, created_at)
+         VALUES ('AUDIT', $1, 'REMINDER_SENT', $2, $3::jsonb, NOW())`,
         [
-          auditorId,
           evidenceId,
-          JSON.stringify({ clientName: rows[0].client_name }),
+          auditorId,
+          JSON.stringify({
+            kind: 'EVIDENCE_REMINDER',
+            clientName: rows[0].client_name,
+          }),
         ],
       );
       this.logger.log(
@@ -228,12 +257,12 @@ export class AuditorDashboardController {
   @ApiOperation({ summary: 'Update Evidence Status' })
   @Patch('evidence/:id/status')
   async updateEvidenceStatus(
-    @Req() req,
+    @CurrentUser() user: ReqUser,
     @Param('id', ParseUUIDPipe) evidenceId: string,
-    @Body() body: { status: string },
+    @Body() body: UpdateEvidenceStatusDto,
   ) {
     try {
-      const auditorId = req.user.id;
+      const auditorId = user.id;
       // Verify auditor owns this evidence's audit
       const rows = await this.dataSource.query(
         `SELECT ce.id
@@ -254,11 +283,19 @@ export class AuditorDashboardController {
         `UPDATE compliance_evidence SET status = $1, updated_at = NOW() WHERE id = $2`,
         [body.status, evidenceId],
       );
-      // Log in audit_logs
+      // Log in audit_logs (schema: entity_type, entity_id, action,
+      // performed_by, snapshot, created_at).
       await this.dataSource.query(
-        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-         VALUES ($1, 'EVIDENCE_STATUS_UPDATE', 'COMPLIANCE_EVIDENCE', $2, $3)`,
-        [auditorId, evidenceId, JSON.stringify({ newStatus: body.status })],
+        `INSERT INTO audit_logs (entity_type, entity_id, action, performed_by, snapshot, created_at)
+         VALUES ('AUDIT', $1, 'STATUS_CHANGE', $2, $3::jsonb, NOW())`,
+        [
+          evidenceId,
+          auditorId,
+          JSON.stringify({
+            kind: 'EVIDENCE_STATUS_UPDATE',
+            newStatus: body.status,
+          }),
+        ],
       );
       this.logger.log(
         `Evidence ${evidenceId} status updated to ${body.status} by auditor ${auditorId}`,

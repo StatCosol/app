@@ -31,16 +31,7 @@
   color: #fff;
   border: none;
 }
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 420px;
-  gap: 16px;
-}
-@media (max-width: 1100px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* grid layout now handled by Tailwind utilities in template */
 .card {
   background: #fff;
   border: 1px solid #e5e7eb;

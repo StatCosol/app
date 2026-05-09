@@ -1,1 +1,0 @@
-UPDATE users SET password_hash = '$2b$10$iSxbBq0NNOATtfnxrbmz9O5HyKoopOg0e14CM9WXrnNTi.nHgIS0.' WHERE email IN ('slvmgmtconsultants@gmail.com','compliance@statcosol.com','mkkallepalli@gmail.com','sravan@vedhaentch.com','srisai@gmail.com','payroll_audit@statcosol.com','madan.kallepalli@gmail.com');

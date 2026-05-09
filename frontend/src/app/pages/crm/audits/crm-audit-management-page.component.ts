@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -27,13 +28,20 @@ import {
 } from '../../../shared/ui';
 
 type AuditStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-type AuditFrequency = 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY';
+type AuditFrequency =
+  | 'MONTHLY'
+  | 'BI_MONTHLY'
+  | 'QUARTERLY'
+  | 'HALF_YEARLY'
+  | 'YEARLY';
 
 interface AuditRow {
   id: string;
   auditCode: string;
   clientId: string;
   branchId?: string | null;
+  branchName?: string | null;
+  branch?: { id?: string; branchName?: string | null };
   contractorUserId?: string | null;
   frequency: AuditFrequency;
   auditType: string;
@@ -93,9 +101,16 @@ interface ReportStatusResponse {
   updatedAt?: string | null;
 }
 
+interface ContractorOption {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface ScheduleModel {
   clientId: string;
   branchId: string;
+  contractorUserId: string;
   frequency: AuditFrequency;
   auditType: string;
   periodYear: number;
@@ -133,6 +148,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   clients: ClientDto[] = [];
   auditors: AuditorOption[] = [];
   branchesByClient: Record<string, BranchDto[]> = {};
+  contractorsByClient: Record<string, ContractorOption[]> = {};
 
   audits: AuditRow[] = [];
   filteredAudits: AuditRow[] = [];
@@ -156,31 +172,38 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   scheduleModel: ScheduleModel = this.defaultScheduleModel();
   latestReadiness: ReadinessResponse | null = null;
   latestReportStatus: ReportStatusResponse | null = null;
+  autoGenerating = false;
+  governanceBusy = false;
 
   readonly statusOptions = [
     { value: '', label: 'All statuses' },
     { value: 'PLANNED', label: 'Planned' },
     { value: 'IN_PROGRESS', label: 'In progress' },
+    { value: 'SUBMITTED', label: 'Submitted' },
+    { value: 'CORRECTION_PENDING', label: 'Correction Pending' },
+    { value: 'REVERIFICATION_PENDING', label: 'Reverification Pending' },
     { value: 'COMPLETED', label: 'Completed' },
     { value: 'CANCELLED', label: 'Cancelled' },
+    { value: 'CLOSED', label: 'Closed' },
   ];
 
   readonly frequencyOptions: { value: AuditFrequency; label: string }[] = [
     { value: 'MONTHLY', label: 'Monthly' },
+    { value: 'BI_MONTHLY', label: 'Bi-monthly' },
     { value: 'QUARTERLY', label: 'Quarterly' },
     { value: 'HALF_YEARLY', label: 'Half-yearly' },
     { value: 'YEARLY', label: 'Yearly' },
   ];
 
   readonly auditTypes = [
-    'CONTRACTOR',
-    'FACTORY',
-    'SHOPS_ESTABLISHMENT',
-    'LABOUR_EMPLOYMENT',
-    'FSSAI',
-    'HR',
-    'PAYROLL',
-    'GAP',
+    { value: 'CONTRACTOR', label: 'Contractor Audit' },
+    { value: 'FACTORY', label: 'Factory Audit' },
+    { value: 'SHOPS_ESTABLISHMENT', label: 'Branch Compliance Audit' },
+    { value: 'LABOUR_EMPLOYMENT', label: 'Labour Law Audit' },
+    { value: 'FSSAI', label: 'FSSAI Audit' },
+    { value: 'HR', label: 'HR Audit' },
+    { value: 'PAYROLL', label: 'Payroll Audit' },
+    { value: 'GAP', label: 'Other Audit' },
   ];
 
   constructor(
@@ -190,11 +213,16 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     private readonly http: HttpClient,
     private readonly toast: ToastService,
     private readonly dialog: ConfirmDialogService,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.loadInitialData();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/crm/dashboard']);
   }
 
   ngOnDestroy(): void {
@@ -403,18 +431,16 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   }
 
   getNextStatuses(status: AuditStatus): { label: string; value: AuditStatus; variant: 'primary' | 'danger' }[] {
+    // CRM is a scheduler, not an executor. Only Cancel is allowed here.
+    // Auditors start/complete audits from the AuditXpert (Auditor) portal.
     const map: Record<
       AuditStatus,
       { label: string; value: AuditStatus; variant: 'primary' | 'danger' }[]
     > = {
       PLANNED: [
-        { label: 'Start', value: 'IN_PROGRESS', variant: 'primary' },
         { label: 'Cancel', value: 'CANCELLED', variant: 'danger' },
       ],
-      IN_PROGRESS: [
-        { label: 'Complete', value: 'COMPLETED', variant: 'primary' },
-        { label: 'Cancel', value: 'CANCELLED', variant: 'danger' },
-      ],
+      IN_PROGRESS: [],
       COMPLETED: [],
       CANCELLED: [],
     };
@@ -472,6 +498,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     this.showScheduleModal = true;
     if (this.scheduleModel.clientId) {
       this.loadBranchesForClient(this.scheduleModel.clientId);
+      this.loadContractorsForClient(this.scheduleModel.clientId);
     }
   }
 
@@ -484,9 +511,17 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
 
   onScheduleClientChange(): void {
     this.scheduleModel.branchId = '';
+    this.scheduleModel.contractorUserId = '';
     if (this.scheduleModel.clientId) {
       this.loadBranchesForClient(this.scheduleModel.clientId);
+      this.loadContractorsForClient(this.scheduleModel.clientId);
     }
+  }
+
+  get modalContractors(): ContractorOption[] {
+    const clientId = this.scheduleModel.clientId;
+    if (!clientId) return [];
+    return this.contractorsByClient[clientId] || [];
   }
 
   saveSchedule(): void {
@@ -525,6 +560,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       assignedAuditorId: this.scheduleModel.assignedAuditorId,
     };
     if (this.scheduleModel.branchId) payload['branchId'] = this.scheduleModel.branchId;
+    if (this.scheduleModel.contractorUserId) payload['contractorUserId'] = this.scheduleModel.contractorUserId;
     if (this.scheduleModel.dueDate) payload['dueDate'] = this.scheduleModel.dueDate;
     if (this.scheduleModel.notes.trim()) payload['notes'] = this.scheduleModel.notes.trim();
 
@@ -576,6 +612,27 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
   setCalendarMonth(value: string): void {
     this.calendarMonth = value || this.currentMonth();
     this.rebuildCalendar();
+  }
+
+  autoGenerateSchedules(): void {
+    if (this.autoGenerating) return;
+    this.autoGenerating = true;
+    this.cdr.markForCheck();
+
+    this.auditsService.autoGenerateSchedules()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.autoGenerating = false; this.cdr.markForCheck(); }),
+      )
+      .subscribe({
+        next: (res) => {
+          const created = res?.created ?? 0;
+          const skipped = res?.skipped ?? 0;
+          this.toast.success(`Auto-generated ${created} schedules (${skipped} skipped).`);
+          this.loadInitialData();
+        },
+        error: (err) => this.toast.error(err?.error?.message || 'Auto-generation failed'),
+      });
   }
 
   auditClientName(row: AuditRow): string {
@@ -755,6 +812,25 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
       });
   }
 
+  private loadContractorsForClient(clientId: string): void {
+    if (!clientId || this.contractorsByClient[clientId]) return;
+    this.http
+      .get<ContractorOption[]>(`${this.baseUrl}/api/v1/crm/users/contractors`, {
+        params: { clientId },
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => {
+          this.contractorsByClient[clientId] = rows || [];
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.contractorsByClient[clientId] = [];
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
   private rebuildCalendar(): void {
     const map = new Map<string, CalendarRow>();
     for (const row of this.filteredAudits) {
@@ -800,6 +876,7 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     return {
       clientId: '',
       branchId: '',
+      contractorUserId: '',
       frequency: 'MONTHLY',
       auditType: 'CONTRACTOR',
       periodYear: new Date().getFullYear(),
@@ -833,5 +910,83 @@ export class CrmAuditManagementPageComponent implements OnInit, OnDestroy {
     if (!input) return Number.MAX_SAFE_INTEGER;
     const value = new Date(input).getTime();
     return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
+  }
+
+  approveReport(): void {
+    const id = this.currentAudit?.id;
+    if (!id || this.governanceBusy) return;
+    this.governanceBusy = true;
+    this.auditsService.crmApproveReport(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Report approved');
+        this.governanceBusy = false;
+        this.loadAuditInsights(id);
+        this.cdr.markForCheck();
+      },
+      error: (e: any) => {
+        this.toast.error(e?.error?.message || 'Failed to approve report');
+        this.governanceBusy = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  publishReport(): void {
+    const id = this.currentAudit?.id;
+    if (!id || this.governanceBusy) return;
+    this.governanceBusy = true;
+    this.auditsService.crmPublishReport(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Report published');
+        this.governanceBusy = false;
+        this.loadAuditInsights(id);
+        this.cdr.markForCheck();
+      },
+      error: (e: any) => {
+        this.toast.error(e?.error?.message || 'Failed to publish report');
+        this.governanceBusy = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  sendBackReport(): void {
+    const id = this.currentAudit?.id;
+    if (!id || this.governanceBusy) return;
+    const reason = window.prompt('Reason for sending back (optional):') ?? '';
+    this.governanceBusy = true;
+    this.auditsService.crmSendBackReport(id, reason).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Report sent back to auditor');
+        this.governanceBusy = false;
+        this.loadAuditInsights(id);
+        this.cdr.markForCheck();
+      },
+      error: (e: any) => {
+        this.toast.error(e?.error?.message || 'Failed to send back report');
+        this.governanceBusy = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  holdReport(): void {
+    const id = this.currentAudit?.id;
+    if (!id || this.governanceBusy) return;
+    const notes = window.prompt('Hold notes (optional):') ?? '';
+    this.governanceBusy = true;
+    this.auditsService.crmHoldReport(id, notes).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Report placed on hold');
+        this.governanceBusy = false;
+        this.loadAuditInsights(id);
+        this.cdr.markForCheck();
+      },
+      error: (e: any) => {
+        this.toast.error(e?.error?.message || 'Failed to hold report');
+        this.governanceBusy = false;
+        this.cdr.markForCheck();
+      },
+    });
   }
 }

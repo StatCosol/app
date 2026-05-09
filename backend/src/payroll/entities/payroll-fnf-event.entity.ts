@@ -19,7 +19,12 @@ export class PayrollFnfEventEntity {
   @Column({ name: 'status_to', type: 'varchar', length: 30 })
   statusTo: string;
 
-  @Column({ name: 'action', type: 'varchar', length: 40, default: 'STATUS_UPDATE' })
+  @Column({
+    name: 'action',
+    type: 'varchar',
+    length: 40,
+    default: 'STATUS_UPDATE',
+  })
   action: string;
 
   @Column({ name: 'remarks', type: 'text', nullable: true })

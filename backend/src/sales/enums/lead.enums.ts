@@ -1,0 +1,60 @@
+export enum LeadStage {
+  NEW = 'NEW',
+  CONTACTED = 'CONTACTED',
+  QUALIFIED = 'QUALIFIED',
+  PROPOSAL_SENT = 'PROPOSAL_SENT',
+  NEGOTIATION = 'NEGOTIATION',
+  AGREEMENT_SENT = 'AGREEMENT_SENT',
+  WON = 'WON',
+  LOST = 'LOST',
+  ON_HOLD = 'ON_HOLD',
+}
+
+export enum LeadSource {
+  INBOUND = 'INBOUND',
+  REFERRAL = 'REFERRAL',
+  OUTBOUND = 'OUTBOUND',
+  EVENT = 'EVENT',
+  WEBSITE = 'WEBSITE',
+  MARKETING = 'MARKETING',
+  PARTNER = 'PARTNER',
+  OTHER = 'OTHER',
+}
+
+export enum LeadPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum LeadActivityType {
+  CALL = 'CALL',
+  EMAIL = 'EMAIL',
+  WHATSAPP = 'WHATSAPP',
+  MEETING = 'MEETING',
+  PROPOSAL = 'PROPOSAL',
+  AGREEMENT = 'AGREEMENT',
+  NOTE = 'NOTE',
+}
+
+export enum LeadActivityOutcome {
+  NO_ANSWER = 'NO_ANSWER',
+  INTERESTED = 'INTERESTED',
+  NOT_INTERESTED = 'NOT_INTERESTED',
+  FOLLOW_UP = 'FOLLOW_UP',
+  PROPOSAL_SENT = 'PROPOSAL_SENT',
+  AGREEMENT_SIGNED = 'AGREEMENT_SIGNED',
+  DECLINED = 'DECLINED',
+  OTHER = 'OTHER',
+}
+
+export const OPEN_LEAD_STAGES: LeadStage[] = [
+  LeadStage.NEW,
+  LeadStage.CONTACTED,
+  LeadStage.QUALIFIED,
+  LeadStage.PROPOSAL_SENT,
+  LeadStage.NEGOTIATION,
+  LeadStage.AGREEMENT_SENT,
+  LeadStage.ON_HOLD,
+];

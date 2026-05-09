@@ -12,15 +12,15 @@
 
     <!-- ── Controls ── -->
     <div class="controls">
-      <select *ngIf="!isBranchUser && branches.length"
+      <select id="e-selected-branch" name="selectedBranch" *ngIf="!isBranchUser && branches.length"
               [(ngModel)]="selectedBranch"
               (ngModelChange)="load()"
               class="select">
         <option value="">All Branches</option>
-        <option *ngFor="let b of branches" [value]="b.id">{{ b.branchname || b.name }}</option>
+        <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName || b.name || 'Branch' }}</option>
       </select>
 
-      <select [(ngModel)]="selectedStatus"
+      <select id="e-selected-status" name="selectedStatus" [(ngModel)]="selectedStatus"
               (ngModelChange)="load()"
               class="select">
         <option value="">All Statuses</option>
@@ -51,7 +51,7 @@
       <tbody>
         <tr *ngFor="let it of filtered" [class]="'row-' + severityClass(it.riskScore)">
           <td class="date-cell">{{ it.createdAt | date:'dd-MMM-yyyy' }}</td>
-          <td>{{ it.branchId }}</td>
+          <td>{{ it.branchName || it.branch || 'Branch' }}</td>
           <td>
             <div class="score-cell">
               <span class="score-value" [ngClass]="severityClass(it.riskScore)">{{ it.riskScore }}%</span>

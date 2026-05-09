@@ -19,7 +19,8 @@ export type TaskStatus =
   | 'SUBMITTED'
   | 'APPROVED'
   | 'REJECTED'
-  | 'OVERDUE';
+  | 'OVERDUE'
+  | 'NOT_APPLICABLE';
 
 @Entity('compliance_tasks')
 @Index('IDX_CT_CLIENT_STATUS', ['clientId', 'status'])
@@ -96,6 +97,16 @@ export class ComplianceTask {
 
   @Column({ type: 'text', nullable: true })
   remarks: string | null;
+
+  @Column({ name: 'approved_by_user_id', type: 'uuid', nullable: true })
+  approvedByUserId: string | null;
+
+  @ManyToOne(() => UserEntity, { eager: false })
+  @JoinColumn({ name: 'approved_by_user_id' })
+  approvedBy?: UserEntity;
+
+  @Column({ name: 'approved_at', type: 'timestamptz', nullable: true })
+  approvedAt: Date | null;
 
   @Column({ name: 'last_notified_at', type: 'timestamp', nullable: true })
   lastNotifiedAt: Date | null;

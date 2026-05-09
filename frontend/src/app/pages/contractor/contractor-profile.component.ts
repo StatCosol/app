@@ -187,7 +187,15 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
   get isMobileValid(): boolean {
     const value = (this.form.mobile || '').trim();
     if (!value) return true;
-    return /^[0-9]{10}$/.test(value);
+    const cleaned = value.replace(/[\s-]/g, '');
+    return /^\+\d{1,3}[6-9]\d{9}$/.test(cleaned);
+  }
+
+  get mobileFieldError(): string {
+    const value = (this.form.mobile || '').trim();
+    if (!value) return '';
+    if (!this.isMobileValid) return 'Mobile must include country code + 10 digits (e.g. +919876543210)';
+    return '';
   }
 
   get isDirty(): boolean {
@@ -229,7 +237,7 @@ export class ContractorProfileComponent implements OnInit, OnDestroy {
       issues.push('Company/contractor name should be at least 3 characters.');
     }
     if (!this.isMobileValid) {
-      issues.push('Mobile number should be 10 digits.');
+      issues.push('Mobile number must include country code + 10 digits (e.g. +919876543210).');
     }
     if (this.statutoryMissingCount > 0) {
       issues.push(`${this.statutoryMissingCount} statutory identity records are missing.`);

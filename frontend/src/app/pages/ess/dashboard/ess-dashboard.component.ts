@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { finalize, takeUntil, catchError } from 'rxjs/operators';
@@ -24,13 +24,14 @@ interface TimelineEntry {
 @Component({
   selector: 'app-ess-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterModule],
   template: `
     <div class="dash">
       <!-- ===== GREETING ===== -->
       <div class="greeting">
         <div>
-          <h1 class="greet-title">Welcome back, {{ profile?.firstName || 'Employee' }}</h1>
+          <h1 class="greet-title">Welcome back, {{ profile?.name || 'Employee' }}</h1>
           <p class="greet-sub">Here's your snapshot for {{ todayLabel }}</p>
         </div>
       </div>
@@ -52,11 +53,11 @@ interface TimelineEntry {
 
       <!-- ===== KPI CARDS ===== -->
       <div *ngIf="!loading" class="kpi-row">
-        <!-- Net Pay -->
+        <!-- Latest Payslip -->
         <a routerLink="/ess/payslips" class="kpi kpi-indigo">
           <div class="kpi-head">
             <div class="kpi-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg></div>
-            <span class="kpi-tag">NET PAY</span>
+            <span class="kpi-tag">LATEST PAYSLIP</span>
           </div>
           <div class="kpi-val">{{ netPay }}</div>
           <div class="kpi-sub">{{ payslipMonth }}</div>
@@ -308,14 +309,13 @@ export class EssDashboardComponent implements OnInit, OnDestroy {
 
   get netPay(): string {
     if (!this.payslips.length) return '--';
-    // We don't have net pay in the payslip list — show "Available" or last month label
     const p = this.payslips[0];
     return `${this.monthNames[(p.periodMonth || 1) - 1]} ${p.periodYear}`;
   }
 
   get payslipMonth(): string {
     if (!this.payslips.length) return 'No payslips yet';
-    return 'Latest payslip available';
+    return 'Tap to view & download';
   }
 
   get lastPfContrib(): string {

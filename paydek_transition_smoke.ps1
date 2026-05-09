@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$BaseUrl = "http://localhost:3000/api/v1",
   [string]$AdminEmail = "admin@statcosol.com",
   [string]$AdminPassword = "Admin@123",

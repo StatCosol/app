@@ -82,7 +82,7 @@ import { PageHeaderComponent, LoadingSpinnerComponent } from '../../../shared/ui
             </div>
 
             <div class="mb-3">
-              <textarea [(ngModel)]="newComment" rows="2" placeholder="Add a comment..."
+              <textarea autocomplete="off" id="ed-new-comment" name="newComment" [(ngModel)]="newComment" rows="2" placeholder="Add a comment..."
                         class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm"></textarea>
             </div>
 

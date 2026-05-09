@@ -44,8 +44,8 @@ export class CcoCrmsUnderMeComponent implements OnInit, OnDestroy {
 
   readonly statusOptions: SelectOption[] = [
     { value: '', label: 'All Statuses' },
-    { value: 'Active', label: 'Active' },
-    { value: 'Inactive', label: 'Inactive' },
+    { value: 'ACTIVE', label: 'Active' },
+    { value: 'INACTIVE', label: 'Inactive' },
   ];
 
   constructor(private ccoCrmsService: CcoCrmsService, private toast: ToastService, private router: Router, private cdr: ChangeDetectorRef) {}
@@ -63,7 +63,7 @@ export class CcoCrmsUnderMeComponent implements OnInit, OnDestroy {
         this.applyFilter();
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
         this.error = 'Failed to load CRMs.';
         this.allCrms = [];
@@ -86,7 +86,7 @@ export class CcoCrmsUnderMeComponent implements OnInit, OnDestroy {
   }
 
   get activeCrms(): number {
-    return this.allCrms.filter(c => c.status === 'Active').length;
+    return this.allCrms.filter(c => c.status === 'ACTIVE').length;
   }
 
   get totalClients(): number {

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/auth.service';
 import { PageHeaderComponent } from '../../shared/ui';
@@ -6,6 +6,7 @@ import { PageHeaderComponent } from '../../shared/ui';
 @Component({
   selector: 'app-payroll-profile',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, PageHeaderComponent],
   template: `
     <div class="page">

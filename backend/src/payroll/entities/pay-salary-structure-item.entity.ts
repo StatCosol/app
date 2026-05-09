@@ -46,6 +46,9 @@ export class PaySalaryStructureItemEntity {
   @Column({ name: 'formula', type: 'text', nullable: true })
   formula: string | null;
 
+  @Column({ name: 'formula_json', type: 'jsonb', nullable: true })
+  formulaJson: Record<string, unknown> | null;
+
   @Column({ name: 'slab_ref', type: 'jsonb', nullable: true })
   slabRef: Record<string, unknown> | null;
 

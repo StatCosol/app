@@ -5,17 +5,18 @@ export class RoundingService {
   applyRounding(amount: number, mode: string): number {
     switch (mode) {
       case 'NEAREST_RUPEE':
-        return Math.round(amount);
+        // Salary values are always rounded UP to the next whole rupee.
+        return Math.ceil(amount);
       case 'FLOOR':
         return Math.floor(amount);
       case 'CEIL':
         return Math.ceil(amount);
       case 'ROUND_50':
-        return Math.round(amount * 2) / 2;
+        return Math.ceil(amount * 2) / 2;
       case 'NO_ROUNDING':
         return amount;
       default:
-        return Math.round(amount);
+        return Math.ceil(amount);
     }
   }
 

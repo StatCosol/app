@@ -14,6 +14,8 @@ export interface ComplianceDocFilters {
   status?: string;
   lawArea?: string;
   category?: string;
+  appliesTo?: string;
+  stateCode?: string;
   page?: number;
   pageSize?: number;
 }
@@ -27,6 +29,13 @@ export interface ReturnMasterItem {
   dueDay: number | null;
   scopeDefault: string;
   applicableFor: string;
+  stateCode: string;
+  appliesTo: string;
+  uploadRequired: boolean;
+  dueDateRule: string | null;
+  riskLevel: string;
+  responsibleRole: string;
+  remarks: string | null;
   isActive: boolean;
 }
 
@@ -62,10 +71,18 @@ export interface ChecklistItem {
   frequency: string;
   category: string | null;
   dueDay: number | null;
+  stateCode?: string;
+  appliesTo?: string;
+  uploadRequired?: boolean;
+  dueDateRule?: string | null;
+  riskLevel?: string;
+  responsibleRole?: string;
+  remarks?: string | null;
   document: {
     id: string;
     status: string;
     uploadedFileName: string | null;
+    uploadedFileUrl: string | null;
     uploadedAt: string | null;
     version: number;
     remarks: string | null;
@@ -205,6 +222,18 @@ export class BranchComplianceDocService {
     return this.http.post<ComplianceDoc>(`${this.branchBase}/upload`, formData);
   }
 
+  /** Mark a compliance item as Not Applicable */
+  markNotApplicable(payload: {
+    branchId: string;
+    returnCode: string;
+    periodYear: number;
+    frequency: string;
+    periodMonth?: number;
+    remarks: string;
+  }): Observable<ComplianceDoc> {
+    return this.http.post<ComplianceDoc>(`${this.branchBase}/mark-not-applicable`, payload);
+  }
+
   /** Get return master types */
   getReturnMaster(filters?: Partial<ComplianceDocFilters>): Observable<ReturnMasterItem[]> {
     return this.http.get<ReturnMasterItem[]>(
@@ -256,7 +285,7 @@ export class BranchComplianceDocService {
   }
 
   /** CRM dashboard KPIs */
-  getCrmKpis(params: { companyId?: string; year?: number; month?: number }): Observable<any> {
+  getCrmKpis(params: { companyId?: string; year?: number; month?: number; frequency?: string }): Observable<any> {
     return this.http.get(`${this.crmBase}/dashboard-kpis`, { params: this.toParams(params) });
   }
 

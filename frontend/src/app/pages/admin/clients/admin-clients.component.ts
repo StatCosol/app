@@ -1,10 +1,10 @@
 import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, ActivatedRoute, RouterLink, NavigationEnd } from '@angular/router';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize, timeout, catchError } from 'rxjs/operators';
 import { of, Subscription, Subject } from 'rxjs';
-import { filter, takeUntil } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, ContractorOption } from './admin-clients.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { AuthService } from '../../../core/auth.service';
@@ -153,6 +153,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     { key: 'status', header: 'Status' },
     { key: 'branchesCount', header: 'Branches' },
     { key: 'totalEmployees', header: 'Total Employees' },
+    { key: 'contractorsCount', header: 'Contract Employees' },
     { key: 'actions', header: 'Actions', align: 'right' },
   ];
 
@@ -168,9 +169,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     { key: 'branchName', header: 'Branch Name', sortable: true },
     { key: 'branchType', header: 'Type' },
     { key: 'address', header: 'Address' },
-    { key: 'employeeCount', header: 'Employees' },
-    { key: 'contractorCount', header: 'Contractors' },
-    { key: 'actions', header: 'Actions', align: 'right' },
+    { key: 'employeeCount', header: 'On-Role Employees' },
+    { key: 'contractorCount', header: 'Contract Employees' },
+    { key: 'actions', header: 'Actions', align: 'right', width: '220px' },
   ];
 
   contractorColumns: TableColumn[] = [
@@ -205,6 +206,31 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.clientUserSelectOptions = this.availableClientUsers.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }));
   }
 
+  // ── Inline Field Validation Getters ──
+  private _mobileError(v: string | undefined | null): string {
+    const val = (v || '').trim();
+    if (!val) return '';
+    const cleaned = val.replace(/[\s-]/g, '');
+    if (!/^\+\d{1,3}[6-9]\d{9}$/.test(cleaned)) return 'Mobile must include country code + 10 digits (e.g. +919876543210)';
+    return '';
+  }
+  private _emailError(v: string | undefined | null): string {
+    const val = (v || '').trim();
+    if (!val) return '';
+    if (!val.includes('@')) return 'Email must include @ symbol';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) return 'Please enter a valid email address';
+    return '';
+  }
+
+  get masterUserEmailError(): string { return this._emailError(this.clientForm.masterUserEmail); }
+  get masterUserMobileError(): string { return this._mobileError(this.clientForm.masterUserMobile); }
+  get editMasterEmailError(): string { return this._emailError(this.editingMasterUser?.email); }
+  get editMasterMobileError(): string { return this._mobileError(this.editingMasterUser?.mobile); }
+  get contactEmailError(): string { return this._emailError(this.editClientForm.primaryContactEmail); }
+  get contactMobileError(): string { return this._mobileError(this.editClientForm.primaryContactMobile); }
+  get branchUserEmailError(): string { return this._emailError(this.branchForm.branchUserEmail); }
+  get branchUserMobileError(): string { return this._mobileError(this.branchForm.branchUserMobile); }
+
   ngOnInit(): void {
     this.loadClients();
     this.loadCompliances();
@@ -223,10 +249,10 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         const id = clientId;
         // If we already have this client loaded, just switch tabs
         if (this.selectedClient?.id === id) {
-          this.handleTabChange(tab as any);
+          this.handleTabChange(tab as 'company' | 'branches' | 'compliances');
         } else {
           // Load new client
-          this.loadClientById(id, tab as any);
+          this.loadClientById(id, tab as 'company' | 'branches' | 'compliances');
         }
       } else {
         // No client ID in route - show list
@@ -272,7 +298,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     }, 8000);
     this.service.getClients().pipe(
       timeout(20000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to load clients';
         return of([]);
       }),
@@ -308,6 +334,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     }
     if (!mu.masterUserPassword || mu.masterUserPassword.length < 6) {
       this.error = 'Master user password must be at least 6 characters';
+      return;
+    }
+    if (this.masterUserEmailError) {
+      this.error = this.masterUserEmailError;
+      return;
+    }
+    if (this.masterUserMobileError) {
+      this.error = this.masterUserMobileError;
       return;
     }
 
@@ -376,7 +410,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   async deleteClient(client: Client) {
     if (!client?.id) return;
 
-    const label = client.clientName || `Client #${client.id}`;
+    const label = client.clientName || 'this client';
     if (!(await this.dialog.confirm('Deactivate Client', `Deactivate client: ${label}?`, { variant: 'danger', confirmText: 'Deactivate' }))) return;
 
     this.loading = true;
@@ -439,7 +473,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loadClientUsers(clientId: string) {
     this.service.getClientUsers(clientId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to load client users';
         return of([] as ClientUserLink[]);
       }),
@@ -454,7 +488,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loadAvailableClientUsers() {
     this.service.getClientRoleUsers().pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         return of([] as ClientUserOption[]);
       }),
       takeUntil(this.destroy$),
@@ -502,7 +536,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
     this.service.removeClientUser(this.selectedClient.id, link.userId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to unlink client user';
         return of(null);
       }),
@@ -576,6 +610,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
         this.branchSaveError = 'Branch user mobile number is required. Every branch must have a desk user.';
         return;
       }
+      if (this.branchUserEmailError) {
+        this.branchSaveError = this.branchUserEmailError;
+        return;
+      }
+      if (this.branchUserMobileError) {
+        this.branchSaveError = this.branchUserMobileError;
+        return;
+      }
     }
 
     this.isSavingBranch = true;
@@ -587,8 +629,22 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     const cont = Number(this.branchForm.contractorCount ?? 0) || 0;
     this.branchForm.headcount = Number(this.branchForm.headcount ?? emp + cont) || (emp + cont);
 
+    const updatePayload = {
+      branchName: this.branchForm.branchName,
+      branchType: this.branchForm.branchType,
+      stateCode: this.branchForm.stateCode,
+      establishmentType: this.branchForm.establishmentType,
+      city: this.branchForm.city,
+      pincode: this.branchForm.pincode,
+      headcount: this.branchForm.headcount,
+      address: this.branchForm.address,
+      employeeCount: this.branchForm.employeeCount,
+      contractorCount: this.branchForm.contractorCount,
+      status: this.branchForm.status,
+    };
+
     const operation = this.editingBranchId
-      ? this.service.updateBranch(this.editingBranchId, this.branchForm)
+      ? this.service.updateBranch(this.editingBranchId, updatePayload)
       : this.service.createBranch(this.selectedClient.id, this.branchForm);
 
     operation.pipe(
@@ -638,7 +694,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
     this.service.deleteBranch(branchId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to delete branch';
         return of(null);
       }),
@@ -681,7 +737,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loadCompliances() {
     this.service.getCompliances().pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         return of([]);
       }),
       takeUntil(this.destroy$),
@@ -717,7 +773,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     const branchId = this.branchForCompliance.id;
     this.service.recomputeBranchCompliances(branchId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         return of(null);
       }),
       takeUntil(this.destroy$),
@@ -734,7 +790,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   private loadBranchCompliances(branchId: string) {
     this.service.getBranchCompliances(branchId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         return of([]);
       }),
       takeUntil(this.destroy$),
@@ -777,14 +833,16 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   loadBranchContractors(branchId: string) {
     this.service.getBranchContractors(branchId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to load branch contractors';
+        this.cdr.detectChanges();
         return of([] as BranchContractorLink[]);
       }),
       takeUntil(this.destroy$),
     ).subscribe({
       next: (links) => {
         this.branchContractors = links || [];
+        this.cdr.detectChanges();
       },
     });
   }
@@ -793,6 +851,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.service.getContractorUsers(clientId).pipe(
       timeout(8000),
       catchError((err) => {
+        this.error = err?.error?.message || 'Failed to load contractor users';
+        this.cdr.detectChanges();
         return of([] as ContractorOption[]);
       }),
       takeUntil(this.destroy$),
@@ -800,6 +860,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       next: (users) => {
         this.availableContractors = users || [];
         this.rebuildContractorSelectOptions();
+        this.cdr.detectChanges();
       },
     });
   }
@@ -843,7 +904,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
     this.service.removeBranchContractor(this.branchForContractors.id, link.userId).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to unlink contractor';
         return of(null);
       }),
@@ -946,13 +1007,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   private populateEditForm(client: Client) {
     this.editClientForm = {
       clientName: client.clientName || '',
-      companyCode: (client as any).companyCode || '',
-      industry: (client as any).industry || '',
-      state: (client as any).state || '',
-      registeredAddress: (client as any).registeredAddress || '',
-      primaryContactName: (client as any).primaryContactName || '',
-      primaryContactEmail: (client as any).primaryContactEmail || '',
-      primaryContactMobile: (client as any).primaryContactMobile || '',
+      companyCode: client.companyCode || '',
+      industry: client.industry || '',
+      state: client.state || '',
+      registeredAddress: client.registeredAddress || '',
+      primaryContactName: client.primaryContactName || '',
+      primaryContactEmail: client.primaryContactEmail || '',
+      primaryContactMobile: client.primaryContactMobile || '',
     };
     this.readinessResult = null;
   }
@@ -989,7 +1050,7 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
     this.service.getReadinessCheck(this.selectedClient.id).pipe(
       timeout(8000),
-      catchError((err) => {
+      catchError(() => {
         this.error = 'Failed to load readiness check';
         return of(null);
       }),
@@ -1000,6 +1061,24 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
       }),
     ).subscribe((res) => {
       this.readinessResult = res;
+    });
+  }
+
+  toggleCrmOnBehalf() {
+    if (!this.selectedClient) return;
+    const newValue = !this.selectedClient.crmOnBehalfEnabled;
+    this.service.toggleCrmOnBehalf(this.selectedClient.id, newValue).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: () => {
+        this.selectedClient!.crmOnBehalfEnabled = newValue;
+        this.success = `CRM on-behalf ${newValue ? 'enabled' : 'disabled'} successfully`;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.error = 'Failed to toggle CRM on-behalf';
+        this.cdr.detectChanges();
+      },
     });
   }
 
@@ -1028,6 +1107,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     }
     if (!mu.email.trim()) {
       this.error = 'Email is required';
+      return;
+    }
+    if (this.editMasterEmailError) {
+      this.error = this.editMasterEmailError;
+      return;
+    }
+    if (this.editMasterMobileError) {
+      this.error = this.editMasterMobileError;
       return;
     }
 

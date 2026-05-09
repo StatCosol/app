@@ -47,8 +47,12 @@ export class ClientAuditsComponent implements OnDestroy {
     { value: '', label: 'All Statuses' },
     { value: 'PLANNED', label: 'Planned' },
     { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'SUBMITTED', label: 'Submitted' },
+    { value: 'CORRECTION_PENDING', label: 'Correction Pending' },
+    { value: 'REVERIFICATION_PENDING', label: 'Reverification Pending' },
     { value: 'COMPLETED', label: 'Completed' },
     { value: 'CANCELLED', label: 'Cancelled' },
+    { value: 'CLOSED', label: 'Closed' },
   ];
   readonly frequencyOptions = [
     { value: '', label: 'All Frequencies' },
@@ -78,7 +82,8 @@ export class ClientAuditsComponent implements OnDestroy {
     ).subscribe({
       next: (res: any) => {
         this.loading = false;
-        this.audits = res || [];
+        const rows = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
+        this.audits = rows;
         // Transform data for table display
         this.audits = this.audits.map(audit => ({
           ...audit,

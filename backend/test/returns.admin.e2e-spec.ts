@@ -12,7 +12,6 @@ describe('AdminReturnsController (e2e) - delete/restore', () => {
   let app: INestApplication;
 
   const sampleId = 'return-123';
-  const actorId = 'admin-1';
 
   const returnsServiceMock = {
     listForAdmin: jest.fn(),

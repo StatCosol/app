@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -21,6 +21,7 @@ interface GratuityResult {
 @Component({
   selector: 'app-payroll-gratuity',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     FormsModule,
@@ -48,7 +49,7 @@ interface GratuityResult {
             <ui-form-input label="Additional Months (partial year)" type="number"
               [(ngModel)]="input.monthsOfService" placeholder="0-11"></ui-form-input>
             <label class="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" [(ngModel)]="input.isDeathOrDisability"
+              <input autocomplete="off" id="pg-is-death-or-disability" name="isDeathOrDisability" type="checkbox" [(ngModel)]="input.isDeathOrDisability"
                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
               Death or disability (waives 5-year minimum)
             </label>

@@ -5,25 +5,28 @@ import {
   Get,
   Post,
   Query,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { BranchAccessService } from '../auth/branch-access.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BranchDocumentsService } from './branch-documents.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
+import { makeSafeUploadOptions, assertSafeFile } from '../common/safe-upload';
 
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
+const branchUploadsOptions = makeSafeUploadOptions({
+  folder: 'branch-documents',
+  maxMb: 10,
+});
 
+@ApiTags('Branch Uploads')
+@ApiBearerAuth()
 @Controller({ path: 'branch/uploads', version: '1' })
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CLIENT', 'BRANCH_DESK', 'BRANCH_USER')
@@ -34,20 +37,17 @@ export class BranchUploadsController {
   ) {}
 
   private async resolveBranchId(
-    req: any,
+    user: ReqUser,
     queryBranchId?: string,
   ): Promise<string> {
     if (queryBranchId) {
-      await this.branchAccess.assertBranchAccess(
-        req.user.userId,
-        queryBranchId,
-      );
+      await this.branchAccess.assertBranchAccess(user.userId, queryBranchId);
       return queryBranchId;
     }
 
     const allowed = await this.branchAccess.getAllowedBranchIds(
-      req.user.userId,
-      req.user.clientId,
+      user.userId,
+      user.clientId!,
     );
 
     if (allowed === 'ALL') {
@@ -63,14 +63,18 @@ export class BranchUploadsController {
     return allowed[0];
   }
 
+  @ApiOperation({ summary: 'Get pending branch uploads for current period' })
   @Get('pending')
-  async pending(@Req() req: any, @Query('branchId') branchId?: string) {
-    const resolvedBranchId = await this.resolveBranchId(req, branchId);
+  async pending(
+    @CurrentUser() user: ReqUser,
+    @Query('branchId') branchId?: string,
+  ) {
+    const resolvedBranchId = await this.resolveBranchId(user, branchId);
     const now = new Date();
 
     const rows = await this.branchDocumentsService.listByBranch(
       resolvedBranchId,
-      req.user.clientId,
+      user.clientId!,
       {
         category: 'COMPLIANCE_MONTHLY',
         year: now.getFullYear(),
@@ -78,7 +82,7 @@ export class BranchUploadsController {
       },
     );
 
-    return rows.map((row: any) => ({
+    return rows.map((row) => ({
       id: row.id,
       title: row.docType,
       documentType: row.docType,
@@ -87,25 +91,11 @@ export class BranchUploadsController {
     }));
   }
 
+  @ApiOperation({ summary: 'Upload a branch compliance document' })
   @Post()
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          const dir = path.join(process.cwd(), 'uploads', 'branch-documents');
-          ensureDir(dir);
-          cb(null, dir);
-        },
-        filename: (_req, file, cb) => {
-          const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-          cb(null, `${Date.now()}_${safe}`);
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', branchUploadsOptions))
   async upload(
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Body()
     body: {
       branchId?: string;
@@ -113,16 +103,14 @@ export class BranchUploadsController {
       periodYear?: string | number;
       periodMonth?: string | number;
     },
-    @UploadedFile() file: any,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) {
-      throw new BadRequestException('file is required');
-    }
+    assertSafeFile(file);
     if (!body.documentType?.trim()) {
       throw new BadRequestException('documentType is required');
     }
 
-    const resolvedBranchId = await this.resolveBranchId(req, body.branchId);
+    const resolvedBranchId = await this.resolveBranchId(user, body.branchId);
     const now = new Date();
     const periodYear = body.periodYear
       ? Number(body.periodYear)
@@ -133,7 +121,7 @@ export class BranchUploadsController {
 
     return this.branchDocumentsService.upload(
       resolvedBranchId,
-      req.user.clientId,
+      user.clientId!,
       {
         category: 'COMPLIANCE_MONTHLY',
         docType: body.documentType.trim(),
@@ -141,7 +129,7 @@ export class BranchUploadsController {
         periodMonth,
       },
       file,
-      req.user.userId,
+      user.userId,
     );
   }
 }

@@ -14,7 +14,7 @@ import { VersionHistoryPanelComponent } from './version-history-panel.component'
 import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
 
 @Component({
-  selector: 'shared-file-preview-modal',
+  selector: 'ui-file-preview-modal',
   standalone: true,
   imports: [
     CommonModule,
@@ -25,7 +25,7 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
   template: `
     <div *ngIf="open" class="fixed inset-0 z-[1200] bg-slate-900/60 flex items-center justify-center p-4" (click)="closed.emit()">
       <div class="w-full max-w-5xl rounded-xl bg-white border border-gray-200 shadow-2xl overflow-hidden" (click)="$event.stopPropagation()">
-        <file-metadata-header [file]="file"></file-metadata-header>
+        <ui-file-metadata-header [file]="file"></ui-file-metadata-header>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 p-4">
           <div class="lg:col-span-3 border border-gray-200 rounded-lg bg-gray-50 min-h-[420px] flex items-center justify-center overflow-hidden">
@@ -40,8 +40,8 @@ import { RejectionReasonBoxComponent } from './rejection-reason-box.component';
           </div>
 
           <div class="space-y-3">
-            <rejection-reason-box [reason]="file?.rejectionReason || ''"></rejection-reason-box>
-            <version-history-panel [versions]="file?.versions || []" (open)="openVersion.emit($event)"></version-history-panel>
+            <ui-rejection-reason-box [reason]="file?.rejectionReason || ''"></ui-rejection-reason-box>
+            <ui-version-history-panel [versions]="file?.versions || []" (open)="openVersion.emit($event)"></ui-version-history-panel>
           </div>
         </div>
 

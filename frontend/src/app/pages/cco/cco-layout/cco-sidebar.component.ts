@@ -32,8 +32,7 @@ interface SidebarItem {
     <!-- Sidebar -->
     <aside
       [class]="sidebarClasses"
-      [class.translate-x-0]="mobileOpen"
-      [class.-translate-x-full]="!mobileOpen"
+      [class.mobile-open]="mobileOpen"
     >
       <!-- Brand area -->
       <div *ngIf="!collapsed" class="px-5 pt-6 pb-4 flex items-center gap-3">
@@ -80,9 +79,9 @@ interface SidebarItem {
               [routerLinkActiveOptions]="{ exact: true }"
               (click)="onNavClick()"
               class="collapsed-icon"
-              [title]="link.label"
             >
               <span class="sidebar-icon" [innerHTML]="link.icon"></span>
+              <span class="collapsed-tooltip">{{ link.label }}</span>
             </a>
           </div>
         </ng-container>
@@ -90,8 +89,6 @@ interface SidebarItem {
         <ng-template #expandedNav>
           <div
             *ngFor="let group of navGroups"
-            (mouseenter)="openGroupOnHover(group)"
-            (mouseleave)="closeGroupOnLeave(group)"
           >
             <div
               class="sidebar-section"
@@ -121,13 +118,43 @@ interface SidebarItem {
       </nav>
 
       <!-- Version footer -->
-      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center">
-        <span class="text-[10px] text-white/35">CCO v1.0</span>
+      <div *ngIf="!collapsed" class="px-4 py-3 border-t border-white/8 text-center space-y-0.5">
+        <div class="text-[10px] text-white/35">CCO v1.0</div>
+        <div class="text-[10px] text-white/55 font-medium">Designed &amp; Developed by StatCo Solutions</div>
+        <a href="https://www.statcosol.com" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-300/80 hover:text-emerald-200">www.statcosol.com</a>
       </div>
     </aside>
   `,
   styles: [`
     :host { display: contents; }
+
+    .sidebar-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 50;
+      height: 100vh;
+      width: 16rem;
+      transform: translateX(-100%);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-panel.mobile-open {
+      transform: translateX(0);
+    }
+
+    @media (min-width: 1024px) {
+      .sidebar-panel {
+        position: sticky;
+        z-index: 30;
+        width: 15rem;
+        transform: none;
+      }
+      .sidebar-panel.is-collapsed {
+        width: 68px;
+      }
+    }
 
     .sidebar-nav {
       overflow-y: auto;
@@ -326,6 +353,39 @@ interface SidebarItem {
     .collapsed-active .sidebar-icon {
       color: #FFFFFF;
     }
+
+    .collapsed-tooltip {
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1E293B;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+    }
+
+    .collapsed-tooltip::before {
+      content: '';
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-right-color: #1E293B;
+    }
+
+    .collapsed-icon:hover .collapsed-tooltip {
+      opacity: 1;
+    }
   `]
 })
 export class CcoSidebarComponent implements OnChanges, OnDestroy {
@@ -370,9 +430,8 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
   }
 
   get sidebarClasses(): string {
-    const base = 'fixed lg:sticky top-0 left-0 z-50 lg:z-30 h-screen sidebar-dark flex flex-col transition-all duration-300 ease-in-out relative';
-    const width = this.collapsed ? 'lg:w-[68px]' : 'lg:w-60';
-    return `${base} w-64 ${width} lg:translate-x-0`;
+    const base = 'sidebar-panel sidebar-dark flex flex-col transition-all duration-300 ease-in-out';
+    return this.collapsed ? `${base} is-collapsed` : base;
   }
 
   toggleGroup(group: SidebarGroup): void {
@@ -397,9 +456,13 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
   }
 
   onNavClick(): void {
+    // Only close the mobile drawer; group expand/collapse is handled by
+    // syncExpandedWithRoute() on NavigationEnd, which keeps the active group open.
     if (this.mobileOpen) {
-      this.mobileOpen = false;
-      this.mobileOpenChange.emit(false);
+      setTimeout(() => {
+        this.mobileOpen = false;
+        this.mobileOpenChange.emit(false);
+      });
     }
   }
 
@@ -429,6 +492,7 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
     return [
       { label: 'Dashboard', route: '/cco/dashboard', icon: this.svg('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6') },
       { label: 'Approvals', route: '/cco/approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
+      { label: 'Payroll Approvals', route: '/cco/payroll-approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
       { label: 'Oversight', route: '/cco/oversight', icon: this.svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z') },
       { label: 'CRMs Under Me', route: '/cco/crms-under-me', icon: this.svg('M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z') },
       { label: 'CRM Performance', route: '/cco/crm-performance', icon: this.svg('M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z') },
@@ -456,6 +520,7 @@ export class CcoSidebarComponent implements OnChanges, OnDestroy {
         expanded: false,
         items: [
           { label: 'Approvals', route: '/cco/approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
+          { label: 'Payroll Approvals', route: '/cco/payroll-approvals', icon: this.svg('M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z') },
           { label: 'Oversight', route: '/cco/oversight', icon: this.svg('M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z') },
           { label: 'Escalations', route: '/cco/escalations', icon: this.svg('M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z') },
           { label: 'Risk Heatmap', route: '/cco/risk-heatmap', icon: this.svg('M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z') },

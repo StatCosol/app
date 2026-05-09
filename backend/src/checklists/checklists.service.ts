@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BranchComplianceEntity } from './entities/branch-compliance.entity';
@@ -38,6 +38,10 @@ export class ChecklistsService {
       >
     >,
   ) {
+    const existing = await this.branchComplianceRepo.findOneBy({ id });
+    if (!existing) {
+      throw new NotFoundException(`Checklist item ${id} not found`);
+    }
     await this.branchComplianceRepo.update(id, data);
     return this.branchComplianceRepo.findOneByOrFail({ id });
   }

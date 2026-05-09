@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'detail-drawer-layout',
+  selector: 'ui-detail-drawer-layout',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -21,7 +21,7 @@ import { CommonModule } from '@angular/common';
         </div>
 
         <footer class="border-t border-gray-200 p-3">
-          <ng-content select="action-footer-bar"></ng-content>
+          <ng-content select="ui-action-footer-bar"></ng-content>
         </footer>
       </aside>
     </div>
@@ -31,5 +31,6 @@ export class DetailDrawerLayoutComponent {
   @Input() open = false;
   @Input() title = 'Details';
   @Input() subtitle = '';
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() close = new EventEmitter<void>();
 }

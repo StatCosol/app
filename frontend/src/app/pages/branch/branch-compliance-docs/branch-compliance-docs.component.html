@@ -1,4 +1,4 @@
-<div class="p-4">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
   <div class="flex items-center justify-between mb-4">
     <div>
       <h2 class="text-lg font-semibold">Branch Compliance</h2>
@@ -6,13 +6,13 @@
     </div>
 
     <div class="flex gap-2 items-center">
-      <input type="number" class="border rounded p-2 text-sm w-28"
+      <input autocomplete="off" id="bcd-year" name="year" type="number" class="border rounded p-2 text-sm w-28"
              [(ngModel)]="year" (ngModelChange)="onPeriodChange()" />
-      <select class="border rounded p-2 text-sm"
+      <select id="bcd-month" name="month" class="border rounded p-2 text-sm"
               [(ngModel)]="month" (ngModelChange)="onPeriodChange()">
         <option *ngFor="let m of [1,2,3,4,5,6,7,8,9,10,11,12]" [value]="m">{{ m }}</option>
       </select>
-      <button class="px-3 py-2 text-sm border rounded" (click)="loadAll()">Refresh</button>
+      <button type="button" class="px-3 py-2 text-sm border rounded" (click)="loadAll()">Refresh</button>
     </div>
   </div>
 
@@ -54,24 +54,24 @@
     <div class="font-medium mb-2">Upload Compliance Document</div>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-      <input class="border rounded p-2 text-sm" placeholder="Category"
+      <input autocomplete="off" id="bcd-upload-category" class="border rounded p-2 text-sm" name="uploadCategory" placeholder="Category"
              [(ngModel)]="uploadCategory" />
-      <input class="border rounded p-2 text-sm" placeholder="Sub-category"
+      <input autocomplete="off" id="bcd-upload-sub-category" class="border rounded p-2 text-sm" name="uploadSubCategory" placeholder="Sub-category"
              [(ngModel)]="uploadSubCategory" />
-      <select class="border rounded p-2 text-sm" [(ngModel)]="uploadReturnCode">
+      <select id="bcd-upload-return-code" class="border rounded p-2 text-sm" name="uploadReturnCode" [(ngModel)]="uploadReturnCode">
         <option value="">Return Code (optional)</option>
         <option *ngFor="let r of returnMaster"
                 [value]="(r.returnCode ?? r.return_code ?? r.code ?? '')">
           {{ (r.returnName ?? r.return_name ?? r.name ?? (r.returnCode ?? r.return_code ?? '')) }}
         </option>
       </select>
-      <input type="file" class="border rounded p-2 text-sm" (change)="onFileChange($event)" />
+      <input type="file" name="complianceFile" class="border rounded p-2 text-sm" (change)="onFileChange($event)" />
     </div>
 
-    <textarea class="mt-2 w-full border rounded p-2 text-sm" rows="2"
+    <textarea autocomplete="off" id="bcd-upload-notes" class="mt-2 w-full border rounded p-2 text-sm" rows="2" name="uploadNotes"
               placeholder="Notes (optional)" [(ngModel)]="uploadNotes"></textarea>
 
-    <button class="mt-3 px-3 py-2 text-sm bg-black text-white rounded"
+    <button type="button" class="mt-3 px-3 py-2 text-sm bg-black text-white rounded"
             [disabled]="uploading"
             (click)="upload()">
       {{ uploading ? 'Uploading...' : 'Upload' }}

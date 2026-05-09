@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AiAuditObservationEntity } from './entities/ai-audit-observation.entity';
 import { AiCoreService } from './ai-core.service';
+import { AiAuditObservationLearningService } from './ai-audit-observation-learning.service';
 
 @Injectable()
 export class AiAuditService {
@@ -13,6 +14,7 @@ export class AiAuditService {
     private readonly obsRepo: Repository<AiAuditObservationEntity>,
     private readonly dataSource: DataSource,
     private readonly aiCore: AiCoreService,
+    @Optional() private readonly learning?: AiAuditObservationLearningService,
   ) {}
 
   /** Generate an AI-powered audit observation from a finding */
@@ -61,6 +63,56 @@ export class AiAuditService {
       applicableState: state,
       status: 'DRAFT',
     };
+
+    // Phase 2 — try learning-library cache first (skips OpenAI when a
+    // similar curated remark already exists). Threshold tuned conservatively.
+    if (this.learning) {
+      try {
+        const match = await this.learning.findBestReusable(
+          {
+            findingDescription,
+            findingType: findingType || null,
+            stateCode: state ? String(state).slice(0, 8) : null,
+          },
+          0.7,
+        );
+        if (match && match.remark) {
+          const r = match.remark;
+          observation = {
+            ...observation,
+            observationTitle: r.observationTitle || '',
+            observationText: r.observationText || '',
+            consequence: r.consequence || '',
+            sectionReference: r.sectionReference || '',
+            fineEstimationMin:
+              r.fineEstimationMin != null ? Number(r.fineEstimationMin) : null,
+            fineEstimationMax:
+              r.fineEstimationMax != null ? Number(r.fineEstimationMax) : null,
+            riskRating: r.riskRating || 'MEDIUM',
+            correctiveAction: r.correctiveAction || '',
+            timelineDays: r.timelineDays ?? 30,
+            stateSpecificRules: r.stateSpecificRules || '',
+            aiModel: `library:${r.id}`,
+            aiPromptTokens: 0,
+            aiCompletionTokens: 0,
+            confidenceScore: Math.round(
+              Math.min(
+                95,
+                (r.confidenceScore || 75) * Math.min(1, match.similarity + 0.2),
+              ),
+            ),
+          };
+          this.learning.recordUsage(r.id).catch(() => undefined);
+          this.logger.log(
+            `Observation served from library (remarkId=${r.id} similarity=${match.similarity.toFixed(3)})`,
+          );
+          const cachedEntity = this.obsRepo.create(observation);
+          return this.obsRepo.save(cachedEntity);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Learning lookup failed: ${err?.message}`);
+      }
+    }
 
     const isReady = await this.aiCore.isReady();
     if (isReady) {
@@ -203,7 +255,20 @@ export class AiAuditService {
     obs.reviewedBy = reviewedBy;
     obs.reviewedAt = new Date();
     if (notes) obs.auditorNotes = notes;
-    return this.obsRepo.save(obs);
+    const saved = await this.obsRepo.save(obs);
+
+    // Phase 2 — promote approved observations into the learning library.
+    if (status === 'APPROVED' && this.learning) {
+      this.learning
+        .upsertFromObservation(saved, {
+          source: 'HUMAN',
+          approvedBy: reviewedBy,
+        })
+        .catch((err) =>
+          this.logger.warn(`Learning library upsert failed: ${err?.message}`),
+        );
+    }
+    return saved;
   }
 
   /** List observations for a client or audit */

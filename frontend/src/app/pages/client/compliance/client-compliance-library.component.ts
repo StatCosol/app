@@ -1,6 +1,7 @@
 import { Component, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
@@ -35,6 +36,8 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
 
   loading = true;
   isMasterUser = false;
+  focusTitle = '';
+  focusCode = '';
   branches: any[] = [];
   documents: ComplianceDocument[] = [];
   filteredDocs: ComplianceDocument[] = [];
@@ -74,6 +77,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
     private readonly docsSvc: ComplianceDocumentsService,
     private readonly complianceSvc: ClientComplianceService,
     private readonly auth: AuthService,
+    private readonly route: ActivatedRoute,
     private readonly toast: ToastService,
     private readonly cdr: ChangeDetectorRef,
   ) {
@@ -81,6 +85,7 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.applyQueryParams();
     this.loadBranches();
     this.loadSubCategories(this.activeTab);
     this.loadDocuments();
@@ -96,6 +101,23 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
     this.filters.subCategory = '';
     this.loadSubCategories(tab);
     this.loadDocuments();
+  }
+
+  hasFocusContext(): boolean {
+    return !!(this.focusTitle || this.focusCode || this.filters.branchId || this.filters.periodYear || this.filters.periodMonth);
+  }
+
+  focusSummary(): string {
+    const label = this.focusTitle || this.focusCode || this.activeTab;
+    const period = this.filters.periodMonth && this.filters.periodYear
+      ? `${this.monthOptions[(this.filters.periodMonth || 1) - 1]?.label} ${this.filters.periodYear}`
+      : this.filters.periodYear
+        ? String(this.filters.periodYear)
+        : '';
+    if (period) {
+      return `Showing ${label} documents for ${period}.`;
+    }
+    return `Showing ${label} documents.`;
   }
 
   loadBranches() {
@@ -193,5 +215,24 @@ export class ClientComplianceLibraryComponent implements OnInit, OnDestroy {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  private applyQueryParams(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const category = params.get('category') || '';
+    const subCategory = params.get('subCategory') || '';
+    const branchId = params.get('branchId') || '';
+    const periodYear = Number(params.get('periodYear') || '');
+    const periodMonth = Number(params.get('periodMonth') || '');
+    this.focusTitle = params.get('title') || '';
+    this.focusCode = params.get('code') || '';
+
+    if (category && this.tabs.some((tab) => tab.code === category)) {
+      this.activeTab = category;
+    }
+    if (subCategory) this.filters.subCategory = subCategory;
+    if (branchId) this.filters.branchId = branchId;
+    if (periodYear >= 2020) this.filters.periodYear = periodYear;
+    if (periodMonth >= 1 && periodMonth <= 12) this.filters.periodMonth = periodMonth;
   }
 }

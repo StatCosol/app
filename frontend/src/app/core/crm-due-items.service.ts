@@ -66,6 +66,40 @@ export class CrmDueItemsService {
     return this.http.post(`${this.amendmentsBase}/${id}/comments`, { message });
   }
 
+  getTimeline(id: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/${id}/timeline`);
+  }
+
+  getRenewalTimeline(id: string): Observable<any[]> {
+    const renewalsBase = `${environment.apiBaseUrl || ''}/api/v1/crm/renewals`;
+    return this.http.get<any[]>(`${renewalsBase}/${id}/timeline`);
+  }
+
+  getRenewalApprovalHistory(id: string): Observable<any[]> {
+    const renewalsBase = `${environment.apiBaseUrl || ''}/api/v1/crm/renewals`;
+    return this.http.get<any[]>(`${renewalsBase}/${id}/approval-history`);
+  }
+
+  sendBulkReminders(taskIds: string[], message?: string) {
+    const renewalsBase = `${environment.apiBaseUrl || ''}/api/v1/crm/renewals`;
+    return this.http.post(`${renewalsBase}/reminders/bulk`, { taskIds, message });
+  }
+
+  exportRenewalsXlsx(params?: Record<string, any>): Observable<Blob> {
+    const renewalsBase = `${environment.apiBaseUrl || ''}/api/v1/crm/renewals`;
+    return this.http.get(`${renewalsBase}/export/xlsx`, {
+      params: params ? this.clean(params) : undefined,
+      responseType: 'blob',
+    });
+  }
+
+  exportDueItemsXlsx(params?: Record<string, any>): Observable<Blob> {
+    return this.http.get(`${this.base}/export/xlsx`, {
+      params: params ? this.clean(params) : undefined,
+      responseType: 'blob',
+    });
+  }
+
   private clean(obj: Record<string, any>): HttpParams {
     let p = new HttpParams();
     for (const [k, v] of Object.entries(obj)) {

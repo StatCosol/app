@@ -1,0 +1,1473 @@
+---
+FILE: admin\admin-actions.controller.ts
+BASE: /api/v1/admin/actions
+POST   /api/v1/admin/actions/notify
+POST   /api/v1/admin/actions/reassign
+---
+FILE: admin\admin-applicability-config.controller.ts
+BASE: /api/v1/admin/applicability-config
+GET    /api/v1/admin/applicability-config/compliance-items
+GET    /api/v1/admin/applicability-config/compliance-items/template/download
+POST   /api/v1/admin/applicability-config/compliance-items
+POST   /api/v1/admin/applicability-config/compliance-items/bulk-upload
+PUT    /api/v1/admin/applicability-config/compliance-items/:id
+DELETE /api/v1/admin/applicability-config/compliance-items/:id
+GET    /api/v1/admin/applicability-config/packages
+POST   /api/v1/admin/applicability-config/packages
+PUT    /api/v1/admin/applicability-config/packages/:id
+DELETE /api/v1/admin/applicability-config/packages/:id
+GET    /api/v1/admin/applicability-config/packages/:packageId/items
+POST   /api/v1/admin/applicability-config/packages/:packageId/items
+POST   /api/v1/admin/applicability-config/packages/:packageId/items/bulk
+DELETE /api/v1/admin/applicability-config/packages/:packageId/items/:id
+GET    /api/v1/admin/applicability-config/rules
+POST   /api/v1/admin/applicability-config/rules
+PUT    /api/v1/admin/applicability-config/rules/:id
+DELETE /api/v1/admin/applicability-config/rules/:id
+GET    /api/v1/admin/applicability-config/packages/:packageId/rules
+POST   /api/v1/admin/applicability-config/packages/:packageId/rules
+POST   /api/v1/admin/applicability-config/packages/:packageId/rules/bulk
+DELETE /api/v1/admin/applicability-config/packages/:packageId/rules/:id
+---
+FILE: admin\admin-approvals.controller.ts
+BASE: /api/v1/admin/approvals
+GET    /api/v1/admin/approvals
+GET    /api/v1/admin/approvals/counts
+POST   /api/v1/admin/approvals/:id/approve
+POST   /api/v1/admin/approvals/:id/reject
+---
+FILE: admin\admin-audit-logs.controller.ts
+BASE: /api/v1/admin/audit-logs
+GET    /api/v1/admin/audit-logs
+---
+FILE: admin\admin-digest.controller.ts
+BASE: /api/v1/admin/reminders
+GET    /api/v1/admin/reminders/config
+GET    /api/v1/admin/reminders/preview
+GET    /api/v1/admin/reminders/history
+POST   /api/v1/admin/reminders/send-now
+POST   /api/v1/admin/reminders/send-critical
+---
+FILE: admin\admin-list.controller.ts
+BASE: /api/v1/admin
+GET    /api/v1/admin/notifications/list
+---
+FILE: admin\admin-masters.controller.ts
+BASE: /api/v1/admin/masters
+GET    /api/v1/admin/masters/compliances
+GET    /api/v1/admin/masters/compliances/:id
+POST   /api/v1/admin/masters/compliances
+PUT    /api/v1/admin/masters/compliances/:id
+DELETE /api/v1/admin/masters/compliances/:id
+GET    /api/v1/admin/masters/compliances/template/download
+POST   /api/v1/admin/masters/compliances/bulk-upload
+GET    /api/v1/admin/masters/audit-categories
+POST   /api/v1/admin/masters/audit-categories
+PUT    /api/v1/admin/masters/audit-categories/:id
+DELETE /api/v1/admin/masters/audit-categories/:id
+---
+FILE: admin\admin-payroll-templates.controller.ts
+BASE: /api/v1/admin/payroll
+GET    /api/v1/admin/payroll/runs
+---
+FILE: admin\admin-reports.controller.ts
+BASE: /api/v1/admin/reports
+GET    /api/v1/admin/reports/user-activity
+GET    /api/v1/admin/reports/user-registrations
+GET    /api/v1/admin/reports/user-deletions
+GET    /api/v1/admin/reports/access-logs
+GET    /api/v1/admin/reports/assignments
+GET    /api/v1/admin/reports/audit-reports
+GET    /api/v1/admin/reports/audit-reports/summary
+GET    /api/v1/admin/reports/audit-reports/:id
+POST   /api/v1/admin/reports/audit-reports
+PUT    /api/v1/admin/reports/audit-reports/:id
+PATCH  /api/v1/admin/reports/audit-reports/:id/submit
+PATCH  /api/v1/admin/reports/audit-reports/:id/approve
+PATCH  /api/v1/admin/reports/audit-reports/:id/publish
+---
+FILE: ai\ai.controller.ts
+BASE: /api/v1/ai
+GET    /api/v1/ai/config
+PUT    /api/v1/ai/config
+GET    /api/v1/ai/status
+POST   /api/v1/ai/risk/assess
+GET    /api/v1/ai/risk/client/:clientId
+GET    /api/v1/ai/risk/client/:clientId/history
+GET    /api/v1/ai/risk/high-risk
+GET    /api/v1/ai/risk/summary
+GET    /api/v1/ai/insights
+PUT    /api/v1/ai/insights/:id/dismiss
+POST   /api/v1/ai/audit/generate-observation
+GET    /api/v1/ai/audit/observations
+GET    /api/v1/ai/audit/observations/:id
+PUT    /api/v1/ai/audit/observations/:id/review
+POST   /api/v1/ai/payroll/detect-anomalies
+GET    /api/v1/ai/payroll/anomalies/:clientId
+GET    /api/v1/ai/payroll/anomaly-summary/:clientId
+PUT    /api/v1/ai/payroll/anomalies/:id/resolve
+GET    /api/v1/ai/dashboard
+POST   /api/v1/ai/query-draft
+POST   /api/v1/ai/document-check/:documentId
+GET    /api/v1/ai/document-checks
+POST   /api/v1/ai/risk/branch-assess
+GET    /api/v1/ai/risk/branch/:branchId
+GET    /api/v1/ai/requests
+GET    /api/v1/ai/requests/:id
+GET    /api/v1/ai/usage
+---
+FILE: applicability\applicability.controller.ts
+BASE: /api/v1/ae/units
+POST   /api/v1/ae/units
+GET    /api/v1/ae/units/:unitId
+PUT    /api/v1/ae/units/:unitId/facts
+GET    /api/v1/ae/units/:unitId/facts
+POST   /api/v1/ae/units/:unitId/recompute
+GET    /api/v1/ae/units/:unitId/applicability
+PUT    /api/v1/ae/units/:unitId/compliances/:complianceId/override
+GET    /api/v1/ae/units/:unitId/tasks
+POST   /api/v1/ae/units/tasks/:taskId/submit
+POST   /api/v1/ae/units/tasks/:taskId/approve
+POST   /api/v1/ae/units/tasks/:taskId/return
+---
+FILE: applicability\unit-acts.controller.ts
+BASE: /api/v1/ae/units
+GET    /api/v1/ae/units/acts/catalog
+GET    /api/v1/ae/units/:unitId/acts
+POST   /api/v1/ae/units/:unitId/acts/:actCode/toggle
+GET    /api/v1/ae/units/:unitId/acts/:actCode/profile
+PUT    /api/v1/ae/units/:unitId/acts/:actCode/profile
+POST   /api/v1/ae/units/:unitId/acts/:actCode/recompute
+---
+FILE: assignments\assignment-rotation.controller.ts
+BASE: /api/v1/admin/assignments-rotation
+POST   /api/v1/admin/assignments-rotation/run
+---
+FILE: assignments\assignments.controller.ts
+BASE: /api/v1/admin/assignments
+GET    /api/v1/admin/assignments/crm
+POST   /api/v1/admin/assignments/crm
+GET    /api/v1/admin/assignments/auditor
+POST   /api/v1/admin/assignments/auditor
+GET    /api/v1/admin/assignments/branch-auditors
+POST   /api/v1/admin/assignments/branch-auditors
+DELETE /api/v1/admin/assignments/branch-auditors/:id
+GET    /api/v1/admin/assignments
+POST   /api/v1/admin/assignments
+PUT    /api/v1/admin/assignments/:clientId
+GET    /api/v1/admin/assignments/current
+GET    /api/v1/admin/assignments/history
+GET    /api/v1/admin/assignments/clients/:clientId/assignments/current
+GET    /api/v1/admin/assignments/clients/:clientId/assignments/history
+PATCH  /api/v1/admin/assignments/:id
+DELETE /api/v1/admin/assignments/:clientId
+POST   /api/v1/admin/assignments/clients/:clientId/assignments/change
+---
+FILE: assignments\assignments.controller.ts
+BASE: /api/v1/crm/clients
+GET    /api/v1/crm/clients/assigned
+---
+FILE: assignments\assignments.controller.ts
+BASE: /api/v1/auditor/clients
+GET    /api/v1/auditor/clients/assigned
+---
+FILE: attendance\attendance.controller.ts
+BASE: /api/v1/client/attendance
+POST   /api/v1/client/attendance/mark
+POST   /api/v1/client/attendance/bulk
+GET    /api/v1/client/attendance
+GET    /api/v1/client/attendance/summary
+GET    /api/v1/client/attendance/mismatches
+GET    /api/v1/client/attendance/lop-preview
+POST   /api/v1/client/attendance/seed-defaults
+---
+FILE: auditor\auditor-branches.controller.ts
+BASE: /api/v1/auditor
+GET    /api/v1/auditor/branches
+---
+FILE: auditor\auditor-dashboard.controller.ts
+BASE: /api/v1/auditor/dashboard
+GET    /api/v1/auditor/dashboard/summary
+GET    /api/v1/auditor/dashboard/audits
+GET    /api/v1/auditor/dashboard/observations
+GET    /api/v1/auditor/dashboard/reports
+GET    /api/v1/auditor/dashboard/evidence-pending
+GET    /api/v1/auditor/dashboard/activity
+POST   /api/v1/auditor/dashboard/evidence/:id/remind
+PATCH  /api/v1/auditor/dashboard/evidence/:id/status
+---
+FILE: auditor\auditor-list.controller.ts
+BASE: /api/v1/auditor
+GET    /api/v1/auditor/documents
+GET    /api/v1/auditor/audits
+---
+FILE: audits\auditor-observations.controller.ts
+BASE: /api/v1/auditor/observations
+GET    /api/v1/auditor/observations/categories
+GET    /api/v1/auditor/observations
+GET    /api/v1/auditor/observations/:id
+POST   /api/v1/auditor/observations
+PUT    /api/v1/auditor/observations/:id
+DELETE /api/v1/auditor/observations/:id
+POST   /api/v1/auditor/observations/:id/verify
+POST   /api/v1/auditor/observations/:id/reopen
+GET    /api/v1/auditor/observations/audit/:auditId/export
+---
+FILE: audits\audits.controller.ts
+BASE: /api/v1/audit-kpi
+GET    /api/v1/audit-kpi/branch/:branchId
+GET    /api/v1/audit-kpi/branch/:branchId/:periodCode
+---
+FILE: audits\audits.controller.ts
+BASE: /api/v1/crm/audits
+GET    /api/v1/crm/audits
+GET    /api/v1/crm/audits/:id
+POST   /api/v1/crm/audits
+PATCH  /api/v1/crm/audits/:id/status
+POST   /api/v1/crm/audits/:id/assign-auditor
+GET    /api/v1/crm/audits/:id/readiness
+GET    /api/v1/crm/audits/:id/report-status
+---
+FILE: audits\audits.controller.ts
+BASE: /api/v1/auditor/audits
+GET    /api/v1/auditor/audits
+GET    /api/v1/auditor/audits/:id
+POST   /api/v1/auditor/audits/:id/score
+PATCH  /api/v1/auditor/audits/:id/status
+GET    /api/v1/auditor/audits/:id/report
+PUT    /api/v1/auditor/audits/:id/report
+POST   /api/v1/auditor/audits/:id/report/finalize
+POST   /api/v1/auditor/audits/:id/report/reopen
+GET    /api/v1/auditor/audits/:id/report/export
+---
+FILE: audits\audits.controller.ts
+BASE: /api/v1/audits
+GET    /api/v1/audits
+GET    /api/v1/audits/:id
+PATCH  /api/v1/audits/:id/status
+GET    /api/v1/audits/:id/report
+PUT    /api/v1/audits/:id/report
+POST   /api/v1/audits/:id/report/finalize
+GET    /api/v1/audits/:id/report/export
+GET    /api/v1/audits/report-builder/:auditId
+PUT    /api/v1/audits/report-builder/:auditId
+POST   /api/v1/audits/report-builder/:auditId/finalize
+GET    /api/v1/audits/report-builder/:auditId/export
+---
+FILE: audits\audits.controller.ts
+BASE: /api/v1/client/audits
+GET    /api/v1/client/audits
+GET    /api/v1/client/audits/summary
+---
+FILE: auth\auth.controller.ts
+BASE: /api/v1/auth
+GET    /api/v1/auth/login
+POST   /api/v1/auth/login
+POST   /api/v1/auth/ess/login
+POST   /api/v1/auth/refresh
+POST   /api/v1/auth/logout
+POST   /api/v1/auth/password/request-reset
+POST   /api/v1/auth/password/reset
+---
+FILE: branch-compliance\controllers\admin-compliance-docs.controller.ts
+BASE: /api/v1/admin/branch-compliance
+GET    /api/v1/admin/branch-compliance/return-master
+POST   /api/v1/admin/branch-compliance/return-master
+PATCH  /api/v1/admin/branch-compliance/return-master/:returnCode
+---
+FILE: branch-compliance\controllers\auditor-compliance-docs.controller.ts
+BASE: /api/v1/auditor/compliance-docs
+GET    /api/v1/auditor/compliance-docs
+GET    /api/v1/auditor/compliance-docs/return-master
+---
+FILE: branch-compliance\controllers\branch-compliance-docs.controller.ts
+BASE: /api/v1/branch/compliance-docs
+GET    /api/v1/branch/compliance-docs/checklist
+GET    /api/v1/branch/compliance-docs
+POST   /api/v1/branch/compliance-docs/upload
+POST   /api/v1/branch/compliance-docs/mark-not-applicable
+GET    /api/v1/branch/compliance-docs/return-master
+GET    /api/v1/branch/compliance-docs/dashboard-kpis
+GET    /api/v1/branch/compliance-docs/weighted-compliance
+GET    /api/v1/branch/compliance-docs/dashboard/full
+GET    /api/v1/branch/compliance-docs/trend
+GET    /api/v1/branch/compliance-docs/risk
+GET    /api/v1/branch/compliance-docs/badges
+---
+FILE: branch-compliance\controllers\client-compliance-docs.controller.ts
+BASE: /api/v1/client/branch-compliance
+GET    /api/v1/client/branch-compliance
+GET    /api/v1/client/branch-compliance/dashboard-kpis
+GET    /api/v1/client/branch-compliance/return-master
+GET    /api/v1/client/branch-compliance/lowest-branches
+GET    /api/v1/client/branch-compliance/trend
+---
+FILE: branch-compliance\controllers\crm-compliance-docs.controller.ts
+BASE: /api/v1/crm/branch-compliance
+GET    /api/v1/crm/branch-compliance
+PATCH  /api/v1/crm/branch-compliance/:id/review
+GET    /api/v1/crm/branch-compliance/return-master
+GET    /api/v1/crm/branch-compliance/dashboard-kpis
+---
+FILE: branches\branch-documents.controller.ts
+BASE: /api/v1/client/branches
+GET    /api/v1/client/branches/:id/documents
+POST   /api/v1/client/branches/:id/documents/upload
+PUT    /api/v1/client/branches/documents/:docId/reupload
+GET    /api/v1/client/branches/:id/mcd
+GET    /api/v1/client/branches/:id/registrations
+GET    /api/v1/client/branches/:id/registration-summary
+GET    /api/v1/client/branches/registration-summary
+GET    /api/v1/client/branches/registration-alerts
+GET    /api/v1/client/branches/:id/audit-observations
+GET    /api/v1/client/branches/:id/mcd/overview
+---
+FILE: branches\branch-documents.controller.ts
+BASE: /api/v1/crm/branch-documents
+GET    /api/v1/crm/branch-documents
+PUT    /api/v1/crm/branch-documents/:docId/review
+---
+FILE: branches\branch-documents.controller.ts
+BASE: /api/v1/crm/branch-registrations
+GET    /api/v1/crm/branch-registrations
+POST   /api/v1/crm/branch-registrations
+POST   /api/v1/crm/branch-registrations/for-client/:clientId
+PATCH  /api/v1/crm/branch-registrations/:id/for-client/:clientId
+DELETE /api/v1/crm/branch-registrations/:id/for-client/:clientId
+POST   /api/v1/crm/branch-registrations/:id/for-client/:clientId/upload
+GET    /api/v1/crm/branch-registrations/summary/:clientId
+GET    /api/v1/crm/branch-registrations/alerts/:clientId
+---
+FILE: branches\branch-list.controller.ts
+BASE: /api/v1/branch
+GET    /api/v1/branch/mcd
+GET    /api/v1/branch/returns
+GET    /api/v1/branch/returns/yearly
+GET    /api/v1/branch/queries
+---
+FILE: branches\branch-reports.controller.ts
+BASE: /api/v1/branch/reports
+GET    /api/v1/branch/reports/registration-expiry
+GET    /api/v1/branch/reports/audit-observations
+---
+FILE: branches\branch-uploads.controller.ts
+BASE: /api/v1/branch/uploads
+GET    /api/v1/branch/uploads/pending
+POST   /api/v1/branch/uploads
+---
+FILE: branches\branches-common.controller.ts
+BASE: /api/v1/branches
+GET    /api/v1/branches
+GET    /api/v1/branches/:id
+---
+FILE: branches\branches.controller.ts
+BASE: /api/v1/admin
+POST   /api/v1/admin/clients/:clientId/branches
+GET    /api/v1/admin/clients/:clientId/branches
+GET    /api/v1/admin/branches/:id
+PUT    /api/v1/admin/branches/:id
+DELETE /api/v1/admin/branches/:id
+POST   /api/v1/admin/branches/:id/restore
+GET    /api/v1/admin/branches/:id/contractors
+POST   /api/v1/admin/branches/:id/contractors
+DELETE /api/v1/admin/branches/:branchId/contractors/:userId
+GET    /api/v1/admin/branches/:id/applicable-compliances
+POST   /api/v1/admin/branches/:id/applicable-compliances
+---
+FILE: branches\client-branches.controller.ts
+BASE: /api/v1/client/branches
+GET    /api/v1/client/branches
+POST   /api/v1/client/branches
+GET    /api/v1/client/branches/:id
+GET    /api/v1/client/branches/:id/dashboard
+---
+FILE: branches\crm-branch-compliances.controller.ts
+BASE: /api/v1/crm
+GET    /api/v1/crm/compliances/master
+GET    /api/v1/crm/branches/:branchId/applicable-compliances
+POST   /api/v1/crm/branches/:branchId/applicable-compliances
+---
+FILE: branches\crm-branches.controller.ts
+BASE: /api/v1/crm
+GET    /api/v1/crm/clients/:clientId/branches
+POST   /api/v1/crm/clients/:clientId/branches
+GET    /api/v1/crm/branches/:id/compliances
+POST   /api/v1/crm/branches/:id/compliances
+PATCH  /api/v1/crm/branches/:id
+DELETE /api/v1/crm/branches/:id
+GET    /api/v1/crm/branches/:id/contractors
+POST   /api/v1/crm/branches/:id/contractors
+DELETE /api/v1/crm/branches/:branchId/contractors/:userId
+---
+FILE: calendar\calendar.controller.ts
+BASE: /api/v1/calendar
+GET    /api/v1/calendar
+---
+FILE: cco\cco-controls.controller.ts
+BASE: /api/v1/cco/controls
+GET    /api/v1/cco/controls
+POST   /api/v1/cco/controls/sla
+PATCH  /api/v1/cco/controls/sla/:id
+POST   /api/v1/cco/controls/thresholds
+PATCH  /api/v1/cco/controls/thresholds/:id
+POST   /api/v1/cco/controls/reminders
+PATCH  /api/v1/cco/controls/reminders/:id
+---
+FILE: cco\cco-list.controller.ts
+BASE: /api/v1/cco
+GET    /api/v1/cco/escalations
+---
+FILE: cco\cco.controller.ts
+BASE: /api/v1/cco
+GET    /api/v1/cco/dashboard
+GET    /api/v1/cco/approvals
+POST   /api/v1/cco/approvals/:id/approve
+POST   /api/v1/cco/approvals/:id/reject
+GET    /api/v1/cco/crms-under-me
+GET    /api/v1/cco/oversight
+GET    /api/v1/cco/oversight/delays
+GET    /api/v1/cco/oversight/trends
+---
+FILE: ceo\ceo-dashboard.controller.ts
+BASE: /api/v1/ceo/dashboard
+GET    /api/v1/ceo/dashboard/summary
+GET    /api/v1/ceo/dashboard/client-overview
+GET    /api/v1/ceo/dashboard/cco-crm-performance
+GET    /api/v1/ceo/dashboard/governance-compliance
+GET    /api/v1/ceo/dashboard/recent-escalations
+GET    /api/v1/ceo/dashboard/compliance-trend
+GET    /api/v1/ceo/dashboard/branch-rankings
+GET    /api/v1/ceo/dashboard/audit-closure-trend
+---
+FILE: ceo\ceo-list.controller.ts
+BASE: /api/v1/ceo
+GET    /api/v1/ceo/branches
+GET    /api/v1/ceo/branches/:branchId
+GET    /api/v1/ceo/audits
+---
+FILE: ceo\ceo.controller.ts
+BASE: /api/v1/ceo
+GET    /api/v1/ceo/dashboard
+GET    /api/v1/ceo/approvals
+GET    /api/v1/ceo/approvals/:id
+POST   /api/v1/ceo/approvals/:id/approve
+POST   /api/v1/ceo/approvals/:id/reject
+GET    /api/v1/ceo/escalations
+GET    /api/v1/ceo/escalations/:id
+POST   /api/v1/ceo/escalations/:id/comment
+POST   /api/v1/ceo/escalations/:id/assign-to-cco
+POST   /api/v1/ceo/escalations/:id/close
+GET    /api/v1/ceo/oversight/cco-summary
+GET    /api/v1/ceo/oversight/cco/:ccoId/items
+GET    /api/v1/ceo/notifications
+POST   /api/v1/ceo/notifications/:id/read
+GET    /api/v1/ceo/reports
+GET    /api/v1/ceo/reports/summary
+GET    /api/v1/ceo/reports/preview
+GET    /api/v1/ceo/reports/export
+---
+FILE: checklists\checklists.controller.ts
+BASE: /api/v1/checklists
+GET    /api/v1/checklists/branch/:branchId
+GET    /api/v1/checklists/branch/:branchId/summary
+GET    /api/v1/checklists/client/:clientId
+PATCH  /api/v1/checklists/:id
+---
+FILE: cleanup\admin-archive.controller.ts
+BASE: /api/v1/admin/archive
+GET    /api/v1/admin/archive/clients
+GET    /api/v1/admin/archive/branches
+GET    /api/v1/admin/archive/users
+GET    /api/v1/admin/archive/clients/:id/summary
+GET    /api/v1/admin/archive/clients/:id/documents
+GET    /api/v1/admin/archive/clients/:id/audits
+GET    /api/v1/admin/archive/clients/:id/returns
+GET    /api/v1/admin/archive/clients/:id/registers
+POST   /api/v1/admin/archive/clients/:id/restore
+---
+FILE: client-dashboard\client-dashboard.controller.ts
+BASE: /api/v1/client-dashboard
+GET    /api/v1/client-dashboard/pf-esi-summary
+GET    /api/v1/client-dashboard/contractor-upload-summary
+---
+FILE: clients\admin-clients.controller.ts
+BASE: /api/v1/admin
+GET    /api/v1/admin/clients
+GET    /api/v1/admin/clients/with-aggregates
+GET    /api/v1/admin/clients/:id
+POST   /api/v1/admin/clients
+PUT    /api/v1/admin/clients/:id
+GET    /api/v1/admin/clients/:id/readiness
+DELETE /api/v1/admin/clients/:id
+POST   /api/v1/admin/clients/:id/restore
+GET    /api/v1/admin/client-users-with-client
+GET    /api/v1/admin/clients/:id/users
+POST   /api/v1/admin/clients/:id/users
+DELETE /api/v1/admin/clients/:clientId/users/:userId
+POST   /api/v1/admin/clients/:id/logo
+POST   /api/v1/admin/clients/:id/logo-svg
+---
+FILE: clients\cco-clients.controller.ts
+BASE: /api/v1/cco/clients
+GET    /api/v1/cco/clients
+GET    /api/v1/cco/clients/:id
+POST   /api/v1/cco/clients
+PATCH  /api/v1/cco/clients/:id/assign
+---
+FILE: clients\client-list.controller.ts
+BASE: /api/v1/client
+GET    /api/v1/client/compliance/branch-wise
+GET    /api/v1/client/returns
+GET    /api/v1/client/audits
+GET    /api/v1/client/documents
+GET    /api/v1/client/queries
+---
+FILE: clients\client.controller.ts
+BASE: /api/v1/client
+GET    /api/v1/client/me
+POST   /api/v1/client/logo
+---
+FILE: clients\clients-portal.controller.ts
+BASE: /api/v1/clients
+GET    /api/v1/clients
+POST   /api/v1/clients
+---
+FILE: clients\clients.controller.ts
+BASE: /api/v1/admin/clients-legacy
+GET    /api/v1/admin/clients-legacy/list-with-aggregates
+---
+FILE: common\compliance-pct.controller.ts
+BASE: /api/v1/compliance-pct
+GET    /api/v1/compliance-pct/branch/:branchId
+GET    /api/v1/compliance-pct/branch/:branchId/weighted
+GET    /api/v1/compliance-pct/client/:clientId
+GET    /api/v1/compliance-pct/client/:clientId/branches
+GET    /api/v1/compliance-pct/client/:clientId/lowest
+---
+FILE: compliance\controllers\admin-compliance.controller.ts
+BASE: /api/v1/admin/compliance
+GET    /api/v1/admin/compliance/tasks
+---
+FILE: compliance\controllers\auditor-compliance.controller.ts
+BASE: /api/v1/auditor/compliance
+GET    /api/v1/auditor/compliance
+GET    /api/v1/auditor/compliance/tasks
+GET    /api/v1/auditor/compliance/tasks/:id
+POST   /api/v1/auditor/compliance/tasks/:id/report
+GET    /api/v1/auditor/compliance/docs
+POST   /api/v1/auditor/compliance/reupload-requests
+GET    /api/v1/auditor/compliance/reupload-requests
+POST   /api/v1/auditor/compliance/reupload-requests/:id/approve
+POST   /api/v1/auditor/compliance/reupload-requests/:id/reject
+---
+FILE: compliance\controllers\branch-reupload.controller.ts
+BASE: /api/v1/branch/compliance-docs
+GET    /api/v1/branch/compliance-docs/reupload-requests
+POST   /api/v1/branch/compliance-docs/reupload-requests/:id/upload
+POST   /api/v1/branch/compliance-docs/reupload-requests/:id/submit
+POST   /api/v1/branch/compliance-docs/reupload-requests/:id/mark-not-applicable
+---
+FILE: compliance\controllers\client-compliance.controller.ts
+BASE: /api/v1/client/compliance
+GET    /api/v1/client/compliance/tasks
+GET    /api/v1/client/compliance/tasks/:id/items
+POST   /api/v1/client/compliance/tasks/:id/evidence
+POST   /api/v1/client/compliance/tasks/:id/submit
+GET    /api/v1/client/compliance/reupload-requests
+POST   /api/v1/client/compliance/reupload-requests/:id/upload
+POST   /api/v1/client/compliance/reupload-requests/:id/submit
+---
+FILE: compliance\controllers\common-compliance.controller.ts
+BASE: /api/v1/compliance
+GET    /api/v1/compliance/master
+---
+FILE: compliance\controllers\compliance-tasks.controller.ts
+BASE: /api/v1/compliance
+GET    /api/v1/compliance/tasks
+---
+FILE: compliance\controllers\contractor-compliance.controller.ts
+BASE: /api/v1/contractor/compliance
+GET    /api/v1/contractor/compliance/tasks
+GET    /api/v1/contractor/compliance/tasks/:id
+POST   /api/v1/contractor/compliance/tasks/:id/start
+POST   /api/v1/contractor/compliance/tasks/:id/submit
+POST   /api/v1/contractor/compliance/tasks/:id/mark-not-applicable
+POST   /api/v1/contractor/compliance/tasks/:id/comment
+POST   /api/v1/contractor/compliance/tasks/:id/evidence
+GET    /api/v1/contractor/compliance/reupload-requests
+GET    /api/v1/contractor/compliance/docs/:docId/remarks
+POST   /api/v1/contractor/compliance/reupload-requests/:id/upload
+POST   /api/v1/contractor/compliance/reupload-requests/:id/submit
+---
+FILE: compliance\controllers\crm-compliance.controller.ts
+BASE: /api/v1/crm/compliance-tasks
+GET    /api/v1/crm/compliance-tasks/tasks/kpis
+POST   /api/v1/crm/compliance-tasks/tasks/bulk-approve
+POST   /api/v1/crm/compliance-tasks/tasks/bulk-reject
+POST   /api/v1/crm/compliance-tasks/tasks
+GET    /api/v1/crm/compliance-tasks/tasks
+GET    /api/v1/crm/compliance-tasks/tasks/:id
+PATCH  /api/v1/crm/compliance-tasks/tasks/:id/assign
+POST   /api/v1/crm/compliance-tasks/tasks/:id/approve
+POST   /api/v1/crm/compliance-tasks/tasks/:id/reject
+---
+FILE: compliance\controllers\dashboard.controller.ts
+BASE: /api/v1/crm/dashboard
+GET    /api/v1/crm/dashboard
+---
+FILE: compliance\controllers\dashboard.controller.ts
+BASE: /api/v1/contractor/dashboard
+GET    /api/v1/contractor/dashboard
+---
+FILE: compliance\controllers\dashboard.controller.ts
+BASE: /api/v1/client/dashboard
+GET    /api/v1/client/dashboard
+---
+FILE: compliance\controllers\dashboard.controller.ts
+BASE: /api/v1/admin/role-dashboard
+GET    /api/v1/admin/role-dashboard
+---
+FILE: compliance\controllers\dashboard.controller.ts
+BASE: /api/v1/auditor/dashboard
+GET    /api/v1/auditor/dashboard
+---
+FILE: compliance-documents\admin-compliance-docs.controller.ts
+BASE: /api/v1/admin/compliance-docs
+POST   /api/v1/admin/compliance-docs/upload
+GET    /api/v1/admin/compliance-docs
+GET    /api/v1/admin/compliance-docs/categories
+GET    /api/v1/admin/compliance-docs/categories/:category/sub
+GET    /api/v1/admin/compliance-docs/:id/download
+DELETE /api/v1/admin/compliance-docs/:id
+---
+FILE: compliance-documents\client-compliance-docs.controller.ts
+BASE: /api/v1/client/compliance-docs
+GET    /api/v1/client/compliance-docs
+GET    /api/v1/client/compliance-docs/categories
+GET    /api/v1/client/compliance-docs/categories/:category/sub
+GET    /api/v1/client/compliance-docs/:id/download
+GET    /api/v1/client/compliance-docs/settings
+POST   /api/v1/client/compliance-docs/settings
+---
+FILE: compliance-documents\crm-compliance-docs.controller.ts
+BASE: /api/v1/crm/compliance-docs
+POST   /api/v1/crm/compliance-docs/upload
+GET    /api/v1/crm/compliance-docs
+GET    /api/v1/crm/compliance-docs/categories
+GET    /api/v1/crm/compliance-docs/categories/:category/sub
+GET    /api/v1/crm/compliance-docs/:id/download
+DELETE /api/v1/crm/compliance-docs/:id
+---
+FILE: compliances\branch-compliance-override.controller.ts
+BASE: /api/v1/branch-compliances
+POST   /api/v1/branch-compliances/override
+---
+FILE: compliances\branch-compliance-recompute.controller.ts
+BASE: /api/v1/branches
+GET    /api/v1/branches/:branchId/compliances/recompute
+---
+FILE: compliances\branch-compliance.controller.ts
+BASE: /api/v1/branches
+GET    /api/v1/branches/:branchId/compliance-items
+---
+FILE: compliances\compliance-metrics.controller.ts
+BASE: /api/v1/compliance
+GET    /api/v1/compliance/completion
+GET    /api/v1/compliance/completion-trend
+GET    /api/v1/compliance/risk-score
+GET    /api/v1/compliance/risk-ranking
+GET    /api/v1/compliance/risk-heatmap
+GET    /api/v1/compliance/lowest-branches
+GET    /api/v1/compliance/action-plan
+GET    /api/v1/compliance/risk-forecast
+GET    /api/v1/compliance/summary
+GET    /api/v1/compliance/benchmark
+POST   /api/v1/compliance/simulate-risk
+GET    /api/v1/compliance/export-pack
+GET    /api/v1/compliance/export-pack/xlsx
+---
+FILE: compliances\compliances.controller.ts
+BASE: /api/v1/admin
+GET    /api/v1/admin/compliances
+GET    /api/v1/admin/branches/:branchId/compliances
+POST   /api/v1/admin/branches/:branchId/compliances
+POST   /api/v1/admin/branches/:branchId/compliances/recompute
+---
+FILE: compliances\crm-compliance.controller.ts
+BASE: /api/v1/crm/compliance
+GET    /api/v1/crm/compliance
+---
+FILE: contractor\client-contractors.controller.ts
+BASE: /api/v1/client/contractors
+GET    /api/v1/client/contractors
+GET    /api/v1/client/contractors/documents
+GET    /api/v1/client/contractors/dashboard
+GET    /api/v1/client/contractors/dashboard/branch/:branchId
+GET    /api/v1/client/contractors/dashboard/contractor/:contractorId
+---
+FILE: contractor\contractor-documents.controller.ts
+BASE: /api/v1/contractor/documents
+GET    /api/v1/contractor/documents
+POST   /api/v1/contractor/documents/upload
+POST   /api/v1/contractor/documents/reupload/:id
+---
+FILE: contractor\contractor-list.controller.ts
+BASE: /api/v1/contractor
+GET    /api/v1/contractor/documents
+GET    /api/v1/contractor/queries
+---
+FILE: contractor\contractor-required-documents.controller.ts
+BASE: /api/v1/crm/contractor-required-documents
+GET    /api/v1/crm/contractor-required-documents
+GET    /api/v1/crm/contractor-required-documents/by-client
+POST   /api/v1/crm/contractor-required-documents
+POST   /api/v1/crm/contractor-required-documents/bulk
+PATCH  /api/v1/crm/contractor-required-documents/:id/toggle
+DELETE /api/v1/crm/contractor-required-documents/:id
+---
+FILE: contractor\contractor-required-documents.controller.ts
+BASE: /api/v1/client/contractor-required-documents
+GET    /api/v1/client/contractor-required-documents
+GET    /api/v1/client/contractor-required-documents/all
+POST   /api/v1/client/contractor-required-documents
+POST   /api/v1/client/contractor-required-documents/bulk
+PATCH  /api/v1/client/contractor-required-documents/:id/toggle
+DELETE /api/v1/client/contractor-required-documents/:id
+---
+FILE: contractor\contractor.controller.ts
+BASE: /api/v1/contractor
+GET    /api/v1/contractor/dashboard
+GET    /api/v1/contractor/profile
+GET    /api/v1/contractor/branches
+GET    /api/v1/contractor/tasks
+GET    /api/v1/contractor/tasks/summary
+GET    /api/v1/contractor/tasks/overdue
+GET    /api/v1/contractor/tasks/rejected
+GET    /api/v1/contractor/tasks/:id
+GET    /api/v1/contractor/score-trend
+---
+FILE: contractor\contractor.controller.ts
+BASE: /api/v1/admin/contractors
+GET    /api/v1/admin/contractors/links
+---
+FILE: contractor\contractor.controller.ts
+BASE: /api/v1/crm/contractors
+GET    /api/v1/crm/contractors/:contractorId/branches
+PUT    /api/v1/crm/contractors/:contractorId/branches
+POST   /api/v1/crm/contractors/:contractorId/branches
+DELETE /api/v1/crm/contractors/:contractorId/branches/:branchId
+---
+FILE: contractor\crm-contractor-registration.controller.ts
+BASE: /api/v1/crm/contractors
+POST   /api/v1/crm/contractors/register
+GET    /api/v1/crm/contractors/my-contractors
+---
+FILE: crm\crm-compliance-tracker.controller.ts
+BASE: /api/v1/crm/compliance-tracker
+GET    /api/v1/crm/compliance-tracker
+GET    /api/v1/crm/compliance-tracker/mcd
+POST   /api/v1/crm/compliance-tracker/mcd/:branchId/finalize
+POST   /api/v1/crm/compliance-tracker/mcd/:branchId/return
+POST   /api/v1/crm/compliance-tracker/mcd/:branchId/lock
+GET    /api/v1/crm/compliance-tracker/reupload-backlog
+GET    /api/v1/crm/compliance-tracker/reupload-requests
+GET    /api/v1/crm/compliance-tracker/reupload-top-units
+GET    /api/v1/crm/compliance-tracker/audit-closures
+POST   /api/v1/crm/compliance-tracker/audit-closures/:observationId/close
+---
+FILE: crm\crm-contractor-documents.controller.ts
+BASE: /api/v1/crm/contractor-documents
+GET    /api/v1/crm/contractor-documents/kpis
+GET    /api/v1/crm/contractor-documents
+POST   /api/v1/crm/contractor-documents/:id/review
+---
+FILE: crm\crm-dashboard.controller.ts
+BASE: /api/v1/crm/dashboard
+GET    /api/v1/crm/dashboard/summary
+GET    /api/v1/crm/dashboard/due-compliances
+GET    /api/v1/crm/dashboard/low-coverage-branches
+GET    /api/v1/crm/dashboard/queries
+GET    /api/v1/crm/dashboard/pending-documents
+GET    /api/v1/crm/dashboard/kpis
+GET    /api/v1/crm/dashboard/priority-today
+GET    /api/v1/crm/dashboard/top-risk-clients
+GET    /api/v1/crm/dashboard/upcoming-audits
+---
+FILE: crm\crm-list.controller.ts
+BASE: /api/v1/crm
+GET    /api/v1/crm/tasks
+GET    /api/v1/crm/due-items
+GET    /api/v1/crm/due-items/kpis
+GET    /api/v1/crm/renewals
+GET    /api/v1/crm/renewals/kpis
+GET    /api/v1/crm/renewals/:id
+PUT    /api/v1/crm/renewals/:id/status
+POST   /api/v1/crm/renewals/:id/assign
+POST   /api/v1/crm/renewals/:id/reminder
+GET    /api/v1/crm/amendments
+GET    /api/v1/crm/amendments/kpis
+GET    /api/v1/crm/amendments/:id
+PUT    /api/v1/crm/amendments/:id/status
+POST   /api/v1/crm/amendments/:id/comments
+POST   /api/v1/crm/due-items/:id/approve
+POST   /api/v1/crm/due-items/:id/reject
+POST   /api/v1/crm/due-items/:id/request
+GET    /api/v1/crm/documents/review
+GET    /api/v1/crm/mcd
+GET    /api/v1/crm/queries
+---
+FILE: crm-documents\controllers\branch-unit-documents.controller.ts
+BASE: /api/v1/branch/unit-documents
+GET    /api/v1/branch/unit-documents
+GET    /api/v1/branch/unit-documents/:id/download
+---
+FILE: crm-documents\controllers\client-unit-documents.controller.ts
+BASE: /api/v1/client/unit-documents
+GET    /api/v1/client/unit-documents
+GET    /api/v1/client/unit-documents/:id/download
+---
+FILE: crm-documents\controllers\crm-unit-documents.controller.ts
+BASE: /api/v1/crm/unit-documents
+POST   /api/v1/crm/unit-documents/upload
+GET    /api/v1/crm/unit-documents
+GET    /api/v1/crm/unit-documents/:id/download
+DELETE /api/v1/crm/unit-documents/:id
+---
+FILE: dashboard\admin-dashboard.controller.ts
+BASE: /api/v1/admin/dashboard
+GET    /api/v1/admin/dashboard
+GET    /api/v1/admin/dashboard/states
+GET    /api/v1/admin/dashboard/clients-minimal
+GET    /api/v1/admin/dashboard/summary
+GET    /api/v1/admin/dashboard/escalations
+GET    /api/v1/admin/dashboard/assignments-attention
+GET    /api/v1/admin/dashboard/task-status
+GET    /api/v1/admin/dashboard/sla-trend
+GET    /api/v1/admin/dashboard/stats
+GET    /api/v1/admin/dashboard/crm-load
+GET    /api/v1/admin/dashboard/auditor-load
+GET    /api/v1/admin/dashboard/attention
+GET    /api/v1/admin/dashboard/assignment-summary
+GET    /api/v1/admin/dashboard/unassigned-clients
+GET    /api/v1/admin/dashboard/audit-summary
+GET    /api/v1/admin/dashboard/risk-alerts
+---
+FILE: employees\employee-bulk-import.controller.ts
+BASE: /api/v1/client/employees/bulk-import
+GET    /api/v1/client/employees/bulk-import/template
+POST   /api/v1/client/employees/bulk-import
+---
+FILE: employees\employee-document.controller.ts
+BASE: /api/v1/employees/documents
+POST   /api/v1/employees/documents/:employeeId/upload
+GET    /api/v1/employees/documents/:employeeId
+GET    /api/v1/employees/documents/download/:id
+POST   /api/v1/employees/documents/:id/verify
+DELETE /api/v1/employees/documents/:id
+---
+FILE: employees\employees.controller.ts
+BASE: /api/v1/client/employees
+POST   /api/v1/client/employees
+GET    /api/v1/client/employees
+GET    /api/v1/client/employees/:id
+PUT    /api/v1/client/employees/:id
+PUT    /api/v1/client/employees/:id/deactivate
+PUT    /api/v1/client/employees/:id/approve
+PUT    /api/v1/client/employees/:id/reject
+POST   /api/v1/client/employees/:id/provision-ess
+POST   /api/v1/client/employees/:id/nominations
+GET    /api/v1/client/employees/:id/nominations
+POST   /api/v1/client/employees/:id/forms/generate
+GET    /api/v1/client/employees/:id/forms
+---
+FILE: employees\master-data.controller.ts
+BASE: /api/v1/client/master-data
+GET    /api/v1/client/master-data/departments
+POST   /api/v1/client/master-data/departments
+PUT    /api/v1/client/master-data/departments/:id
+GET    /api/v1/client/master-data/grades
+POST   /api/v1/client/master-data/grades
+PUT    /api/v1/client/master-data/grades/:id
+GET    /api/v1/client/master-data/designations
+POST   /api/v1/client/master-data/designations
+PUT    /api/v1/client/master-data/designations/:id
+---
+FILE: employees\salary-revision.controller.ts
+BASE: /api/v1/employees/salary-revisions
+POST   /api/v1/employees/salary-revisions
+GET    /api/v1/employees/salary-revisions/employee/:employeeId
+GET    /api/v1/employees/salary-revisions/:id
+---
+FILE: escalations\escalations.controller.ts
+BASE: /api/v1/escalations
+GET    /api/v1/escalations
+PATCH  /api/v1/escalations/:id
+---
+FILE: ess\ess.controller.ts
+BASE: /api/v1/ess
+GET    /api/v1/ess/company
+GET    /api/v1/ess/profile
+PATCH  /api/v1/ess/profile
+GET    /api/v1/ess/statutory
+GET    /api/v1/ess/attendance
+GET    /api/v1/ess/attendance/summary
+GET    /api/v1/ess/attendance/today
+POST   /api/v1/ess/attendance/check-in
+POST   /api/v1/ess/attendance/check-out
+POST   /api/v1/ess/attendance/short-reason
+GET    /api/v1/ess/attendance/overtime-summary
+GET    /api/v1/ess/attendance/comp-off/balance
+GET    /api/v1/ess/attendance/comp-off/ledger
+GET    /api/v1/ess/holidays
+GET    /api/v1/ess/contributions
+GET    /api/v1/ess/nominations
+POST   /api/v1/ess/nominations
+PUT    /api/v1/ess/nominations/:id/submit
+PUT    /api/v1/ess/nominations/:id/resubmit
+GET    /api/v1/ess/leave/balances
+GET    /api/v1/ess/leave/policies
+GET    /api/v1/ess/leave/applications
+POST   /api/v1/ess/leave/apply
+PUT    /api/v1/ess/leave/:id/cancel
+GET    /api/v1/ess/payslips
+GET    /api/v1/ess/payslips/:id/download
+GET    /api/v1/ess/documents
+GET    /api/v1/ess/documents/:id
+GET    /api/v1/ess/documents/:id/download
+---
+FILE: ess\ess.controller.ts
+BASE: /api/v1/branch-approvals
+GET    /api/v1/branch-approvals/nominations
+PUT    /api/v1/branch-approvals/nominations/:id/approve
+PUT    /api/v1/branch-approvals/nominations/:id/reject
+GET    /api/v1/branch-approvals/leaves
+PUT    /api/v1/branch-approvals/leaves/:id/approve
+PUT    /api/v1/branch-approvals/leaves/:id/reject
+---
+FILE: ess\ess.controller.ts
+BASE: /api/v1/client/approvals
+GET    /api/v1/client/approvals
+GET    /api/v1/client/approvals/:id
+GET    /api/v1/client/approvals/:id/history
+POST   /api/v1/client/approvals/:id/approve
+POST   /api/v1/client/approvals/:id/reject
+---
+FILE: ess\ess.controller.ts
+BASE: /api/v1/leave-management
+GET    /api/v1/leave-management/policies
+POST   /api/v1/leave-management/policies
+PUT    /api/v1/leave-management/policies/:id
+POST   /api/v1/leave-management/seed-defaults
+POST   /api/v1/leave-management/initialize-balances
+---
+FILE: files\files.controller.ts
+BASE: /api/v1/files
+GET    /api/v1/files/download
+---
+FILE: health\health.controller.ts
+BASE: /api/v1/health
+GET    /api/v1/health
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/admin/helpdesk
+GET    /api/v1/admin/helpdesk/stats
+GET    /api/v1/admin/helpdesk/tickets
+GET    /api/v1/admin/helpdesk/tickets/:ticketId
+PATCH  /api/v1/admin/helpdesk/tickets/:ticketId/assign
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/client/helpdesk
+GET    /api/v1/client/helpdesk/tickets
+POST   /api/v1/client/helpdesk/tickets
+GET    /api/v1/client/helpdesk/tickets/:ticketId
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/pf-team/helpdesk
+GET    /api/v1/pf-team/helpdesk/tickets
+GET    /api/v1/pf-team/helpdesk/tickets/:ticketId
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/ess/helpdesk
+GET    /api/v1/ess/helpdesk/tickets
+POST   /api/v1/ess/helpdesk/tickets
+GET    /api/v1/ess/helpdesk/tickets/:ticketId
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/helpdesk/tickets/:ticketId
+POST   /api/v1/helpdesk/tickets/:ticketId/messages
+POST   /api/v1/helpdesk/tickets/:ticketId/files
+GET    /api/v1/helpdesk/tickets/:ticketId/messages
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/crm/helpdesk
+GET    /api/v1/crm/helpdesk
+GET    /api/v1/crm/helpdesk/tickets
+---
+FILE: helpdesk\helpdesk.controller.ts
+BASE: /api/v1/helpdesk
+PATCH  /api/v1/helpdesk/tickets/:id/status
+---
+FILE: legitx\legitx-compliance-status.controller.ts
+BASE: /api/v1/legitx/compliance-status
+GET    /api/v1/legitx/compliance-status/summary
+GET    /api/v1/legitx/compliance-status/branches
+GET    /api/v1/legitx/compliance-status/tasks
+GET    /api/v1/legitx/compliance-status/contractors
+GET    /api/v1/legitx/compliance-status/audit
+GET    /api/v1/legitx/compliance-status/returns
+---
+FILE: legitx\legitx-compliance.controller.ts
+BASE: /api/v1/legitx
+GET    /api/v1/legitx/compliance-status
+GET    /api/v1/legitx/mcd
+GET    /api/v1/legitx/returns
+GET    /api/v1/legitx/returns/:id/download
+GET    /api/v1/legitx/audits
+GET    /api/v1/legitx/audits/:auditId/report/download
+GET    /api/v1/legitx/audits/:auditId/observations
+---
+FILE: legitx\legitx-dashboard.controller.ts
+BASE: /api/v1/legitx/dashboard
+GET    /api/v1/legitx/dashboard
+GET    /api/v1/legitx/dashboard/summary
+---
+FILE: monthly-documents\monthly-documents.controller.ts
+BASE: /api/v1/documents/monthly
+GET    /api/v1/documents/monthly
+POST   /api/v1/documents/monthly/upload
+DELETE /api/v1/documents/monthly/:id
+---
+FILE: news\news.controller.ts
+BASE: /api/v1/news
+GET    /api/v1/news
+GET    /api/v1/news/admin/all
+GET    /api/v1/news/:id
+POST   /api/v1/news
+PATCH  /api/v1/news/:id
+DELETE /api/v1/news/:id
+---
+FILE: nominations\nominations.controller.ts
+BASE: /api/v1/client/nominations
+POST   /api/v1/client/nominations/save
+GET    /api/v1/client/nominations
+GET    /api/v1/client/nominations/all
+GET    /api/v1/client/nominations/forms
+POST   /api/v1/client/nominations/generate
+---
+FILE: notifications\admin-notifications.controller.ts
+BASE: /api/v1/admin/notifications
+GET    /api/v1/admin/notifications
+GET    /api/v1/admin/notifications/:id
+POST   /api/v1/admin/notifications
+POST   /api/v1/admin/notifications/:id/reply
+POST   /api/v1/admin/notifications/:id/read
+PATCH  /api/v1/admin/notifications/:id/status
+---
+FILE: notifications\notifications-inbox.controller.ts
+BASE: /api/v1/notifications
+GET    /api/v1/notifications/list
+GET    /api/v1/notifications/:id
+PATCH  /api/v1/notifications/:id/status
+---
+FILE: notifications\notifications.controller.ts
+BASE: /api/v1/notifications
+POST   /api/v1/notifications
+GET    /api/v1/notifications/inbox
+GET    /api/v1/notifications/my
+GET    /api/v1/notifications/threads/:threadId
+POST   /api/v1/notifications/threads/:threadId/reply
+POST   /api/v1/notifications/threads/:threadId/close
+POST   /api/v1/notifications/threads/:threadId/reopen
+POST   /api/v1/notifications/threads/:threadId/read
+POST   /api/v1/notifications/raise
+POST   /api/v1/notifications/:id/reply
+---
+FILE: options\admin-options.controller.ts
+BASE: /api/v1/admin/options
+GET    /api/v1/admin/options/clients
+GET    /api/v1/admin/options/branches
+---
+FILE: options\auditor-options.controller.ts
+BASE: /api/v1/auditor/options
+GET    /api/v1/auditor/options/clients
+GET    /api/v1/auditor/options/branches
+---
+FILE: options\branch-options.controller.ts
+BASE: /api/v1/branch/options
+GET    /api/v1/branch/options/self
+---
+FILE: options\client-options.controller.ts
+BASE: /api/v1/client/options
+GET    /api/v1/client/options/branches
+---
+FILE: options\crm-options.controller.ts
+BASE: /api/v1/crm/options
+GET    /api/v1/crm/options/clients
+GET    /api/v1/crm/options/branches
+---
+FILE: options\paydek-options.controller.ts
+BASE: /api/v1/paydek/options
+GET    /api/v1/paydek/options/clients
+GET    /api/v1/paydek/options/branches
+---
+FILE: options\payroll-options.controller.ts
+BASE: /api/v1/payroll/options
+GET    /api/v1/payroll/options/clients
+GET    /api/v1/payroll/options/branches
+---
+FILE: payroll\engine\payroll-engine.controller.ts
+BASE: /api/v1/payroll/engine
+POST   /api/v1/payroll/engine/runs/:runId/process
+POST   /api/v1/payroll/engine/preview
+GET    /api/v1/payroll/engine/rule-sets
+GET    /api/v1/payroll/engine/rule-sets/:id
+POST   /api/v1/payroll/engine/rule-sets
+PUT    /api/v1/payroll/engine/rule-sets/:id
+DELETE /api/v1/payroll/engine/rule-sets/:id
+GET    /api/v1/payroll/engine/rule-sets/:ruleSetId/parameters
+POST   /api/v1/payroll/engine/rule-sets/:ruleSetId/parameters
+PUT    /api/v1/payroll/engine/rule-sets/:ruleSetId/parameters/:paramId
+DELETE /api/v1/payroll/engine/rule-sets/:ruleSetId/parameters/:paramId
+GET    /api/v1/payroll/engine/structures
+GET    /api/v1/payroll/engine/structures/:id
+POST   /api/v1/payroll/engine/structures
+PUT    /api/v1/payroll/engine/structures/:id
+DELETE /api/v1/payroll/engine/structures/:id
+GET    /api/v1/payroll/engine/structures/:structureId/items
+POST   /api/v1/payroll/engine/structures/:structureId/items
+PUT    /api/v1/payroll/engine/structures/:structureId/items/:itemId
+DELETE /api/v1/payroll/engine/structures/:structureId/items/:itemId
+POST   /api/v1/payroll/engine/structures/:structureId/items/bulk
+---
+FILE: payroll\gratuity.controller.ts
+BASE: /api/v1/payroll/gratuity
+POST   /api/v1/payroll/gratuity/calculate
+---
+FILE: payroll\paydek-list.controller.ts
+BASE: /api/v1/paydek
+GET    /api/v1/paydek/employees
+GET    /api/v1/paydek/pf-esi/pending
+GET    /api/v1/paydek/queries
+---
+FILE: payroll\payroll-approval.controller.ts
+BASE: /api/v1/payroll/runs
+POST   /api/v1/payroll/runs/:runId/submit
+POST   /api/v1/payroll/runs/:runId/approve
+POST   /api/v1/payroll/runs/:runId/reject
+POST   /api/v1/payroll/runs/:runId/revert
+GET    /api/v1/payroll/runs/:runId/approval-status
+---
+FILE: payroll\payroll-assignments.admin.controller.ts
+BASE: /api/v1/admin/payroll-assignments
+GET    /api/v1/admin/payroll-assignments/:clientId
+POST   /api/v1/admin/payroll-assignments
+DELETE /api/v1/admin/payroll-assignments/:clientId
+---
+FILE: payroll\payroll-processing.controller.ts
+BASE: /api/v1/payroll/runs
+POST   /api/v1/payroll/runs/:runId/upload-breakup
+POST   /api/v1/payroll/runs/:runId/process
+POST   /api/v1/payroll/runs/:runId/generate/pf-ecr
+POST   /api/v1/payroll/runs/:runId/generate/esi
+POST   /api/v1/payroll/runs/:runId/generate/registers
+GET    /api/v1/payroll/runs/register-templates
+---
+FILE: payroll\payroll-reports.controller.ts
+BASE: /api/v1/payroll/reports
+GET    /api/v1/payroll/reports/bank-statement
+GET    /api/v1/payroll/reports/muster-roll
+GET    /api/v1/payroll/reports/cost-analysis
+GET    /api/v1/payroll/reports/form16
+---
+FILE: payroll\payroll-setup.controller.ts
+BASE: /api/v1/payroll/setup
+GET    /api/v1/payroll/setup/:clientId
+POST   /api/v1/payroll/setup/:clientId
+GET    /api/v1/payroll/setup/:clientId/components
+POST   /api/v1/payroll/setup/:clientId/components
+PUT    /api/v1/payroll/setup/:clientId/components/:componentId
+DELETE /api/v1/payroll/setup/:clientId/components/:componentId
+GET    /api/v1/payroll/setup/:clientId/components/:componentId/rules
+POST   /api/v1/payroll/setup/:clientId/components/:componentId/rules
+PUT    /api/v1/payroll/setup/:clientId/components/:componentId/rules/:ruleId
+DELETE /api/v1/payroll/setup/:clientId/components/:componentId/rules/:ruleId
+GET    /api/v1/payroll/setup/:clientId/components/:componentId/rules/:ruleId/slabs
+POST   /api/v1/payroll/setup/:clientId/components/:componentId/rules/:ruleId/slabs
+---
+FILE: payroll\payroll-setup.controller.ts
+BASE: /api/v1/client/payroll/setup
+GET    /api/v1/client/payroll/setup
+GET    /api/v1/client/payroll/setup/components
+---
+FILE: payroll\payroll.config.controller.ts
+BASE: /api/v1/payroll/clients
+GET    /api/v1/payroll/clients/:clientId/components-effective
+POST   /api/v1/payroll/clients/:clientId/component-overrides
+GET    /api/v1/payroll/clients/:clientId/payslip-layout
+POST   /api/v1/payroll/clients/:clientId/payslip-layout
+GET    /api/v1/payroll/clients/:clientId/config-audit
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/payroll
+GET    /api/v1/payroll/summary
+GET    /api/v1/payroll/dashboard
+GET    /api/v1/payroll/pf-esi-summary
+GET    /api/v1/payroll/employees
+GET    /api/v1/payroll/employees/:employeeId
+GET    /api/v1/payroll/clients
+GET    /api/v1/payroll/templates
+GET    /api/v1/payroll/payslips
+GET    /api/v1/payroll/registers-records
+GET    /api/v1/payroll/registers
+GET    /api/v1/payroll/registers/:id/download
+GET    /api/v1/payroll/registers-records/:id/download
+PATCH  /api/v1/payroll/registers/:id/approve
+PATCH  /api/v1/payroll/registers/:id/reject
+GET    /api/v1/payroll/runs
+POST   /api/v1/payroll/runs
+POST   /api/v1/payroll/runs/:runId/employees/upload
+GET    /api/v1/payroll/runs/:runId/employees
+GET    /api/v1/payroll/runs/:runId/employees/:employeeId/payslip.pdf
+GET    /api/v1/payroll/runs/:runId/employees/:employeeId/payslip.archived.pdf
+POST   /api/v1/payroll/runs/:runId/payslips/archive
+GET    /api/v1/payroll/runs/:runId/payslips.zip
+GET    /api/v1/payroll/inputs/:id/files
+PATCH  /api/v1/payroll/inputs/:id/status
+GET    /api/v1/payroll/inputs/files/:id/download
+POST   /api/v1/payroll/clients/:clientId/template
+GET    /api/v1/payroll/clients/:clientId/template
+GET    /api/v1/payroll/clients/:clientId/template/download
+GET    /api/v1/payroll/queries
+GET    /api/v1/payroll/queries/:queryId
+POST   /api/v1/payroll/queries
+POST   /api/v1/payroll/queries/:queryId/messages
+PATCH  /api/v1/payroll/queries/:queryId/resolve
+PATCH  /api/v1/payroll/queries/:queryId/status
+GET    /api/v1/payroll/fnf
+GET    /api/v1/payroll/fnf/:fnfId
+POST   /api/v1/payroll/fnf
+PATCH  /api/v1/payroll/fnf/:fnfId/status
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll/inputs
+GET    /api/v1/client/payroll/inputs
+POST   /api/v1/client/payroll/inputs
+PATCH  /api/v1/client/payroll/inputs/:id/status
+GET    /api/v1/client/payroll/inputs/:id/status-history
+POST   /api/v1/client/payroll/inputs/:id/files
+GET    /api/v1/client/payroll/inputs/:id/files
+GET    /api/v1/client/payroll/inputs/files/:id/download
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll
+GET    /api/v1/client/payroll/runs
+GET    /api/v1/client/payroll/status-by-branch
+GET    /api/v1/client/payroll/exceptions
+GET    /api/v1/client/payroll/pending-inputs
+GET    /api/v1/client/payroll/approvals
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll/template
+GET    /api/v1/client/payroll/template
+GET    /api/v1/client/payroll/template/download
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll/registers-records
+GET    /api/v1/client/payroll/registers-records
+GET    /api/v1/client/payroll/registers-records/download-pack
+POST   /api/v1/client/payroll/registers-records
+GET    /api/v1/client/payroll/registers-records/:id/download
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll/components-effective
+GET    /api/v1/client/payroll/components-effective/:clientId
+POST   /api/v1/client/payroll/components-effective/:clientId
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll/payslip-layout
+GET    /api/v1/client/payroll/payslip-layout/:clientId
+POST   /api/v1/client/payroll/payslip-layout/:clientId
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/client/payroll/settings
+GET    /api/v1/client/payroll/settings
+POST   /api/v1/client/payroll/settings
+---
+FILE: payroll\payroll.controller.ts
+BASE: /api/v1/auditor/registers
+GET    /api/v1/auditor/registers
+GET    /api/v1/auditor/registers/:id/download
+---
+FILE: payroll\payslip.controller.ts
+BASE: /api/v1/payroll/payslips
+POST   /api/v1/payroll/payslips/runs/:runId/employees/:employeeId/generate
+POST   /api/v1/payroll/payslips/runs/:runId/generate-all
+---
+FILE: payroll\tds.controller.ts
+BASE: /api/v1/payroll/tds
+POST   /api/v1/payroll/tds/calculate
+POST   /api/v1/payroll/tds/compare
+---
+FILE: reports\assignment-report.controller.ts
+BASE: /api/v1/reports/assignments
+GET    /api/v1/reports/assignments/health
+---
+FILE: reports\audit-report.controller.ts
+BASE: /api/v1/reports/audits
+GET    /api/v1/reports/audits/overdue
+---
+FILE: reports\compliance-report.controller.ts
+BASE: /api/v1/reports/compliance
+GET    /api/v1/reports/compliance
+---
+FILE: reports\pdf-report.controller.ts
+BASE: /api/v1/reports/pdf
+GET    /api/v1/reports/pdf/compliance/:clientId
+GET    /api/v1/reports/pdf/ceo-dashboard
+GET    /api/v1/reports/pdf/risk-heatmap/:clientId
+GET    /api/v1/reports/pdf/dtss/:clientId
+---
+FILE: reports\report-export.controller.ts
+BASE: /api/v1/reports/export
+GET    /api/v1/reports/export/compliance.xlsx
+GET    /api/v1/reports/export/audits-overdue.xlsx
+GET    /api/v1/reports/export/assignments-health.xlsx
+---
+FILE: reports\reports.controller.ts
+BASE: /api/v1/reports
+GET    /api/v1/reports
+GET    /api/v1/reports/compliance-summary
+GET    /api/v1/reports/overdue
+GET    /api/v1/reports/contractor-performance
+GET    /api/v1/reports/overdue/export
+---
+FILE: returns\admin-returns.controller.ts
+BASE: /api/v1/admin/returns
+GET    /api/v1/admin/returns/filings
+GET    /api/v1/admin/returns/types
+PATCH  /api/v1/admin/returns/filings/:id/status
+PATCH  /api/v1/admin/returns/filings/:id/delete
+PATCH  /api/v1/admin/returns/filings/:id/restore
+---
+FILE: returns\client-returns.controller.ts
+BASE: /api/v1/client/returns
+GET    /api/v1/client/returns/filings
+GET    /api/v1/client/returns/types
+POST   /api/v1/client/returns/filings
+POST   /api/v1/client/returns/filings/:id/ack
+POST   /api/v1/client/returns/filings/:id/challan
+POST   /api/v1/client/returns/filings/:id/submit
+---
+FILE: returns\crm-returns.controller.ts
+BASE: /api/v1/crm/returns
+GET    /api/v1/crm/returns
+GET    /api/v1/crm/returns/filings
+GET    /api/v1/crm/returns/types
+POST   /api/v1/crm/returns/filings
+GET    /api/v1/crm/returns/filings/:id
+POST   /api/v1/crm/returns/filings/:id/action
+PATCH  /api/v1/crm/returns/filings/:id/status
+GET    /api/v1/crm/returns/:id
+PATCH  /api/v1/crm/returns/:id/status
+PATCH  /api/v1/crm/returns/filings/:id/delete
+POST   /api/v1/crm/returns/filings/:id/ack
+POST   /api/v1/crm/returns/filings/:id/challan
+---
+FILE: risk\risk.controller.ts
+BASE: /api/v1/risk
+GET    /api/v1/risk/heatmap
+GET    /api/v1/risk/trend
+---
+FILE: safety-documents\controllers\branch-safety-documents.controller.ts
+BASE: /api/v1/branch/safety-documents
+GET    /api/v1/branch/safety-documents/master
+GET    /api/v1/branch/safety-documents/categories
+GET    /api/v1/branch/safety-documents/safety-score
+POST   /api/v1/branch/safety-documents/upload
+GET    /api/v1/branch/safety-documents
+GET    /api/v1/branch/safety-documents/expiring
+DELETE /api/v1/branch/safety-documents/:id
+GET    /api/v1/branch/safety-documents/:id/download
+---
+FILE: safety-documents\controllers\client-safety-documents.controller.ts
+BASE: /api/v1/client/safety-documents
+GET    /api/v1/client/safety-documents/categories
+GET    /api/v1/client/safety-documents/safety-score
+GET    /api/v1/client/safety-documents
+GET    /api/v1/client/safety-documents/expiring
+GET    /api/v1/client/safety-documents/:id/download
+---
+FILE: safety-documents\controllers\crm-safety-documents.controller.ts
+BASE: /api/v1/crm/safety-documents
+GET    /api/v1/crm/safety-documents/categories
+GET    /api/v1/crm/safety-documents/safety-score
+GET    /api/v1/crm/safety-documents
+GET    /api/v1/crm/safety-documents/expiring
+PATCH  /api/v1/crm/safety-documents/:id/verify
+GET    /api/v1/crm/safety-documents/:id/download
+---
+FILE: safety-documents\safety-v2.controller.ts
+BASE: /api/v1/branch
+GET    /api/v1/branch/:branchId/safety/required
+GET    /api/v1/branch/:branchId/safety/status
+POST   /api/v1/branch/:branchId/safety/upload
+---
+FILE: sla\sla.controller.ts
+BASE: /api/v1/sla
+GET    /api/v1/sla/tasks
+PATCH  /api/v1/sla/tasks/:id
+---
+FILE: units\units.controller.ts
+BASE: /api/v1/units
+GET    /api/v1/units/:branchId/facts
+PUT    /api/v1/units/:branchId/facts
+POST   /api/v1/units/:branchId/recompute
+GET    /api/v1/units/:branchId/applicable
+PUT    /api/v1/units/:branchId/applicable
+---
+FILE: users\approvals.controller.ts
+BASE: /api/v1/approvals
+GET    /api/v1/approvals/pending
+POST   /api/v1/approvals/:id/approve
+POST   /api/v1/approvals/:id/reject
+---
+FILE: users\cco-users.controller.ts
+BASE: /api/v1/cco/users
+GET    /api/v1/cco/users/crms
+GET    /api/v1/cco/users/auditors
+---
+FILE: users\crm-users.controller.ts
+BASE: /api/v1/crm/users
+GET    /api/v1/crm/users/auditors
+GET    /api/v1/crm/users/contractors
+---
+FILE: users\me.controller.ts
+BASE: /api/v1/me
+GET    /api/v1/me
+PATCH  /api/v1/me/profile
+PATCH  /api/v1/me/password
+---
+FILE: users\users-portal.controller.ts
+BASE: /api/v1/users
+GET    /api/v1/users
+POST   /api/v1/users
+PATCH  /api/v1/users/:id
+---
+FILE: users\users.controller.ts
+BASE: /api/v1/admin
+GET    /api/v1/admin/users/cco
+GET    /api/v1/admin/users/active-by-role/:role
+POST   /api/v1/admin/users/reset-ceo-password
+GET    /api/v1/admin/roles
+GET    /api/v1/admin/roles/:id
+GET    /api/v1/admin/auditors
+GET    /api/v1/admin/users
+GET    /api/v1/admin/users/list
+GET    /api/v1/admin/users/export
+GET    /api/v1/admin/client-users
+GET    /api/v1/admin/users/directory
+POST   /api/v1/admin/users
+PUT    /api/v1/admin/users/:id
+POST   /api/v1/admin/users/:id/reset-password
+DELETE /api/v1/admin/users/:id
+PATCH  /api/v1/admin/users/:id/status

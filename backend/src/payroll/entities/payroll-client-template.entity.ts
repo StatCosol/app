@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { PayrollTemplate } from './payroll-template.entity';
 
 @Entity('payroll_client_template')
@@ -10,6 +16,7 @@ export class PayrollClientTemplate {
   client_id: string;
 
   @ManyToOne(() => PayrollTemplate, { eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'template_id' })
   template: PayrollTemplate;
 
   @Column({ type: 'date' })

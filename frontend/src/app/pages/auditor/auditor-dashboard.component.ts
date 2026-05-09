@@ -1,4 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -6,6 +12,7 @@ import { Router } from '@angular/router';
 import { timeout, finalize, takeUntil } from 'rxjs/operators';
 import { Subject, Subscription } from 'rxjs';
 import { DashboardService } from '../../core/dashboard.service';
+import { AuditsService } from '../../core/audits.service';
 import { AuditorObservationsService } from '../../core/auditor-observations.service';
 import { environment } from '../../../environments/environment';
 import { ToastService } from '../../shared/toast/toast.service';
@@ -23,7 +30,6 @@ import {
 } from '../../shared/ui';
 import {
   AuditorFilters,
-  AuditorSummary,
   AuditorAuditItem,
   AuditorObservationPending,
   AuditorEvidencePending,
@@ -34,6 +40,7 @@ import {
 @Component({
   selector: 'app-auditor-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     FormsModule,
@@ -73,35 +80,44 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   clients: Array<{ id: string; name: string }> = [];
 
   // Select options
-  get clientOptions() {
-    return [
-      { value: null, label: 'All Clients' },
-      ...this.clients.map(c => ({ value: c.id, label: c.name }))
-    ];
-  }
+  clientOptions: Array<{ value: string | null; label: string }> = [
+    { value: null, label: 'All Clients' },
+  ];
 
   auditTypeOptions = [
     { value: null, label: 'All Types' },
-    { value: 'STATUTORY', label: 'Statutory' },
-    { value: 'INTERNAL', label: 'Internal' },
-    { value: 'CLIENT_SPECIFIC', label: 'Client Specific' }
+    { value: 'CONTRACTOR', label: 'Contractor Audit' },
+    { value: 'FACTORY', label: 'Factory Audit' },
+    { value: 'SHOPS_ESTABLISHMENT', label: 'Branch Compliance Audit' },
+    { value: 'LABOUR_EMPLOYMENT', label: 'Labour Law Audit' },
+    { value: 'FSSAI', label: 'FSSAI Audit' },
+    { value: 'HR', label: 'HR Audit' },
+    { value: 'PAYROLL', label: 'Payroll Audit' },
+    { value: 'GAP', label: 'Other Audit' },
   ];
 
-  // Summary KPIs
-  summary: AuditorSummary = {
-    assignedAuditsCount: 0,
-    overdueAuditsCount: 0,
-    dueSoonAuditsCount: 0,
-    observationsOpenCount: 0,
-    highRiskOpenCount: 0,
-    reportsPendingCount: 0,
-  };
+  // Summary KPIs (from new AuditXpert dashboard API)
+  summary: any = this.normalizeSummary({});
 
   // Active tab for My Audits
   auditTab: 'ACTIVE' | 'OVERDUE' | 'DUE_SOON' | 'COMPLETED' = 'ACTIVE';
 
+  // Phase 1 — Quick Audit Selector
+  quickAuditOptions: Array<{ value: string; label: string }> = [
+    { value: '', label: 'Select an audit to start / continue…' },
+  ];
+  selectedQuickAuditId = '';
+  private allActionableAudits: AuditorAuditItem[] = [];
+
+  // Phase 1 — Timeline alert popup
+  showAlertPopup = false;
+  alertItems: Array<{ tone: 'red' | 'amber' | 'blue'; text: string }> = [];
+  private alertShownThisSession = false;
+
   // Data tables
   myAudits: AuditorAuditItem[] = [];
+  upcomingAudits: any[] = [];
+  recentSubmitted: any[] = [];
   observations: AuditorObservationPending[] = [];
   evidence: AuditorEvidencePending[] = [];
   reports: AuditorReportPending[] = [];
@@ -119,14 +135,14 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
   ];
 
   observationColumns: TableColumn[] = [
-    { key: 'clientName', header: 'Client', sortable: true },
-    { key: 'branchName', header: 'Branch', sortable: true },
-    { key: 'title', header: 'Observation Title', sortable: true },
-    { key: 'risk', header: 'Risk', align: 'center' },
-    { key: 'ageingDays', header: 'Ageing Days', align: 'center' },
-    { key: 'owner', header: 'Owner' },
-    { key: 'status', header: 'Status', align: 'center' },
-    { key: 'actions', header: 'Actions', align: 'center' },
+    { key: 'clientName', header: 'Client', sortable: true, width: '14%' },
+    { key: 'branchName', header: 'Branch', sortable: true, width: '12%' },
+    { key: 'title', header: 'Observation Title', sortable: true, width: '22%' },
+    { key: 'risk', header: 'Risk', align: 'center', width: '8%' },
+    { key: 'ageingDays', header: 'Ageing Days', align: 'center', width: '10%' },
+    { key: 'owner', header: 'Owner', width: '12%' },
+    { key: 'status', header: 'Status', align: 'center', width: '8%' },
+    { key: 'actions', header: 'Actions', align: 'center', width: '14%' },
   ];
 
   evidenceColumns: TableColumn[] = [
@@ -141,12 +157,85 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   constructor(
     private dashboardService: DashboardService,
+    private auditsService: AuditsService,
     private observationsService: AuditorObservationsService,
     private toast: ToastService,
     private router: Router,
     private http: HttpClient,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
+
+  get activeFilterSummary(): string {
+    const parts: string[] = [];
+
+    if (this.filter.clientId) {
+      const client = this.clientOptions.find((option) => option.value === this.filter.clientId);
+      parts.push(client?.label || 'selected client');
+    }
+
+    if (this.filter.auditType) {
+      const type = this.auditTypeOptions.find((option) => option.value === this.filter.auditType);
+      parts.push(type?.label || 'selected audit type');
+    }
+
+    if (this.filter.fromDate || this.filter.toDate) {
+      const from = this.filter.fromDate || 'start';
+      const to = this.filter.toDate || 'today';
+      parts.push(`${from} to ${to}`);
+    }
+
+    return parts.length ? `Filtered by ${parts.join(', ')}.` : 'Showing all assigned audit work.';
+  }
+
+  get priorityAction(): { title: string; detail: string; route: string; queryParams?: Record<string, string> } {
+    if (this.summary.reverificationPending > 0) {
+      return {
+        title: 'Corrections are waiting for you',
+        detail: `${this.summary.reverificationPending} audit(s) need reverification before they can move forward.`,
+        route: '/auditor/audits',
+        queryParams: { status: 'REVERIFICATION_PENDING' },
+      };
+    }
+
+    if (this.summary.inProgress > 0) {
+      return {
+        title: 'Continue audits already in progress',
+        detail: `${this.summary.inProgress} audit(s) are underway and need follow-through.`,
+        route: '/auditor/audits',
+        queryParams: { status: 'IN_PROGRESS' },
+      };
+    }
+
+    if (this.summary.pending > 0) {
+      return {
+        title: 'Start planned audits',
+        detail: `${this.summary.pending} audit(s) are assigned and ready to begin.`,
+        route: '/auditor/audits',
+        queryParams: { status: 'PLANNED' },
+      };
+    }
+
+    if (this.observations.length > 0) {
+      return {
+        title: 'Close open observations',
+        detail: `${this.observations.length} observation(s) still need follow-up or closure.`,
+        route: '/auditor/observations',
+      };
+    }
+
+    return {
+      title: 'Dashboard is clear right now',
+      detail: 'Use the audit queue to review assigned work or check recent submissions.',
+      route: '/auditor/audits',
+    };
+  }
+
+  get totalUrgentItems(): number {
+    return Number(this.summary.reverificationPending || 0)
+      + Number(this.summary.inProgress || 0)
+      + Number(this.observations.length || 0)
+      + Number(this.evidence.length || 0);
+  }
 
   ngOnInit(): void {
     this.loadReferenceData();
@@ -168,42 +257,55 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.http.get<any[]>(`${environment.apiBaseUrl}/api/v1/auditor/clients/assigned`).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (data) => {
         this.clients = (data || []).map((c: any) => ({ id: c.id, name: c.clientName || c.name }));
-        this.cdr.detectChanges();
+        this.clientOptions = [
+          { value: null, label: 'All Clients' },
+          ...this.clients.map(c => ({ value: c.id, label: c.name })),
+        ];
+        this.cdr.markForCheck();
       },
-      error: () => { this.clients = []; this.cdr.detectChanges(); },
+      error: () => {
+        this.clients = [];
+        this.cdr.markForCheck();
+      },
     });
   }
 
   /** Load all dashboard data */
   loadAllData(): void {
     this.loadSummary();
+    this.loadUpcomingAudits();
+    this.loadRecentSubmitted();
     this.loadMyAudits();
     this.loadObservations();
     this.loadEvidence();
     this.loadRecentActivities();
+    this.loadActionableAudits();
   }
 
-  /** Load summary KPIs */
+  /** Load summary KPIs from AuditXpert dashboard API */
   loadSummary(): void {
     this.summarySub?.unsubscribe();
     this.loading = true;
     this.errorMsg = null;
+    this.cdr.markForCheck();
 
-    const params = this.buildFilterParams();
-    this.summarySub = this.dashboardService.getAuditorSummary(params).pipe(
+    this.summarySub = this.auditsService.auditorDashboardSummary().pipe(
       takeUntil(this.destroy$),
       timeout(10000),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      finalize(() => {
+        this.loading = false;
+        this.cdr.markForCheck();
+      }),
     ).subscribe({
       next: (data) => {
         this.loading = false;
-        this.summary = data;
-        this.cdr.detectChanges();
+        this.summary = this.normalizeSummary(data);
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.loading = false;
         this.errorMsg = err?.error?.message || 'Failed to load dashboard summary';
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
     });
   }
@@ -215,11 +317,39 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.auditsSub = this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.myAudits = response.items;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load audits');
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Load upcoming audits from AuditXpert API */
+  loadUpcomingAudits(): void {
+    this.auditsService.auditorUpcomingAudits().pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+      next: (data) => {
+        this.upcomingAudits = data || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.upcomingAudits = [];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Load recent submitted from AuditXpert API */
+  loadRecentSubmitted(): void {
+    this.auditsService.auditorRecentSubmitted().pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+      next: (data) => {
+        this.recentSubmitted = data || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.recentSubmitted = [];
+        this.cdr.markForCheck();
       },
     });
   }
@@ -231,11 +361,11 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.obsSub = this.dashboardService.getAuditorObservations(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.observations = response.items;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load observations');
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
     });
   }
@@ -247,11 +377,11 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.evidenceSub = this.dashboardService.getAuditorEvidence(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.evidence = response.items;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.toast.error('Failed to load evidence');
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
     });
   }
@@ -262,11 +392,11 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.activitySub = this.dashboardService.getAuditorActivity().pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
       next: (response) => {
         this.recentActivities = response.items;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         // Fail silently for optional timeline
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
     });
   }
@@ -303,9 +433,158 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.loadMyAudits();
   }
 
+  /** Phase 1 — Load actionable audits (PLANNED + IN_PROGRESS + REVERIFICATION_PENDING)
+   *  for the Quick Audit Selector dropdown. */
+  loadActionableAudits(): void {
+    const params = { ...this.buildFilterParams(), tab: 'ACTIVE', limit: '500' };
+    this.dashboardService.getAuditorAudits(params).pipe(takeUntil(this.destroy$), timeout(10000)).subscribe({
+      next: (response) => {
+        const items = (response?.items || []) as AuditorAuditItem[];
+        // Sort: overdue first, then by due date asc
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const sorted = [...items].sort((a, b) => {
+          const ad = a.dueDate || '9999-12-31';
+          const bd = b.dueDate || '9999-12-31';
+          return ad.localeCompare(bd);
+        });
+        this.allActionableAudits = sorted;
+        this.quickAuditOptions = [
+          { value: '', label: `Select an audit to start / continue… (${sorted.length})` },
+          ...sorted.map((a) => {
+            const overdue = a.dueDate && a.dueDate < todayStr;
+            const due = a.dueDate ? ` · due ${a.dueDate}` : '';
+            const statusTag = a.status ? ` [${a.status.replace(/_/g, ' ')}]` : '';
+            const flag = overdue ? '⚠ ' : '';
+            return {
+              value: a.auditId,
+              label: `${flag}${a.clientName} — ${a.branchName || '—'} — ${a.auditName}${due}${statusTag}`,
+            };
+          }),
+        ];
+        this.computeAlertItems();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.allActionableAudits = [];
+        this.quickAuditOptions = [{ value: '', label: 'No audits available' }];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Phase 1 — Open the audit picked from the quick selector dropdown. */
+  startSelectedAudit(): void {
+    if (!this.selectedQuickAuditId) {
+      this.toast.info('Please select an audit from the dropdown.');
+      return;
+    }
+    this.router.navigate(['/auditor/audits', this.selectedQuickAuditId, 'workspace']);
+  }
+
+  /** Phase 1 — Compute timeline alert items from summary + actionable list. */
+  private computeAlertItems(): void {
+    const items: Array<{ tone: 'red' | 'amber' | 'blue'; text: string }> = [];
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dueToday = this.allActionableAudits.filter((a) => a.dueDate === todayStr).length;
+    const overdue = this.allActionableAudits.filter((a) => a.dueDate && a.dueDate < todayStr).length;
+
+    if (overdue > 0) {
+      items.push({ tone: 'red', text: `${overdue} audit${overdue === 1 ? '' : 's'} overdue.` });
+    }
+    if (dueToday > 0) {
+      items.push({ tone: 'amber', text: `${dueToday} audit${dueToday === 1 ? '' : 's'} due today.` });
+    }
+    const reverification = Number(this.summary?.reverificationPending || 0);
+    if (reverification > 0) {
+      items.push({
+        tone: 'amber',
+        text: `${reverification} audit${reverification === 1 ? '' : 's'} returned for reverification.`,
+      });
+    }
+    const evidencePending = (this.evidence || []).length;
+    if (evidencePending > 0) {
+      items.push({
+        tone: 'blue',
+        text: `${evidencePending} evidence item${evidencePending === 1 ? '' : 's'} awaiting submission.`,
+      });
+    }
+
+    this.alertItems = items;
+
+    // Auto-popup once per session if there is anything red/amber.
+    if (!this.alertShownThisSession && items.some((i) => i.tone === 'red' || i.tone === 'amber')) {
+      this.showAlertPopup = true;
+      this.alertShownThisSession = true;
+    }
+  }
+
+  /** Phase 1 — Dismiss timeline alert popup. */
+  closeAlertPopup(): void {
+    this.showAlertPopup = false;
+  }
+
+  /** Phase 1 — Re-open alerts (header bell). */
+  openAlertPopup(): void {
+    if (this.alertItems.length === 0) {
+      this.toast.info('No timeline alerts right now. You are all caught up.');
+      return;
+    }
+    this.showAlertPopup = true;
+  }
+
   /** Open audit for execution */
-  openAudit(audit: AuditorAuditItem): void {
-    this.router.navigate(['/auditor/audits', audit.auditId]);
+  openAudit(audit: any): void {
+    const id = audit.auditId || audit.id;
+    if (id) this.router.navigate(['/auditor/audits', id, 'workspace']);
+  }
+
+  openPriorityAction(): void {
+    this.router.navigate([this.priorityAction.route], {
+      queryParams: this.priorityAction.queryParams,
+    });
+  }
+
+  getAuditActionLabel(audit: AuditorAuditItem): string {
+    const status = this.statusKey(audit.status);
+    if (status === 'NOT_STARTED') return 'Start Audit';
+    if (status === 'IN_PROGRESS') return 'Continue Audit';
+    if (status === 'SUBMITTED') return 'View Submission';
+    return 'Open Workspace';
+  }
+
+  getAuditHint(audit: AuditorAuditItem): string {
+    const status = this.statusKey(audit.status);
+    if (status === 'NOT_STARTED') return 'Ready to begin review.';
+    if (status === 'IN_PROGRESS') return 'Continue document review and findings.';
+    if (status === 'SUBMITTED') return 'Submitted and waiting for downstream review.';
+    if (status === 'COMPLETED') return 'Audit cycle is complete.';
+    return 'Open the workspace for details.';
+  }
+
+  formatStatus(value: string | null | undefined): string {
+    const key = this.statusKey(value);
+    if (!key) return '-';
+    if (key === 'NOT_STARTED') return 'Planned';
+    return key
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  formatAuditType(value: string | null | undefined): string {
+    const key = this.statusKey(value);
+    const labels: Record<string, string> = {
+      CONTRACTOR: 'Contractor Audit',
+      FACTORY: 'Factory Audit',
+      SHOPS_ESTABLISHMENT: 'Branch Compliance Audit',
+      LABOUR_EMPLOYMENT: 'Labour Law Audit',
+      FSSAI: 'FSSAI Audit',
+      HR: 'HR Audit',
+      PAYROLL: 'Payroll Audit',
+      GAP: 'Other Audit',
+    };
+    return labels[key] || this.formatStatus(key);
   }
 
   /** Follow-up on observation */
@@ -324,7 +603,7 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   /** Update observation status */
   updateObservation(obs: AuditorObservationPending): void {
-    this.router.navigate(['/auditor/observations', obs.observationId]);
+    this.router.navigate(['/auditor/observations'], { queryParams: { observationId: obs.observationId } });
   }
 
   /** Close observation */
@@ -372,9 +651,27 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
 
   // KPI Card Drill-down Handlers
   drillAssignedAudits() {
-    this.router.navigate(['/auditor/audits'], {
-      queryParams: { tab: 'ACTIVE' }
-    });
+    this.router.navigate(['/auditor/audits']);
+  }
+
+  drillPending() {
+    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'PLANNED' } });
+  }
+
+  drillInProgress() {
+    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'IN_PROGRESS' } });
+  }
+
+  drillSubmitted() {
+    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'SUBMITTED' } });
+  }
+
+  drillReverification() {
+    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'REVERIFICATION_PENDING' } });
+  }
+
+  drillClosed() {
+    this.router.navigate(['/auditor/audits'], { queryParams: { status: 'CLOSED' } });
   }
 
   drillOverdueAudits() {
@@ -405,5 +702,29 @@ export class AuditorDashboardComponent implements OnInit, OnDestroy {
     this.router.navigate(['/auditor/reports'], {
       queryParams: { status: 'PENDING_SUBMISSION' }
     });
+  }
+
+  private normalizeSummary(data: any): any {
+    const totalAssigned = Number(data?.totalAssigned ?? data?.assignedAuditsCount ?? 0);
+    const reverificationPending = Number(
+      data?.reverificationPending ?? data?.overdueAuditsCount ?? 0,
+    );
+    const submitted = Number(data?.submitted ?? 0);
+
+    return {
+      totalAssigned,
+      pending: Number(data?.pending ?? 0),
+      inProgress: Number(data?.inProgress ?? 0),
+      submitted,
+      reverificationPending,
+      closed: Number(data?.closed ?? 0),
+      assignedAuditsCount: totalAssigned,
+      overdueAuditsCount: reverificationPending,
+      reportsPendingCount: Number(data?.reportsPendingCount ?? submitted),
+    };
+  }
+
+  private statusKey(value: string | null | undefined): string {
+    return String(value || '').trim().toUpperCase();
   }
 }

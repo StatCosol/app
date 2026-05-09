@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -17,10 +18,6 @@ import { UserEntity } from '../users/entities/user.entity';
 @Injectable()
 export class ClientsService {
   private readonly logger = new Logger(ClientsService.name);
-  // Returns client list with aggregates for controller
-  async listWithAggregates() {
-    return this.listClients();
-  }
   constructor(
     @InjectRepository(ClientEntity)
     private readonly repo: Repository<ClientEntity>,
@@ -154,8 +151,9 @@ export class ClientsService {
         let saved;
         try {
           saved = await clientRepo.save(client);
-        } catch (err: any) {
-          if (err.code === '23505' && err.detail?.includes('client_code')) {
+        } catch (err: unknown) {
+          const pgErr = err as { code?: string; detail?: string };
+          if (pgErr.code === '23505' && pgErr.detail?.includes('client_code')) {
             throw new BadRequestException(
               'Client code already exists. Please use a unique code.',
             );
@@ -219,12 +217,13 @@ export class ClientsService {
     let saved;
     try {
       saved = await this.repo.save(client);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string; detail?: string };
       // Handle duplicate client_code error
       if (
-        err.code === '23505' &&
-        err.detail &&
-        err.detail.includes('client_code')
+        pgErr.code === '23505' &&
+        pgErr.detail &&
+        pgErr.detail.includes('client_code')
       ) {
         throw new BadRequestException(
           'Client code already exists. Please use a unique code.',
@@ -247,14 +246,33 @@ export class ClientsService {
     return { id: saved.id, message: 'Client created' };
   }
 
-  async listClients(includeDeleted = false) {
-    // Return only ACTIVE & not deleted clients by default
-    const where = includeDeleted ? {} : { isDeleted: false };
-    const clients = await this.repo.find({
-      select: ['id', 'clientName', 'clientCode', 'status'],
-      where,
-      order: { id: 'DESC' },
-    });
+  async listClients(includeDeleted = false, ownerCcoId?: string | null) {
+    // Return only ACTIVE & not deleted clients by default. When `ownerCcoId`
+    // is supplied (CCO-scoped endpoints), restrict to clients whose assigned
+    // CRM is owned by this CCO. Admins / global callers should pass `null`
+    // / undefined to skip the scope filter.
+    const qb = this.repo.createQueryBuilder('client').orderBy('client.id', 'DESC');
+    if (!includeDeleted) {
+      qb.andWhere('client.isDeleted = :no', { no: false });
+    }
+    if (ownerCcoId) {
+      qb.andWhere(
+        `EXISTS (
+           SELECT 1 FROM users u
+           WHERE u.id = client.assignedCrmId AND u.owner_cco_id = :ccoId
+         )`,
+        { ccoId: ownerCcoId },
+      );
+    }
+    qb.select([
+      'client.id',
+      'client.clientName',
+      'client.clientCode',
+      'client.status',
+      'client.logoUrl',
+      'client.crmOnBehalfEnabled',
+    ]);
+    const clients = await qb.getMany();
 
     // Aggregate branches, employees, and contractors for each client
     const branchRepo = this.repo.manager.getRepository(BranchEntity);
@@ -264,7 +282,10 @@ export class ClientsService {
       .addSelect('COUNT(DISTINCT branch.id)', 'branchesCount')
       .addSelect('COALESCE(SUM(branch.employeecount), 0)', 'totalEmployees')
       .addSelect('COALESCE(SUM(branch.contractorcount), 0)', 'contractorsCount')
-      .where('branch.deletedat IS NULL')
+      .where('branch.isdeleted = :no AND branch.isactive = :yes', {
+        no: false,
+        yes: true,
+      })
       .groupBy('branch.clientid')
       .getRawMany();
 
@@ -299,6 +320,56 @@ export class ClientsService {
 
   async getClientDetails(clientId: string) {
     return this.getOrFail(clientId);
+  }
+
+  /**
+   * Throws ForbiddenException if the given client is NOT owned (via its
+   * assigned CRM) by the supplied CCO user. Used by /api/v1/cco/clients/*
+   * to keep CCOs from acting on clients outside their span of control.
+   */
+  async assertClientOwnedByCco(clientId: string, ccoId: string) {
+    const [row] = await this.dataSource.query(
+      `SELECT 1
+         FROM clients c
+         INNER JOIN users u ON u.id = c.assigned_crm_id
+        WHERE c.id = $1 AND u.owner_cco_id = $2 AND u.deleted_at IS NULL
+        LIMIT 1`,
+      [clientId, ccoId],
+    );
+    if (!row) {
+      throw new ForbiddenException(
+        'Client is not assigned to a CRM under your span of control',
+      );
+    }
+  }
+
+  /**
+   * Throws ForbiddenException if the supplied user (CRM/AUDITOR) is not
+   * owned by the given CCO.
+   */
+  async assertUserOwnedByCco(
+    userId: string,
+    ccoId: string,
+    expectedRoleCode?: string,
+  ) {
+    const [row] = await this.dataSource.query(
+      `SELECT r.code AS role_code
+         FROM users u
+         INNER JOIN roles r ON r.id = u.role_id
+        WHERE u.id = $1 AND u.owner_cco_id = $2 AND u.deleted_at IS NULL
+        LIMIT 1`,
+      [userId, ccoId],
+    );
+    if (!row) {
+      throw new ForbiddenException(
+        'Target user is not under your span of control',
+      );
+    }
+    if (expectedRoleCode && row.role_code !== expectedRoleCode) {
+      throw new ForbiddenException(
+        `Target user is not a ${expectedRoleCode}`,
+      );
+    }
   }
 
   async update(
@@ -336,6 +407,30 @@ export class ClientsService {
       performedRole: updatedRole ?? null,
       beforeJson: before,
       afterJson: saved as unknown as Record<string, unknown>,
+    });
+
+    return saved;
+  }
+
+  async toggleCrmOnBehalf(
+    clientId: string,
+    enabled: boolean,
+    performedBy?: string,
+    performedRole?: string,
+  ) {
+    const client = await this.getOrFail(clientId);
+    const before = { crmOnBehalfEnabled: client.crmOnBehalfEnabled };
+    client.crmOnBehalfEnabled = enabled;
+    const saved = await this.repo.save(client);
+
+    await this.auditLogs.log({
+      entityType: 'CLIENT',
+      entityId: saved.id,
+      action: 'UPDATE',
+      performedBy: performedBy ?? null,
+      performedRole: performedRole ?? null,
+      beforeJson: before,
+      afterJson: { crmOnBehalfEnabled: saved.crmOnBehalfEnabled },
     });
 
     return saved;
@@ -388,10 +483,8 @@ export class ClientsService {
 
     // 4) Payroll user exists?
     const payrollRows: Array<{ cnt: string }> = await this.dataSource.query(
-      `SELECT COUNT(*) AS cnt FROM users u
-       JOIN roles r ON r.id = u.role_id
-       WHERE u.client_id = $1 AND UPPER(r.code) = 'PAYROLL'
-         AND u.deleted_at IS NULL AND u.is_active = true`,
+      `SELECT COUNT(*) AS cnt FROM payroll_client_assignments
+       WHERE client_id = $1 AND status = 'ACTIVE'`,
       [clientId],
     );
     const payrollCount = Number(payrollRows[0]?.cnt ?? 0);
@@ -501,7 +594,14 @@ export class ClientsService {
 
   async findById(id: string, includeDeleted = false) {
     return this.repo.findOne({
-      select: ['id', 'clientName', 'clientCode', 'status'],
+      select: [
+        'id',
+        'clientName',
+        'clientCode',
+        'status',
+        'logoUrl',
+        'crmOnBehalfEnabled',
+      ],
       where: includeDeleted ? { id } : { id, isDeleted: false },
     });
   }
@@ -527,6 +627,23 @@ export class ClientsService {
         where: { id: clientId, isDeleted: false },
       });
       if (!client) throw new NotFoundException('Client not found');
+
+      // ─────────────────────────────────────────────────────────────────
+      // 18-MONTH RETENTION SNAPSHOT
+      // Capture registers, payroll, audit reports and contractor details
+      // (deployment dates, termination dates, NC points) BEFORE the
+      // cascade cancels/deactivates the source rows. The snapshot lives
+      // in `client_deletion_archive` for 548 days, then is purged by
+      // ClientArchivePurgeCronService.
+      // ─────────────────────────────────────────────────────────────────
+      try {
+        await this.snapshotForRetention(m, clientId, client, deletedBy ?? null, reason ?? null);
+      } catch (err: any) {
+        // Snapshot failure must NOT block the soft-delete itself; just log.
+        this.logger.error(
+          `Retention snapshot failed for client ${clientId}: ${err?.message || err}`,
+        );
+      }
 
       // Soft delete client
       Object.assign(client, {
@@ -590,6 +707,212 @@ export class ClientsService {
         { isActive: false, deletedAt: now },
       );
 
+      // ─────────────────────────────────────────────────────────────────
+      // CASCADE: when a client is deleted, every linked operational record
+      // (assignments, audits, contractor data, compliance, etc.) must be
+      // closed/deactivated so it stops appearing on user task lists,
+      // auditor dashboards, CRM queues, and Legitx KPIs.
+      //
+      // Each statement is wrapped in a try/catch and logs a warning on
+      // failure (e.g. table absent on a particular environment) so a
+      // single missing migration doesn't roll back the whole soft-delete.
+      // ─────────────────────────────────────────────────────────────────
+      const safe = async (label: string, sql: string) => {
+        try {
+          await m.query(sql, [clientId]);
+        } catch (err: any) {
+          this.logger.warn(
+            `softDelete cascade [${label}] failed for client ${clientId}: ${err?.message || err}`,
+          );
+        }
+      };
+
+      // ── AuditXpert: schedules, audits, frequency rules, observations,
+      //    NCs, reports, AI observations ─────────────────────────────────
+      await safe(
+        'audit_schedules',
+        `UPDATE audit_schedules
+            SET status = 'CANCELLED', updated_at = NOW()
+          WHERE client_id = $1
+            AND status NOT IN ('COMPLETED', 'SUBMITTED', 'CANCELLED')`,
+      );
+      await safe(
+        'audits',
+        `UPDATE audits
+            SET status = 'CANCELLED', updated_at = NOW()
+          WHERE client_id = $1
+            AND status NOT IN ('COMPLETED', 'SUBMITTED', 'CANCELLED', 'CLOSED')`,
+      );
+      await safe(
+        'audit_frequency_rules',
+        `UPDATE audit_frequency_rules
+            SET is_active = false, updated_at = NOW()
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+      await safe(
+        'audit_observations',
+        `UPDATE audit_observations o
+            SET status = 'CLOSED', updated_at = NOW()
+           FROM audits a
+          WHERE a.id = o.audit_id
+            AND a.client_id = $1
+            AND o.status NOT IN ('CLOSED', 'RESOLVED')`,
+      );
+      await safe(
+        'audit_non_compliances',
+        `UPDATE audit_non_compliances nc
+            SET status = 'CLOSED', updated_at = NOW()
+           FROM audits a
+          WHERE a.id = nc.audit_id
+            AND a.client_id = $1
+            AND nc.status NOT IN ('CLOSED', 'RESOLVED', 'CANCELLED')`,
+      );
+      await safe(
+        'audit_reports',
+        `UPDATE audit_reports
+            SET status = 'CANCELLED', updated_at = NOW()
+          WHERE client_id = $1
+            AND status NOT IN ('FINAL', 'PUBLISHED', 'CANCELLED')`,
+      );
+      await safe(
+        'ai_audit_observations',
+        `UPDATE ai_audit_observations
+            SET status = 'CLOSED'
+          WHERE client_id = $1
+            AND status IS DISTINCT FROM 'CLOSED'`,
+      );
+
+      // ── Assignments (CRM ↔ client, auditor ↔ client/branch) ─────────
+      await safe(
+        'client_assignments',
+        `UPDATE client_assignments
+            SET status = 'INACTIVE', updated_at = NOW()
+          WHERE client_id = $1
+            AND status <> 'INACTIVE'`,
+      );
+      await safe(
+        'client_assignments_current',
+        `DELETE FROM client_assignments_current WHERE client_id = $1`,
+      );
+      await safe(
+        'branch_auditor_assignments',
+        `UPDATE branch_auditor_assignments
+            SET is_active = false, updated_at = NOW()
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+
+      // ── Compliance tasks & documents ────────────────────────────────
+      await safe(
+        'compliance_tasks',
+        `UPDATE compliance_tasks
+            SET status = 'CANCELLED', updated_at = NOW()
+          WHERE client_id = $1
+            AND status NOT IN ('COMPLETED', 'CANCELLED')`,
+      );
+      await safe(
+        'compliance_documents',
+        `UPDATE compliance_documents
+            SET is_deleted = true, deleted_at = NOW()
+          WHERE client_id = $1
+            AND is_deleted = false`,
+      );
+      await safe(
+        'compliance_returns',
+        `UPDATE compliance_returns
+            SET is_deleted = true, deleted_at = NOW()
+          WHERE client_id = $1
+            AND is_deleted = false`,
+      );
+      await safe(
+        'compliance_doc_library',
+        `UPDATE compliance_doc_library
+            SET is_deleted = true, deleted_at = NOW()
+          WHERE client_id = $1
+            AND is_deleted = false`,
+      );
+      await safe(
+        'monthly_compliance_uploads',
+        `UPDATE monthly_compliance_uploads
+            SET is_deleted = true
+          WHERE client_id = $1
+            AND is_deleted = false`,
+      );
+      await safe(
+        'crm_unit_documents',
+        `UPDATE crm_unit_documents
+            SET deleted_at = NOW()
+          WHERE client_id = $1
+            AND deleted_at IS NULL`,
+      );
+      await safe(
+        'safety_documents',
+        `UPDATE safety_documents
+            SET is_deleted = true
+          WHERE client_id = $1
+            AND is_deleted = false`,
+      );
+
+      // ── Contractor records linked to this client ────────────────────
+      await safe(
+        'contractor_employees',
+        `UPDATE contractor_employees
+            SET is_active = false
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+
+      // ── Payroll: deactivate the client-payroll assignment so payroll
+      //    teams stop seeing this client in their work queues. We leave
+      //    historical runs / payslips intact.
+      await safe(
+        'payroll_client_assignment',
+        `UPDATE payroll_client_assignment
+            SET status = 'INACTIVE', updated_at = NOW()
+          WHERE client_id = $1
+            AND status <> 'INACTIVE'`,
+      );
+
+      // ── HR masters: deactivate so they don't appear in pickers ──────
+      await safe(
+        'designations',
+        `UPDATE designations
+            SET is_active = false
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+      await safe(
+        'grades',
+        `UPDATE grades
+            SET is_active = false
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+      await safe(
+        'employees',
+        `UPDATE employees
+            SET is_active = false
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+      await safe(
+        'client_department_contact',
+        `UPDATE client_department_contact
+            SET is_active = false
+          WHERE client_id = $1
+            AND is_active = true`,
+      );
+
+      // ── SLA tasks ───────────────────────────────────────────────────
+      await safe(
+        'sla_tasks',
+        `UPDATE sla_tasks
+            SET deleted_at = NOW()
+          WHERE client_id = $1
+            AND deleted_at IS NULL`,
+      );
+
       return client.id;
     });
 
@@ -609,6 +932,200 @@ export class ClientsService {
     });
 
     return { id: result, message: 'Client soft-deleted' };
+  }
+
+  /**
+   * Snapshot a client's registers, payroll, audit reports and contractor
+   * deployment / termination / NC details into `client_deletion_archive`
+   * for 18-month retention. Called inside the soft-delete transaction.
+   *
+   * Each fetch is wrapped in its own try/catch so a missing optional
+   * table on a particular environment doesn't abort the snapshot.
+   */
+  private async snapshotForRetention(
+    m: import('typeorm').EntityManager,
+    clientId: string,
+    client: ClientEntity,
+    archivedBy: string | null,
+    reason: string | null,
+  ): Promise<void> {
+    const RETENTION_DAYS = 548; // ≈ 18 months (1.5 years)
+
+    const safeFetch = async <T = any>(
+      label: string,
+      sql: string,
+    ): Promise<T[]> => {
+      try {
+        return await m.query(sql, [clientId]);
+      } catch (err: any) {
+        this.logger.warn(
+          `Retention snapshot [${label}] failed for client ${clientId}: ${err?.message || err}`,
+        );
+        return [];
+      }
+    };
+
+    // ── Registers (statutory registers data) ────────────────────────────
+    const registers = await safeFetch(
+      'registers_records',
+      `SELECT id, register_type, branch_id, period_year, period_month,
+              data, created_at, updated_at
+         FROM registers_records
+        WHERE client_id = $1
+        ORDER BY period_year DESC, period_month DESC, created_at DESC`,
+    );
+
+    // ── Payroll: runs + per-employee totals (high-level financial trail)─
+    const payrollRuns = await safeFetch(
+      'payroll_runs',
+      `SELECT id, period_year, period_month, status, finalized_at,
+              total_gross, total_net, total_employees, created_at
+         FROM payroll_runs
+        WHERE client_id = $1
+        ORDER BY period_year DESC, period_month DESC`,
+    );
+    const payrollEmployees = await safeFetch(
+      'payroll_run_employees',
+      `SELECT pre.payroll_run_id, pre.employee_id, pre.gross, pre.net,
+              pre.pf_employee, pre.pf_employer, pre.esi_employee,
+              pre.esi_employer, pre.tds, pre.lop_days, pre.paid_days
+         FROM payroll_run_employees pre
+        WHERE pre.client_id = $1`,
+    );
+
+    // ── Audit reports (final PDFs / metadata) + NC points ──────────────
+    const auditReports = await safeFetch(
+      'audit_reports',
+      `SELECT ar.id, ar.audit_id, ar.file_name, ar.file_path,
+              ar.uploaded_by_user_id, ar.uploaded_at, ar.report_date,
+              a.audit_code, a.audit_type, a.period_year, a.period_code,
+              a.score, a.status AS audit_status
+         FROM audit_reports ar
+         JOIN audits a ON a.id = ar.audit_id
+        WHERE a.client_id = $1
+        ORDER BY ar.uploaded_at DESC`,
+    );
+    const ncPoints = await safeFetch(
+      'audit_non_compliances',
+      `SELECT nc.id, nc.audit_id, nc.title, nc.description, nc.severity,
+              nc.status, nc.due_date, nc.resolved_at, nc.created_at,
+              a.audit_code, a.audit_type, a.period_year, a.period_code
+         FROM audit_non_compliances nc
+         JOIN audits a ON a.id = nc.audit_id
+        WHERE a.client_id = $1
+        ORDER BY nc.created_at DESC`,
+    );
+
+    // ── Contractors: per-worker deployment / termination + linkage ─────
+    const contractorEmployees = await safeFetch(
+      'contractor_employees',
+      `SELECT ce.id, ce.contractor_user_id, ce.branch_id, ce.name,
+              ce.designation, ce.department,
+              ce.date_of_joining   AS deployment_date,
+              ce.date_of_exit      AS termination_date,
+              ce.exit_reason,
+              ce.aadhaar, ce.pan, ce.uan, ce.esic,
+              ce.is_active, ce.created_at, ce.updated_at,
+              u.name AS contractor_user_name,
+              u.email AS contractor_user_email
+         FROM contractor_employees ce
+         LEFT JOIN users u ON u.id = ce.contractor_user_id
+        WHERE ce.client_id = $1
+        ORDER BY ce.date_of_joining DESC NULLS LAST`,
+    );
+    const contractorAccounts = await safeFetch(
+      'users',
+      `SELECT id, name, email, phone, role, is_active, created_at, deleted_at
+         FROM users
+        WHERE client_id = $1
+          AND role = 'CONTRACTOR'`,
+    );
+
+    // ── Per-contractor NC summary (count + list of NC titles) ──────────
+    const contractorNcSummary = await safeFetch(
+      'contractor_nc_summary',
+      `SELECT a.contractor_user_id,
+              COUNT(nc.id)::int AS nc_count,
+              COALESCE(
+                JSON_AGG(
+                  JSON_BUILD_OBJECT(
+                    'auditCode',  a.audit_code,
+                    'title',      nc.title,
+                    'severity',   nc.severity,
+                    'status',     nc.status,
+                    'dueDate',    nc.due_date,
+                    'createdAt',  nc.created_at
+                  )
+                  ORDER BY nc.created_at DESC
+                ) FILTER (WHERE nc.id IS NOT NULL),
+                '[]'::json
+              ) AS nc_points
+         FROM audits a
+         LEFT JOIN audit_non_compliances nc ON nc.audit_id = a.id
+        WHERE a.client_id = $1
+          AND a.contractor_user_id IS NOT NULL
+        GROUP BY a.contractor_user_id`,
+    );
+
+    const contractorsSnapshot = {
+      accounts: contractorAccounts,
+      employees: contractorEmployees,
+      ncSummary: contractorNcSummary,
+    };
+
+    const payrollSnapshot = {
+      runs: payrollRuns,
+      employees: payrollEmployees,
+    };
+
+    const auditReportsSnapshot = {
+      reports: auditReports,
+      nonCompliances: ncPoints,
+    };
+
+    const meta = {
+      counts: {
+        registers: registers.length,
+        payrollRuns: payrollRuns.length,
+        payrollEmployeeRows: payrollEmployees.length,
+        auditReports: auditReports.length,
+        nonCompliances: ncPoints.length,
+        contractorAccounts: contractorAccounts.length,
+        contractorEmployees: contractorEmployees.length,
+      },
+      retentionDays: RETENTION_DAYS,
+      snapshotVersion: 1,
+    };
+
+    await m.query(
+      `INSERT INTO client_deletion_archive
+         (client_id, client_code, client_name,
+          archived_by, delete_reason,
+          purge_after,
+          registers_snapshot, payroll_snapshot,
+          audit_reports_snapshot, contractors_snapshot,
+          meta)
+       VALUES
+         ($1, $2, $3,
+          $4, $5,
+          NOW() + make_interval(days => $6),
+          $7::jsonb, $8::jsonb,
+          $9::jsonb, $10::jsonb,
+          $11::jsonb)`,
+      [
+        clientId,
+        client.clientCode ?? null,
+        client.clientName ?? null,
+        archivedBy,
+        reason,
+        RETENTION_DAYS,
+        JSON.stringify(registers),
+        JSON.stringify(payrollSnapshot),
+        JSON.stringify(auditReportsSnapshot),
+        JSON.stringify(contractorsSnapshot),
+        JSON.stringify(meta),
+      ],
+    );
   }
 
   async restore(clientId: string, restoredBy?: string, restoredRole?: string) {
@@ -648,7 +1165,7 @@ export class ClientsService {
   }
 
   async addClientUser(clientId: string, userId: string) {
-    const client = await this.getOrFail(clientId);
+    await this.getOrFail(clientId);
 
     // Validate user has CLIENT role
     const role = await this.usersService.getUserRoleCode(userId);

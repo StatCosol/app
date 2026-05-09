@@ -8,6 +8,7 @@ import { ClientBranchesService } from '../../../core/client-branches.service';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ClientContextStripComponent } from '../../../shared/ui';
 
 type ComputedStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED';
 
@@ -23,19 +24,20 @@ interface RegForm {
 @Component({
   selector: 'app-crm-registrations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClientContextStripComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './crm-registrations.component.html',
   styles: [`
     .page { max-width: 1280px; margin: 0 auto; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
     .title { font-size: 18px; font-weight: 700; color:#0f172a; margin:0; }
     .sub { margin:4px 0 0; font-size: 12px; color:#64748b; }
-    .controls { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
     select, input { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size: 13px; background:#fff; }
-    .btn { border: 1px solid #e2e8f0; border-radius: 10px; padding:10px 12px; font-size: 13px; background:#0f172a; color:#fff; cursor:pointer; }
+    .btn { border: 1px solid #e2e8f0; border-radius: 8px; padding:7px 10px; font-size: 12px; background:#0f172a; color:#fff; cursor:pointer; white-space:nowrap; }
     .btn.secondary { background:#fff; color:#0f172a; }
-    .btn.danger { background:#b91c1c; border-color:#b91c1c; }
+    .btn.danger { background:#b91c1c; border-color:#b91c1c; color:#fff; }
+    .btn.sm { padding:5px 8px; font-size:11px; }
     .btn:disabled { opacity:.6; cursor:not-allowed; }
 
     .strip { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin: 12px 0 14px; }
@@ -43,10 +45,11 @@ interface RegForm {
     .value { font-size: 22px; font-weight: 800; }
     .label { font-size: 11px; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-top:4px; font-weight:600; }
 
-    .tableWrap { background:#fff; border:1px solid #f1f5f9; border-radius:16px; overflow:hidden; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
-    table { width:100%; border-collapse:collapse; }
-    th { text-align:left; background:#f8fafc; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:12px 14px; border-bottom:2px solid #f1f5f9; }
-    td { padding:12px 14px; border-bottom:1px solid #f8fafc; font-size: 13px; color:#0f172a; vertical-align:top; }
+    .tableWrap { background:#fff; border:1px solid #f1f5f9; border-radius:16px; overflow-x:auto; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+    table { width:100%; border-collapse:collapse; min-width:960px; }
+    th { text-align:left; background:#f8fafc; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:10px 10px; border-bottom:2px solid #f1f5f9; white-space:nowrap; }
+    td { padding:10px 10px; border-bottom:1px solid #f8fafc; font-size: 13px; color:#0f172a; vertical-align:middle; }
+    td.actions-cell { white-space:nowrap; }
     tr:hover td { background:#f8fafc; }
     .muted { color:#64748b; font-size:12px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; }
@@ -108,6 +111,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
 
   saving = false;
   deletingId: string | null = null;
+  documentFile: File | null = null;
+  existingDocumentUrl: string | null = null;
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -197,6 +202,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
     this.showForm = true;
     this.form = this.emptyForm();
     this.form.branchId = this.selectedBranchId;
+    this.documentFile = null;
+    this.existingDocumentUrl = null;
     this.cdr.markForCheck();
   }
 
@@ -211,6 +218,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       issuedDate: this.toDateInput(row.issuedDate),
       expiryDate: this.toDateInput(row.expiryDate),
     };
+    this.documentFile = null;
+    this.existingDocumentUrl = row.documentUrl || null;
     this.cdr.markForCheck();
   }
 
@@ -218,6 +227,8 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
     this.showForm = false;
     this.editingId = null;
     this.saving = false;
+    this.documentFile = null;
+    this.existingDocumentUrl = null;
     this.cdr.markForCheck();
   }
 
@@ -244,11 +255,39 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
       : this.branchSvc.createRegistration(this.clientId, payload);
 
     req$.pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.saving = false;
-        this.showForm = false;
-        this.editingId = null;
-        this.load();
+      next: (res: any) => {
+        const savedId = this.editingId || res?.id;
+        if (this.documentFile && savedId) {
+          const fd = new FormData();
+          fd.append('file', this.documentFile);
+          this.branchSvc.uploadRegistrationFile(savedId, this.clientId, fd, 'document')
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: () => {
+                this.saving = false;
+                this.showForm = false;
+                this.editingId = null;
+                this.documentFile = null;
+                this.existingDocumentUrl = null;
+                this.load();
+              },
+              error: () => {
+                this.saving = false;
+                this.cdr.markForCheck();
+                this.toast.error('Saved but document upload failed');
+                this.showForm = false;
+                this.editingId = null;
+                this.load();
+              },
+            });
+        } else {
+          this.saving = false;
+          this.showForm = false;
+          this.editingId = null;
+          this.documentFile = null;
+          this.existingDocumentUrl = null;
+          this.load();
+        }
       },
       error: (e) => {
         this.saving = false;
@@ -277,6 +316,18 @@ export class CrmRegistrationsComponent implements OnInit, OnDestroy {
           this.toast.error(e?.error?.message || 'Delete failed');
         },
       });
+  }
+
+  onFormFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.documentFile = input.files?.[0] ?? null;
+    this.cdr.markForCheck();
+    input.value = '';
+  }
+
+  removeFormFile(): void {
+    this.documentFile = null;
+    this.cdr.markForCheck();
   }
 
   uploadFile(event: any, row: any, field: 'document' | 'renewal' = 'document'): void {

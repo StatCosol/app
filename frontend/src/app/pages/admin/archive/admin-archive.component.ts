@@ -95,6 +95,43 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <ui-empty-state *ngIf="deletedBranches.length === 0" title="No deleted branches" description="Deleted branches will appear here for up to 3 years." icon="archive"></ui-empty-state>
       </ng-container>
 
+      <!-- ═══ Retention Snapshots Tab (18-month JSONB archive) ═══ -->
+      <ng-container *ngIf="!loading && activeTab === 'retention'">
+        <div *ngIf="retentionSnapshots.length > 0" class="card">
+          <ui-data-table [columns]="retentionColumns" [data]="retentionSnapshots">
+            <ng-template uiTableCell="clientName" let-row>
+              <button class="text-blue-600 hover:underline font-medium" (click)="openRetentionDetail(row)">
+                {{ row.clientName }}
+              </button>
+              <div class="text-xs text-gray-400">{{ row.clientCode }}</div>
+            </ng-template>
+            <ng-template uiTableCell="archivedAt" let-row>
+              <span class="text-sm text-gray-600">{{ row.archivedAt | date:'mediumDate' }}</span>
+            </ng-template>
+            <ng-template uiTableCell="purgeAfter" let-row>
+              <span class="text-sm" [class.text-red-600]="row.daysRemaining < 30">
+                {{ row.purgeAfter | date:'mediumDate' }}
+              </span>
+              <div class="text-xs text-gray-400">{{ row.daysRemaining }} days left</div>
+            </ng-template>
+            <ng-template uiTableCell="counts" let-row>
+              <div class="text-xs space-y-0.5">
+                <div>Registers: <strong>{{ row.registersCount }}</strong></div>
+                <div>Payroll runs: <strong>{{ row.payrollRunsCount }}</strong></div>
+                <div>Audit reports: <strong>{{ row.auditReportsCount }}</strong></div>
+                <div>Contractors: <strong>{{ row.contractorsCount }}</strong></div>
+              </div>
+            </ng-template>
+            <ng-template uiTableCell="actions" let-row>
+              <ui-button variant="primary" size="sm" (clicked)="openRetentionDetail(row)">View Snapshot</ui-button>
+            </ng-template>
+          </ui-data-table>
+        </div>
+        <ui-empty-state *ngIf="retentionSnapshots.length === 0" title="No retention snapshots"
+          description="JSONB snapshots of deleted clients (registers, payroll, audit reports, contractors) appear here. Retained for 18 months from deletion date."
+          icon="archive"></ui-empty-state>
+      </ng-container>
+
       <!-- ═══ Deleted Users Tab ═══ -->
       <ng-container *ngIf="!loading && activeTab === 'users'">
         <div *ngIf="deletedUsers.length > 0" class="card">
@@ -118,6 +155,89 @@ import { ToastService } from '../../../shared/toast/toast.service';
         </div>
         <ui-empty-state *ngIf="deletedUsers.length === 0" title="No deleted users" description="Deleted users will appear here for up to 3 years." icon="archive"></ui-empty-state>
       </ng-container>
+
+      <!-- ═══ Retention Snapshot Detail Drawer ═══ -->
+      <div *ngIf="selectedSnapshot" class="fixed inset-0 z-50 flex justify-end">
+        <div class="absolute inset-0 bg-black/30" (click)="closeRetentionDetail()"></div>
+        <div class="relative w-full max-w-4xl bg-white shadow-xl overflow-y-auto">
+          <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">{{ selectedSnapshot.clientName }}</h2>
+              <p class="text-sm text-gray-500">
+                Archived {{ selectedSnapshot.archivedAt | date:'medium' }} · Purges {{ selectedSnapshot.purgeAfter | date:'mediumDate' }}
+                · {{ selectedSnapshot.clientCode }}
+              </p>
+            </div>
+            <button (click)="closeRetentionDetail()" class="text-gray-400 hover:text-gray-600 p-1">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="px-6 py-4">
+            <div class="flex border-b border-gray-200 mb-4">
+              <button *ngFor="let st of snapshotTabs" (click)="snapshotTab = st.key"
+                [class]="snapshotTab === st.key
+                  ? 'px-3 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600'
+                  : 'px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700'">
+                {{ st.label }}
+              </button>
+            </div>
+
+            <ui-loading-spinner *ngIf="snapshotLoading" text="Loading snapshot..."></ui-loading-spinner>
+
+            <div *ngIf="!snapshotLoading && snapshotDetail">
+              <ng-container [ngSwitch]="snapshotTab">
+                <ng-container *ngSwitchCase="'registers'">
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.registersSnapshot, empty: 'No registers archived.' }"></ng-container>
+                </ng-container>
+                <ng-container *ngSwitchCase="'payroll'">
+                  <h3 class="text-sm font-semibold text-gray-700 mb-2">Payroll Runs</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.payrollSnapshot?.runs, empty: 'No payroll runs archived.' }"></ng-container>
+                  <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Run Employees ({{ snapshotDetail.payrollSnapshot?.runEmployees?.length || 0 }})</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.payrollSnapshot?.runEmployees, empty: 'No payroll employees archived.' }"></ng-container>
+                </ng-container>
+                <ng-container *ngSwitchCase="'audits'">
+                  <h3 class="text-sm font-semibold text-gray-700 mb-2">Audit Reports</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.auditReportsSnapshot?.reports, empty: 'No audit reports archived.' }"></ng-container>
+                  <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Non-Compliance Points</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.auditReportsSnapshot?.nonCompliances, empty: 'No non-compliance points archived.' }"></ng-container>
+                </ng-container>
+                <ng-container *ngSwitchCase="'contractors'">
+                  <h3 class="text-sm font-semibold text-gray-700 mb-2">Contractor Accounts</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.contractorsSnapshot?.accounts, empty: 'No contractor accounts archived.' }"></ng-container>
+                  <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Contractor Employees (with deployment / termination dates)</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.contractorsSnapshot?.employees, empty: 'No contractor employees archived.' }"></ng-container>
+                  <h3 class="text-sm font-semibold text-gray-700 mt-6 mb-2">Per-Contractor NC Summary</h3>
+                  <ng-container *ngTemplateOutlet="jsonTable; context: { $implicit: snapshotDetail.contractorsSnapshot?.ncSummary, empty: 'No NC summary archived.' }"></ng-container>
+                </ng-container>
+                <ng-container *ngSwitchCase="'meta'">
+                  <pre class="text-xs bg-gray-50 border rounded p-3 overflow-x-auto">{{ snapshotDetail.meta | json }}</pre>
+                </ng-container>
+              </ng-container>
+            </div>
+
+            <ng-template #jsonTable let-rows let-empty="empty">
+              <div *ngIf="!rows || rows.length === 0" class="text-sm text-gray-500 italic py-4">{{ empty }}</div>
+              <div *ngIf="rows && rows.length > 0" class="overflow-x-auto">
+                <table class="min-w-full text-xs border">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th *ngFor="let k of keysOf(rows[0])" class="text-left py-2 px-3 font-medium text-gray-600 uppercase border-b">{{ humanizeKey(k) }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let r of rows" class="border-b border-gray-100 hover:bg-gray-50">
+                      <td *ngFor="let k of keysOf(rows[0])" class="py-1.5 px-3 text-gray-700 align-top">{{ formatCell(r[k]) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
 
       <!-- ═══ Client Detail Drawer ═══ -->
       <div *ngIf="selectedClient" class="fixed inset-0 z-50 flex justify-end">
@@ -191,11 +311,35 @@ export class AdminArchiveComponent implements OnInit, OnDestroy {
     { key: 'clients', label: 'Deleted Clients' },
     { key: 'branches', label: 'Deleted Branches' },
     { key: 'users', label: 'Deleted Users' },
+    { key: 'retention', label: 'Retention Snapshots' },
   ];
 
   deletedClients: any[] = [];
   deletedBranches: any[] = [];
   deletedUsers: any[] = [];
+  retentionSnapshots: any[] = [];
+
+  retentionColumns: TableColumn[] = [
+    { key: 'clientName', header: 'Client', sortable: true },
+    { key: 'archivedAt', header: 'Archived On', sortable: true },
+    { key: 'purgeAfter', header: 'Purges On', sortable: true },
+    { key: 'counts', header: 'Snapshot Contents' },
+    { key: 'archivedByName', header: 'Archived By' },
+    { key: 'actions', header: '', width: '160px', align: 'right' },
+  ];
+
+  // Retention snapshot detail
+  selectedSnapshot: any = null;
+  snapshotDetail: any = null;
+  snapshotLoading = false;
+  snapshotTab: string = 'registers';
+  snapshotTabs = [
+    { key: 'registers', label: 'Registers' },
+    { key: 'payroll', label: 'Payroll' },
+    { key: 'audits', label: 'Audit Reports & NC' },
+    { key: 'contractors', label: 'Contractors' },
+    { key: 'meta', label: 'Meta' },
+  ];
 
   clientColumns: TableColumn[] = [
     { key: 'clientName', header: 'Client', sortable: true },
@@ -269,6 +413,7 @@ export class AdminArchiveComponent implements OnInit, OnDestroy {
         if (this.activeTab === 'clients') this.deletedClients = data || [];
         else if (this.activeTab === 'branches') this.deletedBranches = data || [];
         else if (this.activeTab === 'users') this.deletedUsers = data || [];
+        else if (this.activeTab === 'retention') this.retentionSnapshots = data || [];
         this.cdr.detectChanges();
       },
       error: () => {
@@ -276,6 +421,34 @@ export class AdminArchiveComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  openRetentionDetail(row: any) {
+    this.selectedSnapshot = row;
+    this.snapshotDetail = null;
+    this.snapshotTab = 'registers';
+    this.snapshotLoading = true;
+    this.http.get<any>(`${this.base}/retention/${row.id}`).pipe(
+      timeout(15000),
+      takeUntil(this.destroy$),
+      finalize(() => { this.snapshotLoading = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => { this.snapshotDetail = res; this.cdr.detectChanges(); },
+      error: () => { this.error = 'Failed to load snapshot'; this.cdr.detectChanges(); },
+    });
+  }
+
+  closeRetentionDetail() {
+    this.selectedSnapshot = null;
+    this.snapshotDetail = null;
+  }
+
+  keysOf(obj: any): string[] {
+    return obj && typeof obj === 'object' ? Object.keys(obj) : [];
+  }
+
+  humanizeKey(key: string): string {
+    return this.humanize(key);
   }
 
   openClientDetail(client: any) {

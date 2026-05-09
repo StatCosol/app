@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { Subject, forkJoin, of } from 'rxjs';
-import { takeUntil, timeout, finalize, catchError } from 'rxjs/operators';
+import { forkJoin, of } from 'rxjs';
+import { timeout, finalize, catchError } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   CeoDashboardService, CeoSummary, CeoClientOverviewItem,
   CeoCcoCrmPerformanceItem, CeoGovernanceCompliance, CeoEscalationItem,
@@ -25,6 +26,7 @@ interface ExecutiveGuardrail {
 @Component({
   selector: 'app-ceo-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule, PageHeaderComponent, ActionButtonComponent, LoadingSpinnerComponent,
     DataTableComponent, TableCellDirective, StatusBadgeComponent, EmptyStateComponent,
@@ -32,40 +34,47 @@ interface ExecutiveGuardrail {
   templateUrl: './ceo-dashboard.component.html',
   styleUrls: ['./ceo-dashboard.component.scss'],
 })
-export class CeoDashboardComponent implements OnInit, OnDestroy {
-  loading = true;
-  errorMsg: string | null = null;
-  private destroy$ = new Subject<void>();
+export class CeoDashboardComponent implements OnInit {
+  private readonly dashboardService = inject(CeoDashboardService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  loading = signal(true);
+  errorMsg = signal<string | null>(null);
 
   // Summary KPIs
-  summary: CeoSummary = {
+  summary = signal<CeoSummary>({
     totalClients: 0, totalBranches: 0, teamSize: 0,
     activeAudits: 0, overdueCompliances: 0, pendingApprovals: 0,
     complianceScore30d: 0,
-  };
+  });
 
   // Governance & compliance
-  governance: CeoGovernanceCompliance = {
+  governance = signal<CeoGovernanceCompliance>({
     completedAudits: 0, pendingAudits: 0, criticalObservations: 0,
     compliantItems: 0, overdueItems: 0, dueSoonItems: 0,
     overallComplianceRate: 0, auditCompletionRate90d: 0,
-  };
+  });
 
-  // Client overview (sorted by overdue desc for "top 10 lowest compliance")
-  clientOverview: CeoClientOverviewItem[] = [];
-  topOverdueClients: CeoClientOverviewItem[] = [];
+  // Client overview
+  clientOverview = signal<CeoClientOverviewItem[]>([]);
+  topOverdueClients = computed(() =>
+    [...this.clientOverview()]
+      .sort((a, b) => (b.overdueCount || 0) - (a.overdueCount || 0))
+      .slice(0, 10),
+  );
 
   // Team performance
-  teamPerformance: CeoCcoCrmPerformanceItem[] = [];
+  teamPerformance = signal<CeoCcoCrmPerformanceItem[]>([]);
 
   // Escalations
-  escalations: CeoEscalationItem[] = [];
+  escalations = signal<CeoEscalationItem[]>([]);
 
   // Compliance Trend (monthly)
-  complianceTrend: CeoComplianceTrendItem[] = [];
-  topRiskBranches: CeoBranchRankingItem[] = [];
-  bottomRiskBranches: CeoBranchRankingItem[] = [];
-  auditClosureTrend: CeoAuditClosureTrendItem[] = [];
+  complianceTrend = signal<CeoComplianceTrendItem[]>([]);
+  topRiskBranches = signal<CeoBranchRankingItem[]>([]);
+  bottomRiskBranches = signal<CeoBranchRankingItem[]>([]);
+  auditClosureTrend = signal<CeoAuditClosureTrendItem[]>([]);
 
   // Table column defs
   clientOverviewColumns: TableColumn[] = [
@@ -111,27 +120,24 @@ export class CeoDashboardComponent implements OnInit, OnDestroy {
   ];
 
   constructor(
-    private dashboardService: CeoDashboardService,
-    private router: Router,
-    private cdr: ChangeDetectorRef,
   ) {}
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 
   ngOnInit() {
     this.loadAll();
   }
 
   loadAll() {
-    this.loading = true;
-    this.errorMsg = null;
+    this.loading.set(true);
+    this.errorMsg.set(null);
+
+    const defaults = {
+      summary: this.summary(),
+      governance: this.governance(),
+    };
 
     forkJoin({
-      summary: this.dashboardService.getSummary().pipe(catchError(() => of(this.summary))),
-      governance: this.dashboardService.getGovernanceCompliance().pipe(catchError(() => of(this.governance))),
+      summary: this.dashboardService.getSummary().pipe(catchError(() => of(defaults.summary))),
+      governance: this.dashboardService.getGovernanceCompliance().pipe(catchError(() => of(defaults.governance))),
       clients: this.dashboardService.getClientOverview({ limit: 100 }).pipe(catchError(() => of({ items: [] }))),
       team: this.dashboardService.getCcoCrmPerformance().pipe(catchError(() => of({ items: [] }))),
       escalations: this.dashboardService.getRecentEscalations({ limit: 10, status: 'PENDING' }).pipe(catchError(() => of({ items: [] }))),
@@ -139,50 +145,44 @@ export class CeoDashboardComponent implements OnInit, OnDestroy {
       branchRankings: this.dashboardService.getBranchRankings(undefined, 10).pipe(catchError(() => of({ month: null, topRisk: [], bottomRisk: [] }))),
       closureTrend: this.dashboardService.getAuditClosureTrend(12).pipe(catchError(() => of({ items: [] }))),
     }).pipe(
-      takeUntil(this.destroy$),
+      takeUntilDestroyed(this.destroyRef),
       timeout(15000),
-      finalize(() => { this.loading = false; this.cdr.detectChanges(); }),
+      finalize(() => this.loading.set(false)),
     ).subscribe({
       next: ({ summary, governance, clients, team, escalations, trend, branchRankings, closureTrend }) => {
-        this.summary = summary || this.summary;
-        this.governance = governance || this.governance;
-        this.clientOverview = clients?.items || [];
-        this.teamPerformance = team?.items || [];
-        this.escalations = escalations?.items || [];
-        this.complianceTrend = trend?.items || [];
-        this.topRiskBranches = branchRankings?.topRisk || [];
-        this.bottomRiskBranches = branchRankings?.bottomRisk || [];
-        this.auditClosureTrend = closureTrend?.items || [];
+        this.summary.set(summary || defaults.summary);
+        this.governance.set(governance || defaults.governance);
+        this.clientOverview.set(clients?.items || []);
+        this.teamPerformance.set(team?.items || []);
+        this.escalations.set(escalations?.items || []);
+        this.complianceTrend.set(trend?.items || []);
+        this.topRiskBranches.set(branchRankings?.topRisk || []);
+        this.bottomRiskBranches.set(branchRankings?.bottomRisk || []);
+        this.auditClosureTrend.set(closureTrend?.items || []);
 
-        // Top 10 lowest compliance branches (highest overdue)
-        this.topOverdueClients = [...this.clientOverview]
-          .sort((a, b) => (b.overdueCount || 0) - (a.overdueCount || 0))
-          .slice(0, 10);
-
-        this.loading = false;
-        this.cdr.detectChanges();
+        if (!summary || !governance) {
+          this.errorMsg.set('Some dashboard widgets could not be loaded. Partial data shown.');
+        }
       },
-      error: (err) => {
-        this.loading = false;
-        this.errorMsg = err?.error?.message || 'Failed to load executive dashboard';
-        this.cdr.detectChanges();
+      error: (err: any) => {
+        this.errorMsg.set(err?.error?.message || 'Failed to load executive dashboard');
       },
     });
   }
 
-  get complianceColor(): string {
-    const rate = this.governance.overallComplianceRate;
+  complianceColor = computed(() => {
+    const rate = this.governance().overallComplianceRate;
     if (rate >= 80) return '#10b981';
     if (rate >= 60) return '#f59e0b';
     return '#ef4444';
-  }
+  });
 
-  get auditCompletionColor(): string {
-    const rate = this.governance.auditCompletionRate90d;
+  auditCompletionColor = computed(() => {
+    const rate = this.governance().auditCompletionRate90d;
     if (rate >= 80) return '#10b981';
     if (rate >= 60) return '#f59e0b';
     return '#ef4444';
-  }
+  });
 
   goToApprovals() {
     this.router.navigate(['/ceo/approvals']);
@@ -196,19 +196,19 @@ export class CeoDashboardComponent implements OnInit, OnDestroy {
     this.router.navigate(['/ceo/oversight']);
   }
 
-  get executiveGuardrails(): ExecutiveGuardrail[] {
+  executiveGuardrails = computed<ExecutiveGuardrail[]>(() => {
     const alerts: ExecutiveGuardrail[] = [];
-    const lowScoreTeam = this.teamPerformance.filter((row) => Number(row.complianceScore || 0) < 70).length;
-    const highRiskClients = this.topOverdueClients.filter((row) => Number(row.overdueCount || 0) > 0).length;
-    const openEscalations = this.escalations.filter((row) => String(row.status || '').toUpperCase() !== 'RESOLVED').length;
-    const latestClosures = this.auditClosureTrend.slice(-3);
+    const lowScoreTeam = this.teamPerformance().filter((row) => Number(row.complianceScore || 0) < 70).length;
+    const highRiskClients = this.topOverdueClients().filter((row) => Number(row.overdueCount || 0) > 0).length;
+    const openEscalations = this.escalations().filter((row) => String(row.status || '').toUpperCase() !== 'RESOLVED').length;
+    const latestClosures = this.auditClosureTrend().slice(-3);
     const lowClosureMonths = latestClosures.filter((row) => Number(row.closureRate || 0) < 70).length;
 
-    if (this.summary.pendingApprovals > 0) {
+    if (this.summary().pendingApprovals > 0) {
       alerts.push({
         severity: 'CRITICAL',
         title: 'Pending approval queue building up',
-        detail: `${this.summary.pendingApprovals} approvals are pending executive decision.`,
+        detail: `${this.summary().pendingApprovals} approvals are pending executive decision.`,
         route: '/ceo/approvals',
         actionLabel: 'Open Approvals',
       });
@@ -241,7 +241,7 @@ export class CeoDashboardComponent implements OnInit, OnDestroy {
       });
     }
     return alerts;
-  }
+  });
 
   guardrailClass(severity: ExecutiveGuardrail['severity']): string {
     if (severity === 'CRITICAL') return 'border-red-200 bg-red-50';
@@ -280,74 +280,83 @@ export class CeoDashboardComponent implements OnInit, OnDestroy {
   /** Export dashboard summary as CSV */
   exportCSV() {
     const rows: string[] = [];
+    const s = this.summary();
+    const g = this.governance();
+    const trend = this.complianceTrend();
+    const overdue = this.topOverdueClients();
+    const team = this.teamPerformance();
+    const topRisk = this.topRiskBranches();
+    const bottomRisk = this.bottomRiskBranches();
+    const closure = this.auditClosureTrend();
+
     // Header
     rows.push('Section,Metric,Value');
 
     // Summary KPIs
-    rows.push(`Summary,Total Clients,${this.summary.totalClients}`);
-    rows.push(`Summary,Total Branches,${this.summary.totalBranches}`);
-    rows.push(`Summary,Team Size,${this.summary.teamSize}`);
-    rows.push(`Summary,Active Audits,${this.summary.activeAudits}`);
-    rows.push(`Summary,Overdue Compliances,${this.summary.overdueCompliances}`);
-    rows.push(`Summary,Pending Approvals,${this.summary.pendingApprovals}`);
-    rows.push(`Summary,Compliance Score (30d),${this.summary.complianceScore30d}%`);
+    rows.push(`Summary,Total Clients,${s.totalClients}`);
+    rows.push(`Summary,Total Branches,${s.totalBranches}`);
+    rows.push(`Summary,Team Size,${s.teamSize}`);
+    rows.push(`Summary,Active Audits,${s.activeAudits}`);
+    rows.push(`Summary,Overdue Compliances,${s.overdueCompliances}`);
+    rows.push(`Summary,Pending Approvals,${s.pendingApprovals}`);
+    rows.push(`Summary,Compliance Score (30d),${s.complianceScore30d}%`);
 
     // Governance
-    rows.push(`Governance,Overall Compliance Rate,${this.governance.overallComplianceRate}%`);
-    rows.push(`Governance,Audit Completion Rate (90d),${this.governance.auditCompletionRate90d}%`);
-    rows.push(`Governance,Compliant Items,${this.governance.compliantItems}`);
-    rows.push(`Governance,Overdue Items,${this.governance.overdueItems}`);
-    rows.push(`Governance,Critical Observations,${this.governance.criticalObservations}`);
+    rows.push(`Governance,Overall Compliance Rate,${g.overallComplianceRate}%`);
+    rows.push(`Governance,Audit Completion Rate (90d),${g.auditCompletionRate90d}%`);
+    rows.push(`Governance,Compliant Items,${g.compliantItems}`);
+    rows.push(`Governance,Overdue Items,${g.overdueItems}`);
+    rows.push(`Governance,Critical Observations,${g.criticalObservations}`);
 
     // Trend
-    if (this.complianceTrend.length) {
+    if (trend.length) {
       rows.push('');
       rows.push('Month,Compliance Rate,Overdue,Audits,Audit Score');
-      for (const t of this.complianceTrend) {
+      for (const t of trend) {
         rows.push(`${t.month},${t.complianceRate}%,${t.overdueItems},${t.totalAudits},${t.avgAuditScore}`);
       }
     }
 
     // Top Overdue Clients
-    if (this.topOverdueClients.length) {
+    if (overdue.length) {
       rows.push('');
       rows.push('Client,Code,Branches,Overdue,Active Audits,CRM');
-      for (const c of this.topOverdueClients) {
+      for (const c of overdue) {
         rows.push(`"${c.clientName}",${c.clientCode},${c.branchCount},${c.overdueCount},${c.activeAudits},"${c.crmName || ''}"`);
       }
     }
 
     // Team Performance
-    if (this.teamPerformance.length) {
+    if (team.length) {
       rows.push('');
       rows.push('Name,Role,Clients,Branches,Overdue,Score');
-      for (const t of this.teamPerformance) {
+      for (const t of team) {
         rows.push(`"${t.userName}",${t.roleCode},${t.clientCount},${t.branchCount},${t.overdueCount},${t.complianceScore}%`);
       }
     }
 
-    if (this.topRiskBranches.length) {
+    if (topRisk.length) {
       rows.push('');
       rows.push('Top Risk Branches');
       rows.push('Branch,Client,Compliance %,Overdue,Risk');
-      for (const b of this.topRiskBranches) {
+      for (const b of topRisk) {
         rows.push(`"${b.branchName}","${b.clientName}",${b.complianceRate}%,${b.overdueCount},${b.riskScore}%`);
       }
     }
 
-    if (this.bottomRiskBranches.length) {
+    if (bottomRisk.length) {
       rows.push('');
       rows.push('Best Performing Branches');
       rows.push('Branch,Client,Compliance %,Overdue,Risk');
-      for (const b of this.bottomRiskBranches) {
+      for (const b of bottomRisk) {
         rows.push(`"${b.branchName}","${b.clientName}",${b.complianceRate}%,${b.overdueCount},${b.riskScore}%`);
       }
     }
 
-    if (this.auditClosureTrend.length) {
+    if (closure.length) {
       rows.push('');
       rows.push('Month,Closed Audits,Open Audits,Closure Rate');
-      for (const t of this.auditClosureTrend) {
+      for (const t of closure) {
         rows.push(`${t.month},${t.completedAudits},${t.openAudits},${t.closureRate}%`);
       }
     }

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { AttendanceService } from './attendance.service';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
@@ -26,6 +27,7 @@ describe('AttendanceService', () => {
         AttendanceService,
         { provide: getRepositoryToken(AttendanceEntity), useValue: mockRepo() },
         { provide: getRepositoryToken(EmployeeEntity), useValue: mockRepo() },
+        { provide: DataSource, useValue: {} },
       ],
     }).compile();
 

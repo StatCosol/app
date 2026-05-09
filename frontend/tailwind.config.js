@@ -87,6 +87,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
+        brand: ['"Times New Roman"', 'Georgia', 'serif'],
       },
       borderRadius: {
         'sm': '0.25rem',

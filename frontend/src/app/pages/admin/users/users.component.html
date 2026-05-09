@@ -20,7 +20,7 @@
           </svg>
           Create User
         </h3>
-        <button class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+        <button type="button" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
           {{ showCreateForm ? 'Hide ▲' : 'Show ▼' }}
         </button>
       </div>
@@ -66,12 +66,15 @@
           <ui-form-input
             label="Email"
             type="email"
-            [(ngModel)]="email">
+            [(ngModel)]="email"
+            [error]="emailFieldError">
           </ui-form-input>
 
           <ui-form-input
             label="Mobile"
-            [(ngModel)]="mobile">
+            [(ngModel)]="mobile"
+            placeholder="e.g. +919876543210"
+            [error]="mobileFieldError">
           </ui-form-input>
 
           <ui-form-input
@@ -112,7 +115,7 @@
           </svg>
           Edit User — {{ editingUser.name }} ({{ editingUser.email }})
         </h3>
-        <button class="text-sm text-gray-500 hover:text-gray-700 font-medium" (click)="cancelEdit()">Cancel ✕</button>
+        <button type="button" class="text-sm text-gray-500 hover:text-gray-700 font-medium" (click)="cancelEdit()">Cancel ✕</button>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
         <ui-form-input
@@ -122,11 +125,14 @@
         <ui-form-input
           label="Email"
           type="email"
-          [(ngModel)]="editEmail">
+          [(ngModel)]="editEmail"
+          [error]="editEmailFieldError">
         </ui-form-input>
         <ui-form-input
           label="Mobile"
-          [(ngModel)]="editMobile">
+          [(ngModel)]="editMobile"
+          placeholder="e.g. +919876543210"
+          [error]="editMobileFieldError">
         </ui-form-input>
         <ui-button
           variant="primary"
@@ -219,12 +225,12 @@
           
           <!-- Email -->
           <ng-template uiTableCell="email" let-row>
-            <span class="text-sm text-gray-600">{{ row.email }}</span>
+            <span class="text-sm text-gray-600 block truncate" [title]="row.email">{{ row.email }}</span>
           </ng-template>
           
           <!-- Mobile -->
           <ng-template uiTableCell="mobile" let-row>
-            <span class="text-sm text-gray-600">{{ row['mobile'] || '-' }}</span>
+            <span class="text-sm text-gray-600 block truncate">{{ row['mobile'] || '-' }}</span>
           </ng-template>
           
           <!-- Name -->
@@ -290,7 +296,7 @@
         <!-- Pagination -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 mt-4 border-t border-gray-200">
           <div class="flex items-center gap-2">
-            <label class="text-sm text-gray-700">Rows per page</label>
+            <span class="text-sm text-gray-700">Rows per page</span>
             <ui-form-select
               [(ngModel)]="pageSize"
               (ngModelChange)="onPageSizeChange()"
@@ -298,20 +304,21 @@
               [disabled]="isLoading">
             </ui-form-select>
           </div>
-          <div class="flex items-center gap-4">
-            <ui-button
-              variant="secondary"
-              size="sm"
+          <div class="inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-sm whitespace-nowrap">
+            <button
+              type="button"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
               (click)="prevPage()"
-              [disabled]="currentPage <= 1 || isLoading">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              [disabled]="currentPage <= 1 || isLoading"
+              aria-label="Previous page">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 20 20" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12.5 5L7.5 10L12.5 15"/>
               </svg>
-            </ui-button>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-700">Page</span>
+            </button>
+            <div class="inline-flex items-center gap-2 leading-none text-gray-900 whitespace-nowrap">
+              <span class="text-base font-semibold text-gray-900 whitespace-nowrap">Page</span>
               <input
-                class="w-16 rounded-lg border-gray-300 focus:border-statco-blue-light focus:ring-statco-blue-light text-center"
+                class="h-10 w-12 rounded-lg border border-blue-300 bg-white text-center text-lg font-medium text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 type="number"
                 [ngModel]="currentPage"
                 (ngModelChange)="goToPage($event)"
@@ -319,17 +326,21 @@
                 [max]="totalPages"
                 [disabled]="isLoading"
               />
-              <span class="text-sm text-gray-700">of {{ totalPages }}</span>
+              <span class="inline-flex items-center gap-1 text-base font-semibold text-gray-900 whitespace-nowrap">
+                <span>of</span>
+                <span>{{ totalPages }}</span>
+              </span>
             </div>
-            <ui-button
-              variant="secondary"
-              size="sm"
+            <button
+              type="button"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
               (click)="nextPage()"
-              [disabled]="currentPage >= totalPages || isLoading">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              [disabled]="currentPage >= totalPages || isLoading"
+              aria-label="Next page">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 20 20" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 5L12.5 10L7.5 15"/>
               </svg>
-            </ui-button>
+            </button>
           </div>
         </div>
       </div>

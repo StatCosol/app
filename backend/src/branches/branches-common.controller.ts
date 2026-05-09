@@ -3,7 +3,6 @@ import {
   Get,
   Query,
   UseGuards,
-  Req,
   ParseUUIDPipe,
   Param,
   ForbiddenException,
@@ -14,6 +13,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DataSource } from 'typeorm';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 /**
  * Common Branches Controller
@@ -43,7 +44,10 @@ export class BranchesCommonController {
   @ApiOperation({ summary: 'List' })
   @Get()
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT')
-  async list(@Query() query: any, @Req() req: any) {
+  async list(
+    @Query() query: Record<string, string>,
+    @CurrentUser() user: ReqUser,
+  ) {
     const limit = parseInt(query.limit) || 100;
     const offset = parseInt(query.offset) || 0;
     const clientId = query.clientId;
@@ -52,7 +56,7 @@ export class BranchesCommonController {
 
     // For CLIENT role, filter by their client_id
     const effectiveClientId =
-      req.user.roleCode === 'CLIENT' ? req.user.clientId : clientId;
+      user.roleCode === 'CLIENT' ? user.clientId : clientId;
 
     if (effectiveClientId) {
       const branches = await this.service.findByClient(
@@ -82,7 +86,7 @@ export class BranchesCommonController {
       LIMIT $1 OFFSET $2
     `;
 
-    const params: any[] = [limit, offset];
+    const params: unknown[] = [limit, offset];
     if (status !== 'ALL') params.push(status);
     if (search) params.push(`%${search}%`);
 
@@ -97,14 +101,14 @@ export class BranchesCommonController {
   @ApiOperation({ summary: 'Find One' })
   @Get(':id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'AUDITOR', 'CLIENT')
-  async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: ReqUser,
+  ) {
     const branch = await this.service.findById(id, false);
 
     // For CLIENT role, verify they own this branch
-    if (
-      req.user.roleCode === 'CLIENT' &&
-      branch.clientId !== req.user.clientId
-    ) {
+    if (user.roleCode === 'CLIENT' && branch.clientId !== user.clientId) {
       throw new ForbiddenException('You do not have access to this branch');
     }
 

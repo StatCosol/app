@@ -55,7 +55,7 @@
     <div class="filter-row">
       <label>
         Severity
-        <select [(ngModel)]="severityFilter" (ngModelChange)="applyFilters()">
+        <select id="bao-severity-filter" name="severityFilter" [(ngModel)]="severityFilter" (ngModelChange)="applyFilters()">
           <option value="ALL">All</option>
           <option value="CRITICAL">Critical</option>
           <option value="MAJOR">Major</option>
@@ -64,7 +64,7 @@
       </label>
       <label class="search-box">
         Search
-        <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Ref, category, description" />
+        <input autocomplete="off" id="bao-search-term" type="text" name="searchTerm" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Ref, category, description" />
       </label>
       <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear</button>
     </div>
@@ -80,7 +80,7 @@
         <span>{{ filteredObservations.length }} items</span>
       </div>
 
-      <div class="table-wrap">
+      <div class="table-wrap max-h-[600px] overflow-y-auto">
         <table>
           <thead>
             <tr>
@@ -102,11 +102,11 @@
               <td>{{ obs.category }}</td>
               <td class="truncate">{{ obs.description }}</td>
               <td>
-                <due-date-badge [dueDate]="obs.dueDateIso"></due-date-badge>
+                <ui-due-date-badge [dueDate]="obs.dueDateIso"></ui-due-date-badge>
                 <div class="due-text" [class.overdue]="dueClass(obs).includes('bad')">{{ dueText(obs) }}</div>
               </td>
-              <td><status-chip [status]="obs.severity"></status-chip></td>
-              <td><status-chip [status]="obs.status"></status-chip></td>
+              <td><ui-status-chip [status]="obs.severity"></ui-status-chip></td>
+              <td><ui-status-chip [status]="obs.status"></ui-status-chip></td>
             </tr>
           </tbody>
         </table>
@@ -117,15 +117,15 @@
       <article class="card">
         <div class="section-head">
           <h2>Observation Detail</h2>
-          <status-chip [status]="obs.status"></status-chip>
+          <ui-status-chip [status]="obs.status"></ui-status-chip>
         </div>
         <div class="kv-grid">
           <div><span>Reference</span><strong class="mono">{{ obs.observationRef }}</strong></div>
-          <div><span>Severity</span><strong><status-chip [status]="obs.severity"></status-chip></strong></div>
+          <div><span>Severity</span><strong><ui-status-chip [status]="obs.severity"></ui-status-chip></strong></div>
           <div><span>Raised Date</span><strong>{{ obs.raisedDate }}</strong></div>
-          <div><span>Due Date</span><strong><due-date-badge [dueDate]="obs.dueDateIso"></due-date-badge></strong></div>
+          <div><span>Due Date</span><strong><ui-due-date-badge [dueDate]="obs.dueDateIso"></ui-due-date-badge></strong></div>
           <div><span>Assigned Auditor</span><strong>{{ obs.assignedTo }}</strong></div>
-          <div><span>Verification Status</span><strong><status-chip [status]="auditorVerificationStatus"></status-chip></strong></div>
+          <div><span>Verification Status</span><strong><ui-status-chip [status]="auditorVerificationStatus"></ui-status-chip></strong></div>
         </div>
         <div class="verification-note">{{ auditorVerificationLabel }}</div>
         <div class="description-box">
@@ -150,15 +150,15 @@
         <div class="form-grid">
           <label>
             Root Cause
-            <textarea rows="2" [(ngModel)]="draft.rootCause" placeholder="Root cause analysis"></textarea>
+            <textarea autocomplete="off" id="bao-root-cause" rows="2" name="rootCause" [(ngModel)]="draft.rootCause" placeholder="Root cause analysis"></textarea>
           </label>
           <label>
             Corrective Action
-            <textarea rows="3" [(ngModel)]="draft.correctiveAction" placeholder="Corrective / preventive action plan"></textarea>
+            <textarea autocomplete="off" id="bao-corrective-action" rows="3" name="correctiveAction" [(ngModel)]="draft.correctiveAction" placeholder="Corrective / preventive action plan"></textarea>
           </label>
           <label>
             Action Owner
-            <input type="text" [(ngModel)]="draft.actionOwner" placeholder="Responsible person" />
+            <input autocomplete="off" id="bao-action-owner" type="text" name="actionOwner" [(ngModel)]="draft.actionOwner" placeholder="Responsible person" />
           </label>
           <div class="owner-suggestions" *ngIf="ownerSuggestions.length">
             <span>Quick Assign</span>
@@ -168,12 +168,12 @@
           </div>
           <label>
             Target Due Date
-            <input type="date" [(ngModel)]="draft.targetDueDate" />
+            <input autocomplete="off" id="bao-target-due-date" type="date" name="targetDueDate" [(ngModel)]="draft.targetDueDate" />
           </label>
           <div [class]="targetDueAlertClass">{{ targetDueAlertText }}</div>
           <label>
             CAPA Status
-            <select [(ngModel)]="draft.capaStatus">
+            <select id="bao-capa-status" name="capaStatus" [(ngModel)]="draft.capaStatus">
               <option value="OPEN">OPEN</option>
               <option value="IN_PROGRESS">IN_PROGRESS</option>
               <option value="READY_FOR_VERIFICATION">READY_FOR_VERIFICATION</option>
@@ -191,11 +191,11 @@
           </div>
           <label>
             Closure Recommendation
-            <input type="text" [(ngModel)]="draft.closureRecommendation" placeholder="Recommend close / keep open" />
+            <input autocomplete="off" id="bao-closure-recommendation" type="text" name="closureRecommendation" [(ngModel)]="draft.closureRecommendation" placeholder="Recommend close / keep open" />
           </label>
           <label class="span-2">
             Branch Notes
-            <textarea rows="2" [(ngModel)]="draft.notes" placeholder="Progress update for reviewer"></textarea>
+            <textarea autocomplete="off" id="bao-notes" rows="2" name="branchNotes" [(ngModel)]="draft.notes" placeholder="Progress update for reviewer"></textarea>
           </label>
         </div>
 
@@ -213,7 +213,7 @@
           <span>{{ selectedEvidenceFiles.length }} selected</span>
         </div>
         <div class="upload-row">
-          <input type="file" multiple (change)="onEvidenceSelected($event)" />
+          <input type="file" name="evidenceFiles" multiple (change)="onEvidenceSelected($event)" />
           <span class="hint">Attach up to 5 files. Files are posted to the closure case thread.</span>
         </div>
         <div class="file-list" *ngIf="selectedEvidenceFiles.length">
@@ -238,7 +238,7 @@
               <strong>{{ c.ticketRef }}</strong>
               <p>{{ c.createdAt ? (c.createdAt | date:'dd MMM yyyy, hh:mm a') : '-' }}</p>
               <div class="case-meta-row" *ngIf="dueForCase(c)">
-                <due-date-badge [dueDate]="dueForCase(c)"></due-date-badge>
+                <ui-due-date-badge [dueDate]="dueForCase(c)"></ui-due-date-badge>
                 <span [class]="caseDueClass(c)">{{ caseDueText(c) }}</span>
               </div>
               <div class="case-evidence" *ngIf="c.evidenceFiles.length">
@@ -248,8 +248,8 @@
               </div>
             </div>
             <div class="case-badges">
-              <status-chip [status]="c.capaStatus"></status-chip>
-              <status-chip [status]="c.status"></status-chip>
+              <ui-status-chip [status]="c.capaStatus"></ui-status-chip>
+              <ui-status-chip [status]="c.status"></ui-status-chip>
             </div>
           </div>
         </div>
@@ -261,15 +261,15 @@
           <h2>Timeline</h2>
           <span>{{ selectedTimeline.length }} events</span>
         </div>
-        <shared-timeline [events]="selectedTimeline" emptyMessage="No timeline events available."></shared-timeline>
+        <ui-shared-timeline [events]="selectedTimeline" emptyMessage="No timeline events available."></ui-shared-timeline>
       </article>
     </aside>
   </section>
 </div>
 
-<shared-file-preview-modal
+<ui-file-preview-modal
   [open]="showEvidencePreview"
   [file]="evidencePreviewData"
   (closed)="closeEvidencePreview()"
   (download)="downloadEvidencePreview()"
-></shared-file-preview-modal>
+></ui-file-preview-modal>

@@ -4,35 +4,28 @@
       <h1>PF / ESI Compliance Dashboard</h1>
       <p>Track statutory applicability gaps, derived remittance readiness, and challan or return evidence from a single payroll workspace.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientOrPeriodChange()">
-          <option value="">All assigned clients</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-        </select>
-      </label>
-
-      <label>
-        Year
-        <select [(ngModel)]="selectedYear" (ngModelChange)="onClientOrPeriodChange()">
-          <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
-        </select>
-      </label>
-
-      <label>
-        Month
-        <select [(ngModel)]="selectedMonth" (ngModelChange)="onClientOrPeriodChange()">
-          <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
-        </select>
-      </label>
-
-      <button type="button" class="btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()">
-        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
-      </button>
-    </div>
+    <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
   </header>
+
+  <div class="head-controls">
+    <label>
+      Year
+      <select id="ppe-selected-year" name="selectedYear" [(ngModel)]="selectedYear" (ngModelChange)="onClientOrPeriodChange()">
+        <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+      </select>
+    </label>
+
+    <label>
+      Month
+      <select id="ppe-selected-month" name="selectedMonth" [(ngModel)]="selectedMonth" (ngModelChange)="onClientOrPeriodChange()">
+        <option *ngFor="let m of monthOptions" [ngValue]="m.value">{{ m.label }}</option>
+      </select>
+    </label>
+
+    <button type="button" class="btn btn-primary" [disabled]="refreshing || loading" (click)="refresh()">
+      {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+    </button>
+  </div>
 
   <div *ngIf="loading" class="loader">Loading PF/ESI dashboard...</div>
 
@@ -42,6 +35,54 @@
   </div>
 
   <ng-container *ngIf="!loading && !error">
+    <section class="upload-card card">
+      <header class="section-head">
+        <h2>Upload Challan / ECR / Return</h2>
+        <span class="minor">Target: <strong>{{ selectedClientName }}</strong></span>
+      </header>
+      <div class="upload-grid">
+        <label *ngIf="!selectedClientId">
+          Client
+          <select id="ppe-upload-client" name="uploadClientId" [(ngModel)]="uploadClientId">
+            <option value="">Select client...</option>
+            <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </label>
+        <label>
+          Type
+          <select id="ppe-upload-type" name="uploadRegisterType" [(ngModel)]="uploadRegisterType">
+            <option *ngFor="let opt of uploadTypeOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+        </label>
+        <label>
+          Year
+          <select id="ppe-upload-year" name="uploadYear" [(ngModel)]="uploadYear">
+            <option *ngFor="let y of yearOptions" [ngValue]="y">{{ y }}</option>
+          </select>
+        </label>
+        <label>
+          Month
+          <select id="ppe-upload-month" name="uploadMonth" [(ngModel)]="uploadMonth">
+            <option *ngFor="let m of monthOptions.slice(1)" [ngValue]="m.value">{{ m.label }}</option>
+          </select>
+        </label>
+        <label class="grow">
+          Title (optional)
+          <input id="ppe-upload-title" name="uploadTitle" type="text" [(ngModel)]="uploadTitle" placeholder="Auto-generated from type & period" />
+        </label>
+        <label class="grow file-label">
+          File
+          <div class="file-row">
+            <input id="ppe-upload-file" type="file" (change)="onUploadFileChange($event)" accept=".pdf,.xlsx,.xls,.csv,.txt,image/*" />
+            <button type="button" class="btn btn-primary" [disabled]="uploading || !uploadFile || (!selectedClientId && !uploadClientId)" (click)="uploadChallan()">
+              {{ uploading ? 'Uploading...' : 'Upload' }}
+            </button>
+          </div>
+        </label>
+      </div>
+      <p class="panel-note">Uploaded files appear in the <strong>Challan / Return Linkage</strong> table below and are downloadable for audit.</p>
+    </section>
+
     <section class="summary-grid">
       <article class="summary-card summary-card--info">
         <span class="label">PF Applicable</span>
@@ -102,12 +143,12 @@
         <div class="filter-row">
           <label class="search-box">
             Search
-            <input type="search" [(ngModel)]="gapSearch" placeholder="Client / emp code / employee name" />
+            <input autocomplete="off" id="ppe-gap-search" type="search" name="gapSearch" [(ngModel)]="gapSearch" placeholder="Client / emp code / employee name" />
           </label>
 
           <label>
             Scheme
-            <select [(ngModel)]="schemeFilter">
+            <select id="ppe-scheme-filter" name="schemeFilter" [(ngModel)]="schemeFilter">
               <option value="ALL">All</option>
               <option value="PF">PF</option>
               <option value="ESI">ESI</option>
@@ -116,7 +157,7 @@
 
           <label>
             Identifier
-            <select [(ngModel)]="identifierFilter">
+            <select id="ppe-identifier-filter" name="identifierFilter" [(ngModel)]="identifierFilter">
               <option value="ALL">All</option>
               <option value="MISSING_ID">Missing ID</option>
               <option value="HAS_ID">Has ID</option>
@@ -173,7 +214,7 @@
           <div class="filter-row compact">
             <label>
               State
-              <select [(ngModel)]="remittanceFilter">
+            <select id="ppe-remittance-filter" name="remittanceFilter" [(ngModel)]="remittanceFilter">
                 <option value="ALL">All</option>
                 <option value="READY">Ready</option>
                 <option value="IN_PROGRESS">In progress</option>
@@ -192,6 +233,7 @@
                   <th>Client</th>
                   <th>Run</th>
                   <th>State</th>
+                  <th class="text-right">Generate</th>
                 </tr>
               </thead>
               <tbody>
@@ -203,6 +245,23 @@
                     <div class="minor">{{ row.employeeCount }} employees</div>
                   </td>
                   <td><span [class]="remittanceStateClass(row.remittanceState)">{{ row.remittanceState }}</span></td>
+                  <td class="text-right">
+                    <button
+                      type="button"
+                      class="link"
+                      [disabled]="!!generateBusyKey"
+                      (click)="generatePfFile(row)"
+                      title="Generate PF ECR file for this run"
+                    >{{ generateBusyFor(row, 'PF') ? 'PF...' : 'PF ECR' }}</button>
+                    <span class="minor"> | </span>
+                    <button
+                      type="button"
+                      class="link"
+                      [disabled]="!!generateBusyKey"
+                      (click)="generateEsiFile(row)"
+                      title="Generate ESI contribution file for this run"
+                    >{{ generateBusyFor(row, 'ESI') ? 'ESI...' : 'ESI' }}</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -282,7 +341,6 @@
     <div class="kv">
       <span>Client</span>
       <strong>{{ exception.clientName }}</strong>
-      <p>{{ exception.clientId }}</p>
     </div>
 
     <div class="kv">

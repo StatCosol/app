@@ -111,6 +111,146 @@ canvas {
     }
   }
 
+  /* =======================================================
+     Tablet Portrait & Vertical (768px – 1024px)
+     Ensures all layouts, grids, cards, tables, forms,
+     and modals render correctly on iPad / Android tablets.
+     ======================================================= */
+  @media (max-width: 1024px) {
+    /* KPI / stat-card grids: 2 columns on tablet */
+    .grid-cols-3,
+    .grid-cols-4,
+    .lg\:grid-cols-3,
+    .lg\:grid-cols-4,
+    .xl\:grid-cols-4,
+    .xl\:grid-cols-5 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    /* Sidebar auto-collapses on tablet portrait */
+    .admin-shell aside,
+    .branch-shell aside,
+    .client-shell aside {
+      width: 60px;
+    }
+
+    /* Full-width cards */
+    .card {
+      padding: 1rem 0.875rem;
+    }
+
+    /* Page header stacks on tablet */
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    /* Filter bars wrap on tablet */
+    .filter-bar,
+    .filter-grid {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    /* Modal sizing for tablet */
+    .modal-content,
+    [class*="modal-panel"] {
+      max-width: 90vw !important;
+      margin: 1rem auto;
+    }
+
+    /* Form grids: single column on tablet portrait */
+    .grid.grid-cols-3,
+    .grid.lg\:grid-cols-3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .grid.grid-cols-4,
+    .grid.lg\:grid-cols-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
+  /* Tablet portrait only (768px – 834px) */
+  @media (min-width: 768px) and (max-width: 834px) {
+    .role-content {
+      padding: 0.75rem;
+    }
+
+    /* Stack two-column layouts */
+    .grid.grid-cols-2,
+    .grid.lg\:grid-cols-2 {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* Tables: ensure horizontal scroll */
+    .table-scroll table,
+    table {
+      min-width: 600px;
+    }
+
+    /* Topbar adjustments */
+    .app-header-inner,
+    header .flex {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    .brand-logo {
+      height: 2.5rem;
+    }
+  }
+
+  /* Tablet vertical / small tablets (max 768px) */
+  @media (max-width: 768px) {
+    /* All grids go single column */
+    .grid-cols-2,
+    .md\:grid-cols-2,
+    .lg\:grid-cols-2 {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* Stat cards: 2x on small tablet, not 1x */
+    .grid-cols-2.sm\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    /* Card padding reduction */
+    .card {
+      padding: 0.875rem;
+      border-radius: 0.75rem;
+    }
+
+    /* Page title reduction */
+    .page-header .title h2 {
+      font-size: 1.25rem;
+    }
+
+    /* Nav actions wrap */
+    .nav-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    /* Button adjustments */
+    .btn-primary,
+    .btn-accent,
+    .btn-danger,
+    .btn-outline,
+    button[class*="btn-"] {
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.875rem;
+    }
+
+    /* Drawer / slide-over panels fill screen */
+    .drawer,
+    [class*="drawer-panel"] {
+      width: 100vw !important;
+      max-width: 100vw !important;
+    }
+  }
+
   /* ===========================
      Tables: never break mobile screen
      =========================== */
@@ -241,9 +381,8 @@ canvas {
   input:focus,
   select:focus,
   textarea:focus {
-    @apply outline-none border-transparent;
+    @apply outline-none border-accent-400 ring-2 ring-accent-400/20;
     box-shadow: 0 0 0 3px rgba(30, 182, 247, 0.18), 0 1px 2px rgb(0 0 0 / 0.04);
-    border-color: var(--statco-accent);
   }
 
   select {
@@ -274,12 +413,12 @@ canvas {
     @apply inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  button:not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent), .btn-primary {
+  button:not([class]):not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent), .btn-primary {
     background: linear-gradient(135deg, #0a2656 0%, #0f3470 100%);
     @apply text-white focus:ring-statco-blue shadow-sm;
   }
 
-  button:not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent):hover, .btn-primary:hover {
+  button:not([class]):not(.btn-secondary):not(.btn-danger):not(.btn-outline):not(.btn-ghost):not(.btn-icon):not(.btn-accent):hover, .btn-primary:hover {
     background: linear-gradient(135deg, #0d2f66 0%, #133e80 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(10, 38, 86, 0.3);
@@ -599,6 +738,75 @@ canvas {
   .status-dot-gray {
     @apply bg-gray-400;
     box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.2);
+  }
+
+  /* ===========================
+     Role-themed gradient buttons
+     =========================== */
+  .role-fab-admin    { background: linear-gradient(135deg, #0a2656, #051734); }
+  .role-fab-ceo      { background: linear-gradient(135deg, #0A3D1E, #06281A); }
+  .role-fab-cco      { background: linear-gradient(135deg, #2D0A56, #1A0636); }
+  .role-fab-crm      { background: linear-gradient(135deg, #0A3D3D, #063028); }
+  .role-fab-auditor   { background: linear-gradient(135deg, #3D2A0A, #281C06); }
+  .role-fab-branch    { background: linear-gradient(135deg, #0D3558, #144B7A); }
+  .role-fab-client    { background: linear-gradient(135deg, #0a2656, #051734); }
+  .role-fab-contractor { background: linear-gradient(135deg, #3D0A1E, #2A0615); }
+  .role-fab-payroll   { background: linear-gradient(135deg, #1E293B, #0F172A); }
+  .role-fab-ess       { background: linear-gradient(135deg, #0a2656, #051734); }
+  .role-fab-pf-team   { background: linear-gradient(135deg, #0a2656, #051734); }
+
+  .role-btn-admin    { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-ceo      { background: linear-gradient(135deg, #0A3D1E, #1A6B3D); }
+  .role-btn-cco      { background: linear-gradient(135deg, #2D0A56, #4A1B7A); }
+  .role-btn-crm      { background: linear-gradient(135deg, #0A3D3D, #147A6B); }
+  .role-btn-auditor   { background: linear-gradient(135deg, #3D2A0A, #7A5A1B); }
+  .role-btn-branch    { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-client    { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-contractor { background: linear-gradient(135deg, #3D0A1E, #7A1B3D); }
+  .role-btn-payroll   { background: linear-gradient(135deg, #1E293B, #334155); }
+  .role-btn-ess       { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+  .role-btn-pf-team   { background: linear-gradient(135deg, #0a2656, #1a3a6e); }
+
+  /* ===========================
+     Tab navigation - Unified
+     =========================== */
+  .tab-nav {
+    @apply flex flex-wrap gap-1 border-b-2 border-gray-200 mb-6;
+  }
+
+  .tab-nav-item {
+    @apply px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent -mb-0.5 rounded-t-lg transition-all duration-200 cursor-pointer;
+
+    &:hover:not(.active):not(.disabled) {
+      @apply text-gray-800 bg-gray-50;
+    }
+
+    &.active {
+      @apply text-info-600 border-info-600 font-semibold bg-info-50;
+    }
+
+    &.disabled {
+      @apply opacity-50 pointer-events-none cursor-not-allowed;
+    }
+  }
+
+  /* ===========================
+     Enhanced table row hover
+     =========================== */
+  tbody tr {
+    transition: background var(--transition-base);
+  }
+
+  tbody tr:hover {
+    @apply bg-slate-50;
+  }
+
+  /* Focus-visible ring for all interactive elements */
+  a:focus-visible,
+  button:focus-visible,
+  select:focus-visible,
+  [tabindex]:focus-visible {
+    @apply outline-none ring-2 ring-accent-400/50 ring-offset-2;
   }
 }
 

@@ -48,7 +48,7 @@ export class BranchDocumentsService {
 
   /**
    * MCD window: uploads for month M must happen between
-   * the 20th and 25th of month M+1.
+   * the 20th and 27th of month M+1.
    */
   getMcdWindow(year: number, month: number) {
     // month is 1-based
@@ -59,13 +59,29 @@ export class BranchDocumentsService {
       windowYear += 1;
     }
     const start = new Date(windowYear, windowMonth - 1, 20);
-    const end = new Date(windowYear, windowMonth - 1, 25, 23, 59, 59, 999);
+    const end = new Date(windowYear, windowMonth - 1, 27, 23, 59, 59, 999);
     return { start, end };
   }
 
   isInsideMcdWindow(year: number, month: number, now = new Date()): boolean {
     const { start, end } = this.getMcdWindow(year, month);
     return now >= start && now <= end;
+  }
+
+  /**
+   * Lightweight lookup for tenancy/branch checks at the controller layer
+   * (used before reupload to verify the requester owns the document's branch).
+   * Throws if doc not found or doesn't belong to the caller's client.
+   */
+  async getDocumentMeta(
+    docId: string,
+    clientId: string,
+  ): Promise<{ id: string; branchId: string; clientId: string }> {
+    const doc = await this.docRepo.findOne({ where: { id: docId } });
+    if (!doc || doc.clientId !== clientId) {
+      throw new NotFoundException('Document not found');
+    }
+    return { id: doc.id, branchId: doc.branchId, clientId: doc.clientId };
   }
 
   /* ── list ────────────────────────────────── */
@@ -105,7 +121,7 @@ export class BranchDocumentsService {
     branchId: string,
     clientId: string,
     dto: UploadDocDto,
-    file: any,
+    file: Express.Multer.File,
     userId: string,
   ) {
     await this.ensureBranchBelongsToClient(branchId, clientId);
@@ -123,7 +139,7 @@ export class BranchDocumentsService {
       }
       if (!this.isInsideMcdWindow(dto.periodYear, dto.periodMonth)) {
         throw new BadRequestException(
-          'Upload window closed. Monthly compliance documents must be uploaded between 20th-25th of the following month.',
+          'Upload window closed. Monthly compliance documents must be uploaded between 20th-27th of the following month.',
         );
       }
     }
@@ -154,7 +170,12 @@ export class BranchDocumentsService {
 
   /* ── re-upload (CLIENT role, rejected docs only) ── */
 
-  async reupload(docId: string, clientId: string, file: any, userId: string) {
+  async reupload(
+    docId: string,
+    clientId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc || doc.clientId !== clientId)
       throw new NotFoundException('Document not found');
@@ -269,7 +290,7 @@ export class BranchDocumentsService {
   async getMcdOverview(branchId: string, clientId: string, months = 6) {
     await this.ensureBranchBelongsToClient(branchId, clientId);
     const now = new Date();
-    const results: any[] = [];
+    const results: Array<Record<string, unknown>> = [];
 
     for (let i = 0; i < months; i++) {
       let y = now.getFullYear();

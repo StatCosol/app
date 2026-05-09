@@ -1,8 +1,8 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { Subject, timer } from 'rxjs';
+import { finalize, takeUntil, timeout } from 'rxjs/operators';
 
 import { CcoControlsService } from '../../../core/cco-controls.service';
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -110,6 +110,8 @@ export class CcoControlsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly api: CcoControlsService,
     private readonly toast: ToastService,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly zone: NgZone,
   ) {}
 
   ngOnInit(): void {
@@ -122,33 +124,64 @@ export class CcoControlsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  load(): void {
+  load(autoRetry = true): void {
     this.loading = true;
     this.error = null;
+    this.cdr.markForCheck();
+
+    // Auto-retry safety net: if still loading after 1.5s with no data,
+    // automatically re-issue the request once. Avoids the "first click does
+    // nothing, second click works" symptom users have reported.
+    let completed = false;
+    if (autoRetry) {
+      this.zone.runOutsideAngular(() => {
+        const sub = timer(1500).pipe(takeUntil(this.destroy$)).subscribe(() => {
+          if (completed) return;
+          this.zone.run(() => {
+            if (this.loading && this.controls.length === 0) {
+              console.warn('[cco-controls] auto-retry: re-issuing load() after 1.5s');
+              this.load(false);
+            }
+          });
+        });
+        this.destroy$.subscribe(() => sub.unsubscribe());
+      });
+    }
 
     this.api
       .getAll()
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => (this.loading = false)),
+        timeout(15000),
+        finalize(() => {
+          completed = true;
+          this.loading = false;
+          this.cdr.detectChanges();
+        }),
       )
       .subscribe({
         next: (data: CcoControlsPayload) => {
-          this.slaRules = data.slaRules || [];
-          this.thresholds = data.thresholds || [];
-          this.reminders = data.reminders || [];
+          try {
+            this.slaRules = data?.slaRules || [];
+            this.thresholds = data?.thresholds || [];
+            this.reminders = data?.reminders || [];
 
-          this.rebuildRegister();
-          this.applyFilters();
+            this.rebuildRegister();
+            this.applyFilters();
 
-          if (!this.selected && this.filteredControls.length) {
-            this.selectControl(this.filteredControls[0]);
-          } else if (this.selected) {
-            const ref = this.controls.find((row) => row.key === this.selected!.key);
-            if (ref) this.selectControl(ref);
+            if (!this.selected && this.filteredControls.length) {
+              this.selectControl(this.filteredControls[0]);
+            } else if (this.selected) {
+              const ref = this.controls.find((row) => row.key === this.selected!.key);
+              if (ref) this.selectControl(ref);
+            }
+          } catch (e) {
+            console.error('[cco-controls] error processing response:', e);
+            this.error = 'Failed to render controls register.';
           }
         },
-        error: () => {
+        error: (err) => {
+          console.error('[cco-controls] load error:', err);
           this.error = 'Failed to load controls register.';
           this.slaRules = [];
           this.thresholds = [];

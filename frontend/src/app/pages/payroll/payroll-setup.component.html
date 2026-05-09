@@ -4,22 +4,21 @@
       <h1>Payroll Setup</h1>
       <p>Configure statutory settings, pay cycle, leave/pay policy, attendance, and deduction/recovery rules with section-wise save controls.</p>
     </div>
-
-    <div class="head-controls">
-      <label>
-        Client
-        <select [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()">
-          <option value="">Select client</option>
-          <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
+    <div class="head-actions" style="display:flex;align-items:center;gap:12px;">
+      <label *ngIf="!isClientScoped && clients.length" style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
+        Client:
+        <select [(ngModel)]="selectedClientId" (change)="onClientChange()" style="min-width:240px;padding:4px 8px;">
+          <option value="" disabled>-- Select client --</option>
+          <option *ngFor="let c of clients" [value]="c.id">{{ c.clientName || c.name }} <span *ngIf="c.clientCode">({{ c.clientCode }})</span></option>
         </select>
       </label>
+      <ui-client-context-strip [inline]="true" paramKey="clientId"></ui-client-context-strip>
     </div>
   </header>
 
   <div *ngIf="loading" class="loader">Loading payroll setup...</div>
-
-  <div *ngIf="!loading && !selectedClientId" class="empty-state">
-    Select a client to configure setup tabs.
+  <div *ngIf="!loading && !selectedClientId" class="card" style="padding:16px;color:#666;">
+    Select a client from the dropdown above to view and edit its payroll rules and configuration.
   </div>
 
   <ng-container *ngIf="!loading && selectedClientId">
@@ -65,36 +64,41 @@
       </header>
 
       <div class="toggle-row">
-        <label><input type="checkbox" [(ngModel)]="setup.pfEnabled" /> PF Enabled</label>
-        <label><input type="checkbox" [(ngModel)]="setup.esiEnabled" /> ESI Enabled</label>
-        <label><input type="checkbox" [(ngModel)]="setup.ptEnabled" /> PT Enabled</label>
-        <label><input type="checkbox" [(ngModel)]="setup.lwfEnabled" /> LWF Enabled</label>
+        <label><input autocomplete="off" id="ps-pf-enabled" type="checkbox" name="pfEnabled" [(ngModel)]="setup.pfEnabled" /> PF Enabled</label>
+        <label><input autocomplete="off" id="ps-esi-enabled" type="checkbox" name="esiEnabled" [(ngModel)]="setup.esiEnabled" /> ESI Enabled</label>
+        <label><input autocomplete="off" id="ps-pt-enabled" type="checkbox" name="ptEnabled" [(ngModel)]="setup.ptEnabled" /> PT Enabled</label>
+        <label><input autocomplete="off" id="ps-lwf-enabled" type="checkbox" name="lwfEnabled" [(ngModel)]="setup.lwfEnabled" /> LWF Enabled</label>
       </div>
 
       <div class="form-grid">
         <label>
           PF Employer Rate (%)
-          <input type="number" [(ngModel)]="setup.pfEmployerRate" />
+          <input autocomplete="off" id="ps-pf-employer-rate" type="number" name="pfEmployerRate" [(ngModel)]="setup.pfEmployerRate" />
         </label>
         <label>
           PF Employee Rate (%)
-          <input type="number" [(ngModel)]="setup.pfEmployeeRate" />
+          <input autocomplete="off" id="ps-pf-employee-rate" type="number" name="pfEmployeeRate" [(ngModel)]="setup.pfEmployeeRate" />
         </label>
         <label>
           ESI Employer Rate (%)
-          <input type="number" [(ngModel)]="setup.esiEmployerRate" />
+          <input autocomplete="off" id="ps-esi-employer-rate" type="number" name="esiEmployerRate" [(ngModel)]="setup.esiEmployerRate" />
         </label>
         <label>
           ESI Employee Rate (%)
-          <input type="number" [(ngModel)]="setup.esiEmployeeRate" />
+          <input autocomplete="off" id="ps-esi-employee-rate" type="number" name="esiEmployeeRate" [(ngModel)]="setup.esiEmployeeRate" />
         </label>
         <label>
           PF Wage Ceiling
-          <input type="number" [(ngModel)]="setup.pfWageCeiling" />
+          <input autocomplete="off" id="ps-pf-wage-ceiling" type="number" name="pfWageCeiling" [(ngModel)]="setup.pfWageCeiling" />
+        </label>
+        <label>
+          PF Gross Threshold
+          <input autocomplete="off" id="ps-pf-gross-threshold" type="number" min="0" name="pfGrossThreshold" [(ngModel)]="setup.pfGrossThreshold" />
+          <small style="display:block;color:#888;font-size:0.82em">PF applies only when gross &ge; this amount. Set 0 to apply to all.</small>
         </label>
         <label>
           ESI Wage Ceiling
-          <input type="number" [(ngModel)]="setup.esiWageCeiling" />
+          <input autocomplete="off" id="ps-esi-wage-ceiling" type="number" name="esiWageCeiling" [(ngModel)]="setup.esiWageCeiling" />
         </label>
       </div>
 
@@ -123,32 +127,45 @@
       <div class="form-grid">
         <label>
           Effective From
-          <input type="date" [(ngModel)]="addon.effectiveFrom" />
+          <input autocomplete="off" id="ps-effective-from" type="date" name="effectiveFrom" [(ngModel)]="addon.effectiveFrom" />
         </label>
         <label>
           Cycle Type
-          <select [(ngModel)]="setup.payCycle">
+          <select id="ps-pay-cycle" name="payCycle" [(ngModel)]="setup.payCycle">
             <option *ngFor="let opt of payCycleOptions" [value]="opt">{{ opt }}</option>
           </select>
         </label>
         <label>
           Cycle Start Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.cycleStartDay" />
+          <input autocomplete="off" id="ps-cycle-start-day" type="number" name="cycleStartDay" min="1" max="31" [(ngModel)]="addon.cycleStartDay" />
         </label>
         <label>
           Payout Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.payoutDay" />
+          <input autocomplete="off" id="ps-payout-day" type="number" name="payoutDay" min="1" max="31" [(ngModel)]="addon.payoutDay" />
         </label>
         <label>
           Payroll Lock Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.lockDay" />
+          <input autocomplete="off" id="ps-lock-day" type="number" name="lockDay" min="1" max="31" [(ngModel)]="addon.lockDay" />
         </label>
         <label>
           Arrear Mode
-          <select [(ngModel)]="addon.arrearMode">
+          <select id="ps-arrear-mode" name="arrearMode" [(ngModel)]="addon.arrearMode">
             <option value="CURRENT">Current Cycle</option>
             <option value="NEXT">Next Cycle</option>
           </select>
+        </label>
+        <label>
+          Wage Divisor (Per-day basis)
+          <select id="ps-wage-basis" name="wageBasisDays" [(ngModel)]="setup.wageBasisDays">
+            <option value="FIXED_26">Fixed 26 days</option>
+            <option value="CALENDAR_DAYS">Calendar days (28/29/30/31)</option>
+          </select>
+          <small class="hint">Per-day wage = Gross / divisor; payable salary = per-day x payable days.</small>
+        </label>
+        <label>
+          Overtime Multiplier
+          <input autocomplete="off" id="ps-ot-mult" type="number" name="otMultiplier" min="1" max="3" step="0.5" [(ngModel)]="setup.otMultiplier" />
+          <small class="hint">1 = single wage, 2 = double wage.</small>
         </label>
       </div>
 
@@ -177,20 +194,20 @@
       <div class="form-grid">
         <label>
           Leave Accrual per Month
-          <input type="number" step="0.1" [(ngModel)]="addon.leaveAccrualPerMonth" />
+          <input autocomplete="off" id="ps-leave-accrual-per-month" type="number" name="leaveAccrualPerMonth" step="0.1" [(ngModel)]="addon.leaveAccrualPerMonth" />
         </label>
         <label>
           Max Carry Forward
-          <input type="number" [(ngModel)]="addon.maxCarryForward" />
+          <input autocomplete="off" id="ps-max-carry-forward" type="number" name="maxCarryForward" [(ngModel)]="addon.maxCarryForward" />
         </label>
         <label>
           LOP Mode
-          <select [(ngModel)]="addon.lopMode">
+          <select id="ps-lop-mode" name="lopMode" [(ngModel)]="addon.lopMode">
             <option *ngFor="let mode of lopModes" [value]="mode">{{ mode }}</option>
           </select>
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.allowCarryForward" />
+          <input autocomplete="off" id="ps-allow-carry-forward" type="checkbox" name="allowCarryForward" [(ngModel)]="addon.allowCarryForward" />
           Allow Carry Forward
         </label>
       </div>
@@ -208,6 +225,30 @@
       <div *ngIf="sectionMessages['leave-policy'].text" class="msg" [class.error]="sectionMessages['leave-policy'].error">
         {{ sectionMessages['leave-policy'].text }}
       </div>
+
+      <!-- EL Accrual -->
+      <div class="el-accrual-section">
+        <h3 class="text-sm font-bold text-gray-700 mt-4 mb-2">Earned Leave Accrual</h3>
+        <p class="text-xs text-gray-500 mb-3">Credit 1 EL to employees who worked &ge; 20 days in a month</p>
+        <div class="flex items-end gap-3 flex-wrap">
+          <label class="text-sm">
+            Year
+            <input autocomplete="off" type="number" class="w-24" [(ngModel)]="elAccrualYear" min="2020" max="2030" />
+          </label>
+          <label class="text-sm">
+            Month
+            <select [(ngModel)]="elAccrualMonth" class="w-32">
+              <option *ngFor="let m of months" [ngValue]="m.value">{{ m.label }}</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" type="button" [disabled]="elAccruing" (click)="accrueEL()">
+            {{ elAccruing ? 'Processing...' : 'Run EL Accrual' }}
+          </button>
+        </div>
+        <div *ngIf="elAccrualResult" class="text-sm mt-2" [class.text-green-700]="!elAccrualError" [class.text-red-600]="elAccrualError">
+          {{ elAccrualResult }}
+        </div>
+      </div>
     </section>
 
     <!-- Attendance -->
@@ -220,24 +261,24 @@
       <div class="form-grid">
         <label>
           Attendance Source
-          <select [(ngModel)]="addon.attendanceSource">
+          <select id="ps-attendance-source" name="attendanceSource" [(ngModel)]="addon.attendanceSource">
             <option *ngFor="let src of attendanceSources" [value]="src">{{ src }}</option>
           </select>
         </label>
         <label>
           Attendance Cutoff Day
-          <input type="number" min="1" max="31" [(ngModel)]="addon.attendanceCutoffDay" />
+          <input autocomplete="off" id="ps-attendance-cutoff-day" type="number" name="attendanceCutoffDay" min="1" max="31" [(ngModel)]="addon.attendanceCutoffDay" />
         </label>
         <label>
           Grace Minutes
-          <input type="number" min="0" max="180" [(ngModel)]="addon.graceMinutes" />
+          <input autocomplete="off" id="ps-grace-minutes" type="number" name="graceMinutes" min="0" max="180" [(ngModel)]="addon.graceMinutes" />
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.autoLockAttendance" />
+          <input autocomplete="off" id="ps-auto-lock-attendance" type="checkbox" name="autoLockAttendance" [(ngModel)]="addon.autoLockAttendance" />
           Auto-lock Attendance
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.syncEnabled" />
+          <input autocomplete="off" id="ps-sync-enabled" type="checkbox" name="syncEnabled" [(ngModel)]="addon.syncEnabled" />
           Integration Sync Enabled
         </label>
       </div>
@@ -266,20 +307,20 @@
 
       <div class="form-grid">
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.enableLoanRecovery" />
+          <input autocomplete="off" id="ps-enable-loan-recovery" type="checkbox" name="enableLoanRecovery" [(ngModel)]="addon.enableLoanRecovery" />
           Enable Loan Recovery
         </label>
         <label class="inline-toggle">
-          <input type="checkbox" [(ngModel)]="addon.enableAdvanceRecovery" />
+          <input autocomplete="off" id="ps-enable-advance-recovery" type="checkbox" name="enableAdvanceRecovery" [(ngModel)]="addon.enableAdvanceRecovery" />
           Enable Advance Recovery
         </label>
         <label>
           Default Deduction Cap (%)
-          <input type="number" min="0" max="100" [(ngModel)]="addon.defaultDeductionCapPct" />
+          <input autocomplete="off" id="ps-default-deduction-cap-pct" type="number" name="defaultDeductionCapPct" min="0" max="100" [(ngModel)]="addon.defaultDeductionCapPct" />
         </label>
         <label class="span-2">
           Recovery Order
-          <input type="text" [(ngModel)]="addon.recoveryOrder" />
+          <input autocomplete="off" id="ps-recovery-order" type="text" name="recoveryOrder" [(ngModel)]="addon.recoveryOrder" />
         </label>
       </div>
 
@@ -307,7 +348,7 @@
       <div class="inline-filters">
         <label class="search-box">
           Search Components
-          <input type="search" [(ngModel)]="componentSearch" placeholder="Code / name / type" />
+          <input autocomplete="off" id="ps-component-search" type="search" name="componentSearch" [(ngModel)]="componentSearch" placeholder="Code / name / type" />
         </label>
       </div>
 
@@ -319,6 +360,7 @@
             <tr>
               <th>Component</th>
               <th>Type</th>
+              <th>Formula / Value</th>
               <th>Flags</th>
               <th class="text-right">Actions</th>
             </tr>
@@ -330,6 +372,10 @@
                 <div class="minor mono">{{ c.code }}</div>
               </td>
               <td>{{ c.componentType }}</td>
+              <td class="mono" style="max-width:340px;white-space:pre-wrap;">
+                <span *ngIf="componentFormulaMap[c.id]; else noFormula">{{ componentFormulaMap[c.id] }}</span>
+                <ng-template #noFormula><span class="minor">&mdash;</span></ng-template>
+              </td>
               <td>
                 <span class="flag" *ngIf="c.affectsPfWage">PF</span>
                 <span class="flag" *ngIf="c.affectsEsiWage">ESI</span>
@@ -338,6 +384,7 @@
               </td>
               <td class="text-right">
                 <button class="link" type="button" (click)="openCompForm(c)">Edit</button>
+                <button class="link" type="button" (click)="openFormulaEditor(c)">Formula</button>
                 <button class="link" type="button" (click)="openRules(c)">Rules</button>
                 <button class="link link-danger" type="button" (click)="deleteComp(c)">Delete</button>
               </td>
@@ -355,6 +402,14 @@
           <h2>Rules - {{ selectedComponent.name }} ({{ selectedComponent.code }})</h2>
           <button class="btn btn-secondary" type="button" (click)="openRuleForm()">+ Add Rule</button>
         </header>
+
+        <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;margin:8px 0;padding:8px 12px;font-size:0.9em;">
+          <strong>Note:</strong> Use the <em>Formula</em> button above to set how
+          this component is calculated (BASIC = 40% of GROSS, HRA = 50% of BASIC,
+          etc.). The "Rules" listed here are optional add-ons (e.g.
+          <code>ATT_BONUS = FIXED 500 if presentDays &ge; 24</code>) and slab
+          overrides.
+        </div>
 
         <div *ngIf="loadingRules" class="loader mini">Loading rules...</div>
 
@@ -386,6 +441,200 @@
         </ng-template>
       </section>
     </section>
+
+    <!-- Salary Rules & Live Preview -->
+    <section class="card" *ngIf="activeTab === 'rules-preview'">
+      <header class="section-head">
+        <h2>Salary Rules &amp; Live Preview</h2>
+        <span class="section-meta">Read-only view of every rule the payroll engine will execute for this client. Edits here flow into the next run automatically.</span>
+      </header>
+
+      <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;">
+        Everything below comes from the same data the engine reads at run time.
+        Use <strong>Edit in Builder</strong> to change formulas, components, or
+        statutory config &mdash; saved changes apply to the next payroll run.
+      </div>
+
+      <div *ngIf="loadingRulesPreview" class="loader mini">Loading rules...</div>
+
+      <ng-container *ngIf="!loadingRulesPreview">
+        <header class="section-head top-gap">
+          <h2 style="font-size:1.05em;">Active Salary Structures</h2>
+          <button class="btn btn-secondary" type="button" (click)="goToStructureBuilder()">Edit in Builder</button>
+        </header>
+
+        <div *ngIf="!clientStructures.length" class="empty-mini">
+          No active salary structures. Click <em>Edit in Builder</em> to create one.
+        </div>
+
+        <div *ngFor="let st of clientStructures" class="card" style="margin:8px 0;padding:12px;background:#fafafa;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div class="strong">{{ st.name }} <span class="minor mono">v{{ st.version }} ({{ st.code }})</span></div>
+              <div class="minor">Effective {{ formatDate(st.effectiveFrom) }} &mdash; {{ st.effectiveTo ? formatDate(st.effectiveTo) : 'open' }} <span *ngIf="st.isDefault" class="flag">DEFAULT</span></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.9em;">
+              <input type="radio" name="structureSel" [value]="st.id" [(ngModel)]="selectedStructureId" (change)="onStructureSelect()" />
+              Use for preview
+            </label>
+          </div>
+
+          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.components.length">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Component</th>
+                  <th>Type</th>
+                  <th>Calculation</th>
+                  <th>Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of st.components">
+                  <td>{{ c.displayOrder }}</td>
+                  <td>
+                    <div class="strong">{{ c.label || c.name }}</div>
+                    <div class="minor mono">{{ c.code }}</div>
+                  </td>
+                  <td>{{ c.componentType }}</td>
+                  <td class="mono" style="white-space:pre-wrap;">{{ componentValuePreview(c) }}</td>
+                  <td>
+                    <span class="flag" *ngIf="c.statutory">STAT</span>
+                    <span class="flag tax" *ngIf="c.taxable">TAX</span>
+                    <span class="flag" *ngIf="c.isVisibleInPayslip">PAYSLIP</span>
+                    <span class="flag" *ngIf="!c.isActive" style="background:#fee;">INACTIVE</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-wrap" style="margin-top:8px;" *ngIf="st.statutoryConfigs.length">
+            <table>
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>PT</th>
+                  <th>PF</th>
+                  <th>ESI</th>
+                  <th>PF rates</th>
+                  <th>ESI rates</th>
+                  <th>Min Wage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let sc of st.statutoryConfigs">
+                  <td class="strong">{{ sc.stateCode }}</td>
+                  <td>{{ sc.enablePt ? 'On' : 'Off' }}</td>
+                  <td>{{ sc.enablePf ? 'On' : 'Off' }}</td>
+                  <td>{{ sc.enableEsi ? 'On' : 'Off' }}</td>
+                  <td class="minor">Emp {{ sc.pfEmployeeRate }}% &middot; Cap {{ sc.pfWageCap }}</td>
+                  <td class="minor">Emp {{ sc.esiEmployeeRate }}% &middot; Er {{ sc.esiEmployerRate }}% &middot; Ceil {{ sc.esiGrossCeiling }}</td>
+                  <td>{{ formatMoney(sc.minimumWage) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <header class="section-head top-gap">
+          <h2 style="font-size:1.05em;">State PT / LWF Slabs (effective)</h2>
+        </header>
+        <div *ngIf="stateSlabsLoading" class="loader mini">Loading slabs...</div>
+
+        <div *ngFor="let slab of stateSlabs" class="card" style="margin:8px 0;padding:10px;background:#fafafa;">
+          <div class="strong">{{ slab.componentCode }} &mdash; {{ slab.stateCode }}
+            <span class="flag" [class.tax]="slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL'">
+              {{ slab.source === 'CLIENT' || slab.source === 'CLIENT_ALL' ? 'Per-client override' : (slab.source === 'NONE' ? 'No slab' : 'Shared default') }}
+            </span>
+          </div>
+          <div *ngIf="!slab.slabs.length" class="minor">No slabs &mdash; engine returns ₹0 for this component in this state.</div>
+          <table *ngIf="slab.slabs.length" style="margin-top:6px;">
+            <thead>
+              <tr><th>From</th><th>To</th><th>Amount</th><th>Percent</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of slab.slabs">
+                <td>{{ formatMoney(row.fromAmount) }}</td>
+                <td>{{ row.toAmount === null || row.toAmount === undefined ? '∞' : formatMoney(row.toAmount) }}</td>
+                <td>{{ row.valueAmount === null || row.valueAmount === undefined ? '-' : formatMoney(row.valueAmount) }}</td>
+                <td>{{ row.valuePercent === null || row.valuePercent === undefined ? '-' : (row.valuePercent + '%') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <header class="section-head top-gap">
+          <h2 style="font-size:1.05em;">Live Preview Calculator</h2>
+        </header>
+
+        <div class="form-grid">
+          <label>
+            Salary Structure
+            <select [(ngModel)]="selectedStructureId" (change)="onStructureSelect()" name="prevStructure" id="ps-prev-structure">
+              <option value="" disabled>-- choose structure --</option>
+              <option *ngFor="let s of clientStructures" [value]="s.id">{{ s.name }} (v{{ s.version }})</option>
+            </select>
+          </label>
+          <label>
+            State
+            <select [(ngModel)]="preview.stateCode" (change)="onStateChange()" name="prevState" id="ps-prev-state">
+              <option *ngFor="let s of indianStates" [value]="s.code">{{ s.code }} &mdash; {{ s.name }}</option>
+            </select>
+          </label>
+          <label>
+            Gross Salary
+            <input type="number" [(ngModel)]="preview.gross" name="prevGross" id="ps-prev-gross" min="0" />
+          </label>
+          <label>
+            LOP Days
+            <input type="number" [(ngModel)]="preview.lopDays" name="prevLop" id="ps-prev-lop" min="0" max="31" />
+          </label>
+          <label>
+            Month
+            <select [(ngModel)]="preview.month" name="prevMonth" id="ps-prev-month">
+              <option *ngFor="let m of months" [value]="m.value">{{ m.label }}</option>
+            </select>
+          </label>
+          <label>
+            Year
+            <input type="number" [(ngModel)]="preview.year" name="prevYear" id="ps-prev-year" min="2020" max="2099" />
+          </label>
+        </div>
+
+        <footer class="section-actions">
+          <button class="btn btn-primary" type="button" [disabled]="previewLoading || !selectedStructureId" (click)="runPreview()">
+            {{ previewLoading ? 'Calculating...' : 'Run Live Preview' }}
+          </button>
+        </footer>
+
+        <div *ngIf="previewResult" class="card" style="margin-top:12px;padding:12px;background:#f8fff4;">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:0.95em;">
+            <div><span class="minor">Total Earnings:</span> <strong>{{ formatMoney(previewResult.totalEarnings) }}</strong></div>
+            <div><span class="minor">Total Deductions:</span> <strong>{{ formatMoney(previewResult.totalDeductions) }}</strong></div>
+            <div><span class="minor">Net Pay:</span> <strong style="color:#15803d;">{{ formatMoney(previewResult.netPay) }}</strong></div>
+          </div>
+          <div *ngIf="previewResult.warnings.length" style="margin-top:8px;">
+            <div class="minor">Warnings:</div>
+            <ul style="margin:4px 0;padding-left:20px;color:#b45309;">
+              <li *ngFor="let w of previewResult.warnings">{{ w }}</li>
+            </ul>
+          </div>
+          <div class="table-wrap" style="margin-top:8px;">
+            <table>
+              <thead><tr><th>Component</th><th class="text-right">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let r of previewValueRows()">
+                  <td class="mono">{{ r.code }}</td>
+                  <td class="text-right">{{ formatMoney(r.amount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </ng-container>
+    </section>
   </ng-container>
 </div>
 
@@ -400,26 +649,26 @@
     <div class="modal-grid">
       <label>
         Code *
-        <input type="text" [(ngModel)]="compForm.code" [disabled]="editingComp" />
+        <input autocomplete="off" id="ps-code" type="text" name="compCode" [(ngModel)]="compForm.code" [disabled]="editingComp" />
       </label>
       <label>
         Name *
-        <input type="text" [(ngModel)]="compForm.name" />
+        <input autocomplete="off" id="ps-name" type="text" name="compName" [(ngModel)]="compForm.name" />
       </label>
       <label>
         Type *
-        <select [(ngModel)]="compForm.componentType">
+        <select id="ps-component-type" name="componentType" [(ngModel)]="compForm.componentType">
           <option *ngFor="let t of compTypeOptions" [value]="t">{{ t }}</option>
         </select>
       </label>
       <label>
         Display Order
-        <input type="number" [(ngModel)]="compForm.displayOrder" />
+        <input autocomplete="off" id="ps-display-order" type="number" name="displayOrder" [(ngModel)]="compForm.displayOrder" />
       </label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.affectsPfWage" /> Affects PF Wage</label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.affectsEsiWage" /> Affects ESI Wage</label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.isTaxable" /> Taxable</label>
-      <label class="inline-toggle"><input type="checkbox" [(ngModel)]="compForm.isRequired" /> Required</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-affects-pf-wage" type="checkbox" name="affectsPfWage" [(ngModel)]="compForm.affectsPfWage" /> Affects PF Wage</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-affects-esi-wage" type="checkbox" name="affectsEsiWage" [(ngModel)]="compForm.affectsEsiWage" /> Affects ESI Wage</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-is-taxable" type="checkbox" name="isTaxable" [(ngModel)]="compForm.isTaxable" /> Taxable</label>
+      <label class="inline-toggle"><input autocomplete="off" id="ps-is-required" type="checkbox" name="isRequired" [(ngModel)]="compForm.isRequired" /> Required</label>
     </div>
 
     <div *ngIf="compFormError" class="msg error">{{ compFormError }}</div>
@@ -444,32 +693,32 @@
     <div class="modal-grid">
       <label>
         Rule Type
-        <select [(ngModel)]="ruleForm.ruleType">
+        <select id="ps-rule-type" name="ruleType" [(ngModel)]="ruleForm.ruleType">
           <option *ngFor="let t of ruleTypeOptions" [value]="t">{{ t }}</option>
         </select>
       </label>
       <label>
         Priority
-        <input type="number" [(ngModel)]="ruleForm.priority" />
+        <input autocomplete="off" id="ps-priority" type="number" name="rulePriority" [(ngModel)]="ruleForm.priority" />
       </label>
 
       <label *ngIf="ruleForm.ruleType === 'FIXED'">
         Fixed Amount
-        <input type="number" [(ngModel)]="ruleForm.fixedAmount" />
+        <input autocomplete="off" id="ps-fixed-amount" type="number" name="ruleFixedAmount" [(ngModel)]="ruleForm.fixedAmount" />
       </label>
 
       <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
         Base Component Code
-        <input type="text" [(ngModel)]="ruleForm.baseComponent" />
+        <input autocomplete="off" id="ps-base-component" type="text" name="baseComponent" [(ngModel)]="ruleForm.baseComponent" />
       </label>
       <label *ngIf="ruleForm.ruleType === 'PERCENTAGE'">
         Percentage
-        <input type="number" [(ngModel)]="ruleForm.percentage" />
+        <input autocomplete="off" id="ps-percentage" type="number" name="rulePercentage" [(ngModel)]="ruleForm.percentage" />
       </label>
 
       <label class="span-2" *ngIf="ruleForm.ruleType === 'FORMULA'">
         Formula
-        <textarea rows="3" [(ngModel)]="ruleForm.formula"></textarea>
+        <textarea autocomplete="off" id="ps-formula" rows="3" name="ruleFormula" [(ngModel)]="ruleForm.formula"></textarea>
       </label>
     </div>
 
@@ -479,6 +728,132 @@
       <button class="btn btn-ghost" type="button" (click)="showRuleModal = false">Cancel</button>
       <button class="btn btn-primary" type="button" [disabled]="savingRule" (click)="saveRule()">
         {{ savingRule ? 'Saving...' : 'Save Rule' }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- Formula modal (writes to active salary structure item) -->
+<div class="modal-backdrop" *ngIf="showFormulaModal">
+  <div class="modal-card">
+    <header>
+      <h3>Calculation &mdash; {{ formulaTargetComponent?.name }} ({{ formulaTargetComponent?.code }})</h3>
+      <button type="button" class="link" (click)="showFormulaModal = false">Close</button>
+    </header>
+
+    <div class="msg" style="background:#eef6ff;border-left:3px solid #2563eb;color:#1e3a8a;margin:0 0 8px;padding:8px 12px;font-size:0.88em;">
+      Saved values are used by the payroll engine on the next run. Variables you can use in formulas:
+      <code>ACTUAL_GROSS</code>, <code>BASIC</code>, <code>HRA</code>, <code>GROSS</code>, <code>WORKED_DAYS</code>, <code>PAYABLE_DAYS</code>, <code>LOP_DAYS</code>, plus any other component code defined for this client.
+      Operators: <code>+ - * / ( )</code>, <code>MIN(a,b)</code>, <code>MAX(a,b)</code>, <code>IF(cond, a, b)</code>, comparisons <code>&gt; &lt; &gt;= &lt;= == !=</code>.
+    </div>
+
+    <div class="modal-grid">
+      <label>
+        Calculation Method *
+        <select id="ps-formula-method" name="formulaMethod" [(ngModel)]="formulaForm.calcMethod">
+          <option *ngFor="let m of formulaCalcMethods" [value]="m">{{ m }}</option>
+        </select>
+      </label>
+      <label>
+        Rounding
+        <select id="ps-formula-round" name="formulaRound" [(ngModel)]="formulaForm.roundingMode">
+          <option *ngFor="let r of formulaRoundOptions" [value]="r">{{ r }}</option>
+        </select>
+      </label>
+
+      <label *ngIf="formulaForm.calcMethod === 'FIXED'">
+        Fixed Amount *
+        <input autocomplete="off" id="ps-formula-fixed" type="number" name="formulaFixed" [(ngModel)]="formulaForm.fixedAmount" />
+      </label>
+
+      <label *ngIf="formulaForm.calcMethod === 'PERCENT'">
+        Percentage *
+        <input autocomplete="off" id="ps-formula-pct" type="number" step="0.01" name="formulaPct" [(ngModel)]="formulaForm.percentage" />
+      </label>
+      <label *ngIf="formulaForm.calcMethod === 'PERCENT'">
+        Base *
+        <select id="ps-formula-base" name="formulaBase" [(ngModel)]="formulaForm.percentageBase">
+          <option *ngFor="let b of formulaBaseOptions" [value]="b">{{ b }}</option>
+        </select>
+      </label>
+
+      <div class="span-2" *ngIf="formulaForm.calcMethod === 'FORMULA'">
+        <div class="builder-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <span>Formula *</span>
+          <span style="display:flex;gap:6px;align-items:center;">
+            <select [(ngModel)]="selectedTemplateId" name="tplPick"
+                    style="font-size:12px;padding:3px 6px;">
+              <option value="">— Load template —</option>
+              <option *ngFor="let t of formulaTemplates" [value]="t.id">
+                {{ t.name }}{{ t.clientId ? '' : ' (global)' }}
+              </option>
+            </select>
+            <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+                    [disabled]="!selectedTemplateId" (click)="applySelectedTemplate()">
+              Load
+            </button>
+            <button type="button" class="btn btn-ghost" style="padding:3px 8px;font-size:12px;"
+                    [disabled]="!formulaForm.formulaJson || savingTemplate"
+                    (click)="saveAsTemplate()">
+              {{ savingTemplate ? 'Saving…' : 'Save as template' }}
+            </button>
+          </span>
+        </div>
+        <app-formula-builder
+          [value]="formulaForm.formulaJson"
+          (valueChange)="formulaForm.formulaJson = $event">
+        </app-formula-builder>
+      </div>
+
+      <label>
+        Min Amount (optional)
+        <input autocomplete="off" id="ps-formula-min" type="number" name="formulaMin" [(ngModel)]="formulaForm.minAmount" />
+      </label>
+      <label>
+        Max Amount (optional)
+        <input autocomplete="off" id="ps-formula-max" type="number" name="formulaMax" [(ngModel)]="formulaForm.maxAmount" />
+      </label>
+
+      <label class="inline-toggle">
+        <input autocomplete="off" id="ps-formula-enabled" type="checkbox" name="formulaEnabled" [(ngModel)]="formulaForm.enabled" />
+        Enabled (engine will compute this component)
+      </label>
+    </div>
+
+    <div *ngIf="formulaError" class="msg error">{{ formulaError }}</div>
+
+    <details class="versions-panel" style="margin-top:8px;">
+      <summary style="cursor:pointer;font-size:12px;color:#475569;font-weight:600;"
+               (click)="toggleVersions()">
+        Version History ({{ structureVersions.length }})
+      </summary>
+      <div *ngIf="loadingVersions" style="padding:6px;font-size:12px;">Loading…</div>
+      <table *ngIf="!loadingVersions && structureVersions.length"
+             style="width:100%;font-size:12px;margin-top:6px;">
+        <thead>
+          <tr style="text-align:left;color:#64748b;">
+            <th>v#</th><th>When</th><th>Reason</th><th>Items</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let v of structureVersions">
+            <td>{{ v.versionNo }}</td>
+            <td>{{ v.createdAt | date:'short' }}</td>
+            <td>{{ v.reason || '—' }}</td>
+            <td>{{ v.itemsSnapshot.length || 0 }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div *ngIf="!loadingVersions && !structureVersions.length"
+           style="padding:6px;font-size:12px;color:#94a3b8;">
+        No prior versions yet — saving this formula will create v1.
+      </div>
+    </details>
+
+    <footer>
+      <button class="btn btn-ghost" type="button" (click)="showFormulaModal = false">Cancel</button>
+      <button class="btn btn-primary" type="button" [disabled]="savingFormula" (click)="saveFormula()">
+        {{ savingFormula ? 'Saving...' : 'Save Formula' }}
       </button>
     </footer>
   </div>

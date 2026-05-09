@@ -11,15 +11,15 @@
   <!-- Error State -->
   <div *ngIf="errorMsg" class="rounded-lg bg-red-50 border border-red-200 p-4 mb-6">
     <p class="text-sm text-red-800">{{ errorMsg }}</p>
-    <button class="mt-2 text-sm font-medium text-red-600 hover:text-red-500 underline" (click)="reload()">Try Again</button>
+    <button type="button" class="mt-2 text-sm font-medium text-red-600 hover:text-red-500 underline" (click)="reload()">Try Again</button>
   </div>
 
-  <ng-container *ngIf="!loading">
+  <ng-container *ngIf="!loading && data">
 
   <!-- Filter / Export bar -->
   <div class="flex flex-wrap items-center gap-3 mb-6">
     <div class="relative w-52">
-      <input
+      <input autocomplete="off" id="cd-search-term" name="searchTerm"
         type="text"
         [(ngModel)]="searchTerm"
         (ngModelChange)="applySearch()"
@@ -29,7 +29,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
     </div>
-    <button (click)="exportCsv()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
+    <button type="button" (click)="exportCsv()" class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
       Export
     </button>
@@ -37,7 +37,7 @@
   <!-- KPI Grid -->
   <div class="kpi-cards-grid">
     <!-- Pending Approvals -->
-    <div class="kpi-tile kpi-tile--amber" style="cursor:pointer" (click)="goToApprovals()">
+    <div class="kpi-tile kpi-tile--amber cursor-pointer" (click)="goToApprovals()">
       <div class="kpi-tile__icon" style="background:#fef3c7">
         <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -50,7 +50,7 @@
     </div>
 
     <!-- Total CRMs -->
-    <div class="kpi-tile kpi-tile--blue" style="cursor:pointer" (click)="goToCrms()">
+    <div class="kpi-tile kpi-tile--blue cursor-pointer" (click)="goToCrms()">
       <div class="kpi-tile__icon" style="background:#dbeafe">
         <svg width="24" height="24" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -63,7 +63,7 @@
     </div>
 
     <!-- Overdue Tasks -->
-    <div class="kpi-tile kpi-tile--red" style="cursor:pointer" (click)="goToOverdueList()">
+    <div class="kpi-tile kpi-tile--red cursor-pointer" (click)="goToOverdueList()">
       <div class="kpi-tile__icon" style="background:#fee2e2">
         <svg width="24" height="24" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>

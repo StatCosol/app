@@ -1,4 +1,4 @@
-import { Component, Input, forwardRef, OnChanges } from '@angular/core';
+import { Component, Input, forwardRef, OnChanges , ChangeDetectionStrategy} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 
@@ -11,6 +11,7 @@ export interface SelectOption {
 @Component({
   selector: 'ui-form-select',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   providers: [
     {
@@ -28,7 +29,10 @@ export interface SelectOption {
       <div class="relative">
         <select
           [id]="selectId"
+          [name]="name || selectId"
           [disabled]="disabled"
+          [attr.aria-invalid]="error ? 'true' : null"
+          [attr.aria-describedby]="error ? selectId + '-error' : hint ? selectId + '-hint' : null"
           [ngClass]="selectClassStr"
           [ngModel]="value"
           (ngModelChange)="onInternalChange($event)"
@@ -45,8 +49,8 @@ export interface SelectOption {
           </svg>
         </div>
       </div>
-      <p *ngIf="hint && !error" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
-      <p *ngIf="error" class="mt-1.5 text-sm text-error-600">{{ error }}</p>
+      <p *ngIf="hint && !error" [id]="selectId + '-hint'" class="mt-1.5 text-sm text-gray-500">{{ hint }}</p>
+      <p *ngIf="error" [id]="selectId + '-error'" role="alert" class="mt-1.5 text-sm text-error-600">{{ error }}</p>
     </div>
   `
 })
@@ -59,6 +63,7 @@ export class FormSelectComponent implements ControlValueAccessor, OnChanges {
   @Input() required = false;
   @Input() disabled = false;
   @Input() selectId = `select-${Math.random().toString(36).substr(2, 9)}`;
+  @Input() name = '';
 
   // Pre-compute CSS classes to avoid new string refs on every CD cycle
   selectClassStr = '';

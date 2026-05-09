@@ -1,13 +1,25 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { of } from 'rxjs';
 import { PayrollRunsComponent } from './payroll-runs.component';
 
 describe('PayrollRunsComponent', () => {
   let controller: HttpTestingController;
 
+  const fakeRoute = {
+    snapshot: { paramMap: convertToParamMap({}) },
+    params: of({}),
+    paramMap: of(convertToParamMap({})),
+    queryParamMap: of(convertToParamMap({})),
+  };
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, PayrollRunsComponent],
+      providers: [
+        { provide: ActivatedRoute, useValue: fakeRoute },
+      ],
     });
     controller = TestBed.inject(HttpTestingController);
   });

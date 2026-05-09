@@ -1,0 +1,11 @@
+stateCode,skillCategory,scheduledEmployment,monthlyWage,dailyWage,effectiveFrom,effectiveTo,source,notes
+TS,UNSKILLED,,13500.00,519.23,2025-01-01,,Telangana Labour Dept Notification 2025,Update with actual gazette
+KA,UNSKILLED,,15423.00,593.00,2025-04-01,,Karnataka Labour Dept,Replace with current rate
+MH,UNSKILLED,,13350.00,513.46,2025-01-01,,Maharashtra Labour Dept,Replace with current rate
+TN,UNSKILLED,,11700.00,450.00,2025-04-01,,Tamil Nadu Labour Dept,Replace with current rate
+DL,UNSKILLED,,17494.00,673.00,2025-04-01,,Delhi Labour Dept,Replace with current rate
+UP,UNSKILLED,,10648.00,409.54,2025-04-01,,UP Labour Dept,Replace with current rate
+AP,UNSKILLED,,11500.00,442.31,2025-01-01,,AP Labour Dept,Replace with current rate
+GJ,UNSKILLED,,12090.00,465.00,2025-04-01,,Gujarat Labour Dept,Replace with current rate
+WB,UNSKILLED,,10920.00,420.00,2025-01-01,,West Bengal Labour Dept,Replace with current rate
+KL,UNSKILLED,,17000.00,653.85,2025-04-01,,Kerala Labour Dept,Replace with current rate

@@ -80,6 +80,9 @@ export class ClientEntity {
   @Column({ name: 'company_code', type: 'varchar', length: 30, nullable: true })
   companyCode: string | null;
 
+  @Column({ name: 'crm_on_behalf_enabled', type: 'boolean', default: false })
+  crmOnBehalfEnabled: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

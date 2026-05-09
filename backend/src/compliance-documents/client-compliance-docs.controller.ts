@@ -5,7 +5,6 @@ import {
   Param,
   Post,
   Query,
-  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +15,8 @@ import { Roles } from '../auth/roles.decorator';
 import { ComplianceDocumentsService } from './compliance-documents.service';
 import { UpdateCompanySettingsDto } from './dto/update-company-settings.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @ApiTags('Compliance Documents')
 @ApiBearerAuth('JWT')
@@ -28,9 +29,11 @@ export class ClientComplianceDocsController {
   /** List compliance documents for the client's document library */
   @ApiOperation({ summary: 'List' })
   @Get()
-  async list(@Req() req: any, @Query() query: any) {
-    const user = req.user;
-    return this.svc.listForClient(user.clientId, user.id, {
+  async list(
+    @CurrentUser() user: ReqUser,
+    @Query() query: Record<string, string>,
+  ) {
+    return this.svc.listForClient(user.clientId!, user.id, {
       branchId: query.branchId,
       category: query.category,
       subCategory: query.subCategory,
@@ -59,16 +62,15 @@ export class ClientComplianceDocsController {
   @Get(':id/download')
   async download(
     @Param('id') id: string,
-    @Req() req: any,
+    @CurrentUser() user: ReqUser,
     @Res() res: Response,
   ) {
-    const user = req.user;
     const { absolutePath, fileName, mimeType } =
       await this.svc.getDocumentForDownload(
         id,
         user.id,
         'CLIENT',
-        user.clientId,
+        user.clientId!,
       );
     res.setHeader(
       'Content-Disposition',
@@ -81,15 +83,18 @@ export class ClientComplianceDocsController {
   /** Get company settings (wage/salary register access) */
   @ApiOperation({ summary: 'Get Settings' })
   @Get('settings')
-  async getSettings(@Req() req: any) {
-    const settings = await this.svc.getCompanySettings(req.user.clientId);
-    return { clientId: req.user.clientId, ...settings };
+  async getSettings(@CurrentUser() user: ReqUser) {
+    const settings = await this.svc.getCompanySettings(user.clientId!);
+    return { clientId: user.clientId, ...settings };
   }
 
   /** Update company settings (master user only — enforced in service/frontend) */
   @ApiOperation({ summary: 'Update Settings' })
   @Post('settings')
-  async updateSettings(@Req() req: any, @Body() dto: UpdateCompanySettingsDto) {
-    return this.svc.updateCompanySettings(req.user.clientId, req.user.id, dto);
+  async updateSettings(
+    @CurrentUser() user: ReqUser,
+    @Body() dto: UpdateCompanySettingsDto,
+  ) {
+    return this.svc.updateCompanySettings(user.clientId!, user.id, dto);
   }
 }

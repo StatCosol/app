@@ -316,4 +316,13 @@ export class ClientBranchesService {
     const p = new HttpParams().set('month', month);
     return this.http.get(`${this.baseUrl}/api/v1/compliance/export-pack`, { params: p });
   }
+
+  /** Download executive export pack as XLSX blob */
+  downloadExportPackXlsx(month: string): Observable<Blob> {
+    const p = new HttpParams().set('month', month);
+    return this.http.get(`${this.baseUrl}/api/v1/compliance/export-pack/xlsx`, {
+      params: p,
+      responseType: 'blob',
+    });
+  }
 }

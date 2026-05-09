@@ -1,4 +1,5 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, IsInt, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ListQueryDto } from './list-query.dto';
 
 /**
@@ -22,6 +23,11 @@ export class ScopedListQueryDto extends ListQueryDto {
   @IsOptional()
   @IsString()
   fy?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  year?: number;
 
   @IsOptional()
   @IsString()

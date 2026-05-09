@@ -8,6 +8,7 @@ import {
   ClientHelpdeskController,
   HelpdeskMessagesController,
   PfTeamHelpdeskController,
+  EssHelpdeskController,
   AdminHelpdeskController,
   CrmHelpdeskController,
   HelpdeskManagementController,
@@ -24,6 +25,7 @@ import {
   controllers: [
     ClientHelpdeskController,
     PfTeamHelpdeskController,
+    EssHelpdeskController,
     HelpdeskMessagesController,
     AdminHelpdeskController,
     CrmHelpdeskController,
