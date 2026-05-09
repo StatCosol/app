@@ -24,8 +24,13 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+  // bufferLogs:true swallows all Nest framework logs (and any startup
+  // errors) until useLogger() is called and flushes them. In production
+  // we keep buffering on so pino owns formatting; everywhere else (dev,
+  // CI, test) keep logs going straight to stdout so failures are visible.
+  const useBufferedLogs = process.env.NODE_ENV === 'production';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    bufferLogs: true,
+    bufferLogs: useBufferedLogs,
   });
 
   // Wire pino as the application logger

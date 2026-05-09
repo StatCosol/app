@@ -108,6 +108,7 @@ jobs:
       NODE_ENV: test
       EMAIL_ENABLED: "false"
       SKIP_BOOTSTRAP_SEED: "true"
+      ALLOW_MISSING_TABLES: "true"
       SMOKE_ADMIN_EMAIL: it_admin@statcosol.com
     steps:
       - uses: actions/checkout@v4
@@ -202,12 +203,14 @@ jobs:
           ls -la dist/src/main.js
           node --version
           # Warm-up: run synchronously for ~10s with output streamed to BOTH the
-          # GH Actions log (stdout/stderr) and ../backend_ci.log via tee. This
-          # way, even if the file write is buffered or the process dies before
-          # we cat the file, the GH log captures every byte node emits.
+          # GH Actions log (stdout/stderr) and ../backend_ci.log via tee. Use
+          # pipefail so we see node's real exit code, not tee's.
           set +e
+          set -o pipefail
           timeout 12 node dist/src/main.js 2>&1 | tee ../backend_ci.log
-          echo "--- warm-up exit_code=$? ---"
+          warm_rc=$?
+          set +o pipefail
+          echo "--- warm-up exit_code=$warm_rc ---"
           set -e
           # Restart in background for the polling loop. We re-use the now-tee'd
           # log file (overwritten) so we can grep it.
