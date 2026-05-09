@@ -202,23 +202,15 @@ jobs:
           npm run build
           ls -la dist/src/main.js
           node --version
-          # Warm-up: run synchronously for ~10s with output streamed to BOTH the
-          # GH Actions log (stdout/stderr) and ../backend_ci.log via tee. Use
-          # pipefail so we see node's real exit code, not tee's.
-          set +e
-          set -o pipefail
-          timeout 12 node dist/src/main.js 2>&1 | tee ../backend_ci.log
-          warm_rc=$?
-          set +o pipefail
-          echo "--- warm-up exit_code=$warm_rc ---"
-          set -e
-          # Restart in background for the polling loop. We re-use the now-tee'd
-          # log file (overwritten) so we can grep it.
+          # Start the backend in the background. Stream output to a log
+          # file the next step can poll. We deliberately skip an in-process
+          # warm-up to avoid the port-3000 release race that delays the
+          # background instance binding.
           nohup node dist/src/main.js > ../backend_ci.log 2>&1 &
           echo $! > ../backend_ci.pid
-          sleep 2
-          echo "--- post-restart pid $(cat ../backend_ci.pid) ---"
-          ps -p "$(cat ../backend_ci.pid)" -o pid,stat,cmd || echo "restart process already exited"
+          echo "--- launched pid $(cat ../backend_ci.pid) ---"
+          sleep 3
+          ps -p "$(cat ../backend_ci.pid)" -o pid,stat,cmd || echo "process already exited"
         working-directory: backend
 
       - name: Wait for health
