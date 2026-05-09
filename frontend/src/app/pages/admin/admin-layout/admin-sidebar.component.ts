@@ -483,6 +483,7 @@ export class AdminSidebarComponent implements OnDestroy {
       { label: 'Escalations',   route: '/admin/escalations',            icon: this.svg('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z') },
       { label: 'Helpdesk',      route: '/admin/helpdesk',               icon: this.svg('M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z') },
       { label: 'Audit Logs',    route: '/admin/audit-logs',             icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+      { label: 'Archive & Recovery', route: '/admin/archive',           icon: this.svg('M4 7h16M4 12h16M4 17h16') },
       { label: 'AI Hub',        route: '/admin/ai-hub',                 icon: this.svg('M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z') },
     ];
   }
@@ -532,6 +533,7 @@ export class AdminSidebarComponent implements OnDestroy {
           { label: 'Latest News', route: '/admin/news', icon: this.svg('M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z') },
           { label: 'Helpdesk', route: '/admin/helpdesk', icon: this.svg('M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z') },
           { label: 'Audit Logs', route: '/admin/audit-logs', icon: this.svg('M9 12h6m-6 4h6M9 8h6m2-4H7l-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z') },
+          { label: 'Archive & Recovery', route: '/admin/archive', icon: this.svg('M4 7h16M4 12h16M4 17h16') },
         ],
       },
       {
