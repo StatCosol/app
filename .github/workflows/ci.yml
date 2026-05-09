@@ -190,6 +190,11 @@ jobs:
             ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
           CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
           CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
+          -- Ensure entity columns added by failed-and-rolled-back migrations
+          -- still exist (e.g. 20260505b rolls back when leave_balances insert
+          -- fails, which un-applies the sl_accrual_divisor ADD COLUMN).
+          ALTER TABLE IF EXISTS payroll_client_setup
+            ADD COLUMN IF NOT EXISTS sl_accrual_divisor numeric(6,2) NOT NULL DEFAULT 60;
           SQL
 
       - name: Seed baseline roles/users
