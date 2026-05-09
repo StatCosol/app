@@ -1437,10 +1437,7 @@ export class UsersService implements OnModuleInit {
 
     // Scope CRM/AUDITOR dropdowns to the current CCO so a CCO only sees
     // their own subordinates (not every CRM/auditor in the system).
-    if (
-      opts?.ownerCcoId &&
-      (roleCode === 'CRM' || roleCode === 'AUDITOR')
-    ) {
+    if (opts?.ownerCcoId && (roleCode === 'CRM' || roleCode === 'AUDITOR')) {
       where.ownerCcoId = opts.ownerCcoId;
     }
 
@@ -1668,7 +1665,11 @@ export class UsersService implements OnModuleInit {
             await Promise.all(
               rows.map(async (row) =>
                 row.requiredApproverUserId ||
-                (await this.isDeletionRequestInCcoScope(row.entityType, row.entityId, userId))
+                (await this.isDeletionRequestInCcoScope(
+                  row.entityType,
+                  row.entityId,
+                  userId,
+                ))
                   ? row
                   : null,
               ),

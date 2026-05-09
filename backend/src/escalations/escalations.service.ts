@@ -58,7 +58,9 @@ export class EscalationsService {
     if (q.branchId) where.branchId = q.branchId;
 
     if (user.roleCode === 'CCO') {
-      const clientIds = await this.scope.getCcoClientIds(user.userId ?? user.id);
+      const clientIds = await this.scope.getCcoClientIds(
+        user.userId ?? user.id,
+      );
       if (!clientIds.length) return { items: [] };
       if (q.branchId) await this.scope.assertCcoBranchAllowed(user, q.branchId);
       where.clientId = In(clientIds);
@@ -84,7 +86,8 @@ export class EscalationsService {
 
     if (user.roleCode === 'CCO') {
       await this.scope.assertCcoClientAllowed(user, row.clientId);
-      if (row.branchId) await this.scope.assertCcoBranchAllowed(user, row.branchId);
+      if (row.branchId)
+        await this.scope.assertCcoBranchAllowed(user, row.branchId);
     }
 
     // Branch user restriction

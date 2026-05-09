@@ -1,4 +1,9 @@
-import { ChangeDetectorRef, Component, OnInit , ChangeDetectionStrategy} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PfTeamApiService, HdTicket } from '../pf-team-api.service';

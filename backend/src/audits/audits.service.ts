@@ -2046,9 +2046,7 @@ export class AuditsService implements OnModuleInit {
         (d.client_id === audit.clientId &&
           (audit.branchId ? d.branch_id === audit.branchId : true));
       if (!matchesAudit) {
-        throw new ForbiddenException(
-          'Document does not belong to this audit',
-        );
+        throw new ForbiddenException('Document does not belong to this audit');
       }
       await this.dataSource.query(
         `UPDATE branch_documents
@@ -2084,9 +2082,7 @@ export class AuditsService implements OnModuleInit {
             ? d.contractor_user_id === audit.contractorUserId
             : true));
       if (!matchesAudit) {
-        throw new ForbiddenException(
-          'Document does not belong to this audit',
-        );
+        throw new ForbiddenException('Document does not belong to this audit');
       }
       await this.dataSource.query(
         `UPDATE contractor_documents

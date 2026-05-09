@@ -455,7 +455,8 @@ export class CeoController {
         user.roleCode,
       );
     const approval = approvals.find((row) => String(row.id) === String(id));
-    if (!approval) throw new NotFoundException(`Approval with id ${id} not found`);
+    if (!approval)
+      throw new NotFoundException(`Approval with id ${id} not found`);
     return approval;
   }
 
@@ -648,7 +649,8 @@ export class CeoController {
         RETURNING id`,
       [id, body.ccoId, body?.note ?? ''],
     );
-    if (!result.length) throw new NotFoundException(`Escalation ${id} not found`);
+    if (!result.length)
+      throw new NotFoundException(`Escalation ${id} not found`);
     return { id, assignedTo: body.ccoId, note: body?.note ?? '' };
   }
 

@@ -385,7 +385,10 @@ export class BranchApprovalsController {
 
   @ApiOperation({ summary: 'Approve Nomination' })
   @Put('nominations/:id/approve')
-  async approveNomination(@CurrentUser() user: ReqUser, @Param('id') id: string) {
+  async approveNomination(
+    @CurrentUser() user: ReqUser,
+    @Param('id') id: string,
+  ) {
     const allowed = await this.branchAccess.getAllowedBranchIds(
       user.userId,
       user.clientId!,

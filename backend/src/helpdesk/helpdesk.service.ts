@@ -405,11 +405,7 @@ export class HelpdeskService {
   async clientCreateTicket(user: ReqUser, dto: CreateTicketDto) {
     const category = String(dto.category || '').toUpperCase();
     const priority = String(dto.priority || 'NORMAL').toUpperCase();
-    const allowedCategories = [
-      ...PF_TEAM_CATEGORIES,
-      'COMPLIANCE',
-      'GENERIC',
-    ];
+    const allowedCategories = [...PF_TEAM_CATEGORIES, 'COMPLIANCE', 'GENERIC'];
     if (!allowedCategories.includes(category)) {
       throw new BadRequestException('Invalid ticket category');
     }
@@ -494,16 +490,16 @@ export class HelpdeskService {
     userId: string,
     requireAssignment = false,
   ) {
-    if (
-      !(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)
-    ) {
+    if (!(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)) {
       throw new ForbiddenException('Ticket is not a PF Team category');
     }
     if (t.assignedToUserId && t.assignedToUserId !== userId) {
       throw new ForbiddenException('Ticket assigned to another PF user');
     }
     if (requireAssignment && !t.assignedToUserId) {
-      throw new ForbiddenException('Claim or assign the ticket before updating');
+      throw new ForbiddenException(
+        'Claim or assign the ticket before updating',
+      );
     }
   }
 
@@ -514,7 +510,9 @@ export class HelpdeskService {
       );
     }
     if (current === 'OPEN' && next === 'RESOLVED') {
-      throw new BadRequestException('Move ticket to IN_PROGRESS before resolve');
+      throw new BadRequestException(
+        'Move ticket to IN_PROGRESS before resolve',
+      );
     }
   }
 

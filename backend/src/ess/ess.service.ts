@@ -537,7 +537,9 @@ export class EssService {
     if (existing.length) {
       // Update existing record (e.g. admin-seeded WEEK_OFF or HOLIDAY shouldn't be overwritten)
       const rec = existing[0];
-      if (['WEEK_OFF', 'HOLIDAY'].includes(String(rec.status || '').toUpperCase())) {
+      if (
+        ['WEEK_OFF', 'HOLIDAY'].includes(String(rec.status || '').toUpperCase())
+      ) {
         throw new BadRequestException(
           'Self check-in is not allowed on a holiday or week off',
         );
@@ -1080,13 +1082,15 @@ export class EssService {
     return { id: saved.id, status: saved.status };
   }
 
-  private validateNominationMembers<T extends {
-    memberName?: string;
-    sharePct?: number;
-    isMinor?: boolean;
-    guardianName?: string;
-    guardianRelationship?: string;
-  }>(members: T[]): T[] {
+  private validateNominationMembers<
+    T extends {
+      memberName?: string;
+      sharePct?: number;
+      isMinor?: boolean;
+      guardianName?: string;
+      guardianRelationship?: string;
+    },
+  >(members: T[]): T[] {
     const clean = members.filter((m) => m.memberName?.trim());
     if (!clean.length) return clean;
 
@@ -1100,8 +1104,7 @@ export class EssService {
       }
       if (
         member.isMinor &&
-        (!member.guardianName?.trim() ||
-          !member.guardianRelationship?.trim())
+        (!member.guardianName?.trim() || !member.guardianRelationship?.trim())
       ) {
         throw new BadRequestException(
           'Minor nomination members require guardian name and relationship',

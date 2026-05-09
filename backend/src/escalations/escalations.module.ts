@@ -8,7 +8,11 @@ import { RiskModule } from '../risk/risk.module';
 import { AccessModule } from '../access/access.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([EscalationEntity]), RiskModule, AccessModule],
+  imports: [
+    TypeOrmModule.forFeature([EscalationEntity]),
+    RiskModule,
+    AccessModule,
+  ],
   controllers: [EscalationsController],
   providers: [EscalationsService, EscalationCronService],
   exports: [EscalationsService],

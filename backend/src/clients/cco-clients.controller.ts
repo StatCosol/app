@@ -79,7 +79,11 @@ export class CcoClientsController {
         );
       }
     }
-    return this.clientsService.create(dto, user.userId ?? user.id, user.roleCode);
+    return this.clientsService.create(
+      dto,
+      user.userId ?? user.id,
+      user.roleCode,
+    );
   }
 
   @ApiOperation({ summary: 'Assign' })
