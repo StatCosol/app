@@ -201,22 +201,21 @@ jobs:
           npm run build
           ls -la dist/src/main.js
           node --version
-          # Run synchronously for 5 seconds first to capture any immediate
-          # crash output, then background the surviving process.
-          (timeout 8 node dist/src/main.js > ../backend_ci.log 2>&1 &)
-          sleep 8
-          echo "--- backend_ci.log after 8s warm-up ---"
-          cat ../backend_ci.log || true
-          echo "--- /warm-up tail ---"
-          # If the warm-up died, restart for the polling loop.
-          if ! pgrep -f "node dist/src/main.js" >/dev/null; then
-            echo "Warm-up process exited, restarting in background"
-            nohup node dist/src/main.js >> ../backend_ci.log 2>&1 &
-            echo $! > ../backend_ci.pid
-          else
-            echo "Warm-up still alive, capturing PID"
-            pgrep -f "node dist/src/main.js" | head -1 > ../backend_ci.pid
-          fi
+          # Warm-up: run synchronously for ~10s with output streamed to BOTH the
+          # GH Actions log (stdout/stderr) and ../backend_ci.log via tee. This
+          # way, even if the file write is buffered or the process dies before
+          # we cat the file, the GH log captures every byte node emits.
+          set +e
+          timeout 12 node dist/src/main.js 2>&1 | tee ../backend_ci.log
+          echo "--- warm-up exit_code=$? ---"
+          set -e
+          # Restart in background for the polling loop. We re-use the now-tee'd
+          # log file (overwritten) so we can grep it.
+          nohup node dist/src/main.js > ../backend_ci.log 2>&1 &
+          echo $! > ../backend_ci.pid
+          sleep 2
+          echo "--- post-restart pid $(cat ../backend_ci.pid) ---"
+          ps -p "$(cat ../backend_ci.pid)" -o pid,stat,cmd || echo "restart process already exited"
         working-directory: backend
 
       - name: Wait for health
