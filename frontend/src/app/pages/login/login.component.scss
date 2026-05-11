@@ -16,6 +16,14 @@ $muted: #667085;
   overflow-x: hidden;
   overflow-y: auto;
   color: #fff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  grid-template-areas:
+    'crest crest'
+    'hero  form'
+    'hero  form';
+  gap: 0 clamp(16px, 2.5vw, 48px);
+  padding: 0 clamp(16px, 3vw, 48px) clamp(20px, 4vh, 40px);
   background:
     radial-gradient(ellipse 54% 70% at 76% 8%, rgba(30, 100, 185, .32), transparent 58%),
     linear-gradient(118deg, $navy-deep 0%, $navy 46%, #082a55 100%);
@@ -32,6 +40,7 @@ $muted: #667085;
     border-radius: 0 0 100% 0 / 0 0 58% 0;
     background: #fff;
     box-shadow: 0 18px 34px rgba(6, 21, 44, .14);
+    pointer-events: none;
   }
 }
 
@@ -42,12 +51,16 @@ $muted: #667085;
   z-index: 1;
 }
 
+.brand-crest { grid-area: crest; }
+.hero-copy   { grid-area: hero; }
+.product-stage { grid-area: form; }
+
 .brand-crest {
   display: flex;
   align-items: center;
   gap: 14px;
   width: fit-content;
-  padding: 18px 0 0 42px;
+  padding: 18px 0 0 clamp(8px, 1vw, 18px);
   color: #07172d;
 }
 
@@ -82,8 +95,9 @@ $muted: #667085;
 }
 
 .hero-copy {
-  width: min(44vw, 610px);
-  padding: clamp(44px, 6.8vh, 62px) 0 0 clamp(34px, 3.1vw, 54px);
+  width: 100%;
+  max-width: 640px;
+  padding: clamp(28px, 5vh, 56px) 0 0 clamp(8px, 1vw, 18px);
 }
 
 .hero-copy h2 {
@@ -120,7 +134,8 @@ $muted: #667085;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 30px;
-  width: min(610px, 44vw);
+  width: 100%;
+  max-width: 610px;
   margin: 24px 0 0;
   padding: 0;
 }
@@ -161,25 +176,27 @@ $muted: #667085;
 }
 
 .product-stage {
-  position: absolute;
-  top: clamp(118px, 14vh, 150px);
-  right: clamp(24px, 3.4vw, 72px);
-  width: min(calc(56vw - clamp(24px, 3.4vw, 72px)), 760px);
-  min-height: 500px;
-  padding-bottom: 24px;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(20px, 4vh, 40px) 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
 }
 
+.product-stage .form-card  { order: 0; }
+.product-stage .preview-card { order: 1; }
+
 .preview-card {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 58%;
-  min-height: 394px;
-  padding: 38px 28px 22px 30px;
-  border-radius: 22px;
+  position: relative;
+  width: 100%;
+  padding: 24px 24px 18px;
+  border-radius: 18px;
   border: 2px solid rgba(255, 255, 255, .42);
   background: linear-gradient(145deg, rgba(10, 34, 70, .78), rgba(5, 19, 42, .92));
-  box-shadow: 0 28px 70px rgba(0, 0, 0, .25);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .22);
 }
 
 .preview-card h3 {
@@ -242,10 +259,7 @@ $muted: #667085;
 }
 
 .preview-footer {
-  position: absolute;
-  left: 30px;
-  bottom: 20px;
-  margin: 0;
+  margin: 16px 0 0;
   color: rgba(255, 255, 255, .58);
   font-size: 11px;
   line-height: 1.4;
@@ -253,14 +267,13 @@ $muted: #667085;
 }
 
 .form-card {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  right: 0;
-  top: 28px;
-  width: min(26.4vw, 362px);
-  min-width: 318px;
-  min-height: 430px;
-  padding: 22px 30px 18px;
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+  margin-left: auto;
+  padding: 22px 28px 18px;
   border-radius: 16px;
   color: $text;
   background: linear-gradient(180deg, #fff 0%, #f9fbff 100%);
@@ -622,67 +635,105 @@ $muted: #667085;
   color: #5871e7;
 }
 
-/* Mid-large desktops (e.g. 1366x768): keep preview but shrink + nudge form left */
-@media (min-width: 1121px) and (max-width: 1400px) {
-  .product-stage {
-    top: clamp(108px, 13vh, 140px);
-    right: clamp(20px, 2vw, 36px);
-    width: min(calc(58vw - 20px), 720px);
-  }
-
-  .preview-card {
-    width: 56%;
-    min-height: 360px;
-    padding: 30px 22px 20px 24px;
+/* ==== Responsive layout (CSS-grid based) ==================================
+   Default (≥1101px): 2-col grid (hero | form), preview card visible below form.
+   1100–901: same 2-col grid, preview hidden, form column slightly narrower.
+   ≤900: single column — crest, form (top), then hero copy below.
+   ========================================================================= */
+@media (max-width: 1280px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
   }
 
   .form-card {
-    top: 18px;
-    width: min(28vw, 352px);
-    min-width: 300px;
-    padding: 20px 26px 16px;
-  }
-
-  .hero-copy {
-    width: min(42vw, 580px);
+    padding: 20px 24px 16px;
   }
 }
 
-/* Short viewport heights (e.g. laptop 1366x768): prevent clipping of footer/links */
-@media (min-height: 0) and (max-height: 820px) and (min-width: 901px) {
-  .product-stage {
-    top: clamp(96px, 11vh, 130px);
-    min-height: 0;
+@media (max-width: 1100px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   }
 
   .preview-card {
-    min-height: 0;
-    padding: 24px 24px 18px;
+    display: none;
   }
 
-  .preview-footer {
-    position: static;
-    margin-top: 14px;
+  .product-stage {
+    padding-top: clamp(16px, 3vh, 28px);
+  }
+}
+
+/* Tablets / small laptops — single column */
+@media (max-width: 900px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'crest'
+      'form'
+      'hero';
+    padding: 0 clamp(14px, 4vw, 28px) 24px;
+  }
+
+  .login-shell::before {
+    top: -110px;
+    left: -90px;
+    width: 118vw;
+    min-width: 0;
+    height: 240px;
+    border-radius: 0 0 100% 0 / 0 0 54% 0;
+  }
+
+  .brand-crest {
+    padding: 22px 0 0;
+  }
+
+  .hero-copy {
+    padding: 24px 0 16px;
+    max-width: 720px;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(28px, 5vw, 42px);
+  }
+
+  .product-stage {
+    padding: 16px 0 8px;
   }
 
   .form-card {
-    top: 12px;
-    min-height: 0;
-    padding: 18px 26px 16px;
+    margin: 0 auto;
+    max-width: 460px;
+  }
+
+  .preview-card {
+    display: none;
+  }
+
+  .feature-grid {
+    max-width: 720px;
+  }
+}
+
+/* Short viewports (e.g., 1366×768 laptops) — compress form internals */
+@media (min-width: 901px) and (max-height: 820px) {
+  .login-shell {
+    padding-top: 0;
+  }
+
+  .form-card {
+    padding: 16px 24px 14px;
   }
 
   .form-brand {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .login-form {
     gap: 10px;
   }
 
-  .field-control {
-    height: 38px;
-  }
-
+  .field-control,
   .submit-btn {
     height: 38px;
   }
@@ -694,169 +745,30 @@ $muted: #667085;
   .trust-row {
     margin-top: 10px;
   }
-}
-
-@media (min-width: 901px) and (max-width: 1120px) {
-  .product-stage {
-    top: 176px;
-    right: 24px;
-    width: 360px;
-  }
-
-  .preview-card {
-    display: none;
-  }
-
-  .form-card {
-    position: relative;
-    inset: auto;
-    width: 360px;
-  }
 
   .hero-copy {
-    width: 52vw;
-    padding: 88px 0 0 24px;
-  }
-
-  .hero-copy h2 {
-    font-size: 42px;
+    padding-top: clamp(20px, 3vh, 36px);
   }
 
   .feature-grid {
-    width: 50vw;
-    gap: 16px 24px;
-  }
-
-  .feature-grid li {
-    grid-template-columns: 52px minmax(0, 1fr);
-    font-size: 16px;
-  }
-}
-
-@media (max-width: 900px) {
-  .login-shell {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  .login-shell::before {
-    top: -110px;
-    left: -90px;
-    width: 118vw;
-    min-width: 0;
-    height: 260px;
-    border-radius: 0 0 100% 0 / 0 0 54% 0;
-  }
-
-  .brand-crest {
-    order: 1;
-    gap: 14px;
-    padding: 22px 24px 0;
-  }
-
-  .brand-mark {
-    width: 98px;
-    height: 48px;
-
-    img {
-      width: 98px;
-    }
-  }
-
-  .brand-copy h1 {
-    font-size: 38px;
-  }
-
-  .brand-copy p {
-    margin-top: 6px;
-    font-size: 16px;
+    margin-top: 16px;
+    gap: 10px 24px;
   }
 
   .product-stage {
-    order: 2;
-    position: relative;
-    inset: auto;
-    width: 100%;
-    min-height: 650px;
-    padding: 88px 24px 22px;
-  }
-
-  .preview-card {
-    display: none;
-  }
-
-  .form-card {
-    position: relative;
-    inset: auto;
-    width: min(420px, 100%);
-    min-width: 0;
-    min-height: 0;
-    margin: 0 auto;
-    padding: 30px 30px 24px;
-  }
-
-  .hero-copy {
-    order: 3;
-    width: auto;
-    padding: 34px 24px 28px;
-  }
-
-  .hero-copy h2 {
-    max-width: 720px;
-    font-size: 46px;
-  }
-
-  .feature-grid {
-    width: min(680px, 100%);
-    gap: 18px 30px;
+    padding-top: clamp(14px, 2.4vh, 22px);
   }
 }
 
-@media (max-width: 720px) {
-  .login-shell::before {
-    top: -86px;
-    left: -76px;
-    width: 134vw;
-    height: 188px;
-    border-radius: 0 0 100% 0 / 0 0 46% 0;
-  }
-
-  .brand-crest {
-    gap: 10px;
-    padding: 18px 16px 0;
-  }
-
-  .brand-mark {
-    width: 66px;
-    height: 36px;
-
-    img {
-      width: 66px;
-    }
-  }
-
+/* Phones */
+@media (max-width: 600px) {
   .brand-copy h1 {
-    font-size: 27px;
+    font-size: 26px;
   }
 
   .brand-copy p {
-    margin-top: 4px;
-    font-size: 12px;
+    font-size: 13px;
     white-space: normal;
-  }
-
-  .product-stage {
-    min-height: 610px;
-    padding: 58px 14px 18px;
-  }
-
-  .form-card {
-    padding: 24px 20px 20px;
   }
 
   .form-row {
@@ -865,45 +777,13 @@ $muted: #667085;
     gap: 10px;
   }
 
-  .hero-copy {
-    padding: 28px 16px 22px;
-  }
-
-  .hero-copy h2 {
-    font-size: clamp(28px, 10vw, 36px);
-  }
-
-  .hero-subtitle {
-    font-size: 17px;
-  }
-
   .hero-subtitle br {
     display: none;
   }
 
   .feature-grid {
     grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  .feature-grid li {
-    grid-template-columns: 54px minmax(0, 1fr);
-    font-size: 16px;
-  }
-
-  .feature-icon {
-    width: 42px;
-    height: 42px;
-
-    svg {
-      width: 24px;
-      height: 24px;
-    }
-  }
-
-  .trust-row {
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 14px;
   }
 }
 
@@ -911,11 +791,6 @@ $muted: #667085;
 @media (max-width: 420px) {
   .brand-copy h1 {
     font-size: 22px;
-  }
-
-  .product-stage {
-    padding: 48px 12px 18px;
-    min-height: 0;
   }
 
   .form-card {
@@ -935,10 +810,6 @@ $muted: #667085;
     height: 44px;
   }
 
-  .hero-copy {
-    padding: 22px 14px 18px;
-  }
-
   .hero-copy h2 {
     font-size: clamp(24px, 8.5vw, 32px);
   }
@@ -952,9 +823,10 @@ $muted: #667085;
   }
 }
 
-/* Ultra-wide / very tall: cap content width so form doesn't drift far right */
+/* Ultra-wide: cap content width so form doesn't drift far right */
 @media (min-width: 1700px) {
-  .product-stage {
-    right: max(48px, calc((100vw - 1600px) / 2));
+  .login-shell {
+    max-width: 1600px;
+    margin: 0 auto;
   }
 }
