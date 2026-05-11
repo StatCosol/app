@@ -24,22 +24,9 @@ $muted: #667085;
   gap: 0 clamp(20px, 3vw, 56px);
   padding: 0 clamp(16px, 3vw, 48px) clamp(20px, 4vh, 40px);
   background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 260' preserveAspectRatio='none'><path d='M0,0 L1440,0 L1440,40 C1100,40 900,210 600,210 C320,210 180,200 0,180 Z' fill='%23ffffff'/></svg>") top left / 100% 260px no-repeat,
     radial-gradient(ellipse 54% 70% at 76% 8%, rgba(30, 100, 185, .32), transparent 58%),
     linear-gradient(118deg, $navy-deep 0%, $navy 46%, #082a55 100%);
-
-  &::before {
-    content: '';
-    position: absolute;
-    z-index: 0;
-    top: -160px;
-    left: -15vw;
-    width: 130vw;
-    height: 280px;
-    border-radius: 0 0 50% 50% / 0 0 100% 100%;
-    background: #fff;
-    box-shadow: 0 18px 34px rgba(6, 21, 44, .14);
-    pointer-events: none;
-  }
 }
 
 .brand-crest,
@@ -706,13 +693,11 @@ $muted: #667085;
     padding: 0 clamp(14px, 4vw, 28px) 24px;
   }
 
-  .login-shell::before {
-    top: -150px;
-    left: -5vw;
-    width: 110vw;
-    height: 280px;
-    min-width: 0;
-    border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  .login-shell {
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 220' preserveAspectRatio='none'><path d='M0,0 L800,0 L800,30 C620,30 500,180 320,180 C180,180 80,170 0,160 Z' fill='%23ffffff'/></svg>") top left / 100% 220px no-repeat,
+      radial-gradient(ellipse 54% 70% at 76% 8%, rgba(30, 100, 185, .32), transparent 58%),
+      linear-gradient(118deg, $navy-deep 0%, $navy 46%, #082a55 100%);
   }
 
   .brand-crest {
