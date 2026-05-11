@@ -81,29 +81,17 @@ export class ClientsService {
           );
         }
 
-        // If the code exists but is soft-deleted, restore/reuse it instead of failing
-        existing.clientName = dto.clientName;
-        existing.status = 'ACTIVE';
-        existing.isActive = true;
-        existing.isDeleted = false;
-        existing.deletedAt = null;
-        existing.deletedBy = null;
-        existing.deleteReason = null;
-        existing.assignedCrmId =
-          dto.assignedCrmId ?? existing.assignedCrmId ?? null;
-        existing.assignedAuditorId =
-          dto.assignedAuditorId ?? existing.assignedAuditorId ?? null;
-
-        const restored = await this.repo.save(existing);
-        await this.auditLogs.log({
-          entityType: 'CLIENT',
-          entityId: restored.id,
-          action: 'RESTORE',
-          performedBy: createdBy ?? null,
-          performedRole: createdRole ?? null,
-          afterJson: restored as unknown as Record<string, unknown>,
-        });
-        return { id: restored.id, message: 'Client restored (code reused)' };
+        // Code belongs to a soft-deleted (archived) client. Do NOT silently
+        // restore it: re-using the code would resurrect all of the old
+        // client's branches, audits, payroll, etc., which is almost never
+        // what an admin re-registering a fresh client wants. Force them to
+        // pick a different code, or explicitly use the Restore action from
+        // the archive list when they truly want to revive the old record.
+        throw new BadRequestException(
+          `Client code "${clientCode}" belongs to an archived (deleted) client. ` +
+            'Please use a different client code. To revive the archived client, ' +
+            'use the Restore action from the archived clients list.',
+        );
       }
     }
 
