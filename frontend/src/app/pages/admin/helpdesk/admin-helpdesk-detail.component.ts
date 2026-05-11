@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { AdminHelpdeskApiService, HdTicket, HdMessage } from './admin-helpdesk-api.service';
 import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
 
@@ -86,7 +87,7 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
             <select id="ahd-assign-user-id" name="assignUserId" [(ngModel)]="assignUserId"
                    class="text-sm border border-gray-300 rounded-lg px-3 py-2 w-72 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
               <option value="">Select a user…</option>
-              <option *ngFor="let u of users" [value]="u.id">{{ u.name }} ({{ u.roleCode }}{{ u.email ? ' – ' + u.email : '' }})</option>
+              <option *ngFor="let u of assignableUsers" [value]="u.id">{{ u.name }} ({{ u.roleCode }}{{ u.email ? ' – ' + u.email : '' }})</option>
             </select>
             <button (click)="assignTicket()"
                     [disabled]="!assignUserId.trim() || assigning"
@@ -148,7 +149,7 @@ import { AdminUsersApi, UserDto } from '../../../core/api/admin-users.api';
     </div>
   `,
 })
-export class AdminHelpdeskDetailComponent implements OnInit {
+export class AdminHelpdeskDetailComponent implements OnInit, OnDestroy {
   ticket: HdTicket | null = null;
   messages: HdMessage[] = [];
   newMessage = '';
@@ -157,30 +158,78 @@ export class AdminHelpdeskDetailComponent implements OnInit {
   assigning = false;
   assignUserId = '';
   users: UserDto[] = [];
+  assignableUsers: UserDto[] = [];
+  // External roles must NOT be able to receive helpdesk ticket assignments
+  // External / self-service roles must NOT be able to receive helpdesk ticket assignments
+  private readonly externalRoles = new Set(['CLIENT', 'CONTRACTOR', 'EMPLOYEE', 'ESS']);
   error = '';
   statuses = ['OPEN', 'IN_PROGRESS', 'AWAITING_CLIENT', 'RESOLVED', 'CLOSED'];
 
-  constructor(private route: ActivatedRoute, private api: AdminHelpdeskApiService, private usersApi: AdminUsersApi) {}
+  constructor(
+    private route: ActivatedRoute,
+    private api: AdminHelpdeskApiService,
+    private usersApi: AdminUsersApi,
+    private cdr: ChangeDetectorRef,
+  ) {}
+
+  private paramSub?: Subscription;
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id')!;
-    this.api.getTicket(id).subscribe({
-      next: (t) => {
-        this.ticket = t;
-        this.loadMessages();
-      },
-      error: () => (this.error = 'Ticket not found'),
+    // React to paramMap changes (in case the component is reused across detail routes)
+    this.paramSub = this.route.paramMap.subscribe((pm) => {
+      const id = pm.get('id');
+      if (!id) {
+        this.error = 'Ticket id missing';
+        this.cdr.detectChanges();
+        return;
+      }
+      this.error = '';
+      this.ticket = null;
+      this.api.getTicket(id).subscribe({
+        next: (t) => {
+          this.ticket = t;
+          this.loadMessages();
+          this.cdr.markForCheck();
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          if (err?.status === 0) {
+            this.error = 'Network error — unable to reach server. Please retry.';
+          } else if (err?.status === 401 || err?.status === 403) {
+            this.error = 'Session expired or access denied. Please refresh and sign in again.';
+          } else if (err?.status === 404) {
+            this.error = 'Ticket not found';
+          } else {
+            this.error = `Failed to load ticket${err?.error?.message ? ': ' + err.error.message : '.'}`;
+          }
+          this.cdr.markForCheck();
+          this.cdr.detectChanges();
+        },
+      });
     });
     this.usersApi.listUsersSimple().subscribe({
-      next: (list) => (this.users = list || []),
+      next: (list) => {
+        this.users = list || [];
+        this.assignableUsers = this.users.filter(u => !this.externalRoles.has((u.roleCode || '').toUpperCase()));
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      },
       error: () => {},
     });
+  }
+
+  ngOnDestroy(): void {
+    this.paramSub?.unsubscribe();
   }
 
   private loadMessages(): void {
     if (!this.ticket) return;
     this.api.getMessages(this.ticket.id).subscribe({
-      next: (msgs) => (this.messages = msgs),
+      next: (msgs) => {
+        this.messages = msgs;
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      },
       error: () => {},
     });
   }

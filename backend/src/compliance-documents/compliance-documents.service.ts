@@ -89,9 +89,7 @@ export class ComplianceDocumentsService {
         select: ['id'],
       });
       if (!branch)
-        throw new BadRequestException(
-          'branchId does not belong to clientId',
-        );
+        throw new BadRequestException('branchId does not belong to clientId');
       if (role === 'CLIENT') {
         await this.branchAccess.assertBranchAccess(userId, dto.branchId);
       }

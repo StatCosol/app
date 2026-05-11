@@ -289,10 +289,7 @@ export class CrmDocumentsService {
       // outside their mapping.
       const branchIds = opts?.allowedBranchIds;
       if (doc.branchId) {
-        if (
-          !Array.isArray(branchIds) ||
-          !branchIds.includes(doc.branchId)
-        ) {
+        if (!Array.isArray(branchIds) || !branchIds.includes(doc.branchId)) {
           throw new ForbiddenException(
             'You do not have access to this document',
           );

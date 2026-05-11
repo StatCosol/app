@@ -205,10 +205,7 @@ export class CrmListController {
   /** CRM Due-items timeline (generic) */
   @ApiOperation({ summary: 'Due Item Timeline' })
   @Get('due-items/:id/timeline')
-  async dueItemTimeline(
-    @CurrentUser() user: ReqUser,
-    @Param('id') id: string,
-  ) {
+  async dueItemTimeline(@CurrentUser() user: ReqUser, @Param('id') id: string) {
     await this.returnsWorkflow.assertCrmAssigned(user, id);
     return this.auditLogs.findCombinedTimeline('RETURN_TASK', id, 'RETURN');
   }
