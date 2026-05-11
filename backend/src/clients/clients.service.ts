@@ -81,29 +81,17 @@ export class ClientsService {
           );
         }
 
-        // If the code exists but is soft-deleted, restore/reuse it instead of failing
-        existing.clientName = dto.clientName;
-        existing.status = 'ACTIVE';
-        existing.isActive = true;
-        existing.isDeleted = false;
-        existing.deletedAt = null;
-        existing.deletedBy = null;
-        existing.deleteReason = null;
-        existing.assignedCrmId =
-          dto.assignedCrmId ?? existing.assignedCrmId ?? null;
-        existing.assignedAuditorId =
-          dto.assignedAuditorId ?? existing.assignedAuditorId ?? null;
-
-        const restored = await this.repo.save(existing);
-        await this.auditLogs.log({
-          entityType: 'CLIENT',
-          entityId: restored.id,
-          action: 'RESTORE',
-          performedBy: createdBy ?? null,
-          performedRole: createdRole ?? null,
-          afterJson: restored as unknown as Record<string, unknown>,
-        });
-        return { id: restored.id, message: 'Client restored (code reused)' };
+        // Code belongs to a soft-deleted (archived) client. Do NOT silently
+        // restore it: re-using the code would resurrect all of the old
+        // client's branches, audits, payroll, etc., which is almost never
+        // what an admin re-registering a fresh client wants. Force them to
+        // pick a different code, or explicitly use the Restore action from
+        // the archive list when they truly want to revive the old record.
+        throw new BadRequestException(
+          `Client code "${clientCode}" belongs to an archived (deleted) client. ` +
+            'Please use a different client code. To revive the archived client, ' +
+            'use the Restore action from the archived clients list.',
+        );
       }
     }
 
@@ -706,14 +694,17 @@ export class ClientsService {
         }
       }
 
-      // Soft delete client master users and contractors tied to this client
-      await userRepo.update(
-        { clientId, role: 'CLIENT' },
-        { isActive: false, deletedAt: now },
-      );
-      await userRepo.update(
-        { clientId, role: 'CONTRACTOR' },
-        { isActive: false, deletedAt: now },
+      // Soft delete client master users and contractors tied to this client.
+      // Production users table has only `role_id` (FK to roles.code), not the
+      // legacy denormalized `role` text column the entity still defines.
+      // Use raw SQL with a role_id lookup so the UPDATE doesn't reference a
+      // missing column and abort the transaction.
+      await m.query(
+        `UPDATE users
+            SET is_active = false, deleted_at = $1, updated_at = NOW()
+          WHERE client_id = $2
+            AND role_id IN (SELECT id FROM roles WHERE code IN ('CLIENT','CONTRACTOR'))`,
+        [now, clientId],
       );
 
       // ─────────────────────────────────────────────────────────────────
@@ -960,12 +951,20 @@ export class ClientsService {
   ): Promise<void> {
     const RETENTION_DAYS = 548; // ≈ 18 months (1.5 years)
 
+    // IMPORTANT: snapshot reads MUST run on a separate connection (not the
+    // outer soft-delete transaction). If a SELECT throws inside `m`, the
+    // PostgreSQL transaction enters an aborted state and EVERY subsequent
+    // statement (including the actual soft-delete UPDATE on clients) fails
+    // with "current transaction is aborted, commands ignored until end of
+    // transaction block" — which the global filter then converts to HTTP
+    // 409 Conflict. Using `this.dataSource.query` runs each read on its
+    // own pool connection, so per-read failures are contained.
     const safeFetch = async <T = any>(
       label: string,
       sql: string,
     ): Promise<T[]> => {
       try {
-        return await m.query(sql, [clientId]);
+        return await this.dataSource.query(sql, [clientId]);
       } catch (err: any) {
         this.logger.warn(
           `Retention snapshot [${label}] failed for client ${clientId}: ${err?.message || err}`,
@@ -974,11 +973,14 @@ export class ClientsService {
       }
     };
 
-    // ── Registers (statutory registers data) ────────────────────────────
+    // ── Registers (statutory registers metadata) ────────────────────────
+    // Note: `registers_records` stores file uploads (file_path/file_name),
+    // not inline JSON. There is no `data` or `updated_at` column.
     const registers = await safeFetch(
       'registers_records',
       `SELECT id, register_type, branch_id, period_year, period_month,
-              data, created_at, updated_at
+              category, title, file_name, file_path, file_type, file_size,
+              approval_status, approved_by_user_id, approved_at, created_at
          FROM registers_records
         WHERE client_id = $1
         ORDER BY period_year DESC, period_month DESC, created_at DESC`,
@@ -987,37 +989,46 @@ export class ClientsService {
     // ── Payroll: runs + per-employee totals (high-level financial trail)─
     const payrollRuns = await safeFetch(
       'payroll_runs',
-      `SELECT id, period_year, period_month, status, finalized_at,
-              total_gross, total_net, total_employees, created_at
+      `SELECT id, period_year, period_month, status, title,
+              submitted_at, submitted_by_user_id,
+              approved_at, approved_by_user_id, approval_comments,
+              created_at
          FROM payroll_runs
         WHERE client_id = $1
         ORDER BY period_year DESC, period_month DESC`,
     );
     const payrollEmployees = await safeFetch(
       'payroll_run_employees',
-      `SELECT pre.payroll_run_id, pre.employee_id, pre.gross, pre.net,
-              pre.pf_employee, pre.pf_employer, pre.esi_employee,
-              pre.esi_employer, pre.tds, pre.lop_days, pre.paid_days
+      `SELECT pre.run_id, pre.employee_id, pre.employee_code, pre.employee_name,
+              pre.gross_earnings, pre.net_pay, pre.total_deductions,
+              pre.employer_cost, pre.pf_employee, pre.pf_employer,
+              pre.esi_employee, pre.esi_employer, pre.pt,
+              pre.lop_days, pre.ncp_days, pre.total_days, pre.days_present
          FROM payroll_run_employees pre
         WHERE pre.client_id = $1`,
     );
 
-    // ── Audit reports (final PDFs / metadata) + NC points ──────────────
+    // ── Audit reports (metadata) + NC points ───────────────────────────
     const auditReports = await safeFetch(
       'audit_reports',
-      `SELECT ar.id, ar.audit_id, ar.file_name, ar.file_path,
-              ar.uploaded_by_user_id, ar.uploaded_at, ar.report_date,
+      `SELECT ar.id, ar.audit_id, ar.report_type, ar.report_number,
+              ar.executive_summary, ar.status,
+              ar.prepared_by_user_id, ar.prepared_date,
+              ar.approved_by_user_id, ar.approved_date, ar.published_date,
+              ar.version_no, ar.blended_score, ar.created_at,
               a.audit_code, a.audit_type, a.period_year, a.period_code,
               a.score, a.status AS audit_status
          FROM audit_reports ar
          JOIN audits a ON a.id = ar.audit_id
         WHERE a.client_id = $1
-        ORDER BY ar.uploaded_at DESC`,
+        ORDER BY ar.created_at DESC`,
     );
     const ncPoints = await safeFetch(
       'audit_non_compliances',
-      `SELECT nc.id, nc.audit_id, nc.title, nc.description, nc.severity,
-              nc.status, nc.due_date, nc.resolved_at, nc.created_at,
+      `SELECT nc.id, nc.audit_id, nc.document_name, nc.remark,
+              nc.status, nc.due_date, nc.raised_at, nc.closed_at,
+              nc.requested_to_role, nc.requested_to_user_id,
+              nc.is_recurring, nc.recurrence_count, nc.created_at,
               a.audit_code, a.audit_type, a.period_year, a.period_code
          FROM audit_non_compliances nc
          JOIN audits a ON a.id = nc.audit_id
@@ -1044,13 +1055,15 @@ export class ClientsService {
     );
     const contractorAccounts = await safeFetch(
       'users',
-      `SELECT id, name, email, phone, role, is_active, created_at, deleted_at
-         FROM users
-        WHERE client_id = $1
-          AND role = 'CONTRACTOR'`,
+      `SELECT u.id, u.name, u.email, u.mobile, r.code AS role_code,
+              u.is_active, u.created_at, u.deleted_at
+         FROM users u
+         LEFT JOIN roles r ON r.id = u.role_id
+        WHERE u.client_id = $1
+          AND r.code = 'CONTRACTOR'`,
     );
 
-    // ── Per-contractor NC summary (count + list of NC titles) ──────────
+    // ── Per-contractor NC summary (count + list of NC items) ──────────
     const contractorNcSummary = await safeFetch(
       'contractor_nc_summary',
       `SELECT a.contractor_user_id,
@@ -1058,12 +1071,13 @@ export class ClientsService {
               COALESCE(
                 JSON_AGG(
                   JSON_BUILD_OBJECT(
-                    'auditCode',  a.audit_code,
-                    'title',      nc.title,
-                    'severity',   nc.severity,
-                    'status',     nc.status,
-                    'dueDate',    nc.due_date,
-                    'createdAt',  nc.created_at
+                    'auditCode',    a.audit_code,
+                    'documentName', nc.document_name,
+                    'remark',       nc.remark,
+                    'status',       nc.status,
+                    'dueDate',      nc.due_date,
+                    'raisedAt',     nc.raised_at,
+                    'createdAt',    nc.created_at
                   )
                   ORDER BY nc.created_at DESC
                 ) FILTER (WHERE nc.id IS NOT NULL),

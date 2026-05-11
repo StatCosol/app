@@ -1578,6 +1578,21 @@ export class UsersService implements OnModuleInit {
     requiredApproverRole: string,
     requiredApproverUserId: string | null,
   ) {
+    // Block duplicate pending requests for the same entity. Without this an
+    // admin can spam the approver queue with multiple PENDING rows for the
+    // same client/user, which is confusing and breaks the "action already
+    // in progress" UX expected on the admin side.
+    const existingPending = await this.deletionRepo.findOne({
+      where: { entityType, entityId, status: 'PENDING' },
+    });
+    if (existingPending) {
+      const label = entityType.toLowerCase();
+      throw new BadRequestException(
+        `Action already in process. A deletion request for this ${label} is awaiting ` +
+          `approval from ${existingPending.requiredApproverRole}.`,
+      );
+    }
+
     const req = this.deletionRepo.create({
       entityType,
       entityId,
