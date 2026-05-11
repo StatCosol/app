@@ -9,6 +9,7 @@ import { ClientEntity } from '../clients/entities/client.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ConfigService } from '@nestjs/config';
+import { ClientsService } from '../clients/clients.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -59,6 +60,10 @@ describe('UsersService', () => {
               (_key: string, defaultValue?: unknown) => defaultValue,
             ),
           },
+        },
+        {
+          provide: ClientsService,
+          useValue: { softDelete: jest.fn() },
         },
       ],
     }).compile();

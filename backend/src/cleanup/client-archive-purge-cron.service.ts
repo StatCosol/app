@@ -25,7 +25,9 @@ export class ClientArchivePurgeCronService {
             AND purge_after < NOW()
           RETURNING id`,
       );
-      const purged = Array.isArray(result?.[0]) ? result[0].length : (result?.[1] ?? 0);
+      const purged = Array.isArray(result?.[0])
+        ? result[0].length
+        : (result?.[1] ?? 0);
       this.logger.log(
         `client_deletion_archive purge complete — removed ${purged} expired snapshot(s).`,
       );

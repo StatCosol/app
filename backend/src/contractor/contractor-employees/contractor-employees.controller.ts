@@ -117,12 +117,7 @@ export class ContractorEmployeesController {
     for (const b of rowBranches) {
       await this.branchAccess.assertBranchAccess(user.userId, b);
     }
-    return this.svc.bulkCreate(
-      clientId,
-      user.userId,
-      defaultBranchId,
-      rows,
-    );
+    return this.svc.bulkCreate(clientId, user.userId, defaultBranchId, rows);
   }
 }
 

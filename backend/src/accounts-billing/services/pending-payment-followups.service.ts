@@ -536,16 +536,10 @@ export class PendingPaymentFollowupsService {
       this.config.get<string>('INVOICE_FROM_EMAIL') ||
       this.config.get<string>('SMTP_FROM_EMAIL') ||
       this.config.get<string>('SMTP_USER', '');
-    const smtpUser = this.config.get<string>('SMTP_USER', '');
-    // Many SMTP relays (Zoho, etc.) reject sending from any address other
-    // than the authenticated user. Fall back silently to SMTP_USER when the
-    // configured From doesn't match.
-    const safeFromEmail =
-      smtpUser &&
-      fromEmail &&
-      fromEmail.toLowerCase() !== smtpUser.toLowerCase()
-        ? smtpUser
-        : fromEmail;
+    // EmailService.pickTransport() routes the message through the SMTP
+    // mailbox that matches the From address (e.g. SMTP_FINANCE_USER for
+    // finance@statcosol.com), so we no longer need to downgrade the
+    // From to SMTP_USER. Pass the configured finance address directly.
 
     let ok = false;
     let failureReason: string | null = null;
@@ -555,7 +549,7 @@ export class PendingPaymentFollowupsService {
         subject,
         `Payment Reminder — Invoice ${ent.invoiceNumber}`,
         html,
-        { name: fromName, email: safeFromEmail },
+        { name: fromName, email: fromEmail },
         { cc: ent.ccEmail || undefined },
       );
       if ('ok' in result && result.ok) {

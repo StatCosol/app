@@ -1,92 +1,143 @@
-<!-- Enterprise login — full-bleed 55/45 split -->
-<div class="login-shell">
-
-  <!-- ======= LEFT: Brand Showcase ======= -->
-  <aside class="showcase">
-    <!-- Animated background layers -->
-    <div class="sc-bg" aria-hidden="true">
-      <div class="sc-gradient"></div>
-      <div class="sc-orb sc-orb-1"></div>
-      <div class="sc-orb sc-orb-2"></div>
-      <div class="sc-orb sc-orb-3"></div>
-      <div class="sc-grid"></div>
-    </div>
-
-    <div class="sc-body">
-      <!-- Brand name + tagline -->
-      <div class="sc-brand">
-        <h2 class="sc-brand-name">StatCo Solutions</h2>
-        <p class="sc-brand-tag">Ensuring Compliance, Empowering Success.</p>
+<div class="login-page">
+  <section class="login-shell">
+    <header class="brand-crest" aria-label="StatCo Solutions">
+      <div class="brand-mark">
+        <img src="assets/images/statco-logo.svg" alt="" />
       </div>
+      <div class="brand-copy">
+        <h1>StatCo Solutions</h1>
+        <p>Ensuring Compliance, Empowering Success.</p>
+      </div>
+    </header>
 
-      <!-- Headline -->
-      <h1 class="sc-headline">
-        Unified compliance.<br/>
-        <span class="sc-highlight">Zero blind spots.</span>
-      </h1>
-
-      <p class="sc-desc">
-        Manage PF, ESI, Factory, PT, Contractors &amp; Audits — branch-wise
-        in one platform with real-time dashboards and audit-ready reports.
+    <section class="hero-copy" aria-label="Compliance platform overview">
+      <h2>
+        Ensuring Compliance,<br />
+        <span>Empowering</span><br />
+        <span>Business Success.</span>
+      </h2>
+      <div class="headline-rule"></div>
+      <p class="hero-subtitle">
+        Your Trusted Partner for End-to-End<br />
+        Compliance, Payroll &amp; Audit Management.
       </p>
 
-      <!-- Feature chips -->
-      <div class="sc-chips">
-        <div class="sc-chip">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.33v13.34M1.33 8h13.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Multi-branch tracking
-        </div>
-        <div class="sc-chip">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Contractor scoring
-        </div>
-        <div class="sc-chip">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v4l2.67 1.33" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/></svg>
-          Real-time alerts
-        </div>
-        <div class="sc-chip">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.33 8h5.34M8 5.33v5.34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          Audit workflows
-        </div>
-      </div>
-    </div>
+      <ul class="feature-grid">
+        <li>
+          <span class="feature-icon document-icon" aria-hidden="true">
+            <svg viewBox="0 0 28 28" fill="none">
+              <path d="M8 4.5h9l3 3V23H8V4.5Z" />
+              <path d="M17 4.5V8h3" />
+              <path d="M11 12h6M11 16h5M11 20h3" />
+              <circle cx="19" cy="20" r="3" />
+              <path d="m21 22 2 2" />
+            </svg>
+          </span>
+          <span>Unified Compliance<br />Management</span>
+        </li>
+        <li>
+          <span class="feature-icon user-icon" aria-hidden="true">
+            <svg viewBox="0 0 28 28" fill="none">
+              <circle cx="14" cy="9.5" r="4" />
+              <path d="M7 22c1.1-4 3.45-6 7-6s5.9 2 7 6" />
+            </svg>
+          </span>
+          <span>Branch-wise<br />Tracking</span>
+        </li>
+        <li>
+          <span class="feature-icon shield-icon" aria-hidden="true">
+            <svg viewBox="0 0 28 28" fill="none">
+              <path d="M14 4.5 22 8v5.5c0 5-3.3 8.4-8 10-4.7-1.6-8-5-8-10V8l8-3.5Z" />
+              <path d="m10.5 14.5 2.3 2.3 5-5" />
+            </svg>
+          </span>
+          <span>Real-time Dashboards<br />&amp; Alerts</span>
+        </li>
+        <li>
+          <span class="feature-icon score-icon" aria-hidden="true">
+            <svg viewBox="0 0 28 28" fill="none">
+              <path d="M8 15h4l2-3 2 5 2-4h3" />
+              <path d="M7 7h14v14H7z" />
+              <path d="m12 22 2 2 4-4" />
+            </svg>
+          </span>
+          <span>Contractor<br />Scoring</span>
+        </li>
+        <li>
+          <span class="feature-icon report-icon" aria-hidden="true">
+            <svg viewBox="0 0 28 28" fill="none">
+              <path d="M8 4.5h8.5L21 9v14H8V4.5Z" />
+              <path d="M16.5 4.5V9H21" />
+              <path d="M11 13h7M11 17h7M11 21h4" />
+              <path d="m18 20 2 2 4-4" />
+            </svg>
+          </span>
+          <span>Audit-ready<br />Reports</span>
+        </li>
+        <li>
+          <span class="feature-icon lock-icon" aria-hidden="true">
+            <svg viewBox="0 0 28 28" fill="none">
+              <rect x="7" y="12" width="14" height="11" rx="2" />
+              <path d="M10 12V9a4 4 0 0 1 8 0v3" />
+              <path d="M14 16v3" />
+            </svg>
+          </span>
+          <span>Secure, Scalable &amp;<br />Role-based Access</span>
+        </li>
+      </ul>
+    </section>
 
-    <!-- Footer -->
-    <div class="sc-footer">
-      <span>&copy; {{ currentYear }} StatCo Solutions</span>
-    </div>
-  </aside>
+    <main class="product-stage">
+      <section class="preview-card" aria-hidden="true">
+        <h3>Unified compliance.<br /><span>Zero blind spots.</span></h3>
+        <p class="preview-description">
+          Manage PF, ESI, Factory, PT, Contractors &amp; Audits -- branch-wise in one
+          platform with real-time dashboards and audit-ready reports.
+        </p>
 
-  <!-- ======= RIGHT: Login Form ======= -->
-  <main class="form-panel">
-    <div class="form-card">
-      <!-- Mobile-only logo (visible < 960px) -->
-      <div class="mobile-brand">
-        <img src="assets/images/statco-logo.svg" alt="StatCo" class="mobile-logo" />
-        <span class="mobile-name">StatCo Comply</span>
-      </div>
-
-      <!-- Logo + Welcome -->
-      <div class="form-brand">
-        <img src="assets/images/statco-logo.svg" alt="StatCo" class="form-logo" />
-        <div class="form-head">
-          <h2>Welcome back</h2>
-          <p>Sign in to your account to continue</p>
+        <div class="preview-chips">
+          <span>
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" /></svg>
+            Multi-branch tracking
+          </span>
+          <span>
+            <svg viewBox="0 0 16 16" fill="none"><path d="m3 8 3 3 7-7" /></svg>
+            Contractor scoring
+          </span>
+          <span>
+            <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" /><path d="M8 5v3l2 1.5" /></svg>
+            Real-time alerts
+          </span>
+          <span>
+            <svg viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="2" /><path d="M6 8h4M8 6v4" /></svg>
+            Audit workflows
+          </span>
         </div>
-      </div>
 
-      <!-- Error -->
+        <p class="preview-footer">&copy; {{ currentYear }} StatCo Solutions</p>
+      </section>
+
+      <section class="form-card" aria-label="Sign in">
+        <div class="form-brand">
+          <div>
+            <h2>Welcome back</h2>
+            <p>Sign in to your account to continue</p>
+          </div>
+        </div>
+
       <div *ngIf="error" class="form-error">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#DC2626" stroke-width="1.5"/><path d="M8 5v3.5M8 10.5h.007" stroke="#DC2626" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="7" /><path d="M9 5.5V10M9 12.5h.01" /></svg>
         {{ error }}
       </div>
 
-      <form class="form" (ngSubmit)="submit()" autocomplete="on">
-        <!-- Email -->
+      <form class="login-form" (ngSubmit)="submit()" autocomplete="on">
         <div class="field">
-          <label class="field-label" for="login-email">Email address</label>
-          <div class="field-input" [class.focused]="emailFocused">
-            <svg class="field-icon" width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="3" width="15" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 5l7.5 5 7.5-5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <label for="login-email">Email address</label>
+          <div class="field-control" [class.focused]="emailFocused">
+            <svg class="field-leading" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="3" y="5" width="14" height="10" rx="2" />
+              <path d="m3.5 6 6.5 5 6.5-5" />
+            </svg>
             <input
               id="login-email"
               type="email"
@@ -94,7 +145,7 @@
               name="email"
               [disabled]="isLoading"
               autocomplete="username"
-              placeholder="you&#64;company.com"
+              placeholder="mkkallepalli@gmail.com"
               required
               (focus)="emailFocused=true"
               (blur)="emailFocused=false"
@@ -102,11 +153,13 @@
           </div>
         </div>
 
-        <!-- Password -->
         <div class="field">
-          <label class="field-label" for="login-pass">Password</label>
-          <div class="field-input" [class.focused]="passFocused">
-            <svg class="field-icon" width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="8" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 8V5.5a3.5 3.5 0 017 0V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <label for="login-pass">Password</label>
+          <div class="field-control" [class.focused]="passFocused">
+            <svg class="field-leading" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="4" y="9" width="12" height="8" rx="2" />
+              <path d="M6.5 9V6.7a3.5 3.5 0 0 1 7 0V9" />
+            </svg>
             <input
               id="login-pass"
               [type]="showPassword ? 'text' : 'password'"
@@ -114,75 +167,65 @@
               name="password"
               [disabled]="isLoading"
               autocomplete="current-password"
-              placeholder="Enter your password"
+              placeholder="**********"
               required
               (focus)="passFocused=true"
               (blur)="passFocused=false"
             />
             <button
               type="button"
-              class="toggle-pass"
+              class="password-toggle"
               (click)="showPassword = !showPassword"
               [disabled]="isLoading"
               [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
             >
-              <!-- Eye open -->
-              <svg *ngIf="!showPassword" width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M1.5 9s3-5.5 7.5-5.5S16.5 9 16.5 9s-3 5.5-7.5 5.5S1.5 9 1.5 9z" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="9" r="2.5" stroke="currentColor" stroke-width="1.4"/></svg>
-              <!-- Eye closed -->
-              <svg *ngIf="showPassword" width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2.5 2.5l13 13M7.06 7.06a2.75 2.75 0 003.88 3.88M1.5 9s3-5.5 7.5-5.5c1.12 0 2.16.27 3.1.7M14.85 6.35S16.5 8.17 16.5 9c0 0-3 5.5-7.5 5.5-.67 0-1.32-.1-1.93-.28" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <svg *ngIf="!showPassword" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M2.5 10s3-5 7.5-5 7.5 5 7.5 5-3 5-7.5 5-7.5-5-7.5-5Z" />
+                <circle cx="10" cy="10" r="2.5" />
+              </svg>
+              <svg *ngIf="showPassword" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="m3 3 14 14M8.4 8.4A2.5 2.5 0 0 0 11.6 11.6M6.7 5.9A8.9 8.9 0 0 1 10 5c4.5 0 7.5 5 7.5 5a12.6 12.6 0 0 1-2.2 2.7M4.7 7.2A12.6 12.6 0 0 0 2.5 10s3 5 7.5 5c1.2 0 2.3-.35 3.3-.9" />
+              </svg>
             </button>
           </div>
         </div>
 
-        <!-- Remember + Forgot -->
         <div class="form-row">
           <label class="remember">
             <input autocomplete="off" id="l-remember-me" type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" [disabled]="isLoading" />
             <span class="remember-box"></span>
-            <span>Remember me</span>
+            Remember me
           </label>
-          <a class="forgot" routerLink="/forgot-password">Forgot password?</a>
+          <a routerLink="/forgot-password">Forgot password?</a>
         </div>
 
-        <!-- Submit -->
         <button class="submit-btn" type="submit" [disabled]="isLoading">
           <span *ngIf="!isLoading">Sign In</span>
-          <span *ngIf="isLoading" class="btn-loading">
-            <span class="btn-spinner"></span>
-            Signing in&hellip;
-          </span>
+          <span *ngIf="isLoading" class="loading-state"><span></span>Signing in...</span>
         </button>
       </form>
 
-      <!-- Divider -->
-      <div class="divider"><span>Need assistance?</span></div>
+      <div class="assistance">
+        <span>Need assistance?</span>
+      </div>
 
-      <div class="support-row">
-        <a class="support-link" href="mailto:it_admin&#64;statcosol.com">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 4l6 4 6-4" stroke="currentColor" stroke-width="1.2"/></svg>
+      <div class="support-links">
+        <a href="mailto:it_admin&#64;statcosol.com">
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.5" y="4" width="11" height="8" rx="1.5" /><path d="m3 5 5 4 5-4" /></svg>
           it_admin&#64;statcosol.com
         </a>
-        <a class="support-link" href="tel:+919000607839">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5.27 6.27a7.06 7.06 0 002.46 2.46l.87-.87a.58.58 0 01.6-.14 6.7 6.7 0 002.1.34.58.58 0 01.58.58v2.06a.58.58 0 01-.58.58A9.85 9.85 0 012.72 2.72a.58.58 0 01.58-.58H5.36a.58.58 0 01.58.58 6.7 6.7 0 00.34 2.1.58.58 0 01-.14.6l-.87.85z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        <a href="tel:+919000607839">
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.1 7.1a6 6 0 0 0 2.8 2.8l1-1a.7.7 0 0 1 .7-.15 7.3 7.3 0 0 0 2.2.35.7.7 0 0 1 .7.7v2.1a.7.7 0 0 1-.7.7A10.8 10.8 0 0 1 2.5 2.2a.7.7 0 0 1 .7-.7h2.1a.7.7 0 0 1 .7.7 7.3 7.3 0 0 0 .35 2.2.7.7 0 0 1-.15.7l-1 1Z" /></svg>
           +91 9000 607 839
         </a>
       </div>
 
-      <!-- Trust row -->
       <div class="trust-row">
-        <div class="trust-pill">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.76 3.56L12 5.14 8.99 8.06l.71 4.14L6 10.36 2.3 12.2l.71-4.14L0 5.14l4.24-.58L6 1z" fill="#F59E0B"/></svg>
-          Enterprise Grade
-        </div>
-        <div class="trust-pill">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          256-bit SSL
-        </div>
-        <div class="trust-pill">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="4" width="9" height="7" rx="1.5" stroke="#6366F1" stroke-width="1.2"/><path d="M3.5 4V3a2.5 2.5 0 015 0v1" stroke="#6366F1" stroke-width="1.2"/></svg>
-          Role-Based Access
-        </div>
+        <span class="grade">Enterprise Grade</span>
+        <span class="ssl">256-bit SSL</span>
+        <span class="access">Role-Based Access</span>
       </div>
-    </div>
-  </main>
+      </section>
+    </main>
+  </section>
 </div>

@@ -31,7 +31,11 @@ export class EscalationCronService {
 
     const branches: { id: string; clientid: string; branchname: string }[] =
       await this.ds.query(
-        `SELECT id, clientid, branchname FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
+        `SELECT b.id, b.clientid, b.branchname
+           FROM client_branches b
+           JOIN clients c ON c.id = b.clientid
+          WHERE b.isdeleted = false AND b.status = 'ACTIVE'
+            AND c.is_deleted = false`,
       );
 
     let escalated = 0;

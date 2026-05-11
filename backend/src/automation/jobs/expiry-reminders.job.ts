@@ -30,10 +30,12 @@ export class ExpiryRemindersJob {
                 u.name AS contractor_name
          FROM contractor_documents cd
          LEFT JOIN users u ON u.id = cd.contractor_user_id
+         JOIN clients c ON c.id = cd.client_id
          WHERE cd.expiry_date IS NOT NULL
            AND cd.expiry_date >= CURRENT_DATE
            AND cd.expiry_date <= CURRENT_DATE + $1 * INTERVAL '1 day'
-           AND cd.status NOT IN ('EXPIRED','CANCELLED')`,
+           AND cd.status NOT IN ('EXPIRED','CANCELLED')
+           AND c.is_deleted = false`,
         [withinDays],
       );
 
@@ -86,10 +88,12 @@ export class ExpiryRemindersJob {
                 cb.branchname
          FROM branch_documents bd
          LEFT JOIN client_branches cb ON cb.id = bd.branch_id
+         JOIN clients c ON c.id = bd.client_id
          WHERE bd.expiry_date IS NOT NULL
            AND bd.expiry_date >= CURRENT_DATE
            AND bd.expiry_date <= CURRENT_DATE + $1 * INTERVAL '1 day'
-           AND bd.status NOT IN ('EXPIRED','CANCELLED')`,
+           AND bd.status NOT IN ('EXPIRED','CANCELLED')
+           AND c.is_deleted = false`,
         [withinDays],
       );
 

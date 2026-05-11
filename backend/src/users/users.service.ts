@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   OnModuleInit,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, Like, IsNull, DataSource, In } from 'typeorm';
@@ -18,6 +20,7 @@ import { ClientEntity } from '../clients/entities/client.entity';
 import { BranchEntity } from '../branches/entities/branch.entity';
 import { ConfigService } from '@nestjs/config';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ClientsService } from '../clients/clients.service';
 
 export type ListUsersPagedArgs = {
   q?: string;
@@ -140,6 +143,8 @@ export class UsersService implements OnModuleInit {
     private dataSource: DataSource,
     private auditLogs: AuditLogsService,
     private readonly config: ConfigService,
+    @Inject(forwardRef(() => ClientsService))
+    private readonly clientsService: ClientsService,
   ) {}
 
   async onModuleInit() {
@@ -1894,18 +1899,17 @@ export class UsersService implements OnModuleInit {
     if (req.entityType === 'USER') {
       await this.deleteUser(req.entityId, approverUserId);
     } else if (req.entityType === 'CLIENT') {
-      const client = await this.clientsRepo.findOne({
-        where: { id: req.entityId },
-      });
-      if (!client) {
-        throw new NotFoundException('Client not found');
-      }
-      client.isDeleted = true;
-      client.isActive = false;
-      client.status = 'INACTIVE';
-      client.deletedAt = new Date();
-      client.deletedBy = approverUserId;
-      await this.clientsRepo.save(client);
+      // Route through ClientsService.softDelete so the full cascade runs
+      // (audits, schedules, tasks, assignments, contractor data, branch
+      // users, registrations, etc.). Without this, downstream cron jobs
+      // continue to send notifications/emails for the deleted client
+      // because their source rows remain ACTIVE/OPEN.
+      await this.clientsService.softDelete(
+        req.entityId,
+        approverUserId,
+        approverRoleCode,
+        req.remarks ?? null,
+      );
     }
 
     req.status = 'APPROVED';

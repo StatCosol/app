@@ -76,7 +76,9 @@ export class BranchReportsController {
         [suppliedBranchId, user.clientId],
       );
       if (!owned?.length) {
-        throw new BadRequestException('branchId does not belong to your client');
+        throw new BadRequestException(
+          'branchId does not belong to your client',
+        );
       }
       if (allowed !== 'ALL' && !allowed.includes(suppliedBranchId)) {
         throw new ForbiddenException('You do not have access to this branch');

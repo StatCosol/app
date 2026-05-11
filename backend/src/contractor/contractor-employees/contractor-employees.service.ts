@@ -82,9 +82,7 @@ export class ContractorEmployeesService {
       select: ['id'],
     });
     if (!link) {
-      throw new BadRequestException(
-        'Contractor is not mapped to this branch',
-      );
+      throw new BadRequestException('Contractor is not mapped to this branch');
     }
   }
 

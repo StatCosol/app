@@ -38,9 +38,7 @@ export class PayrollReportsService {
    * - PAYROLL: only clients with an ACTIVE assignment and no end_date.
    * - Anyone else reaching this controller: empty list (no access).
    */
-  private async getAllowedClientIds(
-    user: ReqUser,
-  ): Promise<string[] | null> {
+  private async getAllowedClientIds(user: ReqUser): Promise<string[] | null> {
     if (!user?.id) return [];
     const role = user.roleCode;
     if (role === 'ADMIN' || role === 'CRM') return null;
@@ -159,16 +157,16 @@ export class PayrollReportsService {
 
   /** Load employees keyed by both id and `${clientId}:${employeeCode}`. */
   private async loadEmployeesScoped(
-    runEmps: Array<Pick<PayrollRunEmployeeEntity, 'employeeCode' | 'clientId' | 'employeeId'>>,
+    runEmps: Array<
+      Pick<PayrollRunEmployeeEntity, 'employeeCode' | 'clientId' | 'employeeId'>
+    >,
   ): Promise<Map<string, EmployeeEntity>> {
     const map = new Map<string, EmployeeEntity>();
     if (runEmps.length === 0) return map;
 
     const ids = [
       ...new Set(
-        runEmps
-          .map((e) => e.employeeId)
-          .filter((v): v is string => !!v),
+        runEmps.map((e) => e.employeeId).filter((v): v is string => !!v),
       ),
     ];
     const pairs = [
@@ -190,11 +188,7 @@ export class PayrollReportsService {
       const tuples = pairs.map((p) => p.split('::'));
       orParts.push(
         '(e.clientId, e.employeeCode) IN (' +
-          tuples
-            .map(
-              (_, i) => `(:cid_${i}, :code_${i})`,
-            )
-            .join(', ') +
+          tuples.map((_, i) => `(:cid_${i}, :code_${i})`).join(', ') +
           ')',
       );
       tuples.forEach(([cid, code], i) => {

@@ -1,6 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AdminApplicabilityConfigService } from '../../../core/admin-applicability-config.service';
 import {
   PageHeaderComponent,
@@ -374,6 +375,8 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 export class EngineConfigComponent implements OnInit {
   private readonly api = inject(AdminApplicabilityConfigService);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly zone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   tabs = [
     { key: 'items', label: 'Compliance Items' },
@@ -467,19 +470,32 @@ export class EngineConfigComponent implements OnInit {
   loadAll() {
     this.loading = true;
     let done = 0;
-    const check = () => { if (++done >= 3) this.loading = false; };
+    // Some HTTP responses arrive outside Angular's zone (interceptor chain
+    // wraps payloads through `from(promise)` for crypto). Force change
+    // detection on every emission so template counters and `loading` flag
+    // reflect the latest state.
+    const tick = () => this.zone.run(() => this.cdr.markForCheck());
+    const check = () => {
+      if (++done >= 3) {
+        this.zone.run(() => { this.loading = false; this.cdr.markForCheck(); });
+      }
+    };
 
-    this.api.listComplianceItems().subscribe({
-      next: (items) => { this.complianceItems = items; this.rebuildComplianceSelectOptions(); check(); },
-      error: () => check(),
+    this.api.listComplianceItems().pipe(finalize(check)).subscribe({
+      next: (items) => {
+        this.complianceItems = Array.isArray(items) ? items : [];
+        this.rebuildComplianceSelectOptions();
+        tick();
+      },
+      error: (err) => { console.error('[engine-config] listComplianceItems failed', err); tick(); },
     });
-    this.api.listPackages().subscribe({
-      next: (pkgs) => { this.packages = pkgs; check(); },
-      error: () => check(),
+    this.api.listPackages().pipe(finalize(check)).subscribe({
+      next: (pkgs) => { this.packages = Array.isArray(pkgs) ? pkgs : []; tick(); },
+      error: (err) => { console.error('[engine-config] listPackages failed', err); tick(); },
     });
-    this.api.listRules().subscribe({
-      next: (rules) => { this.rules = rules; check(); },
-      error: () => check(),
+    this.api.listRules().pipe(finalize(check)).subscribe({
+      next: (rules) => { this.rules = Array.isArray(rules) ? rules : []; tick(); },
+      error: (err) => { console.error('[engine-config] listRules failed', err); tick(); },
     });
   }
 

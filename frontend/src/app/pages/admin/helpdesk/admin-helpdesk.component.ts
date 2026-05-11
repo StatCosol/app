@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subscription, filter } from 'rxjs';
 import { AdminHelpdeskApiService, HdTicket, HdStats } from './admin-helpdesk-api.service';
 
 @Component({
@@ -11,9 +12,22 @@ import { AdminHelpdeskApiService, HdTicket, HdStats } from './admin-helpdesk-api
   template: `
     <div class="space-y-6">
       <!-- Header -->
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Helpdesk Management</h1>
-        <p class="mt-1 text-sm text-gray-500">Monitor and manage all helpdesk tickets across clients</p>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Helpdesk Management</h1>
+          <p class="mt-1 text-sm text-gray-500">Monitor and manage all helpdesk tickets across clients</p>
+        </div>
+        <button type="button" (click)="reload(); loadStats()"
+                class="text-sm px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+          ↻ Refresh
+        </button>
+      </div>
+
+      <!-- Load error banner -->
+      <div *ngIf="loadError" class="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+        <span>{{ loadError }}</span>
+        <button type="button" (click)="loadError = ''; loadStats(); loadTickets()"
+                class="text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-100">Retry</button>
       </div>
 
       <!-- Stats Cards -->
@@ -167,10 +181,11 @@ import { AdminHelpdeskApiService, HdTicket, HdStats } from './admin-helpdesk-api
     </div>
   `,
 })
-export class AdminHelpdeskComponent implements OnInit {
+export class AdminHelpdeskComponent implements OnInit, OnDestroy {
   stats: HdStats = { total: 0, open: 0, inProgress: 0, awaitingClient: 0, resolved: 0, closed: 0, slaBreached: 0, categories: [] };
   tickets: HdTicket[] = [];
   loading = false;
+  loadError = '';
 
   // Filters
   searchTerm = '';
@@ -186,12 +201,31 @@ export class AdminHelpdeskComponent implements OnInit {
   pageNumbers: number[] = [];
 
   private searchTimeout: any;
+  private routerSub?: Subscription;
 
-  constructor(private api: AdminHelpdeskApiService) {}
+  constructor(
+    private api: AdminHelpdeskApiService,
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.loadStats();
     this.loadTickets();
+    // Re-fetch if user clicks the same /admin/helpdesk link again (RouteReuseStrategy safety)
+    this.routerSub = this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => {
+        if (e.urlAfterRedirects.split('?')[0] === '/admin/helpdesk') {
+          this.loadStats();
+          this.loadTickets();
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.routerSub?.unsubscribe();
+    clearTimeout(this.searchTimeout);
   }
 
   get hasActiveFilters(): boolean {
@@ -226,14 +260,22 @@ export class AdminHelpdeskComponent implements OnInit {
     this.loadTickets();
   }
 
-  private loadStats(): void {
+  loadStats(): void {
     this.api.getStats().subscribe({
-      next: (s) => (this.stats = s),
-      error: () => {},
+      next: (s) => {
+        this.stats = s;
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.loadError = this.formatError(err, 'Failed to load helpdesk stats');
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      },
     });
   }
 
-  private loadTickets(): void {
+  loadTickets(): void {
     this.loading = true;
     this.api
       .listTickets({
@@ -251,9 +293,24 @@ export class AdminHelpdeskComponent implements OnInit {
           this.totalPages = Math.ceil(res.total / this.pageSize) || 1;
           this.buildPageNumbers();
           this.loading = false;
+          this.loadError = '';
+          this.cdr.markForCheck();
+          this.cdr.detectChanges();
         },
-        error: () => (this.loading = false),
+        error: (err) => {
+          this.loading = false;
+          this.loadError = this.formatError(err, 'Failed to load tickets');
+          this.cdr.markForCheck();
+          this.cdr.detectChanges();
+        },
       });
+  }
+
+  private formatError(err: any, fallback: string): string {
+    if (err?.status === 0) return 'Network error — unable to reach server. Check your connection and retry.';
+    if (err?.status === 401 || err?.status === 403) return 'Session expired or access denied. Please refresh and sign in again.';
+    const msg = err?.error?.message || err?.message;
+    return msg ? `${fallback}: ${msg}` : `${fallback}.`;
   }
 
   private buildPageNumbers(): void {

@@ -731,7 +731,6 @@ async function bootstrap() {
 // Surface bootstrap failures to stderr so CI/Docker logs capture them even
 // when bufferLogs:true is enabled and the pino logger never gets wired up.
 bootstrap().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error('[Bootstrap] FATAL:', err && (err.stack || err.message || err));
   process.exit(1);
 });
@@ -739,10 +738,11 @@ bootstrap().catch((err) => {
 // Catch silent killers: unhandled promise rejections and uncaught exceptions
 // that occur during early bootstrap before Nest's logger is ready.
 process.on('unhandledRejection', (reason) => {
-  // eslint-disable-next-line no-console
   console.error('[unhandledRejection]', reason);
 });
 process.on('uncaughtException', (err) => {
-  // eslint-disable-next-line no-console
-  console.error('[uncaughtException]', err && (err.stack || err.message || err));
+  console.error(
+    '[uncaughtException]',
+    err && (err.stack || err.message || err),
+  );
 });

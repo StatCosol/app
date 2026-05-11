@@ -79,13 +79,8 @@ export class ContractorDocumentsService {
     if (audit.branchId && audit.branchId !== branchId) {
       throw new BadRequestException('Audit does not belong to this branch');
     }
-    if (
-      audit.contractorUserId &&
-      audit.contractorUserId !== contractorUserId
-    ) {
-      throw new BadRequestException(
-        'Audit is not assigned to this contractor',
-      );
+    if (audit.contractorUserId && audit.contractorUserId !== contractorUserId) {
+      throw new BadRequestException('Audit is not assigned to this contractor');
     }
     if (observationId) {
       const obs = await this.observationRepo.findOne({

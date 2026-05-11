@@ -174,10 +174,7 @@ export class CrmReturnsController {
 
   @ApiOperation({ summary: 'Get filing timeline' })
   @Get('filings/:id/timeline')
-  async getTimeline(
-    @CurrentUser() user: ReqUser,
-    @Param('id') id: string,
-  ) {
+  async getTimeline(@CurrentUser() user: ReqUser, @Param('id') id: string) {
     await this.returns.assertCrmAssigned(user, id);
     return this.auditLogs.findCombinedTimeline('RETURN_TASK', id, 'RETURN');
   }

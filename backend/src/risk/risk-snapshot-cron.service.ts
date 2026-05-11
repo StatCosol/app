@@ -35,7 +35,10 @@ export class RiskSnapshotCronService {
     }
 
     const branches: { id: string; clientid: string }[] = await this.ds.query(
-      `SELECT id, clientid FROM client_branches WHERE isdeleted = false AND status = 'ACTIVE'`,
+      `SELECT b.id, b.clientid FROM client_branches b
+         JOIN clients c ON c.id = b.clientid
+        WHERE b.isdeleted = false AND b.status = 'ACTIVE'
+          AND c.is_deleted = false`,
     );
 
     let count = 0;
