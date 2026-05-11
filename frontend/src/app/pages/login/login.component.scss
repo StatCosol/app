@@ -15,7 +15,7 @@ $muted: #667085;
 
 .login-shell {
   position: relative;
-  min-height: 760px;
+  min-height: 810px;
   overflow-x: hidden;
   color: #fff;
   display: grid;
@@ -23,8 +23,8 @@ $muted: #667085;
   grid-template-areas:
     'crest crest'
     'hero  stage';
-  gap: 0 clamp(28px, 3vw, 56px);
-  padding: 0 clamp(12px, 2vw, 40px) 32px;
+  gap: 0 clamp(32px, 3vw, 62px);
+  padding: 0 clamp(18px, 2.2vw, 44px) 28px;
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 200' preserveAspectRatio='none'><path d='M0,0 L1440,0 L1440,20 C1180,20 1000,160 760,160 C480,160 240,140 0,120 Z' fill='%23ffffff'/></svg>") top left / 100% 200px no-repeat,
     radial-gradient(ellipse 54% 70% at 76% 8%, rgba(30, 100, 185, .32), transparent 58%),
@@ -83,15 +83,15 @@ $muted: #667085;
 
 .hero-copy {
   width: 100%;
-  max-width: 590px;
-  padding: 38px 0 0 clamp(10px, 1vw, 24px);
+  max-width: 660px;
+  padding: 52px 0 0 clamp(8px, 1vw, 22px);
 }
 
 .hero-copy h2 {
   margin: 0;
   color: #fff;
-  font-size: clamp(32px, 3vw, 48px);
-  line-height: 1.1;
+  font-size: clamp(38px, 3.4vw, 56px);
+  line-height: 1.05;
   letter-spacing: 0;
   font-weight: 700;
 
@@ -103,16 +103,16 @@ $muted: #667085;
 .headline-rule {
   width: 60px;
   height: 3px;
-  margin: 14px 0 14px;
+  margin: 18px 0 16px;
   background: $blue;
 }
 
 .hero-subtitle {
   margin: 0;
-  max-width: 520px;
+  max-width: 560px;
   color: rgba(255, 255, 255, .86);
-  font-size: clamp(15px, 1.15vw, 18px);
-  line-height: 1.45;
+  font-size: clamp(16px, 1.18vw, 19px);
+  line-height: 1.5;
   font-weight: 500;
 }
 
@@ -120,10 +120,10 @@ $muted: #667085;
   list-style: none;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 28px;
+  gap: 16px 32px;
   width: 100%;
-  max-width: 600px;
-  margin: 18px 0 0;
+  max-width: 640px;
+  margin: 24px 0 0;
   padding: 0;
 }
 
@@ -165,7 +165,7 @@ $muted: #667085;
 .product-stage {
   position: relative;
   min-width: 0;
-  padding: 38px 0 24px;
+  padding: 52px 0 24px;
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -176,14 +176,14 @@ $muted: #667085;
   position: relative;
   z-index: 1;
   flex: 0 0 auto;
-  width: 310px;
-  margin-right: -18px;
-  padding: 22px 20px 18px;
+  width: 360px;
+  margin-right: -24px;
+  padding: 22px 24px 18px;
   border-radius: 18px;
   border: 2px solid rgba(255, 255, 255, .42);
   background: linear-gradient(145deg, rgba(10, 34, 70, .82), rgba(5, 19, 42, .94));
   box-shadow: 0 18px 40px rgba(0, 0, 0, .24);
-  min-height: 316px;
+  min-height: 336px;
   display: flex;
   flex-direction: column;
 }
@@ -284,9 +284,9 @@ $muted: #667085;
   position: relative;
   z-index: 2;
   flex: 0 0 auto;
-  width: 316px;
+  width: 360px;
   min-width: 0;
-  padding: 16px 16px 14px;
+  padding: 18px 18px 16px;
   border-radius: 18px;
   color: $text;
   background: linear-gradient(180deg, #fff 0%, #f9fbff 100%);
