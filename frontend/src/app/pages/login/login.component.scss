@@ -31,13 +31,11 @@ $muted: #667085;
     content: '';
     position: absolute;
     z-index: 0;
-    top: -260px;
-    left: -200px;
-    width: 78vw;
-    height: 440px;
-    min-width: 820px;
-    max-width: 1280px;
-    border-radius: 0 0 70% 100% / 0 0 78% 90%;
+    top: -200px;
+    left: -5vw;
+    width: 110vw;
+    height: 380px;
+    border-radius: 0 0 50% 50% / 0 0 100% 100%;
     background: #fff;
     box-shadow: 0 18px 34px rgba(6, 21, 44, .14);
     pointer-events: none;
@@ -671,14 +669,6 @@ $muted: #667085;
    ≤900: single column — crest, form (top), then hero copy below.
    ========================================================================= */
 @media (max-width: 1280px) {
-  .login-shell::before {
-    width: 56vw;
-    height: 240px;
-    min-width: 580px;
-    top: -130px;
-    left: -120px;
-  }
-
   .preview-card {
     width: 400px;
     padding: 24px 78px 20px 22px;
@@ -692,14 +682,6 @@ $muted: #667085;
 }
 
 @media (max-width: 1100px) {
-  .login-shell::before {
-    width: 50vw;
-    height: 210px;
-    min-width: 480px;
-    top: -110px;
-    left: -100px;
-  }
-
   .preview-card {
     display: none;
   }
@@ -725,12 +707,12 @@ $muted: #667085;
   }
 
   .login-shell::before {
-    top: -110px;
-    left: -90px;
-    width: 118vw;
+    top: -150px;
+    left: -5vw;
+    width: 110vw;
+    height: 280px;
     min-width: 0;
-    height: 240px;
-    border-radius: 0 0 100% 0 / 0 0 54% 0;
+    border-radius: 0 0 50% 50% / 0 0 100% 100%;
   }
 
   .brand-crest {
