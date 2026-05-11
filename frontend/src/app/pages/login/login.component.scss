@@ -24,7 +24,7 @@ $muted: #667085;
   gap: 0 clamp(20px, 3vw, 56px);
   padding: 0 clamp(16px, 3vw, 48px) clamp(20px, 4vh, 40px);
   background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 260' preserveAspectRatio='none'><path d='M0,0 L1440,0 L1440,40 C1100,40 900,210 600,210 C320,210 180,200 0,180 Z' fill='%23ffffff'/></svg>") top left / 100% 260px no-repeat,
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 200' preserveAspectRatio='none'><path d='M0,0 L1440,0 L1440,20 C1180,20 1000,160 760,160 C480,160 240,140 0,120 Z' fill='%23ffffff'/></svg>") top left / 100% 200px no-repeat,
     radial-gradient(ellipse 54% 70% at 76% 8%, rgba(30, 100, 185, .32), transparent 58%),
     linear-gradient(118deg, $navy-deep 0%, $navy 46%, #082a55 100%);
 }
