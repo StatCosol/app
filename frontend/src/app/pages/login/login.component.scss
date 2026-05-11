@@ -31,13 +31,13 @@ $muted: #667085;
     content: '';
     position: absolute;
     z-index: 0;
-    top: -150px;
-    left: -160px;
-    width: 70vw;
-    height: 320px;
-    min-width: 720px;
-    max-width: 1120px;
-    border-radius: 0 0 100% 0 / 0 0 58% 0;
+    top: -260px;
+    left: -200px;
+    width: 78vw;
+    height: 440px;
+    min-width: 820px;
+    max-width: 1280px;
+    border-radius: 0 0 70% 100% / 0 0 78% 90%;
     background: #fff;
     box-shadow: 0 18px 34px rgba(6, 21, 44, .14);
     pointer-events: none;
@@ -308,9 +308,6 @@ $muted: #667085;
 }
 
 .form-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   margin-bottom: 16px;
 
   h2 {
@@ -328,13 +325,6 @@ $muted: #667085;
     line-height: 1.5;
     font-weight: 500;
   }
-}
-
-.form-brand-mark {
-  width: 44px;
-  height: 26px;
-  flex: 0 0 auto;
-  object-fit: contain;
 }
 
 .form-error {
