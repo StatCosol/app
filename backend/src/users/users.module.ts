@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RoleEntity } from './entities/role.entity';
 import { UserEntity } from './entities/user.entity';
@@ -13,6 +13,7 @@ import { CrmUsersController } from './crm-users.controller';
 import { ApprovalsController } from './approvals.controller';
 import { UsersPortalController } from './users-portal.controller';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { ClientsModule } from '../clients/clients.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
       BranchEntity,
     ]),
     AuditLogsModule,
+    forwardRef(() => ClientsModule),
   ],
   controllers: [
     UsersController,

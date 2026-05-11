@@ -72,7 +72,8 @@ export class DueRemindersJob {
            JOIN clients c ON c.id = s.client_id
            WHERE s.status = 'SCHEDULED'
              AND s.due_date >= CURRENT_DATE
-             AND s.due_date <= CURRENT_DATE + INTERVAL '5 days'`,
+             AND s.due_date <= CURRENT_DATE + INTERVAL '5 days'
+             AND c.is_deleted = false`,
         );
 
         for (const sch of schedules) {

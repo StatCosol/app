@@ -439,6 +439,7 @@ export class AdminDigestService {
       JOIN clients c ON c.id = a.client_id
       WHERE a.status <> 'COMPLETED'
         AND a.due_date < now()
+        AND COALESCE(c.is_deleted, false) = false
       ORDER BY days_overdue DESC
       LIMIT 10
       `,
@@ -461,6 +462,7 @@ export class AdminDigestService {
           OR
           (ca.assignment_type <> 'CRM' AND ca.start_date + interval '120 days' <= now() + interval '30 days')
         )
+        AND COALESCE(c.is_deleted, false) = false
       LIMIT 10
       `,
       'weekly.assignmentsDue',
@@ -497,6 +499,7 @@ export class AdminDigestService {
       WHERE a.status <> 'COMPLETED'
         AND a.due_date < now()
         AND (now()::date - a.due_date::date) > 30
+        AND COALESCE(c.is_deleted, false) = false
       ORDER BY days_overdue DESC
       LIMIT 20
       `,
@@ -523,6 +526,7 @@ export class AdminDigestService {
           OR
           (ca.assignment_type <> 'CRM' AND ca.start_date + interval '120 days' < now())
         )
+        AND COALESCE(c.is_deleted, false) = false
       ORDER BY days_past_due DESC
       LIMIT 20
       `,

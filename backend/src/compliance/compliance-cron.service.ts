@@ -62,6 +62,10 @@ export class ComplianceCronService {
         .andWhere('t.status IN (:...st)', {
           st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
         })
+        // Don't escalate tasks for soft-deleted clients
+        .andWhere(
+          't.clientId NOT IN (SELECT id FROM clients WHERE COALESCE(is_deleted, false) = true)',
+        )
         .getMany();
 
       if (!due.length) {
@@ -76,6 +80,9 @@ export class ComplianceCronService {
         .andWhere('status IN (:...st)', {
           st: ['PENDING', 'IN_PROGRESS', 'REJECTED'] as TaskStatus[],
         })
+        .andWhere(
+          'client_id NOT IN (SELECT id FROM clients WHERE COALESCE(is_deleted, false) = true)',
+        )
         .execute();
 
       for (const t of due) {

@@ -82,6 +82,8 @@ export class BranchRegistrationReminderService {
         WHERE r.expiry_date IS NOT NULL
           AND COALESCE(r.status, 'ACTIVE') <> 'DELETED'
           AND (r.expiry_date - CURRENT_DATE) <= 60
+          AND c.is_deleted = false
+          AND b.isdeleted = false
         ORDER BY (r.expiry_date - CURRENT_DATE) ASC
       `);
 

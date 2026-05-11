@@ -44,10 +44,20 @@ export class RiskMonitorCronService {
     const prevMonth = this.shiftMonth(month, -1);
 
     try {
-      const branches = await this.branchRepo.find({
-        where: { isActive: true, isDeleted: false },
-        select: ['id', 'clientId', 'branchName'],
-      });
+      // Skip branches whose parent client is soft-deleted (otherwise risk
+      // alerts/emails get raised for clients that no longer exist).
+      const branches = await this.branchRepo
+        .createQueryBuilder('b')
+        .innerJoin('clients', 'c', 'c.id = b.clientId')
+        .where('b.isActive = :ia', { ia: true })
+        .andWhere('b.isDeleted = :idl', { idl: false })
+        .andWhere('COALESCE(c.is_deleted, false) = false')
+        .select([
+          'b.id AS "id"',
+          'b.clientId AS "clientId"',
+          'b.branchName AS "branchName"',
+        ])
+        .getRawMany<{ id: string; clientId: string; branchName: string }>();
 
       // Group by client
       const byClient = new Map<string, typeof branches>();

@@ -52,6 +52,14 @@ export class AuditNcEscalationJob {
       })
       .andWhere('nc.vendorWindowUntil IS NOT NULL')
       .andWhere('nc.vendorWindowUntil < :today', { today })
+      // Skip NCs whose audit/client has been soft-deleted
+      .andWhere(
+        `nc.auditId NOT IN (
+           SELECT a.id FROM audits a
+           JOIN clients c ON c.id = a.client_id
+           WHERE COALESCE(c.is_deleted, false) = true
+         )`,
+      )
       .getMany();
 
     let escalated = 0;

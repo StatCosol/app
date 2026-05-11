@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
@@ -23,6 +25,7 @@ export class ClientsService {
     private readonly repo: Repository<ClientEntity>,
     @InjectRepository(ClientUserEntity)
     private readonly clientUserRepo: Repository<ClientUserEntity>,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly auditLogs: AuditLogsService,
     private readonly dataSource: DataSource,
@@ -251,7 +254,9 @@ export class ClientsService {
     // is supplied (CCO-scoped endpoints), restrict to clients whose assigned
     // CRM is owned by this CCO. Admins / global callers should pass `null`
     // / undefined to skip the scope filter.
-    const qb = this.repo.createQueryBuilder('client').orderBy('client.id', 'DESC');
+    const qb = this.repo
+      .createQueryBuilder('client')
+      .orderBy('client.id', 'DESC');
     if (!includeDeleted) {
       qb.andWhere('client.isDeleted = :no', { no: false });
     }
@@ -366,9 +371,7 @@ export class ClientsService {
       );
     }
     if (expectedRoleCode && row.role_code !== expectedRoleCode) {
-      throw new ForbiddenException(
-        `Target user is not a ${expectedRoleCode}`,
-      );
+      throw new ForbiddenException(`Target user is not a ${expectedRoleCode}`);
     }
   }
 
@@ -637,7 +640,13 @@ export class ClientsService {
       // ClientArchivePurgeCronService.
       // ─────────────────────────────────────────────────────────────────
       try {
-        await this.snapshotForRetention(m, clientId, client, deletedBy ?? null, reason ?? null);
+        await this.snapshotForRetention(
+          m,
+          clientId,
+          client,
+          deletedBy ?? null,
+          reason ?? null,
+        );
       } catch (err: any) {
         // Snapshot failure must NOT block the soft-delete itself; just log.
         this.logger.error(

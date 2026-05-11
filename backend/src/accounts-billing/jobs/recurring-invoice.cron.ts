@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
 import { RecurringInvoiceConfig, BillingClient } from '../entities';
 import { BillingFrequency, InvoiceType } from '../enums';
 import { InvoicesService } from '../services/invoices.service';
@@ -27,6 +27,7 @@ export class RecurringInvoiceCron {
     private readonly clientRepo: Repository<BillingClient>,
     private readonly invoicesService: InvoicesService,
     private readonly invoiceEmailService: InvoiceEmailService,
+    @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
   @Cron('0 0 9 1 * *')
@@ -85,6 +86,23 @@ export class RecurringInvoiceCron {
     if (!client) {
       this.log.warn(`Config ${cfg.id} client not found - skipping`);
       return 'skipped';
+    }
+
+    // If this billing-client is linked to an operational client and that
+    // client has been soft-deleted, do not auto-invoice or email them.
+    if (client.clientId) {
+      const linked: Array<{ is_deleted: boolean | null }> = await this.ds.query(
+        `SELECT is_deleted FROM clients WHERE id = $1 LIMIT 1`,
+        [client.clientId],
+      );
+      if (linked[0]?.is_deleted === true) {
+        cfg.isActive = false;
+        await this.configRepo.save(cfg);
+        this.log.log(
+          `Config ${cfg.id} linked client ${client.clientId} is soft-deleted - deactivated recurring invoice`,
+        );
+        return 'skipped';
+      }
     }
 
     // 1) Create invoice
