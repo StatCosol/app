@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -620,29 +621,47 @@ export class ClientsService {
       if (!client) throw new NotFoundException('Client not found');
 
       // ─────────────────────────────────────────────────────────────────
-      // 18-MONTH RETENTION SNAPSHOT
-      // Capture registers, payroll, audit reports and contractor details
-      // (deployment dates, termination dates, NC points) BEFORE the
-      // cascade cancels/deactivates the source rows. The snapshot lives
-      // in `client_deletion_archive` for 548 days, then is purged by
-      // ClientArchivePurgeCronService.
+      // FLIP THE SOFT-DELETE FLAG FIRST via raw SQL.
+      // Previous implementation called snapshotForRetention BEFORE the
+      // soft-delete UPDATE. If snapshot's INSERT (run via `m.query`)
+      // failed for any reason, the PostgreSQL transaction entered an
+      // aborted state. The outer try/catch swallowed the JS error, but
+      // every subsequent statement in the tx (including the actual
+      // soft-delete UPDATE) silently failed. node-postgres returns
+      // "ROLLBACK" instead of an error on COMMIT-of-aborted-tx, so the
+      // service returned 200 OK and the deletion request was stamped
+      // APPROVED — yet `clients.is_deleted` was never flipped.
+      //
+      // Fix: do the critical UPDATE first (raw SQL, with rowCount check
+      // so a no-op surfaces as an error), then do the snapshot OUTSIDE
+      // the tx in `restore`-style fire-and-log so it cannot poison the
+      // committed soft-delete.
       // ─────────────────────────────────────────────────────────────────
-      try {
-        await this.snapshotForRetention(
-          m,
-          clientId,
-          client,
-          deletedBy ?? null,
-          reason ?? null,
-        );
-      } catch (err: any) {
-        // Snapshot failure must NOT block the soft-delete itself; just log.
-        this.logger.error(
-          `Retention snapshot failed for client ${clientId}: ${err?.message || err}`,
+      const updateResult = await m.query(
+        `UPDATE clients
+            SET is_deleted = true,
+                is_active = false,
+                status = 'INACTIVE',
+                deleted_at = $2,
+                deleted_by = $3,
+                delete_reason = $4,
+                updated_at = NOW()
+          WHERE id = $1
+            AND is_deleted = false`,
+        [clientId, now, deletedBy ?? null, reason ?? null],
+      );
+      // pg returns [rows, rowCount] for UPDATE; typeorm passes through.
+      const affected: number = Array.isArray(updateResult)
+        ? Number(updateResult[1] ?? 0)
+        : Number(
+            (updateResult as { rowCount?: number })?.rowCount ?? 0,
+          );
+      if (!affected) {
+        throw new ConflictException(
+          'Client soft-delete UPDATE affected 0 rows (already deleted or row vanished mid-transaction)',
         );
       }
-
-      // Soft delete client
+      // Keep in-memory entity in sync for any downstream code that reads it.
       Object.assign(client, {
         isDeleted: true,
         isActive: false,
@@ -651,7 +670,6 @@ export class ClientsService {
         deletedBy: deletedBy ?? null,
         deleteReason: reason ?? null,
       });
-      await clientRepo.save(client);
 
       // Soft delete branches for this client
       const branches = await branchRepo.find({
@@ -916,6 +934,26 @@ export class ClientsService {
       return client.id;
     });
 
+    // Snapshot AFTER the soft-delete tx has committed. Running snapshot
+    // inside the tx caused silent rollbacks (see comment above the
+    // raw-SQL UPDATE in softDelete). It is acceptable for the snapshot
+    // to fail independently — we just log a warning so ops can re-run.
+    try {
+      const client = await this.repo.findOne({ where: { id: result } });
+      if (client) {
+        await this.snapshotForRetention(
+          clientId,
+          client,
+          deletedBy ?? null,
+          reason ?? null,
+        );
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `Retention snapshot failed (post-commit) for client ${clientId}: ${err?.message || err}`,
+      );
+    }
+
     await this.auditLogs.log({
       entityType: 'CLIENT',
       entityId: result,
@@ -937,13 +975,14 @@ export class ClientsService {
   /**
    * Snapshot a client's registers, payroll, audit reports and contractor
    * deployment / termination / NC details into `client_deletion_archive`
-   * for 18-month retention. Called inside the soft-delete transaction.
+   * for 18-month retention. Called AFTER the soft-delete transaction
+   * commits (running it inside the tx caused silent rollbacks when an
+   * INSERT/SELECT failure poisoned the PG transaction state).
    *
    * Each fetch is wrapped in its own try/catch so a missing optional
    * table on a particular environment doesn't abort the snapshot.
    */
   private async snapshotForRetention(
-    m: import('typeorm').EntityManager,
     clientId: string,
     client: ClientEntity,
     archivedBy: string | null,
@@ -1120,7 +1159,7 @@ export class ClientsService {
       snapshotVersion: 1,
     };
 
-    await m.query(
+    await this.dataSource.query(
       `INSERT INTO client_deletion_archive
          (client_id, client_code, client_name,
           archived_by, delete_reason,
