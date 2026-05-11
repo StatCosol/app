@@ -31,13 +31,13 @@ $muted: #667085;
     content: '';
     position: absolute;
     z-index: 0;
-    top: -150px;
-    left: -90px;
-    width: 58vw;
-    height: 240px;
-    min-width: 540px;
-    max-width: 980px;
-    border-radius: 0 0 100% 0 / 0 0 60% 0;
+    top: -180px;
+    left: -120px;
+    width: 64vw;
+    height: 290px;
+    min-width: 620px;
+    max-width: 1020px;
+    border-radius: 0 0 100% 0 / 0 0 62% 0;
     background: #fff;
     box-shadow: 0 18px 34px rgba(6, 21, 44, .14);
     pointer-events: none;
@@ -189,9 +189,9 @@ $muted: #667085;
   position: relative;
   z-index: 1;
   flex: 0 0 auto;
-  width: 320px;
-  margin-right: -64px;
-  padding: 28px 84px 22px 26px;
+  width: 400px;
+  margin-right: -70px;
+  padding: 28px 100px 22px 26px;
   border-radius: 22px;
   border: 2px solid rgba(255, 255, 255, .42);
   background: linear-gradient(145deg, rgba(10, 34, 70, .82), rgba(5, 19, 42, .94));
@@ -214,7 +214,7 @@ $muted: #667085;
 }
 
 .preview-description {
-  max-width: 322px;
+  max-width: 100%;
   margin: 0 0 20px;
   color: rgba(255, 255, 255, .82);
   font-size: 13px;
@@ -224,9 +224,9 @@ $muted: #667085;
 
 .preview-chips {
   display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  max-width: 316px;
+  max-width: 100%;
 
   span {
     display: flex;
@@ -241,6 +241,9 @@ $muted: #667085;
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
   svg {
@@ -594,7 +597,7 @@ $muted: #667085;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 7px 8px;
+  gap: 6px 6px;
   margin-top: 16px;
 }
 
@@ -603,11 +606,11 @@ $muted: #667085;
   display: inline-flex;
   align-items: center;
   min-height: 22px;
-  padding: 0 8px 0 21px;
+  padding: 0 7px 0 19px;
   border-radius: 6px;
   color: #697285;
   background: #eef1f6;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
   font-weight: 500;
   white-space: nowrap;
@@ -615,9 +618,9 @@ $muted: #667085;
   &::before {
     content: '';
     position: absolute;
-    left: 8px;
-    width: 8px;
-    height: 8px;
+    left: 7px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     border: 2px solid currentColor;
     box-sizing: border-box;
@@ -644,9 +647,9 @@ $muted: #667085;
    ========================================================================= */
 @media (max-width: 1280px) {
   .preview-card {
-    width: 280px;
-    padding: 24px 76px 20px 22px;
-    margin-right: -56px;
+    width: 360px;
+    padding: 24px 90px 20px 22px;
+    margin-right: -64px;
   }
 
   .form-card {
