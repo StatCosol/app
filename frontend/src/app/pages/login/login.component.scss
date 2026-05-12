@@ -13,7 +13,8 @@ $muted: #667085;
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   color: #fff;
   background:
     radial-gradient(ellipse 54% 70% at 76% 8%, rgba(30, 100, 185, .32), transparent 58%),
@@ -622,7 +623,7 @@ $muted: #667085;
 
 @media (min-width: 901px) and (max-width: 1500px) {
   .product-stage {
-    top: clamp(140px, 16vh, 180px);
+    top: clamp(110px, 14vh, 150px);
     right: clamp(24px, 2.4vw, 40px);
     width: clamp(340px, 30vw, 400px);
     min-height: 0;
@@ -641,7 +642,7 @@ $muted: #667085;
 
   .hero-copy {
     width: clamp(440px, 56vw, 720px);
-    padding: clamp(70px, 9vh, 96px) 0 0 clamp(28px, 2.6vw, 48px);
+    padding: clamp(52px, 7vh, 82px) 0 0 clamp(28px, 2.6vw, 48px);
   }
 
   .hero-copy h2 {
@@ -666,6 +667,142 @@ $muted: #667085;
   .feature-icon svg {
     width: 22px;
     height: 22px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1500px) and (max-height: 780px) {
+  .login-shell::before {
+    top: -138px;
+    height: 252px;
+  }
+
+  .brand-crest {
+    gap: 12px;
+    padding: 14px 0 0 38px;
+  }
+
+  .brand-mark {
+    width: 82px;
+    height: 42px;
+
+    img {
+      width: 82px;
+    }
+  }
+
+  .brand-copy h1 {
+    font-size: 32px;
+  }
+
+  .brand-copy p {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .hero-copy {
+    padding-top: clamp(34px, 5.2vh, 48px);
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(34px, 3.05vw, 42px);
+    line-height: 1.06;
+  }
+
+  .headline-rule {
+    margin: 14px 0 12px;
+  }
+
+  .hero-subtitle {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .feature-grid {
+    gap: 10px 20px;
+    margin-top: 18px;
+  }
+
+  .feature-grid li {
+    grid-template-columns: 44px minmax(0, 1fr);
+    font-size: 14px;
+    line-height: 1.32;
+  }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .product-stage {
+    top: clamp(104px, 13.5vh, 124px);
+    width: clamp(330px, 29vw, 380px);
+  }
+
+  .form-card {
+    padding: 18px 28px 14px;
+  }
+
+  .form-brand {
+    margin-bottom: 12px;
+
+    h2 {
+      font-size: 19px;
+      line-height: 1.25;
+    }
+
+    p {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+  }
+
+  .login-form {
+    gap: 10px;
+  }
+
+  .field label {
+    margin-bottom: 5px;
+    font-size: 12px;
+  }
+
+  .field-control {
+    height: 38px;
+  }
+
+  .form-row {
+    font-size: 13px;
+  }
+
+  .submit-btn {
+    height: 39px;
+  }
+
+  .assistance {
+    margin: 12px 0 8px;
+  }
+
+  .support-links {
+    gap: 4px;
+
+    a {
+      font-size: 12px;
+    }
+  }
+
+  .trust-row {
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .trust-row span {
+    min-height: 20px;
+    font-size: 11px;
   }
 }
 
