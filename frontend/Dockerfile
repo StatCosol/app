@@ -11,6 +11,12 @@ FROM nginx:1.27-alpine
 COPY --from=builder /app/dist/statco-frontend/browser /usr/share/nginx/html/app
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
+# Pre-compress immutable Angular assets so Nginx can serve gzip_static files
+# instead of spending CPU compressing large JS/CSS chunks on each cold request.
+RUN find /usr/share/nginx/html/app -type f \
+      \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.svg' \) \
+      -exec gzip -9 -k {} \;
+
 ENV BACKEND_URL=http://backend:3000
 
 EXPOSE 80
