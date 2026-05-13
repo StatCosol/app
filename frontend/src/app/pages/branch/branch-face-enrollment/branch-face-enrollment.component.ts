@@ -63,8 +63,8 @@ interface EnrollForm {
               <div>
                 <label for="enroll-emp" class="block text-xs font-medium text-gray-600 mb-1">Employee</label>
                 <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" class="ui-input">
-                  <option value="">â€” Select employee â€”</option>
-                  <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} Â· {{ e.name }}</option>
+                  <option value="">— Select employee —</option>
+                  <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
                 </select>
               </div>
               <div>
@@ -99,7 +99,7 @@ interface EnrollForm {
 
             <p class="mt-3 text-xs text-gray-500">
               The photo is processed on the server to compute a face embedding (MobileFaceNet, 192-d).
-              Only the embedding is stored â€” the photo itself is not retained.
+              Only the embedding is stored — the photo itself is not retained.
             </p>
           </ng-container>
         </ng-container>
