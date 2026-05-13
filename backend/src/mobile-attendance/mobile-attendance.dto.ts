@@ -53,6 +53,11 @@ export class EnrollFaceDto {
   @IsString()
   photoBase64?: string;
 
+  /** MIME type of the selfie (e.g. `image/jpeg`). Sent by the portal upload form. */
+  @IsOptional()
+  @IsString()
+  photoMime?: string;
+
   /** 128/512-d Float32 embedding, base64-encoded, generated on-device (MobileFaceNet). */
   @IsOptional()
   @IsString()
