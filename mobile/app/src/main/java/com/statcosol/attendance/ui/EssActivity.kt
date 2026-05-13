@@ -106,6 +106,12 @@ class EssActivity : AppCompatActivity() {
                 val r = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
                 roster = r
                 matcher = RosterMatcher(r.enrollments)
+                val empId = app.deviceConfig.essEmployeeId
+                if (!empId.isNullOrBlank() && r.enrollments.none { it.employeeId == empId }) {
+                    // No enrollment for the bound employee — launch self-enroll once.
+                    startActivity(android.content.Intent(this@EssActivity, EnrollActivity::class.java))
+                    finish()
+                }
             } catch (e: Exception) {
                 binding.statusText.text = "Roster load failed: ${e.message}"
             }

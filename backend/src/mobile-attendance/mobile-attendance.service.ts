@@ -18,6 +18,7 @@ import {
 } from './entities/mobile-attendance-device.entity';
 import {
   EnrollFaceDto,
+  EnrollSelfDto,
   MobilePunchDto,
   RegisterMobileDeviceDto,
 } from './mobile-attendance.dto';
@@ -45,6 +46,17 @@ export class MobileAttendanceService {
     registeredBy: string | null,
     body: RegisterMobileDeviceDto,
   ): Promise<MobileAttendanceDeviceEntity> {
+    if (body.mode === 'ESS' && !body.essEmployeeId) {
+      throw new BadRequestException(
+        'essEmployeeId is required when mode is ESS',
+      );
+    }
+    if (body.essEmployeeId) {
+      const emp = await this.empRepo.findOne({
+        where: { id: body.essEmployeeId, clientId },
+      });
+      if (!emp) throw new NotFoundException('ESS employee not found');
+    }
     const installToken = randomBytes(32).toString('hex');
     const dev = this.deviceRepo.create({
       clientId,
@@ -55,6 +67,7 @@ export class MobileAttendanceService {
       geofenceLat: body.geofenceLat ?? null,
       geofenceLng: body.geofenceLng ?? null,
       geofenceRadiusM: body.geofenceRadiusM ?? null,
+      essEmployeeId: body.essEmployeeId ?? null,
       registeredBy,
       isActive: true,
     });
@@ -156,6 +169,64 @@ export class MobileAttendanceService {
     return this.faceRepo.save(this.faceRepo.create(payload));
   }
 
+  /**
+   * ESS self-enrollment from the bound personal phone. The X-Device-Token
+   * already authenticated the device; we trust the device.essEmployeeId
+   * binding established at registration time and store the embedding
+   * computed on-device.
+   */
+  async enrollSelf(
+    device: MobileAttendanceDeviceEntity,
+    body: EnrollSelfDto,
+  ): Promise<{ ok: true; employeeId: string }> {
+    if (device.mode !== 'ESS') {
+      throw new ForbiddenException('Self-enroll is only available in ESS mode');
+    }
+    if (!device.essEmployeeId) {
+      throw new BadRequestException(
+        'Device is not bound to an employee; re-register the device',
+      );
+    }
+    if (!body.consentGiven) {
+      throw new BadRequestException(
+        'Employee consent is required for biometric enrollment',
+      );
+    }
+    const emp = await this.empRepo.findOne({
+      where: { id: device.essEmployeeId, clientId: device.clientId },
+    });
+    if (!emp) throw new NotFoundException('Bound employee not found');
+
+    const embedding = Buffer.from(body.embeddingBase64, 'base64');
+    const now = new Date();
+    const payload: Partial<FaceEnrollmentEntity> = {
+      employeeId: emp.id,
+      clientId: device.clientId,
+      branchId: emp.branchId ?? device.branchId ?? null,
+      embedding,
+      embeddingModel: body.embeddingModel ?? 'mobilefacenet-v1',
+      photoUrl: body.photoBase64
+        ? `data:image/jpeg;base64,${body.photoBase64.slice(0, 64)}...`
+        : null,
+      consentGivenAt: now,
+      consentGivenBy: emp.id,
+      enrolledAt: now,
+      enrolledBy: emp.id,
+      isActive: true,
+      deactivatedAt: null,
+      deactivationReason: null,
+    };
+    const existing = await this.faceRepo.findOne({
+      where: { employeeId: emp.id },
+    });
+    if (existing) {
+      await this.faceRepo.update({ employeeId: emp.id }, payload);
+    } else {
+      await this.faceRepo.save(this.faceRepo.create(payload));
+    }
+    return { ok: true, employeeId: emp.id };
+  }
+
   async deactivateEnrollment(
     clientId: string,
     employeeId: string,
@@ -174,32 +245,58 @@ export class MobileAttendanceService {
   }
 
   /**
-   * Roster for kiosk devices to pull at startup. Returns enrolled employees
-   * for the device's branch (or the whole client if branch is null), with
-   * embeddings so matching can run on-device offline.
+   * Roster for mobile devices to pull at startup. Returns:
+   *   - device metadata (id, mode, branchId, geofence, essEmployeeId)
+   *   - enrolled employees (with embeddings) so matching can run on-device
+   *
+   * For ESS-mode devices the enrollments list is filtered to the bound
+   * employee only (1:1 verify); for KIOSK it's the full branch/client roster.
    */
-  async roster(clientId: string, branchId: string | null) {
-    const where: Record<string, unknown> = { clientId, isActive: true };
-    if (branchId) where.branchId = branchId;
+  async roster(device: MobileAttendanceDeviceEntity) {
+    const where: Record<string, unknown> = {
+      clientId: device.clientId,
+      isActive: true,
+    };
+    if (device.mode === 'ESS' && device.essEmployeeId) {
+      where.employeeId = device.essEmployeeId;
+    } else if (device.branchId) {
+      where.branchId = device.branchId;
+    }
     const rows = await this.faceRepo.find({ where: where as any });
-    if (!rows.length) return { employees: [] };
 
-    const empIds = rows.map((r) => r.employeeId);
-    const emps = await this.empRepo.findByIds(empIds);
-    const byId = new Map(emps.map((e) => [e.id, e]));
+    let enrollments: Array<{
+      employeeId: string;
+      employeeCode: string;
+      displayName: string;
+      embeddingB64: string;
+    }> = [];
+    if (rows.length) {
+      const empIds = rows.map((r) => r.employeeId);
+      const emps = await this.empRepo.findByIds(empIds);
+      const byId = new Map(emps.map((e) => [e.id, e]));
+      enrollments = rows
+        .filter((r) => r.embedding)
+        .map((r) => {
+          const e = byId.get(r.employeeId);
+          return {
+            employeeId: r.employeeId,
+            employeeCode: e?.employeeCode ?? '',
+            displayName: e?.name ?? '',
+            embeddingB64: r.embedding!.toString('base64'),
+          };
+        });
+    }
 
     return {
-      employees: rows.map((r) => {
-        const e = byId.get(r.employeeId);
-        return {
-          employeeId: r.employeeId,
-          employeeCode: e?.employeeCode ?? null,
-          name: e?.name ?? null,
-          branchId: r.branchId,
-          embeddingBase64: r.embedding ? r.embedding.toString('base64') : null,
-          embeddingModel: r.embeddingModel,
-        };
-      }),
+      deviceId: device.id,
+      mode: device.mode,
+      clientId: device.clientId,
+      branchId: device.branchId,
+      geofenceLat: device.geofenceLat,
+      geofenceLng: device.geofenceLng,
+      geofenceRadiusM: device.geofenceRadiusM,
+      essEmployeeId: device.essEmployeeId,
+      enrollments,
     };
   }
 
@@ -209,14 +306,17 @@ export class MobileAttendanceService {
     body: MobilePunchDto,
     actorEmployeeId?: string | null,
   ) {
-    // ESS mode: punch must be for the logged-in employee (passed by controller)
+    // ESS mode: punch must be for the bound employee. Prefer the device
+    // binding (it's authoritative) over the supplied employeeId.
+    const expectedEmpId =
+      device.mode === 'ESS' ? device.essEmployeeId ?? actorEmployeeId : null;
     if (
       device.mode === 'ESS' &&
-      actorEmployeeId &&
-      actorEmployeeId !== body.employeeId
+      expectedEmpId &&
+      expectedEmpId !== body.employeeId
     ) {
       throw new ForbiddenException(
-        'ESS punch must be for the logged-in employee',
+        'ESS punch must be for the device-bound employee',
       );
     }
 
@@ -241,14 +341,14 @@ export class MobileAttendanceService {
       device.geofenceLat != null &&
       device.geofenceLng != null &&
       device.geofenceRadiusM != null &&
-      body.lat != null &&
-      body.lng != null
+      body.captureLat != null &&
+      body.captureLng != null
     ) {
       const dist = haversineMeters(
         Number(device.geofenceLat),
         Number(device.geofenceLng),
-        body.lat,
-        body.lng,
+        body.captureLat,
+        body.captureLng,
       );
       if (dist > device.geofenceRadiusM) {
         throw new ForbiddenException(
@@ -257,9 +357,9 @@ export class MobileAttendanceService {
       }
     }
 
-    const ts = new Date(body.capturedAt);
+    const ts = new Date(body.punchTime);
     if (isNaN(ts.getTime()))
-      throw new BadRequestException('Invalid capturedAt');
+      throw new BadRequestException('Invalid punchTime');
 
     const source: 'MOBILE_KIOSK' | 'MOBILE_ESS' =
       device.mode === 'KIOSK' ? 'MOBILE_KIOSK' : 'MOBILE_ESS';
@@ -298,10 +398,10 @@ export class MobileAttendanceService {
          AND device_id = $13`,
       [
         device.id,
-        body.lat ?? null,
-        body.lng ?? null,
-        body.accuracyM ?? null,
-        body.photoBase64 ? null : null, // photo upload to blob is a separate task
+        body.captureLat ?? null,
+        body.captureLng ?? null,
+        body.captureAccuracyM ?? null,
+        body.photoB64 ? null : null, // photo upload to blob is a separate task
         body.matchScore ?? null,
         body.livenessScore ?? null,
         body.matchProvider ?? 'mobilefacenet',
@@ -320,7 +420,7 @@ export class MobileAttendanceService {
       duplicate: ingestResult.inserted === 0 && ingestResult.duplicates > 0,
       employeeId: emp.id,
       employeeCode: emp.employeeCode,
-      capturedAt: ts.toISOString(),
+      punchTime: ts.toISOString(),
       mode: device.mode,
     };
   }

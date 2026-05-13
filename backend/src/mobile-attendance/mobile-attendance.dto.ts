@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsNumber,
   IsOptional,
@@ -36,6 +37,11 @@ export class RegisterMobileDeviceDto {
   @Min(10)
   @Max(5000)
   geofenceRadiusM?: number;
+
+  /** Required when `mode === 'ESS'` — binds the personal phone to one employee. */
+  @IsOptional()
+  @IsUUID()
+  essEmployeeId?: string;
 }
 
 export class EnrollFaceDto {
@@ -57,17 +63,40 @@ export class EnrollFaceDto {
   embeddingModel?: string;
 
   /** Explicit DPDP-Act consent flag — must be true to enroll. */
+  @IsBoolean()
+  consentGiven!: boolean;
+}
+
+/** Payload posted by the Android ESS app from the bound employee's own phone. */
+export class EnrollSelfDto {
+  /** 192-d Float32 embedding, base64-encoded, generated on-device. */
+  @IsString()
+  embeddingBase64!: string;
+
+  @IsOptional()
+  @IsString()
+  embeddingModel?: string;
+
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
+  @IsBoolean()
   consentGiven!: boolean;
 }
 
 export class MobilePunchDto {
-  /** Identified employee (kiosk: from on-device match; ESS: from JWT). */
+  /** Identified employee (kiosk: from on-device match; ESS: from device binding). */
   @IsUUID()
   employeeId!: string;
 
+  @IsOptional()
+  @IsString()
+  employeeCode?: string;
+
   /** ISO timestamp of capture. */
   @IsString()
-  capturedAt!: string;
+  punchTime!: string;
 
   @IsIn(['IN', 'OUT', 'AUTO'])
   @IsOptional()
@@ -75,15 +104,15 @@ export class MobilePunchDto {
 
   @IsOptional()
   @IsNumber()
-  lat?: number;
+  captureLat?: number;
 
   @IsOptional()
   @IsNumber()
-  lng?: number;
+  captureLng?: number;
 
   @IsOptional()
   @IsNumber()
-  accuracyM?: number;
+  captureAccuracyM?: number;
 
   /** Cosine similarity (on-device match) 0..1. */
   @IsOptional()
@@ -102,10 +131,10 @@ export class MobilePunchDto {
   @IsString()
   matchProvider?: string;
 
-  /** Optional captured photo (base64) for audit / Azure verify. */
+  /** Optional captured photo (base64, no data: prefix) for audit / Azure verify. */
   @IsOptional()
   @IsString()
-  photoBase64?: string;
+  photoB64?: string;
 }
 
 export class MobilePunchBatchDto {

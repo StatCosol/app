@@ -63,6 +63,22 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    fun enrollSelf(body: EnrollSelfBody): EnrollSelfResponse {
+        val token = requireToken()
+        val json = moshi.adapter(EnrollSelfBody::class.java).toJson(body)
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/enroll-self")
+            .header("X-Device-Token", token)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) throw IOException("enroll ${resp.code}: $text")
+            return moshi.adapter(EnrollSelfResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse enroll response")
+        }
+    }
+
     private fun requireToken(): String =
         config.installToken ?: throw IllegalStateException("device not registered")
 }

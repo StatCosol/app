@@ -46,3 +46,19 @@ data class PunchResponse(
     val punchId: String? = null,
     val message: String? = null
 )
+
+/** POST /api/v1/mobile-attendance/enroll-self body. */
+@JsonClass(generateAdapter = true)
+data class EnrollSelfBody(
+    /** Base64-encoded Float32 (little-endian) embedding bytes — 192 dims = 768 bytes. */
+    val embeddingBase64: String,
+    val embeddingModel: String = "mobilefacenet-v1",
+    val consentGiven: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class EnrollSelfResponse(
+    val ok: Boolean,
+    val employeeId: String? = null,
+    val message: String? = null
+)
