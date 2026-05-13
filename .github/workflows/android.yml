@@ -39,6 +39,22 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses >/dev/null 2>&1 || true
 
+      # Optional: download the MobileFaceNet TFLite model from a private URL
+      # held in the repo secret MOBILEFACENET_TFLITE_URL. If the secret is not
+      # set the build still succeeds; the resulting APK installs and launches
+      # but face matching is a no-op until the asset is provided.
+      - name: Fetch MobileFaceNet model
+        env:
+          MODEL_URL: ${{ secrets.MOBILEFACENET_TFLITE_URL }}
+        run: |
+          if [ -n "$MODEL_URL" ]; then
+            mkdir -p app/src/main/assets
+            curl -fsSL "$MODEL_URL" -o app/src/main/assets/mobilefacenet.tflite
+            echo "Model fetched ($(stat -c%s app/src/main/assets/mobilefacenet.tflite) bytes)"
+          else
+            echo "MOBILEFACENET_TFLITE_URL secret not set — building without model asset."
+          fi
+
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
