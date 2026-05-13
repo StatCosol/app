@@ -13,6 +13,9 @@
     <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
     <string name="kiosk_match_low">Face not recognised — please try again</string>
     <string name="kiosk_punch_recorded">Punch recorded for %1$s</string>
+    <string name="face_model_missing">Face matcher not configured — please reinstall the latest app build (the bundled MobileFaceNet model is missing).</string>
+    <string name="face_embed_failed">Face processing error: %1$s</string>
+    <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
 
     <string name="ess_punch_in">Punch In</string>
     <string name="ess_punch_out">Punch Out</string>

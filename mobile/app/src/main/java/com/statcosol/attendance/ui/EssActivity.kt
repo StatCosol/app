@@ -124,14 +124,24 @@ class EssActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-        ) { probe, liveness ->
-            // Only consume frames while a punch is pending.
-            pending?.let { p ->
-                if (!p.isCompleted && liveness >= MIN_LIVENESS) {
-                    p.complete(probe to liveness)
+            onFace = { probe, liveness ->
+                // Only consume frames while a punch is pending.
+                pending?.let { p ->
+                    if (!p.isCompleted && liveness >= MIN_LIVENESS) {
+                        p.complete(probe to liveness)
+                    }
                 }
-            }
-        }.also { it.start() }
+            },
+            onError = { code ->
+                runOnUiThread {
+                    binding.statusText.text = when {
+                        code == "face_model_missing" -> getString(R.string.face_model_missing)
+                        code.startsWith("face_embed_failed") -> getString(R.string.face_embed_failed, code.substringAfter(':'))
+                        else -> code
+                    }
+                }
+            },
+        ).also { it.start() }
     }
 
     @SuppressLint("MissingPermission")

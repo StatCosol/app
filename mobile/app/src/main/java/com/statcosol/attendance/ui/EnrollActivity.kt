@@ -73,13 +73,14 @@ class EnrollActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-        ) { probe, liveness ->
-            pending?.let { p ->
-                if (!p.isCompleted && liveness >= MIN_LIVENESS) {
-                    p.complete(probe)
+            onFace = { probe, liveness ->
+                pending?.let { p ->
+                    if (!p.isCompleted && liveness >= MIN_LIVENESS) {
+                        p.complete(probe)
+                    }
                 }
-            }
-        }.also { it.start() }
+            },
+        ).also { it.start() }
     }
 
     private fun startEnrollment() {
