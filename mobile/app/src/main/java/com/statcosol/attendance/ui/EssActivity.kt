@@ -10,21 +10,24 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
 import com.statcosol.attendance.api.RosterResponse
-import com.statcosol.attendance.databinding.ActivityCameraBinding
+import com.statcosol.attendance.databinding.ActivityEssBinding
 import com.statcosol.attendance.db.QueuedPunch
+import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.RosterMatcher
 import com.statcosol.attendance.sync.PunchSyncWorker
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -38,50 +41,66 @@ import java.util.TimeZone
 /**
  * Personal-phone ESS mode. Bound to a single employee at registration time.
  *
- * On user tap we:
+ * Per tap of Punch In / Out:
  *   1. Acquire current location.
  *   2. Validate against the geofence from the roster response.
- *   3. Capture a face frame, run 1:1 verify against the bound employee's
- *      enrollment.
- *   4. Queue the punch.
- *
- * The camera capture pipeline reuses the same code as KIOSK; the activity
- * here intentionally focuses on the gating logic and leaves the actual frame
- * capture for the follow-up implementation pass.
+ *   3. Capture the next valid face frame via [FaceCaptureSession].
+ *   4. Run 1:1 verify against the bound employee's enrollment.
+ *   5. Queue the punch.
  */
 class EssActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityCameraBinding
+    private lateinit var binding: ActivityEssBinding
     private val app get() = application as AttendanceApp
     private var matcher: RosterMatcher? = null
     private var roster: RosterResponse? = null
+    private var capture: FaceCaptureSession? = null
 
+    /** Set non-null while a Punch tap is awaiting the next live face frame. */
+    private var pending: CompletableDeferred<Pair<FloatArray, Double>>? = null
+
+    private val cameraPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) startCamera() else binding.statusText.text = getString(R.string.permission_camera_required)
+        }
     private val locationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* state checked at submit */ }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* checked at submit */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityCameraBinding.inflate(layoutInflater)
+        binding = ActivityEssBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         val empId = app.deviceConfig.essEmployeeId
         if (empId.isNullOrBlank()) {
             binding.statusText.text = getString(R.string.ess_no_enrollment)
+            disableButtons()
             return
         }
-        binding.statusText.text = getString(R.string.ess_punch_in)
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
             locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED) {
+            startCamera()
+        } else {
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
 
-        loadRoster(empId)
+        loadRoster()
 
-        binding.statusText.setOnClickListener { onPunchTap("AUTO") }
+        binding.punchInBtn.setOnClickListener { onPunchTap("IN") }
+        binding.punchOutBtn.setOnClickListener { onPunchTap("OUT") }
     }
 
-    private fun loadRoster(empId: String) {
+    private fun disableButtons() {
+        binding.punchInBtn.isEnabled = false
+        binding.punchOutBtn.isEnabled = false
+    }
+
+    private fun loadRoster() {
         lifecycleScope.launch {
             try {
                 val r = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
@@ -93,50 +112,86 @@ class EssActivity : AppCompatActivity() {
         }
     }
 
+    private fun startCamera() {
+        capture = FaceCaptureSession(
+            context = this,
+            owner = this,
+            previewView = binding.previewView,
+            scope = lifecycleScope,
+        ) { probe, liveness ->
+            // Only consume frames while a punch is pending.
+            pending?.let { p ->
+                if (!p.isCompleted && liveness >= MIN_LIVENESS) {
+                    p.complete(probe to liveness)
+                }
+            }
+        }.also { it.start() }
+    }
+
     @SuppressLint("MissingPermission")
     private fun onPunchTap(direction: String) {
         val empId = app.deviceConfig.essEmployeeId ?: return
-        val matcherSnap = matcher ?: return
+        val matcherSnap = matcher ?: run {
+            binding.statusText.text = "Roster not loaded yet"
+            return
+        }
         val r = roster ?: return
 
+        binding.punchInBtn.isEnabled = false
+        binding.punchOutBtn.isEnabled = false
+        binding.statusText.text = "Locating…"
+
         lifecycleScope.launch {
-            val location = try {
-                fetchLocation()
-            } catch (_: Exception) {
-                Toast.makeText(this@EssActivity, R.string.permission_location_required, Toast.LENGTH_SHORT).show()
-                return@launch
+            try {
+                val location = try {
+                    fetchLocation()
+                } catch (_: Exception) {
+                    Toast.makeText(this@EssActivity, R.string.permission_location_required, Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                if (!isWithinGeofence(location, r)) {
+                    binding.statusText.text = getString(R.string.ess_outside_geofence)
+                    return@launch
+                }
+
+                binding.statusText.text = "Look at the camera…"
+                val deferred = CompletableDeferred<Pair<FloatArray, Double>>()
+                pending = deferred
+                val captured = withTimeoutOrNull(CAPTURE_TIMEOUT_MS) { deferred.await() }
+                pending = null
+                if (captured == null) {
+                    binding.statusText.text = "No face captured — try again"
+                    return@launch
+                }
+                val (probe, liveness) = captured
+
+                val match = matcherSnap.verify(probe, empId, MIN_MATCH)
+                if (match == null) {
+                    binding.statusText.text = "Face did not match — try again"
+                    return@launch
+                }
+
+                val empCode = r.enrollments.firstOrNull { it.employeeId == empId }?.employeeCode ?: ""
+                val q = QueuedPunch(
+                    employeeId = empId,
+                    employeeCode = empCode,
+                    punchTimeIso = isoNow(),
+                    direction = direction,
+                    matchScore = match.score,
+                    livenessScore = liveness,
+                    captureLat = location.latitude,
+                    captureLng = location.longitude,
+                    captureAccuracyM = location.accuracy.toDouble()
+                )
+                withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
+                WorkManager.getInstance(this@EssActivity).enqueue(
+                    OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
+                )
+                binding.statusText.text = "Punch queued ($direction)"
+            } finally {
+                binding.punchInBtn.isEnabled = true
+                binding.punchOutBtn.isEnabled = true
             }
-
-            val withinFence = isWithinGeofence(location, r)
-            if (!withinFence) {
-                binding.statusText.text = getString(R.string.ess_outside_geofence)
-                return@launch
-            }
-
-            // TODO: capture a face frame here using CameraX (mirroring KioskActivity),
-            // then call matcherSnap.verify(probe, empId). Until that capture pipeline
-            // is wired, queue with a placeholder match score so server quality gates
-            // will reject — preventing accidental real punches in this scaffold.
-            val match = matcherSnap.verify(FloatArray(192), empId, 0.78)
-            val matchScore = match?.score ?: 0.0
-            val liveness = 0.0
-
-            val q = QueuedPunch(
-                employeeId = empId,
-                employeeCode = r.enrollments.firstOrNull { it.employeeId == empId }?.employeeCode ?: "",
-                punchTimeIso = isoNow(),
-                direction = direction,
-                matchScore = matchScore,
-                livenessScore = liveness,
-                captureLat = location.latitude,
-                captureLng = location.longitude,
-                captureAccuracyM = location.accuracy.toDouble()
-            )
-            withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-            WorkManager.getInstance(this@EssActivity).enqueue(
-                OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
-            )
-            binding.statusText.text = "Queued"
         }
     }
 
@@ -145,8 +200,7 @@ class EssActivity : AppCompatActivity() {
         val client = LocationServices.getFusedLocationProviderClient(this)
         client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
             .addOnSuccessListener { loc ->
-                if (loc == null) cont.resume(Location("none"))
-                else cont.resume(loc)
+                cont.resume(loc ?: Location("none"))
             }
             .addOnFailureListener { cont.resume(Location("none")) }
     }
@@ -172,5 +226,11 @@ class EssActivity : AppCompatActivity() {
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
         sdf.timeZone = TimeZone.getTimeZone("UTC")
         return sdf.format(Date())
+    }
+
+    companion object {
+        private const val MIN_MATCH = 0.78
+        private const val MIN_LIVENESS = 0.5
+        private const val CAPTURE_TIMEOUT_MS = 10_000L
     }
 }
