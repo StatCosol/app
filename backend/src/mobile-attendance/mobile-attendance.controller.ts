@@ -70,6 +70,15 @@ export class MobileAttendanceAdminController {
     return this.svc.enrollFace(u.clientId, u.userId ?? null, body, allowedBranchIds);
   }
 
+  @ApiOperation({ summary: 'List employees with face-enrollment status (Enrolled / Pending)' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('enrollments')
+  listEnrollments(@CurrentUser() u: ReqUser) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listEnrollmentStatus(u.clientId, allowedBranchIds);
+  }
+
   @ApiOperation({ summary: 'Deactivate an employee face enrollment (DPDP delete)' })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Delete('enroll/:employeeId')

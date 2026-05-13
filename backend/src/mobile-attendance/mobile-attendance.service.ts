@@ -304,6 +304,74 @@ export class MobileAttendanceService {
   }
 
   /**
+   * List every active employee with their face-enrollment status so admins
+   * (and branch desks) can see at a glance who is enrolled vs pending.
+   * BRANCH_DESK callers pass `allowedBranchIds` to scope the result.
+   */
+  async listEnrollmentStatus(
+    clientId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      employeeId: string;
+      employeeCode: string;
+      employeeName: string;
+      branchId: string | null;
+      isEnrolled: boolean;
+      isActive: boolean;
+      embeddingModel: string | null;
+      enrolledAt: string | null;
+      deactivatedAt: string | null;
+      deactivationReason: string | null;
+    }>
+  > {
+    const qb = this.empRepo
+      .createQueryBuilder('e')
+      .leftJoin(
+        'face_enrollments',
+        'fe',
+        'fe.employee_id = e.id AND fe.client_id = e.client_id',
+      )
+      .select([
+        'e.id              AS "employeeId"',
+        'e.employee_code   AS "employeeCode"',
+        'e.name            AS "employeeName"',
+        'e.branch_id       AS "branchId"',
+        'fe.is_active      AS "feActive"',
+        'fe.embedding_model AS "embeddingModel"',
+        'fe.enrolled_at    AS "enrolledAt"',
+        'fe.deactivated_at AS "deactivatedAt"',
+        'fe.deactivation_reason AS "deactivationReason"',
+      ])
+      .where('e.client_id = :clientId', { clientId })
+      .andWhere('e.is_active = true');
+
+    if (allowedBranchIds) {
+      if (allowedBranchIds.length === 0) return [];
+      qb.andWhere('e.branch_id IN (:...branchIds)', {
+        branchIds: allowedBranchIds,
+      });
+    }
+    qb.orderBy('e.name', 'ASC');
+
+    const rows = await qb.getRawMany();
+    return rows.map((r) => ({
+      employeeId: r.employeeId,
+      employeeCode: r.employeeCode,
+      employeeName: r.employeeName,
+      branchId: r.branchId,
+      isEnrolled: r.enrolledAt != null,
+      isActive: r.feActive === true || r.feActive === 't',
+      embeddingModel: r.embeddingModel,
+      enrolledAt: r.enrolledAt ? new Date(r.enrolledAt).toISOString() : null,
+      deactivatedAt: r.deactivatedAt
+        ? new Date(r.deactivatedAt).toISOString()
+        : null,
+      deactivationReason: r.deactivationReason,
+    }));
+  }
+
+  /**
    * Roster for mobile devices to pull at startup. Returns:
    *   - device metadata (id, mode, branchId, geofence, essEmployeeId)
    *   - enrolled employees (with embeddings) so matching can run on-device

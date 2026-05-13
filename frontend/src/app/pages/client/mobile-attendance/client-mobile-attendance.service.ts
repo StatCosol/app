@@ -63,6 +63,19 @@ export interface EnrollFaceBody {
   photoMime?: string;
 }
 
+export interface EnrollmentStatusRow {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  branchId: string | null;
+  isEnrolled: boolean;
+  isActive: boolean;
+  embeddingModel: string | null;
+  enrolledAt: string | null;
+  deactivatedAt: string | null;
+  deactivationReason: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClientMobileAttendanceService {
   private base = `${environment.apiBaseUrl}/api/v1/client/mobile-attendance`;
@@ -89,6 +102,10 @@ export class ClientMobileAttendanceService {
   // Enrollment
   enrollFace(body: EnrollFaceBody): Observable<FaceEnrollment> {
     return this.http.post<FaceEnrollment>(`${this.base}/enroll`, body);
+  }
+
+  listEnrollments(): Observable<EnrollmentStatusRow[]> {
+    return this.http.get<EnrollmentStatusRow[]>(`${this.base}/enrollments`);
   }
 
   deactivateEnrollment(employeeId: string, reason?: string): Observable<FaceEnrollment> {
