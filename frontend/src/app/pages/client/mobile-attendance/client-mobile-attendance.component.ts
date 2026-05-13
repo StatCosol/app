@@ -209,18 +209,28 @@ interface BranchOption { id: string; name: string }
             <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
           </select>
         </div>
-        <div *ngIf="form.mode === 'ESS'" class="grid grid-cols-3 gap-2">
+        <div *ngIf="form.mode === 'ESS'" class="space-y-3">
           <div>
-            <label for="dev-lat" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lat</label>
-            <input autocomplete="off" id="dev-lat" name="geofenceLat" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLat">
+            <label for="dev-ess-emp" class="block text-xs font-medium text-gray-600 mb-1">Bound Employee (ESS)</label>
+            <select id="dev-ess-emp" name="essEmployeeId" [(ngModel)]="form.essEmployeeId" class="ui-input">
+              <option value="">— Select employee —</option>
+              <option *ngFor="let e of employees" [value]="e.id">{{ e.name }} ({{ e.employeeCode }})</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">This personal phone will only be able to punch and self-enroll for this employee.</p>
           </div>
-          <div>
-            <label for="dev-lng" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lng</label>
-            <input autocomplete="off" id="dev-lng" name="geofenceLng" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLng">
-          </div>
-          <div>
-            <label for="dev-rad" class="block text-xs font-medium text-gray-600 mb-1">Radius (m)</label>
-            <input autocomplete="off" id="dev-rad" name="geofenceRadiusM" type="number" step="1" class="ui-input" [(ngModel)]="form.geofenceRadiusM" placeholder="100">
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label for="dev-lat" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lat</label>
+              <input autocomplete="off" id="dev-lat" name="geofenceLat" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLat">
+            </div>
+            <div>
+              <label for="dev-lng" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lng</label>
+              <input autocomplete="off" id="dev-lng" name="geofenceLng" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLng">
+            </div>
+            <div>
+              <label for="dev-rad" class="block text-xs font-medium text-gray-600 mb-1">Radius (m)</label>
+              <input autocomplete="off" id="dev-rad" name="geofenceRadiusM" type="number" step="1" class="ui-input" [(ngModel)]="form.geofenceRadiusM" placeholder="100">
+            </div>
           </div>
         </div>
         <div *ngIf="formError" class="text-sm text-red-600">{{ formError }}</div>
@@ -278,7 +288,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     geofenceLat: number | null;
     geofenceLng: number | null;
     geofenceRadiusM: number | null;
-  } = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100 };
+    essEmployeeId: string;
+  } = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
 
   // Token reveal
   tokenModal = false;
@@ -373,12 +384,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   openAdd(): void {
     this.formError = '';
-    this.form = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100 };
+    this.form = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
     this.showModal = true;
   }
 
   save(): void {
     this.formError = '';
+    if (this.form.mode === 'ESS' && !this.form.essEmployeeId) {
+      this.formError = 'ESS mode requires a bound employee';
+      return;
+    }
     if (this.form.mode === 'ESS' && (this.form.geofenceLat == null || this.form.geofenceLng == null)) {
       this.formError = 'ESS mode requires geofence latitude and longitude';
       return;
@@ -391,6 +406,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       geofenceLat: this.form.geofenceLat ?? undefined,
       geofenceLng: this.form.geofenceLng ?? undefined,
       geofenceRadiusM: this.form.geofenceRadiusM ?? undefined,
+      essEmployeeId: this.form.mode === 'ESS' ? this.form.essEmployeeId : undefined,
     };
     this.svc.registerDevice(payload)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.saving = false; this.bump(); }))

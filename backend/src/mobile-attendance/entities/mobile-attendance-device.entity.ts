@@ -45,6 +45,10 @@ export class MobileAttendanceDeviceEntity {
   @Column({ name: 'geofence_radius_m', type: 'integer', nullable: true })
   geofenceRadiusM: number | null;
 
+  /** ESS-mode only: the employee this personal-phone device is bound to. */
+  @Column({ name: 'ess_employee_id', type: 'uuid', nullable: true })
+  essEmployeeId: string | null;
+
   @CreateDateColumn({ name: 'registered_at', type: 'timestamptz' })
   registeredAt: Date;
 

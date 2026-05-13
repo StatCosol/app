@@ -16,6 +16,7 @@ import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import {
   EnrollFaceDto,
+  EnrollSelfDto,
   MobilePunchDto,
   RegisterMobileDeviceDto,
 } from './mobile-attendance.dto';
@@ -88,11 +89,21 @@ export class MobileAttendanceAdminController {
 export class MobileAttendanceDeviceController {
   constructor(private readonly svc: MobileAttendanceService) {}
 
-  @ApiOperation({ summary: 'Pull employee roster for offline kiosk matching' })
+  @ApiOperation({ summary: 'Pull device config + employee roster (with embeddings)' })
   @Get('roster')
   async roster(@Headers('x-device-token') token: string) {
     const dev = await this.svc.resolveDeviceByToken(token);
-    return this.svc.roster(dev.clientId, dev.branchId);
+    return this.svc.roster(dev);
+  }
+
+  @ApiOperation({ summary: 'ESS self-enroll — from the device-bound employee phone' })
+  @Post('enroll-self')
+  async enrollSelf(
+    @Headers('x-device-token') token: string,
+    @Body() body: EnrollSelfDto,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token);
+    return this.svc.enrollSelf(dev, body);
   }
 
   @ApiOperation({ summary: 'Submit a face-verified attendance punch' })

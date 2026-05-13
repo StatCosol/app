@@ -22,6 +22,7 @@ export interface MobileAttendanceDevice {
   isActive: boolean;
   revokedAt: string | null;
   revokedBy: string | null;
+  essEmployeeId: string | null;
 }
 
 export interface RegisterMobileDeviceBody {
@@ -31,6 +32,8 @@ export interface RegisterMobileDeviceBody {
   geofenceLat?: number;
   geofenceLng?: number;
   geofenceRadiusM?: number;
+  /** Required when mode === 'ESS'. */
+  essEmployeeId?: string;
 }
 
 export interface FaceEnrollment {
