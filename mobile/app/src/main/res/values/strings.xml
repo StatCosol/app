@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">Statco Attendance</string>
+    <string name="setup_title">Device Setup</string>
+    <string name="kiosk_title">Gate Attendance</string>
+    <string name="ess_title">My Attendance</string>
+
+    <string name="setup_intro">Paste the install token issued by your administrator. Token is 64 characters.</string>
+    <string name="setup_token_hint">Install token</string>
+    <string name="setup_api_hint">API base (optional)</string>
+    <string name="setup_register">Register Device</string>
+    <string name="setup_invalid_token">Token must be 64 hex characters</string>
+
+    <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
+    <string name="kiosk_match_low">Face not recognised — please try again</string>
+    <string name="kiosk_punch_recorded">Punch recorded for %1$s</string>
+
+    <string name="ess_punch_in">Punch In</string>
+    <string name="ess_punch_out">Punch Out</string>
+    <string name="ess_outside_geofence">You are outside the workplace geofence</string>
+    <string name="ess_no_enrollment">Your face is not enrolled. Please contact your administrator.</string>
+
+    <string name="permission_camera_required">Camera permission is required for attendance.</string>
+    <string name="permission_location_required">Location permission is required for ESS mode geofence.</string>
+</resources>
