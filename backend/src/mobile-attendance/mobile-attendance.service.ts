@@ -98,6 +98,26 @@ export class MobileAttendanceService {
     return this.deviceRepo.save(dev);
   }
 
+  /**
+   * Permanently delete a previously-revoked device row. Only allowed once
+   * the device is already revoked (isActive === false) so an active kiosk
+   * is never accidentally wiped. Past punches are unaffected (they store
+   * the device id as a plain string, not a FK).
+   */
+  async hardDeleteDevice(clientId: string, deviceId: string) {
+    const dev = await this.deviceRepo.findOne({
+      where: { id: deviceId, clientId },
+    });
+    if (!dev) throw new NotFoundException('Device not found');
+    if (dev.isActive) {
+      throw new BadRequestException(
+        'Revoke the device before deleting it permanently',
+      );
+    }
+    await this.deviceRepo.delete({ id: deviceId, clientId });
+    return { ok: true, id: deviceId };
+  }
+
   /** Resolve install-token -> device. Throws on revoked / unknown. */
   async resolveDeviceByToken(
     token: string,

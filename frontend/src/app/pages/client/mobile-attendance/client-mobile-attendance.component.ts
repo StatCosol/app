@@ -109,7 +109,7 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <button *ngIf="d.isActive" class="text-xs text-blue-600 hover:underline mr-3" (click)="showToken(d)">Show Token</button>
                   <button *ngIf="d.isActive" class="text-xs text-red-600 hover:underline" (click)="revoke(d)">Revoke</button>
-                  <span *ngIf="!d.isActive" class="text-xs text-gray-400">—</span>
+                  <button *ngIf="!d.isActive" class="text-xs text-red-700 hover:underline" (click)="hardDelete(d)">Delete</button>
                 </td>
               </tr>
             </tbody>
@@ -442,6 +442,20 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => { this.toast.success('Device revoked'); this.loadDevices(); },
         error: (e) => this.toast.error(e?.error?.message || 'Revoke failed'),
+      });
+  }
+
+  hardDelete(d: MobileAttendanceDevice): void {
+    if (d.isActive) {
+      this.toast.error('Revoke the device before deleting it');
+      return;
+    }
+    if (!confirm(`Permanently delete device "${d.deviceLabel || d.id}"? This cannot be undone. Past punches are preserved.`)) return;
+    this.svc.hardDeleteDevice(d.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => { this.toast.success('Device deleted'); this.loadDevices(); },
+        error: (e) => this.toast.error(e?.error?.message || 'Delete failed'),
       });
   }
 
