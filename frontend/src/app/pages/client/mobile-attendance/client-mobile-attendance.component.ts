@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -213,9 +213,30 @@ interface BranchOption { id: string; name: string }
             </div>
             <div>
               <label for="enroll-photo" class="block text-xs font-medium text-gray-600 mb-1">Reference Photo (clear, well-lit, front-facing)</label>
-              <input id="enroll-photo" name="photo" type="file" accept="image/jpeg,image/png" (change)="onPhotoChosen($event)" class="ui-input">
-              <p *ngIf="enrollForm.photoFileName" class="text-xs text-gray-500 mt-1">{{ enrollForm.photoFileName }} ({{ photoKB }} KB)</p>
+              <input id="enroll-photo" name="photo" type="file" accept="image/jpeg,image/png" capture="user" (change)="onPhotoChosen($event)" class="ui-input">
+              <p class="text-xs text-gray-500 mt-1">Or use the live camera below.</p>
+              <p *ngIf="enrollForm.photoFileName" class="text-xs text-emerald-700 mt-1">✓ {{ enrollForm.photoFileName }} ({{ photoKB }} KB) ready</p>
             </div>
+          </div>
+
+          <!-- Live camera capture -->
+          <div class="mt-4 border-t border-gray-100 pt-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
+              <div class="flex gap-2">
+                <ui-button *ngIf="!cameraActive" variant="secondary" size="sm" (clicked)="startCamera()">Start Camera</ui-button>
+                <ui-button *ngIf="cameraActive" variant="primary" size="sm" (clicked)="capturePhoto()">📷 Capture</ui-button>
+                <ui-button *ngIf="cameraActive" variant="secondary" size="sm" (clicked)="stopCamera()">Stop</ui-button>
+              </div>
+            </div>
+            <div class="relative bg-gray-900 rounded-lg overflow-hidden" [style.maxWidth.px]="480" [style.aspectRatio]="'4 / 3'">
+              <video #cameraVideo autoplay playsinline muted [hidden]="!cameraActive" class="w-full h-full object-cover"></video>
+              <div *ngIf="!cameraActive" class="flex items-center justify-center h-full text-gray-400 text-sm" style="min-height: 180px;">
+                Camera off — click “Start Camera” to begin
+              </div>
+            </div>
+            <p *ngIf="cameraError" class="text-xs text-red-600 mt-2">{{ cameraError }}</p>
+            <canvas #cameraCanvas hidden></canvas>
           </div>
 
           <div class="mt-4 flex items-start gap-2">
@@ -388,6 +409,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   enrolling = false;
   enrollError = '';
 
+  // Live camera capture
+  @ViewChild('cameraVideo') cameraVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('cameraCanvas') cameraCanvas?: ElementRef<HTMLCanvasElement>;
+  cameraActive = false;
+  cameraError = '';
+  private cameraStream: MediaStream | null = null;
+
   // Enrollment status tab
   enrollmentRows: EnrollmentStatusRow[] = [];
   loadingEnrollments = false;
@@ -415,11 +443,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopCamera();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   switchTab(t: 'devices' | 'enroll' | 'help' | 'status'): void {
+    if (t !== 'enroll') this.stopCamera();
     this.tab = t;
     if (t === 'status' && this.enrollmentRows.length === 0) {
       this.loadEnrollments();
@@ -573,9 +603,89 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.enrollForm.photoMime = file.type || 'image/jpeg';
       this.enrollForm.photoFileName = file.name;
       this.enrollForm.photoSize = file.size;
+      this.toast.success('Photo loaded — ready to enroll');
       this.bump();
     };
+    reader.onerror = () => this.toast.error('Failed to read photo');
     reader.readAsDataURL(file);
+  }
+
+  // ── Live camera ──────────────────────────────────────────
+  async startCamera(): Promise<void> {
+    this.cameraError = '';
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      this.cameraError = 'Camera API not available in this browser. Use HTTPS and allow camera access.';
+      this.toast.error(this.cameraError);
+      this.bump();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      this.cameraStream = stream;
+      this.cameraActive = true;
+      this.bump();
+      // Wait a tick for the *ngIf to render the <video>
+      setTimeout(() => {
+        const v = this.cameraVideo?.nativeElement;
+        if (v) {
+          v.srcObject = stream;
+          v.play().catch(() => { /* autoplay may be blocked */ });
+        }
+      }, 0);
+    } catch (err: any) {
+      const msg = err?.name === 'NotAllowedError'
+        ? 'Camera permission denied. Allow camera access in your browser and retry.'
+        : err?.name === 'NotFoundError'
+          ? 'No camera found on this device.'
+          : `Camera error: ${err?.message || err?.name || 'unknown'}`;
+      this.cameraError = msg;
+      this.toast.error(msg);
+      this.bump();
+    }
+  }
+
+  stopCamera(): void {
+    if (this.cameraStream) {
+      this.cameraStream.getTracks().forEach((t) => t.stop());
+      this.cameraStream = null;
+    }
+    if (this.cameraVideo?.nativeElement) {
+      this.cameraVideo.nativeElement.srcObject = null;
+    }
+    this.cameraActive = false;
+    this.bump();
+  }
+
+  capturePhoto(): void {
+    const v = this.cameraVideo?.nativeElement;
+    const c = this.cameraCanvas?.nativeElement;
+    if (!v || !c) {
+      this.toast.error('Camera not ready');
+      return;
+    }
+    const w = v.videoWidth || 640;
+    const h = v.videoHeight || 480;
+    if (!w || !h) {
+      this.toast.error('Camera not ready — wait a moment and try again');
+      return;
+    }
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) { this.toast.error('Canvas not supported'); return; }
+    ctx.drawImage(v, 0, 0, w, h);
+    const dataUrl = c.toDataURL('image/jpeg', 0.9);
+    const comma = dataUrl.indexOf(',');
+    const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+    this.enrollForm.photoBase64 = base64;
+    this.enrollForm.photoMime = 'image/jpeg';
+    this.enrollForm.photoFileName = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+    this.enrollForm.photoSize = Math.round((base64.length * 3) / 4);
+    this.toast.success('Photo captured — ready to enroll');
+    this.stopCamera();
   }
 
   submitEnroll(): void {
@@ -601,6 +711,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   resetEnroll(): void {
     this.enrollForm = { employeeId: '', consentGiven: false, photoBase64: '', photoMime: '', photoFileName: '', photoSize: 0 };
     this.enrollError = '';
+    this.stopCamera();
   }
 
   // ── Enrollment status ────────────────────────────────────
