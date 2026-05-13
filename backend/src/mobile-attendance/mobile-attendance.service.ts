@@ -68,8 +68,14 @@ export class MobileAttendanceService {
     });
   }
 
-  async revokeDevice(clientId: string, deviceId: string, revokedBy: string | null) {
-    const dev = await this.deviceRepo.findOne({ where: { id: deviceId, clientId } });
+  async revokeDevice(
+    clientId: string,
+    deviceId: string,
+    revokedBy: string | null,
+  ) {
+    const dev = await this.deviceRepo.findOne({
+      where: { id: deviceId, clientId },
+    });
     if (!dev) throw new NotFoundException('Device not found');
     dev.isActive = false;
     dev.revokedAt = new Date();
@@ -78,10 +84,15 @@ export class MobileAttendanceService {
   }
 
   /** Resolve install-token -> device. Throws on revoked / unknown. */
-  async resolveDeviceByToken(token: string): Promise<MobileAttendanceDeviceEntity> {
+  async resolveDeviceByToken(
+    token: string,
+  ): Promise<MobileAttendanceDeviceEntity> {
     if (!token) throw new UnauthorizedException('Missing device token');
-    const dev = await this.deviceRepo.findOne({ where: { installToken: token } });
-    if (!dev || !dev.isActive) throw new UnauthorizedException('Invalid device token');
+    const dev = await this.deviceRepo.findOne({
+      where: { installToken: token },
+    });
+    if (!dev || !dev.isActive)
+      throw new UnauthorizedException('Invalid device token');
     dev.lastSeenAt = new Date();
     await this.deviceRepo.update(dev.id, { lastSeenAt: dev.lastSeenAt });
     return dev;
@@ -94,10 +105,14 @@ export class MobileAttendanceService {
     body: EnrollFaceDto,
   ): Promise<FaceEnrollmentEntity> {
     if (!body.consentGiven) {
-      throw new BadRequestException('Employee consent is required for biometric enrollment');
+      throw new BadRequestException(
+        'Employee consent is required for biometric enrollment',
+      );
     }
     if (!body.embeddingBase64 && !body.photoBase64) {
-      throw new BadRequestException('Provide either embeddingBase64 or photoBase64');
+      throw new BadRequestException(
+        'Provide either embeddingBase64 or photoBase64',
+      );
     }
     const emp = await this.empRepo.findOne({
       where: { id: body.employeeId, clientId },
@@ -115,7 +130,9 @@ export class MobileAttendanceService {
       ? `data:image/jpeg;base64,${body.photoBase64.slice(0, 64)}...` // placeholder; real impl uploads to Blob
       : null;
 
-    const existing = await this.faceRepo.findOne({ where: { employeeId: emp.id } });
+    const existing = await this.faceRepo.findOne({
+      where: { employeeId: emp.id },
+    });
     const now = new Date();
     const payload: Partial<FaceEnrollmentEntity> = {
       employeeId: emp.id,
@@ -139,13 +156,20 @@ export class MobileAttendanceService {
     return this.faceRepo.save(this.faceRepo.create(payload));
   }
 
-  async deactivateEnrollment(clientId: string, employeeId: string, by: string | null, reason: string) {
-    const row = await this.faceRepo.findOne({ where: { employeeId, clientId } });
+  async deactivateEnrollment(
+    clientId: string,
+    employeeId: string,
+    by: string | null,
+    reason: string,
+  ) {
+    const row = await this.faceRepo.findOne({
+      where: { employeeId, clientId },
+    });
     if (!row) throw new NotFoundException('Enrollment not found');
     row.isActive = false;
     row.deactivatedAt = new Date();
     row.deactivationReason = reason;
-    row.deactivatedAt = row.deactivatedAt;
+    void by;
     return this.faceRepo.save(row);
   }
 
@@ -186,8 +210,14 @@ export class MobileAttendanceService {
     actorEmployeeId?: string | null,
   ) {
     // ESS mode: punch must be for the logged-in employee (passed by controller)
-    if (device.mode === 'ESS' && actorEmployeeId && actorEmployeeId !== body.employeeId) {
-      throw new ForbiddenException('ESS punch must be for the logged-in employee');
+    if (
+      device.mode === 'ESS' &&
+      actorEmployeeId &&
+      actorEmployeeId !== body.employeeId
+    ) {
+      throw new ForbiddenException(
+        'ESS punch must be for the logged-in employee',
+      );
     }
 
     const emp = await this.empRepo.findOne({
@@ -228,7 +258,8 @@ export class MobileAttendanceService {
     }
 
     const ts = new Date(body.capturedAt);
-    if (isNaN(ts.getTime())) throw new BadRequestException('Invalid capturedAt');
+    if (isNaN(ts.getTime()))
+      throw new BadRequestException('Invalid capturedAt');
 
     const source: 'MOBILE_KIOSK' | 'MOBILE_ESS' =
       device.mode === 'KIOSK' ? 'MOBILE_KIOSK' : 'MOBILE_ESS';
@@ -295,7 +326,12 @@ export class MobileAttendanceService {
   }
 }
 
-function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function haversineMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);

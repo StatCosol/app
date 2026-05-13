@@ -91,11 +91,11 @@ interface BranchOption { id: string; name: string }
                 </td>
                 <td class="px-4 py-3 text-gray-700">{{ branchName(d.branchId) }}</td>
                 <td class="px-4 py-3 text-gray-700">
-                  <span *ngIf="d.geofenceLat != null && d.geofenceLng != null">
+                  <span *ngIf="d.geofenceLat !== null && d.geofenceLng !== null">
                     {{ d.geofenceLat | number:'1.4-4' }}, {{ d.geofenceLng | number:'1.4-4' }}
                     <span class="text-gray-400">· {{ d.geofenceRadiusM || 100 }}m</span>
                   </span>
-                  <span *ngIf="d.geofenceLat == null" class="text-gray-400">—</span>
+                  <span *ngIf="d.geofenceLat === null" class="text-gray-400">—</span>
                 </td>
                 <td class="px-4 py-3 text-gray-700">{{ d.lastSeenAt ? (d.lastSeenAt | date: 'dd MMM, HH:mm') : 'Never' }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ d.lastPunchAt ? (d.lastPunchAt | date: 'dd MMM, HH:mm') : 'Never' }}</td>
