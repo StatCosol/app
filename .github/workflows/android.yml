@@ -16,6 +16,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      MOBILEFACENET_TFLITE_URL: ${{ secrets.MOBILEFACENET_TFLITE_URL }}
     defaults:
       run:
         working-directory: mobile
@@ -37,9 +39,7 @@ jobs:
       # a repo secret). Skipped when the secret isn't set so PRs from forks
       # still build (the resulting APK won't do face matching, but it compiles).
       - name: Fetch MobileFaceNet TFLite
-        if: ${{ secrets.MOBILEFACENET_TFLITE_URL != '' }}
-        env:
-          MOBILEFACENET_TFLITE_URL: ${{ secrets.MOBILEFACENET_TFLITE_URL }}
+        if: ${{ env.MOBILEFACENET_TFLITE_URL != '' }}
         run: |
           mkdir -p app/src/main/assets
           curl -fsSL "$MOBILEFACENET_TFLITE_URL" -o app/src/main/assets/mobilefacenet.tflite
