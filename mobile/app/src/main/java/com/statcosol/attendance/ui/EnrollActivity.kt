@@ -64,7 +64,7 @@ class EnrollActivity : AppCompatActivity() {
             cameraPermission.launch(Manifest.permission.CAMERA)
         }
 
-        binding.captureBtn.setOnClickListener { onStart() }
+        binding.captureBtn.setOnClickListener { startEnrollment() }
     }
 
     private fun startCamera() {
@@ -82,7 +82,7 @@ class EnrollActivity : AppCompatActivity() {
         }.also { it.start() }
     }
 
-    private fun onStart() {
+    private fun startEnrollment() {
         if (enrolling) return
         if (!binding.consentCheck.isChecked) {
             Toast.makeText(this, R.string.enroll_consent_required, Toast.LENGTH_SHORT).show()
