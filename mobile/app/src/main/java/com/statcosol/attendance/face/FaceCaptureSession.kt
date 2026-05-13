@@ -33,11 +33,14 @@ class FaceCaptureSession(
     private val owner: LifecycleOwner,
     private val previewView: PreviewView,
     private val scope: CoroutineScope,
-    private val onFace: suspend (probe: FloatArray, livenessScore: Double) -> Unit
+    private val onFace: suspend (probe: FloatArray, livenessScore: Double) -> Unit,
+    private val onError: ((message: String) -> Unit)? = null,
 ) {
     private val detector = FaceDetector()
     private val embedder by lazy { FaceEmbedder(context) }
     private val analysisLock = Mutex()
+    @Volatile private var modelMissing = false
+    @Volatile private var lastErrorAt: Long = 0
 
     fun start() {
         val provider = ProcessCameraProvider.getInstance(context)
@@ -68,10 +71,29 @@ class FaceCaptureSession(
             if (!analysisLock.tryLock()) return@launch
             try {
                 val detection = detector.detectLargest(bitmap, rotationDegrees = 0) ?: return@launch
+                if (modelMissing) {
+                    // Don't keep retrying once we know the asset is absent;
+                    // re-emit the message at most once every 5s so the UI keeps it visible.
+                    val now = System.currentTimeMillis()
+                    if (now - lastErrorAt > 5_000) {
+                        lastErrorAt = now
+                        onError?.invoke("face_model_missing")
+                    }
+                    return@launch
+                }
                 val embedding = try {
                     embedder.embed(detection.crop)
-                } catch (_: Exception) {
-                    // Model asset not yet shipped — skip silently.
+                } catch (e: java.io.FileNotFoundException) {
+                    modelMissing = true
+                    lastErrorAt = System.currentTimeMillis()
+                    onError?.invoke("face_model_missing")
+                    return@launch
+                } catch (e: Exception) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastErrorAt > 5_000) {
+                        lastErrorAt = now
+                        onError?.invoke("face_embed_failed:${e.javaClass.simpleName}")
+                    }
                     return@launch
                 }
                 onFace(embedding, detection.livenessScore)

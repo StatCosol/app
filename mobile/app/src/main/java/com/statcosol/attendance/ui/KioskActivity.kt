@@ -62,6 +62,9 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
                 matcher = RosterMatcher(roster.enrollments)
+                if (roster.enrollments.isEmpty()) {
+                    binding.statusText.text = getString(R.string.roster_empty)
+                }
             } catch (e: Exception) {
                 binding.statusText.text = "Roster load failed: ${e.message}"
             }
@@ -74,9 +77,17 @@ class KioskActivity : AppCompatActivity() {
             owner = this,
             previewView = binding.previewView,
             scope = lifecycleScope,
-        ) { probe, liveness ->
-            handleFace(probe, liveness)
-        }.also { it.start() }
+            onFace = { probe, liveness -> handleFace(probe, liveness) },
+            onError = { code -> runOnUiThread { showCaptureError(code) } },
+        ).also { it.start() }
+    }
+
+    private fun showCaptureError(code: String) {
+        binding.statusText.text = when {
+            code == "face_model_missing" -> getString(R.string.face_model_missing)
+            code.startsWith("face_embed_failed") -> getString(R.string.face_embed_failed, code.substringAfter(':'))
+            else -> code
+        }
     }
 
     private suspend fun handleFace(probe: FloatArray, liveness: Double) {
