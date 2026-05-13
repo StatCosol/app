@@ -15,6 +15,7 @@ import { ClientEmployeesService, Employee } from '../../client/employees/client-
 import {
   ClientMobileAttendanceService,
   EnrollFaceBody,
+  EnrollmentStatusRow,
 } from '../../client/mobile-attendance/client-mobile-attendance.service';
 
 interface EnrollForm {
@@ -104,8 +105,85 @@ interface EnrollForm {
           </ng-container>
         </ng-container>
       </div>
+
+      <!-- Enrollment status table -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 class="font-semibold text-gray-900">Enrollment Status</h3>
+            <p class="text-xs text-gray-500">
+              <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
+              <span class="font-semibold text-amber-700">{{ pendingCount }}</span> pending ·
+              {{ enrollmentRows.length }} total in your branch
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" placeholder="Search…" [(ngModel)]="statusSearch" name="statusSearch"
+              class="ui-input" style="width: 200px;">
+            <select [(ngModel)]="statusFilter" name="statusFilter" class="ui-input" style="width: 160px;">
+              <option value="all">All</option>
+              <option value="pending">Pending only</option>
+              <option value="enrolled">Enrolled only</option>
+              <option value="deactivated">Deactivated only</option>
+            </select>
+            <ui-button variant="secondary" (clicked)="loadEnrollments()">Refresh</ui-button>
+          </div>
+        </div>
+
+        <div *ngIf="loadingEnrollments" class="py-6 flex justify-center">
+          <ui-loading-spinner></ui-loading-spinner>
+        </div>
+
+        <div *ngIf="!loadingEnrollments && filteredEnrollments.length > 0" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-3 py-2 font-semibold text-gray-700">Code</th>
+                <th class="text-left px-3 py-2 font-semibold text-gray-700">Employee</th>
+                <th class="text-center px-3 py-2 font-semibold text-gray-700">Status</th>
+                <th class="text-left px-3 py-2 font-semibold text-gray-700">Enrolled At</th>
+                <th class="text-right px-3 py-2 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of filteredEnrollments" class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="px-3 py-2 text-gray-700 font-mono text-xs">{{ r.employeeCode }}</td>
+                <td class="px-3 py-2 text-gray-900 font-medium">{{ r.employeeName }}</td>
+                <td class="px-3 py-2 text-center">
+                  <span *ngIf="r.isEnrolled && r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
+                  <span *ngIf="r.isEnrolled && !r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Deactivated</span>
+                  <span *ngIf="!r.isEnrolled"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                </td>
+                <td class="px-3 py-2 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
+                    (click)="selectForEnroll(r)">Enroll</button>
+                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline"
+                    (click)="deactivate(r)">Deactivate</button>
+                  <span *ngIf="r.isEnrolled && !r.isActive" class="text-xs text-gray-400">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0"
+             class="text-sm text-gray-500">No employees match the current filter.</div>
+        <div *ngIf="!loadingEnrollments && enrollmentRows.length === 0"
+             class="text-sm text-gray-500">No employees found in your branch.</div>
+      </div>
     </div>
   `,
+  styles: [`
+    .ui-input {
+      display: block; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db;
+      border-radius: 0.5rem; font-size: 0.875rem; background: #fff;
+    }
+    .ui-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79,70,229,.15); }
+  `],
 })
 export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -117,6 +195,12 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   enrolling = false;
   enrollError = '';
 
+  // Status table
+  enrollmentRows: EnrollmentStatusRow[] = [];
+  loadingEnrollments = false;
+  statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
+  statusSearch = '';
+
   constructor(
     private auth: AuthService,
     private empSvc: ClientEmployeesService,
@@ -127,6 +211,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadEmployees();
+    this.loadEnrollments();
   }
 
   ngOnDestroy(): void {
@@ -213,6 +298,53 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.enrollForm = this.emptyForm();
     this.enrollError = '';
     this.cdr.markForCheck();
+  }
+
+  // ── Enrollment status ────────────────────────────────────
+  loadEnrollments(): void {
+    this.loadingEnrollments = true;
+    this.svc.listEnrollments()
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingEnrollments = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: (rows) => { this.enrollmentRows = rows || []; this.cdr.markForCheck(); },
+        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load enrollments'); },
+      });
+  }
+
+  get enrolledCount(): number {
+    return this.enrollmentRows.filter((r) => r.isEnrolled && r.isActive).length;
+  }
+
+  get pendingCount(): number {
+    return this.enrollmentRows.filter((r) => !r.isEnrolled).length;
+  }
+
+  get filteredEnrollments(): EnrollmentStatusRow[] {
+    const q = this.statusSearch.trim().toLowerCase();
+    return this.enrollmentRows.filter((r) => {
+      if (this.statusFilter === 'pending' && r.isEnrolled) return false;
+      if (this.statusFilter === 'enrolled' && !(r.isEnrolled && r.isActive)) return false;
+      if (this.statusFilter === 'deactivated' && !(r.isEnrolled && !r.isActive)) return false;
+      if (q && !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }
+
+  selectForEnroll(r: EnrollmentStatusRow): void {
+    this.enrollForm.employeeId = r.employeeId;
+    this.cdr.markForCheck();
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  deactivate(r: EnrollmentStatusRow): void {
+    const reason = prompt(`Deactivate face enrollment for ${r.employeeName}? Enter a reason (required for DPDP audit):`, 'Employee request');
+    if (!reason || !reason.trim()) return;
+    this.svc.deactivateEnrollment(r.employeeId, reason.trim())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
+        error: (e) => this.toast.error(e?.error?.message || 'Deactivation failed'),
+      });
   }
 
   private emptyForm(): EnrollForm {

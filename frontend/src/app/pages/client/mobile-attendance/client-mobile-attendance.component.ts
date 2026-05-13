@@ -15,6 +15,7 @@ import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ClientEmployeesService, Employee } from '../employees/client-employees.service';
 import {
   ClientMobileAttendanceService,
+  EnrollmentStatusRow,
   MobileAttendanceDevice,
   MobileDeviceMode,
   RegisterMobileDeviceBody,
@@ -45,6 +46,7 @@ interface BranchOption { id: string; name: string }
       <!-- Tabs -->
       <div class="tab-bar">
         <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
+        <button class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
         <button class="tab-btn" [class.active]="tab === 'enroll'" (click)="switchTab('enroll')">Face Enrollment</button>
         <button class="tab-btn" [class.active]="tab === 'help'" (click)="switchTab('help')">Setup Guide</button>
       </div>
@@ -115,6 +117,81 @@ interface BranchOption { id: string; name: string }
             </tbody>
           </table>
         </div>
+      </ng-container>
+
+      <!-- ────── ENROLLMENT STATUS TAB ────── -->
+      <ng-container *ngIf="tab === 'status'">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="text-sm text-gray-700">
+            <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
+            <span class="font-semibold text-amber-700">{{ pendingCount }}</span> pending ·
+            <span class="text-gray-500">{{ enrollmentRows.length }} total</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" placeholder="Search code or name…" [(ngModel)]="statusSearch"
+              class="ui-input" style="width: 220px;">
+            <select [(ngModel)]="statusFilter" class="ui-input" style="width: 160px;">
+              <option value="all">All</option>
+              <option value="pending">Pending only</option>
+              <option value="enrolled">Enrolled only</option>
+              <option value="deactivated">Deactivated only</option>
+            </select>
+            <ui-button variant="secondary" (clicked)="loadEnrollments()">Refresh</ui-button>
+          </div>
+        </div>
+
+        <ui-loading-spinner *ngIf="loadingEnrollments" text="Loading enrollments..." size="lg"></ui-loading-spinner>
+
+        <ui-empty-state
+          *ngIf="!loadingEnrollments && enrollmentRows.length === 0"
+          title="No employees found"
+          description="There are no active employees in the selected scope.">
+        </ui-empty-state>
+
+        <div *ngIf="!loadingEnrollments && filteredEnrollments.length > 0"
+             class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Code</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Employee</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Branch</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Status</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Model</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Enrolled At</th>
+                <th class="text-right px-4 py-3 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of filteredEnrollments" class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="px-4 py-3 text-gray-700 font-mono text-xs">{{ r.employeeCode }}</td>
+                <td class="px-4 py-3 text-gray-900 font-medium">{{ r.employeeName }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ branchName(r.branchId) }}</td>
+                <td class="px-4 py-3 text-center">
+                  <span *ngIf="r.isEnrolled && r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
+                  <span *ngIf="r.isEnrolled && !r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                    [title]="r.deactivationReason || ''">Deactivated</span>
+                  <span *ngIf="!r.isEnrolled"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                </td>
+                <td class="px-4 py-3 text-gray-700 text-xs">{{ r.embeddingModel || '—' }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
+                    (click)="jumpToEnroll(r)">Enroll</button>
+                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline"
+                    (click)="deactivate(r)">Deactivate</button>
+                  <span *ngIf="r.isEnrolled && !r.isActive" class="text-xs text-gray-400">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0"
+             class="text-sm text-gray-500 mt-4">No employees match the current filter.</div>
       </ng-container>
 
       <!-- ────── ENROLLMENT TAB ────── -->
@@ -273,7 +350,7 @@ interface BranchOption { id: string; name: string }
 export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  tab: 'devices' | 'enroll' | 'help' = 'devices';
+  tab: 'devices' | 'enroll' | 'help' | 'status' = 'devices';
 
   // Devices
   devices: MobileAttendanceDevice[] = [];
@@ -311,6 +388,12 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   enrolling = false;
   enrollError = '';
 
+  // Enrollment status tab
+  enrollmentRows: EnrollmentStatusRow[] = [];
+  loadingEnrollments = false;
+  statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
+  statusSearch = '';
+
   constructor(
     private svc: ClientMobileAttendanceService,
     private branchSvc: ClientBranchesService,
@@ -336,8 +419,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  switchTab(t: 'devices' | 'enroll' | 'help'): void {
+  switchTab(t: 'devices' | 'enroll' | 'help' | 'status'): void {
     this.tab = t;
+    if (t === 'status' && this.enrollmentRows.length === 0) {
+      this.loadEnrollments();
+    }
   }
 
   // ── Branches / Employees ──────────────────────────────────
@@ -515,5 +601,51 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   resetEnroll(): void {
     this.enrollForm = { employeeId: '', consentGiven: false, photoBase64: '', photoMime: '', photoFileName: '', photoSize: 0 };
     this.enrollError = '';
+  }
+
+  // ── Enrollment status ────────────────────────────────────
+  loadEnrollments(): void {
+    this.loadingEnrollments = true;
+    this.svc.listEnrollments()
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingEnrollments = false; this.bump(); }))
+      .subscribe({
+        next: (rows) => { this.enrollmentRows = rows || []; this.bump(); },
+        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load enrollments'); this.bump(); },
+      });
+  }
+
+  get enrolledCount(): number {
+    return this.enrollmentRows.filter((r) => r.isEnrolled && r.isActive).length;
+  }
+
+  get pendingCount(): number {
+    return this.enrollmentRows.filter((r) => !r.isEnrolled).length;
+  }
+
+  get filteredEnrollments(): EnrollmentStatusRow[] {
+    const q = this.statusSearch.trim().toLowerCase();
+    return this.enrollmentRows.filter((r) => {
+      if (this.statusFilter === 'pending' && r.isEnrolled) return false;
+      if (this.statusFilter === 'enrolled' && !(r.isEnrolled && r.isActive)) return false;
+      if (this.statusFilter === 'deactivated' && !(r.isEnrolled && !r.isActive)) return false;
+      if (q && !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }
+
+  jumpToEnroll(r: EnrollmentStatusRow): void {
+    this.enrollForm.employeeId = r.employeeId;
+    this.tab = 'enroll';
+  }
+
+  deactivate(r: EnrollmentStatusRow): void {
+    const reason = prompt(`Deactivate face enrollment for ${r.employeeName}? Enter a reason (required for DPDP audit):`, 'Employee request');
+    if (!reason || !reason.trim()) return;
+    this.svc.deactivateEnrollment(r.employeeId, reason.trim())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
+        error: (e) => this.toast.error(e?.error?.message || 'Deactivation failed'),
+      });
   }
 }
