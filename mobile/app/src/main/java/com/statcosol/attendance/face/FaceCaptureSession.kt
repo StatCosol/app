@@ -92,7 +92,8 @@ class FaceCaptureSession(
                     val now = System.currentTimeMillis()
                     if (now - lastErrorAt > 5_000) {
                         lastErrorAt = now
-                        onError?.invoke("face_embed_failed:${e.javaClass.simpleName}")
+                        val msg = (e.message ?: "").take(120)
+                        onError?.invoke("face_embed_failed:${e.javaClass.simpleName}: $msg")
                     }
                     return@launch
                 }
