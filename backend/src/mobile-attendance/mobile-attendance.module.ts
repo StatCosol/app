@@ -9,6 +9,7 @@ import {
   MobileAttendanceDeviceController,
 } from './mobile-attendance.controller';
 import { MobileAttendanceService } from './mobile-attendance.service';
+import { FaceEmbeddingClient } from './face-embedding.client';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { MobileAttendanceService } from './mobile-attendance.service';
     BiometricModule,
   ],
   controllers: [MobileAttendanceAdminController, MobileAttendanceDeviceController],
-  providers: [MobileAttendanceService],
+  providers: [MobileAttendanceService, FaceEmbeddingClient],
   exports: [MobileAttendanceService],
 })
 export class MobileAttendanceModule {}

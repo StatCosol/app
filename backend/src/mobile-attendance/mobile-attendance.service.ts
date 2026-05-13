@@ -12,6 +12,7 @@ import { Repository } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
+import { FaceEmbeddingClient } from './face-embedding.client';
 import {
   MobileAttendanceDeviceEntity,
   MobileDeviceMode,
@@ -38,6 +39,7 @@ export class MobileAttendanceService {
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly biometricService: BiometricService,
+    private readonly faceEmbeddingClient: FaceEmbeddingClient,
   ) {}
 
   // ---------------------------------------------------------------- devices
@@ -132,15 +134,40 @@ export class MobileAttendanceService {
     });
     if (!emp) throw new NotFoundException('Employee not found');
 
-    const embedding = body.embeddingBase64
+    // Resolve embedding. Three sources, in priority order:
+    //   1. caller supplied embeddingBase64 (mobile self-enroll forwarded by admin)
+    //   2. caller supplied photoBase64  → call face-svc to compute embedding
+    //   3. neither → already rejected above
+    let embedding: Buffer | null = body.embeddingBase64
       ? Buffer.from(body.embeddingBase64, 'base64')
       : null;
+    let embeddingModel: string | null = body.embeddingModel ?? null;
+    let faceScore: number | null = null;
 
-    // Azure Face enrollment is performed lazily on first successful punch
-    // OR via a separate admin sync job once Limited-Access is granted.
-    // For now we just persist the local embedding + photo.
+    if (!embedding && body.photoBase64) {
+      if (!this.faceEmbeddingClient.isEnabled()) {
+        throw new BadRequestException(
+          'Server-side face embedding is not configured (FACE_SVC_URL unset)',
+        );
+      }
+      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      if (!result) {
+        throw new BadRequestException('Face embedding service unavailable');
+      }
+      embedding = Buffer.from(result.embeddingBase64, 'base64');
+      embeddingModel = embeddingModel || result.embeddingModel;
+      faceScore = result.faceScore;
+      this.logger.log(
+        `enrollFace photo→embed ok employee=${emp.id} score=${faceScore.toFixed(3)} bytes=${embedding.length}`,
+      );
+    }
+
+    // TODO(face-photo-blob): upload `body.photoBase64` to Azure Blob
+    //   (container `face-photos`, key `{clientId}/{employeeId}.jpg`) and store
+    //   the resulting URL here. For now we keep a tiny inline thumbnail
+    //   reference so audits still see *something*; full photo is dropped.
     const photoUrl = body.photoBase64
-      ? `data:image/jpeg;base64,${body.photoBase64.slice(0, 64)}...` // placeholder; real impl uploads to Blob
+      ? `embedded:mobilefacenet/${embedding ? embedding.length : 0}b`
       : null;
 
     const existing = await this.faceRepo.findOne({
@@ -152,7 +179,7 @@ export class MobileAttendanceService {
       clientId,
       branchId: emp.branchId ?? null,
       embedding,
-      embeddingModel: body.embeddingModel ?? 'mobilefacenet-v1',
+      embeddingModel: embeddingModel ?? 'mobilefacenet-v1',
       photoUrl,
       consentGivenAt: now,
       consentGivenBy: enrolledBy,

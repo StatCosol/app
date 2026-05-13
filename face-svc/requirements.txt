@@ -1,0 +1,7 @@
+fastapi==0.115.4
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+numpy==1.26.4
+Pillow==12.2.0
+mediapipe==0.10.18
+tflite-runtime==2.14.0
