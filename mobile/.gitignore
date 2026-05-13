@@ -1,0 +1,20 @@
+# Android / Gradle / IDE
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.cxx/
+captures/
+.externalNativeBuild/
+
+# Generated keystores — never commit signing keys
+*.jks
+*.keystore
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# TFLite model is downloaded separately, not committed
+app/src/main/assets/mobilefacenet.tflite
