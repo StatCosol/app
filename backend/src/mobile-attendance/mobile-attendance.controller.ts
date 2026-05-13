@@ -54,14 +54,17 @@ export class MobileAttendanceAdminController {
     return this.svc.revokeDevice(u.clientId, id, u.userId ?? null);
   }
 
-  @ApiOperation({ summary: 'Enroll an employee face (admin or self-service)' })
+  @ApiOperation({ summary: 'Enroll an employee face (admin, branch desk, or self-service)' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Post('enroll')
   enroll(@CurrentUser() u: ReqUser, @Body() body: EnrollFaceDto) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
-    return this.svc.enrollFace(u.clientId, u.userId ?? null, body);
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.enrollFace(u.clientId, u.userId ?? null, body, allowedBranchIds);
   }
 
   @ApiOperation({ summary: 'Deactivate an employee face enrollment (DPDP delete)' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Delete('enroll/:employeeId')
   deactivate(
     @CurrentUser() u: ReqUser,
@@ -69,13 +72,25 @@ export class MobileAttendanceAdminController {
     @Query('reason') reason?: string,
   ) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
     return this.svc.deactivateEnrollment(
       u.clientId,
       employeeId,
       u.userId ?? null,
       reason ?? 'Admin deactivation',
+      allowedBranchIds,
     );
   }
+}
+
+/**
+ * Branch-scoped users (CLIENT + userType=BRANCH, virtual BRANCH_DESK) may
+ * only enroll/deactivate employees inside their own branchIds. Non-branch
+ * roles (ADMIN/CRM/CLIENT-master) get `null` meaning unrestricted.
+ */
+function scopeBranchIds(u: ReqUser): string[] | null {
+  if (u?.userType === 'BRANCH') return u.branchIds ?? [];
+  return null;
 }
 
 // =============================================================================

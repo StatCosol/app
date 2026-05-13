@@ -118,6 +118,7 @@ export class MobileAttendanceService {
     clientId: string,
     enrolledBy: string | null,
     body: EnrollFaceDto,
+    allowedBranchIds: string[] | null = null,
   ): Promise<FaceEnrollmentEntity> {
     if (!body.consentGiven) {
       throw new BadRequestException(
@@ -133,6 +134,11 @@ export class MobileAttendanceService {
       where: { id: body.employeeId, clientId },
     });
     if (!emp) throw new NotFoundException('Employee not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(emp.branchId ?? '')) {
+      throw new ForbiddenException(
+        'Employee is not in your branch scope',
+      );
+    }
 
     // Resolve embedding. Three sources, in priority order:
     //   1. caller supplied embeddingBase64 (mobile self-enroll forwarded by admin)
@@ -259,11 +265,17 @@ export class MobileAttendanceService {
     employeeId: string,
     by: string | null,
     reason: string,
+    allowedBranchIds: string[] | null = null,
   ) {
     const row = await this.faceRepo.findOne({
       where: { employeeId, clientId },
     });
     if (!row) throw new NotFoundException('Enrollment not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(row.branchId ?? '')) {
+      throw new ForbiddenException(
+        'Employee is not in your branch scope',
+      );
+    }
     row.isActive = false;
     row.deactivatedAt = new Date();
     row.deactivationReason = reason;
