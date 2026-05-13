@@ -54,6 +54,13 @@ export class MobileAttendanceAdminController {
     return this.svc.revokeDevice(u.clientId, id, u.userId ?? null);
   }
 
+  @ApiOperation({ summary: 'Permanently delete a revoked mobile attendance device' })
+  @Delete('devices/:id/permanent')
+  hardDeleteDevice(@CurrentUser() u: ReqUser, @Param('id') id: string) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    return this.svc.hardDeleteDevice(u.clientId, id);
+  }
+
   @ApiOperation({ summary: 'Enroll an employee face (admin, branch desk, or self-service)' })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Post('enroll')

@@ -82,6 +82,10 @@ export class ClientMobileAttendanceService {
     return this.http.delete<MobileAttendanceDevice>(`${this.base}/devices/${id}`);
   }
 
+  hardDeleteDevice(id: string): Observable<{ ok: true; id: string }> {
+    return this.http.delete<{ ok: true; id: string }>(`${this.base}/devices/${id}/permanent`);
+  }
+
   // Enrollment
   enrollFace(body: EnrollFaceBody): Observable<FaceEnrollment> {
     return this.http.post<FaceEnrollment>(`${this.base}/enroll`, body);
