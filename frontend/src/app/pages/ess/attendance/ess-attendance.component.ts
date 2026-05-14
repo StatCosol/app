@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, Subject } from 'rxjs';
@@ -98,7 +98,8 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
                      [class.active]="selectedCapture === opt.value"
                      [class.disabled]="opt.comingSoon">
                 <input type="radio" name="captureMethod" [value]="opt.value"
-                       [(ngModel)]="selectedCapture" [disabled]="opt.comingSoon" class="sr-only" />
+                       [(ngModel)]="selectedCapture" (ngModelChange)="onCaptureChange($event)"
+                       [disabled]="opt.comingSoon" class="sr-only" />
                 <span class="capture-icon" [innerHTML]="opt.icon"></span>
                 <span class="capture-label">{{ opt.label }}</span>
                 <span class="capture-badge" *ngIf="opt.comingSoon">Soon</span>
@@ -106,16 +107,34 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
             </div>
           </div>
 
+          <!-- Face ID selfie capture -->
+          <div class="selfie-block" *ngIf="selectedCapture === 'FACE'">
+            <div *ngIf="!selfieDataUrl" class="selfie-cam">
+              <video #selfieVideo autoplay playsinline muted class="selfie-video"></video>
+              <button type="button" class="btn-capture"
+                      [disabled]="!cameraReady || capturingSelfie"
+                      (click)="captureSelfie()">
+                <span *ngIf="cameraReady && !capturingSelfie">\ud83d\udcf8 Capture Selfie</span>
+                <span *ngIf="!cameraReady && !cameraError">Starting camera\u2026</span>
+                <span *ngIf="cameraError" class="text-red-300">{{ cameraError }}</span>
+              </button>
+            </div>
+            <div *ngIf="selfieDataUrl" class="selfie-preview">
+              <img [src]="selfieDataUrl" alt="Selfie preview" />
+              <button type="button" class="btn-retake" (click)="discardSelfie()">Retake</button>
+            </div>
+          </div>
+
           <div class="checkin-actions">
             <button class="btn-checkin"
-                    [disabled]="checkingIn || !!todayRecord?.checkIn"
+                    [disabled]="checkingIn || !!todayRecord?.checkIn || !canSubmitCapture"
                     (click)="doCheckIn()">
               <span *ngIf="checkingIn">Checking In...</span>
               <span *ngIf="!checkingIn && !todayRecord?.checkIn">Check In</span>
               <span *ngIf="!checkingIn && todayRecord?.checkIn">Checked In ✓</span>
             </button>
             <button class="btn-checkout"
-                    [disabled]="checkingOut || !todayRecord?.checkIn || !!todayRecord?.checkOut"
+                    [disabled]="checkingOut || !todayRecord?.checkIn || !!todayRecord?.checkOut || !canSubmitCapture"
                     (click)="doCheckOut()">
               <span *ngIf="checkingOut">Checking Out...</span>
               <span *ngIf="!checkingOut && !todayRecord?.checkOut">Check Out</span>
@@ -414,6 +433,31 @@ type CaptureMethod = 'MANUAL' | 'BIOMETRIC' | 'FACE' | 'GEOLOCATION';
         padding: 1px 5px; border-radius: 6px; text-transform: uppercase;
       }
 
+      /* ── Face ID selfie ── */
+      .selfie-block { margin-top: 10px; }
+      .selfie-cam { display: flex; flex-direction: column; gap: 6px; }
+      .selfie-video {
+        width: 220px; height: 165px; border-radius: 10px;
+        background: #0f172a; object-fit: cover; border: 1px solid rgba(255,255,255,0.12);
+      }
+      .btn-capture {
+        padding: 8px 12px; border-radius: 10px; border: none; cursor: pointer;
+        font-size: 12px; font-weight: 700;
+        background: #6366f1; color: #fff; transition: background 0.2s;
+      }
+      .btn-capture:hover:not(:disabled) { background: #4f46e5; }
+      .btn-capture:disabled { opacity: 0.5; cursor: not-allowed; }
+      .selfie-preview { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+      .selfie-preview img {
+        width: 220px; height: 165px; border-radius: 10px; object-fit: cover;
+        border: 2px solid #22c55e;
+      }
+      .btn-retake {
+        padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
+        background: transparent; color: #cbd5e1; font-size: 11px; font-weight: 600; cursor: pointer;
+      }
+      .btn-retake:hover { background: rgba(255,255,255,0.08); }
+
       /* ── Buttons ── */
       .checkin-actions { display: flex; gap: 10px; }
       .btn-checkin {
@@ -498,11 +542,19 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   currentLat: number | null = null;
   currentLng: number | null = null;
 
+  // Face ID selfie capture
+  @ViewChild('selfieVideo') selfieVideoRef?: ElementRef<HTMLVideoElement>;
+  selfieDataUrl: string | null = null;
+  cameraStream: MediaStream | null = null;
+  cameraReady = false;
+  cameraError = '';
+  capturingSelfie = false;
+
   captureOptions: { value: CaptureMethod; label: string; icon: string; comingSoon: boolean }[] = [
     { value: 'MANUAL', label: 'Manual', icon: '✋', comingSoon: false },
     { value: 'GEOLOCATION', label: 'Location', icon: '📍', comingSoon: false },
     { value: 'BIOMETRIC', label: 'Biometric', icon: '🔒', comingSoon: true },
-    { value: 'FACE', label: 'Face ID', icon: '🤳', comingSoon: true },
+    { value: 'FACE', label: 'Face ID', icon: '🤳', comingSoon: false },
   ];
 
   // Overtime / Comp-Off
@@ -533,6 +585,100 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     if (this.clockInterval) clearInterval(this.clockInterval);
+    this.stopCamera();
+  }
+
+  /** Returns false when Face ID is selected but no selfie has been captured yet. */
+  get canSubmitCapture(): boolean {
+    if (this.selectedCapture !== 'FACE') return true;
+    return !!this.selfieDataUrl;
+  }
+
+  onCaptureChange(method: CaptureMethod): void {
+    this.selectedCapture = method;
+    if (method === 'FACE') {
+      // Defer to next tick so the <video> element is rendered before we attach the stream.
+      setTimeout(() => this.startCamera(), 0);
+    } else {
+      this.discardSelfie();
+      this.stopCamera();
+    }
+  }
+
+  private async startCamera(): Promise<void> {
+    if (this.cameraStream) return;
+    this.cameraError = '';
+    this.cameraReady = false;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      this.cameraError = 'Camera not supported on this device';
+      this.cdr.markForCheck();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
+        audio: false,
+      });
+      this.cameraStream = stream;
+      const video = this.selfieVideoRef?.nativeElement;
+      if (video) {
+        video.srcObject = stream;
+        await video.play().catch(() => undefined);
+      }
+      this.cameraReady = true;
+      this.cdr.markForCheck();
+    } catch (err: any) {
+      this.cameraError = err?.message?.includes('Permission')
+        ? 'Camera permission denied'
+        : 'Unable to start camera';
+      this.cdr.markForCheck();
+    }
+  }
+
+  captureSelfie(): void {
+    const video = this.selfieVideoRef?.nativeElement;
+    if (!video || !this.cameraReady) return;
+    this.capturingSelfie = true;
+    try {
+      const w = Math.min(video.videoWidth || 480, 480);
+      const h = Math.min(video.videoHeight || 360, 360);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      // Mirror horizontally so the selfie matches the on-screen preview.
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, w, h);
+      this.selfieDataUrl = canvas.toDataURL('image/jpeg', 0.78);
+      this.stopCamera();
+    } finally {
+      this.capturingSelfie = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  discardSelfie(): void {
+    this.selfieDataUrl = null;
+    if (this.selectedCapture === 'FACE') {
+      setTimeout(() => this.startCamera(), 0);
+    }
+  }
+
+  private stopCamera(): void {
+    if (this.cameraStream) {
+      this.cameraStream.getTracks().forEach((t) => t.stop());
+      this.cameraStream = null;
+    }
+    this.cameraReady = false;
+  }
+
+  /** Strip the data: URL prefix and return the raw base64 payload, or null. */
+  private extractSelfieB64(): string | null {
+    if (!this.selfieDataUrl) return null;
+    const idx = this.selfieDataUrl.indexOf(',');
+    return idx >= 0 ? this.selfieDataUrl.slice(idx + 1) : this.selfieDataUrl;
   }
 
   get todayWorkedDisplay(): string {
@@ -597,6 +743,10 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   doCheckIn(): void {
+    if (!this.canSubmitCapture) {
+      this.toast.error('Please capture a selfie before checking in.');
+      return;
+    }
     this.checkingIn = true;
     this.resolveLocation().then(() => {
       const payload: CheckInOutPayload = {
@@ -604,6 +754,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         latitude: this.currentLat ?? undefined,
         longitude: this.currentLng ?? undefined,
         deviceInfo: navigator.userAgent,
+        selfieB64: this.extractSelfieB64() ?? undefined,
       };
       this.api.checkIn(payload).pipe(
         takeUntil(this.destroy$),
@@ -611,6 +762,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
       ).subscribe({
         next: (res) => {
           this.toast.success('Checked in at ' + res.checkIn);
+          this.selfieDataUrl = null;
+          this.stopCamera();
           this.loadTodayStatus();
           this.load();
         },
@@ -622,6 +775,10 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   doCheckOut(): void {
+    if (!this.canSubmitCapture) {
+      this.toast.error('Please capture a selfie before checking out.');
+      return;
+    }
     this.checkingOut = true;
     this.resolveLocation().then(() => {
       const payload: CheckInOutPayload = {
@@ -629,6 +786,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
         latitude: this.currentLat ?? undefined,
         longitude: this.currentLng ?? undefined,
         deviceInfo: navigator.userAgent,
+        selfieB64: this.extractSelfieB64() ?? undefined,
       };
       this.api.checkOut(payload).pipe(
         takeUntil(this.destroy$),
@@ -643,6 +801,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
             }
           }
           this.toast.success(msg);
+          this.selfieDataUrl = null;
+          this.stopCamera();
           if (res.isShortDay) {
             this.shortReasonDate = res.date;
             this.showShortReasonModal = true;
