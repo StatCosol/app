@@ -69,7 +69,12 @@ export class InvoicePaymentsService {
 
       const grandTotal = Number(invoice.grandTotal);
       const previouslyReceived = Number(invoice.amountReceived);
-      const totalReceived = previouslyReceived + netReceived;
+      // Receivable is cleared by the gross amount the customer paid
+      // (cash + TDS + other agreed deductions). TDS is remitted to the
+      // IT department against our PAN and is later claimed back, so it
+      // settles the customer's outstanding even though it isn't cash in
+      // hand. `amountReceived` therefore tracks gross-cleared, not net cash.
+      const totalReceived = previouslyReceived + amountReceived;
 
       // Reject overpayment with a small tolerance for floating-point noise.
       if (totalReceived - grandTotal > 0.01) {
