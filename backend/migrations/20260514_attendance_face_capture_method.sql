@@ -2,7 +2,7 @@
 -- should report capture_method = 'FACE' so the UI can distinguish them from
 -- fingerprint biometric devices. Leaves source = 'BIOMETRIC' (broader bucket).
 
-UPDATE attendance a
+UPDATE attendance_records a
    SET capture_method = 'FACE'
  WHERE a.source = 'BIOMETRIC'
    AND a.capture_method IS DISTINCT FROM 'FACE'
