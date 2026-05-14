@@ -26,6 +26,11 @@ import {
 
 const MIN_MATCH_SCORE = 0.78; // cosine similarity threshold for MobileFaceNet
 const MIN_LIVENESS_SCORE = 0.5;
+// After an OUT (logout) punch, the same employee cannot record any further
+// punch (IN or OUT) until this cooldown elapses. This enforces a minimum
+// 8-hour gap between a shift end and the next shift start, even if the
+// next shift crosses midnight.
+const POST_LOGOUT_COOLDOWN_MS = 8 * 60 * 60 * 1000;
 
 @Injectable()
 export class MobileAttendanceService {
@@ -487,6 +492,37 @@ export class MobileAttendanceService {
     const ts = new Date(body.punchTime);
     if (isNaN(ts.getTime()))
       throw new BadRequestException('Invalid punchTime');
+
+    // Post-logout cooldown: if the most recent punch for this employee was
+    // an OUT and less than 8h have elapsed, reject. Prevents marking another
+    // login (or another logout) within the rest window — even across
+    // midnight. Direction 'AUTO' is treated like OUT only when the prior
+    // punch in the same session was an IN, but to keep the rule simple and
+    // strict we honour an explicit OUT in the most recent row.
+    const lastPunchRows: Array<{ punch_time: Date; direction: string }> =
+      await this.faceRepo.manager.query(
+        `SELECT punch_time, direction
+           FROM biometric_punches
+          WHERE client_id = $1
+            AND employee_code = $2
+            AND punch_time <= $3
+          ORDER BY punch_time DESC
+          LIMIT 1`,
+        [device.clientId, emp.employeeCode, ts],
+      );
+    if (lastPunchRows.length) {
+      const last = lastPunchRows[0];
+      const lastMs = new Date(last.punch_time).getTime();
+      const elapsed = ts.getTime() - lastMs;
+      if (last.direction === 'OUT' && elapsed >= 0 && elapsed < POST_LOGOUT_COOLDOWN_MS) {
+        const remainMs = POST_LOGOUT_COOLDOWN_MS - elapsed;
+        const h = Math.floor(remainMs / (60 * 60 * 1000));
+        const m = Math.ceil((remainMs - h * 60 * 60 * 1000) / 60000);
+        throw new ForbiddenException(
+          `Logout already recorded. Next punch allowed after the 8h rest window — please wait ${h}h ${m}m.`,
+        );
+      }
+    }
 
     const source: 'MOBILE_KIOSK' | 'MOBILE_ESS' =
       device.mode === 'KIOSK' ? 'MOBILE_KIOSK' : 'MOBILE_ESS';
