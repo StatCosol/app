@@ -539,6 +539,32 @@ export class MobileAttendanceService {
     const source: 'MOBILE_KIOSK' | 'MOBILE_ESS' =
       device.mode === 'KIOSK' ? 'MOBILE_KIOSK' : 'MOBILE_ESS';
 
+    // Cross-source mutual exclusion: an employee may use either the company
+    // kiosk OR their personal ESS app on a given business day, never both.
+    // If any mobile punch already exists for this employee on the same IST
+    // business date with the *other* source, reject this punch. Punches from
+    // physical biometric devices (eSSL, etc.) are not constrained.
+    const otherSource =
+      source === 'MOBILE_KIOSK' ? 'MOBILE_ESS' : 'MOBILE_KIOSK';
+    const conflict: Array<{ src: string }> = await this.faceRepo.manager.query(
+      `SELECT source AS src
+         FROM biometric_punches
+        WHERE client_id = $1
+          AND employee_code = $2
+          AND source = $3
+          AND (punch_time AT TIME ZONE 'Asia/Kolkata')::date
+              = (($4)::timestamptz AT TIME ZONE 'Asia/Kolkata')::date
+        LIMIT 1`,
+      [device.clientId, emp.employeeCode, otherSource, ts.toISOString()],
+    );
+    if (conflict.length) {
+      const usedLabel = otherSource === 'MOBILE_KIOSK' ? 'Kiosk' : 'ESS';
+      const tryingLabel = source === 'MOBILE_KIOSK' ? 'Kiosk' : 'ESS';
+      throw new ForbiddenException(
+        `Attendance for today already marked via ${usedLabel}. ${tryingLabel} punches are not allowed on the same day. Continue using the ${usedLabel} app for the rest of the day.`,
+      );
+    }
+
     // Use existing biometric ingest for idempotency + roll-up. Then patch
     // the just-inserted row with mobile-specific evidence columns.
     const ingestResult = await this.biometricService.ingest(
