@@ -178,6 +178,8 @@ export interface CheckInOutPayload {
   latitude?: number;
   longitude?: number;
   deviceInfo?: string;
+  /** Base64 selfie payload (no data: prefix) when captureMethod === 'FACE'. */
+  selfieB64?: string;
 }
 
 export interface CheckOutResponse {
