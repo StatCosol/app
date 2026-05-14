@@ -181,6 +181,8 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
                     (click)="jumpToEnroll(r)">Enroll</button>
+                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-emerald-700 hover:underline mr-3"
+                    (click)="deputeAsEss(r)" title="Register a personal phone for this employee (ESS mode) — useful for project deputation">Depute (ESS)</button>
                   <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline"
                     (click)="deactivate(r)">Deactivate</button>
                   <span *ngIf="r.isEnrolled && !r.isActive" class="text-xs text-gray-400">—</span>
@@ -502,6 +504,28 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.formError = '';
     this.form = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
     this.showModal = true;
+  }
+
+  /**
+   * Quick-action from the Enrollment Status tab: open the Register Device
+   * modal pre-filled for ESS mode + this employee. Used when an already-
+   * enrolled employee is being deputed to a project — admin only needs to
+   * fill in the project geofence and submit.
+   */
+  deputeAsEss(r: EnrollmentStatusRow): void {
+    this.formError = '';
+    this.form = {
+      mode: 'ESS',
+      deviceLabel: `${r.employeeName} — ESS`,
+      branchId: r.branchId || '',
+      geofenceLat: null,
+      geofenceLng: null,
+      geofenceRadiusM: 100,
+      essEmployeeId: r.employeeId,
+    };
+    this.tab = 'devices';
+    this.showModal = true;
+    this.bump();
   }
 
   save(): void {
