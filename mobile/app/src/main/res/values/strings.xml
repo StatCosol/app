@@ -13,6 +13,13 @@
     <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
     <string name="kiosk_match_low">Face not recognised — please try again</string>
     <string name="kiosk_punch_recorded">Punch recorded for %1$s</string>
+    <string name="kiosk_punch_in_title">Login recorded</string>
+    <string name="kiosk_punch_out_title">Logout recorded</string>
+    <string name="kiosk_punch_subtitle">%1$s • %2$s</string>
+    <string name="kiosk_logout_confirm_title">Already punched in</string>
+    <string name="kiosk_logout_confirm_message">%1$s, your attendance is already recorded for today.\n\nDo you want to punch out now?</string>
+    <string name="kiosk_logout_confirm_yes">Yes, punch out</string>
+    <string name="kiosk_logout_confirm_no">Cancel</string>
     <string name="face_model_missing">Face matcher not configured — please reinstall the latest app build (the bundled MobileFaceNet model is missing).</string>
     <string name="face_embed_failed">Face processing error: %1$s</string>
     <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
