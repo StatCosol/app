@@ -339,7 +339,7 @@ interface BranchOption { id: string; name: string }
               <span *ngIf="!capturingLocation">Use my current location</span>
               <span *ngIf="capturingLocation">Detecting…</span>
             </button>
-            <span *ngIf="locationAccuracy != null && !locationError" class="text-xs text-gray-500">
+            <span *ngIf="locationAccuracy !== null && !locationError" class="text-xs text-gray-500">
               Accuracy ±{{ locationAccuracy | number:'1.0-0' }} m
             </span>
           </div>
