@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
@@ -20,4 +21,43 @@
         android:gravity="center"
         android:background="#80000000"
         android:text="@string/kiosk_look_at_camera" />
+
+    <LinearLayout
+        android:id="@+id/successOverlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="28dp"
+        android:background="@drawable/bg_success_card"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_check_circle_green" />
+
+        <TextView
+            android:id="@+id/successTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:textColor="#15803D"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            tools:text="Punch In recorded" />
+
+        <TextView
+            android:id="@+id/successSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#1F2937"
+            android:textSize="16sp"
+            android:gravity="center"
+            tools:text="Suresh Mahajan • 09:12 AM" />
+    </LinearLayout>
 </FrameLayout>

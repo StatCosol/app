@@ -3,7 +3,11 @@ package com.statcosol.attendance.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -28,6 +32,15 @@ import java.util.TimeZone
  * Shared-tablet KIOSK mode. Camera runs continuously; whenever a face passes
  * quality + liveness gates we 1:N match against the cached roster and queue a
  * punch.
+ *
+ * UX rules (see issue from on-site rollout):
+ *   1. First match for an employee on this device today  -> immediate IN punch
+ *      with a green-tick overlay ("Login recorded — name • HH:mm AM").
+ *   2. Subsequent match for the same employee (after the cooldown) opens a
+ *      confirmation dialog ("attendance already recorded, punch out?"). Only on
+ *      explicit Yes do we queue an OUT punch and show "Logout recorded".
+ *   3. Global 30 s cooldown between any two captures so the camera doesn't
+ *      immediately re-capture the same face the moment a punch is recorded.
  */
 class KioskActivity : AppCompatActivity() {
 
@@ -35,7 +48,23 @@ class KioskActivity : AppCompatActivity() {
     private val app get() = application as AttendanceApp
     private var matcher: RosterMatcher? = null
     private var capture: FaceCaptureSession? = null
+
+    /** Last time ANY face was processed — used to throttle the camera. */
     private var lastPunchAt: Long = 0
+
+    /** Per-employee punch state for the current local day (in-memory only). */
+    private data class PunchState(val direction: String, val at: Long)
+    private val todayPunches: MutableMap<String, PunchState> = mutableMapOf()
+    private var todayKey: String = currentDayKey()
+
+    /** True while the logout-confirmation dialog is on screen. */
+    @Volatile private var dialogActive: Boolean = false
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val hideOverlayRunnable = Runnable {
+        binding.successOverlay.visibility = View.GONE
+        binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+    }
 
     private val cameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -55,6 +84,11 @@ class KioskActivity : AppCompatActivity() {
         } else {
             cameraPermission.launch(Manifest.permission.CAMERA)
         }
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(hideOverlayRunnable)
+        super.onDestroy()
     }
 
     private fun loadRoster() {
@@ -93,6 +127,7 @@ class KioskActivity : AppCompatActivity() {
     private suspend fun handleFace(probe: FloatArray, liveness: Double) {
         val now = System.currentTimeMillis()
         val matcherSnap = matcher ?: return
+        if (dialogActive) return
         if (now - lastPunchAt < COOLDOWN_MS) return
         if (liveness < MIN_LIVENESS) return
 
@@ -100,13 +135,58 @@ class KioskActivity : AppCompatActivity() {
             runOnUiThread { binding.statusText.text = getString(R.string.kiosk_match_low) }
             return
         }
-        lastPunchAt = now
 
+        // Roll the per-day map over at midnight.
+        val day = currentDayKey()
+        if (day != todayKey) {
+            todayKey = day
+            todayPunches.clear()
+        }
+
+        val empId = match.entry.employeeId
+        val prev = todayPunches[empId]
+        if (prev == null) {
+            // First time today on this device -> log them IN immediately.
+            recordPunch(match, "IN", liveness)
+        } else {
+            // Already punched in today — confirm before queuing OUT so accidental
+            // looks at the camera don't log the user out.
+            lastPunchAt = now  // still throttle so we don't spam the dialog
+            runOnUiThread { showLogoutConfirmation(match, liveness) }
+        }
+    }
+
+    private fun showLogoutConfirmation(match: RosterMatcher.Match, liveness: Double) {
+        if (dialogActive) return
+        dialogActive = true
+        AlertDialog.Builder(this)
+            .setTitle(R.string.kiosk_logout_confirm_title)
+            .setMessage(getString(R.string.kiosk_logout_confirm_message, match.entry.displayName))
+            .setCancelable(false)
+            .setPositiveButton(R.string.kiosk_logout_confirm_yes) { d, _ ->
+                d.dismiss()
+                dialogActive = false
+                lastPunchAt = System.currentTimeMillis()
+                lifecycleScope.launch { recordPunch(match, "OUT", liveness) }
+            }
+            .setNegativeButton(R.string.kiosk_logout_confirm_no) { d, _ ->
+                d.dismiss()
+                dialogActive = false
+                // Reset cooldown so the dialog doesn't pop again immediately.
+                lastPunchAt = System.currentTimeMillis()
+                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+            }
+            .show()
+    }
+
+    private suspend fun recordPunch(match: RosterMatcher.Match, direction: String, liveness: Double) {
+        val now = System.currentTimeMillis()
+        lastPunchAt = now
         val q = QueuedPunch(
             employeeId = match.entry.employeeId,
             employeeCode = match.entry.employeeCode,
             punchTimeIso = isoNow(),
-            direction = "AUTO",
+            direction = direction,
             matchScore = match.score,
             livenessScore = liveness,
             captureLat = null,
@@ -117,9 +197,21 @@ class KioskActivity : AppCompatActivity() {
         WorkManager.getInstance(this).enqueue(
             OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
         )
-        runOnUiThread {
-            binding.statusText.text = getString(R.string.kiosk_punch_recorded, match.entry.displayName)
-        }
+        todayPunches[match.entry.employeeId] = PunchState(direction, now)
+        runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+    }
+
+    private fun showPunchSuccess(name: String, direction: String) {
+        val title = if (direction == "OUT")
+            getString(R.string.kiosk_punch_out_title)
+        else
+            getString(R.string.kiosk_punch_in_title)
+        binding.successTitle.text = title
+        binding.successSubtitle.text = getString(R.string.kiosk_punch_subtitle, name, formatLocalTime())
+        binding.successOverlay.visibility = View.VISIBLE
+        binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+        mainHandler.removeCallbacks(hideOverlayRunnable)
+        mainHandler.postDelayed(hideOverlayRunnable, OVERLAY_VISIBLE_MS)
     }
 
     private fun isoNow(): String {
@@ -128,9 +220,19 @@ class KioskActivity : AppCompatActivity() {
         return sdf.format(Date())
     }
 
+    private fun formatLocalTime(): String =
+        SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+
+    private fun currentDayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
     companion object {
         private const val MIN_MATCH = 0.78
         private const val MIN_LIVENESS = 0.5
-        private const val COOLDOWN_MS = 8_000L  // don't double-punch the same person
+        // Bumped from 8 s -> 30 s so the kiosk doesn't immediately re-capture
+        // a person right after their punch is recorded (which previously felt
+        // like an instant logout).
+        private const val COOLDOWN_MS = 30_000L
+        private const val OVERLAY_VISIBLE_MS = 4_000L
     }
 }
