@@ -93,7 +93,11 @@ import { Invoice, InvoicePayment, PAYMENT_MODES } from '../models/billing.models
           <tbody class="divide-y">
             <tr *ngFor="let item of invoice.items; let i = index">
               <td class="px-4 py-2">{{ i + 1 }}</td>
-              <td class="px-4 py-2">{{ item.serviceDescription }}<br *ngIf="item.sacCode"><small *ngIf="item.sacCode" class="text-slate-400">SAC: {{ item.sacCode }}</small></td>
+              <td class="px-4 py-2">
+                {{ item.serviceDescription }}
+                <span *ngIf="item.isReimbursement" class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] uppercase tracking-wide">Govt Fee &middot; Non-GST</span>
+                <br *ngIf="item.sacCode"><small *ngIf="item.sacCode" class="text-slate-400">SAC: {{ item.sacCode }}</small>
+              </td>
               <td class="px-4 py-2 text-right">{{ item.quantity }}</td>
               <td class="px-4 py-2 text-right">₹{{ fmt(item.rate) }}</td>
               <td class="px-4 py-2 text-right">₹{{ fmt(item.amount) }}</td>
