@@ -637,34 +637,75 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   // ── Live camera ──────────────────────────────────────────
   async startCamera(): Promise<void> {
     this.cameraError = '';
-    if (!navigator?.mediaDevices?.getUserMedia) {
-      this.cameraError = 'Camera API not available in this browser. Use HTTPS and allow camera access.';
+    // getUserMedia requires a Secure Context (https:// or localhost).
+    const isSecure =
+      typeof window !== 'undefined' &&
+      ((window as any).isSecureContext === true ||
+        location.hostname === 'localhost' ||
+        location.hostname === '127.0.0.1');
+    if (!isSecure) {
+      this.cameraError =
+        'Camera blocked: this page must be loaded over HTTPS to use the camera.';
       this.toast.error(this.cameraError);
       this.bump();
       return;
     }
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      this.cameraError =
+        'Camera API not available in this browser. Try Chrome / Edge / Safari and allow camera access.';
+      this.toast.error(this.cameraError);
+      this.bump();
+      return;
+    }
+    // Show the <video> element BEFORE requesting the stream so it is in the
+    // DOM and visible by the time we assign srcObject. This avoids a race
+    // where setTimeout(0) attached the stream to a still-hidden element and
+    // play() rejected silently on some Android Chrome versions.
+    this.cameraActive = true;
+    this.bump();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,
       });
       this.cameraStream = stream;
-      this.cameraActive = true;
+      const v = this.cameraVideo?.nativeElement;
+      if (!v) {
+        stream.getTracks().forEach((t) => t.stop());
+        this.cameraStream = null;
+        this.cameraActive = false;
+        this.cameraError = 'Camera element not ready — please retry.';
+        this.toast.error(this.cameraError);
+        this.bump();
+        return;
+      }
+      v.srcObject = stream;
+      v.muted = true;
+      v.setAttribute('playsinline', 'true');
+      try {
+        await v.play();
+      } catch {
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+        try { await v.play(); } catch { /* ignore */ }
+      }
       this.bump();
-      // Wait a tick for the *ngIf to render the <video>
-      setTimeout(() => {
-        const v = this.cameraVideo?.nativeElement;
-        if (v) {
-          v.srcObject = stream;
-          v.play().catch(() => { /* autoplay may be blocked */ });
-        }
-      }, 0);
     } catch (err: any) {
-      const msg = err?.name === 'NotAllowedError'
-        ? 'Camera permission denied. Allow camera access in your browser and retry.'
-        : err?.name === 'NotFoundError'
-          ? 'No camera found on this device.'
-          : `Camera error: ${err?.message || err?.name || 'unknown'}`;
+      this.cameraActive = false;
+      this.cameraStream?.getTracks().forEach((t) => t.stop());
+      this.cameraStream = null;
+      const name = err?.name || '';
+      const msg =
+        name === 'NotAllowedError' || name === 'SecurityError'
+          ? 'Camera permission denied. Open site settings, allow camera, and retry.'
+          : name === 'NotFoundError' || name === 'DevicesNotFoundError'
+            ? 'No camera found on this device.'
+            : name === 'NotReadableError' || name === 'TrackStartError'
+              ? 'Camera is in use by another app or unavailable. Close other camera apps and retry.'
+              : name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError'
+                ? 'Camera does not support the requested settings.'
+                : name === 'AbortError'
+                  ? 'Camera start was aborted. Please retry.'
+                  : `Camera error: ${err?.message || name || 'unknown'}`;
       this.cameraError = msg;
       this.toast.error(msg);
       this.bump();
