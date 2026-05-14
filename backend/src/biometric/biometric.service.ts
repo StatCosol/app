@@ -271,6 +271,15 @@ export class BiometricService {
       const checkInStr = this.toTimeStr(checkInTime);
       const checkOutStr = checkOutTime ? this.toTimeStr(checkOutTime) : null;
 
+      // Mobile face-kiosk punches share this rollup, but we tag captureMethod
+      // as FACE so the UI can distinguish them from fingerprint biometric.
+      const allMobile = dayPunches.every(
+        (p) => p.source === ('MOBILE_KIOSK' as any) || p.source === ('MOBILE_ESS' as any),
+      );
+      const captureMethod: AttendanceEntity['captureMethod'] = allMobile
+        ? 'FACE'
+        : 'BIOMETRIC';
+
       if (existing) {
         // Only overwrite if existing was BIOMETRIC or empty — preserve manual edits
         if (existing.source === 'MANUAL' && existing.checkIn) {
@@ -283,7 +292,7 @@ export class BiometricService {
         existing.workedHours = workedHours.toFixed(2);
         existing.overtimeHours = overtimeHours.toFixed(2);
         existing.source = 'BIOMETRIC';
-        existing.captureMethod = 'BIOMETRIC';
+        existing.captureMethod = captureMethod;
         existing.approvalStatus = 'APPROVED';
         await this.attRepo.save(existing);
       } else {
@@ -300,7 +309,7 @@ export class BiometricService {
             workedHours: workedHours.toFixed(2),
             overtimeHours: overtimeHours.toFixed(2),
             source: 'BIOMETRIC',
-            captureMethod: 'BIOMETRIC',
+            captureMethod,
             approvalStatus: 'APPROVED',
           } as Partial<AttendanceEntity>),
         );
