@@ -45,13 +45,21 @@ jobs:
           curl -fsSL "$MOBILEFACENET_TFLITE_URL" -o app/src/main/assets/mobilefacenet.tflite
           ls -l app/src/main/assets/mobilefacenet.tflite
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Build debug APKs (kiosk + ess flavors)
+        run: gradle :app:assembleKioskDebug :app:assembleEssDebug --no-daemon --stacktrace
 
-      - name: Upload APK artifact
+      - name: Upload Kiosk APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: statcompy-attendance-debug-apk
-          path: mobile/app/build/outputs/apk/debug/app-debug.apk
+          name: statcompy-kiosk-debug-apk
+          path: mobile/app/build/outputs/apk/kiosk/debug/app-kiosk-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ESS APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: statcompy-ess-debug-apk
+          path: mobile/app/build/outputs/apk/ess/debug/app-ess-debug.apk
           if-no-files-found: error
           retention-days: 30
