@@ -320,16 +320,16 @@ interface BranchOption { id: string; name: string }
           </div>
           <div class="grid grid-cols-3 gap-2">
             <div>
-              <label for="dev-lat" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lat</label>
-              <input autocomplete="off" id="dev-lat" name="geofenceLat" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLat">
+              <label for="dev-lat" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lat <span class="text-red-500">*</span></label>
+              <input autocomplete="off" id="dev-lat" name="geofenceLat" type="number" step="0.0000001" class="ui-input bg-gray-50" [(ngModel)]="form.geofenceLat" readonly required>
             </div>
             <div>
-              <label for="dev-lng" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lng</label>
-              <input autocomplete="off" id="dev-lng" name="geofenceLng" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLng">
+              <label for="dev-lng" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lng <span class="text-red-500">*</span></label>
+              <input autocomplete="off" id="dev-lng" name="geofenceLng" type="number" step="0.0000001" class="ui-input bg-gray-50" [(ngModel)]="form.geofenceLng" readonly required>
             </div>
             <div>
-              <label for="dev-rad" class="block text-xs font-medium text-gray-600 mb-1">Radius (m)</label>
-              <input autocomplete="off" id="dev-rad" name="geofenceRadiusM" type="number" step="1" class="ui-input" [(ngModel)]="form.geofenceRadiusM" placeholder="100">
+              <label for="dev-rad" class="block text-xs font-medium text-gray-600 mb-1">Radius (m) <span class="text-red-500">*</span></label>
+              <input autocomplete="off" id="dev-rad" name="geofenceRadiusM" type="number" step="1" min="1" class="ui-input" [(ngModel)]="form.geofenceRadiusM" placeholder="100" required>
             </div>
           </div>
           <div class="flex items-center justify-between gap-2 -mt-1">
@@ -344,7 +344,7 @@ interface BranchOption { id: string; name: string }
             </span>
           </div>
           <p *ngIf="locationError" class="text-xs text-amber-600">{{ locationError }}</p>
-          <p class="text-xs text-gray-500">Coordinates auto-fill from your browser; adjust radius to match the project boundary. The ESS app will then verify each punch is inside this geofence.</p>
+          <p class="text-xs text-gray-500">Coordinates are auto-captured from your browser's location and cannot be edited — stand at the project site when registering. Adjust radius to match the project boundary; the ESS app will then verify each punch is inside this geofence.</p>
         </div>
         <div *ngIf="formError" class="text-sm text-red-600">{{ formError }}</div>
         <div class="flex justify-end gap-2 pt-2">
@@ -613,7 +613,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.form.mode === 'ESS' && (this.form.geofenceLat == null || this.form.geofenceLng == null)) {
-      this.formError = 'ESS mode requires geofence latitude and longitude';
+      this.formError = 'ESS mode requires geofence latitude and longitude — click 📍 Use my current location';
+      return;
+    }
+    if (this.form.mode === 'ESS' && (!this.form.geofenceRadiusM || this.form.geofenceRadiusM <= 0)) {
+      this.formError = 'ESS mode requires a geofence radius (metres)';
       return;
     }
     this.saving = true;
