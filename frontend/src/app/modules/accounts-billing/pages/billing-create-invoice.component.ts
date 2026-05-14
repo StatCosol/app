@@ -82,6 +82,7 @@ import { BillingClient, INVOICE_TYPES } from '../models/billing.models';
                   <th class="px-3 py-2 text-right" style="width:100px">Rate</th>
                   <th class="px-3 py-2 text-right" style="width:100px">Discount</th>
                   <th class="px-3 py-2 text-right" style="width:80px">GST %</th>
+                  <th class="px-3 py-2 text-center" style="width:70px" title="Government / statutory fee paid on the client's behalf. No GST charged on this line.">Govt Fee</th>
                   <th class="px-3 py-2 text-right" style="width:100px">Amount</th>
                   <th class="px-3 py-2" style="width:40px"></th>
                 </tr>
@@ -104,7 +105,10 @@ import { BillingClient, INVOICE_TYPES } from '../models/billing.models';
                     <input formControlName="discountAmount" type="number" min="0" class="w-full px-2 py-1.5 border rounded text-sm text-right">
                   </td>
                   <td class="px-3 py-2">
-                    <input formControlName="gstRate" type="number" min="0" class="w-full px-2 py-1.5 border rounded text-sm text-right">
+                    <input formControlName="gstRate" type="number" min="0" class="w-full px-2 py-1.5 border rounded text-sm text-right" [readonly]="item.value.isReimbursement">
+                  </td>
+                  <td class="px-3 py-2 text-center">
+                    <input formControlName="isReimbursement" type="checkbox" class="h-4 w-4" (change)="onReimbursementToggle(i)" title="Tick for government / statutory fees passed through to the client. No GST will be charged on this line.">
                   </td>
                   <td class="px-3 py-2 text-right font-medium">
                     ₹{{ calcLineTotal(i) }}
@@ -173,6 +177,7 @@ export class BillingCreateInvoiceComponent implements OnInit {
       rate: [0, [Validators.required, Validators.min(0)]],
       discountAmount: [0],
       gstRate: [18],
+      isReimbursement: [false],
     });
   }
 
@@ -184,13 +189,29 @@ export class BillingCreateInvoiceComponent implements OnInit {
     this.itemsArray.removeAt(i);
   }
 
+  onReimbursementToggle(i: number): void {
+    const ctrl = this.itemsArray.at(i);
+    if (ctrl.value.isReimbursement) {
+      // Government / statutory fees are pass-through — never carry GST.
+      ctrl.patchValue({ gstRate: 0, discountAmount: 0 });
+    } else {
+      // Restore the client default (or fall back to 18%) when toggled off.
+      ctrl.patchValue({
+        gstRate: this.selectedClient?.defaultGstRate ?? 18,
+      });
+    }
+  }
+
   onClientChange(): void {
     const id = this.form.value.billingClientId;
     this.selectedClient = this.clients.find((c) => c.id === id) || null;
     if (this.selectedClient) {
       this.form.patchValue({ placeOfSupply: this.selectedClient.placeOfSupply || this.selectedClient.stateName });
       this.itemsArray.controls.forEach((ctrl) => {
-        ctrl.patchValue({ gstRate: this.selectedClient!.defaultGstRate });
+        // Don't overwrite the GST rate of a govt-fee line.
+        if (!ctrl.value.isReimbursement) {
+          ctrl.patchValue({ gstRate: this.selectedClient!.defaultGstRate });
+        }
       });
     }
   }
@@ -199,7 +220,8 @@ export class BillingCreateInvoiceComponent implements OnInit {
     const item = this.itemsArray.at(i).value;
     const amount = (item.quantity || 0) * (item.rate || 0);
     const taxable = amount - (item.discountAmount || 0);
-    const gst = taxable * (item.gstRate || 0) / 100;
+    const gstRate = item.isReimbursement ? 0 : (item.gstRate || 0);
+    const gst = (taxable * gstRate) / 100;
     return (taxable + gst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
