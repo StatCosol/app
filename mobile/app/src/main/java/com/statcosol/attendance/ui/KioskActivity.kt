@@ -157,15 +157,41 @@ class KioskActivity : AppCompatActivity() {
 
         val empId = match.entry.employeeId
         val prev = todayPunches[empId]
-        if (prev == null) {
-            // First time today on this device -> log them IN immediately.
-            recordPunch(match, "IN", liveness)
-        } else {
-            // Already punched in today — confirm before queuing OUT so accidental
-            // looks at the camera don't log the user out.
-            lastPunchAt = now  // still throttle so we don't spam the dialog
-            runOnUiThread { showLogoutConfirmation(match, liveness) }
+        when {
+            prev == null -> {
+                // First time today on this device -> log them IN immediately.
+                recordPunch(match, "IN", liveness)
+            }
+            prev.direction == "IN" -> {
+                // Already punched in today — confirm before queuing OUT so accidental
+                // looks at the camera don't log the user out.
+                lastPunchAt = now  // still throttle so we don't spam the dialog
+                runOnUiThread { showLogoutConfirmation(match, liveness) }
+            }
+            else -> {
+                // Already punched out today -> just acknowledge, never queue
+                // another OUT (which would otherwise overwrite the time).
+                lastPunchAt = now
+                runOnUiThread { showAlreadyDoneInfo(match) }
+            }
         }
+    }
+
+    private fun showAlreadyDoneInfo(match: RosterMatcher.Match) {
+        if (dialogActive) return
+        dialogActive = true
+        MaterialAlertDialogBuilder(this)
+            .setIcon(R.drawable.ic_shield_check)
+            .setTitle(R.string.kiosk_already_done_title)
+            .setMessage(getString(R.string.kiosk_already_done_message, match.entry.displayName))
+            .setCancelable(false)
+            .setPositiveButton(R.string.kiosk_already_done_ok) { d, _ ->
+                d.dismiss()
+                dialogActive = false
+                lastPunchAt = System.currentTimeMillis()
+                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+            }
+            .show()
     }
 
     private fun showLogoutConfirmation(match: RosterMatcher.Match, liveness: Double) {
