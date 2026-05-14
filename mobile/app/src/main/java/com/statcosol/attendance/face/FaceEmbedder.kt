@@ -3,6 +3,7 @@ package com.statcosol.attendance.face
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
+import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
@@ -26,14 +27,25 @@ class FaceEmbedder(context: Context) {
         Interpreter(mapped)
     }
 
-    private val processor = ImageProcessor.Builder()
-        .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
-        .build()
+    /** Read once: some MobileFaceNet TFLite builds expect FLOAT32 input, others UINT8. */
+    private val inputDataType: DataType by lazy { interpreter.getInputTensor(0).dataType() }
+
+    private val processor: ImageProcessor by lazy {
+        ImageProcessor.Builder()
+            .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
+            .build()
+    }
 
     fun embed(face: Bitmap): FloatArray {
-        val tensor = processor.process(TensorImage.fromBitmap(face))
+        // TFLite needs ARGB_8888; some upstream sources hand us RGB_565 or HARDWARE bitmaps.
+        val rgba = if (face.config == Bitmap.Config.ARGB_8888) face
+                   else face.copy(Bitmap.Config.ARGB_8888, false)
+        // TensorImage(dtype) lazily casts uint8 pixels to FLOAT32 when the model demands it,
+        // matching the dtype-aware behaviour of face-svc/app/main.py.
+        val tensor = TensorImage(inputDataType).apply { load(rgba) }
+        val processed = processor.process(tensor)
         val out = Array(1) { FloatArray(EMBED_DIM) }
-        interpreter.run(tensor.buffer, out)
+        interpreter.run(processed.buffer, out)
         return l2Normalize(out[0])
     }
 
