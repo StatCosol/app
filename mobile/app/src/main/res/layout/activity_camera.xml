@@ -22,42 +22,160 @@
         android:background="#80000000"
         android:text="@string/kiosk_look_at_camera" />
 
-    <LinearLayout
+    <!-- Full-screen scrim + branded card. Hidden by default; shown after a
+         successful punch and auto-dismissed after a few seconds. -->
+    <FrameLayout
         android:id="@+id/successOverlay"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="28dp"
-        android:background="@drawable/bg_success_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_kiosk_scrim"
+        android:clickable="true"
+        android:focusable="true"
         android:visibility="gone">
 
-        <ImageView
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:contentDescription="@null"
-            android:src="@drawable/ic_check_circle_green" />
-
-        <TextView
-            android:id="@+id/successTitle"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/successCard"
+            android:layout_width="320dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:textColor="#15803D"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            tools:text="Punch In recorded" />
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:background="@drawable/bg_kiosk_card">
 
-        <TextView
-            android:id="@+id/successSubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="#1F2937"
-            android:textSize="16sp"
-            android:gravity="center"
-            tools:text="Suresh Mahajan • 09:12 AM" />
-    </LinearLayout>
+            <!-- Brand header strip -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_kiosk_header"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_shield_check"
+                    android:contentDescription="@null" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/brand_name"
+                    android:textColor="@color/brand_on_primary"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.04"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/successBadgeChip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_brand_chip"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:textColor="@color/brand_on_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08"
+                    tools:text="LOGIN" />
+            </LinearLayout>
+
+            <!-- Body -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="22dp"
+                android:paddingBottom="22dp">
+
+                <FrameLayout
+                    android:layout_width="112dp"
+                    android:layout_height="112dp">
+
+                    <ImageView
+                        android:id="@+id/successBadge"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_badge_in"
+                        android:contentDescription="@null" />
+
+                    <ImageView
+                        android:id="@+id/successBadgeIcon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_check_white"
+                        android:contentDescription="@null" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/successTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:textColor="@color/ink_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    tools:text="Login recorded" />
+
+                <TextView
+                    android:id="@+id/successName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/ink_secondary"
+                    android:textSize="15sp"
+                    android:gravity="center"
+                    tools:text="Suresh Mahajan" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_time_pill"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp">
+
+                    <TextView
+                        android:id="@+id/successTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/brand_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.02"
+                        tools:text="09:12 AM • 14 May" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="18dp"
+                    android:background="@color/divider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/brand_powered_by"
+                    android:textColor="@color/ink_muted"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.06" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
 </FrameLayout>

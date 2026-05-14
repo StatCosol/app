@@ -16,6 +16,11 @@
     <string name="kiosk_punch_in_title">Login recorded</string>
     <string name="kiosk_punch_out_title">Logout recorded</string>
     <string name="kiosk_punch_subtitle">%1$s • %2$s</string>
+    <string name="kiosk_badge_in">LOGIN</string>
+    <string name="kiosk_badge_out">LOGOUT</string>
+    <string name="kiosk_time_format">%1$s • %2$s</string>
+    <string name="brand_name">Statco Comply</string>
+    <string name="brand_powered_by">Powered by Statco Comply Attendance</string>
     <string name="kiosk_logout_confirm_title">Already punched in</string>
     <string name="kiosk_logout_confirm_message">%1$s, your attendance is already recorded for today.\n\nDo you want to punch out now?</string>
     <string name="kiosk_logout_confirm_yes">Yes, punch out</string>
