@@ -25,6 +25,9 @@
     <string name="kiosk_logout_confirm_message">%1$s, your attendance is already recorded for today.\n\nDo you want to punch out now?</string>
     <string name="kiosk_logout_confirm_yes">Yes, punch out</string>
     <string name="kiosk_logout_confirm_no">Cancel</string>
+    <string name="kiosk_already_done_title">Attendance complete</string>
+    <string name="kiosk_already_done_message">%1$s, you have already punched in and out for today.\n\nSee you tomorrow!</string>
+    <string name="kiosk_already_done_ok">OK</string>
     <string name="face_model_missing">Face matcher not configured — please reinstall the latest app build (the bundled MobileFaceNet model is missing).</string>
     <string name="face_embed_failed">Face processing error: %1$s</string>
     <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
