@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Statco Comply brand palette (kept in sync with portal theme). -->
+    <color name="brand_primary">#1E40AF</color>
+    <color name="brand_primary_dark">#1E3A8A</color>
+    <color name="brand_accent">#3B82F6</color>
+    <color name="brand_on_primary">#FFFFFF</color>
+
+    <color name="success_green">#16A34A</color>
+    <color name="success_green_dark">#15803D</color>
+    <color name="success_green_soft">#DCFCE7</color>
+
+    <color name="warning_amber">#D97706</color>
+    <color name="warning_amber_soft">#FEF3C7</color>
+
+    <color name="ink_primary">#0F172A</color>
+    <color name="ink_secondary">#475569</color>
+    <color name="ink_muted">#94A3B8</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="surface_scrim">#99000814</color>
+    <color name="divider">#E2E8F0</color>
+</resources>

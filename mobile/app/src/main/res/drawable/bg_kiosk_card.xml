@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Soft drop-shadow rings (Android <=27 has no native elevation on
+         arbitrary views without a parent CardView, so we fake it). -->
+    <item android:left="6dp" android:top="8dp" android:right="6dp" android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#14000000" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+    <item android:left="3dp" android:top="4dp" android:right="3dp" android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#1F000000" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/surface_card" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+</layer-list>

@@ -6,13 +6,14 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.animation.AnimationUtils
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.R
 import com.statcosol.attendance.databinding.ActivityCameraBinding
@@ -62,8 +63,19 @@ class KioskActivity : AppCompatActivity() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val hideOverlayRunnable = Runnable {
-        binding.successOverlay.visibility = View.GONE
-        binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+        val overlay = binding.successOverlay
+        if (overlay.visibility != View.VISIBLE) return@Runnable
+        val card = binding.successCard
+        val anim = AnimationUtils.loadAnimation(this, R.anim.kiosk_card_out)
+        anim.setAnimationListener(object : android.view.animation.Animation.AnimationListener {
+            override fun onAnimationStart(a: android.view.animation.Animation?) {}
+            override fun onAnimationRepeat(a: android.view.animation.Animation?) {}
+            override fun onAnimationEnd(a: android.view.animation.Animation?) {
+                overlay.visibility = View.GONE
+                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+            }
+        })
+        card.startAnimation(anim)
     }
 
     private val cameraPermission =
@@ -159,7 +171,8 @@ class KioskActivity : AppCompatActivity() {
     private fun showLogoutConfirmation(match: RosterMatcher.Match, liveness: Double) {
         if (dialogActive) return
         dialogActive = true
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
+            .setIcon(R.drawable.ic_shield_check)
             .setTitle(R.string.kiosk_logout_confirm_title)
             .setMessage(getString(R.string.kiosk_logout_confirm_message, match.entry.displayName))
             .setCancelable(false)
@@ -202,17 +215,34 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun showPunchSuccess(name: String, direction: String) {
-        val title = if (direction == "OUT")
-            getString(R.string.kiosk_punch_out_title)
-        else
-            getString(R.string.kiosk_punch_in_title)
-        binding.successTitle.text = title
-        binding.successSubtitle.text = getString(R.string.kiosk_punch_subtitle, name, formatLocalTime())
+        val isOut = direction == "OUT"
+        binding.successTitle.text = getString(
+            if (isOut) R.string.kiosk_punch_out_title else R.string.kiosk_punch_in_title
+        )
+        binding.successName.text = name
+        binding.successTime.text = getString(
+            R.string.kiosk_time_format, formatLocalTime(), formatLocalDate()
+        )
+        binding.successBadge.setBackgroundResource(
+            if (isOut) R.drawable.bg_badge_out else R.drawable.bg_badge_in
+        )
+        binding.successBadgeIcon.setImageResource(
+            if (isOut) R.drawable.ic_logout_white else R.drawable.ic_check_white
+        )
+        binding.successBadgeChip.text = getString(
+            if (isOut) R.string.kiosk_badge_out else R.string.kiosk_badge_in
+        )
         binding.successOverlay.visibility = View.VISIBLE
+        binding.successCard.startAnimation(
+            AnimationUtils.loadAnimation(this, R.anim.kiosk_card_in)
+        )
         binding.statusText.text = getString(R.string.kiosk_look_at_camera)
         mainHandler.removeCallbacks(hideOverlayRunnable)
         mainHandler.postDelayed(hideOverlayRunnable, OVERLAY_VISIBLE_MS)
     }
+
+    private fun formatLocalDate(): String =
+        SimpleDateFormat("dd MMM", Locale.getDefault()).format(Date())
 
     private fun isoNow(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
