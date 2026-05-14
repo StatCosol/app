@@ -58,6 +58,18 @@ export class MobileAttendanceService {
         'essEmployeeId is required when mode is ESS',
       );
     }
+    if (body.mode === 'ESS') {
+      if (body.geofenceLat == null || body.geofenceLng == null) {
+        throw new BadRequestException(
+          'Geofence latitude and longitude are required for ESS devices',
+        );
+      }
+      if (!body.geofenceRadiusM || body.geofenceRadiusM <= 0) {
+        throw new BadRequestException(
+          'Geofence radius (metres) is required for ESS devices',
+        );
+      }
+    }
     if (body.essEmployeeId) {
       const emp = await this.empRepo.findOne({
         where: { id: body.essEmployeeId, clientId },

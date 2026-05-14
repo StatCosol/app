@@ -292,7 +292,7 @@ interface BranchOption { id: string; name: string }
       <form (ngSubmit)="save()" class="space-y-3">
         <div>
           <label for="dev-mode" class="block text-xs font-medium text-gray-600 mb-1">Mode <span class="text-red-500">*</span></label>
-          <select id="dev-mode" name="mode" [(ngModel)]="form.mode" class="ui-input">
+          <select id="dev-mode" name="mode" [(ngModel)]="form.mode" (ngModelChange)="onModeChange()" class="ui-input">
             <option value="KIOSK">KIOSK — shared gate tablet (1:N identification)</option>
             <option value="ESS">ESS — employee personal phone (1:1 + geofence)</option>
           </select>
@@ -320,18 +320,31 @@ interface BranchOption { id: string; name: string }
           </div>
           <div class="grid grid-cols-3 gap-2">
             <div>
-              <label for="dev-lat" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lat</label>
-              <input autocomplete="off" id="dev-lat" name="geofenceLat" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLat">
+              <label for="dev-lat" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lat <span class="text-red-500">*</span></label>
+              <input autocomplete="off" id="dev-lat" name="geofenceLat" type="number" step="0.0000001" class="ui-input bg-gray-50" [(ngModel)]="form.geofenceLat" readonly required>
             </div>
             <div>
-              <label for="dev-lng" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lng</label>
-              <input autocomplete="off" id="dev-lng" name="geofenceLng" type="number" step="0.0000001" class="ui-input" [(ngModel)]="form.geofenceLng">
+              <label for="dev-lng" class="block text-xs font-medium text-gray-600 mb-1">Geofence Lng <span class="text-red-500">*</span></label>
+              <input autocomplete="off" id="dev-lng" name="geofenceLng" type="number" step="0.0000001" class="ui-input bg-gray-50" [(ngModel)]="form.geofenceLng" readonly required>
             </div>
             <div>
-              <label for="dev-rad" class="block text-xs font-medium text-gray-600 mb-1">Radius (m)</label>
-              <input autocomplete="off" id="dev-rad" name="geofenceRadiusM" type="number" step="1" class="ui-input" [(ngModel)]="form.geofenceRadiusM" placeholder="100">
+              <label for="dev-rad" class="block text-xs font-medium text-gray-600 mb-1">Radius (m) <span class="text-red-500">*</span></label>
+              <input autocomplete="off" id="dev-rad" name="geofenceRadiusM" type="number" step="1" min="1" class="ui-input" [(ngModel)]="form.geofenceRadiusM" placeholder="100" required>
             </div>
           </div>
+          <div class="flex items-center justify-between gap-2 -mt-1">
+            <button type="button" (click)="captureLocation()" [disabled]="capturingLocation"
+                    class="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:text-gray-400 inline-flex items-center gap-1">
+              <span>📍</span>
+              <span *ngIf="!capturingLocation">Use my current location</span>
+              <span *ngIf="capturingLocation">Detecting…</span>
+            </button>
+            <span *ngIf="locationAccuracy !== null && !locationError" class="text-xs text-gray-500">
+              Accuracy ±{{ locationAccuracy | number:'1.0-0' }} m
+            </span>
+          </div>
+          <p *ngIf="locationError" class="text-xs text-amber-600">{{ locationError }}</p>
+          <p class="text-xs text-gray-500">Coordinates are auto-captured from your browser's location and cannot be edited — stand at the project site when registering. Adjust radius to match the project boundary; the ESS app will then verify each punch is inside this geofence.</p>
         </div>
         <div *ngIf="formError" class="text-sm text-red-600">{{ formError }}</div>
         <div class="flex justify-end gap-2 pt-2">
@@ -381,6 +394,9 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   showModal = false;
   saving = false;
   formError = '';
+  capturingLocation = false;
+  locationError = '';
+  locationAccuracy: number | null = null;
   form: {
     mode: MobileDeviceMode;
     deviceLabel: string;
@@ -502,8 +518,66 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   openAdd(): void {
     this.formError = '';
+    this.locationError = '';
+    this.locationAccuracy = null;
     this.form = { mode: 'KIOSK', deviceLabel: '', branchId: '', geofenceLat: null, geofenceLng: null, geofenceRadiusM: 100, essEmployeeId: '' };
     this.showModal = true;
+  }
+
+  onModeChange(): void {
+    if (this.form.mode === 'ESS' && this.form.geofenceLat == null && this.form.geofenceLng == null) {
+      this.captureLocation();
+    }
+  }
+
+  /**
+   * Auto-fill geofence lat/lng from the browser's Geolocation API. Used both
+   * by the explicit "Use my current location" button and on ESS mode select.
+   * The captured point becomes the geofence centre — the ESS phone must then
+   * be within `geofenceRadiusM` of it for punches to be accepted.
+   */
+  captureLocation(): void {
+    this.locationError = '';
+    this.locationAccuracy = null;
+    if (!('geolocation' in navigator)) {
+      this.locationError = 'Geolocation is not supported by this browser. Enter coordinates manually.';
+      this.bump();
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      this.locationError = 'Geolocation requires HTTPS. Enter coordinates manually.';
+      this.bump();
+      return;
+    }
+    this.capturingLocation = true;
+    this.bump();
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.zone.run(() => {
+          this.form.geofenceLat = Number(pos.coords.latitude.toFixed(7));
+          this.form.geofenceLng = Number(pos.coords.longitude.toFixed(7));
+          this.locationAccuracy = pos.coords.accuracy;
+          this.capturingLocation = false;
+          this.bump();
+        });
+      },
+      (err) => {
+        this.zone.run(() => {
+          this.capturingLocation = false;
+          if (err.code === err.PERMISSION_DENIED) {
+            this.locationError = 'Location permission denied. Allow location for this site or enter coordinates manually.';
+          } else if (err.code === err.POSITION_UNAVAILABLE) {
+            this.locationError = 'Location unavailable. Move near a window / outdoors and retry, or enter manually.';
+          } else if (err.code === err.TIMEOUT) {
+            this.locationError = 'Location request timed out. Retry, or enter coordinates manually.';
+          } else {
+            this.locationError = err.message || 'Could not detect location.';
+          }
+          this.bump();
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
   }
 
   /**
@@ -514,6 +588,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
    */
   deputeAsEss(r: EnrollmentStatusRow): void {
     this.formError = '';
+    this.locationError = '';
+    this.locationAccuracy = null;
     this.form = {
       mode: 'ESS',
       deviceLabel: `${r.employeeName} — ESS`,
@@ -526,6 +602,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.tab = 'devices';
     this.showModal = true;
     this.bump();
+    // Auto-capture geofence centre from the admin's current device location.
+    this.captureLocation();
   }
 
   save(): void {
@@ -535,7 +613,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.form.mode === 'ESS' && (this.form.geofenceLat == null || this.form.geofenceLng == null)) {
-      this.formError = 'ESS mode requires geofence latitude and longitude';
+      this.formError = 'ESS mode requires geofence latitude and longitude — click 📍 Use my current location';
+      return;
+    }
+    if (this.form.mode === 'ESS' && (!this.form.geofenceRadiusM || this.form.geofenceRadiusM <= 0)) {
+      this.formError = 'ESS mode requires a geofence radius (metres)';
       return;
     }
     this.saving = true;
