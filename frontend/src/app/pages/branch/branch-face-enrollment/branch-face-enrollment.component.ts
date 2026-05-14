@@ -350,15 +350,47 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       v.srcObject = stream;
       v.muted = true;
       v.setAttribute('playsinline', 'true');
-      try {
-        await v.play();
-      } catch {
-        // play() may be rejected if invoked before the user gesture is
-        // registered; the click handler that triggered startCamera satisfies
-        // the gesture requirement, so a retry on next frame usually works.
-        await new Promise((r) => requestAnimationFrame(() => r(null)));
-        try { await v.play(); } catch { /* ignore */ }
-      }
+      // Kick off play(), with a one-frame retry if the browser rejects
+      // the first call (some Android Chrome builds need a tick after
+      // srcObject is assigned before play() is allowed).
+      v.play().catch(() => {
+        requestAnimationFrame(() => { v.play().catch(() => { /* ignore */ }); });
+      });
+      // Wait for the first real video frame. If none arrives in 6s the
+      // camera is almost certainly held by another app (Windows Phone
+      // Link, Teams, Zoom, OBS virtual cam, etc.) — surface that clearly
+      // so the user knows what to close.
+      await new Promise<void>((resolve, reject) => {
+        let done = false;
+        const cleanup = () => {
+          v.removeEventListener('loadedmetadata', check);
+          v.removeEventListener('playing', check);
+          v.removeEventListener('canplay', check);
+        };
+        const check = () => {
+          if (done) return;
+          if (v.videoWidth > 0 && v.videoHeight > 0) {
+            done = true; cleanup(); resolve();
+          }
+        };
+        v.addEventListener('loadedmetadata', check);
+        v.addEventListener('playing', check);
+        v.addEventListener('canplay', check);
+        // Kick once in case the event already fired before listeners attached.
+        check();
+        setTimeout(() => {
+          if (done) return;
+          done = true; cleanup();
+          if (v.videoWidth > 0 && v.videoHeight > 0) {
+            resolve();
+          } else {
+            const label = stream.getVideoTracks()[0]?.label || 'unknown';
+            reject(new Error(
+              `Camera "${label}" was opened but is not sending frames. Another app (e.g. Windows Phone Link "use phone as webcam", Teams, Zoom, OBS) is most likely holding it. Close that app and click Start again.`
+            ));
+          }
+        }, 6000);
+      });
       this.cdr.detectChanges();
     } catch (err: any) {
       this.cameraActive = false;
