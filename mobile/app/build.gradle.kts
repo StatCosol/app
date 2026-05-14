@@ -39,6 +39,22 @@ android {
         }
     }
 
+    flavorDimensions += "mode"
+    productFlavors {
+        create("kiosk") {
+            dimension = "mode"
+            applicationIdSuffix = ".kiosk"
+            versionNameSuffix = "-kiosk"
+            resValue("string", "app_name", "Statco Kiosk")
+        }
+        create("ess") {
+            dimension = "mode"
+            applicationIdSuffix = ".ess"
+            versionNameSuffix = "-ess"
+            resValue("string", "app_name", "Statco ESS")
+        }
+    }
+
     packaging {
         resources.excludes += setOf(
             "META-INF/AL2.0",

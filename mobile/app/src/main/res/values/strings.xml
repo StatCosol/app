@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Statco Attendance</string>
+    <!-- app_name is provided per product flavor (kiosk / ess) via build.gradle.kts resValue -->
     <string name="setup_title">Device Setup</string>
     <string name="kiosk_title">Gate Attendance</string>
     <string name="ess_title">My Attendance</string>
