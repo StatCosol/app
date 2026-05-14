@@ -332,10 +332,48 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.cameraActive = true;
     this.cdr.detectChanges();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Enumerate cameras and prefer a real one over virtual cameras
+      // (Windows Phone Link "Use as connected camera", DroidCam, OBS,
+      // Snap Camera, XSplit, NDI). Labels are usually empty until the
+      // user has granted camera permission once — that's fine, we just
+      // fall back to facingMode in that case.
+      let constraints: MediaStreamConstraints = {
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,
-      });
+      };
+      let chosenLabel = '';
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter((d) => d.kind === 'videoinput');
+        const VIRTUAL = /(phone link|phone\s*\(|droidcam|obs|snap camera|virtual|xsplit|ndi|manycam)/i;
+        const real = cams.find((c) => c.label && !VIRTUAL.test(c.label));
+        // eslint-disable-next-line no-console
+        console.info('[face-enrollment] cameras:', cams.map((c) => c.label || '(no label)'));
+        if (real?.deviceId) {
+          chosenLabel = real.label;
+          constraints = {
+            video: { deviceId: { exact: real.deviceId }, width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          };
+        }
+      } catch { /* enumerateDevices is best-effort */ }
+      // Race getUserMedia against an 8s timeout. Some virtual cameras
+      // (notably Windows Phone Link in 'connecting' state) leave the
+      // promise pending forever instead of rejecting.
+      let timedOut = false;
+      const gumPromise = navigator.mediaDevices.getUserMedia(constraints);
+      gumPromise.then((s) => { if (timedOut) s.getTracks().forEach((t) => t.stop()); }).catch(() => {});
+      const stream = await Promise.race<MediaStream>([
+        gumPromise,
+        new Promise<MediaStream>((_, rej) => setTimeout(() => {
+          timedOut = true;
+          rej(new Error(
+            `Camera open timed out (8s)${chosenLabel ? ` on "${chosenLabel}"` : ''}. ` +
+            'A virtual camera (Windows Phone Link "Use as connected camera", DroidCam, OBS, Snap Camera) is most likely holding it. ' +
+            'Disable it in Windows Settings → Bluetooth & devices → Cameras, or close the app, then retry.'
+          ));
+        }, 8000)),
+      ]);
       this.cameraStream = stream;
       const v = this.cameraVideo?.nativeElement;
       if (!v) {
