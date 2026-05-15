@@ -10,6 +10,90 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Face alignment guide. Centered on the preview; thick white stroke
+         makes it visible in low-light factory gates. -->
+    <View
+        android:id="@+id/faceOval"
+        android:layout_width="260dp"
+        android:layout_height="340dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_face_oval" />
+
+    <!-- Top brand/branch/clock strip. Stays visible at all times so workers
+         confirm they're at the right gate / shift. -->
+    <LinearLayout
+        android:id="@+id/headerStrip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_kiosk_top_strip"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_shield_check"
+            android:contentDescription="@null" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/headerBrand"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/brand_name"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.04" />
+
+            <TextView
+                android:id="@+id/headerBranch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#CCE0E0E0"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp"
+                tools:text="Unit 1 — Main Gate" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end">
+
+            <TextView
+                android:id="@+id/headerClock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:fontFeatureSettings="tnum"
+                tools:text="09:14 AM" />
+
+            <TextView
+                android:id="@+id/headerDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#CCE0E0E0"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp"
+                tools:text="Thu, 15 May" />
+        </LinearLayout>
+    </LinearLayout>
+
     <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"

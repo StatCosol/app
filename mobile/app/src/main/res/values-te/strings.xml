@@ -1,0 +1,26 @@
+<resources>
+    <!-- Kiosk-only Telugu translations. Strings not overridden here fall
+         back to values/strings.xml (English). -->
+    <string name="kiosk_title">గేట్ హాజరు</string>
+    <string name="kiosk_look_at_camera">హాజరు నమోదు చేయడానికి కెమెరా వైపు చూడండి</string>
+    <string name="kiosk_match_low">ముఖం గుర్తించబడలేదు — దయచేసి మళ్లీ ప్రయత్నించండి</string>
+    <string name="kiosk_punch_in_title">హాజరు నమోదైంది</string>
+    <string name="kiosk_punch_out_title">లాగౌట్ నమోదైంది</string>
+    <string name="kiosk_badge_in">హాజరు</string>
+    <string name="kiosk_badge_out">లాగౌట్</string>
+    <string name="kiosk_logout_confirm_title">హాజరు ఇప్పటికే నమోదైంది</string>
+    <string name="kiosk_logout_confirm_message">%1$s, మీ ఈరోజు హాజరు ఇప్పటికే నమోదైంది.\n\nమీరు ఇప్పుడు లాగౌట్ చేయాలనుకుంటున్నారా?</string>
+    <string name="kiosk_logout_confirm_yes">అవును, లాగౌట్ చేయండి</string>
+    <string name="kiosk_logout_confirm_no">రద్దు చేయి</string>
+    <string name="kiosk_already_done_title">హాజరు పూర్తయింది</string>
+    <string name="kiosk_already_done_message">%1$s, మీరు ఈరోజు హాజరు మరియు లాగౌట్ రెండూ నమోదు చేశారు.\n\nరేపు కలుద్దాం!</string>
+    <string name="kiosk_already_done_ok">సరే</string>
+    <string name="face_multiple_detected">ఒకటి కంటే ఎక్కువ ముఖాలు (%1$d) కనిపిస్తున్నాయి. ఒక సమయంలో ఒక్కరే — మిగిలినవారు దయచేసి పక్కకు జరగండి.</string>
+    <string name="hint_no_face">ముఖం కనిపించలేదు — దయచేసి కెమెరా వైపు చూడండి</string>
+    <string name="hint_too_small">దయచేసి కెమెరాకు దగ్గరగా రండి</string>
+    <string name="hint_too_dim">వెలుతురు చాలా తక్కువగా ఉంది — దయచేసి వెలుతురులోకి రండి</string>
+    <string name="kiosk_branch_unknown">శాఖ కేటాయించబడలేదు</string>
+    <string name="kiosk_voice_recorded">%1$s హాజరు నమోదైంది</string>
+    <string name="kiosk_voice_logout_recorded">%1$s లాగౌట్ నమోదైంది</string>
+    <string name="kiosk_voice_face_not_recognised">ముఖం గుర్తించబడలేదు, మళ్లీ ప్రయత్నించండి</string>
+</resources>

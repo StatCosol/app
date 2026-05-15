@@ -140,6 +140,40 @@ export class MobilePunchDto {
   @IsOptional()
   @IsString()
   photoB64?: string;
+
+  /** True when Android Location.isFromMockProvider() reported a fake provider. */
+  @IsOptional()
+  @IsBoolean()
+  isMockLocation?: boolean;
+
+  /** True when the device root-integrity probe (su binary / Magisk) returned positive. */
+  @IsOptional()
+  @IsBoolean()
+  isRooted?: boolean;
+
+  /** Set true by the offline queue worker so the server skips the strict clock-skew gate. */
+  @IsOptional()
+  @IsBoolean()
+  offlineSync?: boolean;
+
+  /**
+   * Active-liveness challenge that the user passed on-device immediately
+   * before this punch (Phase 3d). One of BLINK | HEAD_TURN_LEFT |
+   * HEAD_TURN_RIGHT | SMILE. Required when FACE_LIVENESS_CHALLENGE_REQUIRED
+   * is true on the server.
+   */
+  @IsOptional()
+  @IsIn(['BLINK', 'HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT', 'SMILE'])
+  livenessChallengeType?:
+    | 'BLINK'
+    | 'HEAD_TURN_LEFT'
+    | 'HEAD_TURN_RIGHT'
+    | 'SMILE';
+
+  /** ISO timestamp at which the on-device challenge was satisfied. */
+  @IsOptional()
+  @IsString()
+  livenessChallengePassedAt?: string;
 }
 
 export class MobilePunchBatchDto {
@@ -147,4 +181,43 @@ export class MobilePunchBatchDto {
   @ValidateNested({ each: true })
   @Type(() => MobilePunchDto)
   punches!: MobilePunchDto[];
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3e: re-enrollment approval workflow.
+// ---------------------------------------------------------------------------
+
+export class CreateReenrollRequestDto {
+  @IsUUID()
+  employeeId!: string;
+
+  /** Base64 of the candidate embedding (same encoding as EnrollFaceDto). */
+  @IsString()
+  embeddingBase64!: string;
+
+  @IsOptional()
+  @IsString()
+  embeddingModel?: string;
+
+  /** Optional photo to attach for the reviewer (base64 JPEG, no data: prefix). */
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsIn(['ADMIN', 'ESS', 'KIOSK'])
+  source?: 'ADMIN' | 'ESS' | 'KIOSK';
+}
+
+export class ReviewReenrollRequestDto {
+  @IsIn(['APPROVED', 'REJECTED'])
+  decision!: 'APPROVED' | 'REJECTED';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

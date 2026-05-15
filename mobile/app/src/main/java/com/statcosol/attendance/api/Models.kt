@@ -8,7 +8,9 @@ data class RosterResponse(
     val deviceId: String,
     val mode: String,                 // "KIOSK" | "ESS"
     val clientId: String,
+    val clientName: String? = null,
     val branchId: String?,
+    val branchName: String? = null,
     val geofenceLat: Double?,
     val geofenceLng: Double?,
     val geofenceRadiusM: Int?,
@@ -37,7 +39,12 @@ data class PunchBody(
     val captureLat: Double?,
     val captureLng: Double?,
     val captureAccuracyM: Double?,
-    val photoB64: String? = null
+    val photoB64: String? = null,
+    /** Phase 3a: integrity hints sent to the server gate. */
+    val isMockLocation: Boolean? = null,
+    val isRooted: Boolean? = null,
+    /** Set true by the offline drain worker so the server skips the strict 24h backlog cap. */
+    val offlineSync: Boolean? = null,
 )
 
 @JsonClass(generateAdapter = true)
