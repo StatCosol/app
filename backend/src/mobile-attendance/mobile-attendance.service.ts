@@ -15,6 +15,7 @@ import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceEmbeddingClient } from './face-embedding.client';
+import { FacePhotoStorage } from './face-photo-storage.service';
 import {
   MobileAttendanceDeviceEntity,
   MobileDeviceMode,
@@ -65,6 +66,7 @@ export class MobileAttendanceService {
     private readonly biometricService: BiometricService,
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
     private readonly notifications: NotificationsService,
+    private readonly facePhotos: FacePhotoStorage,
   ) {}
 
   // ---------------------------------------------------------------- devices
@@ -243,13 +245,15 @@ export class MobileAttendanceService {
       );
     }
 
-    // TODO(face-photo-blob): upload `body.photoBase64` to Azure Blob
-    //   (container `face-photos`, key `{clientId}/{employeeId}.jpg`) and store
-    //   the resulting URL here. For now we keep a tiny inline thumbnail
-    //   reference so audits still see *something*; full photo is dropped.
-    const photoUrl = body.photoBase64
-      ? `embedded:mobilefacenet/${embedding ? embedding.length : 0}b`
-      : null;
+    // Phase 3c: persist the enrollment selfie when FACE_PHOTO_AUDIT is on.
+    // When disabled (default) we never write the photo, only the embedding.
+    const photoUrl = await this.facePhotos.put({
+      clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
 
     // Duplicate-face guard: a face that already belongs to a *different*
     // employee in this client must not be re-enrolled (prevents one person
@@ -333,6 +337,14 @@ export class MobileAttendanceService {
     // in this client must not be re-enrolled under another employee code.
     await this.assertFaceNotDuplicate(device.clientId, emp.id, embedding);
 
+    const photoUrl = await this.facePhotos.put({
+      clientId: device.clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
     const now = new Date();
     const payload: Partial<FaceEnrollmentEntity> = {
       employeeId: emp.id,
@@ -340,9 +352,7 @@ export class MobileAttendanceService {
       branchId: emp.branchId ?? device.branchId ?? null,
       embedding,
       embeddingModel: body.embeddingModel ?? 'mobilefacenet-v1',
-      photoUrl: body.photoBase64
-        ? `data:image/jpeg;base64,${body.photoBase64.slice(0, 64)}...`
-        : null,
+      photoUrl,
       consentGivenAt: now,
       consentGivenBy: emp.id,
       enrolledAt: now,
@@ -359,6 +369,13 @@ export class MobileAttendanceService {
     } else {
       await this.faceRepo.save(this.faceRepo.create(payload));
     }
+    await this.logEnrollmentHistory({
+      employeeId: emp.id,
+      clientId: device.clientId,
+      action: existing ? 'RE_ENROLL' : 'ENROLL',
+      embeddingModel: payload.embeddingModel ?? null,
+      actorUserId: emp.id,
+    });
     return { ok: true, employeeId: emp.id };
   }
 
@@ -382,7 +399,16 @@ export class MobileAttendanceService {
     row.deactivatedAt = new Date();
     row.deactivationReason = reason;
     void by;
-    return this.faceRepo.save(row);
+    const saved = await this.faceRepo.save(row);
+    await this.logEnrollmentHistory({
+      employeeId,
+      clientId,
+      action: 'DEACTIVATE',
+      reason,
+      embeddingModel: row.embeddingModel ?? null,
+      actorUserId: by ?? null,
+    });
+    return saved;
   }
 
   /**
@@ -808,6 +834,16 @@ export class MobileAttendanceService {
       true,
     );
 
+    // Phase 3c: persist the selfie when FACE_PHOTO_AUDIT is enabled. Returns
+    // null when disabled — column stays untouched via COALESCE.
+    const photoUrl = await this.facePhotos.put({
+      clientId: device.clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'punch',
+      timestamp: ts,
+      photoB64: body.photoB64,
+    });
+
     // Patch evidence columns (raw SQL — short and avoids fetching the row twice)
     await this.faceRepo.manager.query(
       `UPDATE biometric_punches
@@ -829,7 +865,7 @@ export class MobileAttendanceService {
         body.captureLat ?? null,
         body.captureLng ?? null,
         body.captureAccuracyM ?? null,
-        body.photoB64 ? null : null, // photo upload to blob is a separate task
+        photoUrl,
         body.matchScore ?? null,
         body.livenessScore ?? null,
         body.matchProvider ?? 'mobilefacenet',
