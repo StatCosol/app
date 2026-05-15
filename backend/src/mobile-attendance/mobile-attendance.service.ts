@@ -2050,6 +2050,117 @@ export class MobileAttendanceService {
   }
 
   /**
+   * Admin/CRM read endpoint: recent face_failed_scan_logs rows with optional
+   * window + subject/reason/branch filters. `subjectType='EMPLOYEE'` returns
+   * only in-house employee rejections (employee_id IS NOT NULL).
+   * `subjectType='CONTRACTOR'` returns only contractor rejections
+   * (contractor_employee_id IS NOT NULL). Branch-scoped users only see their
+   * own branches. Returns at most `limit` rows (default 100, max 500).
+   */
+  async listFailedScans(
+    clientId: string,
+    opts: {
+      from?: string | null;
+      to?: string | null;
+      branchId?: string | null;
+      reason?: string | null;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR' | null;
+      employeeId?: string | null;
+      contractorEmployeeId?: string | null;
+      limit?: number | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      id: string;
+      attemptedAt: string;
+      branchId: string | null;
+      deviceId: string | null;
+      employeeId: string | null;
+      employeeCode: string | null;
+      employeeName: string | null;
+      contractorEmployeeId: string | null;
+      contractorEmployeeName: string | null;
+      contractorUserId: string | null;
+      contractorName: string | null;
+      reason: string;
+      reasonDetail: string | null;
+      matchScore: string | null;
+      livenessScore: string | null;
+      captureLat: string | null;
+      captureLng: string | null;
+    }>
+  > {
+    const params: any[] = [clientId];
+    const where: string[] = ['f.client_id = $1'];
+
+    if (opts.from) {
+      params.push(opts.from);
+      where.push(`f.attempted_at >= $${params.length}`);
+    }
+    if (opts.to) {
+      params.push(opts.to);
+      where.push(`f.attempted_at <= $${params.length}`);
+    }
+    if (opts.reason) {
+      params.push(opts.reason);
+      where.push(`f.reason = $${params.length}`);
+    }
+    if (opts.subjectType === 'EMPLOYEE') {
+      where.push(`f.employee_id IS NOT NULL`);
+    } else if (opts.subjectType === 'CONTRACTOR') {
+      where.push(`f.contractor_employee_id IS NOT NULL`);
+    }
+    if (opts.employeeId) {
+      params.push(opts.employeeId);
+      where.push(`f.employee_id = $${params.length}`);
+    }
+    if (opts.contractorEmployeeId) {
+      params.push(opts.contractorEmployeeId);
+      where.push(`f.contractor_employee_id = $${params.length}`);
+    }
+    if (opts.branchId) {
+      params.push(opts.branchId);
+      where.push(`f.branch_id = $${params.length}`);
+    }
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      where.push(`f.branch_id = ANY($${params.length}::uuid[])`);
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return [];
+    }
+
+    const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
+
+    return this.faceRepo.manager.query(
+      `SELECT f.id,
+              f.attempted_at AS "attemptedAt",
+              f.branch_id AS "branchId",
+              f.device_id AS "deviceId",
+              f.employee_id AS "employeeId",
+              f.employee_code AS "employeeCode",
+              e.name AS "employeeName",
+              f.contractor_employee_id AS "contractorEmployeeId",
+              ce.name AS "contractorEmployeeName",
+              ce.contractor_user_id AS "contractorUserId",
+              cu.name AS "contractorName",
+              f.reason, f.reason_detail AS "reasonDetail",
+              f.match_score AS "matchScore",
+              f.liveness_score AS "livenessScore",
+              f.capture_lat AS "captureLat",
+              f.capture_lng AS "captureLng"
+         FROM face_failed_scan_logs f
+         LEFT JOIN employees e ON e.id = f.employee_id
+         LEFT JOIN contractor_employees ce ON ce.id = f.contractor_employee_id
+         LEFT JOIN users cu ON cu.id = ce.contractor_user_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY f.attempted_at DESC
+        LIMIT ${limit}`,
+      params,
+    );
+  }
+
+  /**
    * List distinct contractors (parent vendor users) that have at least one
    * active employee in the caller's allowed branches. Drives the contractor
    * picker on the branch-portal contractor-attendance page.
