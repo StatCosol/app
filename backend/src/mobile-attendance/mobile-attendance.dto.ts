@@ -250,3 +250,35 @@ export class ReviewReenrollRequestDto {
   @IsString()
   notes?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4c: contractor re-enrollment approval workflow (mirror of
+// CreateReenrollRequestDto / ReviewReenrollRequestDto, keyed by
+// contractor_employees.id).
+// ---------------------------------------------------------------------------
+
+export class CreateContractorReenrollRequestDto {
+  @IsUUID()
+  contractorEmployeeId!: string;
+
+  /** Base64 of the candidate embedding (same encoding as EnrollContractorFaceDto). */
+  @IsString()
+  embeddingBase64!: string;
+
+  @IsOptional()
+  @IsString()
+  embeddingModel?: string;
+
+  /** Optional photo to attach for the reviewer (base64 JPEG, no data: prefix). */
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsIn(['ADMIN', 'ESS', 'KIOSK'])
+  source?: 'ADMIN' | 'ESS' | 'KIOSK';
+}
