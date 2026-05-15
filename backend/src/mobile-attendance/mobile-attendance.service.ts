@@ -1957,6 +1957,88 @@ export class MobileAttendanceService {
     return { ok: true, pending: true, requestId };
   }
 
+  /**
+   * Admin/CRM read endpoint: recent contractor kiosk punches with optional
+   * window + contractor/branch filters. Branch-scoped users only see their
+   * own branches. Returns at most `limit` rows (default 100, max 500).
+   */
+  async listContractorPunches(
+    clientId: string,
+    opts: {
+      from?: string | null;
+      to?: string | null;
+      branchId?: string | null;
+      contractorEmployeeId?: string | null;
+      limit?: number | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      id: string;
+      contractorEmployeeId: string;
+      contractorName: string | null;
+      branchId: string | null;
+      punchTime: string;
+      direction: string;
+      source: string;
+      deviceId: string | null;
+      photoUrl: string | null;
+      matchScore: string | null;
+      livenessScore: string | null;
+      captureLat: string | null;
+      captureLng: string | null;
+    }>
+  > {
+    const params: any[] = [clientId];
+    const where: string[] = ['p.client_id = $1'];
+
+    if (opts.from) {
+      params.push(opts.from);
+      where.push(`p.punch_time >= $${params.length}`);
+    }
+    if (opts.to) {
+      params.push(opts.to);
+      where.push(`p.punch_time <= $${params.length}`);
+    }
+    if (opts.contractorEmployeeId) {
+      params.push(opts.contractorEmployeeId);
+      where.push(`p.contractor_employee_id = $${params.length}`);
+    }
+    if (opts.branchId) {
+      params.push(opts.branchId);
+      where.push(`p.branch_id = $${params.length}`);
+    }
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      where.push(`p.branch_id = ANY($${params.length}::uuid[])`);
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return [];
+    }
+
+    const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
+
+    return this.contractorPunchRepo.manager.query(
+      `SELECT p.id,
+              p.contractor_employee_id AS "contractorEmployeeId",
+              ce.name AS "contractorName",
+              p.branch_id AS "branchId",
+              p.punch_time AS "punchTime",
+              p.direction, p.source,
+              p.device_id AS "deviceId",
+              p.photo_url AS "photoUrl",
+              p.match_score AS "matchScore",
+              p.liveness_score AS "livenessScore",
+              p.capture_lat AS "captureLat",
+              p.capture_lng AS "captureLng"
+         FROM contractor_biometric_punches p
+         LEFT JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY p.punch_time DESC
+        LIMIT ${limit}`,
+      params,
+    );
+  }
+
   async listContractorReenrollRequests(
     clientId: string,
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',

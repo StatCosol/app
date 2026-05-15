@@ -214,6 +214,35 @@ export class MobileAttendanceAdminController {
     );
   }
 
+  @ApiOperation({
+    summary:
+      'List recent contractor kiosk punches (optional from/to/branch/contractor filters)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('contractors/punches')
+  listContractorPunches(
+    @CurrentUser() u: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listContractorPunches(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        contractorEmployeeId: contractorEmployeeId ?? null,
+        limit: limit ? Number(limit) : null,
+      },
+      allowedBranchIds,
+    );
+  }
+
   // -------------- Phase 4c: contractor re-enrollment approval queue.
 
   @ApiOperation({
