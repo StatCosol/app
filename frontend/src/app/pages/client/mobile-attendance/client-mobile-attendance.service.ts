@@ -256,4 +256,64 @@ export class ClientMobileAttendanceService {
       body,
     );
   }
+
+  // ── Branch-portal contractor attendance (Phase 4d) ──
+  listContractorsForBranch(
+    branchId?: string,
+  ): Observable<ContractorForBranchRow[]> {
+    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+    return this.http.get<ContractorForBranchRow[]>(
+      `${this.base}/contractors/for-branch${qs}`,
+    );
+  }
+
+  listContractorPunches(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      contractorEmployeeId?: string;
+      contractorUserId?: string;
+      limit?: number;
+    } = {},
+  ): Observable<ContractorPunchRow[]> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.contractorEmployeeId)
+      parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
+    if (opts.contractorUserId)
+      parts.push(`contractorUserId=${encodeURIComponent(opts.contractorUserId)}`);
+    if (opts.limit) parts.push(`limit=${opts.limit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<ContractorPunchRow[]>(
+      `${this.base}/contractors/punches${qs}`,
+    );
+  }
+}
+
+export interface ContractorForBranchRow {
+  contractorUserId: string;
+  contractorName: string | null;
+  contractorEmail: string | null;
+  employeeCount: string;
+}
+
+export interface ContractorPunchRow {
+  id: string;
+  contractorEmployeeId: string;
+  contractorEmployeeName: string | null;
+  contractorUserId: string | null;
+  contractorName: string | null;
+  branchId: string | null;
+  punchTime: string;
+  direction: string;
+  source: string;
+  deviceId: string | null;
+  photoUrl: string | null;
+  matchScore: string | null;
+  livenessScore: string | null;
+  captureLat: string | null;
+  captureLng: string | null;
 }
