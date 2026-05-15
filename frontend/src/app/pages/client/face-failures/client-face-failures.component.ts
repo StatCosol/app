@@ -122,6 +122,13 @@ const REASONS: { value: string; label: string }[] = [
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div *ngIf="focusLabel" class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between">
+          <span class="text-xs text-blue-800">
+            Filtered to <span class="font-semibold">{{ focusLabel }}</span>
+          </span>
+          <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900"
+                  (click)="clearFocus()">Clear filter</button>
+        </div>
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 class="font-semibold text-gray-900">
             Failures
@@ -178,10 +185,16 @@ const REASONS: { value: string; label: string }[] = [
                     </span>
                   </td>
                   <td class="px-4 py-2">
-                    <div>{{ r.employeeName || r.contractorEmployeeName || '—' }}</div>
-                    <div *ngIf="r.employeeCode" class="text-xs text-gray-500">
-                      {{ r.employeeCode }}
-                    </div>
+                    <button type="button" class="text-left hover:text-blue-700"
+                            [disabled]="!r.employeeId && !r.contractorEmployeeId"
+                            [class.cursor-default]="!r.employeeId && !r.contractorEmployeeId"
+                            (click)="focusOn(r)"
+                            title="Filter to this person">
+                      <div>{{ r.employeeName || r.contractorEmployeeName || '—' }}</div>
+                      <div *ngIf="r.employeeCode" class="text-xs text-gray-500">
+                        {{ r.employeeCode }}
+                      </div>
+                    </button>
                   </td>
                   <td class="px-4 py-2 text-xs text-gray-600">
                     {{ r.contractorName || '—' }}
@@ -216,6 +229,9 @@ export class ClientFaceFailuresComponent implements OnInit {
   to = '';
   loading = false;
   exporting = false;
+  focusEmployeeId: string | null = null;
+  focusContractorId: string | null = null;
+  focusLabel = '';
 
   constructor(
     private svc: ClientMobileAttendanceService,
@@ -252,6 +268,8 @@ export class ClientFaceFailuresComponent implements OnInit {
         to,
         reason: this.reason || undefined,
         subjectType,
+        employeeId: this.focusEmployeeId || undefined,
+        contractorEmployeeId: this.focusContractorId || undefined,
         limit: 500,
       })
       .pipe(finalize(() => (this.loading = false)))
@@ -265,6 +283,31 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   topReason(): { reason: string; count: number } | null {
     return this.stats?.byReason?.[0] ?? null;
+  }
+
+  focusOn(r: FailedScanRow): void {
+    if (r.employeeId) {
+      this.focusEmployeeId = r.employeeId;
+      this.focusContractorId = null;
+      this.focusLabel =
+        r.employeeName || r.employeeCode || 'Selected employee';
+    } else if (r.contractorEmployeeId) {
+      this.focusContractorId = r.contractorEmployeeId;
+      this.focusEmployeeId = null;
+      this.focusLabel =
+        r.contractorEmployeeName || 'Selected contractor worker';
+    } else {
+      return;
+    }
+    this.load();
+  }
+
+  clearFocus(): void {
+    if (!this.focusEmployeeId && !this.focusContractorId) return;
+    this.focusEmployeeId = null;
+    this.focusContractorId = null;
+    this.focusLabel = '';
+    this.load();
   }
 
   topBranch(): { branchName: string | null; count: number } | null {
@@ -285,6 +328,8 @@ export class ClientFaceFailuresComponent implements OnInit {
         to,
         reason: this.reason || undefined,
         subjectType,
+        employeeId: this.focusEmployeeId || undefined,
+        contractorEmployeeId: this.focusContractorId || undefined,
       })
       .pipe(finalize(() => (this.exporting = false)))
       .subscribe({
