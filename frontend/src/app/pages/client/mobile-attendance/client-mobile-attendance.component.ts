@@ -19,6 +19,8 @@ import {
   MobileAttendanceDevice,
   MobileDeviceMode,
   RegisterMobileDeviceBody,
+  ReenrollRequest,
+  ReenrollRequestStatus,
 } from './client-mobile-attendance.service';
 
 interface BranchOption { id: string; name: string }
@@ -48,6 +50,13 @@ interface BranchOption { id: string; name: string }
         <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
         <button class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
         <button class="tab-btn" [class.active]="tab === 'enroll'" (click)="switchTab('enroll')">Face Enrollment</button>
+        <button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
+          Re-enrollment Requests
+          <span *ngIf="pendingReenrollCount > 0"
+                class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+            {{ pendingReenrollCount }}
+          </span>
+        </button>
         <button class="tab-btn" [class.active]="tab === 'help'" (click)="switchTab('help')">Setup Guide</button>
       </div>
 
@@ -257,6 +266,93 @@ interface BranchOption { id: string; name: string }
         </div>
       </ng-container>
 
+      <!-- ────── RE-ENROLLMENT REQUESTS TAB ────── -->
+      <ng-container *ngIf="tab === 'reenroll'">
+        <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <span class="text-sm text-gray-500">
+            {{ reenrollRows.length }} {{ reenrollFilter | lowercase }} request(s)
+          </span>
+          <div class="flex items-center gap-2">
+            <select [(ngModel)]="reenrollFilter" (ngModelChange)="loadReenrollRequests()" class="ui-input text-sm" style="width:auto">
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+            <ui-button variant="secondary" (clicked)="loadReenrollRequests()">Refresh</ui-button>
+          </div>
+        </div>
+
+        <ui-loading-spinner *ngIf="loadingReenroll" text="Loading requests..." size="lg"></ui-loading-spinner>
+
+        <ui-empty-state
+          *ngIf="!loadingReenroll && reenrollRows.length === 0"
+          title="No {{ reenrollFilter | lowercase }} re-enrollment requests"
+          description="When an employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.">
+        </ui-empty-state>
+
+        <div *ngIf="!loadingReenroll && reenrollRows.length > 0"
+             class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Employee</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Source</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Reason</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Requested</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">Reviewed</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of reenrollRows" class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <div class="font-medium text-gray-900">{{ r.employeeName || '—' }}</div>
+                  <div class="text-xs text-gray-500">{{ r.employeeCode || r.employeeId }}</div>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded"
+                        [class.bg-blue-100]="r.source === 'ADMIN'" [class.text-blue-800]="r.source === 'ADMIN'"
+                        [class.bg-green-100]="r.source === 'ESS'" [class.text-green-800]="r.source === 'ESS'"
+                        [class.bg-purple-100]="r.source === 'KIOSK'" [class.text-purple-800]="r.source === 'KIOSK'">
+                    {{ r.source }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-gray-700 max-w-xs">
+                  <div class="truncate" [title]="r.reason || ''">{{ r.reason || '—' }}</div>
+                </td>
+                <td class="px-4 py-3 text-gray-600 text-xs">{{ r.requestedAt | date:'medium' }}</td>
+                <td class="px-4 py-3 text-gray-600 text-xs">
+                  <ng-container *ngIf="r.reviewedAt; else notReviewed">
+                    <div>{{ r.reviewedAt | date:'medium' }}</div>
+                    <div *ngIf="r.reviewNotes" class="text-gray-500" [title]="r.reviewNotes">{{ r.reviewNotes }}</div>
+                  </ng-container>
+                  <ng-template #notReviewed><span class="text-gray-400">—</span></ng-template>
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <ng-container *ngIf="r.status === 'PENDING'; else statusBadge">
+                    <button class="text-xs font-medium text-green-700 hover:text-green-900 mr-2"
+                            [disabled]="reviewingId === r.id"
+                            (click)="openReview(r, 'APPROVED')">Approve</button>
+                    <button class="text-xs font-medium text-red-600 hover:text-red-800"
+                            [disabled]="reviewingId === r.id"
+                            (click)="openReview(r, 'REJECTED')">Reject</button>
+                  </ng-container>
+                  <ng-template #statusBadge>
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded"
+                          [class.bg-green-100]="r.status === 'APPROVED'" [class.text-green-800]="r.status === 'APPROVED'"
+                          [class.bg-red-100]="r.status === 'REJECTED'" [class.text-red-800]="r.status === 'REJECTED'"
+                          [class.bg-gray-100]="r.status === 'CANCELLED'" [class.text-gray-800]="r.status === 'CANCELLED'">
+                      {{ r.status }}
+                    </span>
+                  </ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
       <!-- ────── HELP TAB ────── -->
       <ng-container *ngIf="tab === 'help'">
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4 text-sm text-gray-700">
@@ -354,6 +450,36 @@ interface BranchOption { id: string; name: string }
       </form>
     </ui-modal>
 
+    <!-- Re-enrollment review modal -->
+    <ui-modal *ngIf="reviewRequest" [isOpen]="!!reviewRequest" [showFooter]="false"
+              [title]="reviewDecision === 'APPROVED' ? 'Approve re-enrollment' : 'Reject re-enrollment'"
+              (closed)="closeReview()">
+      <div class="space-y-3 text-sm">
+        <div class="text-gray-700">
+          <div><strong>Employee:</strong> {{ reviewRequest.employeeName }} ({{ reviewRequest.employeeCode }})</div>
+          <div><strong>Source:</strong> {{ reviewRequest.source }}</div>
+          <div><strong>Requested:</strong> {{ reviewRequest.requestedAt | date:'medium' }}</div>
+          <div *ngIf="reviewRequest.reason"><strong>Reason:</strong> {{ reviewRequest.reason }}</div>
+        </div>
+        <p *ngIf="reviewDecision === 'APPROVED'" class="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+          Approving will overwrite this employee's live face embedding with the new one. The previous embedding cannot be recovered.
+        </p>
+        <div>
+          <label for="review-notes" class="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
+          <textarea id="review-notes" name="reviewNotes" rows="3" class="ui-input" [(ngModel)]="reviewNotes"
+                    placeholder="Audit trail notes — visible in the request log"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <ui-button variant="secondary" (clicked)="closeReview()">Cancel</ui-button>
+          <ui-button [variant]="reviewDecision === 'APPROVED' ? 'primary' : 'danger'"
+                     [loading]="reviewingId === reviewRequest.id"
+                     (clicked)="submitReview()">
+            {{ reviewDecision === 'APPROVED' ? 'Approve' : 'Reject' }}
+          </ui-button>
+        </div>
+      </div>
+    </ui-modal>
+
     <!-- Show install token after creation -->
     <ui-modal *ngIf="tokenModal" [isOpen]="tokenModal" [showFooter]="false" title="Install Token" (closed)="tokenModal = false">
       <div class="space-y-3 text-sm">
@@ -386,7 +512,7 @@ interface BranchOption { id: string; name: string }
 export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  tab: 'devices' | 'enroll' | 'help' | 'status' = 'devices';
+  tab: 'devices' | 'enroll' | 'help' | 'status' | 'reenroll' = 'devices';
 
   // Devices
   devices: MobileAttendanceDevice[] = [];
@@ -440,6 +566,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
   statusSearch = '';
 
+  // Re-enrollment requests tab
+  reenrollRows: ReenrollRequest[] = [];
+  loadingReenroll = false;
+  reenrollFilter: ReenrollRequestStatus = 'PENDING';
+  pendingReenrollCount = 0;
+  reviewRequest: ReenrollRequest | null = null;
+  reviewDecision: 'APPROVED' | 'REJECTED' = 'APPROVED';
+  reviewNotes = '';
+  reviewingId: string | null = null;
+
   constructor(
     private svc: ClientMobileAttendanceService,
     private branchSvc: ClientBranchesService,
@@ -458,6 +594,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.loadBranches();
     this.loadDevices();
     this.loadEmployees();
+    this.refreshPendingReenrollCount();
   }
 
   ngOnDestroy(): void {
@@ -466,11 +603,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  switchTab(t: 'devices' | 'enroll' | 'help' | 'status'): void {
+  switchTab(t: 'devices' | 'enroll' | 'help' | 'status' | 'reenroll'): void {
     if (t !== 'enroll') this.stopCamera();
     this.tab = t;
     if (t === 'status' && this.enrollmentRows.length === 0) {
       this.loadEnrollments();
+    }
+    if (t === 'reenroll') {
+      this.loadReenrollRequests();
     }
   }
 
@@ -972,6 +1112,62 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
         error: (e) => this.toast.error(e?.error?.message || 'Deactivation failed'),
+      });
+  }
+
+  // ── Re-enrollment requests (Phase 3e) ─────────────────────
+  loadReenrollRequests(): void {
+    this.loadingReenroll = true;
+    this.svc.listReenrollRequests(this.reenrollFilter)
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingReenroll = false; this.bump(); }))
+      .subscribe({
+        next: (rows) => {
+          this.reenrollRows = rows || [];
+          if (this.reenrollFilter === 'PENDING') {
+            this.pendingReenrollCount = this.reenrollRows.length;
+          }
+        },
+        error: (e) => this.toast.error(e?.error?.message || 'Failed to load re-enrollment requests'),
+      });
+  }
+
+  private refreshPendingReenrollCount(): void {
+    this.svc.listReenrollRequests('PENDING')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => { this.pendingReenrollCount = (rows || []).length; this.bump(); },
+        error: () => { /* badge is best-effort */ },
+      });
+  }
+
+  openReview(r: ReenrollRequest, decision: 'APPROVED' | 'REJECTED'): void {
+    this.reviewRequest = r;
+    this.reviewDecision = decision;
+    this.reviewNotes = '';
+  }
+
+  closeReview(): void {
+    this.reviewRequest = null;
+    this.reviewNotes = '';
+  }
+
+  submitReview(): void {
+    if (!this.reviewRequest) return;
+    const id = this.reviewRequest.id;
+    this.reviewingId = id;
+    this.svc.reviewReenrollRequest(id, {
+      decision: this.reviewDecision,
+      notes: this.reviewNotes.trim() || undefined,
+    })
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.reviewingId = null; this.bump(); }))
+      .subscribe({
+        next: (res) => {
+          this.toast.success(res.status === 'APPROVED' ? 'Request approved — embedding updated' : 'Request rejected');
+          this.closeReview();
+          this.loadReenrollRequests();
+          this.refreshPendingReenrollCount();
+        },
+        error: (e) => this.toast.error(e?.error?.message || 'Review failed'),
       });
   }
 }
