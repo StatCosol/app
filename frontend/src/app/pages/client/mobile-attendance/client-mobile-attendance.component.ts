@@ -15,6 +15,7 @@ import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ClientEmployeesService, Employee } from '../employees/client-employees.service';
 import {
   ClientMobileAttendanceService,
+  ContractorReenrollRequest,
   EnrollmentStatusRow,
   MobileAttendanceDevice,
   MobileDeviceMode,
@@ -22,6 +23,23 @@ import {
   ReenrollRequest,
   ReenrollRequestStatus,
 } from './client-mobile-attendance.service';
+
+type ReenrollScope = 'employee' | 'contractor';
+
+interface ReenrollViewRow {
+  id: string;
+  scope: ReenrollScope;
+  subjectId: string;
+  displayName: string | null;
+  displayCode: string | null;
+  branchId: string | null;
+  source: 'ADMIN' | 'ESS' | 'KIOSK';
+  status: ReenrollRequestStatus;
+  reason: string | null;
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+}
 
 interface BranchOption { id: string; name: string }
 
@@ -52,9 +70,9 @@ interface BranchOption { id: string; name: string }
         <button class="tab-btn" [class.active]="tab === 'enroll'" (click)="switchTab('enroll')">Face Enrollment</button>
         <button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
           Re-enrollment Requests
-          <span *ngIf="pendingReenrollCount > 0"
+          <span *ngIf="totalPendingReenrollCount > 0"
                 class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
-            {{ pendingReenrollCount }}
+            {{ totalPendingReenrollCount }}
           </span>
         </button>
         <button class="tab-btn" [class.active]="tab === 'help'" (click)="switchTab('help')">Setup Guide</button>
@@ -269,9 +287,47 @@ interface BranchOption { id: string; name: string }
       <!-- ────── RE-ENROLLMENT REQUESTS TAB ────── -->
       <ng-container *ngIf="tab === 'reenroll'">
         <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <span class="text-sm text-gray-500">
-            {{ reenrollRows.length }} {{ reenrollFilter | lowercase }} request(s)
-          </span>
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="inline-flex rounded-md border border-gray-200 overflow-hidden text-sm">
+              <button type="button"
+                      class="px-3 py-1.5"
+                      [class.bg-indigo-600]="reenrollScope === 'employee'"
+                      [class.text-white]="reenrollScope === 'employee'"
+                      [class.bg-white]="reenrollScope !== 'employee'"
+                      [class.text-gray-700]="reenrollScope !== 'employee'"
+                      (click)="switchReenrollScope('employee')">
+                Employees
+                <span *ngIf="pendingReenrollCount > 0"
+                      class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
+                      [class.bg-white]="reenrollScope === 'employee'"
+                      [class.text-indigo-700]="reenrollScope === 'employee'"
+                      [class.bg-amber-100]="reenrollScope !== 'employee'"
+                      [class.text-amber-800]="reenrollScope !== 'employee'">
+                  {{ pendingReenrollCount }}
+                </span>
+              </button>
+              <button type="button"
+                      class="px-3 py-1.5 border-l border-gray-200"
+                      [class.bg-indigo-600]="reenrollScope === 'contractor'"
+                      [class.text-white]="reenrollScope === 'contractor'"
+                      [class.bg-white]="reenrollScope !== 'contractor'"
+                      [class.text-gray-700]="reenrollScope !== 'contractor'"
+                      (click)="switchReenrollScope('contractor')">
+                Contractors
+                <span *ngIf="pendingContractorReenrollCount > 0"
+                      class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
+                      [class.bg-white]="reenrollScope === 'contractor'"
+                      [class.text-indigo-700]="reenrollScope === 'contractor'"
+                      [class.bg-amber-100]="reenrollScope !== 'contractor'"
+                      [class.text-amber-800]="reenrollScope !== 'contractor'">
+                  {{ pendingContractorReenrollCount }}
+                </span>
+              </button>
+            </div>
+            <span class="text-sm text-gray-500">
+              {{ reenrollRows.length }} {{ reenrollFilter | lowercase }} request(s)
+            </span>
+          </div>
           <div class="flex items-center gap-2">
             <select [(ngModel)]="reenrollFilter" (ngModelChange)="loadReenrollRequests()" class="ui-input text-sm" style="width:auto">
               <option value="PENDING">Pending</option>
@@ -287,8 +343,10 @@ interface BranchOption { id: string; name: string }
 
         <ui-empty-state
           *ngIf="!loadingReenroll && reenrollRows.length === 0"
-          title="No {{ reenrollFilter | lowercase }} re-enrollment requests"
-          description="When an employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.">
+          title="No {{ reenrollFilter | lowercase }} {{ reenrollScope === 'contractor' ? 'contractor' : 'employee' }} re-enrollment requests"
+          [description]="reenrollScope === 'contractor'
+            ? 'When a contractor employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.'
+            : 'When an employee re-enrolls their face from the ESS app or kiosk, the new embedding lands here for review before it overwrites the live one.'">
         </ui-empty-state>
 
         <div *ngIf="!loadingReenroll && reenrollRows.length > 0"
@@ -296,7 +354,9 @@ interface BranchOption { id: string; name: string }
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="text-left px-4 py-3 font-semibold text-gray-700">Employee</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-700">
+                  {{ reenrollScope === 'contractor' ? 'Contractor Employee' : 'Employee' }}
+                </th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Source</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Reason</th>
                 <th class="text-left px-4 py-3 font-semibold text-gray-700">Requested</th>
@@ -307,8 +367,8 @@ interface BranchOption { id: string; name: string }
             <tbody>
               <tr *ngFor="let r of reenrollRows" class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="px-4 py-3">
-                  <div class="font-medium text-gray-900">{{ r.employeeName || '—' }}</div>
-                  <div class="text-xs text-gray-500">{{ r.employeeCode || r.employeeId }}</div>
+                  <div class="font-medium text-gray-900">{{ r.displayName || '—' }}</div>
+                  <div class="text-xs text-gray-500">{{ r.displayCode || r.subjectId }}</div>
                 </td>
                 <td class="px-4 py-3">
                   <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded"
@@ -456,13 +516,17 @@ interface BranchOption { id: string; name: string }
               (closed)="closeReview()">
       <div class="space-y-3 text-sm">
         <div class="text-gray-700">
-          <div><strong>Employee:</strong> {{ reviewRequest.employeeName }} ({{ reviewRequest.employeeCode }})</div>
+          <div>
+            <strong>{{ reviewRequest.scope === 'contractor' ? 'Contractor employee' : 'Employee' }}:</strong>
+            {{ reviewRequest.displayName }}
+            <span *ngIf="reviewRequest.displayCode">({{ reviewRequest.displayCode }})</span>
+          </div>
           <div><strong>Source:</strong> {{ reviewRequest.source }}</div>
           <div><strong>Requested:</strong> {{ reviewRequest.requestedAt | date:'medium' }}</div>
           <div *ngIf="reviewRequest.reason"><strong>Reason:</strong> {{ reviewRequest.reason }}</div>
         </div>
         <p *ngIf="reviewDecision === 'APPROVED'" class="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-xs">
-          Approving will overwrite this employee's live face embedding with the new one. The previous embedding cannot be recovered.
+          Approving will overwrite this {{ reviewRequest.scope === 'contractor' ? 'contractor employee' : 'employee' }}'s live face embedding with the new one. The previous embedding cannot be recovered.
         </p>
         <div>
           <label for="review-notes" class="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
@@ -567,14 +631,20 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   statusSearch = '';
 
   // Re-enrollment requests tab
-  reenrollRows: ReenrollRequest[] = [];
+  reenrollRows: ReenrollViewRow[] = [];
   loadingReenroll = false;
   reenrollFilter: ReenrollRequestStatus = 'PENDING';
+  reenrollScope: ReenrollScope = 'employee';
   pendingReenrollCount = 0;
-  reviewRequest: ReenrollRequest | null = null;
+  pendingContractorReenrollCount = 0;
+  reviewRequest: ReenrollViewRow | null = null;
   reviewDecision: 'APPROVED' | 'REJECTED' = 'APPROVED';
   reviewNotes = '';
   reviewingId: string | null = null;
+
+  get totalPendingReenrollCount(): number {
+    return this.pendingReenrollCount + this.pendingContractorReenrollCount;
+  }
 
   constructor(
     private svc: ClientMobileAttendanceService,
@@ -595,6 +665,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.loadDevices();
     this.loadEmployees();
     this.refreshPendingReenrollCount();
+    this.refreshPendingContractorReenrollCount();
   }
 
   ngOnDestroy(): void {
@@ -1115,20 +1186,79 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ── Re-enrollment requests (Phase 3e) ─────────────────────
+  // ── Re-enrollment requests (Phase 3e + 4c) ────────────────
+  switchReenrollScope(scope: ReenrollScope): void {
+    if (this.reenrollScope === scope) return;
+    this.reenrollScope = scope;
+    this.reenrollRows = [];
+    this.loadReenrollRequests();
+  }
+
   loadReenrollRequests(): void {
     this.loadingReenroll = true;
-    this.svc.listReenrollRequests(this.reenrollFilter)
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingReenroll = false; this.bump(); }))
-      .subscribe({
-        next: (rows) => {
-          this.reenrollRows = rows || [];
-          if (this.reenrollFilter === 'PENDING') {
-            this.pendingReenrollCount = this.reenrollRows.length;
-          }
-        },
-        error: (e) => this.toast.error(e?.error?.message || 'Failed to load re-enrollment requests'),
-      });
+    const scope = this.reenrollScope;
+    const done = () => { this.loadingReenroll = false; this.bump(); };
+    const onError = (e: any) =>
+      this.toast.error(e?.error?.message || 'Failed to load re-enrollment requests');
+    if (scope === 'contractor') {
+      this.svc.listContractorReenrollRequests(this.reenrollFilter)
+        .pipe(takeUntil(this.destroy$), finalize(done))
+        .subscribe({
+          next: (rows) => {
+            this.reenrollRows = (rows || []).map((r) => this.normalizeContractor(r));
+            if (this.reenrollFilter === 'PENDING') {
+              this.pendingContractorReenrollCount = this.reenrollRows.length;
+            }
+          },
+          error: onError,
+        });
+    } else {
+      this.svc.listReenrollRequests(this.reenrollFilter)
+        .pipe(takeUntil(this.destroy$), finalize(done))
+        .subscribe({
+          next: (rows) => {
+            this.reenrollRows = (rows || []).map((r) => this.normalizeEmployee(r));
+            if (this.reenrollFilter === 'PENDING') {
+              this.pendingReenrollCount = this.reenrollRows.length;
+            }
+          },
+          error: onError,
+        });
+    }
+  }
+
+  private normalizeEmployee(r: ReenrollRequest): ReenrollViewRow {
+    return {
+      id: r.id,
+      scope: 'employee',
+      subjectId: r.employeeId,
+      displayName: r.employeeName ?? null,
+      displayCode: r.employeeCode ?? null,
+      branchId: r.branchId,
+      source: r.source,
+      status: r.status,
+      reason: r.reason,
+      requestedAt: r.requestedAt,
+      reviewedAt: r.reviewedAt,
+      reviewNotes: r.reviewNotes,
+    };
+  }
+
+  private normalizeContractor(r: ContractorReenrollRequest): ReenrollViewRow {
+    return {
+      id: r.id,
+      scope: 'contractor',
+      subjectId: r.contractorEmployeeId,
+      displayName: r.contractorName ?? null,
+      displayCode: null,
+      branchId: r.branchId,
+      source: r.source,
+      status: r.status,
+      reason: r.reason,
+      requestedAt: r.requestedAt,
+      reviewedAt: r.reviewedAt,
+      reviewNotes: r.reviewNotes,
+    };
   }
 
   private refreshPendingReenrollCount(): void {
@@ -1140,7 +1270,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  openReview(r: ReenrollRequest, decision: 'APPROVED' | 'REJECTED'): void {
+  private refreshPendingContractorReenrollCount(): void {
+    this.svc.listContractorReenrollRequests('PENDING')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => { this.pendingContractorReenrollCount = (rows || []).length; this.bump(); },
+        error: () => { /* badge is best-effort */ },
+      });
+  }
+
+  openReview(r: ReenrollViewRow, decision: 'APPROVED' | 'REJECTED'): void {
     this.reviewRequest = r;
     this.reviewDecision = decision;
     this.reviewNotes = '';
@@ -1154,20 +1293,29 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   submitReview(): void {
     if (!this.reviewRequest) return;
     const id = this.reviewRequest.id;
+    const scope = this.reviewRequest.scope;
     this.reviewingId = id;
-    this.svc.reviewReenrollRequest(id, {
+    const body = {
       decision: this.reviewDecision,
       notes: this.reviewNotes.trim() || undefined,
-    })
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.reviewingId = null; this.bump(); }))
-      .subscribe({
-        next: (res) => {
-          this.toast.success(res.status === 'APPROVED' ? 'Request approved — embedding updated' : 'Request rejected');
-          this.closeReview();
-          this.loadReenrollRequests();
-          this.refreshPendingReenrollCount();
-        },
-        error: (e) => this.toast.error(e?.error?.message || 'Review failed'),
-      });
+    };
+    const done = () => { this.reviewingId = null; this.bump(); };
+    const onSuccess = (res: { status: 'APPROVED' | 'REJECTED' }) => {
+      this.toast.success(res.status === 'APPROVED' ? 'Request approved — embedding updated' : 'Request rejected');
+      this.closeReview();
+      this.loadReenrollRequests();
+      if (scope === 'contractor') this.refreshPendingContractorReenrollCount();
+      else this.refreshPendingReenrollCount();
+    };
+    const onError = (e: any) => this.toast.error(e?.error?.message || 'Review failed');
+    if (scope === 'contractor') {
+      this.svc.reviewContractorReenrollRequest(id, body)
+        .pipe(takeUntil(this.destroy$), finalize(done))
+        .subscribe({ next: onSuccess, error: onError });
+    } else {
+      this.svc.reviewReenrollRequest(id, body)
+        .pipe(takeUntil(this.destroy$), finalize(done))
+        .subscribe({ next: onSuccess, error: onError });
+    }
   }
 }
