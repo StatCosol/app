@@ -357,7 +357,11 @@ export class MobileAttendanceAdminController {
 
     const esc = (v: unknown): string => {
       if (v === null || v === undefined) return '';
-      const s = String(v);
+      let s: string;
+      if (typeof v === 'string') s = v;
+      else if (typeof v === 'number' || typeof v === 'boolean') s = String(v);
+      else if (v instanceof Date) s = v.toISOString();
+      else s = JSON.stringify(v);
       if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
       return s;
     };
