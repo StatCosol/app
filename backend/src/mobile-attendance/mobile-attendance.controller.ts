@@ -15,6 +15,7 @@ import { ReqUser } from '../access/access-scope.service';
 import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import {
+  EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
   MobilePunchDto,
@@ -150,6 +151,63 @@ export class MobileAttendanceAdminController {
       id,
       u.userId ?? null,
       body,
+      allowedBranchIds,
+    );
+  }
+
+  // -------------------------- Phase 4a: contractor face-attendance bridge.
+
+  @ApiOperation({
+    summary: 'Enroll a contractor employee face (admin or branch desk)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('contractors/enroll')
+  enrollContractor(
+    @CurrentUser() u: ReqUser,
+    @Body() body: EnrollContractorFaceDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.enrollContractorFace(
+      u.clientId,
+      u.userId ?? null,
+      body,
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'List contractor employees with face-enrollment status (Enrolled / Pending)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('contractors/enrollments')
+  listContractorEnrollments(@CurrentUser() u: ReqUser) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listContractorEnrollmentStatus(
+      u.clientId,
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Deactivate a contractor employee face enrollment (DPDP delete)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Delete('contractors/enroll/:contractorEmployeeId')
+  deactivateContractor(
+    @CurrentUser() u: ReqUser,
+    @Param('contractorEmployeeId') contractorEmployeeId: string,
+    @Query('reason') reason?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.deactivateContractorEnrollment(
+      u.clientId,
+      contractorEmployeeId,
+      u.userId ?? null,
+      reason ?? 'Admin deactivation',
       allowedBranchIds,
     );
   }
