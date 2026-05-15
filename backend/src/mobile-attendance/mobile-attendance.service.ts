@@ -761,6 +761,45 @@ export class MobileAttendanceService {
         });
     }
 
+    // Phase 4d: KIOSK-mode contractor roster. ESS devices are bound to an
+    // in-house employee and never punch contractors, so this stays empty
+    // there. Field is additive — old kiosk clients ignore it.
+    let contractorEnrollments: Array<{
+      contractorEmployeeId: string;
+      displayName: string;
+      branchId: string | null;
+      embeddingB64: string;
+      embeddingModel: string | null;
+    }> = [];
+    if (device.mode === 'KIOSK') {
+      const ctrWhere: Record<string, unknown> = {
+        clientId: device.clientId,
+        isActive: true,
+      };
+      if (device.branchId) ctrWhere.branchId = device.branchId;
+      const ctrRows = await this.contractorFaceRepo.find({
+        where: ctrWhere as any,
+      });
+      if (ctrRows.length) {
+        const ctrIds = ctrRows.map((r) => r.contractorEmployeeId);
+        const nameRows: Array<{ id: string; name: string }> =
+          await this.contractorFaceRepo.manager.query(
+            `SELECT id, name FROM contractor_employees WHERE id = ANY($1::uuid[])`,
+            [ctrIds],
+          );
+        const nameById = new Map(nameRows.map((n) => [n.id, n.name]));
+        contractorEnrollments = ctrRows
+          .filter((r) => r.embedding)
+          .map((r) => ({
+            contractorEmployeeId: r.contractorEmployeeId,
+            displayName: nameById.get(r.contractorEmployeeId) ?? '',
+            branchId: r.branchId,
+            embeddingB64: r.embedding!.toString('base64'),
+            embeddingModel: r.embeddingModel,
+          }));
+      }
+    }
+
     // Brand/branch labels for the kiosk header strip. Single round-trip; we
     // don't import the Branch/Client entities here to avoid pulling in their
     // modules just for two string columns.
@@ -795,6 +834,7 @@ export class MobileAttendanceService {
       geofenceRadiusM: device.geofenceRadiusM,
       essEmployeeId: device.essEmployeeId,
       enrollments,
+      contractorEnrollments,
     };
   }
 
