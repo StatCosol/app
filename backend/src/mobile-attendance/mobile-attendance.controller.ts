@@ -16,6 +16,7 @@ import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import {
   CreateContractorReenrollRequestDto,
+  ContractorMobilePunchDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -323,5 +324,15 @@ export class MobileAttendanceDeviceController {
   ) {
     const dev = await this.svc.resolveDeviceByToken(token);
     return this.svc.recordPunch(dev, body);
+  }
+
+  @ApiOperation({ summary: 'Submit a face-verified contractor attendance punch (KIOSK only)' })
+  @Post('punch/contractor')
+  async contractorPunch(
+    @Headers('x-device-token') token: string,
+    @Body() body: ContractorMobilePunchDto,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token);
+    return this.svc.recordContractorPunch(dev, body);
   }
 }
