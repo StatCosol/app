@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "statcompy-attendance"
 include(":app")
+include(":essportal")

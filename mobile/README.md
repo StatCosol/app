@@ -2,10 +2,11 @@
 
 Companion native Android app for the statcompy mobile-attendance backend module.
 
-### Two operating modes
+### Operating modes
 
-- **KIOSK** — a shared tablet placed at the gate. Any employee walks up, looks at the camera, and is identified using 1:N face matching against the local roster (offline-capable). Replacement for the eSSL MB20 fingerprint reader.
-- **ESS (Employee Self-Service)** — installed on an employee's personal phone. Performs 1:1 face verification for that employee only, plus a geofence check against the workplace coordinates.
+- **KIOSK** (`:app` kiosk flavor) — a shared tablet placed at the gate. Any employee walks up, looks at the camera, and is identified using 1:N face matching against the local roster (offline-capable). Replacement for the eSSL MB20 fingerprint reader.
+- **ESS (Employee Self-Service)** (`:app` ess flavor) — installed on an employee's personal phone. Performs 1:1 face verification for that employee only, plus a geofence check against the workplace coordinates. Native attendance-only.
+- **ESS Portal** (`:essportal` module) — full Angular ESS portal (login, dashboard, attendance with Face ID, leave, payslips, helpdesk, etc.) wrapped in a hardened WebView. Loads `https://app.statcosol.com/ess/login` by default. Lets employees install the entire ESS web app as a single icon on their phone — the web app at the same URL stays available unchanged. Long-press the offline banner to point it at staging.
 
 ### Architecture
 
@@ -46,7 +47,7 @@ The app stores per-install:
 
 ```
 cd mobile
-./gradlew :app:assembleDebug
+./gradlew :app:assembleKioskDebug :app:assembleEssDebug :essportal:assembleDebug
 ```
 
 Min SDK 26 (Android 8.0), Target SDK 34 (Android 14), Kotlin 1.9, AGP 8.4.
