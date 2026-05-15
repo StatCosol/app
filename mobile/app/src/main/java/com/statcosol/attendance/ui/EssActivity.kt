@@ -21,6 +21,7 @@ import com.statcosol.attendance.databinding.ActivityEssBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.RosterMatcher
+import com.statcosol.attendance.security.IntegrityCheck
 import com.statcosol.attendance.sync.PunchSyncWorker
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -173,6 +174,10 @@ class EssActivity : AppCompatActivity() {
                     binding.statusText.text = getString(R.string.ess_outside_geofence)
                     return@launch
                 }
+                if (IntegrityCheck.isMockLocation(location)) {
+                    binding.statusText.text = getString(R.string.ess_mock_location_blocked)
+                    return@launch
+                }
 
                 binding.statusText.text = "Look at the camera…"
                 val deferred = CompletableDeferred<Pair<FloatArray, Double>>()
@@ -249,7 +254,7 @@ class EssActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val MIN_MATCH = 0.70
+        private const val MIN_MATCH = 0.78
         private const val MIN_LIVENESS = 0.5
         private const val CAPTURE_TIMEOUT_MS = 10_000L
     }

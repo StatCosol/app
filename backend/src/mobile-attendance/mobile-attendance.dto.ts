@@ -140,6 +140,21 @@ export class MobilePunchDto {
   @IsOptional()
   @IsString()
   photoB64?: string;
+
+  /** True when Android Location.isFromMockProvider() reported a fake provider. */
+  @IsOptional()
+  @IsBoolean()
+  isMockLocation?: boolean;
+
+  /** True when the device root-integrity probe (su binary / Magisk) returned positive. */
+  @IsOptional()
+  @IsBoolean()
+  isRooted?: boolean;
+
+  /** Set true by the offline queue worker so the server skips the strict clock-skew gate. */
+  @IsOptional()
+  @IsBoolean()
+  offlineSync?: boolean;
 }
 
 export class MobilePunchBatchDto {

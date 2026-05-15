@@ -25,8 +25,18 @@ import {
   RegisterMobileDeviceDto,
 } from './mobile-attendance.dto';
 
-const MIN_MATCH_SCORE = 0.70; // mapped (cos+1)/2 threshold for MobileFaceNet (raw cos ~0.40); was 0.78 (raw cos 0.56) — too strict without face alignment
+// Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (raw cos 0.56) in Phase 3a
+// to tighten the false-accept band; spec asks 0.90 but that's too strict
+// without server-side face alignment, so we step up to 0.78 first and will
+// raise again once we add alignment.
+const MIN_MATCH_SCORE = 0.78;
 const MIN_LIVENESS_SCORE = 0.5;
+// Phase 3a: server-time clock-skew gate. A live punch's `punchTime` must
+// fall inside this window relative to server time. Punches outside the
+// window are rejected unless `body.offlineSync === true`, which is set by
+// the Android queue worker when draining offline rows.
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;        // 5 min ahead
+const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
 // Duplicate-face guard at enrollment: if any *other* employee in the same
 // client has a stored embedding whose mapped similarity to the new one is
 // >= this value, reject as a duplicate. 0.82 mapped == raw cos 0.64, well
@@ -590,6 +600,21 @@ export class MobileAttendanceService {
       }
     }
 
+    // Phase 3a: integrity gates BEFORE any quality gate so spoofed punches
+    // are surfaced with the most actionable reason.
+    if (body.isMockLocation === true) {
+      throw new ForbiddenException(
+        'Mock location detected — attendance blocked. Disable fake-GPS apps and try again.',
+      );
+    }
+    if (body.isRooted === true) {
+      this.logger.warn(
+        `recordPunch rooted-device employee=${emp.employeeCode ?? emp.id} client=${device.clientId} device=${device.id}`,
+      );
+      // Soft-block: log but allow (some legitimate factory tablets are rooted).
+      // Flip to ForbiddenException after the rooted-device review is signed off.
+    }
+
     // Quality gates — reject low confidence / liveness
     if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
@@ -625,6 +650,23 @@ export class MobileAttendanceService {
     const ts = new Date(body.punchTime);
     if (isNaN(ts.getTime()))
       throw new BadRequestException('Invalid punchTime');
+
+    // Phase 3a: server-time clock-skew gate. Live punches must be within a
+    // tight window of server time. Offline-queue drains (offlineSync=true)
+    // bypass the backlog cap because legitimate offline rows can be days
+    // old; we still reject anything in the future to prevent replay attacks.
+    const nowMs = Date.now();
+    const tsMs = ts.getTime();
+    if (tsMs - nowMs > MAX_FUTURE_SKEW_MS) {
+      throw new BadRequestException(
+        'Device clock is ahead of the server — please re-sync time and try again.',
+      );
+    }
+    if (!body.offlineSync && nowMs - tsMs > MAX_OFFLINE_BACKLOG_MS) {
+      throw new BadRequestException(
+        'Punch timestamp is older than 24 hours — submit via the offline-sync queue.',
+      );
+    }
 
     // Post-logout cooldown: if the most recent punch for this employee was
     // an OUT and less than 8h have elapsed, reject. Prevents marking another
