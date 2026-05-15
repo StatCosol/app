@@ -147,6 +147,16 @@ class MainActivity : AppCompatActivity() {
             allowContentAccess = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
+            // Honour the page's <meta name="viewport" content="width=device-width">
+            // so ESS pages render at phone width instead of pretending to be a
+            // 980-px desktop viewport.
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            // Pinch-to-zoom is allowed (page is responsive) but the on-screen
+            // zoom controls are hidden — they overlap the bottom nav.
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
             userAgentString = "$userAgentString StatcoEssPortal/${BuildConfig.VERSION_NAME}"
         }
         CookieManager.getInstance().setAcceptCookie(true)
