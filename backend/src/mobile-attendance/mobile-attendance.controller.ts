@@ -286,6 +286,37 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
+      'Aggregated face-attendance failure counts (total / by reason / by branch / by day / by subject) for dashboards',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('failed-scans/stats')
+  failedScanStats(
+    @CurrentUser() u: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    const subj =
+      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
+        ? subjectType
+        : null;
+    return this.svc.failedScanStats(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        subjectType: subj,
+      },
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
       'List contractors (parent vendors) with active employees in the caller\u2019s allowed branches; drives the branch-portal contractor picker',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
