@@ -291,6 +291,34 @@ export class ClientMobileAttendanceService {
       `${this.base}/contractors/punches${qs}`,
     );
   }
+
+  // ── Admin face-failure audit (Phase 4d step 7) ──
+  listFailedScans(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      reason?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+      employeeId?: string;
+      contractorEmployeeId?: string;
+      limit?: number;
+    } = {},
+  ): Observable<FailedScanRow[]> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.reason) parts.push(`reason=${encodeURIComponent(opts.reason)}`);
+    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
+    if (opts.employeeId)
+      parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
+    if (opts.contractorEmployeeId)
+      parts.push(`contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`);
+    if (opts.limit) parts.push(`limit=${opts.limit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<FailedScanRow[]>(`${this.base}/failed-scans${qs}`);
+  }
 }
 
 export interface ContractorForBranchRow {
@@ -312,6 +340,26 @@ export interface ContractorPunchRow {
   source: string;
   deviceId: string | null;
   photoUrl: string | null;
+  matchScore: string | null;
+  livenessScore: string | null;
+  captureLat: string | null;
+  captureLng: string | null;
+}
+
+export interface FailedScanRow {
+  id: string;
+  attemptedAt: string;
+  branchId: string | null;
+  deviceId: string | null;
+  employeeId: string | null;
+  employeeCode: string | null;
+  employeeName: string | null;
+  contractorEmployeeId: string | null;
+  contractorEmployeeName: string | null;
+  contractorUserId: string | null;
+  contractorName: string | null;
+  reason: string;
+  reasonDetail: string | null;
   matchScore: string | null;
   livenessScore: string | null;
   captureLat: string | null;

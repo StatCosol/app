@@ -97,6 +97,10 @@ const ClientMobileAttendanceComponent = () =>
   import('./mobile-attendance/client-mobile-attendance.component').then(
     (m) => m.ClientMobileAttendanceComponent,
   );
+const ClientFaceFailuresComponent = () =>
+  import('./face-failures/client-face-failures.component').then(
+    (m) => m.ClientFaceFailuresComponent,
+  );
 const NewsDetailComponent = () =>
   import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 const ClientAuditSummariesComponent = () =>
@@ -187,6 +191,7 @@ export const CLIENT_ROUTES: Routes = [
       { path: 'attendance/daily', loadComponent: ClientDailyAttendancePage },
       { path: 'biometric', loadComponent: ClientBiometricComponent },
       { path: 'mobile-attendance', loadComponent: ClientMobileAttendanceComponent },
+      { path: 'face-failures', loadComponent: ClientFaceFailuresComponent },
       { path: 'news', loadComponent: NewsDetailComponent },
       { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'notices', loadComponent: ClientNoticesComponent },
