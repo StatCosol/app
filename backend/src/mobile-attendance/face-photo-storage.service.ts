@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import {
+  BlobServiceClient,
+  ContainerClient,
+} from '@azure/storage-blob';
 
 /**
  * Phase 3c: face-evidence storage.
@@ -15,9 +19,13 @@ import * as path from 'path';
  *   - `local`: writes to `<root>/<clientId>/<yyyy-mm-dd>/<empCode>-<ts>.jpg`
  *     under `FACE_PHOTO_AUDIT_DIR` (default `backend/uploads/face-evidence`).
  *     Suitable for on-prem deployments and pre-production testing.
- *   - `azure-blob`: NOT WIRED YET — requires `@azure/storage-blob` and a
- *     SAS connection string in `FACE_PHOTO_AUDIT_BLOB_CONN`. Throws on
- *     selection so we fail loud instead of silently dropping evidence.
+ *   - `azure-blob`: uploads to a private Azure Blob container. Requires:
+ *       * `FACE_PHOTO_AUDIT_BLOB_CONN`   — full connection string OR a
+ *         container SAS URL (`https://<acct>.blob.core.windows.net/<c>?sv=...`).
+ *       * `FACE_PHOTO_AUDIT_BLOB_CONTAINER` — container name (default
+ *         `face-evidence`). Ignored when CONN is a container SAS URL.
+ *     Container must exist with PRIVATE access — the service does not
+ *     auto-create one (the SAS may not have create permission).
  *
  * MUST only be enabled with explicit user consent + a privacy notice; raw
  * selfies are sensitive biometric data.
@@ -27,6 +35,10 @@ export class FacePhotoStorage {
   private readonly logger = new Logger(FacePhotoStorage.name);
   private readonly mode: 'disabled' | 'local' | 'azure-blob';
   private readonly rootDir: string;
+  /** Lazily-initialised Azure container client. Null when not in
+   *  `azure-blob` mode or when init failed. */
+  private blobContainer: ContainerClient | null = null;
+  private blobInitError: string | null = null;
 
   constructor() {
     const raw = (process.env.FACE_PHOTO_AUDIT || 'disabled').toLowerCase();
@@ -37,6 +49,9 @@ export class FacePhotoStorage {
     this.rootDir =
       process.env.FACE_PHOTO_AUDIT_DIR ||
       path.resolve(process.cwd(), 'uploads', 'face-evidence');
+    if (this.mode === 'azure-blob') {
+      this.initBlob();
+    }
     if (this.mode !== 'disabled') {
       this.logger.log(
         `FacePhotoStorage active: mode=${this.mode} root=${this.rootDir}`,
@@ -71,9 +86,7 @@ export class FacePhotoStorage {
         return await this.putLocal(input, buf);
       }
       if (this.mode === 'azure-blob') {
-        throw new Error(
-          'FACE_PHOTO_AUDIT=azure-blob requires @azure/storage-blob; install it and wire FACE_PHOTO_AUDIT_BLOB_CONN before enabling.',
-        );
+        return await this.putBlob(input, buf);
       }
     } catch (e: any) {
       this.logger.warn(
@@ -119,5 +132,70 @@ export class FacePhotoStorage {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * One-shot initialisation of the Azure container client. Logs and disables
+   * blob mode in-process if the connection string is missing/invalid so we
+   * fall back to returning null instead of crashing the punch flow.
+   */
+  private initBlob(): void {
+    const conn = process.env.FACE_PHOTO_AUDIT_BLOB_CONN;
+    if (!conn) {
+      this.blobInitError =
+        'FACE_PHOTO_AUDIT_BLOB_CONN is not set; face-photo audit disabled.';
+      this.logger.error(this.blobInitError);
+      return;
+    }
+    const containerName =
+      process.env.FACE_PHOTO_AUDIT_BLOB_CONTAINER || 'face-evidence';
+    try {
+      // Two accepted forms:
+      //   1. Storage account connection string ("DefaultEndpointsProtocol=...").
+      //   2. Container SAS URL ("https://<acct>.blob.core.windows.net/<c>?sv=...").
+      if (conn.startsWith('http://') || conn.startsWith('https://')) {
+        this.blobContainer = new ContainerClient(conn);
+      } else {
+        const svc = BlobServiceClient.fromConnectionString(conn);
+        this.blobContainer = svc.getContainerClient(containerName);
+      }
+      this.logger.log(
+        `FacePhotoStorage azure-blob container ready (${this.blobContainer.containerName ?? containerName})`,
+      );
+    } catch (e: any) {
+      this.blobInitError = `FacePhotoStorage azure-blob init failed: ${e?.message ?? e}`;
+      this.logger.error(this.blobInitError);
+      this.blobContainer = null;
+    }
+  }
+
+  private async putBlob(
+    input: {
+      clientId: string;
+      employeeCode: string;
+      purpose: 'enroll' | 'punch';
+      timestamp: Date;
+    },
+    buf: Buffer,
+  ): Promise<string | null> {
+    const container = this.blobContainer;
+    if (!container) {
+      // Init failed earlier; don't spam the log per-punch.
+      return null;
+    }
+    const ymd = input.timestamp.toISOString().slice(0, 10);
+    const ts = input.timestamp.getTime();
+    const safeEmp = input.employeeCode.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeClient = input.clientId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const blobName = `${safeClient}/${input.purpose}/${ymd}/${safeEmp}-${ts}.jpg`;
+    const block = container.getBlockBlobClient(blobName);
+    await block.uploadData(buf, {
+      blobHTTPHeaders: { blobContentType: 'image/jpeg' },
+    });
+    // Return the blob URL WITHOUT the SAS query string — the URL alone is
+    // not directly accessible since the container is private. Admin tools
+    // that need to view the photo can mint a short-lived SAS on demand.
+    const baseUrl = block.url.split('?')[0];
+    return baseUrl;
   }
 }
