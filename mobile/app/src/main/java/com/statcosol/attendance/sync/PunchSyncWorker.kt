@@ -36,6 +36,8 @@ class PunchSyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
                     captureAccuracyM = q.captureAccuracyM,
                     isRooted = if (app.isDeviceRooted) true else null,
                     offlineSync = true,
+                    livenessChallengeType = q.livenessChallengeType,
+                    livenessChallengePassedAt = q.livenessChallengePassedAtIso,
                 )
                 val resp = api.postPunch(body)
                 if (resp.ok) {

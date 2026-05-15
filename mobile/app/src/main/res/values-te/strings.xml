@@ -23,4 +23,14 @@
     <string name="kiosk_voice_recorded">%1$s హాజరు నమోదైంది</string>
     <string name="kiosk_voice_logout_recorded">%1$s లాగౌట్ నమోదైంది</string>
     <string name="kiosk_voice_face_not_recognised">ముఖం గుర్తించబడలేదు, మళ్లీ ప్రయత్నించండి</string>
+
+    <!-- Active-liveness challenge prompts (Phase 3d). -->
+    <string name="liveness_prompt_blink">దయచేసి మీ కళ్ళు మూసి తెరవండి</string>
+    <string name="liveness_prompt_smile">దయచేసి కెమెరా వైపు నవ్వండి</string>
+    <string name="liveness_prompt_head_left">మీ తలను నెమ్మదిగా ఎడమ వైపుకు తిప్పండి</string>
+    <string name="liveness_prompt_head_right">మీ తలను నెమ్మదిగా కుడి వైపుకు తిప్పండి</string>
+    <string name="liveness_passed">జీవత్వ తనిఖీ సఫలమైంది</string>
+    <string name="liveness_failed_retry">జీవత్వ తనిఖీ విఫలమైంది — దయచేసి మళ్లీ ప్రయత్నించండి</string>
+    <string name="liveness_timeout">జీవత్వ తనిఖీ సమయం ముగిసింది — దయచేసి మళ్లీ ప్రయత్నించండి</string>
+    <string name="kiosk_liveness_prompt_with_name">హాయ్ %1$s — %2$s</string>
 </resources>

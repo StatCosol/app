@@ -20,6 +20,9 @@ import com.statcosol.attendance.api.RosterResponse
 import com.statcosol.attendance.databinding.ActivityEssBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
+import com.statcosol.attendance.face.FaceSignal
+import com.statcosol.attendance.face.LivenessChallenge
+import com.statcosol.attendance.face.LivenessChallengeTracker
 import com.statcosol.attendance.face.RosterMatcher
 import com.statcosol.attendance.security.IntegrityCheck
 import com.statcosol.attendance.sync.PunchSyncWorker
@@ -59,6 +62,13 @@ class EssActivity : AppCompatActivity() {
 
     /** Set non-null while a Punch tap is awaiting the next live face frame. */
     private var pending: CompletableDeferred<Pair<FloatArray, Double>>? = null
+
+    /** Set non-null while a Punch tap is in the active-liveness challenge
+     *  phase. Camera signals are forwarded into this tracker. */
+    @Volatile private var challengeTracker: LivenessChallengeTracker? = null
+    /** Awaiter that the punch flow blocks on; completed when the gesture
+     *  passes (true) or skipped/timed-out (false). */
+    private var challengeAwaiter: CompletableDeferred<Boolean>? = null
 
     private val cameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -146,7 +156,16 @@ class EssActivity : AppCompatActivity() {
                     }
                 }
             },
+            onFaceSignal = { signal -> handleFaceSignal(signal) },
         ).also { it.start() }
+    }
+
+    private fun handleFaceSignal(signal: FaceSignal) {
+        val tracker = challengeTracker ?: return
+        val awaiter = challengeAwaiter ?: return
+        if (tracker.feed(signal) && !awaiter.isCompleted) {
+            awaiter.complete(true)
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -179,6 +198,23 @@ class EssActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                // ---- Active-liveness challenge ---------------------------
+                val challenge = LivenessChallenge.random()
+                val tracker = LivenessChallengeTracker(challenge)
+                val awaiter = CompletableDeferred<Boolean>()
+                challengeTracker = tracker
+                challengeAwaiter = awaiter
+                binding.statusText.text = getString(promptResFor(challenge))
+                val challengePassed = withTimeoutOrNull(CHALLENGE_TIMEOUT_MS) { awaiter.await() } ?: false
+                challengeTracker = null
+                challengeAwaiter = null
+                if (!challengePassed) {
+                    binding.statusText.text = getString(R.string.liveness_timeout)
+                    return@launch
+                }
+                binding.statusText.text = getString(R.string.liveness_passed)
+                // ----------------------------------------------------------
+
                 binding.statusText.text = "Look at the camera…"
                 val deferred = CompletableDeferred<Pair<FloatArray, Double>>()
                 pending = deferred
@@ -206,7 +242,9 @@ class EssActivity : AppCompatActivity() {
                     livenessScore = liveness,
                     captureLat = location.latitude,
                     captureLng = location.longitude,
-                    captureAccuracyM = location.accuracy.toDouble()
+                    captureAccuracyM = location.accuracy.toDouble(),
+                    livenessChallengeType = tracker.challenge.wireName,
+                    livenessChallengePassedAtIso = tracker.passedAtIso(),
                 )
                 withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
                 WorkManager.getInstance(this@EssActivity).enqueue(
@@ -253,9 +291,17 @@ class EssActivity : AppCompatActivity() {
         return sdf.format(Date())
     }
 
+    private fun promptResFor(c: LivenessChallenge): Int = when (c) {
+        LivenessChallenge.BLINK -> R.string.liveness_prompt_blink
+        LivenessChallenge.SMILE -> R.string.liveness_prompt_smile
+        LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
+        LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
+    }
+
     companion object {
         private const val MIN_MATCH = 0.78
         private const val MIN_LIVENESS = 0.5
         private const val CAPTURE_TIMEOUT_MS = 10_000L
+        private const val CHALLENGE_TIMEOUT_MS = 8_000L
     }
 }

@@ -23,6 +23,9 @@ import com.statcosol.attendance.R
 import com.statcosol.attendance.databinding.ActivityCameraBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
+import com.statcosol.attendance.face.FaceSignal
+import com.statcosol.attendance.face.LivenessChallenge
+import com.statcosol.attendance.face.LivenessChallengeTracker
 import com.statcosol.attendance.face.RosterMatcher
 import com.statcosol.attendance.sync.PunchSyncWorker
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +67,16 @@ class KioskActivity : AppCompatActivity() {
 
     /** True while the logout-confirmation dialog is on screen. */
     @Volatile private var dialogActive: Boolean = false
+
+    /** Active-liveness challenge state. While [pendingChallengeMatch] is
+     *  non-null we are in "challenge mode" — onFace embeddings are ignored
+     *  and the camera is feeding [pendingChallengeTracker] until it passes
+     *  or [pendingChallengeTimeout] fires. */
+    @Volatile private var pendingChallengeMatch: RosterMatcher.Match? = null
+    @Volatile private var pendingChallengeLiveness: Double = 0.0
+    @Volatile private var pendingChallengeDirection: String = "IN"
+    @Volatile private var pendingChallengeTracker: LivenessChallengeTracker? = null
+    private val pendingChallengeTimeout = Runnable { abortChallenge(timedOut = true) }
 
     /** Voice feedback for noisy factory floors. Best-effort — silently
      *  no-ops if the device has no TTS engine installed. */
@@ -129,6 +142,7 @@ class KioskActivity : AppCompatActivity() {
     override fun onDestroy() {
         mainHandler.removeCallbacks(hideOverlayRunnable)
         mainHandler.removeCallbacks(clockRunnable)
+        mainHandler.removeCallbacks(pendingChallengeTimeout)
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -220,6 +234,7 @@ class KioskActivity : AppCompatActivity() {
             scope = lifecycleScope,
             onFace = { probe, liveness -> handleFace(probe, liveness) },
             onError = { code -> runOnUiThread { showCaptureError(code) } },
+            onFaceSignal = { signal -> handleFaceSignal(signal) },
         ).also { it.start() }
     }
 
@@ -242,6 +257,10 @@ class KioskActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         val matcherSnap = matcher ?: return
         if (dialogActive) return
+        // While a challenge is in flight ignore further embeddings — the
+        // user has already been matched and we're only waiting for the
+        // gesture to be performed.
+        if (pendingChallengeTracker != null) return
         if (now - lastPunchAt < COOLDOWN_MS) return
         if (liveness < MIN_LIVENESS) return
 
@@ -265,7 +284,7 @@ class KioskActivity : AppCompatActivity() {
         when {
             prev == null -> {
                 // First time today on this device -> log them IN immediately.
-                recordPunch(match, "IN", liveness)
+                beginChallenge(match, "IN", liveness)
             }
             prev.direction == "IN" -> {
                 // Already punched in today — confirm before queuing OUT so accidental
@@ -280,6 +299,67 @@ class KioskActivity : AppCompatActivity() {
                 runOnUiThread { showAlreadyDoneInfo(match) }
             }
         }
+    }
+
+    /**
+     * Switches the kiosk into "challenge mode": picks a random gesture,
+     * displays its localized prompt, arms the [LivenessChallengeTracker]
+     * that [handleFaceSignal] feeds, and schedules a timeout that aborts
+     * the punch if the gesture isn't completed.
+     */
+    private fun beginChallenge(match: RosterMatcher.Match, direction: String, liveness: Double) {
+        val challenge = LivenessChallenge.random()
+        pendingChallengeMatch = match
+        pendingChallengeLiveness = liveness
+        pendingChallengeDirection = direction
+        pendingChallengeTracker = LivenessChallengeTracker(challenge)
+        runOnUiThread {
+            binding.statusText.text = getString(
+                R.string.kiosk_liveness_prompt_with_name,
+                match.entry.displayName,
+                getString(promptResFor(challenge)),
+            )
+            speak(getString(promptResFor(challenge)))
+        }
+        mainHandler.removeCallbacks(pendingChallengeTimeout)
+        mainHandler.postDelayed(pendingChallengeTimeout, CHALLENGE_TIMEOUT_MS)
+    }
+
+    private fun handleFaceSignal(signal: FaceSignal) {
+        val tracker = pendingChallengeTracker ?: return
+        val match = pendingChallengeMatch ?: return
+        if (!tracker.feed(signal)) return
+        // Tracker just flipped to passed \u2014 finalise the punch on the main
+        // thread and clear the timeout. recordPunch() reads the tracker
+        // back out for the wire fields, so we don't pass them in here.
+        mainHandler.removeCallbacks(pendingChallengeTimeout)
+        runOnUiThread {
+            binding.statusText.text = getString(R.string.liveness_passed)
+        }
+        lifecycleScope.launch {
+            recordPunch(match, pendingChallengeDirection, pendingChallengeLiveness)
+        }
+    }
+
+    private fun abortChallenge(timedOut: Boolean) {
+        if (pendingChallengeTracker == null) return
+        pendingChallengeTracker = null
+        pendingChallengeMatch = null
+        mainHandler.removeCallbacks(pendingChallengeTimeout)
+        // Reset cooldown so a determined user can immediately retry.
+        lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
+        runOnUiThread {
+            binding.statusText.text = getString(
+                if (timedOut) R.string.liveness_timeout else R.string.liveness_failed_retry
+            )
+        }
+    }
+
+    private fun promptResFor(c: LivenessChallenge): Int = when (c) {
+        LivenessChallenge.BLINK -> R.string.liveness_prompt_blink
+        LivenessChallenge.SMILE -> R.string.liveness_prompt_smile
+        LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
+        LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
     }
 
     private fun showAlreadyDoneInfo(match: RosterMatcher.Match) {
@@ -311,7 +391,7 @@ class KioskActivity : AppCompatActivity() {
                 d.dismiss()
                 dialogActive = false
                 lastPunchAt = System.currentTimeMillis()
-                lifecycleScope.launch { recordPunch(match, "OUT", liveness) }
+                beginChallenge(match, "OUT", liveness)
             }
             .setNegativeButton(R.string.kiosk_logout_confirm_no) { d, _ ->
                 d.dismiss()
@@ -326,6 +406,13 @@ class KioskActivity : AppCompatActivity() {
     private suspend fun recordPunch(match: RosterMatcher.Match, direction: String, liveness: Double) {
         val now = System.currentTimeMillis()
         lastPunchAt = now
+        val tracker = pendingChallengeTracker
+        val challengeType = tracker?.challenge?.wireName
+        val challengePassedAt = tracker?.passedAtIso()
+        // Clear before any UI work so a stale tracker can't re-fire.
+        pendingChallengeTracker = null
+        pendingChallengeMatch = null
+        mainHandler.removeCallbacks(pendingChallengeTimeout)
         val q = QueuedPunch(
             employeeId = match.entry.employeeId,
             employeeCode = match.entry.employeeCode,
@@ -335,7 +422,9 @@ class KioskActivity : AppCompatActivity() {
             livenessScore = liveness,
             captureLat = null,
             captureLng = null,
-            captureAccuracyM = null
+            captureAccuracyM = null,
+            livenessChallengeType = challengeType,
+            livenessChallengePassedAtIso = challengePassedAt,
         )
         withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
         WorkManager.getInstance(this).enqueue(
@@ -402,5 +491,10 @@ class KioskActivity : AppCompatActivity() {
         // like an instant logout).
         private const val COOLDOWN_MS = 30_000L
         private const val OVERLAY_VISIBLE_MS = 4_000L
+        /** How long the user has to perform the active-liveness gesture
+         *  after their face has been matched. Tuned to be long enough for
+         *  a head-turn but short enough that a person who walks away
+         *  doesn't pin the kiosk in challenge mode. */
+        private const val CHALLENGE_TIMEOUT_MS = 8_000L
     }
 }

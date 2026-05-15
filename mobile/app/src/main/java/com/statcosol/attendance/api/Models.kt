@@ -45,6 +45,13 @@ data class PunchBody(
     val isRooted: Boolean? = null,
     /** Set true by the offline drain worker so the server skips the strict 24h backlog cap. */
     val offlineSync: Boolean? = null,
+    /** Phase 3d: active-liveness challenge type, one of
+     *  BLINK | SMILE | HEAD_TURN_LEFT | HEAD_TURN_RIGHT.
+     *  Server enforces presence when env `FACE_LIVENESS_CHALLENGE_REQUIRED` is set. */
+    val livenessChallengeType: String? = null,
+    /** ISO-8601 UTC timestamp when the challenge was satisfied on-device.
+     *  Server requires it within ±2 minutes of receipt. */
+    val livenessChallengePassedAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

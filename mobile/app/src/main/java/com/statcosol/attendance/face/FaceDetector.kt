@@ -38,6 +38,15 @@ class FaceDetector {
         /** Total number of faces ML Kit detected in this frame. >1 means
          *  the caller MUST reject the punch (multi-face / proxy attempt). */
         val faceCount: Int,
+        /** Per-frame ML Kit signals exposed for active-liveness challenges.
+         *  Null means the classifier did not report a value. Yaw is in
+         *  degrees: positive = head turned to the user's right (so the
+         *  face appears toward the left of the front-camera mirror image). */
+        val smilingProb: Float?,
+        val leftEyeOpenProb: Float?,
+        val rightEyeOpenProb: Float?,
+        val headYawDeg: Float,
+        val headPitchDeg: Float,
     )
 
     suspend fun detectLargest(source: Bitmap, rotationDegrees: Int = 0): Result? {
@@ -51,6 +60,11 @@ class FaceDetector {
             crop = crop,
             livenessScore = livenessOf(largest),
             faceCount = faces.size,
+            smilingProb = largest.smilingProbability,
+            leftEyeOpenProb = largest.leftEyeOpenProbability,
+            rightEyeOpenProb = largest.rightEyeOpenProbability,
+            headYawDeg = largest.headEulerAngleY,
+            headPitchDeg = largest.headEulerAngleX,
         )
     }
 
