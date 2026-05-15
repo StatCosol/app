@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BiometricModule } from '../biometric/biometric.module';
+import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { MobileAttendanceDeviceEntity } from './entities/mobile-attendance-device.entity';
 import {
@@ -17,8 +19,10 @@ import { FacePhotoStorage } from './face-photo-storage.service';
   imports: [
     TypeOrmModule.forFeature([
       FaceEnrollmentEntity,
+      ContractorFaceEnrollmentEntity,
       MobileAttendanceDeviceEntity,
       EmployeeEntity,
+      ContractorEmployeeEntity,
     ]),
     BiometricModule,
     NotificationsModule,

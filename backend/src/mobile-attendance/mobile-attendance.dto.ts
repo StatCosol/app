@@ -72,6 +72,35 @@ export class EnrollFaceDto {
   consentGiven!: boolean;
 }
 
+/**
+ * Phase 4a: enroll a contractor employee's face. Mirrors EnrollFaceDto but
+ * targets `contractor_employees.id` (a separate table) so contractor
+ * lifecycle is decoupled from the in-house workforce.
+ */
+export class EnrollContractorFaceDto {
+  @IsUUID()
+  contractorEmployeeId!: string;
+
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
+  @IsOptional()
+  @IsString()
+  photoMime?: string;
+
+  @IsOptional()
+  @IsString()
+  embeddingBase64?: string;
+
+  @IsOptional()
+  @IsString()
+  embeddingModel?: string;
+
+  @IsBoolean()
+  consentGiven!: boolean;
+}
+
 /** Payload posted by the Android ESS app from the bound employee's own phone. */
 export class EnrollSelfDto {
   /** 192-d Float32 embedding, base64-encoded, generated on-device. */

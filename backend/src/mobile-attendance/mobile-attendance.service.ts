@@ -11,8 +11,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
+import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
@@ -21,6 +23,7 @@ import {
   MobileDeviceMode,
 } from './entities/mobile-attendance-device.entity';
 import {
+  EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
   MobilePunchDto,
@@ -66,10 +69,14 @@ export class MobileAttendanceService {
   constructor(
     @InjectRepository(FaceEnrollmentEntity)
     private readonly faceRepo: Repository<FaceEnrollmentEntity>,
+    @InjectRepository(ContractorFaceEnrollmentEntity)
+    private readonly contractorFaceRepo: Repository<ContractorFaceEnrollmentEntity>,
     @InjectRepository(MobileAttendanceDeviceEntity)
     private readonly deviceRepo: Repository<MobileAttendanceDeviceEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
+    @InjectRepository(ContractorEmployeeEntity)
+    private readonly contractorEmpRepo: Repository<ContractorEmployeeEntity>,
     private readonly biometricService: BiometricService,
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
     private readonly notifications: NotificationsService,
@@ -1244,6 +1251,255 @@ export class MobileAttendanceService {
       );
     } catch (e: any) {
       this.logger.warn(`logEnrollmentHistory failed: ${e?.message ?? e}`);
+    }
+  }
+
+  // ============================================================ contractors
+  // Phase 4a: face enrollment lifecycle for contractor employees. Targets
+  // contractor_employees.id (separate table from the in-house workforce)
+  // and writes to the parallel contractor_face_enrollments table. Punch
+  // path for contractors is NOT yet wired — this only covers enrollment,
+  // listing, and deactivation from the admin/branch desk.
+
+  async enrollContractorFace(
+    clientId: string,
+    enrolledBy: string | null,
+    body: EnrollContractorFaceDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<ContractorFaceEnrollmentEntity> {
+    if (!body.consentGiven) {
+      throw new BadRequestException(
+        'Contractor employee consent is required for biometric enrollment',
+      );
+    }
+    if (!body.embeddingBase64 && !body.photoBase64) {
+      throw new BadRequestException(
+        'Provide either embeddingBase64 or photoBase64',
+      );
+    }
+    const ce = await this.contractorEmpRepo.findOne({
+      where: { id: body.contractorEmployeeId, clientId },
+    });
+    if (!ce) throw new NotFoundException('Contractor employee not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(ce.branchId ?? '')) {
+      throw new ForbiddenException(
+        'Contractor employee is not in your branch scope',
+      );
+    }
+    if (!ce.isActive) {
+      throw new BadRequestException(
+        'Contractor employee is inactive; reactivate before enrolling a face',
+      );
+    }
+
+    let embedding: Buffer | null = body.embeddingBase64
+      ? Buffer.from(body.embeddingBase64, 'base64')
+      : null;
+    let embeddingModel: string | null = body.embeddingModel ?? null;
+
+    if (!embedding && body.photoBase64) {
+      if (!this.faceEmbeddingClient.isEnabled()) {
+        throw new BadRequestException(
+          'Server-side face embedding is not configured (FACE_SVC_URL unset)',
+        );
+      }
+      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      if (!result) {
+        throw new BadRequestException('Face embedding service unavailable');
+      }
+      embedding = Buffer.from(result.embeddingBase64, 'base64');
+      embeddingModel = embeddingModel || result.embeddingModel;
+      this.logger.log(
+        `enrollContractorFace photo→embed ok contractorEmp=${ce.id} bytes=${embedding.length}`,
+      );
+    }
+
+    const photoUrl = await this.facePhotos.put({
+      clientId,
+      // Contractor employees have no employee_code; use the UUID for the
+      // storage key so audit blobs are still uniquely addressable.
+      employeeCode: `contractor-${ce.id}`,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
+    const existing = await this.contractorFaceRepo.findOne({
+      where: { contractorEmployeeId: ce.id },
+    });
+    const now = new Date();
+    const payload: Partial<ContractorFaceEnrollmentEntity> = {
+      contractorEmployeeId: ce.id,
+      clientId,
+      branchId: ce.branchId ?? null,
+      contractorUserId: ce.contractorUserId ?? null,
+      embedding,
+      embeddingModel: embeddingModel ?? 'mobilefacenet-v1',
+      photoUrl,
+      consentGivenAt: now,
+      consentGivenBy: enrolledBy,
+      enrolledAt: now,
+      enrolledBy,
+      isActive: true,
+      deactivatedAt: null,
+      deactivationReason: null,
+    };
+    if (existing) {
+      await this.contractorFaceRepo.update(
+        { contractorEmployeeId: ce.id },
+        payload,
+      );
+      await this.logContractorEnrollmentHistory({
+        contractorEmployeeId: ce.id,
+        clientId,
+        action: 'RE_ENROLL',
+        embeddingModel: payload.embeddingModel ?? null,
+        actorUserId: enrolledBy ?? null,
+      });
+      return (await this.contractorFaceRepo.findOne({
+        where: { contractorEmployeeId: ce.id },
+      }))!;
+    }
+    const created = await this.contractorFaceRepo.save(
+      this.contractorFaceRepo.create(payload),
+    );
+    await this.logContractorEnrollmentHistory({
+      contractorEmployeeId: ce.id,
+      clientId,
+      action: 'ENROLL',
+      embeddingModel: payload.embeddingModel ?? null,
+      actorUserId: enrolledBy ?? null,
+    });
+    return created;
+  }
+
+  async deactivateContractorEnrollment(
+    clientId: string,
+    contractorEmployeeId: string,
+    by: string | null,
+    reason: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<ContractorFaceEnrollmentEntity> {
+    const row = await this.contractorFaceRepo.findOne({
+      where: { contractorEmployeeId, clientId },
+    });
+    if (!row) throw new NotFoundException('Contractor enrollment not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(row.branchId ?? '')) {
+      throw new ForbiddenException(
+        'Contractor employee is not in your branch scope',
+      );
+    }
+    row.isActive = false;
+    row.deactivatedAt = new Date();
+    row.deactivationReason = reason;
+    const saved = await this.contractorFaceRepo.save(row);
+    await this.logContractorEnrollmentHistory({
+      contractorEmployeeId,
+      clientId,
+      action: 'DEACTIVATE',
+      reason,
+      embeddingModel: row.embeddingModel ?? null,
+      actorUserId: by ?? null,
+    });
+    return saved;
+  }
+
+  /**
+   * List every active contractor employee with their face-enrollment status
+   * so admins (and branch desks) can see at a glance who is enrolled vs
+   * pending. BRANCH_DESK callers pass `allowedBranchIds` to scope.
+   */
+  async listContractorEnrollmentStatus(
+    clientId: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      contractorEmployeeId: string;
+      name: string;
+      branchId: string | null;
+      contractorUserId: string;
+      isEnrolled: boolean;
+      isActive: boolean;
+      embeddingModel: string | null;
+      enrolledAt: string | null;
+      deactivatedAt: string | null;
+      deactivationReason: string | null;
+    }>
+  > {
+    const qb = this.contractorEmpRepo
+      .createQueryBuilder('ce')
+      .leftJoin(
+        'contractor_face_enrollments',
+        'cfe',
+        'cfe.contractor_employee_id = ce.id AND cfe.client_id = ce.client_id',
+      )
+      .select([
+        'ce.id                AS "contractorEmployeeId"',
+        'ce.name              AS "name"',
+        'ce.branch_id         AS "branchId"',
+        'ce.contractor_user_id AS "contractorUserId"',
+        'cfe.is_active        AS "feActive"',
+        'cfe.embedding_model  AS "embeddingModel"',
+        'cfe.enrolled_at      AS "enrolledAt"',
+        'cfe.deactivated_at   AS "deactivatedAt"',
+        'cfe.deactivation_reason AS "deactivationReason"',
+      ])
+      .where('ce.client_id = :clientId', { clientId })
+      .andWhere('ce.is_active = true');
+
+    if (allowedBranchIds) {
+      if (allowedBranchIds.length === 0) return [];
+      qb.andWhere('ce.branch_id IN (:...branchIds)', {
+        branchIds: allowedBranchIds,
+      });
+    }
+    qb.orderBy('ce.name', 'ASC');
+
+    const rows = await qb.getRawMany();
+    return rows.map((r) => ({
+      contractorEmployeeId: r.contractorEmployeeId,
+      name: r.name,
+      branchId: r.branchId,
+      contractorUserId: r.contractorUserId,
+      isEnrolled: r.enrolledAt != null,
+      isActive: r.feActive === true || r.feActive === 't',
+      embeddingModel: r.embeddingModel,
+      enrolledAt: r.enrolledAt ? new Date(r.enrolledAt).toISOString() : null,
+      deactivatedAt: r.deactivatedAt
+        ? new Date(r.deactivatedAt).toISOString()
+        : null,
+      deactivationReason: r.deactivationReason,
+    }));
+  }
+
+  /** Append a row to contractor_face_enrollment_history. Best-effort. */
+  private async logContractorEnrollmentHistory(input: {
+    contractorEmployeeId: string;
+    clientId: string;
+    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE';
+    reason?: string | null;
+    embeddingModel?: string | null;
+    actorUserId?: string | null;
+  }): Promise<void> {
+    try {
+      await this.contractorFaceRepo.manager.query(
+        `INSERT INTO contractor_face_enrollment_history
+           (contractor_employee_id, client_id, action, reason,
+            embedding_model, actor_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          input.contractorEmployeeId,
+          input.clientId,
+          input.action,
+          input.reason ?? null,
+          input.embeddingModel ?? null,
+          input.actorUserId ?? null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(
+        `logContractorEnrollmentHistory failed: ${e?.message ?? e}`,
+      );
     }
   }
 
