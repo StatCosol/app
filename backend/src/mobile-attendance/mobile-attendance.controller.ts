@@ -247,6 +247,45 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
+      'List recent face-attendance rejections (optional window / subject / reason / branch filters)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('failed-scans')
+  listFailedScans(
+    @CurrentUser() u: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('reason') reason?: string,
+    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
+    @Query('employeeId') employeeId?: string,
+    @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    const subj =
+      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
+        ? subjectType
+        : null;
+    return this.svc.listFailedScans(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        reason: reason ?? null,
+        subjectType: subj,
+        employeeId: employeeId ?? null,
+        contractorEmployeeId: contractorEmployeeId ?? null,
+        limit: limit ? Number(limit) : null,
+      },
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
       'List contractors (parent vendors) with active employees in the caller\u2019s allowed branches; drives the branch-portal contractor picker',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
