@@ -101,6 +101,47 @@ export interface ReviewReenrollBody {
   notes?: string;
 }
 
+// ── Phase 4a: contractor face-attendance bridge ────────────────────────────
+
+export interface ContractorFaceEnrollment {
+  contractorEmployeeId: string;
+  clientId: string;
+  branchId: string | null;
+  contractorUserId: string | null;
+  embeddingModel: string | null;
+  photoUrl: string | null;
+  consentGivenAt: string | null;
+  consentGivenBy: string | null;
+  enrolledAt: string;
+  enrolledBy: string | null;
+  isActive: boolean;
+  deactivatedAt: string | null;
+  deactivationReason: string | null;
+  updatedAt: string;
+}
+
+export interface EnrollContractorFaceBody {
+  contractorEmployeeId: string;
+  consentGiven: true;
+  embeddingBase64?: string;
+  embeddingModel?: string;
+  photoBase64?: string;
+  photoMime?: string;
+}
+
+export interface ContractorEnrollmentStatusRow {
+  contractorEmployeeId: string;
+  name: string;
+  branchId: string | null;
+  contractorUserId: string;
+  isEnrolled: boolean;
+  isActive: boolean;
+  embeddingModel: string | null;
+  enrolledAt: string | null;
+  deactivatedAt: string | null;
+  deactivationReason: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClientMobileAttendanceService {
   private base = `${environment.apiBaseUrl}/api/v1/client/mobile-attendance`;
@@ -150,6 +191,32 @@ export class ClientMobileAttendanceService {
     return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
       `${this.base}/reenroll-requests/${id}/review`,
       body,
+    );
+  }
+
+  // ── Contractor face enrollment (Phase 4a) ──
+  enrollContractorFace(
+    body: EnrollContractorFaceBody,
+  ): Observable<ContractorFaceEnrollment> {
+    return this.http.post<ContractorFaceEnrollment>(
+      `${this.base}/contractors/enroll`,
+      body,
+    );
+  }
+
+  listContractorEnrollments(): Observable<ContractorEnrollmentStatusRow[]> {
+    return this.http.get<ContractorEnrollmentStatusRow[]>(
+      `${this.base}/contractors/enrollments`,
+    );
+  }
+
+  deactivateContractorEnrollment(
+    contractorEmployeeId: string,
+    reason?: string,
+  ): Observable<ContractorFaceEnrollment> {
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+    return this.http.delete<ContractorFaceEnrollment>(
+      `${this.base}/contractors/enroll/${contractorEmployeeId}${qs}`,
     );
   }
 }
