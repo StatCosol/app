@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -75,6 +76,24 @@ export class MobileAttendanceService {
         where: { id: body.essEmployeeId, clientId },
       });
       if (!emp) throw new NotFoundException('ESS employee not found');
+
+      // One employee code = one active ESS device. Block re-registration on a
+      // second phone until the previous one is revoked, otherwise the same
+      // employee can punch from multiple devices simultaneously.
+      const existing = await this.deviceRepo.findOne({
+        where: {
+          clientId,
+          essEmployeeId: body.essEmployeeId,
+          isActive: true,
+        },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Employee ${emp.employeeCode ?? emp.id} is already bound to an active device` +
+            (existing.deviceLabel ? ` ("${existing.deviceLabel}")` : '') +
+            `. Revoke the previous device before registering a new one.`,
+        );
+      }
     }
     const installToken = randomBytes(32).toString('hex');
     const dev = this.deviceRepo.create({
