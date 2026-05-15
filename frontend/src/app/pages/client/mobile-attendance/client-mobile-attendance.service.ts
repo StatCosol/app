@@ -142,6 +142,24 @@ export interface ContractorEnrollmentStatusRow {
   deactivationReason: string | null;
 }
 
+// ── Phase 4c: contractor re-enrollment approval workflow ────────────────────
+
+export interface ContractorReenrollRequest {
+  id: string;
+  contractorEmployeeId: string;
+  contractorName: string | null;
+  branchId: string | null;
+  requestedBy: string | null;
+  requestedAt: string;
+  reason: string | null;
+  photoUrl: string | null;
+  source: ReenrollRequestSource;
+  status: ReenrollRequestStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClientMobileAttendanceService {
   private base = `${environment.apiBaseUrl}/api/v1/client/mobile-attendance`;
@@ -217,6 +235,25 @@ export class ClientMobileAttendanceService {
     const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
     return this.http.delete<ContractorFaceEnrollment>(
       `${this.base}/contractors/enroll/${contractorEmployeeId}${qs}`,
+    );
+  }
+
+  // ── Contractor re-enrollment approval queue (Phase 4c) ──
+  listContractorReenrollRequests(
+    status: ReenrollRequestStatus = 'PENDING',
+  ): Observable<ContractorReenrollRequest[]> {
+    return this.http.get<ContractorReenrollRequest[]>(
+      `${this.base}/contractors/reenroll-requests?status=${status}`,
+    );
+  }
+
+  reviewContractorReenrollRequest(
+    id: string,
+    body: ReviewReenrollBody,
+  ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
+    return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
+      `${this.base}/contractors/reenroll-requests/${id}/review`,
+      body,
     );
   }
 }
