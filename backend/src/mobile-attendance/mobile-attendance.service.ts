@@ -33,6 +33,13 @@ import {
 // raise again once we add alignment.
 const MIN_MATCH_SCORE = 0.78;
 const MIN_LIVENESS_SCORE = 0.5;
+// Phase 3d: active liveness challenge. When the deployment env opts in
+// (FACE_LIVENESS_CHALLENGE_REQUIRED=true), every punch must carry a
+// challenge that was satisfied on-device within this window.
+const LIVENESS_CHALLENGE_REQUIRED =
+  String(process.env.FACE_LIVENESS_CHALLENGE_REQUIRED || '').toLowerCase() ===
+  'true';
+const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // Phase 3a: server-time clock-skew gate. A live punch's `punchTime` must
 // fall inside this window relative to server time. Punches outside the
 // window are rejected unless `body.offlineSync === true`, which is set by
@@ -411,6 +418,231 @@ export class MobileAttendanceService {
     return saved;
   }
 
+  // ---------------------------- re-enrollment approval workflow (Phase 3e)
+
+  /**
+   * Stash a pending re-enrollment request. The new embedding lives in
+   * face_reenrollment_requests until a reviewer approves it; the live
+   * face_enrollments row is untouched. If an active enrollment doesn't
+   * exist for this employee, falls through to direct enrollment instead
+   * (no-one is being overwritten).
+   */
+  async createReenrollRequest(
+    clientId: string,
+    requestedBy: string | null,
+    body: import('./mobile-attendance.dto').CreateReenrollRequestDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    pending: boolean;
+    requestId?: string;
+  }> {
+    const emp = await this.empRepo.findOne({
+      where: { id: body.employeeId, clientId },
+    });
+    if (!emp) throw new NotFoundException('Employee not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(emp.branchId ?? '')) {
+      throw new ForbiddenException('Employee is not in your branch scope');
+    }
+    const embedding = Buffer.from(body.embeddingBase64, 'base64');
+
+    const existing = await this.faceRepo.findOne({
+      where: { employeeId: emp.id, isActive: true },
+    });
+    if (!existing) {
+      // No active enrollment to overwrite — nothing to approve, just log.
+      this.logger.log(
+        `createReenrollRequest: no active enrollment for ${emp.employeeCode}, deferring to admin enroll flow`,
+      );
+      return { ok: true, pending: false };
+    }
+
+    // Block obvious duplicates: same face already on file for *another*
+    // employee in this client. Approval can't repair this — admin must
+    // resolve the duplicate first.
+    await this.assertFaceNotDuplicate(clientId, emp.id, embedding);
+
+    const photoUrl = await this.facePhotos.put({
+      clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
+    const rows: Array<{ id: string }> = await this.faceRepo.manager.query(
+      `INSERT INTO face_reenrollment_requests
+         (client_id, employee_id, branch_id, requested_by, reason,
+          embedding, embedding_model, photo_url, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
+        clientId,
+        emp.id,
+        emp.branchId ?? null,
+        requestedBy,
+        body.reason ?? null,
+        embedding,
+        body.embeddingModel ?? 'mobilefacenet-v1',
+        photoUrl,
+        body.source ?? 'ADMIN',
+      ],
+    );
+    const requestId = rows?.[0]?.id;
+    return { ok: true, pending: true, requestId };
+  }
+
+  async listReenrollRequests(
+    clientId: string,
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      id: string;
+      employeeId: string;
+      employeeCode: string | null;
+      employeeName: string | null;
+      branchId: string | null;
+      requestedBy: string | null;
+      requestedAt: string;
+      reason: string | null;
+      photoUrl: string | null;
+      source: string;
+      status: string;
+      reviewedBy: string | null;
+      reviewedAt: string | null;
+      reviewNotes: string | null;
+    }>
+  > {
+    const params: any[] = [clientId, status];
+    let branchSql = '';
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      branchSql = `AND (r.branch_id = ANY($3::uuid[]))`;
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      // Branch-scoped user with no branches → see nothing.
+      return [];
+    }
+    return this.faceRepo.manager.query(
+      `SELECT r.id, r.employee_id AS "employeeId",
+              e.employee_code AS "employeeCode", e.name AS "employeeName",
+              r.branch_id AS "branchId",
+              r.requested_by AS "requestedBy",
+              r.requested_at AS "requestedAt",
+              r.reason, r.photo_url AS "photoUrl", r.source, r.status,
+              r.reviewed_by AS "reviewedBy",
+              r.reviewed_at AS "reviewedAt",
+              r.review_notes AS "reviewNotes"
+         FROM face_reenrollment_requests r
+         LEFT JOIN employees e ON e.id = r.employee_id
+        WHERE r.client_id = $1
+          AND r.status = $2
+          ${branchSql}
+        ORDER BY r.requested_at DESC
+        LIMIT 500`,
+      params,
+    );
+  }
+
+  async reviewReenrollRequest(
+    clientId: string,
+    requestId: string,
+    reviewerUserId: string | null,
+    body: import('./mobile-attendance.dto').ReviewReenrollRequestDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
+    const rows: Array<{
+      id: string;
+      client_id: string;
+      employee_id: string;
+      branch_id: string | null;
+      embedding: Buffer;
+      embedding_model: string | null;
+      photo_url: string | null;
+      status: string;
+    }> = await this.faceRepo.manager.query(
+      `SELECT id, client_id, employee_id, branch_id,
+              embedding, embedding_model, photo_url, status
+         FROM face_reenrollment_requests
+        WHERE id = $1 AND client_id = $2
+        LIMIT 1`,
+      [requestId, clientId],
+    );
+    const req = rows?.[0];
+    if (!req) throw new NotFoundException('Re-enrollment request not found');
+    if (req.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Request already ${req.status.toLowerCase()}`,
+      );
+    }
+    if (
+      allowedBranchIds &&
+      !allowedBranchIds.includes(req.branch_id ?? '')
+    ) {
+      throw new ForbiddenException('Request is not in your branch scope');
+    }
+
+    if (body.decision === 'REJECTED') {
+      await this.faceRepo.manager.query(
+        `UPDATE face_reenrollment_requests
+            SET status = 'REJECTED',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                review_notes = $2
+          WHERE id = $3`,
+        [reviewerUserId, body.notes ?? null, req.id],
+      );
+      return { ok: true, status: 'REJECTED' };
+    }
+
+    // APPROVED: copy the new embedding into face_enrollments, append a
+    // RE_ENROLL row to history, then mark the request approved. Done in
+    // a single transaction so a partial failure doesn't leave a stale
+    // PENDING row pointing at an already-applied embedding.
+    await this.faceRepo.manager.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE face_enrollments
+            SET embedding = $1,
+                embedding_model = COALESCE($2, embedding_model),
+                photo_url = COALESCE($3, photo_url),
+                is_active = true,
+                deactivated_at = NULL,
+                deactivation_reason = NULL,
+                updated_at = now()
+          WHERE employee_id = $4 AND client_id = $5`,
+        [
+          req.embedding,
+          req.embedding_model,
+          req.photo_url,
+          req.employee_id,
+          req.client_id,
+        ],
+      );
+      await tx.query(
+        `INSERT INTO face_enrollment_history
+           (employee_id, client_id, action, reason, embedding_model, actor_user_id)
+         VALUES ($1, $2, 'RE_ENROLL', $3, $4, $5)`,
+        [
+          req.employee_id,
+          req.client_id,
+          body.notes ?? 'Approved re-enrollment request',
+          req.embedding_model,
+          reviewerUserId,
+        ],
+      );
+      await tx.query(
+        `UPDATE face_reenrollment_requests
+            SET status = 'APPROVED',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                review_notes = $2
+          WHERE id = $3`,
+        [reviewerUserId, body.notes ?? null, req.id],
+      );
+    });
+    return { ok: true, status: 'APPROVED' };
+  }
+
   /**
    * List every active employee with their face-enrollment status so admins
    * (and branch desks) can see at a glance who is enrolled vs pending.
@@ -713,6 +945,33 @@ export class MobileAttendanceService {
     }
     if (body.livenessScore != null && body.livenessScore < MIN_LIVENESS_SCORE) {
       throw new BadRequestException('Liveness check failed');
+    }
+
+    // Phase 3d: active liveness challenge. When required by env, the punch
+    // must carry a recently-satisfied challenge token (BLINK / HEAD_TURN /
+    // SMILE). Empty or stale tokens are rejected; the failure is logged
+    // under the LIVENESS_FAIL bucket via classifyRejection.
+    if (LIVENESS_CHALLENGE_REQUIRED) {
+      if (!body.livenessChallengeType || !body.livenessChallengePassedAt) {
+        throw new BadRequestException(
+          'Active liveness challenge required (perform the on-screen action and try again)',
+        );
+      }
+      const passedAt = Date.parse(body.livenessChallengePassedAt);
+      if (Number.isNaN(passedAt)) {
+        throw new BadRequestException('Invalid liveness challenge timestamp');
+      }
+      const ageMs = Date.now() - passedAt;
+      if (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Liveness challenge timestamp is in the future — check device clock',
+        );
+      }
+      if (ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Liveness challenge expired — please retake the action',
+        );
+      }
     }
 
     // Geofence check (kiosk: device location is fixed, not enforced here)
