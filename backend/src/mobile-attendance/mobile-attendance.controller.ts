@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,6 +27,7 @@ import {
   ReviewReenrollRequestDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
+import type { Response } from 'express';
 
 // =============================================================================
 // Admin / Client controller — register devices, enroll faces, view roster.
@@ -313,6 +315,109 @@ export class MobileAttendanceAdminController {
       },
       allowedBranchIds,
     );
+  }
+
+  @ApiOperation({
+    summary:
+      'Download face-attendance rejections as CSV (same filters as the listing endpoint; up to 5000 rows)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('failed-scans/export.csv')
+  async exportFailedScansCsv(
+    @CurrentUser() u: ReqUser,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('reason') reason?: string,
+    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
+    @Query('employeeId') employeeId?: string,
+    @Query('contractorEmployeeId') contractorEmployeeId?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    const subj =
+      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
+        ? subjectType
+        : null;
+    const rows = await this.svc.listFailedScans(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        reason: reason ?? null,
+        subjectType: subj,
+        employeeId: employeeId ?? null,
+        contractorEmployeeId: contractorEmployeeId ?? null,
+        limit: 5000,
+      },
+      allowedBranchIds,
+    );
+
+    const esc = (v: unknown): string => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const header = [
+      'attemptedAt',
+      'subject',
+      'employeeId',
+      'employeeCode',
+      'employeeName',
+      'contractorEmployeeId',
+      'contractorEmployeeName',
+      'contractorName',
+      'branchId',
+      'deviceId',
+      'reason',
+      'reasonDetail',
+      'matchScore',
+      'livenessScore',
+      'captureLat',
+      'captureLng',
+    ];
+    const lines: string[] = [header.join(',')];
+    for (const r of rows) {
+      const subject = r.employeeId
+        ? 'EMPLOYEE'
+        : r.contractorEmployeeId
+          ? 'CONTRACTOR'
+          : 'UNKNOWN';
+      lines.push(
+        [
+          r.attemptedAt,
+          subject,
+          r.employeeId,
+          r.employeeCode,
+          r.employeeName,
+          r.contractorEmployeeId,
+          r.contractorEmployeeName,
+          r.contractorName,
+          r.branchId,
+          r.deviceId,
+          r.reason,
+          r.reasonDetail,
+          r.matchScore,
+          r.livenessScore,
+          r.captureLat,
+          r.captureLng,
+        ]
+          .map(esc)
+          .join(','),
+      );
+    }
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const fileName = `face-failed-scans-${stamp}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`,
+    );
+    res.end(lines.join('\r\n'));
   }
 
   @ApiOperation({
