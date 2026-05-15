@@ -803,6 +803,10 @@ export class MobileAttendanceService {
    * file for a *different* employee in the same client. Threshold:
    * DUPLICATE_FACE_THRESHOLD (mapped (cos+1)/2). Throws ConflictException
    * naming the existing employee so the admin can investigate.
+   *
+   * Phase 4b: also scans contractor_face_enrollments so a face that's
+   * already enrolled to a contractor employee cannot be silently re-used
+   * for a new in-house employee enrollment.
    */
   private async assertFaceNotDuplicate(
     clientId: string,
@@ -811,40 +815,158 @@ export class MobileAttendanceService {
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
     if (!probe) return; // can't validate malformed buffers; let DB write fail later
-    const rows = await this.faceRepo.find({
+    const best = await this.findBestDuplicateMatch(probe, clientId, {
+      excludeEmployeeId: employeeId,
+      excludeContractorEmployeeId: null,
+    });
+    if (!best || best.score < DUPLICATE_FACE_THRESHOLD) return;
+
+    if (best.kind === 'employee') {
+      await this.logDuplicateAttempt({
+        clientId,
+        attemptingEmployeeId: employeeId,
+        matchedEmployeeId: best.id,
+        score: best.score,
+        source: 'enroll',
+      });
+      throw new ConflictException(
+        `This face already appears to be enrolled for employee ${best.label} ` +
+          `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
+          `registered to one employee. Deactivate the other enrollment first ` +
+          `if this is genuinely the same person.`,
+      );
+    }
+    // best.kind === 'contractor'
+    await this.logDuplicateAttempt({
+      clientId,
+      attemptingEmployeeId: employeeId,
+      matchedContractorEmployeeId: best.id,
+      score: best.score,
+      source: 'enroll-cross',
+    });
+    throw new ConflictException(
+      `This face is already enrolled for contractor employee ${best.label} ` +
+        `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
+        `registered to one person across employees and contractor employees. ` +
+        `Deactivate the contractor enrollment first if this is genuinely the same person.`,
+    );
+  }
+
+  /**
+   * Phase 4b: symmetric guard for contractor enrollment. Scans both
+   * contractor_face_enrollments (excluding self) and face_enrollments.
+   */
+  private async assertContractorFaceNotDuplicate(
+    clientId: string,
+    contractorEmployeeId: string,
+    embeddingBuf: Buffer,
+  ): Promise<void> {
+    const probe = decodeEmbedding(embeddingBuf);
+    if (!probe) return;
+    const best = await this.findBestDuplicateMatch(probe, clientId, {
+      excludeEmployeeId: null,
+      excludeContractorEmployeeId: contractorEmployeeId,
+    });
+    if (!best || best.score < DUPLICATE_FACE_THRESHOLD) return;
+
+    if (best.kind === 'contractor') {
+      await this.logDuplicateAttempt({
+        clientId,
+        attemptingContractorEmployeeId: contractorEmployeeId,
+        matchedContractorEmployeeId: best.id,
+        score: best.score,
+        source: 'enroll-contractor',
+      });
+      throw new ConflictException(
+        `This face already appears to be enrolled for contractor employee ${best.label} ` +
+          `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
+          `registered to one contractor employee. Deactivate the other enrollment first ` +
+          `if this is genuinely the same person.`,
+      );
+    }
+    // best.kind === 'employee'
+    await this.logDuplicateAttempt({
+      clientId,
+      attemptingContractorEmployeeId: contractorEmployeeId,
+      matchedEmployeeId: best.id,
+      score: best.score,
+      source: 'enroll-cross',
+    });
+    throw new ConflictException(
+      `This face is already enrolled for employee ${best.label} ` +
+        `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
+        `registered to one person across employees and contractor employees. ` +
+        `Deactivate the employee enrollment first if this is genuinely the same person.`,
+    );
+  }
+
+  /**
+   * Cross-table best-match scan used by both enrollment guards. Returns
+   * the highest-scoring active enrollment in either face_enrollments or
+   * contractor_face_enrollments for the given client, excluding the
+   * subject itself.
+   */
+  private async findBestDuplicateMatch(
+    probe: Float32Array,
+    clientId: string,
+    exclude: {
+      excludeEmployeeId: string | null;
+      excludeContractorEmployeeId: string | null;
+    },
+  ): Promise<
+    | { kind: 'employee' | 'contractor'; id: string; label: string; score: number }
+    | null
+  > {
+    let bestKind: 'employee' | 'contractor' | null = null;
+    let bestId: string | null = null;
+    let bestScore = -Infinity;
+
+    const empRows = await this.faceRepo.find({
       where: { clientId, isActive: true },
     });
-    let bestEmpId: string | null = null;
-    let bestScore = -Infinity;
-    for (const r of rows) {
-      if (r.employeeId === employeeId) continue; // updating own enrollment is fine
+    for (const r of empRows) {
+      if (exclude.excludeEmployeeId && r.employeeId === exclude.excludeEmployeeId) continue;
       const cand = decodeEmbedding(r.embedding);
       if (!cand || cand.length !== probe.length) continue;
       const s = toMatchScore(cosineSim(probe, cand));
       if (s > bestScore) {
         bestScore = s;
-        bestEmpId = r.employeeId;
+        bestId = r.employeeId;
+        bestKind = 'employee';
       }
     }
-    if (bestEmpId && bestScore >= DUPLICATE_FACE_THRESHOLD) {
-      const dup = await this.empRepo.findOne({ where: { id: bestEmpId } });
-      const label = dup
-        ? `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`
-        : bestEmpId;
-      await this.logDuplicateAttempt({
-        clientId,
-        attemptingEmployeeId: employeeId,
-        matchedEmployeeId: bestEmpId,
-        score: bestScore,
-        source: 'enroll',
-      });
-      throw new ConflictException(
-        `This face already appears to be enrolled for employee ${label} ` +
-          `(similarity ${bestScore.toFixed(2)}). Each face may only be ` +
-          `registered to one employee. Deactivate the other enrollment first ` +
-          `if this is genuinely the same person.`,
-      );
+
+    const ctrRows = await this.contractorFaceRepo.find({
+      where: { clientId, isActive: true },
+    });
+    for (const r of ctrRows) {
+      if (
+        exclude.excludeContractorEmployeeId &&
+        r.contractorEmployeeId === exclude.excludeContractorEmployeeId
+      ) {
+        continue;
+      }
+      const cand = decodeEmbedding(r.embedding);
+      if (!cand || cand.length !== probe.length) continue;
+      const s = toMatchScore(cosineSim(probe, cand));
+      if (s > bestScore) {
+        bestScore = s;
+        bestId = r.contractorEmployeeId;
+        bestKind = 'contractor';
+      }
     }
+
+    if (!bestKind || !bestId) return null;
+
+    let label = bestId;
+    if (bestKind === 'employee') {
+      const dup = await this.empRepo.findOne({ where: { id: bestId } });
+      if (dup) label = `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`;
+    } else {
+      const dup = await this.contractorEmpRepo.findOne({ where: { id: bestId } });
+      if (dup) label = dup.name ?? bestId;
+    }
+    return { kind: bestKind, id: bestId, label, score: bestScore };
   }
 
   // ------------------------------------------------------------------ punch
@@ -1200,8 +1322,10 @@ export class MobileAttendanceService {
   /** Append a row to face_duplicate_attempt_logs. Best-effort: never throws. */
   private async logDuplicateAttempt(input: {
     clientId: string;
-    attemptingEmployeeId: string | null;
-    matchedEmployeeId: string;
+    attemptingEmployeeId?: string | null;
+    attemptingContractorEmployeeId?: string | null;
+    matchedEmployeeId?: string | null;
+    matchedContractorEmployeeId?: string | null;
     score: number;
     source: string;
     actorUserId?: string | null;
@@ -1209,13 +1333,16 @@ export class MobileAttendanceService {
     try {
       await this.faceRepo.manager.query(
         `INSERT INTO face_duplicate_attempt_logs
-           (client_id, attempting_employee_id, matched_employee_id,
+           (client_id, attempting_employee_id, attempting_contractor_employee_id,
+            matched_employee_id, matched_contractor_employee_id,
             match_score, attempted_by_user_id, source)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           input.clientId,
-          input.attemptingEmployeeId,
-          input.matchedEmployeeId,
+          input.attemptingEmployeeId ?? null,
+          input.attemptingContractorEmployeeId ?? null,
+          input.matchedEmployeeId ?? null,
+          input.matchedContractorEmployeeId ?? null,
           input.score,
           input.actorUserId ?? null,
           input.source,
@@ -1312,6 +1439,13 @@ export class MobileAttendanceService {
       this.logger.log(
         `enrollContractorFace photo→embed ok contractorEmp=${ce.id} bytes=${embedding.length}`,
       );
+    }
+
+    // Phase 4b: cross-table duplicate-face guard. Reject if this face is
+    // already enrolled to a different employee OR a different contractor
+    // employee in the same client.
+    if (embedding) {
+      await this.assertContractorFaceNotDuplicate(clientId, ce.id, embedding);
     }
 
     const photoUrl = await this.facePhotos.put({
