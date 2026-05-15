@@ -35,6 +35,10 @@ class FaceCaptureSession(
     private val scope: CoroutineScope,
     private val onFace: suspend (probe: FloatArray, livenessScore: Double) -> Unit,
     private val onError: ((message: String) -> Unit)? = null,
+    /** Fired for every analysed frame that contains exactly one face,
+     *  before any embedding work. Used by the active-liveness challenge
+     *  flow to track gestures (blink/smile/head-turn). */
+    private val onFaceSignal: ((signal: FaceSignal) -> Unit)? = null,
 ) {
     private val detector = FaceDetector()
     private val embedder by lazy { FaceEmbedder(context) }
@@ -107,6 +111,18 @@ class FaceCaptureSession(
                     }
                     return@launch
                 }
+                // Surface per-frame ML Kit signals so a caller-side liveness
+                // challenge tracker can observe blink / smile / head-turn
+                // without needing its own analyzer.
+                onFaceSignal?.invoke(
+                    FaceSignal(
+                        smilingProb = detection.smilingProb,
+                        leftEyeOpenProb = detection.leftEyeOpenProb,
+                        rightEyeOpenProb = detection.rightEyeOpenProb,
+                        headYawDeg = detection.headYawDeg,
+                        headPitchDeg = detection.headPitchDeg,
+                    )
+                )
                 // Face area ratio gate. Below MIN_FACE_AREA_RATIO of the
                 // frame the worker is too far away → embeddings are noisy
                 // and matches degrade quickly.
@@ -219,3 +235,17 @@ class FaceCaptureSession(
         private const val MIN_FACE_AREA_RATIO = 0.06
     }
 }
+
+/**
+ * Per-frame ML Kit signals exposed to the active-liveness challenge layer.
+ * All probabilities are 0..1 (or null when ML Kit could not classify).
+ * `headYawDeg` is positive when the user turns to their right (so the face
+ * in the front-camera mirror image moves toward the LEFT side of the screen).
+ */
+data class FaceSignal(
+    val smilingProb: Float?,
+    val leftEyeOpenProb: Float?,
+    val rightEyeOpenProb: Float?,
+    val headYawDeg: Float,
+    val headPitchDeg: Float,
+)

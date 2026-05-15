@@ -23,6 +23,10 @@ data class QueuedPunch(
     val captureLat: Double?,
     val captureLng: Double?,
     val captureAccuracyM: Double?,
+    /** Phase 3d active-liveness challenge metadata. Null when this build did
+     *  not run a challenge (e.g. older queued rows after upgrade). */
+    val livenessChallengeType: String? = null,
+    val livenessChallengePassedAtIso: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val attempts: Int = 0
 )
@@ -45,7 +49,7 @@ interface PunchDao {
     suspend fun count(): Int
 }
 
-@Database(entities = [QueuedPunch::class], version = 1, exportSchema = false)
+@Database(entities = [QueuedPunch::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun punchDao(): PunchDao
 

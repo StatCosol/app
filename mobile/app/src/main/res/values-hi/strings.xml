@@ -25,4 +25,14 @@
     <string name="kiosk_voice_recorded">%1$s की हाज़िरी दर्ज हो गई</string>
     <string name="kiosk_voice_logout_recorded">%1$s की छुट्टी दर्ज हो गई</string>
     <string name="kiosk_voice_face_not_recognised">चेहरा पहचाना नहीं गया, फिर से कोशिश करें</string>
+
+    <!-- Active-liveness challenge prompts (Phase 3d). -->
+    <string name="liveness_prompt_blink">कृपया अपनी आँखें झपकाएँ</string>
+    <string name="liveness_prompt_smile">कृपया कैमरे की ओर मुस्कुराएँ</string>
+    <string name="liveness_prompt_head_left">धीरे-धीरे अपना सिर बाईं ओर घुमाएँ</string>
+    <string name="liveness_prompt_head_right">धीरे-धीरे अपना सिर दाईं ओर घुमाएँ</string>
+    <string name="liveness_passed">जीवंतता जाँच सफल</string>
+    <string name="liveness_failed_retry">जीवंतता जाँच विफल — कृपया फिर से कोशिश करें</string>
+    <string name="liveness_timeout">जीवंतता जाँच समय समाप्त — कृपया फिर से कोशिश करें</string>
+    <string name="kiosk_liveness_prompt_with_name">नमस्ते %1$s — %2$s</string>
 </resources>

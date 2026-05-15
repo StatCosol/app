@@ -58,4 +58,14 @@
     <string name="enroll_success">Enrollment complete</string>
     <string name="enroll_failed">Enrollment failed: %1$s</string>
     <string name="enroll_consent_required">You must consent before enrolling.</string>
+
+    <!-- Active-liveness challenge prompts (Phase 3d). -->
+    <string name="liveness_prompt_blink">Please blink your eyes</string>
+    <string name="liveness_prompt_smile">Please smile at the camera</string>
+    <string name="liveness_prompt_head_left">Slowly turn your head to the LEFT</string>
+    <string name="liveness_prompt_head_right">Slowly turn your head to the RIGHT</string>
+    <string name="liveness_passed">Liveness check passed</string>
+    <string name="liveness_failed_retry">Liveness check failed — please try again</string>
+    <string name="liveness_timeout">Liveness check timed out — please try again</string>
+    <string name="kiosk_liveness_prompt_with_name">Hi %1$s — %2$s</string>
 </resources>
