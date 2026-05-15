@@ -14,6 +14,7 @@ import { BiometricService } from '../biometric/biometric.service';
 import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-punch.entity';
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceEmbeddingClient } from './face-embedding.client';
@@ -23,6 +24,7 @@ import {
   MobileDeviceMode,
 } from './entities/mobile-attendance-device.entity';
 import {
+  ContractorMobilePunchDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -71,6 +73,8 @@ export class MobileAttendanceService {
     private readonly faceRepo: Repository<FaceEnrollmentEntity>,
     @InjectRepository(ContractorFaceEnrollmentEntity)
     private readonly contractorFaceRepo: Repository<ContractorFaceEnrollmentEntity>,
+    @InjectRepository(ContractorBiometricPunchEntity)
+    private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     @InjectRepository(MobileAttendanceDeviceEntity)
     private readonly deviceRepo: Repository<MobileAttendanceDeviceEntity>,
     @InjectRepository(EmployeeEntity)
@@ -1312,6 +1316,169 @@ export class MobileAttendanceService {
       duplicate: ingestResult.inserted === 0 && ingestResult.duplicates > 0,
       employeeId: emp.id,
       employeeCode: emp.employeeCode,
+      punchTime: ts.toISOString(),
+      mode: device.mode,
+    };
+  }
+
+  // -------------------------------------------------- contractor punch (4d)
+  // KIOSK-only entry: writes to the parallel contractor_biometric_punches
+  // table so employee payroll roll-ups stay untouched. Runs the same safety
+  // gates as the in-house path (clock-skew, mock GPS, quality, liveness
+  // challenge, geofence, post-logout cooldown). Idempotent via the unique
+  // (client_id, contractor_employee_id, punch_time) index.
+  async recordContractorPunch(
+    device: MobileAttendanceDeviceEntity,
+    body: ContractorMobilePunchDto,
+  ) {
+    if (device.mode !== 'KIOSK') {
+      throw new ForbiddenException(
+        'Contractor punches are only allowed from KIOSK devices',
+      );
+    }
+
+    const ctr = await this.contractorEmpRepo.findOne({
+      where: { id: body.contractorEmployeeId, clientId: device.clientId },
+    });
+    if (!ctr) throw new NotFoundException('Contractor employee not found');
+
+    // Integrity gates BEFORE quality so spoofed punches surface clearly.
+    if (body.isMockLocation === true) {
+      throw new ForbiddenException(
+        'Mock location detected — attendance blocked. Disable fake-GPS apps and try again.',
+      );
+    }
+    if (body.isRooted === true) {
+      this.logger.warn(
+        `recordContractorPunch rooted-device contractorEmpId=${ctr.id} client=${device.clientId} device=${device.id}`,
+      );
+      // Soft-block (parity with employee path).
+    }
+
+    if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
+      throw new BadRequestException(
+        `Face match score ${body.matchScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
+      );
+    }
+    if (body.livenessScore != null && body.livenessScore < MIN_LIVENESS_SCORE) {
+      throw new BadRequestException('Liveness check failed');
+    }
+
+    if (LIVENESS_CHALLENGE_REQUIRED) {
+      if (!body.livenessChallengeType || !body.livenessChallengePassedAt) {
+        throw new BadRequestException(
+          'Active liveness challenge required (perform the on-screen action and try again)',
+        );
+      }
+      const passedAt = Date.parse(body.livenessChallengePassedAt);
+      if (Number.isNaN(passedAt)) {
+        throw new BadRequestException('Invalid liveness challenge timestamp');
+      }
+      const ageMs = Date.now() - passedAt;
+      if (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Liveness challenge timestamp is in the future — check device clock',
+        );
+      }
+      if (ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Liveness challenge expired — please retake the action',
+        );
+      }
+    }
+
+    // Kiosk geofence is fixed (device location is the site); no per-punch
+    // geofence check here for parity with the employee KIOSK path.
+
+    const ts = new Date(body.punchTime);
+    if (isNaN(ts.getTime())) throw new BadRequestException('Invalid punchTime');
+
+    const nowMs = Date.now();
+    const tsMs = ts.getTime();
+    if (tsMs - nowMs > MAX_FUTURE_SKEW_MS) {
+      throw new BadRequestException(
+        'Device clock is ahead of the server — please re-sync time and try again.',
+      );
+    }
+    if (!body.offlineSync && nowMs - tsMs > MAX_OFFLINE_BACKLOG_MS) {
+      throw new BadRequestException(
+        'Punch timestamp is older than 24 hours — submit via the offline-sync queue.',
+      );
+    }
+
+    // Post-logout cooldown against the contractor's own punch history.
+    const lastRows: Array<{ punch_time: Date; direction: string }> =
+      await this.contractorPunchRepo.manager.query(
+        `SELECT punch_time, direction
+           FROM contractor_biometric_punches
+          WHERE client_id = $1
+            AND contractor_employee_id = $2
+            AND punch_time <= $3
+          ORDER BY punch_time DESC
+          LIMIT 1`,
+        [device.clientId, ctr.id, ts],
+      );
+    if (lastRows.length) {
+      const last = lastRows[0];
+      const lastMs = new Date(last.punch_time).getTime();
+      const elapsed = ts.getTime() - lastMs;
+      if (last.direction === 'OUT' && elapsed >= 0 && elapsed < POST_LOGOUT_COOLDOWN_MS) {
+        const remainMs = POST_LOGOUT_COOLDOWN_MS - elapsed;
+        const h = Math.floor(remainMs / (60 * 60 * 1000));
+        const m = Math.ceil((remainMs - h * 60 * 60 * 1000) / 60000);
+        throw new ForbiddenException(
+          `Logout already recorded. Next punch allowed after the 8h rest window — please wait ${h}h ${m}m.`,
+        );
+      }
+    }
+
+    const photoUrl = await this.facePhotos.put({
+      clientId: device.clientId,
+      employeeCode: `contractor-${ctr.id}`,
+      purpose: 'punch',
+      timestamp: ts,
+      photoB64: body.photoB64,
+    });
+
+    // INSERT ... ON CONFLICT DO NOTHING gives idempotency: a replayed
+    // offline-queue row or a network-retry produces no duplicate. RETURNING
+    // tells us whether this call actually inserted.
+    const inserted: Array<{ id: string }> =
+      await this.contractorPunchRepo.manager.query(
+        `INSERT INTO contractor_biometric_punches
+           (client_id, branch_id, contractor_employee_id, punch_time, direction,
+            source, mobile_device_id, device_id, capture_lat, capture_lng,
+            capture_accuracy_m, photo_url, match_score, liveness_score,
+            match_provider)
+         VALUES ($1, $2, $3, $4, $5, 'MOBILE_KIOSK', $6, $7, $8, $9, $10, $11,
+                 $12, $13, $14)
+         ON CONFLICT (client_id, contractor_employee_id, punch_time) DO NOTHING
+         RETURNING id`,
+        [
+          device.clientId,
+          ctr.branchId ?? device.branchId ?? null,
+          ctr.id,
+          ts,
+          body.direction ?? 'AUTO',
+          device.id,
+          `mobile:${device.id}`,
+          body.captureLat ?? null,
+          body.captureLng ?? null,
+          body.captureAccuracyM ?? null,
+          photoUrl,
+          body.matchScore ?? null,
+          body.livenessScore ?? null,
+          body.matchProvider ?? 'mobilefacenet',
+        ],
+      );
+
+    await this.deviceRepo.update(device.id, { lastPunchAt: ts });
+
+    return {
+      ok: true,
+      duplicate: inserted.length === 0,
+      contractorEmployeeId: ctr.id,
+      contractorName: ctr.name,
       punchTime: ts.toISOString(),
       mode: device.mode,
     };

@@ -213,6 +213,81 @@ export class MobilePunchBatchDto {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 4d: contractor kiosk punch. Mirrors MobilePunchDto but keyed by
+// contractor_employees.id and routed to a parallel write path so existing
+// payroll roll-ups stay untouched.
+// ---------------------------------------------------------------------------
+
+export class ContractorMobilePunchDto {
+  @IsUUID()
+  contractorEmployeeId!: string;
+
+  /** ISO timestamp of capture. */
+  @IsString()
+  punchTime!: string;
+
+  @IsIn(['IN', 'OUT', 'AUTO'])
+  @IsOptional()
+  direction?: 'IN' | 'OUT' | 'AUTO';
+
+  @IsOptional()
+  @IsNumber()
+  captureLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  captureLng?: number;
+
+  @IsOptional()
+  @IsNumber()
+  captureAccuracyM?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  matchScore?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  livenessScore?: number;
+
+  @IsOptional()
+  @IsString()
+  matchProvider?: string;
+
+  @IsOptional()
+  @IsString()
+  photoB64?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isMockLocation?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isRooted?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  offlineSync?: boolean;
+
+  @IsOptional()
+  @IsIn(['BLINK', 'HEAD_TURN_LEFT', 'HEAD_TURN_RIGHT', 'SMILE'])
+  livenessChallengeType?:
+    | 'BLINK'
+    | 'HEAD_TURN_LEFT'
+    | 'HEAD_TURN_RIGHT'
+    | 'SMILE';
+
+  @IsOptional()
+  @IsString()
+  livenessChallengePassedAt?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Phase 3e: re-enrollment approval workflow.
 // ---------------------------------------------------------------------------
 
