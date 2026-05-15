@@ -903,6 +903,11 @@
         <ui-compliance-calendar-widget [items]="calendarItems"></ui-compliance-calendar-widget>
         <ui-compliance-notification-center></ui-compliance-notification-center>
       </div>
+
+      <!-- ═══════ Face-scan failures (last 7 days) ═══════ -->
+      <div class="mt-5">
+        <app-face-failures-widget route="/client/face-failures"></app-face-failures-widget>
+      </div>
     </ng-container>
 
     <ng-template #clientFallback>
