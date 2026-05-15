@@ -13,13 +13,22 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import { AuthService } from '../../../core/auth.service';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import {
+  ContractorEmployee,
+  ContractorEmployeesApiService,
+} from '../../../core/contractor-employees-api.service';
+import {
   ClientMobileAttendanceService,
+  ContractorEnrollmentStatusRow,
+  EnrollContractorFaceBody,
   EnrollFaceBody,
   EnrollmentStatusRow,
 } from '../../client/mobile-attendance/client-mobile-attendance.service';
 
+type SubjectType = 'employee' | 'contractor';
+
 interface EnrollForm {
-  employeeId: string;
+  subjectType: SubjectType;
+  subjectId: string;            // employees.id OR contractor_employees.id
   photoBase64: string;
   photoMime: string;
   photoFileName: string;
@@ -44,28 +53,63 @@ interface EnrollForm {
     ></ui-page-header>
 
     <div class="p-4 md:p-6 space-y-4">
-      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 class="font-semibold text-gray-900 mb-3">Enroll an Employee Face</h3>
+      <!-- Subject-type tabs (Employee vs Contractor) -->
+      <div class="bg-white rounded-xl border border-gray-200 p-2 shadow-sm flex gap-1" role="tablist">
+        <button type="button" role="tab"
+          class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
+          [class.bg-indigo-600]="subjectType === 'employee'"
+          [class.text-white]="subjectType === 'employee'"
+          [class.text-gray-700]="subjectType !== 'employee'"
+          [class.hover:bg-gray-100]="subjectType !== 'employee'"
+          [attr.aria-selected]="subjectType === 'employee'"
+          (click)="switchSubjectType('employee')">
+          Employees
+        </button>
+        <button type="button" role="tab"
+          class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition"
+          [class.bg-indigo-600]="subjectType === 'contractor'"
+          [class.text-white]="subjectType === 'contractor'"
+          [class.text-gray-700]="subjectType !== 'contractor'"
+          [class.hover:bg-gray-100]="subjectType !== 'contractor'"
+          [attr.aria-selected]="subjectType === 'contractor'"
+          (click)="switchSubjectType('contractor')">
+          Contractor Employees
+        </button>
+      </div>
 
-        <div *ngIf="loadingEmployees" class="py-6 flex justify-center">
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 class="font-semibold text-gray-900 mb-3">
+          Enroll {{ subjectType === 'contractor' ? 'a Contractor Employee' : 'an Employee' }} Face
+        </h3>
+
+        <div *ngIf="loadingSubjects" class="py-6 flex justify-center">
           <ui-loading-spinner></ui-loading-spinner>
         </div>
 
-        <ng-container *ngIf="!loadingEmployees">
-          <div *ngIf="!employees.length">
+        <ng-container *ngIf="!loadingSubjects">
+          <div *ngIf="!subjectCount">
             <ui-empty-state
-              title="No employees found"
-              message="There are no active employees in your branch yet."
+              [title]="subjectType === 'contractor' ? 'No contractor employees found' : 'No employees found'"
+              [description]="subjectType === 'contractor'
+                ? 'There are no active contractor employees in your branch yet.'
+                : 'There are no active employees in your branch yet.'"
             ></ui-empty-state>
           </div>
 
-          <ng-container *ngIf="employees.length">
+          <ng-container *ngIf="subjectCount">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label for="enroll-emp" class="block text-xs font-medium text-gray-600 mb-1">Employee</label>
-                <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" class="ui-input">
-                  <option value="">— Select employee —</option>
-                  <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
+                <label for="enroll-subj" class="block text-xs font-medium text-gray-600 mb-1">
+                  {{ subjectType === 'contractor' ? 'Contractor Employee' : 'Employee' }}
+                </label>
+                <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" class="ui-input">
+                  <option value="">— Select —</option>
+                  <ng-container *ngIf="subjectType === 'employee'">
+                    <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
+                  </ng-container>
+                  <ng-container *ngIf="subjectType === 'contractor'">
+                    <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span></option>
+                  </ng-container>
                 </select>
               </div>
               <div>
@@ -105,7 +149,7 @@ interface EnrollForm {
               <input id="enroll-consent" type="checkbox" name="consentGiven"
                 [(ngModel)]="enrollForm.consentGiven" class="mt-0.5">
               <label for="enroll-consent" class="text-sm text-gray-700">
-                I confirm the employee has read the biometric data privacy notice and has given explicit
+                I confirm the {{ subjectType === 'contractor' ? 'contractor employee' : 'employee' }} has read the biometric data privacy notice and has given explicit
                 informed consent for face enrollment under the DPDP Act 2023.
               </label>
             </div>
@@ -131,11 +175,13 @@ interface EnrollForm {
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
-            <h3 class="font-semibold text-gray-900">Enrollment Status</h3>
+            <h3 class="font-semibold text-gray-900">
+              {{ subjectType === 'contractor' ? 'Contractor Enrollment Status' : 'Enrollment Status' }}
+            </h3>
             <p class="text-xs text-gray-500">
               <span class="font-semibold text-gray-900">{{ enrolledCount }}</span> enrolled ·
               <span class="font-semibold text-amber-700">{{ pendingCount }}</span> pending ·
-              {{ enrollmentRows.length }} total in your branch
+              {{ activeRows.length }} total in your branch
             </p>
           </div>
           <div class="flex items-center gap-2">
@@ -155,7 +201,8 @@ interface EnrollForm {
           <ui-loading-spinner></ui-loading-spinner>
         </div>
 
-        <div *ngIf="!loadingEnrollments && filteredEnrollments.length > 0" class="overflow-x-auto">
+        <!-- Employee status table -->
+        <div *ngIf="!loadingEnrollments && subjectType === 'employee' && filteredEnrollments.length > 0" class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
@@ -191,10 +238,45 @@ interface EnrollForm {
           </table>
         </div>
 
-        <div *ngIf="!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0"
-             class="text-sm text-gray-500">No employees match the current filter.</div>
-        <div *ngIf="!loadingEnrollments && enrollmentRows.length === 0"
-             class="text-sm text-gray-500">No employees found in your branch.</div>
+        <!-- Contractor status table -->
+        <div *ngIf="!loadingEnrollments && subjectType === 'contractor' && filteredContractorEnrollments.length > 0" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-3 py-2 font-semibold text-gray-700">Name</th>
+                <th class="text-center px-3 py-2 font-semibold text-gray-700">Status</th>
+                <th class="text-left px-3 py-2 font-semibold text-gray-700">Enrolled At</th>
+                <th class="text-right px-3 py-2 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of filteredContractorEnrollments" class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="px-3 py-2 text-gray-900 font-medium">{{ r.name }}</td>
+                <td class="px-3 py-2 text-center">
+                  <span *ngIf="r.isEnrolled && r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Enrolled</span>
+                  <span *ngIf="r.isEnrolled && !r.isActive"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Deactivated</span>
+                  <span *ngIf="!r.isEnrolled"
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pending</span>
+                </td>
+                <td class="px-3 py-2 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
+                    (click)="selectContractorForEnroll(r)">Enroll</button>
+                  <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline"
+                    (click)="deactivateContractor(r)">Deactivate</button>
+                  <span *ngIf="r.isEnrolled && !r.isActive" class="text-xs text-gray-400">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="!loadingEnrollments && activeRows.length > 0 && activeFilteredRows.length === 0"
+             class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} match the current filter.</div>
+        <div *ngIf="!loadingEnrollments && activeRows.length === 0"
+             class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your branch.</div>
       </div>
     </div>
   `,
@@ -209,8 +291,12 @@ interface EnrollForm {
 export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
+  subjectType: SubjectType = 'employee';
+
   employees: Employee[] = [];
+  contractors: ContractorEmployee[] = [];
   loadingEmployees = false;
+  loadingContractors = false;
 
   enrollForm: EnrollForm = this.emptyForm();
   enrolling = false;
@@ -225,6 +311,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   // Status table
   enrollmentRows: EnrollmentStatusRow[] = [];
+  contractorEnrollmentRows: ContractorEnrollmentStatusRow[] = [];
   loadingEnrollments = false;
   statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
   statusSearch = '';
@@ -232,13 +319,14 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   constructor(
     private auth: AuthService,
     private empSvc: ClientEmployeesService,
+    private contractorEmpSvc: ContractorEmployeesApiService,
     private svc: ClientMobileAttendanceService,
     private toast: ToastService,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.loadEmployees();
+    this.loadSubjects();
     this.loadEnrollments();
   }
 
@@ -256,11 +344,35 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   get canEnroll(): boolean {
     return (
-      !!this.enrollForm.employeeId &&
+      !!this.enrollForm.subjectId &&
       !!this.enrollForm.photoBase64 &&
       this.enrollForm.consentGiven &&
       !this.enrolling
     );
+  }
+
+  get subjectCount(): number {
+    return this.subjectType === 'contractor' ? this.contractors.length : this.employees.length;
+  }
+
+  get loadingSubjects(): boolean {
+    return this.subjectType === 'contractor' ? this.loadingContractors : this.loadingEmployees;
+  }
+
+  switchSubjectType(t: SubjectType): void {
+    if (this.subjectType === t) return;
+    this.subjectType = t;
+    this.enrollForm = this.emptyForm();
+    this.enrollError = '';
+    this.statusSearch = '';
+    this.statusFilter = 'all';
+    this.stopCamera();
+    this.cdr.markForCheck();
+  }
+
+  private loadSubjects(): void {
+    this.loadEmployees();
+    this.loadContractors();
   }
 
   private loadEmployees(): void {
@@ -276,6 +388,22 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (r) => { this.employees = r?.data ?? []; this.cdr.markForCheck(); },
         error: (e) => { this.toast.error(e?.error?.message || 'Failed to load employees'); },
+      });
+  }
+
+  private loadContractors(): void {
+    const branchId = this.auth.getBranchIds()?.[0];
+    if (!branchId) {
+      // Already surfaced via loadEmployees(); avoid duplicate toast.
+      return;
+    }
+    this.loadingContractors = true;
+    this.contractorEmpSvc
+      .list({ branchId, isActive: true })
+      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingContractors = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: (r) => { this.contractors = r?.data ?? []; this.cdr.markForCheck(); },
+        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load contractor employees'); },
       });
   }
 
@@ -496,21 +624,38 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   submitEnroll(): void {
     this.enrollError = '';
     if (!this.canEnroll) {
-      this.enrollError = 'Select employee, attach photo, and tick consent';
+      this.enrollError = 'Select a subject, attach a photo, and tick consent';
+      return;
+    }
+    this.enrolling = true;
+    const done = () => { this.enrolling = false; this.cdr.markForCheck(); };
+    if (this.subjectType === 'contractor') {
+      const body: EnrollContractorFaceBody = {
+        contractorEmployeeId: this.enrollForm.subjectId,
+        consentGiven: true,
+        photoBase64: this.enrollForm.photoBase64,
+        photoMime: this.enrollForm.photoMime,
+      };
+      this.svc
+        .enrollContractorFace(body)
+        .pipe(takeUntil(this.destroy$), finalize(done))
+        .subscribe({
+          next: () => { this.toast.success('Contractor face enrolled'); this.resetEnroll(); this.loadEnrollments(); },
+          error: (e) => { this.enrollError = e?.error?.message || 'Enrollment failed'; this.cdr.markForCheck(); },
+        });
       return;
     }
     const body: EnrollFaceBody = {
-      employeeId: this.enrollForm.employeeId,
+      employeeId: this.enrollForm.subjectId,
       consentGiven: true,
       photoBase64: this.enrollForm.photoBase64,
       photoMime: this.enrollForm.photoMime,
     };
-    this.enrolling = true;
     this.svc
       .enrollFace(body)
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.enrolling = false; this.cdr.markForCheck(); }))
+      .pipe(takeUntil(this.destroy$), finalize(done))
       .subscribe({
-        next: () => { this.toast.success('Face enrolled'); this.resetEnroll(); },
+        next: () => { this.toast.success('Face enrolled'); this.resetEnroll(); this.loadEnrollments(); },
         error: (e) => { this.enrollError = e?.error?.message || 'Enrollment failed'; this.cdr.markForCheck(); },
       });
   }
@@ -525,35 +670,78 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   // ── Enrollment status ────────────────────────────────────
   loadEnrollments(): void {
     this.loadingEnrollments = true;
+    const done = () => { this.loadingEnrollments = false; this.cdr.markForCheck(); };
+    if (this.subjectType === 'contractor') {
+      this.svc.listContractorEnrollments()
+        .pipe(takeUntil(this.destroy$), finalize(done))
+        .subscribe({
+          next: (rows) => { this.contractorEnrollmentRows = rows || []; this.cdr.markForCheck(); },
+          error: (e) => { this.toast.error(e?.error?.message || 'Failed to load contractor enrollments'); },
+        });
+      return;
+    }
     this.svc.listEnrollments()
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingEnrollments = false; this.cdr.markForCheck(); }))
+      .pipe(takeUntil(this.destroy$), finalize(done))
       .subscribe({
         next: (rows) => { this.enrollmentRows = rows || []; this.cdr.markForCheck(); },
         error: (e) => { this.toast.error(e?.error?.message || 'Failed to load enrollments'); },
       });
   }
 
+  /** Currently-visible enrollment rows for the active subject tab. */
+  get activeRows(): Array<EnrollmentStatusRow | ContractorEnrollmentStatusRow> {
+    return this.subjectType === 'contractor' ? this.contractorEnrollmentRows : this.enrollmentRows;
+  }
+
+  get activeFilteredRows(): Array<EnrollmentStatusRow | ContractorEnrollmentStatusRow> {
+    return this.subjectType === 'contractor' ? this.filteredContractorEnrollments : this.filteredEnrollments;
+  }
+
   get enrolledCount(): number {
-    return this.enrollmentRows.filter((r) => r.isEnrolled && r.isActive).length;
+    return this.activeRows.filter((r) => r.isEnrolled && r.isActive).length;
   }
 
   get pendingCount(): number {
-    return this.enrollmentRows.filter((r) => !r.isEnrolled).length;
+    return this.activeRows.filter((r) => !r.isEnrolled).length;
+  }
+
+  private matchesFilter(r: { isEnrolled: boolean; isActive: boolean }): boolean {
+    if (this.statusFilter === 'pending' && r.isEnrolled) return false;
+    if (this.statusFilter === 'enrolled' && !(r.isEnrolled && r.isActive)) return false;
+    if (this.statusFilter === 'deactivated' && !(r.isEnrolled && !r.isActive)) return false;
+    return true;
   }
 
   get filteredEnrollments(): EnrollmentStatusRow[] {
     const q = this.statusSearch.trim().toLowerCase();
     return this.enrollmentRows.filter((r) => {
-      if (this.statusFilter === 'pending' && r.isEnrolled) return false;
-      if (this.statusFilter === 'enrolled' && !(r.isEnrolled && r.isActive)) return false;
-      if (this.statusFilter === 'deactivated' && !(r.isEnrolled && !r.isActive)) return false;
+      if (!this.matchesFilter(r)) return false;
       if (q && !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))) return false;
       return true;
     });
   }
 
+  get filteredContractorEnrollments(): ContractorEnrollmentStatusRow[] {
+    const q = this.statusSearch.trim().toLowerCase();
+    return this.contractorEnrollmentRows.filter((r) => {
+      if (!this.matchesFilter(r)) return false;
+      if (q && !(r.name || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
   selectForEnroll(r: EnrollmentStatusRow): void {
-    this.enrollForm.employeeId = r.employeeId;
+    this.subjectType = 'employee';
+    this.enrollForm.subjectType = 'employee';
+    this.enrollForm.subjectId = r.employeeId;
+    this.cdr.markForCheck();
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  selectContractorForEnroll(r: ContractorEnrollmentStatusRow): void {
+    this.subjectType = 'contractor';
+    this.enrollForm.subjectType = 'contractor';
+    this.enrollForm.subjectId = r.contractorEmployeeId;
     this.cdr.markForCheck();
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -569,9 +757,21 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       });
   }
 
+  deactivateContractor(r: ContractorEnrollmentStatusRow): void {
+    const reason = prompt(`Deactivate face enrollment for ${r.name}? Enter a reason (required for DPDP audit):`, 'Contractor request');
+    if (!reason || !reason.trim()) return;
+    this.svc.deactivateContractorEnrollment(r.contractorEmployeeId, reason.trim())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
+        error: (e) => this.toast.error(e?.error?.message || 'Deactivation failed'),
+      });
+  }
+
   private emptyForm(): EnrollForm {
     return {
-      employeeId: '',
+      subjectType: this.subjectType,
+      subjectId: '',
       photoBase64: '',
       photoMime: '',
       photoFileName: '',
