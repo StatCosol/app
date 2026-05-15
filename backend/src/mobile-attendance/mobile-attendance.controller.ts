@@ -319,6 +319,40 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
+      'Top subjects (employees + contractor workers) ranked by face-failure count in the window',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('failed-scans/top-subjects')
+  topFailedScanSubjects(
+    @CurrentUser() u: ReqUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
+    @Query('limit') limit?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    const subj =
+      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
+        ? subjectType
+        : null;
+    const lim = limit ? parseInt(limit, 10) : null;
+    return this.svc.topFailedScanSubjects(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        subjectType: subj,
+        limit: Number.isFinite(lim) ? lim : null,
+      },
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
       'Download face-attendance rejections as CSV (same filters as the listing endpoint; up to 5000 rows)',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')

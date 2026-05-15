@@ -2274,6 +2274,118 @@ export class MobileAttendanceService {
   }
 
   /**
+   * Top subjects (employees + contractor workers) ranked by failure count in
+   * the window. Honours the same filters as failedScanStats. Useful for
+   * spotting recurring offenders / repeat false-rejections.
+   */
+  async topFailedScanSubjects(
+    clientId: string,
+    opts: {
+      from?: string | null;
+      to?: string | null;
+      branchId?: string | null;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR' | null;
+      limit?: number | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+      employeeId: string | null;
+      employeeCode: string | null;
+      employeeName: string | null;
+      contractorEmployeeId: string | null;
+      contractorEmployeeName: string | null;
+      contractorName: string | null;
+      count: number;
+    }>
+  > {
+    const limit = Math.min(Math.max(Number(opts.limit) || 10, 1), 100);
+
+    const params: any[] = [clientId];
+    const where: string[] = ['f.client_id = $1'];
+    if (opts.from) {
+      params.push(opts.from);
+      where.push(`f.attempted_at >= $${params.length}`);
+    }
+    if (opts.to) {
+      params.push(opts.to);
+      where.push(`f.attempted_at <= $${params.length}`);
+    }
+    if (opts.branchId) {
+      params.push(opts.branchId);
+      where.push(`f.branch_id = $${params.length}`);
+    }
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      where.push(`f.branch_id = ANY($${params.length}::uuid[])`);
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return [];
+    }
+
+    const baseWhere = where.join(' AND ');
+    const wantEmp = opts.subjectType !== 'CONTRACTOR';
+    const wantCtr = opts.subjectType !== 'EMPLOYEE';
+
+    const rows: Array<{
+      subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+      employeeId: string | null;
+      employeeCode: string | null;
+      employeeName: string | null;
+      contractorEmployeeId: string | null;
+      contractorEmployeeName: string | null;
+      contractorName: string | null;
+      count: number;
+    }> = [];
+
+    if (wantEmp) {
+      const empRows = (await this.faceRepo.manager.query(
+        `SELECT 'EMPLOYEE'::text AS "subjectType",
+                f.employee_id AS "employeeId",
+                MAX(f.employee_code) AS "employeeCode",
+                MAX(e.name) AS "employeeName",
+                NULL::uuid AS "contractorEmployeeId",
+                NULL::text AS "contractorEmployeeName",
+                NULL::text AS "contractorName",
+                COUNT(*)::int AS count
+           FROM face_failed_scan_logs f
+           LEFT JOIN employees e ON e.id = f.employee_id
+          WHERE ${baseWhere} AND f.employee_id IS NOT NULL
+          GROUP BY f.employee_id
+          ORDER BY count DESC, "employeeName" ASC NULLS LAST
+          LIMIT ${limit}`,
+        params,
+      )) as typeof rows;
+      rows.push(...empRows);
+    }
+
+    if (wantCtr) {
+      const ctrRows = (await this.faceRepo.manager.query(
+        `SELECT 'CONTRACTOR'::text AS "subjectType",
+                NULL::uuid AS "employeeId",
+                NULL::text AS "employeeCode",
+                NULL::text AS "employeeName",
+                f.contractor_employee_id AS "contractorEmployeeId",
+                MAX(ce.name) AS "contractorEmployeeName",
+                MAX(cu.name) AS "contractorName",
+                COUNT(*)::int AS count
+           FROM face_failed_scan_logs f
+           LEFT JOIN contractor_employees ce ON ce.id = f.contractor_employee_id
+           LEFT JOIN users cu ON cu.id = ce.contractor_user_id
+          WHERE ${baseWhere} AND f.contractor_employee_id IS NOT NULL
+          GROUP BY f.contractor_employee_id
+          ORDER BY count DESC, "contractorEmployeeName" ASC NULLS LAST
+          LIMIT ${limit}`,
+        params,
+      )) as typeof rows;
+      rows.push(...ctrRows);
+    }
+
+    rows.sort((a, b) => Number(b.count) - Number(a.count));
+    return rows.slice(0, limit).map((r) => ({ ...r, count: Number(r.count) }));
+  }
+
+  /**
    * List distinct contractors (parent vendor users) that have at least one
    * active employee in the caller's allowed branches. Drives the contractor
    * picker on the branch-portal contractor-attendance page.
