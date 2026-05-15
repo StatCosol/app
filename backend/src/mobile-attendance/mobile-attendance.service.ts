@@ -2161,6 +2161,119 @@ export class MobileAttendanceService {
   }
 
   /**
+   * Aggregations over face_failed_scan_logs for dashboards/heatmaps. Honours
+   * the same window/branch/subject filters as listFailedScans. Returns counts
+   * grouped by reason, branch, day, and subject type, plus a grand total.
+   * Branch-scoped users only see their own branches.
+   */
+  async failedScanStats(
+    clientId: string,
+    opts: {
+      from?: string | null;
+      to?: string | null;
+      branchId?: string | null;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR' | null;
+    },
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    total: number;
+    bySubject: { employee: number; contractor: number; unknown: number };
+    byReason: Array<{ reason: string; count: number }>;
+    byBranch: Array<{
+      branchId: string | null;
+      branchName: string | null;
+      count: number;
+    }>;
+    byDay: Array<{ day: string; count: number }>;
+  }> {
+    const params: any[] = [clientId];
+    const where: string[] = ['f.client_id = $1'];
+
+    if (opts.from) {
+      params.push(opts.from);
+      where.push(`f.attempted_at >= $${params.length}`);
+    }
+    if (opts.to) {
+      params.push(opts.to);
+      where.push(`f.attempted_at <= $${params.length}`);
+    }
+    if (opts.subjectType === 'EMPLOYEE') {
+      where.push(`f.employee_id IS NOT NULL`);
+    } else if (opts.subjectType === 'CONTRACTOR') {
+      where.push(`f.contractor_employee_id IS NOT NULL`);
+    }
+    if (opts.branchId) {
+      params.push(opts.branchId);
+      where.push(`f.branch_id = $${params.length}`);
+    }
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      where.push(`f.branch_id = ANY($${params.length}::uuid[])`);
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return {
+        total: 0,
+        bySubject: { employee: 0, contractor: 0, unknown: 0 },
+        byReason: [],
+        byBranch: [],
+        byDay: [],
+      };
+    }
+
+    const whereSql = where.join(' AND ');
+
+    const [totalRow] = (await this.faceRepo.manager.query(
+      `SELECT COUNT(*)::int AS total,
+              SUM(CASE WHEN f.employee_id IS NOT NULL THEN 1 ELSE 0 END)::int AS emp,
+              SUM(CASE WHEN f.contractor_employee_id IS NOT NULL THEN 1 ELSE 0 END)::int AS ctr,
+              SUM(CASE WHEN f.employee_id IS NULL AND f.contractor_employee_id IS NULL THEN 1 ELSE 0 END)::int AS unk
+         FROM face_failed_scan_logs f
+        WHERE ${whereSql}`,
+      params,
+    )) as Array<{ total: number; emp: number; ctr: number; unk: number }>;
+
+    const byReason = (await this.faceRepo.manager.query(
+      `SELECT f.reason AS reason, COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+        WHERE ${whereSql}
+        GROUP BY f.reason
+        ORDER BY count DESC, reason ASC`,
+      params,
+    )) as Array<{ reason: string; count: number }>;
+
+    const byBranch = (await this.faceRepo.manager.query(
+      `SELECT f.branch_id AS "branchId", b.name AS "branchName", COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+         LEFT JOIN branches b ON b.id = f.branch_id
+        WHERE ${whereSql}
+        GROUP BY f.branch_id, b.name
+        ORDER BY count DESC, "branchName" ASC NULLS LAST`,
+      params,
+    )) as Array<{ branchId: string | null; branchName: string | null; count: number }>;
+
+    const byDay = (await this.faceRepo.manager.query(
+      `SELECT TO_CHAR(date_trunc('day', f.attempted_at), 'YYYY-MM-DD') AS day,
+              COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+        WHERE ${whereSql}
+        GROUP BY day
+        ORDER BY day ASC`,
+      params,
+    )) as Array<{ day: string; count: number }>;
+
+    return {
+      total: Number(totalRow?.total ?? 0),
+      bySubject: {
+        employee: Number(totalRow?.emp ?? 0),
+        contractor: Number(totalRow?.ctr ?? 0),
+        unknown: Number(totalRow?.unk ?? 0),
+      },
+      byReason,
+      byBranch,
+      byDay,
+    };
+  }
+
+  /**
    * List distinct contractors (parent vendor users) that have at least one
    * active employee in the caller's allowed branches. Drives the contractor
    * picker on the branch-portal contractor-attendance page.
