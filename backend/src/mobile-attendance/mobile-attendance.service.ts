@@ -12,6 +12,7 @@ import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import {
@@ -63,6 +64,7 @@ export class MobileAttendanceService {
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly biometricService: BiometricService,
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---------------------------------------------------------------- devices
@@ -277,9 +279,24 @@ export class MobileAttendanceService {
     };
     if (existing) {
       await this.faceRepo.update({ employeeId: emp.id }, payload);
+      await this.logEnrollmentHistory({
+        employeeId: emp.id,
+        clientId,
+        action: 'RE_ENROLL',
+        embeddingModel: payload.embeddingModel ?? null,
+        actorUserId: enrolledBy ?? null,
+      });
       return (await this.faceRepo.findOne({ where: { employeeId: emp.id } }))!;
     }
-    return this.faceRepo.save(this.faceRepo.create(payload));
+    const created = await this.faceRepo.save(this.faceRepo.create(payload));
+    await this.logEnrollmentHistory({
+      employeeId: emp.id,
+      clientId,
+      action: 'ENROLL',
+      embeddingModel: payload.embeddingModel ?? null,
+      actorUserId: enrolledBy ?? null,
+    });
+    return created;
   }
 
   /**
@@ -549,6 +566,13 @@ export class MobileAttendanceService {
       const label = dup
         ? `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`
         : bestEmpId;
+      await this.logDuplicateAttempt({
+        clientId,
+        attemptingEmployeeId: employeeId,
+        matchedEmployeeId: bestEmpId,
+        score: bestScore,
+        source: 'enroll',
+      });
       throw new ConflictException(
         `This face already appears to be enrolled for employee ${label} ` +
           `(similarity ${bestScore.toFixed(2)}). Each face may only be ` +
@@ -559,7 +583,47 @@ export class MobileAttendanceService {
   }
 
   // ------------------------------------------------------------------ punch
+  // Public entry: wraps the validation+insert flow and writes a row to
+  // face_failed_scan_logs for every rejection so admins have a single
+  // searchable log of bad attempts. Successful punches don't write here
+  // (biometric_punches is the system of record).
   async recordPunch(
+    device: MobileAttendanceDeviceEntity,
+    body: MobilePunchDto,
+    actorEmployeeId?: string | null,
+  ) {
+    try {
+      return await this._recordPunchInner(device, body, actorEmployeeId);
+    } catch (e: any) {
+      const reason = classifyRejection(e);
+      await this.logFailedScan({
+        clientId: device.clientId,
+        branchId: device.branchId ?? null,
+        deviceId: device.id,
+        employeeCode: body.employeeCode ?? null,
+        employeeId: body.employeeId ?? null,
+        reason,
+        reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
+        matchScore: body.matchScore ?? null,
+        livenessScore: body.livenessScore ?? null,
+        captureLat: body.captureLat ?? null,
+        captureLng: body.captureLng ?? null,
+      });
+      // Repeated-failure alert (best-effort).
+      if (body.employeeCode) {
+        this.maybeAlertRepeatedFailures(
+          device.clientId,
+          body.employeeCode,
+          reason,
+        ).catch((err) =>
+          this.logger.warn(`alert hook failed: ${err?.message ?? err}`),
+        );
+      }
+      throw e;
+    }
+  }
+
+  private async _recordPunchInner(
     device: MobileAttendanceDeviceEntity,
     body: MobilePunchDto,
     actorEmployeeId?: string | null,
@@ -788,6 +852,173 @@ export class MobileAttendanceService {
       mode: device.mode,
     };
   }
+
+  // ----------------------------------------------------------- audit logs
+
+  /** Append a row to face_failed_scan_logs. Best-effort: never throws. */
+  private async logFailedScan(input: {
+    clientId: string;
+    branchId: string | null;
+    deviceId: string | null;
+    employeeId: string | null;
+    employeeCode: string | null;
+    reason: string;
+    reasonDetail: string | null;
+    matchScore: number | null;
+    livenessScore: number | null;
+    captureLat: number | null;
+    captureLng: number | null;
+  }): Promise<void> {
+    try {
+      await this.faceRepo.manager.query(
+        `INSERT INTO face_failed_scan_logs
+           (client_id, branch_id, device_id, employee_id, employee_code,
+            reason, reason_detail, match_score, liveness_score,
+            capture_lat, capture_lng)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          input.clientId,
+          input.branchId,
+          input.deviceId,
+          input.employeeId,
+          input.employeeCode,
+          input.reason,
+          input.reasonDetail,
+          input.matchScore,
+          input.livenessScore,
+          input.captureLat,
+          input.captureLng,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(`logFailedScan failed: ${e?.message ?? e}`);
+    }
+  }
+
+  /** Append a row to face_duplicate_attempt_logs. Best-effort: never throws. */
+  private async logDuplicateAttempt(input: {
+    clientId: string;
+    attemptingEmployeeId: string | null;
+    matchedEmployeeId: string;
+    score: number;
+    source: string;
+    actorUserId?: string | null;
+  }): Promise<void> {
+    try {
+      await this.faceRepo.manager.query(
+        `INSERT INTO face_duplicate_attempt_logs
+           (client_id, attempting_employee_id, matched_employee_id,
+            match_score, attempted_by_user_id, source)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          input.clientId,
+          input.attemptingEmployeeId,
+          input.matchedEmployeeId,
+          input.score,
+          input.actorUserId ?? null,
+          input.source,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(`logDuplicateAttempt failed: ${e?.message ?? e}`);
+    }
+  }
+
+  /** Append a row to face_enrollment_history. Best-effort: never throws. */
+  private async logEnrollmentHistory(input: {
+    employeeId: string;
+    clientId: string;
+    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE';
+    reason?: string | null;
+    embeddingModel?: string | null;
+    actorUserId?: string | null;
+  }): Promise<void> {
+    try {
+      await this.faceRepo.manager.query(
+        `INSERT INTO face_enrollment_history
+           (employee_id, client_id, action, reason, embedding_model, actor_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          input.employeeId,
+          input.clientId,
+          input.action,
+          input.reason ?? null,
+          input.embeddingModel ?? null,
+          input.actorUserId ?? null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(`logEnrollmentHistory failed: ${e?.message ?? e}`);
+    }
+  }
+
+  /**
+   * If an employee has accumulated >=3 failed scans of the same reason in
+   * the last 10 minutes, raise a system notification (deduplicated per
+   * employee + reason + IST date so admins don't get spammed).
+   */
+  private async maybeAlertRepeatedFailures(
+    clientId: string,
+    employeeCode: string,
+    reason: string,
+  ): Promise<void> {
+    const rows: Array<{ n: string }> = await this.faceRepo.manager.query(
+      `SELECT COUNT(*)::text AS n
+         FROM face_failed_scan_logs
+        WHERE client_id = $1
+          AND employee_code = $2
+          AND reason = $3
+          AND attempted_at >= now() - interval '10 minutes'`,
+      [clientId, employeeCode, reason],
+    );
+    const n = Number(rows?.[0]?.n ?? 0);
+    if (n < 3) return;
+    const today = new Date().toISOString().slice(0, 10);
+    await this.notifications.createSystemNotification({
+      clientId,
+      sourceKey: `face-mismatch:${employeeCode}:${reason}:${today}`,
+      subject: `Repeated face-attendance failures: ${employeeCode}`,
+      message:
+        `Employee ${employeeCode} has triggered ${n} ${reason} rejections ` +
+        `in the last 10 minutes today (${today}). Please verify identity ` +
+        `and review enrollment.`,
+      queryType: 'ATTENDANCE',
+      priority: 1,
+    });
+  }
+}
+
+/**
+ * Map a thrown exception (or its message) onto the closed reason taxonomy
+ * used by face_failed_scan_logs.reason. Falls back to 'OTHER' so we never
+ * lose a row.
+ */
+function classifyRejection(e: any): string {
+  const msg = (typeof e?.message === 'string' ? e.message : '').toLowerCase();
+  if (!msg) return 'OTHER';
+  if (msg.includes('mock location')) return 'MOCK_LOCATION';
+  if (msg.includes('match score') || msg.includes('did not match'))
+    return 'FACE_MISMATCH';
+  if (msg.includes('liveness')) return 'LIVENESS_FAIL';
+  if (msg.includes('multiple face')) return 'MULTI_FACE';
+  if (msg.includes('mask')) return 'MASK_DETECTED';
+  if (msg.includes('outside') && msg.includes('geofence'))
+    return 'GEOFENCE_OUTSIDE';
+  if (msg.includes('rooted')) return 'ROOTED_DEVICE';
+  if (msg.includes('inactive')) return 'EMPLOYEE_INACTIVE';
+  if (msg.includes('exited')) return 'EMPLOYEE_EXITED';
+  if (msg.includes('rest window') || msg.includes('logout already recorded'))
+    return 'COOLDOWN_ACTIVE';
+  if (msg.includes('already marked via') || msg.includes('cross'))
+    return 'CROSS_SOURCE_CONFLICT';
+  if (msg.includes('clock') || msg.includes('older than 24 hours'))
+    return 'CLOCK_SKEW';
+  if (msg.includes('invalid punchtime')) return 'INVALID_TIME';
+  if (msg.includes('quality') || msg.includes('below threshold'))
+    return 'QUALITY_LOW';
+  if (msg.includes('device-bound') || msg.includes('not found'))
+    return 'OTHER';
+  return 'OTHER';
 }
 
 function haversineMeters(
