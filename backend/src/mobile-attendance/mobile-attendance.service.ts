@@ -24,7 +24,7 @@ import {
   RegisterMobileDeviceDto,
 } from './mobile-attendance.dto';
 
-const MIN_MATCH_SCORE = 0.78; // cosine similarity threshold for MobileFaceNet
+const MIN_MATCH_SCORE = 0.70; // mapped (cos+1)/2 threshold for MobileFaceNet (raw cos ~0.40); was 0.78 (raw cos 0.56) — too strict without face alignment
 const MIN_LIVENESS_SCORE = 0.5;
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum

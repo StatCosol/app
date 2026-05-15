@@ -245,7 +245,7 @@ class EssActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val MIN_MATCH = 0.78
+        private const val MIN_MATCH = 0.70
         private const val MIN_LIVENESS = 0.5
         private const val CAPTURE_TIMEOUT_MS = 10_000L
     }
