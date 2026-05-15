@@ -15,6 +15,7 @@ import { ReqUser } from '../access/access-scope.service';
 import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import {
+  CreateContractorReenrollRequestDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -208,6 +209,69 @@ export class MobileAttendanceAdminController {
       contractorEmployeeId,
       u.userId ?? null,
       reason ?? 'Admin deactivation',
+      allowedBranchIds,
+    );
+  }
+
+  // -------------- Phase 4c: contractor re-enrollment approval queue.
+
+  @ApiOperation({
+    summary:
+      'Submit a contractor re-enrollment request (held PENDING until reviewed)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('contractors/reenroll-requests')
+  createContractorReenroll(
+    @CurrentUser() u: ReqUser,
+    @Body() body: CreateContractorReenrollRequestDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.createContractorReenrollRequest(
+      u.clientId,
+      u.userId ?? null,
+      body,
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'List contractor re-enrollment requests by status (default PENDING)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('contractors/reenroll-requests')
+  listContractorReenroll(
+    @CurrentUser() u: ReqUser,
+    @Query('status')
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listContractorReenrollRequests(
+      u.clientId,
+      status,
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Approve or reject a contractor re-enrollment request',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('contractors/reenroll-requests/:id/review')
+  reviewContractorReenroll(
+    @CurrentUser() u: ReqUser,
+    @Param('id') id: string,
+    @Body() body: ReviewReenrollRequestDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.reviewContractorReenrollRequest(
+      u.clientId,
+      id,
+      u.userId ?? null,
+      body,
       allowedBranchIds,
     );
   }

@@ -1637,6 +1637,230 @@ export class MobileAttendanceService {
     }
   }
 
+  // ------------ Phase 4c: contractor re-enrollment approval workflow.
+  //
+  // Mirror of Phase 3e (createReenrollRequest / listReenrollRequests /
+  // reviewReenrollRequest) but keyed by contractor_employees.id and
+  // writing to contractor_face_reenrollment_requests +
+  // contractor_face_enrollments + contractor_face_enrollment_history.
+
+  /**
+   * Stash a pending re-enrollment request for a contractor employee. The
+   * new embedding lives in contractor_face_reenrollment_requests until a
+   * reviewer approves it; the live contractor_face_enrollments row is
+   * untouched. If no active enrollment exists, falls through (no-one is
+   * being overwritten).
+   */
+  async createContractorReenrollRequest(
+    clientId: string,
+    requestedBy: string | null,
+    body: import('./mobile-attendance.dto').CreateContractorReenrollRequestDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; pending: boolean; requestId?: string }> {
+    const ce = await this.contractorEmpRepo.findOne({
+      where: { id: body.contractorEmployeeId, clientId },
+    });
+    if (!ce) throw new NotFoundException('Contractor employee not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(ce.branchId ?? '')) {
+      throw new ForbiddenException(
+        'Contractor employee is not in your branch scope',
+      );
+    }
+    const embedding = Buffer.from(body.embeddingBase64, 'base64');
+
+    const existing = await this.contractorFaceRepo.findOne({
+      where: { contractorEmployeeId: ce.id, isActive: true },
+    });
+    if (!existing) {
+      this.logger.log(
+        `createContractorReenrollRequest: no active enrollment for contractor=${ce.id}, deferring to enroll flow`,
+      );
+      return { ok: true, pending: false };
+    }
+
+    // Block obvious duplicates across both tables. Approval can't repair a
+    // cross-table collision — admin must resolve the duplicate first.
+    await this.assertContractorFaceNotDuplicate(clientId, ce.id, embedding);
+
+    const photoUrl = await this.facePhotos.put({
+      clientId,
+      employeeCode: `contractor-${ce.id}`,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
+    const rows: Array<{ id: string }> =
+      await this.contractorFaceRepo.manager.query(
+        `INSERT INTO contractor_face_reenrollment_requests
+           (client_id, contractor_employee_id, branch_id, requested_by, reason,
+            embedding, embedding_model, photo_url, source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id`,
+        [
+          clientId,
+          ce.id,
+          ce.branchId ?? null,
+          requestedBy,
+          body.reason ?? null,
+          embedding,
+          body.embeddingModel ?? 'mobilefacenet-v1',
+          photoUrl,
+          body.source ?? 'ADMIN',
+        ],
+      );
+    const requestId = rows?.[0]?.id;
+    return { ok: true, pending: true, requestId };
+  }
+
+  async listContractorReenrollRequests(
+    clientId: string,
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      id: string;
+      contractorEmployeeId: string;
+      contractorName: string | null;
+      branchId: string | null;
+      requestedBy: string | null;
+      requestedAt: string;
+      reason: string | null;
+      photoUrl: string | null;
+      source: string;
+      status: string;
+      reviewedBy: string | null;
+      reviewedAt: string | null;
+      reviewNotes: string | null;
+    }>
+  > {
+    const params: any[] = [clientId, status];
+    let branchSql = '';
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      branchSql = `AND (r.branch_id = ANY($3::uuid[]))`;
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return [];
+    }
+    return this.contractorFaceRepo.manager.query(
+      `SELECT r.id,
+              r.contractor_employee_id AS "contractorEmployeeId",
+              ce.name AS "contractorName",
+              r.branch_id AS "branchId",
+              r.requested_by AS "requestedBy",
+              r.requested_at AS "requestedAt",
+              r.reason, r.photo_url AS "photoUrl", r.source, r.status,
+              r.reviewed_by AS "reviewedBy",
+              r.reviewed_at AS "reviewedAt",
+              r.review_notes AS "reviewNotes"
+         FROM contractor_face_reenrollment_requests r
+         LEFT JOIN contractor_employees ce ON ce.id = r.contractor_employee_id
+        WHERE r.client_id = $1
+          AND r.status = $2
+          ${branchSql}
+        ORDER BY r.requested_at DESC
+        LIMIT 500`,
+      params,
+    );
+  }
+
+  async reviewContractorReenrollRequest(
+    clientId: string,
+    requestId: string,
+    reviewerUserId: string | null,
+    body: import('./mobile-attendance.dto').ReviewReenrollRequestDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
+    const rows: Array<{
+      id: string;
+      client_id: string;
+      contractor_employee_id: string;
+      branch_id: string | null;
+      embedding: Buffer;
+      embedding_model: string | null;
+      photo_url: string | null;
+      status: string;
+    }> = await this.contractorFaceRepo.manager.query(
+      `SELECT id, client_id, contractor_employee_id, branch_id,
+              embedding, embedding_model, photo_url, status
+         FROM contractor_face_reenrollment_requests
+        WHERE id = $1 AND client_id = $2
+        LIMIT 1`,
+      [requestId, clientId],
+    );
+    const req = rows?.[0];
+    if (!req) throw new NotFoundException('Re-enrollment request not found');
+    if (req.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Request already ${req.status.toLowerCase()}`,
+      );
+    }
+    if (allowedBranchIds && !allowedBranchIds.includes(req.branch_id ?? '')) {
+      throw new ForbiddenException('Request is not in your branch scope');
+    }
+
+    if (body.decision === 'REJECTED') {
+      await this.contractorFaceRepo.manager.query(
+        `UPDATE contractor_face_reenrollment_requests
+            SET status = 'REJECTED',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                review_notes = $2
+          WHERE id = $3`,
+        [reviewerUserId, body.notes ?? null, req.id],
+      );
+      return { ok: true, status: 'REJECTED' };
+    }
+
+    // APPROVED: copy the new embedding into contractor_face_enrollments,
+    // append a RE_ENROLL row to contractor_face_enrollment_history, then
+    // mark the request approved. Single transaction so partial failure
+    // doesn't leave a stale PENDING row pointing at an applied embedding.
+    await this.contractorFaceRepo.manager.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE contractor_face_enrollments
+            SET embedding = $1,
+                embedding_model = COALESCE($2, embedding_model),
+                photo_url = COALESCE($3, photo_url),
+                is_active = true,
+                deactivated_at = NULL,
+                deactivation_reason = NULL,
+                updated_at = now()
+          WHERE contractor_employee_id = $4 AND client_id = $5`,
+        [
+          req.embedding,
+          req.embedding_model,
+          req.photo_url,
+          req.contractor_employee_id,
+          req.client_id,
+        ],
+      );
+      await tx.query(
+        `INSERT INTO contractor_face_enrollment_history
+           (contractor_employee_id, client_id, action, reason,
+            embedding_model, actor_user_id)
+         VALUES ($1, $2, 'RE_ENROLL', $3, $4, $5)`,
+        [
+          req.contractor_employee_id,
+          req.client_id,
+          body.notes ?? 'Approved re-enrollment request',
+          req.embedding_model,
+          reviewerUserId,
+        ],
+      );
+      await tx.query(
+        `UPDATE contractor_face_reenrollment_requests
+            SET status = 'APPROVED',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                review_notes = $2
+          WHERE id = $3`,
+        [reviewerUserId, body.notes ?? null, req.id],
+      );
+    });
+    return { ok: true, status: 'APPROVED' };
+  }
+
   /**
    * If an employee has accumulated >=3 failed scans of the same reason in
    * the last 10 minutes, raise a system notification (deduplicated per
