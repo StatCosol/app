@@ -319,6 +319,26 @@ export class ClientMobileAttendanceService {
     const qs = parts.length ? `?${parts.join('&')}` : '';
     return this.http.get<FailedScanRow[]>(`${this.base}/failed-scans${qs}`);
   }
+
+  // ── Face-failure aggregations (Phase 4d step 10) ──
+  failedScanStats(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+    } = {},
+  ): Observable<FailedScanStats> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<FailedScanStats>(
+      `${this.base}/failed-scans/stats${qs}`,
+    );
+  }
 }
 
 export interface ContractorForBranchRow {
@@ -364,4 +384,16 @@ export interface FailedScanRow {
   livenessScore: string | null;
   captureLat: string | null;
   captureLng: string | null;
+}
+
+export interface FailedScanStats {
+  total: number;
+  bySubject: { employee: number; contractor: number; unknown: number };
+  byReason: Array<{ reason: string; count: number }>;
+  byBranch: Array<{
+    branchId: string | null;
+    branchName: string | null;
+    count: number;
+  }>;
+  byDay: Array<{ day: string; count: number }>;
 }
