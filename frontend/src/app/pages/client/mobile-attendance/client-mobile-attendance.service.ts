@@ -76,6 +76,31 @@ export interface EnrollmentStatusRow {
   deactivationReason: string | null;
 }
 
+export type ReenrollRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type ReenrollRequestSource = 'ADMIN' | 'ESS' | 'KIOSK';
+
+export interface ReenrollRequest {
+  id: string;
+  employeeId: string;
+  employeeCode: string | null;
+  employeeName: string | null;
+  branchId: string | null;
+  requestedBy: string | null;
+  requestedAt: string;
+  reason: string | null;
+  photoUrl: string | null;
+  source: ReenrollRequestSource;
+  status: ReenrollRequestStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+}
+
+export interface ReviewReenrollBody {
+  decision: 'APPROVED' | 'REJECTED';
+  notes?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClientMobileAttendanceService {
   private base = `${environment.apiBaseUrl}/api/v1/client/mobile-attendance`;
@@ -111,5 +136,20 @@ export class ClientMobileAttendanceService {
   deactivateEnrollment(employeeId: string, reason?: string): Observable<FaceEnrollment> {
     const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
     return this.http.delete<FaceEnrollment>(`${this.base}/enroll/${employeeId}${qs}`);
+  }
+
+  // Re-enrollment approval queue (Phase 3e)
+  listReenrollRequests(status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
+    return this.http.get<ReenrollRequest[]>(`${this.base}/reenroll-requests?status=${status}`);
+  }
+
+  reviewReenrollRequest(
+    id: string,
+    body: ReviewReenrollBody,
+  ): Observable<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
+    return this.http.post<{ ok: true; status: 'APPROVED' | 'REJECTED' }>(
+      `${this.base}/reenroll-requests/${id}/review`,
+      body,
+    );
   }
 }
