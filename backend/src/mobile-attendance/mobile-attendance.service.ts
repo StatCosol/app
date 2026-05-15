@@ -1349,6 +1349,15 @@ export class MobileAttendanceService {
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
       });
+      if (body.contractorEmployeeId) {
+        this.maybeAlertRepeatedContractorFailures(
+          device.clientId,
+          body.contractorEmployeeId,
+          reason,
+        ).catch((err) =>
+          this.logger.warn(`alert hook failed: ${err?.message ?? err}`),
+        );
+      }
       throw e;
     }
   }
@@ -2124,6 +2133,45 @@ export class MobileAttendanceService {
       subject: `Repeated face-attendance failures: ${employeeCode}`,
       message:
         `Employee ${employeeCode} has triggered ${n} ${reason} rejections ` +
+        `in the last 10 minutes today (${today}). Please verify identity ` +
+        `and review enrollment.`,
+      queryType: 'ATTENDANCE',
+      priority: 1,
+    });
+  }
+
+  /**
+   * Contractor equivalent of maybeAlertRepeatedFailures: keyed on
+   * contractor_employee_id (contractors have no employee_code). Dedupes
+   * per contractor + reason + IST date so admins don't get spammed.
+   */
+  private async maybeAlertRepeatedContractorFailures(
+    clientId: string,
+    contractorEmployeeId: string,
+    reason: string,
+  ): Promise<void> {
+    const rows: Array<{ n: string }> = await this.faceRepo.manager.query(
+      `SELECT COUNT(*)::text AS n
+         FROM face_failed_scan_logs
+        WHERE client_id = $1
+          AND contractor_employee_id = $2
+          AND reason = $3
+          AND attempted_at >= now() - interval '10 minutes'`,
+      [clientId, contractorEmployeeId, reason],
+    );
+    const n = Number(rows?.[0]?.n ?? 0);
+    if (n < 3) return;
+    const ctr = await this.contractorEmpRepo.findOne({
+      where: { id: contractorEmployeeId },
+    });
+    const label = ctr?.name ?? contractorEmployeeId;
+    const today = new Date().toISOString().slice(0, 10);
+    await this.notifications.createSystemNotification({
+      clientId,
+      sourceKey: `contractor-face-mismatch:${contractorEmployeeId}:${reason}:${today}`,
+      subject: `Repeated face-attendance failures (contractor): ${label}`,
+      message:
+        `Contractor employee ${label} has triggered ${n} ${reason} rejections ` +
         `in the last 10 minutes today (${today}). Please verify identity ` +
         `and review enrollment.`,
       queryType: 'ATTENDANCE',
