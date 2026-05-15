@@ -196,24 +196,26 @@ import { AuthService } from '../../../core/auth.service';
     /* ═══ PAGE ═════════════════════════════════ */
     .page {
       min-height: 100vh;
+      width: 100%;
       background: #005cff;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 32px clamp(32px, 6vw, 120px);
     }
 
     /* ═══ SCREEN (white card) ═════════════════ */
     .screen {
       width: 100%;
       max-width: 1080px;
-      min-height: min(1360px, calc(100vh - 48px));
+      min-height: min(1360px, calc(100vh - 64px));
       background: #fff;
       border-radius: 44px;
       display: grid;
       grid-template-columns: 38% 62%;
       overflow: hidden;
       box-shadow: 0 35px 90px rgba(0, 30, 100, .45);
+      margin: 0 auto;
     }
 
     /* ═══ LEFT BRAND PANEL ═════════════════════ */
