@@ -216,7 +216,7 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
-      'List recent contractor kiosk punches (optional from/to/branch/contractor filters)',
+      'List recent contractor kiosk punches (optional from/to/branch/contractor/contractorUser filters)',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Get('contractors/punches')
@@ -226,6 +226,7 @@ export class MobileAttendanceAdminController {
     @Query('to') to?: string,
     @Query('branchId') branchId?: string,
     @Query('contractorEmployeeId') contractorEmployeeId?: string,
+    @Query('contractorUserId') contractorUserId?: string,
     @Query('limit') limit?: string,
   ) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
@@ -237,8 +238,28 @@ export class MobileAttendanceAdminController {
         to: to ?? null,
         branchId: branchId ?? null,
         contractorEmployeeId: contractorEmployeeId ?? null,
+        contractorUserId: contractorUserId ?? null,
         limit: limit ? Number(limit) : null,
       },
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'List contractors (parent vendors) with active employees in the caller\u2019s allowed branches; drives the branch-portal contractor picker',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('contractors/for-branch')
+  listContractorsForBranch(
+    @CurrentUser() u: ReqUser,
+    @Query('branchId') branchId?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listContractorsForBranch(
+      u.clientId,
+      { branchId: branchId ?? null },
       allowedBranchIds,
     );
   }
