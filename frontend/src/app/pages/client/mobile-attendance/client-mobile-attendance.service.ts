@@ -339,6 +339,36 @@ export class ClientMobileAttendanceService {
       `${this.base}/failed-scans/stats${qs}`,
     );
   }
+
+  // ── Face-failure CSV export (Phase 4d step 12) ──
+  exportFailedScansCsv(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      reason?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+      employeeId?: string;
+      contractorEmployeeId?: string;
+    } = {},
+  ): Observable<Blob> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.reason) parts.push(`reason=${encodeURIComponent(opts.reason)}`);
+    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
+    if (opts.employeeId)
+      parts.push(`employeeId=${encodeURIComponent(opts.employeeId)}`);
+    if (opts.contractorEmployeeId)
+      parts.push(
+        `contractorEmployeeId=${encodeURIComponent(opts.contractorEmployeeId)}`,
+      );
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get(`${this.base}/failed-scans/export.csv${qs}`, {
+      responseType: 'blob',
+    });
+  }
 }
 
 export interface ContractorForBranchRow {
