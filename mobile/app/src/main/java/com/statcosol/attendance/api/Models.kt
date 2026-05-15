@@ -8,7 +8,9 @@ data class RosterResponse(
     val deviceId: String,
     val mode: String,                 // "KIOSK" | "ESS"
     val clientId: String,
+    val clientName: String? = null,
     val branchId: String?,
+    val branchName: String? = null,
     val geofenceLat: Double?,
     val geofenceLng: Double?,
     val geofenceRadiusM: Int?,

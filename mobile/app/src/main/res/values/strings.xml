@@ -31,6 +31,13 @@
     <string name="face_model_missing">Face matcher not configured — please reinstall the latest app build (the bundled MobileFaceNet model is missing).</string>
     <string name="face_embed_failed">Face processing error: %1$s</string>
     <string name="face_multiple_detected">Multiple faces in view (%1$d). Only one person at a time — ask others to step away.</string>
+    <string name="hint_no_face">No face detected — please look at the camera</string>
+    <string name="hint_too_small">Please move closer to the camera</string>
+    <string name="hint_too_dim">Lighting too low — please move into the light</string>
+    <string name="kiosk_branch_unknown">Branch not assigned</string>
+    <string name="kiosk_voice_recorded">Attendance recorded for %1$s</string>
+    <string name="kiosk_voice_logout_recorded">Logout recorded for %1$s</string>
+    <string name="kiosk_voice_face_not_recognised">Face not recognised, please try again</string>
     <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
 
     <string name="ess_punch_in">Punch In</string>
