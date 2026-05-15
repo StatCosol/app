@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -11,8 +12,10 @@ import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceEmbeddingClient } from './face-embedding.client';
+import { FacePhotoStorage } from './face-photo-storage.service';
 import {
   MobileAttendanceDeviceEntity,
   MobileDeviceMode,
@@ -24,8 +27,32 @@ import {
   RegisterMobileDeviceDto,
 } from './mobile-attendance.dto';
 
-const MIN_MATCH_SCORE = 0.78; // cosine similarity threshold for MobileFaceNet
+// Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (raw cos 0.56) in Phase 3a
+// to tighten the false-accept band; spec asks 0.90 but that's too strict
+// without server-side face alignment, so we step up to 0.78 first and will
+// raise again once we add alignment.
+const MIN_MATCH_SCORE = 0.78;
 const MIN_LIVENESS_SCORE = 0.5;
+// Phase 3d: active liveness challenge. When the deployment env opts in
+// (FACE_LIVENESS_CHALLENGE_REQUIRED=true), every punch must carry a
+// challenge that was satisfied on-device within this window.
+const LIVENESS_CHALLENGE_REQUIRED =
+  String(process.env.FACE_LIVENESS_CHALLENGE_REQUIRED || '').toLowerCase() ===
+  'true';
+const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
+// Phase 3a: server-time clock-skew gate. A live punch's `punchTime` must
+// fall inside this window relative to server time. Punches outside the
+// window are rejected unless `body.offlineSync === true`, which is set by
+// the Android queue worker when draining offline rows.
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;        // 5 min ahead
+const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
+// Duplicate-face guard at enrollment: if any *other* employee in the same
+// client has a stored embedding whose mapped similarity to the new one is
+// >= this value, reject as a duplicate. 0.82 mapped == raw cos 0.64, well
+// inside the same-person band but above the typical inter-class noise
+// floor (0.5–0.65 mapped). Looser than the per-punch match threshold on
+// purpose because enrollment is one-shot.
+const DUPLICATE_FACE_THRESHOLD = 0.82;
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
 // 8-hour gap between a shift end and the next shift start, even if the
@@ -45,6 +72,8 @@ export class MobileAttendanceService {
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly biometricService: BiometricService,
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
+    private readonly notifications: NotificationsService,
+    private readonly facePhotos: FacePhotoStorage,
   ) {}
 
   // ---------------------------------------------------------------- devices
@@ -75,6 +104,24 @@ export class MobileAttendanceService {
         where: { id: body.essEmployeeId, clientId },
       });
       if (!emp) throw new NotFoundException('ESS employee not found');
+
+      // One employee code = one active ESS device. Block re-registration on a
+      // second phone until the previous one is revoked, otherwise the same
+      // employee can punch from multiple devices simultaneously.
+      const existing = await this.deviceRepo.findOne({
+        where: {
+          clientId,
+          essEmployeeId: body.essEmployeeId,
+          isActive: true,
+        },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Employee ${emp.employeeCode ?? emp.id} is already bound to an active device` +
+            (existing.deviceLabel ? ` ("${existing.deviceLabel}")` : '') +
+            `. Revoke the previous device before registering a new one.`,
+        );
+      }
     }
     const installToken = randomBytes(32).toString('hex');
     const dev = this.deviceRepo.create({
@@ -205,13 +252,22 @@ export class MobileAttendanceService {
       );
     }
 
-    // TODO(face-photo-blob): upload `body.photoBase64` to Azure Blob
-    //   (container `face-photos`, key `{clientId}/{employeeId}.jpg`) and store
-    //   the resulting URL here. For now we keep a tiny inline thumbnail
-    //   reference so audits still see *something*; full photo is dropped.
-    const photoUrl = body.photoBase64
-      ? `embedded:mobilefacenet/${embedding ? embedding.length : 0}b`
-      : null;
+    // Phase 3c: persist the enrollment selfie when FACE_PHOTO_AUDIT is on.
+    // When disabled (default) we never write the photo, only the embedding.
+    const photoUrl = await this.facePhotos.put({
+      clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
+    // Duplicate-face guard: a face that already belongs to a *different*
+    // employee in this client must not be re-enrolled (prevents one person
+    // registering under multiple employee codes).
+    if (embedding) {
+      await this.assertFaceNotDuplicate(clientId, emp.id, embedding);
+    }
 
     const existing = await this.faceRepo.findOne({
       where: { employeeId: emp.id },
@@ -234,9 +290,24 @@ export class MobileAttendanceService {
     };
     if (existing) {
       await this.faceRepo.update({ employeeId: emp.id }, payload);
+      await this.logEnrollmentHistory({
+        employeeId: emp.id,
+        clientId,
+        action: 'RE_ENROLL',
+        embeddingModel: payload.embeddingModel ?? null,
+        actorUserId: enrolledBy ?? null,
+      });
       return (await this.faceRepo.findOne({ where: { employeeId: emp.id } }))!;
     }
-    return this.faceRepo.save(this.faceRepo.create(payload));
+    const created = await this.faceRepo.save(this.faceRepo.create(payload));
+    await this.logEnrollmentHistory({
+      employeeId: emp.id,
+      clientId,
+      action: 'ENROLL',
+      embeddingModel: payload.embeddingModel ?? null,
+      actorUserId: enrolledBy ?? null,
+    });
+    return created;
   }
 
   /**
@@ -268,6 +339,19 @@ export class MobileAttendanceService {
     if (!emp) throw new NotFoundException('Bound employee not found');
 
     const embedding = Buffer.from(body.embeddingBase64, 'base64');
+
+    // Duplicate-face guard: a face already enrolled for a different employee
+    // in this client must not be re-enrolled under another employee code.
+    await this.assertFaceNotDuplicate(device.clientId, emp.id, embedding);
+
+    const photoUrl = await this.facePhotos.put({
+      clientId: device.clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
     const now = new Date();
     const payload: Partial<FaceEnrollmentEntity> = {
       employeeId: emp.id,
@@ -275,9 +359,7 @@ export class MobileAttendanceService {
       branchId: emp.branchId ?? device.branchId ?? null,
       embedding,
       embeddingModel: body.embeddingModel ?? 'mobilefacenet-v1',
-      photoUrl: body.photoBase64
-        ? `data:image/jpeg;base64,${body.photoBase64.slice(0, 64)}...`
-        : null,
+      photoUrl,
       consentGivenAt: now,
       consentGivenBy: emp.id,
       enrolledAt: now,
@@ -294,6 +376,13 @@ export class MobileAttendanceService {
     } else {
       await this.faceRepo.save(this.faceRepo.create(payload));
     }
+    await this.logEnrollmentHistory({
+      employeeId: emp.id,
+      clientId: device.clientId,
+      action: existing ? 'RE_ENROLL' : 'ENROLL',
+      embeddingModel: payload.embeddingModel ?? null,
+      actorUserId: emp.id,
+    });
     return { ok: true, employeeId: emp.id };
   }
 
@@ -317,7 +406,241 @@ export class MobileAttendanceService {
     row.deactivatedAt = new Date();
     row.deactivationReason = reason;
     void by;
-    return this.faceRepo.save(row);
+    const saved = await this.faceRepo.save(row);
+    await this.logEnrollmentHistory({
+      employeeId,
+      clientId,
+      action: 'DEACTIVATE',
+      reason,
+      embeddingModel: row.embeddingModel ?? null,
+      actorUserId: by ?? null,
+    });
+    return saved;
+  }
+
+  // ---------------------------- re-enrollment approval workflow (Phase 3e)
+
+  /**
+   * Stash a pending re-enrollment request. The new embedding lives in
+   * face_reenrollment_requests until a reviewer approves it; the live
+   * face_enrollments row is untouched. If an active enrollment doesn't
+   * exist for this employee, falls through to direct enrollment instead
+   * (no-one is being overwritten).
+   */
+  async createReenrollRequest(
+    clientId: string,
+    requestedBy: string | null,
+    body: import('./mobile-attendance.dto').CreateReenrollRequestDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{
+    ok: true;
+    pending: boolean;
+    requestId?: string;
+  }> {
+    const emp = await this.empRepo.findOne({
+      where: { id: body.employeeId, clientId },
+    });
+    if (!emp) throw new NotFoundException('Employee not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(emp.branchId ?? '')) {
+      throw new ForbiddenException('Employee is not in your branch scope');
+    }
+    const embedding = Buffer.from(body.embeddingBase64, 'base64');
+
+    const existing = await this.faceRepo.findOne({
+      where: { employeeId: emp.id, isActive: true },
+    });
+    if (!existing) {
+      // No active enrollment to overwrite — nothing to approve, just log.
+      this.logger.log(
+        `createReenrollRequest: no active enrollment for ${emp.employeeCode}, deferring to admin enroll flow`,
+      );
+      return { ok: true, pending: false };
+    }
+
+    // Block obvious duplicates: same face already on file for *another*
+    // employee in this client. Approval can't repair this — admin must
+    // resolve the duplicate first.
+    await this.assertFaceNotDuplicate(clientId, emp.id, embedding);
+
+    const photoUrl = await this.facePhotos.put({
+      clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'enroll',
+      timestamp: new Date(),
+      photoB64: body.photoBase64,
+    });
+
+    const rows: Array<{ id: string }> = await this.faceRepo.manager.query(
+      `INSERT INTO face_reenrollment_requests
+         (client_id, employee_id, branch_id, requested_by, reason,
+          embedding, embedding_model, photo_url, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
+        clientId,
+        emp.id,
+        emp.branchId ?? null,
+        requestedBy,
+        body.reason ?? null,
+        embedding,
+        body.embeddingModel ?? 'mobilefacenet-v1',
+        photoUrl,
+        body.source ?? 'ADMIN',
+      ],
+    );
+    const requestId = rows?.[0]?.id;
+    return { ok: true, pending: true, requestId };
+  }
+
+  async listReenrollRequests(
+    clientId: string,
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      id: string;
+      employeeId: string;
+      employeeCode: string | null;
+      employeeName: string | null;
+      branchId: string | null;
+      requestedBy: string | null;
+      requestedAt: string;
+      reason: string | null;
+      photoUrl: string | null;
+      source: string;
+      status: string;
+      reviewedBy: string | null;
+      reviewedAt: string | null;
+      reviewNotes: string | null;
+    }>
+  > {
+    const params: any[] = [clientId, status];
+    let branchSql = '';
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      branchSql = `AND (r.branch_id = ANY($3::uuid[]))`;
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      // Branch-scoped user with no branches → see nothing.
+      return [];
+    }
+    return this.faceRepo.manager.query(
+      `SELECT r.id, r.employee_id AS "employeeId",
+              e.employee_code AS "employeeCode", e.name AS "employeeName",
+              r.branch_id AS "branchId",
+              r.requested_by AS "requestedBy",
+              r.requested_at AS "requestedAt",
+              r.reason, r.photo_url AS "photoUrl", r.source, r.status,
+              r.reviewed_by AS "reviewedBy",
+              r.reviewed_at AS "reviewedAt",
+              r.review_notes AS "reviewNotes"
+         FROM face_reenrollment_requests r
+         LEFT JOIN employees e ON e.id = r.employee_id
+        WHERE r.client_id = $1
+          AND r.status = $2
+          ${branchSql}
+        ORDER BY r.requested_at DESC
+        LIMIT 500`,
+      params,
+    );
+  }
+
+  async reviewReenrollRequest(
+    clientId: string,
+    requestId: string,
+    reviewerUserId: string | null,
+    body: import('./mobile-attendance.dto').ReviewReenrollRequestDto,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; status: 'APPROVED' | 'REJECTED' }> {
+    const rows: Array<{
+      id: string;
+      client_id: string;
+      employee_id: string;
+      branch_id: string | null;
+      embedding: Buffer;
+      embedding_model: string | null;
+      photo_url: string | null;
+      status: string;
+    }> = await this.faceRepo.manager.query(
+      `SELECT id, client_id, employee_id, branch_id,
+              embedding, embedding_model, photo_url, status
+         FROM face_reenrollment_requests
+        WHERE id = $1 AND client_id = $2
+        LIMIT 1`,
+      [requestId, clientId],
+    );
+    const req = rows?.[0];
+    if (!req) throw new NotFoundException('Re-enrollment request not found');
+    if (req.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Request already ${req.status.toLowerCase()}`,
+      );
+    }
+    if (
+      allowedBranchIds &&
+      !allowedBranchIds.includes(req.branch_id ?? '')
+    ) {
+      throw new ForbiddenException('Request is not in your branch scope');
+    }
+
+    if (body.decision === 'REJECTED') {
+      await this.faceRepo.manager.query(
+        `UPDATE face_reenrollment_requests
+            SET status = 'REJECTED',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                review_notes = $2
+          WHERE id = $3`,
+        [reviewerUserId, body.notes ?? null, req.id],
+      );
+      return { ok: true, status: 'REJECTED' };
+    }
+
+    // APPROVED: copy the new embedding into face_enrollments, append a
+    // RE_ENROLL row to history, then mark the request approved. Done in
+    // a single transaction so a partial failure doesn't leave a stale
+    // PENDING row pointing at an already-applied embedding.
+    await this.faceRepo.manager.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE face_enrollments
+            SET embedding = $1,
+                embedding_model = COALESCE($2, embedding_model),
+                photo_url = COALESCE($3, photo_url),
+                is_active = true,
+                deactivated_at = NULL,
+                deactivation_reason = NULL,
+                updated_at = now()
+          WHERE employee_id = $4 AND client_id = $5`,
+        [
+          req.embedding,
+          req.embedding_model,
+          req.photo_url,
+          req.employee_id,
+          req.client_id,
+        ],
+      );
+      await tx.query(
+        `INSERT INTO face_enrollment_history
+           (employee_id, client_id, action, reason, embedding_model, actor_user_id)
+         VALUES ($1, $2, 'RE_ENROLL', $3, $4, $5)`,
+        [
+          req.employee_id,
+          req.client_id,
+          body.notes ?? 'Approved re-enrollment request',
+          req.embedding_model,
+          reviewerUserId,
+        ],
+      );
+      await tx.query(
+        `UPDATE face_reenrollment_requests
+            SET status = 'APPROVED',
+                reviewed_by = $1,
+                reviewed_at = now(),
+                review_notes = $2
+          WHERE id = $3`,
+        [reviewerUserId, body.notes ?? null, req.id],
+      );
+    });
+    return { ok: true, status: 'APPROVED' };
   }
 
   /**
@@ -431,11 +754,35 @@ export class MobileAttendanceService {
         });
     }
 
+    // Brand/branch labels for the kiosk header strip. Single round-trip; we
+    // don't import the Branch/Client entities here to avoid pulling in their
+    // modules just for two string columns.
+    let branchName: string | null = null;
+    let clientName: string | null = null;
+    try {
+      const rows = await this.faceRepo.manager.query(
+        `SELECT c.client_name AS "clientName", b.branchname AS "branchName"
+         FROM clients c
+         LEFT JOIN client_branches b ON b.id = $2
+         WHERE c.id = $1
+         LIMIT 1`,
+        [device.clientId, device.branchId ?? null],
+      );
+      if (rows && rows[0]) {
+        clientName = rows[0].clientName ?? null;
+        branchName = rows[0].branchName ?? null;
+      }
+    } catch {
+      // best-effort — kiosk header will fall back to brand-only.
+    }
+
     return {
       deviceId: device.id,
       mode: device.mode,
       clientId: device.clientId,
+      clientName,
       branchId: device.branchId,
+      branchName,
       geofenceLat: device.geofenceLat,
       geofenceLng: device.geofenceLng,
       geofenceRadiusM: device.geofenceRadiusM,
@@ -444,8 +791,97 @@ export class MobileAttendanceService {
     };
   }
 
+  /**
+   * Reject an enrollment if its embedding is too similar to one already on
+   * file for a *different* employee in the same client. Threshold:
+   * DUPLICATE_FACE_THRESHOLD (mapped (cos+1)/2). Throws ConflictException
+   * naming the existing employee so the admin can investigate.
+   */
+  private async assertFaceNotDuplicate(
+    clientId: string,
+    employeeId: string,
+    embeddingBuf: Buffer,
+  ): Promise<void> {
+    const probe = decodeEmbedding(embeddingBuf);
+    if (!probe) return; // can't validate malformed buffers; let DB write fail later
+    const rows = await this.faceRepo.find({
+      where: { clientId, isActive: true },
+    });
+    let bestEmpId: string | null = null;
+    let bestScore = -Infinity;
+    for (const r of rows) {
+      if (r.employeeId === employeeId) continue; // updating own enrollment is fine
+      const cand = decodeEmbedding(r.embedding);
+      if (!cand || cand.length !== probe.length) continue;
+      const s = toMatchScore(cosineSim(probe, cand));
+      if (s > bestScore) {
+        bestScore = s;
+        bestEmpId = r.employeeId;
+      }
+    }
+    if (bestEmpId && bestScore >= DUPLICATE_FACE_THRESHOLD) {
+      const dup = await this.empRepo.findOne({ where: { id: bestEmpId } });
+      const label = dup
+        ? `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`
+        : bestEmpId;
+      await this.logDuplicateAttempt({
+        clientId,
+        attemptingEmployeeId: employeeId,
+        matchedEmployeeId: bestEmpId,
+        score: bestScore,
+        source: 'enroll',
+      });
+      throw new ConflictException(
+        `This face already appears to be enrolled for employee ${label} ` +
+          `(similarity ${bestScore.toFixed(2)}). Each face may only be ` +
+          `registered to one employee. Deactivate the other enrollment first ` +
+          `if this is genuinely the same person.`,
+      );
+    }
+  }
+
   // ------------------------------------------------------------------ punch
+  // Public entry: wraps the validation+insert flow and writes a row to
+  // face_failed_scan_logs for every rejection so admins have a single
+  // searchable log of bad attempts. Successful punches don't write here
+  // (biometric_punches is the system of record).
   async recordPunch(
+    device: MobileAttendanceDeviceEntity,
+    body: MobilePunchDto,
+    actorEmployeeId?: string | null,
+  ) {
+    try {
+      return await this._recordPunchInner(device, body, actorEmployeeId);
+    } catch (e: any) {
+      const reason = classifyRejection(e);
+      await this.logFailedScan({
+        clientId: device.clientId,
+        branchId: device.branchId ?? null,
+        deviceId: device.id,
+        employeeCode: body.employeeCode ?? null,
+        employeeId: body.employeeId ?? null,
+        reason,
+        reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
+        matchScore: body.matchScore ?? null,
+        livenessScore: body.livenessScore ?? null,
+        captureLat: body.captureLat ?? null,
+        captureLng: body.captureLng ?? null,
+      });
+      // Repeated-failure alert (best-effort).
+      if (body.employeeCode) {
+        this.maybeAlertRepeatedFailures(
+          device.clientId,
+          body.employeeCode,
+          reason,
+        ).catch((err) =>
+          this.logger.warn(`alert hook failed: ${err?.message ?? err}`),
+        );
+      }
+      throw e;
+    }
+  }
+
+  private async _recordPunchInner(
     device: MobileAttendanceDeviceEntity,
     body: MobilePunchDto,
     actorEmployeeId?: string | null,
@@ -469,6 +905,38 @@ export class MobileAttendanceService {
     });
     if (!emp) throw new NotFoundException('Employee not found');
 
+    // Employee-status gate: inactive, resigned, or already-exited employees
+    // cannot punch. exitDate is a yyyy-mm-dd string in IST; if today >= exit
+    // we treat them as separated.
+    if (!emp.isActive) {
+      throw new ForbiddenException(
+        `Employee ${emp.employeeCode ?? emp.id} is inactive — attendance not allowed`,
+      );
+    }
+    if (emp.dateOfExit) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (emp.dateOfExit <= today) {
+        throw new ForbiddenException(
+          `Employee ${emp.employeeCode ?? emp.id} exited on ${emp.dateOfExit} — attendance not allowed`,
+        );
+      }
+    }
+
+    // Phase 3a: integrity gates BEFORE any quality gate so spoofed punches
+    // are surfaced with the most actionable reason.
+    if (body.isMockLocation === true) {
+      throw new ForbiddenException(
+        'Mock location detected — attendance blocked. Disable fake-GPS apps and try again.',
+      );
+    }
+    if (body.isRooted === true) {
+      this.logger.warn(
+        `recordPunch rooted-device employee=${emp.employeeCode ?? emp.id} client=${device.clientId} device=${device.id}`,
+      );
+      // Soft-block: log but allow (some legitimate factory tablets are rooted).
+      // Flip to ForbiddenException after the rooted-device review is signed off.
+    }
+
     // Quality gates — reject low confidence / liveness
     if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
@@ -477,6 +945,33 @@ export class MobileAttendanceService {
     }
     if (body.livenessScore != null && body.livenessScore < MIN_LIVENESS_SCORE) {
       throw new BadRequestException('Liveness check failed');
+    }
+
+    // Phase 3d: active liveness challenge. When required by env, the punch
+    // must carry a recently-satisfied challenge token (BLINK / HEAD_TURN /
+    // SMILE). Empty or stale tokens are rejected; the failure is logged
+    // under the LIVENESS_FAIL bucket via classifyRejection.
+    if (LIVENESS_CHALLENGE_REQUIRED) {
+      if (!body.livenessChallengeType || !body.livenessChallengePassedAt) {
+        throw new BadRequestException(
+          'Active liveness challenge required (perform the on-screen action and try again)',
+        );
+      }
+      const passedAt = Date.parse(body.livenessChallengePassedAt);
+      if (Number.isNaN(passedAt)) {
+        throw new BadRequestException('Invalid liveness challenge timestamp');
+      }
+      const ageMs = Date.now() - passedAt;
+      if (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Liveness challenge timestamp is in the future — check device clock',
+        );
+      }
+      if (ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+        throw new BadRequestException(
+          'Liveness challenge expired — please retake the action',
+        );
+      }
     }
 
     // Geofence check (kiosk: device location is fixed, not enforced here)
@@ -504,6 +999,23 @@ export class MobileAttendanceService {
     const ts = new Date(body.punchTime);
     if (isNaN(ts.getTime()))
       throw new BadRequestException('Invalid punchTime');
+
+    // Phase 3a: server-time clock-skew gate. Live punches must be within a
+    // tight window of server time. Offline-queue drains (offlineSync=true)
+    // bypass the backlog cap because legitimate offline rows can be days
+    // old; we still reject anything in the future to prevent replay attacks.
+    const nowMs = Date.now();
+    const tsMs = ts.getTime();
+    if (tsMs - nowMs > MAX_FUTURE_SKEW_MS) {
+      throw new BadRequestException(
+        'Device clock is ahead of the server — please re-sync time and try again.',
+      );
+    }
+    if (!body.offlineSync && nowMs - tsMs > MAX_OFFLINE_BACKLOG_MS) {
+      throw new BadRequestException(
+        'Punch timestamp is older than 24 hours — submit via the offline-sync queue.',
+      );
+    }
 
     // Post-logout cooldown: if the most recent punch for this employee was
     // an OUT and less than 8h have elapsed, reject. Prevents marking another
@@ -581,6 +1093,16 @@ export class MobileAttendanceService {
       true,
     );
 
+    // Phase 3c: persist the selfie when FACE_PHOTO_AUDIT is enabled. Returns
+    // null when disabled — column stays untouched via COALESCE.
+    const photoUrl = await this.facePhotos.put({
+      clientId: device.clientId,
+      employeeCode: emp.employeeCode,
+      purpose: 'punch',
+      timestamp: ts,
+      photoB64: body.photoB64,
+    });
+
     // Patch evidence columns (raw SQL — short and avoids fetching the row twice)
     await this.faceRepo.manager.query(
       `UPDATE biometric_punches
@@ -602,7 +1124,7 @@ export class MobileAttendanceService {
         body.captureLat ?? null,
         body.captureLng ?? null,
         body.captureAccuracyM ?? null,
-        body.photoB64 ? null : null, // photo upload to blob is a separate task
+        photoUrl,
         body.matchScore ?? null,
         body.livenessScore ?? null,
         body.matchProvider ?? 'mobilefacenet',
@@ -625,6 +1147,173 @@ export class MobileAttendanceService {
       mode: device.mode,
     };
   }
+
+  // ----------------------------------------------------------- audit logs
+
+  /** Append a row to face_failed_scan_logs. Best-effort: never throws. */
+  private async logFailedScan(input: {
+    clientId: string;
+    branchId: string | null;
+    deviceId: string | null;
+    employeeId: string | null;
+    employeeCode: string | null;
+    reason: string;
+    reasonDetail: string | null;
+    matchScore: number | null;
+    livenessScore: number | null;
+    captureLat: number | null;
+    captureLng: number | null;
+  }): Promise<void> {
+    try {
+      await this.faceRepo.manager.query(
+        `INSERT INTO face_failed_scan_logs
+           (client_id, branch_id, device_id, employee_id, employee_code,
+            reason, reason_detail, match_score, liveness_score,
+            capture_lat, capture_lng)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          input.clientId,
+          input.branchId,
+          input.deviceId,
+          input.employeeId,
+          input.employeeCode,
+          input.reason,
+          input.reasonDetail,
+          input.matchScore,
+          input.livenessScore,
+          input.captureLat,
+          input.captureLng,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(`logFailedScan failed: ${e?.message ?? e}`);
+    }
+  }
+
+  /** Append a row to face_duplicate_attempt_logs. Best-effort: never throws. */
+  private async logDuplicateAttempt(input: {
+    clientId: string;
+    attemptingEmployeeId: string | null;
+    matchedEmployeeId: string;
+    score: number;
+    source: string;
+    actorUserId?: string | null;
+  }): Promise<void> {
+    try {
+      await this.faceRepo.manager.query(
+        `INSERT INTO face_duplicate_attempt_logs
+           (client_id, attempting_employee_id, matched_employee_id,
+            match_score, attempted_by_user_id, source)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          input.clientId,
+          input.attemptingEmployeeId,
+          input.matchedEmployeeId,
+          input.score,
+          input.actorUserId ?? null,
+          input.source,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(`logDuplicateAttempt failed: ${e?.message ?? e}`);
+    }
+  }
+
+  /** Append a row to face_enrollment_history. Best-effort: never throws. */
+  private async logEnrollmentHistory(input: {
+    employeeId: string;
+    clientId: string;
+    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE';
+    reason?: string | null;
+    embeddingModel?: string | null;
+    actorUserId?: string | null;
+  }): Promise<void> {
+    try {
+      await this.faceRepo.manager.query(
+        `INSERT INTO face_enrollment_history
+           (employee_id, client_id, action, reason, embedding_model, actor_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          input.employeeId,
+          input.clientId,
+          input.action,
+          input.reason ?? null,
+          input.embeddingModel ?? null,
+          input.actorUserId ?? null,
+        ],
+      );
+    } catch (e: any) {
+      this.logger.warn(`logEnrollmentHistory failed: ${e?.message ?? e}`);
+    }
+  }
+
+  /**
+   * If an employee has accumulated >=3 failed scans of the same reason in
+   * the last 10 minutes, raise a system notification (deduplicated per
+   * employee + reason + IST date so admins don't get spammed).
+   */
+  private async maybeAlertRepeatedFailures(
+    clientId: string,
+    employeeCode: string,
+    reason: string,
+  ): Promise<void> {
+    const rows: Array<{ n: string }> = await this.faceRepo.manager.query(
+      `SELECT COUNT(*)::text AS n
+         FROM face_failed_scan_logs
+        WHERE client_id = $1
+          AND employee_code = $2
+          AND reason = $3
+          AND attempted_at >= now() - interval '10 minutes'`,
+      [clientId, employeeCode, reason],
+    );
+    const n = Number(rows?.[0]?.n ?? 0);
+    if (n < 3) return;
+    const today = new Date().toISOString().slice(0, 10);
+    await this.notifications.createSystemNotification({
+      clientId,
+      sourceKey: `face-mismatch:${employeeCode}:${reason}:${today}`,
+      subject: `Repeated face-attendance failures: ${employeeCode}`,
+      message:
+        `Employee ${employeeCode} has triggered ${n} ${reason} rejections ` +
+        `in the last 10 minutes today (${today}). Please verify identity ` +
+        `and review enrollment.`,
+      queryType: 'ATTENDANCE',
+      priority: 1,
+    });
+  }
+}
+
+/**
+ * Map a thrown exception (or its message) onto the closed reason taxonomy
+ * used by face_failed_scan_logs.reason. Falls back to 'OTHER' so we never
+ * lose a row.
+ */
+function classifyRejection(e: any): string {
+  const msg = (typeof e?.message === 'string' ? e.message : '').toLowerCase();
+  if (!msg) return 'OTHER';
+  if (msg.includes('mock location')) return 'MOCK_LOCATION';
+  if (msg.includes('match score') || msg.includes('did not match'))
+    return 'FACE_MISMATCH';
+  if (msg.includes('liveness')) return 'LIVENESS_FAIL';
+  if (msg.includes('multiple face')) return 'MULTI_FACE';
+  if (msg.includes('mask')) return 'MASK_DETECTED';
+  if (msg.includes('outside') && msg.includes('geofence'))
+    return 'GEOFENCE_OUTSIDE';
+  if (msg.includes('rooted')) return 'ROOTED_DEVICE';
+  if (msg.includes('inactive')) return 'EMPLOYEE_INACTIVE';
+  if (msg.includes('exited')) return 'EMPLOYEE_EXITED';
+  if (msg.includes('rest window') || msg.includes('logout already recorded'))
+    return 'COOLDOWN_ACTIVE';
+  if (msg.includes('already marked via') || msg.includes('cross'))
+    return 'CROSS_SOURCE_CONFLICT';
+  if (msg.includes('clock') || msg.includes('older than 24 hours'))
+    return 'CLOCK_SKEW';
+  if (msg.includes('invalid punchtime')) return 'INVALID_TIME';
+  if (msg.includes('quality') || msg.includes('below threshold'))
+    return 'QUALITY_LOW';
+  if (msg.includes('device-bound') || msg.includes('not found'))
+    return 'OTHER';
+  return 'OTHER';
 }
 
 function haversineMeters(
@@ -641,4 +1330,29 @@ function haversineMeters(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Decode a stored embedding (Buffer of little-endian float32, length must
+ * be a multiple of 4) into a Float32-equivalent number array. Returns null
+ * if the buffer is empty or malformed.
+ */
+function decodeEmbedding(buf: Buffer | null | undefined): Float32Array | null {
+  if (!buf || buf.length === 0 || buf.length % 4 !== 0) return null;
+  // Buffer is a Uint8Array view over the underlying ArrayBuffer; create a
+  // matching Float32Array view at the same offset.
+  return new Float32Array(buf.buffer, buf.byteOffset, buf.length / 4);
+}
+
+/** Cosine similarity for two L2-normalised vectors of equal length. */
+function cosineSim(a: Float32Array, b: Float32Array): number {
+  if (a.length !== b.length) return -1;
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
+}
+
+/** Map raw cosine [-1,1] to [0,1] (matches Android FaceEmbedder.toMatchScore). */
+function toMatchScore(cos: number): number {
+  return (cos + 1) / 2;
 }

@@ -31,7 +31,14 @@ class FaceDetector {
             .build()
     )
 
-    data class Result(val face: Face, val crop: Bitmap, val livenessScore: Double)
+    data class Result(
+        val face: Face,
+        val crop: Bitmap,
+        val livenessScore: Double,
+        /** Total number of faces ML Kit detected in this frame. >1 means
+         *  the caller MUST reject the punch (multi-face / proxy attempt). */
+        val faceCount: Int,
+    )
 
     suspend fun detectLargest(source: Bitmap, rotationDegrees: Int = 0): Result? {
         val image = InputImage.fromBitmap(source, rotationDegrees)
@@ -39,7 +46,12 @@ class FaceDetector {
         val largest = faces.maxByOrNull { it.boundingBox.width().toLong() * it.boundingBox.height() }
             ?: return null
         val crop = safeCrop(source, largest.boundingBox)
-        return Result(face = largest, crop = crop, livenessScore = livenessOf(largest))
+        return Result(
+            face = largest,
+            crop = crop,
+            livenessScore = livenessOf(largest),
+            faceCount = faces.size,
+        )
     }
 
     private suspend fun awaitDetect(image: InputImage): List<Face> =

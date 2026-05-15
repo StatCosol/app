@@ -2,10 +2,14 @@ package com.statcosol.attendance.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.tts.TextToSpeech
 import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.animation.AnimationUtils
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -61,7 +65,20 @@ class KioskActivity : AppCompatActivity() {
     /** True while the logout-confirmation dialog is on screen. */
     @Volatile private var dialogActive: Boolean = false
 
+    /** Voice feedback for noisy factory floors. Best-effort — silently
+     *  no-ops if the device has no TTS engine installed. */
+    private var tts: TextToSpeech? = null
+    @Volatile private var ttsReady: Boolean = false
+
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Repaints the header clock once a minute. */
+    private val clockRunnable = object : Runnable {
+        override fun run() {
+            updateHeaderClock()
+            mainHandler.postDelayed(this, 30_000L)
+        }
+    }
     private val hideOverlayRunnable = Runnable {
         val overlay = binding.successOverlay
         if (overlay.visibility != View.VISIBLE) return@Runnable
@@ -88,6 +105,17 @@ class KioskActivity : AppCompatActivity() {
         binding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Initial header content; branchName is filled in once the roster
+        // load returns. We don't block startup on that — workers should see
+        // the brand strip and clock immediately.
+        binding.headerBranch.text = getString(R.string.kiosk_branch_unknown)
+        updateHeaderClock()
+        mainHandler.post(clockRunnable)
+
+        initTts()
+        applyImmersive()
+        startLockTaskIfPermitted()
+
         loadRoster()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
@@ -100,7 +128,71 @@ class KioskActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(hideOverlayRunnable)
+        mainHandler.removeCallbacks(clockRunnable)
+        try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         super.onDestroy()
+    }
+
+    /** Hide system bars so the kiosk fills the screen. Called on resume too
+     *  because the system can re-show them after dialogs / power events. */
+    private fun applyImmersive() {
+        val win = window
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            win.setDecorFitsSystemWindows(false)
+            win.insetsController?.let { ic ->
+                ic.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                ic.systemBarsBehavior =
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            win.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                )
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyImmersive()
+    }
+
+    /** Best-effort screen pinning. Only takes effect if a Device Owner /
+     *  DPC has whitelisted this package via setLockTaskPackages, OR if the
+     *  user has accepted the standard "Pin app" prompt. Silently no-ops
+     *  otherwise so we don't crash on un-provisioned devices. */
+    private fun startLockTaskIfPermitted() {
+        try { startLockTask() } catch (_: Exception) {}
+    }
+
+    private fun initTts() {
+        tts = TextToSpeech(applicationContext) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                // Match the device locale so Hindi/Telugu speakers get
+                // localised voice feedback when those engines are present.
+                runCatching { tts?.language = Locale.getDefault() }
+            }
+        }
+    }
+
+    private fun speak(text: String) {
+        if (!ttsReady) return
+        try {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kiosk")
+        } catch (_: Exception) {}
+    }
+
+    private fun updateHeaderClock() {
+        binding.headerClock.text =
+            SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+        binding.headerDate.text =
+            SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date())
     }
 
     private fun loadRoster() {
@@ -108,6 +200,9 @@ class KioskActivity : AppCompatActivity() {
             try {
                 val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
                 matcher = RosterMatcher(roster.enrollments)
+                binding.headerBranch.text = roster.branchName
+                    ?: roster.clientName
+                    ?: getString(R.string.kiosk_branch_unknown)
                 if (roster.enrollments.isEmpty()) {
                     binding.statusText.text = getString(R.string.roster_empty)
                 }
@@ -132,6 +227,13 @@ class KioskActivity : AppCompatActivity() {
         binding.statusText.text = when {
             code == "face_model_missing" -> getString(R.string.face_model_missing)
             code.startsWith("face_embed_failed") -> getString(R.string.face_embed_failed, code.substringAfter(':'))
+            code.startsWith("multiple_faces") -> {
+                val n = code.substringAfter(':').toIntOrNull() ?: 2
+                getString(R.string.face_multiple_detected, n)
+            }
+            code == "hint:no_face" -> getString(R.string.hint_no_face)
+            code == "hint:too_small" -> getString(R.string.hint_too_small)
+            code == "hint:too_dim" -> getString(R.string.hint_too_dim)
             else -> code
         }
     }
@@ -144,7 +246,10 @@ class KioskActivity : AppCompatActivity() {
         if (liveness < MIN_LIVENESS) return
 
         val match = matcherSnap.match(probe, MIN_MATCH) ?: run {
-            runOnUiThread { binding.statusText.text = getString(R.string.kiosk_match_low) }
+            runOnUiThread {
+                binding.statusText.text = getString(R.string.kiosk_match_low)
+                speak(getString(R.string.kiosk_voice_face_not_recognised))
+            }
             return
         }
 
@@ -263,6 +368,13 @@ class KioskActivity : AppCompatActivity() {
             AnimationUtils.loadAnimation(this, R.anim.kiosk_card_in)
         )
         binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+        speak(
+            getString(
+                if (isOut) R.string.kiosk_voice_logout_recorded
+                else R.string.kiosk_voice_recorded,
+                name,
+            )
+        )
         mainHandler.removeCallbacks(hideOverlayRunnable)
         mainHandler.postDelayed(hideOverlayRunnable, OVERLAY_VISIBLE_MS)
     }

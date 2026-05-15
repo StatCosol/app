@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hollow oval used as the alignment guide on the kiosk preview. The
+     stroke is intentionally thick + bright so it remains visible against
+     low-light factory backgrounds. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <stroke android:width="3dp" android:color="#CCFFFFFF" />
+    <solid android:color="@android:color/transparent" />
+</shape>

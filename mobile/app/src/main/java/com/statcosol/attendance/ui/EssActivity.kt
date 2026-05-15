@@ -21,6 +21,7 @@ import com.statcosol.attendance.databinding.ActivityEssBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
 import com.statcosol.attendance.face.RosterMatcher
+import com.statcosol.attendance.security.IntegrityCheck
 import com.statcosol.attendance.sync.PunchSyncWorker
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -137,6 +138,10 @@ class EssActivity : AppCompatActivity() {
                     binding.statusText.text = when {
                         code == "face_model_missing" -> getString(R.string.face_model_missing)
                         code.startsWith("face_embed_failed") -> getString(R.string.face_embed_failed, code.substringAfter(':'))
+                        code.startsWith("multiple_faces") -> {
+                            val n = code.substringAfter(':').toIntOrNull() ?: 2
+                            getString(R.string.face_multiple_detected, n)
+                        }
                         else -> code
                     }
                 }
@@ -167,6 +172,10 @@ class EssActivity : AppCompatActivity() {
                 }
                 if (!isWithinGeofence(location, r)) {
                     binding.statusText.text = getString(R.string.ess_outside_geofence)
+                    return@launch
+                }
+                if (IntegrityCheck.isMockLocation(location)) {
+                    binding.statusText.text = getString(R.string.ess_mock_location_blocked)
                     return@launch
                 }
 

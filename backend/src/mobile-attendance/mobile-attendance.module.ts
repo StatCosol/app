@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BiometricModule } from '../biometric/biometric.module';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { MobileAttendanceDeviceEntity } from './entities/mobile-attendance-device.entity';
 import {
@@ -10,6 +11,7 @@ import {
 } from './mobile-attendance.controller';
 import { MobileAttendanceService } from './mobile-attendance.service';
 import { FaceEmbeddingClient } from './face-embedding.client';
+import { FacePhotoStorage } from './face-photo-storage.service';
 
 @Module({
   imports: [
@@ -19,9 +21,10 @@ import { FaceEmbeddingClient } from './face-embedding.client';
       EmployeeEntity,
     ]),
     BiometricModule,
+    NotificationsModule,
   ],
   controllers: [MobileAttendanceAdminController, MobileAttendanceDeviceController],
-  providers: [MobileAttendanceService, FaceEmbeddingClient],
+  providers: [MobileAttendanceService, FaceEmbeddingClient, FacePhotoStorage],
   exports: [MobileAttendanceService],
 })
 export class MobileAttendanceModule {}

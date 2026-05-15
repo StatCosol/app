@@ -19,6 +19,8 @@ import {
   EnrollSelfDto,
   MobilePunchDto,
   RegisterMobileDeviceDto,
+  CreateReenrollRequestDto,
+  ReviewReenrollRequestDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
 
@@ -94,6 +96,60 @@ export class MobileAttendanceAdminController {
       employeeId,
       u.userId ?? null,
       reason ?? 'Admin deactivation',
+      allowedBranchIds,
+    );
+  }
+
+  // ----------------------------- Phase 3e: re-enrollment approval queue.
+
+  @ApiOperation({
+    summary:
+      'Submit a re-enrollment request (held PENDING until a reviewer approves)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('reenroll-requests')
+  createReenroll(
+    @CurrentUser() u: ReqUser,
+    @Body() body: CreateReenrollRequestDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.createReenrollRequest(
+      u.clientId,
+      u.userId ?? null,
+      body,
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({ summary: 'List re-enrollment requests by status (default PENDING)' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('reenroll-requests')
+  listReenroll(
+    @CurrentUser() u: ReqUser,
+    @Query('status')
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' = 'PENDING',
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listReenrollRequests(u.clientId, status, allowedBranchIds);
+  }
+
+  @ApiOperation({ summary: 'Approve or reject a re-enrollment request' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('reenroll-requests/:id/review')
+  reviewReenroll(
+    @CurrentUser() u: ReqUser,
+    @Param('id') id: string,
+    @Body() body: ReviewReenrollRequestDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.reviewReenrollRequest(
+      u.clientId,
+      id,
+      u.userId ?? null,
+      body,
       allowedBranchIds,
     );
   }
