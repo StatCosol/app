@@ -1331,6 +1331,32 @@ export class MobileAttendanceService {
     device: MobileAttendanceDeviceEntity,
     body: ContractorMobilePunchDto,
   ) {
+    try {
+      return await this._recordContractorPunchInner(device, body);
+    } catch (e: any) {
+      const reason = classifyRejection(e);
+      await this.logFailedScan({
+        clientId: device.clientId,
+        branchId: device.branchId ?? null,
+        deviceId: device.id,
+        employeeId: null,
+        employeeCode: null,
+        contractorEmployeeId: body.contractorEmployeeId ?? null,
+        reason,
+        reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
+        matchScore: body.matchScore ?? null,
+        livenessScore: body.livenessScore ?? null,
+        captureLat: body.captureLat ?? null,
+        captureLng: body.captureLng ?? null,
+      });
+      throw e;
+    }
+  }
+
+  private async _recordContractorPunchInner(
+    device: MobileAttendanceDeviceEntity,
+    body: ContractorMobilePunchDto,
+  ) {
     if (device.mode !== 'KIOSK') {
       throw new ForbiddenException(
         'Contractor punches are only allowed from KIOSK devices',
@@ -1493,6 +1519,7 @@ export class MobileAttendanceService {
     deviceId: string | null;
     employeeId: string | null;
     employeeCode: string | null;
+    contractorEmployeeId?: string | null;
     reason: string;
     reasonDetail: string | null;
     matchScore: number | null;
@@ -1504,15 +1531,16 @@ export class MobileAttendanceService {
       await this.faceRepo.manager.query(
         `INSERT INTO face_failed_scan_logs
            (client_id, branch_id, device_id, employee_id, employee_code,
-            reason, reason_detail, match_score, liveness_score,
-            capture_lat, capture_lng)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            contractor_employee_id, reason, reason_detail, match_score,
+            liveness_score, capture_lat, capture_lng)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           input.clientId,
           input.branchId,
           input.deviceId,
           input.employeeId,
           input.employeeCode,
+          input.contractorEmployeeId ?? null,
           input.reason,
           input.reasonDetail,
           input.matchScore,
