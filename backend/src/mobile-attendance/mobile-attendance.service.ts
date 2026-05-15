@@ -1969,6 +1969,7 @@ export class MobileAttendanceService {
       to?: string | null;
       branchId?: string | null;
       contractorEmployeeId?: string | null;
+      contractorUserId?: string | null;
       limit?: number | null;
     },
     allowedBranchIds: string[] | null = null,
@@ -1976,6 +1977,8 @@ export class MobileAttendanceService {
     Array<{
       id: string;
       contractorEmployeeId: string;
+      contractorEmployeeName: string | null;
+      contractorUserId: string | null;
       contractorName: string | null;
       branchId: string | null;
       punchTime: string;
@@ -2004,6 +2007,10 @@ export class MobileAttendanceService {
       params.push(opts.contractorEmployeeId);
       where.push(`p.contractor_employee_id = $${params.length}`);
     }
+    if (opts.contractorUserId) {
+      params.push(opts.contractorUserId);
+      where.push(`ce.contractor_user_id = $${params.length}`);
+    }
     if (opts.branchId) {
       params.push(opts.branchId);
       where.push(`p.branch_id = $${params.length}`);
@@ -2020,7 +2027,9 @@ export class MobileAttendanceService {
     return this.contractorPunchRepo.manager.query(
       `SELECT p.id,
               p.contractor_employee_id AS "contractorEmployeeId",
-              ce.name AS "contractorName",
+              ce.name AS "contractorEmployeeName",
+              ce.contractor_user_id AS "contractorUserId",
+              cu.name AS "contractorName",
               p.branch_id AS "branchId",
               p.punch_time AS "punchTime",
               p.direction, p.source,
@@ -2032,9 +2041,56 @@ export class MobileAttendanceService {
               p.capture_lng AS "captureLng"
          FROM contractor_biometric_punches p
          LEFT JOIN contractor_employees ce ON ce.id = p.contractor_employee_id
+         LEFT JOIN users cu ON cu.id = ce.contractor_user_id
         WHERE ${where.join(' AND ')}
         ORDER BY p.punch_time DESC
         LIMIT ${limit}`,
+      params,
+    );
+  }
+
+  /**
+   * List distinct contractors (parent vendor users) that have at least one
+   * active employee in the caller's allowed branches. Drives the contractor
+   * picker on the branch-portal contractor-attendance page.
+   */
+  async listContractorsForBranch(
+    clientId: string,
+    opts: { branchId?: string | null } = {},
+    allowedBranchIds: string[] | null = null,
+  ): Promise<
+    Array<{
+      contractorUserId: string;
+      contractorName: string | null;
+      contractorEmail: string | null;
+      employeeCount: string;
+    }>
+  > {
+    const params: any[] = [clientId];
+    const where: string[] = ['ce.client_id = $1', 'ce.is_active = true'];
+
+    if (opts.branchId) {
+      params.push(opts.branchId);
+      where.push(`ce.branch_id = $${params.length}`);
+    }
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      where.push(`ce.branch_id = ANY($${params.length}::uuid[])`);
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return [];
+    }
+
+    return this.contractorPunchRepo.manager.query(
+      `SELECT ce.contractor_user_id AS "contractorUserId",
+              cu.name AS "contractorName",
+              cu.email AS "contractorEmail",
+              COUNT(ce.id)::text AS "employeeCount"
+         FROM contractor_employees ce
+         LEFT JOIN users cu ON cu.id = ce.contractor_user_id
+        WHERE ${where.join(' AND ')}
+        GROUP BY ce.contractor_user_id, cu.name, cu.email
+        ORDER BY cu.name NULLS LAST
+        LIMIT 500`,
       params,
     );
   }
