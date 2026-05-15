@@ -137,6 +137,10 @@ class EssActivity : AppCompatActivity() {
                     binding.statusText.text = when {
                         code == "face_model_missing" -> getString(R.string.face_model_missing)
                         code.startsWith("face_embed_failed") -> getString(R.string.face_embed_failed, code.substringAfter(':'))
+                        code.startsWith("multiple_faces") -> {
+                            val n = code.substringAfter(':').toIntOrNull() ?: 2
+                            getString(R.string.face_multiple_detected, n)
+                        }
                         else -> code
                     }
                 }

@@ -71,6 +71,17 @@ class FaceCaptureSession(
             if (!analysisLock.tryLock()) return@launch
             try {
                 val detection = detector.detectLargest(bitmap, rotationDegrees = 0) ?: return@launch
+                if (detection.faceCount > 1) {
+                    // Multi-face frame: refuse to embed/match. Surfaced to
+                    // the UI via onError so the user knows to step away
+                    // from anyone else in the camera view (anti-proxy).
+                    val now = System.currentTimeMillis()
+                    if (now - lastErrorAt > 1_500) {
+                        lastErrorAt = now
+                        onError?.invoke("multiple_faces:${detection.faceCount}")
+                    }
+                    return@launch
+                }
                 if (modelMissing) {
                     // Don't keep retrying once we know the asset is absent;
                     // re-emit the message at most once every 5s so the UI keeps it visible.

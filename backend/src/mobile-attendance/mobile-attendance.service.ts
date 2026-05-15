@@ -27,6 +27,13 @@ import {
 
 const MIN_MATCH_SCORE = 0.70; // mapped (cos+1)/2 threshold for MobileFaceNet (raw cos ~0.40); was 0.78 (raw cos 0.56) — too strict without face alignment
 const MIN_LIVENESS_SCORE = 0.5;
+// Duplicate-face guard at enrollment: if any *other* employee in the same
+// client has a stored embedding whose mapped similarity to the new one is
+// >= this value, reject as a duplicate. 0.82 mapped == raw cos 0.64, well
+// inside the same-person band but above the typical inter-class noise
+// floor (0.5–0.65 mapped). Looser than the per-punch match threshold on
+// purpose because enrollment is one-shot.
+const DUPLICATE_FACE_THRESHOLD = 0.82;
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
 // 8-hour gap between a shift end and the next shift start, even if the
@@ -232,6 +239,13 @@ export class MobileAttendanceService {
       ? `embedded:mobilefacenet/${embedding ? embedding.length : 0}b`
       : null;
 
+    // Duplicate-face guard: a face that already belongs to a *different*
+    // employee in this client must not be re-enrolled (prevents one person
+    // registering under multiple employee codes).
+    if (embedding) {
+      await this.assertFaceNotDuplicate(clientId, emp.id, embedding);
+    }
+
     const existing = await this.faceRepo.findOne({
       where: { employeeId: emp.id },
     });
@@ -287,6 +301,11 @@ export class MobileAttendanceService {
     if (!emp) throw new NotFoundException('Bound employee not found');
 
     const embedding = Buffer.from(body.embeddingBase64, 'base64');
+
+    // Duplicate-face guard: a face already enrolled for a different employee
+    // in this client must not be re-enrolled under another employee code.
+    await this.assertFaceNotDuplicate(device.clientId, emp.id, embedding);
+
     const now = new Date();
     const payload: Partial<FaceEnrollmentEntity> = {
       employeeId: emp.id,
@@ -463,6 +482,48 @@ export class MobileAttendanceService {
     };
   }
 
+  /**
+   * Reject an enrollment if its embedding is too similar to one already on
+   * file for a *different* employee in the same client. Threshold:
+   * DUPLICATE_FACE_THRESHOLD (mapped (cos+1)/2). Throws ConflictException
+   * naming the existing employee so the admin can investigate.
+   */
+  private async assertFaceNotDuplicate(
+    clientId: string,
+    employeeId: string,
+    embeddingBuf: Buffer,
+  ): Promise<void> {
+    const probe = decodeEmbedding(embeddingBuf);
+    if (!probe) return; // can't validate malformed buffers; let DB write fail later
+    const rows = await this.faceRepo.find({
+      where: { clientId, isActive: true },
+    });
+    let bestEmpId: string | null = null;
+    let bestScore = -Infinity;
+    for (const r of rows) {
+      if (r.employeeId === employeeId) continue; // updating own enrollment is fine
+      const cand = decodeEmbedding(r.embedding);
+      if (!cand || cand.length !== probe.length) continue;
+      const s = toMatchScore(cosineSim(probe, cand));
+      if (s > bestScore) {
+        bestScore = s;
+        bestEmpId = r.employeeId;
+      }
+    }
+    if (bestEmpId && bestScore >= DUPLICATE_FACE_THRESHOLD) {
+      const dup = await this.empRepo.findOne({ where: { id: bestEmpId } });
+      const label = dup
+        ? `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`
+        : bestEmpId;
+      throw new ConflictException(
+        `This face already appears to be enrolled for employee ${label} ` +
+          `(similarity ${bestScore.toFixed(2)}). Each face may only be ` +
+          `registered to one employee. Deactivate the other enrollment first ` +
+          `if this is genuinely the same person.`,
+      );
+    }
+  }
+
   // ------------------------------------------------------------------ punch
   async recordPunch(
     device: MobileAttendanceDeviceEntity,
@@ -487,6 +548,23 @@ export class MobileAttendanceService {
       where: { id: body.employeeId, clientId: device.clientId },
     });
     if (!emp) throw new NotFoundException('Employee not found');
+
+    // Employee-status gate: inactive, resigned, or already-exited employees
+    // cannot punch. exitDate is a yyyy-mm-dd string in IST; if today >= exit
+    // we treat them as separated.
+    if (!emp.isActive) {
+      throw new ForbiddenException(
+        `Employee ${emp.employeeCode ?? emp.id} is inactive — attendance not allowed`,
+      );
+    }
+    if (emp.dateOfExit) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (emp.dateOfExit <= today) {
+        throw new ForbiddenException(
+          `Employee ${emp.employeeCode ?? emp.id} exited on ${emp.dateOfExit} — attendance not allowed`,
+        );
+      }
+    }
 
     // Quality gates — reject low confidence / liveness
     if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
@@ -660,4 +738,29 @@ function haversineMeters(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Decode a stored embedding (Buffer of little-endian float32, length must
+ * be a multiple of 4) into a Float32-equivalent number array. Returns null
+ * if the buffer is empty or malformed.
+ */
+function decodeEmbedding(buf: Buffer | null | undefined): Float32Array | null {
+  if (!buf || buf.length === 0 || buf.length % 4 !== 0) return null;
+  // Buffer is a Uint8Array view over the underlying ArrayBuffer; create a
+  // matching Float32Array view at the same offset.
+  return new Float32Array(buf.buffer, buf.byteOffset, buf.length / 4);
+}
+
+/** Cosine similarity for two L2-normalised vectors of equal length. */
+function cosineSim(a: Float32Array, b: Float32Array): number {
+  if (a.length !== b.length) return -1;
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
+}
+
+/** Map raw cosine [-1,1] to [0,1] (matches Android FaceEmbedder.toMatchScore). */
+function toMatchScore(cos: number): number {
+  return (cos + 1) / 2;
 }

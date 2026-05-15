@@ -30,6 +30,7 @@
     <string name="kiosk_already_done_ok">OK</string>
     <string name="face_model_missing">Face matcher not configured — please reinstall the latest app build (the bundled MobileFaceNet model is missing).</string>
     <string name="face_embed_failed">Face processing error: %1$s</string>
+    <string name="face_multiple_detected">Multiple faces in view (%1$d). Only one person at a time — ask others to step away.</string>
     <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
 
     <string name="ess_punch_in">Punch In</string>
