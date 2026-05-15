@@ -369,6 +369,28 @@ export class ClientMobileAttendanceService {
       responseType: 'blob',
     });
   }
+
+  // ── Top offenders by failed-scan count (Phase 4d step 18) ──
+  topFailedScanSubjects(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+      limit?: number;
+    } = {},
+  ): Observable<TopFailedScanSubjectRow[]> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
+    if (opts.limit) parts.push(`limit=${opts.limit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get<TopFailedScanSubjectRow[]>(
+      `${this.base}/failed-scans/top-subjects${qs}`,
+    );
+  }
 }
 
 export interface ContractorForBranchRow {
@@ -426,4 +448,15 @@ export interface FailedScanStats {
     count: number;
   }>;
   byDay: Array<{ day: string; count: number }>;
+}
+
+export interface TopFailedScanSubjectRow {
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  employeeId: string | null;
+  employeeCode: string | null;
+  employeeName: string | null;
+  contractorEmployeeId: string | null;
+  contractorEmployeeName: string | null;
+  contractorName: string | null;
+  count: number;
 }

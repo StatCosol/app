@@ -12,6 +12,7 @@ import {
   ClientMobileAttendanceService,
   FailedScanRow,
   FailedScanStats,
+  TopFailedScanSubjectRow,
 } from '../../client/mobile-attendance/client-mobile-attendance.service';
 
 type SubjectFilter = 'ALL' | 'EMPLOYEE' | 'CONTRACTOR';
@@ -83,8 +84,8 @@ const REASONS: { value: string; label: string }[] = [
         </div>
       </div>
 
-      <div *ngIf="stats && (stats.byReason.length || stats.byBranch.length)"
-           class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div *ngIf="stats && (stats.byReason.length || stats.byBranch.length || topSubjects.length)"
+           class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
             Top reasons
@@ -111,6 +112,39 @@ const REASONS: { value: string; label: string }[] = [
               <span class="text-indigo-700 font-medium text-xs">{{ b.count }}</span>
             </li>
             <li *ngIf="!stats.byBranch.length" class="px-4 py-3 text-xs text-gray-400 text-center">
+              No data
+            </li>
+          </ul>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
+            Top offenders
+          </div>
+          <ul class="divide-y divide-gray-100">
+            <li *ngFor="let s of topSubjects"
+                class="flex items-center justify-between px-4 py-2 text-sm">
+              <button type="button"
+                      class="text-left truncate pr-2 text-gray-700 hover:text-blue-700"
+                      [title]="subjectLabel(s)"
+                      (click)="focusOnSubject(s)">
+                <div class="truncate">{{ subjectLabel(s) }}</div>
+                <div class="text-xs text-gray-500">
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded"
+                        [class.bg-sky-100]="s.subjectType === 'EMPLOYEE'"
+                        [class.text-sky-700]="s.subjectType === 'EMPLOYEE'"
+                        [class.bg-violet-100]="s.subjectType === 'CONTRACTOR'"
+                        [class.text-violet-700]="s.subjectType === 'CONTRACTOR'">
+                    {{ s.subjectType }}
+                  </span>
+                  <span *ngIf="s.subjectType === 'CONTRACTOR' && s.contractorName"
+                        class="ml-1">· {{ s.contractorName }}</span>
+                  <span *ngIf="s.subjectType === 'EMPLOYEE' && s.employeeCode"
+                        class="ml-1">· {{ s.employeeCode }}</span>
+                </div>
+              </button>
+              <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ s.count }}</span>
+            </li>
+            <li *ngIf="!topSubjects.length" class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
             </li>
           </ul>
@@ -257,6 +291,7 @@ export class BranchFaceFailuresComponent implements OnInit {
 
   rows: FailedScanRow[] = [];
   stats: FailedScanStats | null = null;
+  topSubjects: TopFailedScanSubjectRow[] = [];
   subject: SubjectFilter = 'ALL';
   reason = '';
   from = '';
@@ -297,6 +332,12 @@ export class BranchFaceFailuresComponent implements OnInit {
         },
       });
     this.svc
+      .topFailedScanSubjects({ from, to, subjectType, limit: 10 })
+      .subscribe({
+        next: (s) => (this.topSubjects = s),
+        error: () => (this.topSubjects = []),
+      });
+    this.svc
       .listFailedScans({
         from,
         to,
@@ -325,6 +366,28 @@ export class BranchFaceFailuresComponent implements OnInit {
 
   topBranches(): Array<{ branchName: string | null; count: number }> {
     return this.stats?.byBranch?.slice(0, 5) ?? [];
+  }
+
+  subjectLabel(s: TopFailedScanSubjectRow): string {
+    if (s.subjectType === 'EMPLOYEE') {
+      return s.employeeName || s.employeeCode || 'Employee';
+    }
+    return s.contractorEmployeeName || 'Contractor worker';
+  }
+
+  focusOnSubject(s: TopFailedScanSubjectRow): void {
+    if (s.subjectType === 'EMPLOYEE' && s.employeeId) {
+      this.focusEmployeeId = s.employeeId;
+      this.focusContractorId = null;
+      this.focusLabel = this.subjectLabel(s);
+    } else if (s.subjectType === 'CONTRACTOR' && s.contractorEmployeeId) {
+      this.focusContractorId = s.contractorEmployeeId;
+      this.focusEmployeeId = null;
+      this.focusLabel = this.subjectLabel(s);
+    } else {
+      return;
+    }
+    this.load();
   }
 
   focusOn(r: FailedScanRow): void {
