@@ -11,6 +11,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import {
   ClientMobileAttendanceService,
   FailedScanRow,
+  FailedScanStats,
 } from '../mobile-attendance/client-mobile-attendance.service';
 
 type SubjectFilter = 'ALL' | 'EMPLOYEE' | 'CONTRACTOR';
@@ -53,6 +54,35 @@ const REASONS: { value: string; label: string }[] = [
     ></ui-page-header>
 
     <div class="p-4 md:p-6 space-y-4">
+      <div *ngIf="stats" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <div class="text-xs font-medium text-gray-500">Total</div>
+          <div class="text-2xl font-semibold text-gray-900">{{ stats.total }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <div class="text-xs font-medium text-sky-600">Employees</div>
+          <div class="text-2xl font-semibold text-sky-700">{{ stats.bySubject.employee }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <div class="text-xs font-medium text-violet-600">Contractors</div>
+          <div class="text-2xl font-semibold text-violet-700">{{ stats.bySubject.contractor }}</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm col-span-2 md:col-span-1">
+          <div class="text-xs font-medium text-gray-500">Top reason</div>
+          <div class="text-sm font-semibold text-rose-700 truncate" [title]="topReason()?.reason">
+            {{ topReason()?.reason || '—' }}
+          </div>
+          <div class="text-xs text-gray-500">{{ topReason()?.count || 0 }} hits</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm col-span-2 md:col-span-1">
+          <div class="text-xs font-medium text-gray-500">Top branch</div>
+          <div class="text-sm font-semibold text-indigo-700 truncate" [title]="topBranch()?.branchName || ''">
+            {{ topBranch()?.branchName || '—' }}
+          </div>
+          <div class="text-xs text-gray-500">{{ topBranch()?.count || 0 }} hits</div>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
@@ -175,6 +205,7 @@ export class ClientFaceFailuresComponent implements OnInit {
   readonly reasons = REASONS;
 
   rows: FailedScanRow[] = [];
+  stats: FailedScanStats | null = null;
   subject: SubjectFilter = 'ALL';
   reason = '';
   from = '';
@@ -196,15 +227,26 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   load(): void {
     this.loading = true;
+    const from = this.from ? `${this.from}T00:00:00.000Z` : undefined;
+    const to = this.to ? `${this.to}T23:59:59.999Z` : undefined;
+    const subjectType =
+      this.subject === 'EMPLOYEE' || this.subject === 'CONTRACTOR'
+        ? this.subject
+        : undefined;
+    this.svc
+      .failedScanStats({ from, to, subjectType })
+      .subscribe({
+        next: (s) => (this.stats = s),
+        error: () => {
+          /* non-fatal; chips simply stay blank */
+        },
+      });
     this.svc
       .listFailedScans({
-        from: this.from ? `${this.from}T00:00:00.000Z` : undefined,
-        to: this.to ? `${this.to}T23:59:59.999Z` : undefined,
+        from,
+        to,
         reason: this.reason || undefined,
-        subjectType:
-          this.subject === 'EMPLOYEE' || this.subject === 'CONTRACTOR'
-            ? this.subject
-            : undefined,
+        subjectType,
         limit: 500,
       })
       .pipe(finalize(() => (this.loading = false)))
@@ -214,6 +256,14 @@ export class ClientFaceFailuresComponent implements OnInit {
         },
         error: () => this.toast.error('Failed to load face failures'),
       });
+  }
+
+  topReason(): { reason: string; count: number } | null {
+    return this.stats?.byReason?.[0] ?? null;
+  }
+
+  topBranch(): { branchName: string | null; count: number } | null {
+    return this.stats?.byBranch?.[0] ?? null;
   }
 
   subjectOf(r: FailedScanRow): 'EMPLOYEE' | 'CONTRACTOR' | 'UNKNOWN' {
