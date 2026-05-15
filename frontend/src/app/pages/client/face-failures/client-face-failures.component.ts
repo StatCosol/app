@@ -129,6 +129,10 @@ const REASONS: { value: string; label: string }[] = [
               ({{ rows.length }})
             </span>
           </h3>
+          <button type="button" class="ui-btn-secondary text-xs"
+                  [disabled]="exporting || loading" (click)="exportCsv()">
+            {{ exporting ? 'Exporting…' : 'Export CSV' }}
+          </button>
         </div>
 
         <div *ngIf="loading" class="py-10 flex justify-center">
@@ -211,6 +215,7 @@ export class ClientFaceFailuresComponent implements OnInit {
   from = '';
   to = '';
   loading = false;
+  exporting = false;
 
   constructor(
     private svc: ClientMobileAttendanceService,
@@ -264,6 +269,38 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   topBranch(): { branchName: string | null; count: number } | null {
     return this.stats?.byBranch?.[0] ?? null;
+  }
+
+  exportCsv(): void {
+    this.exporting = true;
+    const from = this.from ? `${this.from}T00:00:00.000Z` : undefined;
+    const to = this.to ? `${this.to}T23:59:59.999Z` : undefined;
+    const subjectType =
+      this.subject === 'EMPLOYEE' || this.subject === 'CONTRACTOR'
+        ? this.subject
+        : undefined;
+    this.svc
+      .exportFailedScansCsv({
+        from,
+        to,
+        reason: this.reason || undefined,
+        subjectType,
+      })
+      .pipe(finalize(() => (this.exporting = false)))
+      .subscribe({
+        next: (blob) => {
+          const stamp = new Date().toISOString().slice(0, 10);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `face-failed-scans-${stamp}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.toast.error('Failed to export CSV'),
+      });
   }
 
   subjectOf(r: FailedScanRow): 'EMPLOYEE' | 'CONTRACTOR' | 'UNKNOWN' {
