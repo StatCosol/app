@@ -83,6 +83,40 @@ const REASONS: { value: string; label: string }[] = [
         </div>
       </div>
 
+      <div *ngIf="stats && (stats.byReason.length || stats.byBranch.length)"
+           class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
+            Top reasons
+          </div>
+          <ul class="divide-y divide-gray-100">
+            <li *ngFor="let r of topReasons()" class="flex items-center justify-between px-4 py-2 text-sm">
+              <span class="text-gray-700 truncate pr-2" [title]="r.reason">{{ r.reason }}</span>
+              <span class="text-rose-700 font-medium text-xs">{{ r.count }}</span>
+            </li>
+            <li *ngIf="!stats.byReason.length" class="px-4 py-3 text-xs text-gray-400 text-center">
+              No data
+            </li>
+          </ul>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
+            Top branches
+          </div>
+          <ul class="divide-y divide-gray-100">
+            <li *ngFor="let b of topBranches()" class="flex items-center justify-between px-4 py-2 text-sm">
+              <span class="text-gray-700 truncate pr-2" [title]="b.branchName || ''">
+                {{ b.branchName || '(unassigned)' }}
+              </span>
+              <span class="text-indigo-700 font-medium text-xs">{{ b.count }}</span>
+            </li>
+            <li *ngIf="!stats.byBranch.length" class="px-4 py-3 text-xs text-gray-400 text-center">
+              No data
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
@@ -283,6 +317,14 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   topReason(): { reason: string; count: number } | null {
     return this.stats?.byReason?.[0] ?? null;
+  }
+
+  topReasons(): Array<{ reason: string; count: number }> {
+    return this.stats?.byReason?.slice(0, 5) ?? [];
+  }
+
+  topBranches(): Array<{ branchName: string | null; count: number }> {
+    return this.stats?.byBranch?.slice(0, 5) ?? [];
   }
 
   focusOn(r: FailedScanRow): void {
