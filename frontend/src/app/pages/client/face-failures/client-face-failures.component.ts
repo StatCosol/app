@@ -175,6 +175,22 @@ const REASONS: { value: string; label: string }[] = [
         </div>
       </div>
 
+      <div *ngIf="stats && topDevices().length"
+           class="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
+          Top devices by failure count
+        </div>
+        <ul class="divide-y divide-gray-100">
+          <li *ngFor="let d of topDevices()"
+              class="flex items-center justify-between px-4 py-2 text-sm">
+            <span class="text-gray-700 truncate pr-2" [title]="deviceLabel(d)">
+              {{ deviceLabel(d) }}
+            </span>
+            <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ d.count }}</span>
+          </li>
+        </ul>
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
@@ -395,6 +411,16 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   hasHourly(): boolean {
     return (this.stats?.byHour ?? []).some((h) => h.count > 0);
+  }
+
+  topDevices(): Array<{ deviceId: string | null; deviceLabel: string | null; count: number }> {
+    return (this.stats?.byDevice ?? []).slice(0, 5);
+  }
+
+  deviceLabel(d: { deviceId: string | null; deviceLabel: string | null }): string {
+    if (d.deviceLabel) return d.deviceLabel;
+    if (d.deviceId) return d.deviceId.slice(0, 8) + '…';
+    return '(unknown device)';
   }
 
   private maxHourCount(): number {

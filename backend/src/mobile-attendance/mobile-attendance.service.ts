@@ -2186,6 +2186,11 @@ export class MobileAttendanceService {
     }>;
     byDay: Array<{ day: string; count: number }>;
     byHour: Array<{ hour: number; count: number }>;
+    byDevice: Array<{
+      deviceId: string | null;
+      deviceLabel: string | null;
+      count: number;
+    }>;
   }> {
     const params: any[] = [clientId];
     const where: string[] = ['f.client_id = $1'];
@@ -2218,6 +2223,7 @@ export class MobileAttendanceService {
         byBranch: [],
         byDay: [],
         byHour: [],
+        byDevice: [],
       };
     }
 
@@ -2277,6 +2283,19 @@ export class MobileAttendanceService {
     const byHour: Array<{ hour: number; count: number }> = [];
     for (let h = 0; h < 24; h++) byHour.push({ hour: h, count: byHourMap.get(h) ?? 0 });
 
+    const byDevice = (await this.faceRepo.manager.query(
+      `SELECT f.device_id AS "deviceId",
+              MAX(d.device_label) AS "deviceLabel",
+              COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+         LEFT JOIN mobile_attendance_devices d ON d.id = f.device_id
+        WHERE ${whereSql}
+        GROUP BY f.device_id
+        ORDER BY count DESC, "deviceLabel" ASC NULLS LAST
+        LIMIT 20`,
+      params,
+    )) as Array<{ deviceId: string | null; deviceLabel: string | null; count: number }>;
+
     return {
       total: Number(totalRow?.total ?? 0),
       bySubject: {
@@ -2288,6 +2307,7 @@ export class MobileAttendanceService {
       byBranch,
       byDay,
       byHour,
+      byDevice,
     };
   }
 
