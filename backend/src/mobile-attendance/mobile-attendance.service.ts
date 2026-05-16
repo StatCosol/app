@@ -2520,6 +2520,7 @@ export class MobileAttendanceService {
       '"clientId" = $1',
       `module = 'ATTENDANCE'`,
       `"entityType" = 'FACE_FAILURE'`,
+      `status = 'OPEN'`,
       `"createdAt" >= NOW() - INTERVAL '7 days'`,
     ];
     if (allowedBranchIds && allowedBranchIds.length > 0) {
