@@ -451,6 +451,11 @@ export interface FailedScanStats {
   }>;
   byDay: Array<{ day: string; count: number }>;
   byHour: Array<{ hour: number; count: number }>;
+  byDevice: Array<{
+    deviceId: string | null;
+    deviceLabel: string | null;
+    count: number;
+  }>;
 }
 
 export interface TopFailedScanSubjectRow {
