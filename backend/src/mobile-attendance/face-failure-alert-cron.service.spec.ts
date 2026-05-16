@@ -97,6 +97,39 @@ describe('FaceFailureAlertCronService.runDetector', () => {
     expect(args[1]).toBe('720');
   });
 
+  it('per-client override drives the emitted message threshold', async () => {
+    const query = jest
+      .fn()
+      // aggregation: 1 candidate, effectiveThreshold from the JOIN = 5
+      .mockResolvedValueOnce([
+        {
+          clientId: 'c1',
+          branchId: 'b1',
+          count: 7,
+          lastAt: new Date(),
+          effectiveThreshold: 5,
+        },
+      ])
+      .mockResolvedValueOnce([]) // dedupe miss
+      .mockResolvedValueOnce(undefined); // insert
+
+    const svc = makeService(query);
+    const summary = await svc.runDetector();
+
+    expect(summary.emitted).toBe(1);
+    // The aggregation SQL must JOIN clients and select effectiveThreshold.
+    const aggSql = query.mock.calls[0]?.[0] as string;
+    expect(aggSql).toContain('JOIN clients');
+    expect(aggSql).toContain('face_fail_alert_threshold');
+    expect(aggSql).toContain('effectiveThreshold');
+    // The insert message should reflect the per-client override (5),
+    // not the global default (20), and call it out.
+    const insertParams = query.mock.calls[2]?.[1] as unknown[];
+    const message = insertParams[3] as string;
+    expect(message).toContain('Threshold: 5');
+    expect(message).toContain('per-client override');
+  });
+
   it('swallows DB errors and returns zeroed summary', async () => {
     const query = jest.fn().mockRejectedValueOnce(new Error('boom'));
     const svc = makeService(query);
