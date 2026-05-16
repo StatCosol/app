@@ -456,6 +456,7 @@ export interface FailedScanStats {
     deviceLabel: string | null;
     count: number;
   }>;
+  byMode: Array<{ mode: string; count: number }>;
 }
 
 export interface TopFailedScanSubjectRow {

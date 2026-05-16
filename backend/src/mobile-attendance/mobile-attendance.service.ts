@@ -2191,6 +2191,7 @@ export class MobileAttendanceService {
       deviceLabel: string | null;
       count: number;
     }>;
+    byMode: Array<{ mode: string; count: number }>;
   }> {
     const params: any[] = [clientId];
     const where: string[] = ['f.client_id = $1'];
@@ -2224,6 +2225,7 @@ export class MobileAttendanceService {
         byDay: [],
         byHour: [],
         byDevice: [],
+        byMode: [],
       };
     }
 
@@ -2296,6 +2298,17 @@ export class MobileAttendanceService {
       params,
     )) as Array<{ deviceId: string | null; deviceLabel: string | null; count: number }>;
 
+    const byModeRaw = (await this.faceRepo.manager.query(
+      `SELECT COALESCE(d.mode, 'UNKNOWN') AS mode, COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+         LEFT JOIN mobile_attendance_devices d ON d.id = f.device_id
+        WHERE ${whereSql}
+        GROUP BY COALESCE(d.mode, 'UNKNOWN')
+        ORDER BY count DESC, mode ASC`,
+      params,
+    )) as Array<{ mode: string; count: number }>;
+    const byMode = byModeRaw.map((r) => ({ mode: String(r.mode), count: Number(r.count) }));
+
     return {
       total: Number(totalRow?.total ?? 0),
       bySubject: {
@@ -2308,6 +2321,7 @@ export class MobileAttendanceService {
       byDay,
       byHour,
       byDevice,
+      byMode,
     };
   }
 
