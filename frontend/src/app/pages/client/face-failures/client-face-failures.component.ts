@@ -383,6 +383,11 @@ const REASONS: { value: string; label: string }[] = [
           </h3>
           <div class="flex items-center gap-2">
             <button type="button" class="ui-btn-secondary text-xs"
+                    title="Copy a shareable link to this filtered view"
+                    (click)="copyLink()">
+              {{ copiedLink ? 'Link copied' : 'Copy link' }}
+            </button>
+            <button type="button" class="ui-btn-secondary text-xs"
                     [disabled]="exportingStats || loading" (click)="exportStatsCsv()">
               {{ exportingStats ? 'Exporting…' : 'Export stats CSV' }}
             </button>
@@ -486,6 +491,7 @@ export class ClientFaceFailuresComponent implements OnInit {
   loading = false;
   exporting = false;
   exportingStats = false;
+  copiedLink = false;
   focusEmployeeId: string | null = null;
   focusContractorId: string | null = null;
   focusBranchId: string | null = null;
@@ -906,6 +912,21 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.focusLabel = '';
     this.minCount = 5;
     this.setRange(7);
+  }
+
+  copyLink(): void {
+    if (typeof window === 'undefined' || !navigator?.clipboard) {
+      this.toast.error('Clipboard unavailable in this browser');
+      return;
+    }
+    navigator.clipboard
+      .writeText(window.location.href)
+      .then(() => {
+        this.copiedLink = true;
+        this.toast.success('Link copied to clipboard');
+        setTimeout(() => (this.copiedLink = false), 2000);
+      })
+      .catch(() => this.toast.error('Failed to copy link'));
   }
 
   topBranch(): { branchName: string | null; count: number } | null {
