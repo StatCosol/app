@@ -75,6 +75,10 @@ const AdminMailTemplatesComponent = () =>
   import('./client-contacts/admin-mail-templates.component').then(
     (m) => m.AdminMailTemplatesComponent,
   );
+const AdminFaceFailureToolsComponent = () =>
+  import('./face-failure-tools/admin-face-failure-tools.component').then(
+    (m) => m.AdminFaceFailureToolsComponent,
+  );
 
 export const ADMIN_ROUTES: Routes = [
   {
@@ -115,6 +119,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'helpdesk/:id', loadComponent: AdminHelpdeskDetailComponent },
       { path: 'client-contacts', loadComponent: AdminClientContactsComponent },
       { path: 'mail-templates', loadComponent: AdminMailTemplatesComponent },
+      { path: 'face-failure-tools', loadComponent: AdminFaceFailureToolsComponent },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },
