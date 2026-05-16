@@ -3,10 +3,16 @@ import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 
 /**
- * Daily detector that scans the last 24h of face_failed_scan_logs and emits
- * a single compliance_notification_center entry per (client, branch) whose
- * failure count crosses FACE_FAIL_ALERT_THRESHOLD (default 20). De-duped by
- * skipping branches that already received the same alert in the last 20h.
+ * Daily detector that scans the last N hours of face_failed_scan_logs and
+ * emits a single compliance_notification_center entry per (client, branch)
+ * whose failure count crosses FACE_FAIL_ALERT_THRESHOLD (default 20).
+ * De-duped by skipping branches that already received the same alert within
+ * the dedupe window.
+ *
+ * Env overrides:
+ *   FACE_FAIL_ALERT_THRESHOLD     (default 20)
+ *   FACE_FAIL_ALERT_WINDOW_HOURS  (default 24)
+ *   FACE_FAIL_ALERT_DEDUPE_HOURS  (default 20)
  */
 @Injectable()
 export class FaceFailureAlertCronService {
@@ -21,6 +27,20 @@ export class FaceFailureAlertCronService {
     return Math.floor(n);
   }
 
+  private getWindowHours(): number {
+    const raw = process.env.FACE_FAIL_ALERT_WINDOW_HOURS;
+    const n = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(n) || n <= 0) return 24;
+    return Math.min(Math.floor(n), 24 * 30);
+  }
+
+  private getDedupeHours(): number {
+    const raw = process.env.FACE_FAIL_ALERT_DEDUPE_HOURS;
+    const n = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(n) || n < 0) return 20;
+    return Math.min(Math.floor(n), 24 * 30);
+  }
+
   // 06:00 IST every day.
   @Cron('0 0 6 * * *', { timeZone: 'Asia/Kolkata' })
   async runDailyDetector(): Promise<void> {
@@ -30,15 +50,23 @@ export class FaceFailureAlertCronService {
   /**
    * Public entry point so admins can trigger the detector on demand (e.g.
    * after backfilling logs or tweaking the threshold). Returns a summary
-   * instead of just logging it.
+   * instead of just logging it. All overrides are clamped to safe ranges.
    */
-  async runDetector(): Promise<{
+  async runDetector(overrides?: {
+    threshold?: number;
+    windowHours?: number;
+    dedupeHours?: number;
+  }): Promise<{
     threshold: number;
+    windowHours: number;
+    dedupeHours: number;
     candidates: number;
     emitted: number;
     skipped: number;
   }> {
-    const threshold = this.getThreshold();
+    const threshold = clampInt(overrides?.threshold, 1, 100000, this.getThreshold());
+    const windowHours = clampInt(overrides?.windowHours, 1, 24 * 30, this.getWindowHours());
+    const dedupeHours = clampInt(overrides?.dedupeHours, 0, 24 * 30, this.getDedupeHours());
     try {
       const rows = (await this.dataSource.query(
         `SELECT client_id              AS "clientId",
@@ -46,11 +74,11 @@ export class FaceFailureAlertCronService {
                 COUNT(*)::int          AS "count",
                 MAX(attempted_at)      AS "lastAt"
            FROM face_failed_scan_logs
-          WHERE attempted_at >= NOW() - INTERVAL '24 hours'
+          WHERE attempted_at >= NOW() - ($2 || ' hours')::interval
             AND client_id IS NOT NULL
           GROUP BY client_id, branch_id
          HAVING COUNT(*) >= $1`,
-        [threshold],
+        [threshold, String(windowHours)],
       )) as Array<{
         clientId: string;
         branchId: string | null;
@@ -60,9 +88,16 @@ export class FaceFailureAlertCronService {
 
       if (!rows.length) {
         this.logger.log(
-          `face-failure detector: no (client,branch) crossed threshold=${threshold}`,
+          `face-failure detector: no (client,branch) crossed threshold=${threshold} window=${windowHours}h`,
         );
-        return { threshold, candidates: 0, emitted: 0, skipped: 0 };
+        return {
+          threshold,
+          windowHours,
+          dedupeHours,
+          candidates: 0,
+          emitted: 0,
+          skipped: 0,
+        };
       }
 
       let emitted = 0;
@@ -75,18 +110,18 @@ export class FaceFailureAlertCronService {
               AND (("branchId" IS NULL AND $2::uuid IS NULL) OR "branchId" = $2)
               AND module = 'ATTENDANCE'
               AND title LIKE 'Face scan failures spike%'
-              AND "createdAt" >= NOW() - INTERVAL '20 hours'
+              AND "createdAt" >= NOW() - ($3 || ' hours')::interval
             LIMIT 1`,
-          [r.clientId, r.branchId],
+          [r.clientId, r.branchId, String(dedupeHours)],
         )) as Array<unknown>;
         if (dup.length) {
           skipped++;
           continue;
         }
 
-        const title = `Face scan failures spike (${r.count} in 24h)`;
+        const title = `Face scan failures spike (${r.count} in ${windowHours}h)`;
         const message =
-          `${r.count} face-scan failures were recorded in the last 24 hours` +
+          `${r.count} face-scan failures were recorded in the last ${windowHours} hours` +
           (r.branchId ? ' for this branch' : ' across all branches') +
           `. Threshold: ${threshold}. Review the Face Failures dashboard to investigate top offenders and reasons.`;
 
@@ -101,15 +136,41 @@ export class FaceFailureAlertCronService {
       }
 
       this.logger.log(
-        `face-failure detector: threshold=${threshold} candidates=${rows.length} emitted=${emitted} skipped=${skipped}`,
+        `face-failure detector: threshold=${threshold} window=${windowHours}h dedupe=${dedupeHours}h candidates=${rows.length} emitted=${emitted} skipped=${skipped}`,
       );
-      return { threshold, candidates: rows.length, emitted, skipped };
+      return {
+        threshold,
+        windowHours,
+        dedupeHours,
+        candidates: rows.length,
+        emitted,
+        skipped,
+      };
     } catch (err: any) {
       this.logger.error(
         `face-failure detector failed: ${err?.message ?? err}`,
         err?.stack,
       );
-      return { threshold, candidates: 0, emitted: 0, skipped: 0 };
+      return {
+        threshold,
+        windowHours,
+        dedupeHours,
+        candidates: 0,
+        emitted: 0,
+        skipped: 0,
+      };
     }
   }
+}
+
+function clampInt(
+  raw: number | string | undefined | null,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
 }
