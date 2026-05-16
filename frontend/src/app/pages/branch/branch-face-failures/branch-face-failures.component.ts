@@ -324,12 +324,23 @@ const REASONS: { value: string; label: string }[] = [
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div *ngIf="focusLabel" class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between">
-          <span class="text-xs text-blue-800">
-            Filtered to <span class="font-semibold">{{ focusLabel }}</span>
-          </span>
-          <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900"
-                  (click)="clearFocus()">Clear filter</button>
+        <div *ngIf="hasActiveFilters()" class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between gap-2 flex-wrap">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] uppercase font-semibold text-blue-700">Active filters:</span>
+            <span *ngIf="subject !== 'ALL'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Subject: {{ subject === 'EMPLOYEE' ? 'Employees' : 'Contractors' }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear subject" (click)="clearSubject()">×</button>
+            </span>
+            <span *ngIf="reason" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Reason: {{ reason }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear reason" (click)="clearReason()">×</button>
+            </span>
+            <span *ngIf="focusLabel" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Person: {{ focusLabel }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear person" (click)="clearFocus()">×</button>
+            </span>
+          </div>
+          <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900" (click)="resetFilters()">Reset all</button>
         </div>
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 class="font-semibold text-gray-900">
@@ -747,6 +758,36 @@ export class BranchFaceFailuresComponent implements OnInit {
     this.focusContractorId = null;
     this.focusLabel = '';
     this.load();
+  }
+
+  clearSubject(): void {
+    if (this.subject === 'ALL') return;
+    this.subject = 'ALL';
+    this.load();
+  }
+
+  clearReason(): void {
+    if (!this.reason) return;
+    this.reason = '';
+    this.load();
+  }
+
+  hasActiveFilters(): boolean {
+    return (
+      this.subject !== 'ALL' ||
+      !!this.reason ||
+      !!this.focusEmployeeId ||
+      !!this.focusContractorId
+    );
+  }
+
+  resetFilters(): void {
+    this.subject = 'ALL';
+    this.reason = '';
+    this.focusEmployeeId = null;
+    this.focusContractorId = null;
+    this.focusLabel = '';
+    this.setRange(7);
   }
 
   topBranch(): { branchName: string | null; count: number } | null {
