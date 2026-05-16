@@ -2192,6 +2192,7 @@ export class MobileAttendanceService {
       count: number;
     }>;
     byMode: Array<{ mode: string; count: number }>;
+    byDayOfWeek: Array<{ dow: number; count: number }>;
   }> {
     const params: any[] = [clientId];
     const where: string[] = ['f.client_id = $1'];
@@ -2226,6 +2227,7 @@ export class MobileAttendanceService {
         byHour: [],
         byDevice: [],
         byMode: [],
+        byDayOfWeek: [],
       };
     }
 
@@ -2309,6 +2311,20 @@ export class MobileAttendanceService {
     )) as Array<{ mode: string; count: number }>;
     const byMode = byModeRaw.map((r) => ({ mode: String(r.mode), count: Number(r.count) }));
 
+    const byDowRaw = (await this.faceRepo.manager.query(
+      `SELECT EXTRACT(DOW FROM f.attempted_at)::int AS dow,
+              COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+        WHERE ${whereSql}
+        GROUP BY dow
+        ORDER BY dow ASC`,
+      params,
+    )) as Array<{ dow: number; count: number }>;
+    const byDowMap = new Map<number, number>();
+    for (const r of byDowRaw) byDowMap.set(Number(r.dow), Number(r.count));
+    const byDayOfWeek: Array<{ dow: number; count: number }> = [];
+    for (let d = 0; d < 7; d++) byDayOfWeek.push({ dow: d, count: byDowMap.get(d) ?? 0 });
+
     return {
       total: Number(totalRow?.total ?? 0),
       bySubject: {
@@ -2322,6 +2338,7 @@ export class MobileAttendanceService {
       byHour,
       byDevice,
       byMode,
+      byDayOfWeek,
     };
   }
 
