@@ -169,6 +169,9 @@ const REASONS: { value: string; label: string }[] = [
                 </div>
               </button>
               <div class="flex items-center gap-2">
+                <span *ngIf="isHighOffender(s)"
+                      class="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-600 text-white"
+                      title="High failure volume">HIGH</span>
                 <button type="button"
                         class="text-gray-400 hover:text-gray-700 text-xs w-5 text-center"
                         [title]="expandedKey === subjectKey(s) ? 'Hide recent failures' : 'Show recent failures'"
@@ -475,11 +478,55 @@ export class BranchFaceFailuresComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.setRange(7);
+    if (!this.restoreUrlState()) {
+      this.setRange(7);
+    } else {
+      this.load();
+    }
+  }
+
+  private restoreUrlState(): boolean {
+    if (typeof window === 'undefined') return false;
+    const p = new URLSearchParams(window.location.search);
+    if (![...p.keys()].length) return false;
+    const from = p.get('from');
+    const to = p.get('to');
+    const subj = p.get('subject');
+    const reason = p.get('reason');
+    const min = p.get('min');
+    if (from) this.from = from;
+    if (to) this.to = to;
+    if (from || to) this.activeRange = null;
+    if (subj === 'EMPLOYEE' || subj === 'CONTRACTOR') this.subject = subj;
+    if (reason) this.reason = reason;
+    if (min !== null && !Number.isNaN(Number(min))) {
+      this.minCount = Math.max(0, Math.min(999, Number(min)));
+    }
+    return true;
+  }
+
+  private syncUrlState(): void {
+    if (typeof window === 'undefined') return;
+    const p = new URLSearchParams();
+    if (this.from) p.set('from', this.from);
+    if (this.to) p.set('to', this.to);
+    if (this.subject !== 'ALL') p.set('subject', this.subject);
+    if (this.reason) p.set('reason', this.reason);
+    if (this.minCount !== 5) p.set('min', String(this.minCount));
+    const qs = p.toString();
+    const url = window.location.pathname + (qs ? '?' + qs : '');
+    window.history.replaceState({}, '', url);
+  }
+
+  isHighOffender(s: TopFailedScanSubjectRow): boolean {
+    if (!this.topSubjects.length) return false;
+    const max = this.topSubjects[0]?.count ?? 0;
+    return s.count >= 3 && max > 0 && s.count >= Math.ceil(max / 2);
   }
 
   load(): void {
     this.loading = true;
+    this.syncUrlState();
     const from = this.from ? `${this.from}T00:00:00.000Z` : undefined;
     const to = this.to ? `${this.to}T23:59:59.999Z` : undefined;
     const subjectType =
