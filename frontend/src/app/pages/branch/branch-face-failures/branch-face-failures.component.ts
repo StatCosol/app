@@ -175,6 +175,22 @@ const REASONS: { value: string; label: string }[] = [
         </div>
       </div>
 
+      <div *ngIf="stats && hasDow()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold uppercase text-gray-500">Failures by day of week</div>
+          <div class="text-xs text-gray-400">Peak: {{ peakDowLabel() }}</div>
+        </div>
+        <div class="flex items-end gap-1 h-20">
+          <div *ngFor="let d of stats.byDayOfWeek"
+               class="flex-1 bg-indigo-500/70 hover:bg-indigo-600 rounded-sm transition-colors"
+               [style.height.%]="dowBarPct(d.count)"
+               [title]="dowLabel(d.dow) + ': ' + d.count"></div>
+        </div>
+        <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+      </div>
+
       <div *ngIf="stats && topDevices().length"
            class="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
@@ -465,6 +481,32 @@ export class BranchFaceFailuresComponent implements OnInit {
     for (const h of arr) if (h.count > best.count) best = h;
     if (!best.count) return '—';
     return `${this.hourLabel(best.hour)} (${best.count})`;
+  }
+
+  hasDow(): boolean {
+    return (this.stats?.byDayOfWeek ?? []).some((d) => d.count > 0);
+  }
+
+  private maxDowCount(): number {
+    const m = Math.max(0, ...(this.stats?.byDayOfWeek ?? []).map((d) => d.count));
+    return m || 1;
+  }
+
+  dowBarPct(count: number): number {
+    return Math.max(2, Math.round((count / this.maxDowCount()) * 100));
+  }
+
+  dowLabel(d: number): string {
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d] ?? `${d}`;
+  }
+
+  peakDowLabel(): string {
+    const arr = this.stats?.byDayOfWeek ?? [];
+    if (!arr.length) return '—';
+    let best = arr[0];
+    for (const d of arr) if (d.count > best.count) best = d;
+    if (!best.count) return '—';
+    return `${this.dowLabel(best.dow)} (${best.count})`;
   }
 
   subjectLabel(s: TopFailedScanSubjectRow): string {
