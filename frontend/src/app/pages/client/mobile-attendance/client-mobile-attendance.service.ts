@@ -416,6 +416,13 @@ export class ClientMobileAttendanceService {
       `${this.base}/failed-scans/top-subjects${qs}`,
     );
   }
+
+  // ── Recent face-failure spike alerts (last 7d) emitted by the cron ──
+  listFaceFailureAlerts(limit = 20): Observable<FaceFailureAlertRow[]> {
+    return this.http.get<FaceFailureAlertRow[]>(
+      `${this.base}/failed-scans/alerts?limit=${limit}`,
+    );
+  }
 }
 
 export interface ContractorForBranchRow {
@@ -497,4 +504,13 @@ export interface TopFailedScanSubjectRow {
   avgMatchScore: number | null;
   lastFailedAt: string | null;
   topReason: string | null;
+}
+
+export interface FaceFailureAlertRow {
+  id: string;
+  branchId: string | null;
+  title: string;
+  message: string | null;
+  priority: string;
+  createdAt: string;
 }

@@ -2496,6 +2496,61 @@ export class MobileAttendanceService {
   }
 
   /**
+   * Recent face-failure spike alerts emitted by FaceFailureAlertCronService
+   * into compliance_notification_center. Returns at most `limit` rows from
+   * the last 7 days, newest first. Branch-scoped users only see alerts for
+   * their allowed branches.
+   */
+  async listFaceFailureAlerts(
+    clientId: string,
+    allowedBranchIds: string[] | null,
+    limit = 20,
+  ): Promise<
+    Array<{
+      id: string;
+      branchId: string | null;
+      title: string;
+      message: string | null;
+      priority: string;
+      createdAt: string;
+    }>
+  > {
+    const params: any[] = [clientId];
+    const where: string[] = [
+      '"clientId" = $1',
+      `module = 'ATTENDANCE'`,
+      `"entityType" = 'FACE_FAILURE'`,
+      `"createdAt" >= NOW() - INTERVAL '7 days'`,
+    ];
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      params.push(allowedBranchIds);
+      where.push(`"branchId" = ANY($${params.length}::uuid[])`);
+    } else if (allowedBranchIds && allowedBranchIds.length === 0) {
+      return [];
+    }
+    const lim = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const rows = (await this.faceRepo.manager.query(
+      `SELECT id, "branchId", title, message, priority, "createdAt"
+         FROM compliance_notification_center
+        WHERE ${where.join(' AND ')}
+        ORDER BY "createdAt" DESC
+        LIMIT ${lim}`,
+      params,
+    )) as Array<{
+      id: string;
+      branchId: string | null;
+      title: string;
+      message: string | null;
+      priority: string;
+      createdAt: string | Date;
+    }>;
+    return rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    }));
+  }
+
+  /**
    * List distinct contractors (parent vendor users) that have at least one
    * active employee in the caller's allowed branches. Drives the contractor
    * picker on the branch-portal contractor-attendance page.
