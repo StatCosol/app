@@ -20,9 +20,18 @@ import {
   template: `
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-slate-800">
-          Face-scan failures (last 7 days)
-        </h3>
+        <div class="flex items-center gap-2 min-w-0">
+          <h3 class="text-sm font-semibold text-slate-800">
+            Face-scan failures (last 7 days)
+          </h3>
+          <a *ngIf="alertsCount > 0"
+             [routerLink]="route"
+             [title]="alertsCount + ' open spike alert(s) in the last 7 days'"
+             class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-semibold hover:bg-rose-200">
+            <span class="inline-block w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+            {{ alertsCount }} alert{{ alertsCount === 1 ? '' : 's' }}
+          </a>
+        </div>
         <a
           [routerLink]="route"
           class="text-xs font-medium text-blue-600 hover:text-blue-800"
@@ -84,6 +93,7 @@ export class FaceFailuresWidgetComponent implements OnInit {
 
   loading = true;
   stats: FailedScanStats | null = null;
+  alertsCount = 0;
 
   constructor(
     private svc: ClientMobileAttendanceService,
@@ -104,6 +114,15 @@ export class FaceFailuresWidgetComponent implements OnInit {
       error: () => {
         this.loading = false;
         this.cdr.markForCheck();
+      },
+    });
+    this.svc.listFaceFailureAlerts(20).subscribe({
+      next: (rows) => {
+        this.alertsCount = rows?.length ?? 0;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.alertsCount = 0;
       },
     });
   }
