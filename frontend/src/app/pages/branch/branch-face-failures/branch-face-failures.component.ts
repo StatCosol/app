@@ -148,6 +148,9 @@ const REASONS: { value: string; label: string }[] = [
                         class="ml-1">· {{ s.contractorName }}</span>
                   <span *ngIf="s.subjectType === 'EMPLOYEE' && s.employeeCode"
                         class="ml-1">· {{ s.employeeCode }}</span>
+                  <span *ngIf="s.topReason" class="ml-1 text-amber-700">· {{ s.topReason }}</span>
+                  <span *ngIf="s.avgMatchScore != null" class="ml-1">· avg {{ fmtScore(s.avgMatchScore) }}</span>
+                  <span *ngIf="s.lastFailedAt" class="ml-1" [title]="s.lastFailedAt">· last {{ s.lastFailedAt | date:'MMM d, HH:mm' }}</span>
                 </div>
               </button>
               <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ s.count }}</span>
@@ -563,10 +566,10 @@ export class BranchFaceFailuresComponent implements OnInit {
     return 'UNKNOWN';
   }
 
-  fmtScore(v: string | null): string {
+  fmtScore(v: string | number | null): string {
     if (v === null || v === undefined || v === '') return '—';
     const n = Number(v);
-    if (Number.isNaN(n)) return v;
+    if (Number.isNaN(n)) return String(v);
     return `${(n * 100).toFixed(0)}%`;
   }
 
