@@ -91,9 +91,16 @@ const REASONS: { value: string; label: string }[] = [
             Top reasons
           </div>
           <ul class="divide-y divide-gray-100">
-            <li *ngFor="let r of topReasons()" class="flex items-center justify-between px-4 py-2 text-sm">
-              <span class="text-gray-700 truncate pr-2" [title]="r.reason">{{ r.reason }}</span>
-              <span class="text-rose-700 font-medium text-xs">{{ r.count }}</span>
+            <li *ngFor="let r of topReasons()" class="text-sm">
+              <button type="button"
+                      class="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 text-left"
+                      [class.bg-rose-50]="reason === r.reason"
+                      [class.text-rose-800]="reason === r.reason"
+                      [title]="reason === r.reason ? 'Clear reason filter' : 'Filter by ' + r.reason"
+                      (click)="toggleReason(r.reason)">
+                <span class="truncate pr-2">{{ r.reason }}</span>
+                <span class="text-rose-700 font-medium text-xs">{{ r.count }}</span>
+              </button>
             </li>
             <li *ngIf="!stats.byReason.length" class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
@@ -182,9 +189,14 @@ const REASONS: { value: string; label: string }[] = [
       </div>
 
       <div *ngIf="stats && hasDaily()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div class="text-xs font-semibold uppercase text-gray-500">Daily failure trend</div>
-          <div class="text-xs text-gray-400">Peak: {{ peakDayLabel() }}</div>
+          <div class="text-xs text-gray-500 flex items-center gap-3">
+            <span>Total: <span class="font-semibold text-gray-700">{{ dailyTotal() }}</span></span>
+            <span>Active days: <span class="font-semibold text-gray-700">{{ dailyActiveDays() }}</span></span>
+            <span>Avg/day: <span class="font-semibold text-gray-700">{{ dailyAvgPerActive() }}</span></span>
+            <span class="text-gray-400">Peak: {{ peakDayLabel() }}</span>
+          </div>
         </div>
         <div class="flex items-end gap-0.5 h-20">
           <div *ngFor="let d of stats.byDay"
@@ -257,7 +269,22 @@ const REASONS: { value: string; label: string }[] = [
         </ul>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+        <div class="flex items-center gap-2 text-xs flex-wrap">
+          <span class="text-gray-500 font-medium uppercase">Quick range:</span>
+          <button *ngFor="let p of rangePresets" type="button"
+                  class="px-2.5 py-1 rounded-full border transition-colors"
+                  [class.bg-blue-50]="activeRange === p.days"
+                  [class.border-blue-300]="activeRange === p.days"
+                  [class.text-blue-700]="activeRange === p.days"
+                  [class.font-semibold]="activeRange === p.days"
+                  [class.border-gray-200]="activeRange !== p.days"
+                  [class.text-gray-600]="activeRange !== p.days"
+                  [class.hover:bg-gray-50]="activeRange !== p.days"
+                  (click)="setRange(p.days)">{{ p.label }}</button>
+          <span *ngIf="activeRange === null" class="text-gray-400">(custom range)</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
           <select id="subj" name="subject" [(ngModel)]="subject"
@@ -279,12 +306,12 @@ const REASONS: { value: string; label: string }[] = [
         <div>
           <label for="from" class="block text-xs font-medium text-gray-600 mb-1">From</label>
           <input id="from" name="from" type="date" [(ngModel)]="from"
-                 (change)="load()" class="ui-input">
+                 (change)="onDateChange()" class="ui-input">
         </div>
         <div>
           <label for="to" class="block text-xs font-medium text-gray-600 mb-1">To</label>
           <input id="to" name="to" type="date" [(ngModel)]="to"
-                 (change)="load()" class="ui-input">
+                 (change)="onDateChange()" class="ui-input">
         </div>
 
         <div class="flex items-end">
@@ -292,6 +319,7 @@ const REASONS: { value: string; label: string }[] = [
                   [disabled]="loading" (click)="load()">
             Refresh
           </button>
+        </div>
         </div>
       </div>
 
@@ -425,11 +453,7 @@ export class ClientFaceFailuresComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const today = new Date();
-    const weekAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
-    this.to = this.toIsoDate(today);
-    this.from = this.toIsoDate(weekAgo);
-    this.load();
+    this.setRange(7);
   }
 
   load(): void {
@@ -483,6 +507,46 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   topBranches(): Array<{ branchName: string | null; count: number }> {
     return this.stats?.byBranch?.slice(0, 5) ?? [];
+  }
+
+  readonly rangePresets: Array<{ label: string; days: number }> = [
+    { label: '7d', days: 7 },
+    { label: '30d', days: 30 },
+    { label: '90d', days: 90 },
+  ];
+  activeRange: number | null = 7;
+
+  setRange(days: number): void {
+    this.activeRange = days;
+    const today = new Date();
+    const start = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+    this.to = this.toIsoDate(today);
+    this.from = this.toIsoDate(start);
+    this.load();
+  }
+
+  onDateChange(): void {
+    this.activeRange = null;
+    this.load();
+  }
+
+  toggleReason(r: string): void {
+    this.reason = this.reason === r ? '' : r;
+    this.load();
+  }
+
+  dailyTotal(): number {
+    return (this.stats?.byDay ?? []).reduce((s, d) => s + d.count, 0);
+  }
+
+  dailyActiveDays(): number {
+    return (this.stats?.byDay ?? []).filter((d) => d.count > 0).length;
+  }
+
+  dailyAvgPerActive(): number {
+    const active = this.dailyActiveDays();
+    if (!active) return 0;
+    return Math.round(this.dailyTotal() / active);
   }
 
   hasDaily(): boolean {
