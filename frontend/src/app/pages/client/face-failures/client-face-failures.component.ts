@@ -8,6 +8,7 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ComplianceNotificationCenterService } from '../../../core/compliance-notification-center.service';
 import {
   ClientMobileAttendanceService,
   FailedScanRow,
@@ -528,6 +529,7 @@ export class ClientFaceFailuresComponent implements OnInit {
   constructor(
     private svc: ClientMobileAttendanceService,
     private toast: ToastService,
+    private notif: ComplianceNotificationCenterService,
   ) {}
 
   ngOnInit(): void {
@@ -556,10 +558,15 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   dismissAlert(id: string): void {
     this.dismissedAlertIds.add(id);
+    this.notif.markRead(id).subscribe({ error: () => {} });
   }
 
   dismissAllAlerts(): void {
-    this.alerts.forEach((a) => this.dismissedAlertIds.add(a.id));
+    this.alerts.forEach((a) => {
+      if (this.dismissedAlertIds.has(a.id)) return;
+      this.dismissedAlertIds.add(a.id);
+      this.notif.markRead(a.id).subscribe({ error: () => {} });
+    });
   }
 
   private restoreUrlState(): boolean {
