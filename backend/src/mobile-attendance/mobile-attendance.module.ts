@@ -15,6 +15,7 @@ import {
 import { MobileAttendanceService } from './mobile-attendance.service';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
+import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { FacePhotoStorage } from './face-photo-storage.service';
     NotificationsModule,
   ],
   controllers: [MobileAttendanceAdminController, MobileAttendanceDeviceController],
-  providers: [MobileAttendanceService, FaceEmbeddingClient, FacePhotoStorage],
+  providers: [MobileAttendanceService, FaceEmbeddingClient, FacePhotoStorage, FaceFailureAlertCronService],
   exports: [MobileAttendanceService],
 })
 export class MobileAttendanceModule {}
