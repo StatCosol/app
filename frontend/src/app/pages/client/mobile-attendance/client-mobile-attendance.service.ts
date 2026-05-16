@@ -457,6 +457,7 @@ export interface FailedScanStats {
     count: number;
   }>;
   byMode: Array<{ mode: string; count: number }>;
+  byDayOfWeek: Array<{ dow: number; count: number }>;
 }
 
 export interface TopFailedScanSubjectRow {
