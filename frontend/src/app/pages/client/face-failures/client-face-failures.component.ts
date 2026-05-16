@@ -363,6 +363,14 @@ const REASONS: { value: string; label: string }[] = [
               Person: {{ focusLabel }}
               <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear person" (click)="clearFocus()">×</button>
             </span>
+            <span *ngIf="activeRange === null && (from || to)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Range: {{ from || '…' }} → {{ to || '…' }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Reset to last 7 days" (click)="clearCustomRange()">×</button>
+            </span>
+            <span *ngIf="minCount !== 5" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Top offenders ≥ {{ minCount }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Reset min hits" (click)="clearMinCount()">×</button>
+            </span>
           </div>
           <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900" (click)="resetFilters()">Reset all</button>
         </div>
@@ -865,13 +873,26 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.load();
   }
 
+  clearMinCount(): void {
+    if (this.minCount === 5) return;
+    this.minCount = 5;
+    this.load();
+  }
+
+  clearCustomRange(): void {
+    if (this.activeRange !== null) return;
+    this.setRange(7);
+  }
+
   hasActiveFilters(): boolean {
     return (
       this.subject !== 'ALL' ||
       !!this.reason ||
       !!this.focusBranchId ||
       !!this.focusEmployeeId ||
-      !!this.focusContractorId
+      !!this.focusContractorId ||
+      this.activeRange === null ||
+      this.minCount !== 5
     );
   }
 
@@ -883,6 +904,7 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.focusEmployeeId = null;
     this.focusContractorId = null;
     this.focusLabel = '';
+    this.minCount = 5;
     this.setRange(7);
   }
 
