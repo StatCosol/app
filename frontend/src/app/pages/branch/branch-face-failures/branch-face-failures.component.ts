@@ -181,6 +181,23 @@ const REASONS: { value: string; label: string }[] = [
         </div>
       </div>
 
+      <div *ngIf="stats && hasDaily()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold uppercase text-gray-500">Daily failure trend</div>
+          <div class="text-xs text-gray-400">Peak: {{ peakDayLabel() }}</div>
+        </div>
+        <div class="flex items-end gap-0.5 h-20">
+          <div *ngFor="let d of stats.byDay"
+               class="flex-1 bg-amber-500/70 hover:bg-amber-600 rounded-sm transition-colors"
+               [style.height.%]="dayBarPct(d.count)"
+               [title]="d.day + ': ' + d.count"></div>
+        </div>
+        <div *ngIf="stats.byDay.length" class="flex justify-between text-[10px] text-gray-400 mt-1">
+          <span>{{ dayShort(stats.byDay[0].day) }}</span>
+          <span>{{ dayShort(stats.byDay[stats.byDay.length - 1].day) }}</span>
+        </div>
+      </div>
+
       <div *ngIf="stats && hasHourly()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <div class="flex items-center justify-between mb-2">
           <div class="text-xs font-semibold uppercase text-gray-500">Failures by hour of day</div>
@@ -466,6 +483,37 @@ export class BranchFaceFailuresComponent implements OnInit {
 
   topBranches(): Array<{ branchName: string | null; count: number }> {
     return this.stats?.byBranch?.slice(0, 5) ?? [];
+  }
+
+  hasDaily(): boolean {
+    return (this.stats?.byDay ?? []).some((d) => d.count > 0);
+  }
+
+  private maxDayCount(): number {
+    const m = Math.max(0, ...(this.stats?.byDay ?? []).map((d) => d.count));
+    return m || 1;
+  }
+
+  dayBarPct(count: number): number {
+    return Math.max(2, Math.round((count / this.maxDayCount()) * 100));
+  }
+
+  dayShort(day: string): string {
+    // 'YYYY-MM-DD' -> 'MMM d'
+    const parts = day?.split('-');
+    if (!parts || parts.length !== 3) return day;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const m = parseInt(parts[1], 10);
+    return `${months[m - 1] ?? parts[1]} ${parseInt(parts[2], 10)}`;
+  }
+
+  peakDayLabel(): string {
+    const arr = this.stats?.byDay ?? [];
+    if (!arr.length) return '—';
+    let best = arr[0];
+    for (const d of arr) if (d.count > best.count) best = d;
+    if (!best.count) return '—';
+    return `${this.dayShort(best.day)} (${best.count})`;
   }
 
   hasHourly(): boolean {
