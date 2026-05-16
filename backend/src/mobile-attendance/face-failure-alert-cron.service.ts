@@ -24,6 +24,20 @@ export class FaceFailureAlertCronService {
   // 06:00 IST every day.
   @Cron('0 0 6 * * *', { timeZone: 'Asia/Kolkata' })
   async runDailyDetector(): Promise<void> {
+    await this.runDetector();
+  }
+
+  /**
+   * Public entry point so admins can trigger the detector on demand (e.g.
+   * after backfilling logs or tweaking the threshold). Returns a summary
+   * instead of just logging it.
+   */
+  async runDetector(): Promise<{
+    threshold: number;
+    candidates: number;
+    emitted: number;
+    skipped: number;
+  }> {
     const threshold = this.getThreshold();
     try {
       const rows = (await this.dataSource.query(
@@ -48,7 +62,7 @@ export class FaceFailureAlertCronService {
         this.logger.log(
           `face-failure detector: no (client,branch) crossed threshold=${threshold}`,
         );
-        return;
+        return { threshold, candidates: 0, emitted: 0, skipped: 0 };
       }
 
       let emitted = 0;
@@ -89,11 +103,13 @@ export class FaceFailureAlertCronService {
       this.logger.log(
         `face-failure detector: threshold=${threshold} candidates=${rows.length} emitted=${emitted} skipped=${skipped}`,
       );
+      return { threshold, candidates: rows.length, emitted, skipped };
     } catch (err: any) {
       this.logger.error(
         `face-failure detector failed: ${err?.message ?? err}`,
         err?.stack,
       );
+      return { threshold, candidates: 0, emitted: 0, skipped: 0 };
     }
   }
 }
