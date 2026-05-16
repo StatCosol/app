@@ -177,8 +177,15 @@ const REASONS: { value: string; label: string }[] = [
 
       <div *ngIf="stats && topDevices().length"
            class="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
-          Top devices by failure count
+        <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
+          <span class="text-xs font-semibold uppercase text-gray-500">Top devices by failure count</span>
+          <span *ngIf="modeBreakdown().length" class="flex items-center gap-1">
+            <span *ngFor="let m of modeBreakdown()"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[10px] font-medium text-gray-700"
+                  [title]="m.mode + ': ' + m.count + ' failures'">
+              {{ m.mode }} <span class="text-rose-600">{{ m.count }}</span>
+            </span>
+          </span>
         </div>
         <ul class="divide-y divide-gray-100">
           <li *ngFor="let d of topDevices()"
@@ -415,6 +422,10 @@ export class BranchFaceFailuresComponent implements OnInit {
 
   topDevices(): Array<{ deviceId: string | null; deviceLabel: string | null; count: number }> {
     return (this.stats?.byDevice ?? []).slice(0, 5);
+  }
+
+  modeBreakdown(): Array<{ mode: string; count: number }> {
+    return this.stats?.byMode ?? [];
   }
 
   deviceLabel(d: { deviceId: string | null; deviceLabel: string | null }): string {
