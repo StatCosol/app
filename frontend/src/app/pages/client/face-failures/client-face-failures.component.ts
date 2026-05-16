@@ -129,8 +129,8 @@ const REASONS: { value: string; label: string }[] = [
             </label>
           </div>
           <ul class="divide-y divide-gray-100">
-            <li *ngFor="let s of topSubjects"
-                class="flex items-center justify-between px-4 py-2 text-sm">
+            <ng-container *ngFor="let s of topSubjects">
+            <li class="flex items-center justify-between px-4 py-2 text-sm">
               <button type="button"
                       class="text-left truncate pr-2 text-gray-700 hover:text-blue-700"
                       [title]="subjectLabel(s)"
@@ -150,8 +150,30 @@ const REASONS: { value: string; label: string }[] = [
                         class="ml-1">· {{ s.employeeCode }}</span>
                 </div>
               </button>
-              <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ s.count }}</span>
+              <div class="flex items-center gap-2">
+                <button type="button"
+                        class="text-gray-400 hover:text-gray-700 text-xs w-5 text-center"
+                        [title]="expandedKey === subjectKey(s) ? 'Hide recent failures' : 'Show recent failures'"
+                        (click)="toggleExpand(s)">
+                  {{ expandedKey === subjectKey(s) ? '▾' : '▸' }}
+                </button>
+                <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ s.count }}</span>
+              </div>
             </li>
+            <li *ngIf="expandedKey === subjectKey(s)" class="px-4 py-2 bg-gray-50">
+              <div *ngIf="expandingKey === subjectKey(s)" class="text-xs text-gray-400">Loading…</div>
+              <ng-container *ngIf="expandingKey !== subjectKey(s)">
+                <div *ngIf="!expandedRows.length" class="text-xs text-gray-400">No recent failures</div>
+                <ul class="space-y-1" *ngIf="expandedRows.length">
+                  <li *ngFor="let r of expandedRows"
+                      class="text-[11px] text-gray-600 flex items-center justify-between gap-2">
+                    <span class="truncate">{{ r.attemptedAt | date:'MMM d, HH:mm' }} · {{ r.reason }}</span>
+                    <span class="text-gray-400 whitespace-nowrap">{{ fmtScore(r.matchScore) }}</span>
+                  </li>
+                </ul>
+              </ng-container>
+            </li>
+            </ng-container>
             <li *ngIf="!topSubjects.length" class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
             </li>
@@ -365,6 +387,9 @@ export class ClientFaceFailuresComponent implements OnInit {
   rows: FailedScanRow[] = [];
   stats: FailedScanStats | null = null;
   topSubjects: TopFailedScanSubjectRow[] = [];
+  expandedKey: string | null = null;
+  expandedRows: FailedScanRow[] = [];
+  expandingKey: string | null = null;
   minCount = 5;
   subject: SubjectFilter = 'ALL';
   reason = '';
@@ -551,6 +576,40 @@ export class ClientFaceFailuresComponent implements OnInit {
       return;
     }
     this.load();
+  }
+
+  subjectKey(s: TopFailedScanSubjectRow): string {
+    return s.subjectType === 'EMPLOYEE'
+      ? `EMP:${s.employeeId ?? ''}`
+      : `CTR:${s.contractorEmployeeId ?? ''}`;
+  }
+
+  toggleExpand(s: TopFailedScanSubjectRow): void {
+    const key = this.subjectKey(s);
+    if (this.expandedKey === key) {
+      this.expandedKey = null;
+      this.expandedRows = [];
+      this.expandingKey = null;
+      return;
+    }
+    this.expandedKey = key;
+    this.expandedRows = [];
+    this.expandingKey = key;
+    const from = this.from ? `${this.from}T00:00:00.000Z` : undefined;
+    const to = this.to ? `${this.to}T23:59:59.999Z` : undefined;
+    this.svc
+      .listFailedScans({
+        from,
+        to,
+        employeeId: s.employeeId ?? undefined,
+        contractorEmployeeId: s.contractorEmployeeId ?? undefined,
+        limit: 5,
+      })
+      .pipe(finalize(() => { if (this.expandingKey === key) this.expandingKey = null; }))
+      .subscribe({
+        next: (rows) => { if (this.expandedKey === key) this.expandedRows = rows; },
+        error: () => { if (this.expandedKey === key) this.expandedRows = []; },
+      });
   }
 
   focusOn(r: FailedScanRow): void {
