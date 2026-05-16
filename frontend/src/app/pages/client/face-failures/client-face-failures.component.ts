@@ -151,6 +151,22 @@ const REASONS: { value: string; label: string }[] = [
         </div>
       </div>
 
+      <div *ngIf="stats && hasHourly()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold uppercase text-gray-500">Failures by hour of day</div>
+          <div class="text-xs text-gray-400">Peak: {{ peakHourLabel() }}</div>
+        </div>
+        <div class="flex items-end gap-0.5 h-20">
+          <div *ngFor="let h of stats.byHour"
+               class="flex-1 bg-rose-500/70 hover:bg-rose-600 rounded-sm transition-colors"
+               [style.height.%]="barPct(h.count)"
+               [title]="hourLabel(h.hour) + ': ' + h.count"></div>
+        </div>
+        <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+          <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3">
         <div>
           <label for="subj" class="block text-xs font-medium text-gray-600 mb-1">Subject</label>
@@ -366,6 +382,33 @@ export class ClientFaceFailuresComponent implements OnInit {
 
   topBranches(): Array<{ branchName: string | null; count: number }> {
     return this.stats?.byBranch?.slice(0, 5) ?? [];
+  }
+
+  hasHourly(): boolean {
+    return (this.stats?.byHour ?? []).some((h) => h.count > 0);
+  }
+
+  private maxHourCount(): number {
+    let m = 0;
+    for (const h of this.stats?.byHour ?? []) if (h.count > m) m = h.count;
+    return m || 1;
+  }
+
+  barPct(count: number): number {
+    return Math.max(2, Math.round((count / this.maxHourCount()) * 100));
+  }
+
+  hourLabel(h: number): string {
+    return `${`${h}`.padStart(2, '0')}:00`;
+  }
+
+  peakHourLabel(): string {
+    const arr = this.stats?.byHour ?? [];
+    if (!arr.length) return '—';
+    let best = arr[0];
+    for (const h of arr) if (h.count > best.count) best = h;
+    if (!best.count) return '—';
+    return `${this.hourLabel(best.hour)} (${best.count})`;
   }
 
   subjectLabel(s: TopFailedScanSubjectRow): string {

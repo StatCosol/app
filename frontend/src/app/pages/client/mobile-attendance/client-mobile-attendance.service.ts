@@ -448,6 +448,7 @@ export interface FailedScanStats {
     count: number;
   }>;
   byDay: Array<{ day: string; count: number }>;
+  byHour: Array<{ hour: number; count: number }>;
 }
 
 export interface TopFailedScanSubjectRow {
