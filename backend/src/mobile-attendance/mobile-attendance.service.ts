@@ -2185,6 +2185,7 @@ export class MobileAttendanceService {
       count: number;
     }>;
     byDay: Array<{ day: string; count: number }>;
+    byHour: Array<{ hour: number; count: number }>;
   }> {
     const params: any[] = [clientId];
     const where: string[] = ['f.client_id = $1'];
@@ -2216,6 +2217,7 @@ export class MobileAttendanceService {
         byReason: [],
         byBranch: [],
         byDay: [],
+        byHour: [],
       };
     }
 
@@ -2260,6 +2262,21 @@ export class MobileAttendanceService {
       params,
     )) as Array<{ day: string; count: number }>;
 
+    const byHourRaw = (await this.faceRepo.manager.query(
+      `SELECT EXTRACT(HOUR FROM f.attempted_at)::int AS hour,
+              COUNT(*)::int AS count
+         FROM face_failed_scan_logs f
+        WHERE ${whereSql}
+        GROUP BY hour
+        ORDER BY hour ASC`,
+      params,
+    )) as Array<{ hour: number; count: number }>;
+    // Zero-fill 0..23 so the FE sparkline always renders a full day axis.
+    const byHourMap = new Map<number, number>();
+    for (const r of byHourRaw) byHourMap.set(Number(r.hour), Number(r.count));
+    const byHour: Array<{ hour: number; count: number }> = [];
+    for (let h = 0; h < 24; h++) byHour.push({ hour: h, count: byHourMap.get(h) ?? 0 });
+
     return {
       total: Number(totalRow?.total ?? 0),
       bySubject: {
@@ -2270,6 +2287,7 @@ export class MobileAttendanceService {
       byReason,
       byBranch,
       byDay,
+      byHour,
     };
   }
 
