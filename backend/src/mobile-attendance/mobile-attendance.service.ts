@@ -2304,6 +2304,7 @@ export class MobileAttendanceService {
       branchId?: string | null;
       subjectType?: 'EMPLOYEE' | 'CONTRACTOR' | null;
       limit?: number | null;
+      minCount?: number | null;
     },
     allowedBranchIds: string[] | null = null,
   ): Promise<
@@ -2319,6 +2320,7 @@ export class MobileAttendanceService {
     }>
   > {
     const limit = Math.min(Math.max(Number(opts.limit) || 10, 1), 100);
+    const minCount = Math.max(Number(opts.minCount) || 0, 0);
 
     const params: any[] = [clientId];
     const where: string[] = ['f.client_id = $1'];
@@ -2400,7 +2402,8 @@ export class MobileAttendanceService {
     }
 
     rows.sort((a, b) => Number(b.count) - Number(a.count));
-    return rows.slice(0, limit).map((r) => ({ ...r, count: Number(r.count) }));
+    const filtered = minCount > 0 ? rows.filter((r) => Number(r.count) >= minCount) : rows;
+    return filtered.slice(0, limit).map((r) => ({ ...r, count: Number(r.count) }));
   }
 
   /**

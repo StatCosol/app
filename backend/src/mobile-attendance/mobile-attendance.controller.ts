@@ -330,6 +330,7 @@ export class MobileAttendanceAdminController {
     @Query('branchId') branchId?: string,
     @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
     @Query('limit') limit?: string,
+    @Query('minCount') minCount?: string,
   ) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     const allowedBranchIds = scopeBranchIds(u);
@@ -338,6 +339,7 @@ export class MobileAttendanceAdminController {
         ? subjectType
         : null;
     const lim = limit ? parseInt(limit, 10) : null;
+    const mc = minCount ? parseInt(minCount, 10) : null;
     return this.svc.topFailedScanSubjects(
       u.clientId,
       {
@@ -346,6 +348,7 @@ export class MobileAttendanceAdminController {
         branchId: branchId ?? null,
         subjectType: subj,
         limit: Number.isFinite(lim) ? lim : null,
+        minCount: Number.isFinite(mc) ? mc : null,
       },
       allowedBranchIds,
     );
