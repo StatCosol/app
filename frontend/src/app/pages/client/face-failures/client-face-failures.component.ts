@@ -149,7 +149,7 @@ const REASONS: { value: string; label: string }[] = [
                   <span *ngIf="s.subjectType === 'EMPLOYEE' && s.employeeCode"
                         class="ml-1">· {{ s.employeeCode }}</span>
                   <span *ngIf="s.topReason" class="ml-1 text-amber-700">· {{ s.topReason }}</span>
-                  <span *ngIf="s.avgMatchScore != null" class="ml-1">· avg {{ fmtScore(s.avgMatchScore) }}</span>
+                  <span *ngIf="s.avgMatchScore !== null" class="ml-1">· avg {{ fmtScore(s.avgMatchScore) }}</span>
                   <span *ngIf="s.lastFailedAt" class="ml-1" [title]="s.lastFailedAt">· last {{ s.lastFailedAt | date:'MMM d, HH:mm' }}</span>
                 </div>
               </button>
