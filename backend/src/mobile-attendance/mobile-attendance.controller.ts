@@ -388,11 +388,15 @@ export class MobileAttendanceAdminController {
     @Query('threshold') threshold?: string,
     @Query('windowHours') windowHours?: string,
     @Query('dedupeHours') dedupeHours?: string,
+    @Query('clientId') clientId?: string,
+    @Query('branchId') branchId?: string,
   ) {
     return this.faceAlertCron.runDetector({
       threshold: threshold !== undefined ? Number(threshold) : undefined,
       windowHours: windowHours !== undefined ? Number(windowHours) : undefined,
       dedupeHours: dedupeHours !== undefined ? Number(dedupeHours) : undefined,
+      clientId: clientId ?? undefined,
+      branchId: branchId ?? undefined,
     });
   }
 
