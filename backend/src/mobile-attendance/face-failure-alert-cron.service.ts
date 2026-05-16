@@ -74,32 +74,38 @@ export class FaceFailureAlertCronService {
     const clientId = normalizeUuid(overrides?.clientId);
     const branchId = normalizeUuid(overrides?.branchId);
     try {
+      // Per-client override via clients.face_fail_alert_threshold (nullable).
+      // When NULL, the global env-derived threshold ($1) applies. The optional
+      // scope filters (clientId / branchId) are admin-only narrowing knobs.
       const params: any[] = [threshold, String(windowHours)];
       let scopeSql = '';
       if (clientId) {
         params.push(clientId);
-        scopeSql += ` AND client_id = $${params.length}::uuid`;
+        scopeSql += ` AND f.client_id = $${params.length}::uuid`;
       }
       if (branchId) {
         params.push(branchId);
-        scopeSql += ` AND branch_id = $${params.length}::uuid`;
+        scopeSql += ` AND f.branch_id = $${params.length}::uuid`;
       }
       const rows = (await this.dataSource.query(
-        `SELECT client_id              AS "clientId",
-                branch_id              AS "branchId",
-                COUNT(*)::int          AS "count",
-                MAX(attempted_at)      AS "lastAt"
-           FROM face_failed_scan_logs
-          WHERE attempted_at >= NOW() - ($2 || ' hours')::interval
-            AND client_id IS NOT NULL${scopeSql}
-          GROUP BY client_id, branch_id
-         HAVING COUNT(*) >= $1`,
+        `SELECT f.client_id                                      AS "clientId",
+                f.branch_id                                      AS "branchId",
+                COUNT(*)::int                                    AS "count",
+                MAX(f.attempted_at)                              AS "lastAt",
+                COALESCE(c.face_fail_alert_threshold, $1)::int   AS "effectiveThreshold"
+           FROM face_failed_scan_logs f
+           JOIN clients c ON c.id = f.client_id
+          WHERE f.attempted_at >= NOW() - ($2 || ' hours')::interval
+            AND f.client_id IS NOT NULL${scopeSql}
+          GROUP BY f.client_id, f.branch_id, c.face_fail_alert_threshold
+         HAVING COUNT(*) >= COALESCE(c.face_fail_alert_threshold, $1)`,
         params,
       )) as Array<{
         clientId: string;
         branchId: string | null;
         count: number;
         lastAt: Date;
+        effectiveThreshold: number;
       }>;
 
       if (!rows.length) {
@@ -137,11 +143,14 @@ export class FaceFailureAlertCronService {
           continue;
         }
 
+        const effThreshold = Number(r.effectiveThreshold) || threshold;
         const title = `Face scan failures spike (${r.count} in ${windowHours}h)`;
         const message =
           `${r.count} face-scan failures were recorded in the last ${windowHours} hours` +
           (r.branchId ? ' for this branch' : ' across all branches') +
-          `. Threshold: ${threshold}. Review the Face Failures dashboard to investigate top offenders and reasons.`;
+          `. Threshold: ${effThreshold}` +
+          (effThreshold !== threshold ? ' (per-client override)' : '') +
+          `. Review the Face Failures dashboard to investigate top offenders and reasons.`;
 
         await this.dataSource.query(
           `INSERT INTO compliance_notification_center
