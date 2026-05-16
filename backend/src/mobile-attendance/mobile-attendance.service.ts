@@ -2189,6 +2189,8 @@ export class MobileAttendanceService {
     byDevice: Array<{
       deviceId: string | null;
       deviceLabel: string | null;
+      mode: string | null;
+      lastFailedAt: string | null;
       count: number;
     }>;
     byMode: Array<{ mode: string; count: number }>;
@@ -2287,9 +2289,11 @@ export class MobileAttendanceService {
     const byHour: Array<{ hour: number; count: number }> = [];
     for (let h = 0; h < 24; h++) byHour.push({ hour: h, count: byHourMap.get(h) ?? 0 });
 
-    const byDevice = (await this.faceRepo.manager.query(
+    const byDeviceRaw = (await this.faceRepo.manager.query(
       `SELECT f.device_id AS "deviceId",
               MAX(d.device_label) AS "deviceLabel",
+              MAX(d.mode) AS "mode",
+              MAX(f.attempted_at) AS "lastFailedAt",
               COUNT(*)::int AS count
          FROM face_failed_scan_logs f
          LEFT JOIN mobile_attendance_devices d ON d.id = f.device_id
@@ -2298,7 +2302,20 @@ export class MobileAttendanceService {
         ORDER BY count DESC, "deviceLabel" ASC NULLS LAST
         LIMIT 20`,
       params,
-    )) as Array<{ deviceId: string | null; deviceLabel: string | null; count: number }>;
+    )) as Array<{
+      deviceId: string | null;
+      deviceLabel: string | null;
+      mode: string | null;
+      lastFailedAt: string | Date | null;
+      count: number;
+    }>;
+    const byDevice = byDeviceRaw.map((r) => ({
+      deviceId: r.deviceId,
+      deviceLabel: r.deviceLabel,
+      mode: r.mode,
+      lastFailedAt: r.lastFailedAt == null ? null : new Date(r.lastFailedAt).toISOString(),
+      count: Number(r.count),
+    }));
 
     const byModeRaw = (await this.faceRepo.manager.query(
       `SELECT COALESCE(d.mode, 'UNKNOWN') AS mode, COUNT(*)::int AS count
