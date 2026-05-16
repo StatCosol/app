@@ -76,8 +76,14 @@ const REASONS: { value: string; label: string }[] = [
               <div *ngIf="a.message" class="text-xs text-gray-600 mt-0.5">{{ a.message }}</div>
               <div class="text-[11px] text-gray-400 mt-0.5">{{ a.createdAt | date:'dd MMM yyyy, HH:mm' }}</div>
             </div>
-            <button type="button" class="text-rose-400 hover:text-rose-700 text-lg leading-none"
-                    title="Dismiss this alert" (click)="dismissAlert(a.id)">×</button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button"
+                      class="text-xs px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-100 font-medium"
+                      title="Filter the dashboard to the 24h window of this alert"
+                      (click)="investigateAlert(a)">Investigate</button>
+              <button type="button" class="text-rose-400 hover:text-rose-700 text-lg leading-none"
+                      title="Dismiss this alert" (click)="dismissAlert(a.id)">×</button>
+            </div>
           </li>
         </ul>
       </div>
@@ -555,6 +561,18 @@ export class BranchFaceFailuresComponent implements OnInit {
       this.dismissedAlertIds.add(a.id);
       this.notif.markRead(a.id).subscribe({ error: () => {} });
     });
+  }
+
+  investigateAlert(a: FaceFailureAlertRow): void {
+    const created = new Date(a.createdAt);
+    const start = new Date(created.getTime() - 24 * 60 * 60 * 1000);
+    this.from = this.toIsoDate(start);
+    this.to = this.toIsoDate(created);
+    this.activeRange = null;
+    this.load();
+    if (typeof window !== 'undefined') {
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+    }
   }
 
   private restoreUrlState(): boolean {
