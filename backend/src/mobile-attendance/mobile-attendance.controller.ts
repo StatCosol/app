@@ -27,6 +27,7 @@ import {
   ReviewReenrollRequestDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
+import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
 import type { Response } from 'express';
 
 // =============================================================================
@@ -38,7 +39,10 @@ import type { Response } from 'express';
 @Controller({ path: 'client/mobile-attendance', version: '1' })
 @Roles('CLIENT', 'ADMIN', 'CRM')
 export class MobileAttendanceAdminController {
-  constructor(private readonly svc: MobileAttendanceService) {}
+  constructor(
+    private readonly svc: MobileAttendanceService,
+    private readonly faceAlertCron: FaceFailureAlertCronService,
+  ) {}
 
   @ApiOperation({ summary: 'List registered mobile attendance devices' })
   @Get('devices')
@@ -372,6 +376,16 @@ export class MobileAttendanceAdminController {
       allowedBranchIds,
       Number.isFinite(lim) ? lim : 20,
     );
+  }
+
+  @ApiOperation({
+    summary:
+      'Manually trigger the face-failure spike detector (admin only). Returns a run summary.',
+  })
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Post('failed-scans/run-detector')
+  runFaceFailureDetector() {
+    return this.faceAlertCron.runDetector();
   }
 
   @ApiOperation({
