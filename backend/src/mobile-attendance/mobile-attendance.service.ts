@@ -2385,6 +2385,9 @@ export class MobileAttendanceService {
       contractorEmployeeName: string | null;
       contractorName: string | null;
       count: number;
+      avgMatchScore: number | null;
+      lastFailedAt: string | null;
+      topReason: string | null;
     }>
   > {
     const limit = Math.min(Math.max(Number(opts.limit) || 10, 1), 100);
@@ -2424,6 +2427,9 @@ export class MobileAttendanceService {
       contractorEmployeeName: string | null;
       contractorName: string | null;
       count: number;
+      avgMatchScore: number | null;
+      lastFailedAt: string | null;
+      topReason: string | null;
     }> = [];
 
     if (wantEmp) {
@@ -2435,11 +2441,16 @@ export class MobileAttendanceService {
                 NULL::uuid AS "contractorEmployeeId",
                 NULL::text AS "contractorEmployeeName",
                 NULL::text AS "contractorName",
-                COUNT(*)::int AS count
+                COUNT(*)::int AS count,
+                AVG(f.match_score)::float AS "avgMatchScore",
+                MAX(f.attempted_at) AS "lastFailedAt",
+                (SELECT reason FROM face_failed_scan_logs ff
+                  WHERE ff.client_id = f.client_id AND ff.employee_id = f.employee_id
+                  GROUP BY reason ORDER BY COUNT(*) DESC LIMIT 1) AS "topReason"
            FROM face_failed_scan_logs f
            LEFT JOIN employees e ON e.id = f.employee_id
           WHERE ${baseWhere} AND f.employee_id IS NOT NULL
-          GROUP BY f.employee_id
+          GROUP BY f.employee_id, f.client_id
           ORDER BY count DESC, "employeeName" ASC NULLS LAST
           LIMIT ${limit}`,
         params,
@@ -2456,12 +2467,17 @@ export class MobileAttendanceService {
                 f.contractor_employee_id AS "contractorEmployeeId",
                 MAX(ce.name) AS "contractorEmployeeName",
                 MAX(cu.name) AS "contractorName",
-                COUNT(*)::int AS count
+                COUNT(*)::int AS count,
+                AVG(f.match_score)::float AS "avgMatchScore",
+                MAX(f.attempted_at) AS "lastFailedAt",
+                (SELECT reason FROM face_failed_scan_logs ff
+                  WHERE ff.client_id = f.client_id AND ff.contractor_employee_id = f.contractor_employee_id
+                  GROUP BY reason ORDER BY COUNT(*) DESC LIMIT 1) AS "topReason"
            FROM face_failed_scan_logs f
            LEFT JOIN contractor_employees ce ON ce.id = f.contractor_employee_id
            LEFT JOIN users cu ON cu.id = ce.contractor_user_id
           WHERE ${baseWhere} AND f.contractor_employee_id IS NOT NULL
-          GROUP BY f.contractor_employee_id
+          GROUP BY f.contractor_employee_id, f.client_id
           ORDER BY count DESC, "contractorEmployeeName" ASC NULLS LAST
           LIMIT ${limit}`,
         params,
@@ -2471,7 +2487,12 @@ export class MobileAttendanceService {
 
     rows.sort((a, b) => Number(b.count) - Number(a.count));
     const filtered = minCount > 0 ? rows.filter((r) => Number(r.count) >= minCount) : rows;
-    return filtered.slice(0, limit).map((r) => ({ ...r, count: Number(r.count) }));
+    return filtered.slice(0, limit).map((r) => ({
+      ...r,
+      count: Number(r.count),
+      avgMatchScore: r.avgMatchScore == null ? null : Number(r.avgMatchScore),
+      lastFailedAt: r.lastFailedAt == null ? null : new Date(r.lastFailedAt).toISOString(),
+    }));
   }
 
   /**

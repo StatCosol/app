@@ -494,4 +494,7 @@ export interface TopFailedScanSubjectRow {
   contractorEmployeeName: string | null;
   contractorName: string | null;
   count: number;
+  avgMatchScore: number | null;
+  lastFailedAt: string | null;
+  topReason: string | null;
 }
