@@ -132,14 +132,22 @@ const REASONS: { value: string; label: string }[] = [
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
             <span class="text-xs font-semibold uppercase text-gray-500">Top offenders</span>
-            <label class="text-[10px] text-gray-500 flex items-center gap-1">
-              ≥
-              <input type="number" min="0" max="999" step="1"
-                     [(ngModel)]="minCount" name="minCount"
-                     (change)="reloadTopSubjects()"
-                     class="w-12 px-1 py-0.5 text-xs border border-gray-200 rounded">
-              hits
-            </label>
+            <div class="flex items-center gap-3">
+              <label class="text-[10px] text-gray-500 flex items-center gap-1">
+                ≥
+                <input type="number" min="0" max="999" step="1"
+                       [(ngModel)]="minCount" name="minCount"
+                       (change)="reloadTopSubjects()"
+                       class="w-12 px-1 py-0.5 text-xs border border-gray-200 rounded">
+                hits
+              </label>
+              <button type="button"
+                      class="text-[10px] text-blue-700 hover:underline disabled:text-gray-400"
+                      [disabled]="!topSubjects.length"
+                      (click)="exportOffendersCsv()">
+                Export CSV
+              </button>
+            </div>
           </div>
           <ul class="divide-y divide-gray-100">
             <ng-container *ngFor="let s of topSubjects">
@@ -892,6 +900,38 @@ export class ClientFaceFailuresComponent implements OnInit {
         },
         error: () => this.toast.error('Failed to export stats CSV'),
       });
+  }
+
+  exportOffendersCsv(): void {
+    if (!this.topSubjects.length) return;
+    const header = ['Subject Type', 'Name', 'Code/Contractor', 'Count', 'Avg Match %', 'Last Failed At', 'Top Reason'];
+    const esc = (v: unknown): string => {
+      const s = v === null || v === undefined ? '' : String(v);
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const lines = [header.join(',')];
+    for (const s of this.topSubjects) {
+      const name =
+        s.subjectType === 'EMPLOYEE' ? s.employeeName ?? '' : s.contractorEmployeeName ?? '';
+      const codeOrContractor =
+        s.subjectType === 'EMPLOYEE' ? s.employeeCode ?? '' : s.contractorName ?? '';
+      const avg = s.avgMatchScore === null ? '' : (Number(s.avgMatchScore) * 100).toFixed(1);
+      lines.push(
+        [s.subjectType, name, codeOrContractor, s.count, avg, s.lastFailedAt ?? '', s.topReason ?? '']
+          .map(esc)
+          .join(','),
+      );
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `face-failed-scans-offenders-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   subjectOf(r: FailedScanRow): 'EMPLOYEE' | 'CONTRACTOR' | 'UNKNOWN' {
