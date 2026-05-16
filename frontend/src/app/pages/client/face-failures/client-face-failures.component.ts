@@ -12,6 +12,7 @@ import {
   ClientMobileAttendanceService,
   FailedScanRow,
   FailedScanStats,
+  FaceFailureAlertRow,
   TopFailedScanSubjectRow,
 } from '../mobile-attendance/client-mobile-attendance.service';
 
@@ -55,6 +56,30 @@ const REASONS: { value: string; label: string }[] = [
     ></ui-page-header>
 
     <div class="p-4 md:p-6 space-y-4">
+      <div *ngIf="visibleAlerts().length"
+           class="bg-rose-50 border border-rose-200 rounded-xl p-3 md:p-4 shadow-sm space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 text-rose-800">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold">!</span>
+            <span class="text-sm font-semibold">Recent face-failure spike alerts</span>
+            <span class="text-xs text-rose-600">({{ visibleAlerts().length }} of last 7 days)</span>
+          </div>
+          <button type="button" class="text-xs font-medium text-rose-700 hover:text-rose-900"
+                  (click)="dismissAllAlerts()">Dismiss all</button>
+        </div>
+        <ul class="space-y-1.5">
+          <li *ngFor="let a of visibleAlerts()"
+              class="flex items-start justify-between gap-3 bg-white border border-rose-100 rounded-lg px-3 py-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-gray-900 truncate" [title]="a.title">{{ a.title }}</div>
+              <div *ngIf="a.message" class="text-xs text-gray-600 mt-0.5">{{ a.message }}</div>
+              <div class="text-[11px] text-gray-400 mt-0.5">{{ a.createdAt | date:'dd MMM yyyy, HH:mm' }}</div>
+            </div>
+            <button type="button" class="text-rose-400 hover:text-rose-700 text-lg leading-none"
+                    title="Dismiss this alert" (click)="dismissAlert(a.id)">×</button>
+          </li>
+        </ul>
+      </div>
       <div *ngIf="stats" class="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
           <div class="text-xs font-medium text-gray-500">Total</div>
@@ -480,6 +505,8 @@ export class ClientFaceFailuresComponent implements OnInit {
   rows: FailedScanRow[] = [];
   stats: FailedScanStats | null = null;
   topSubjects: TopFailedScanSubjectRow[] = [];
+  alerts: FaceFailureAlertRow[] = [];
+  dismissedAlertIds = new Set<string>();
   expandedKey: string | null = null;
   expandedRows: FailedScanRow[] = [];
   expandingKey: string | null = null;
@@ -509,6 +536,30 @@ export class ClientFaceFailuresComponent implements OnInit {
     } else {
       this.load();
     }
+    this.loadAlerts();
+  }
+
+  loadAlerts(): void {
+    this.svc.listFaceFailureAlerts(20).subscribe({
+      next: (rows) => {
+        this.alerts = rows ?? [];
+      },
+      error: () => {
+        this.alerts = [];
+      },
+    });
+  }
+
+  visibleAlerts(): FaceFailureAlertRow[] {
+    return this.alerts.filter((a) => !this.dismissedAlertIds.has(a.id));
+  }
+
+  dismissAlert(id: string): void {
+    this.dismissedAlertIds.add(id);
+  }
+
+  dismissAllAlerts(): void {
+    this.alerts.forEach((a) => this.dismissedAlertIds.add(a.id));
   }
 
   private restoreUrlState(): boolean {

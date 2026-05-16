@@ -356,6 +356,26 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
+      'Recent face-failure spike alerts (last 7 days) emitted by the daily detector cron',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('failed-scans/alerts')
+  listFaceFailureAlerts(
+    @CurrentUser() u: ReqUser,
+    @Query('limit') limit?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    const lim = limit ? parseInt(limit, 10) : 20;
+    return this.svc.listFaceFailureAlerts(
+      u.clientId,
+      allowedBranchIds,
+      Number.isFinite(lim) ? lim : 20,
+    );
+  }
+
+  @ApiOperation({
+    summary:
       'Download face-attendance rejections as CSV (same filters as the listing endpoint; up to 5000 rows)',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
