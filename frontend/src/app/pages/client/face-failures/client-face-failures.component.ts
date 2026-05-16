@@ -117,8 +117,16 @@ const REASONS: { value: string; label: string }[] = [
           </ul>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div class="px-4 py-2 border-b border-gray-100 text-xs font-semibold uppercase text-gray-500">
-            Top offenders
+          <div class="px-4 py-2 border-b border-gray-100 flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold uppercase text-gray-500">Top offenders</span>
+            <label class="text-[10px] text-gray-500 flex items-center gap-1">
+              ≥
+              <input type="number" min="0" max="999" step="1"
+                     [(ngModel)]="minCount" name="minCount"
+                     (change)="reloadTopSubjects()"
+                     class="w-12 px-1 py-0.5 text-xs border border-gray-200 rounded">
+              hits
+            </label>
           </div>
           <ul class="divide-y divide-gray-100">
             <li *ngFor="let s of topSubjects"
@@ -292,6 +300,7 @@ export class ClientFaceFailuresComponent implements OnInit {
   rows: FailedScanRow[] = [];
   stats: FailedScanStats | null = null;
   topSubjects: TopFailedScanSubjectRow[] = [];
+  minCount = 5;
   subject: SubjectFilter = 'ALL';
   reason = '';
   from = '';
@@ -332,7 +341,7 @@ export class ClientFaceFailuresComponent implements OnInit {
         },
       });
     this.svc
-      .topFailedScanSubjects({ from, to, subjectType, limit: 10 })
+      .topFailedScanSubjects({ from, to, subjectType, limit: 10, minCount: this.minCount })
       .subscribe({
         next: (s) => (this.topSubjects = s),
         error: () => (this.topSubjects = []),
@@ -373,6 +382,21 @@ export class ClientFaceFailuresComponent implements OnInit {
       return s.employeeName || s.employeeCode || 'Employee';
     }
     return s.contractorEmployeeName || 'Contractor worker';
+  }
+
+  reloadTopSubjects(): void {
+    const from = this.from ? `${this.from}T00:00:00.000Z` : undefined;
+    const to = this.to ? `${this.to}T23:59:59.999Z` : undefined;
+    const subjectType =
+      this.subject === 'EMPLOYEE' || this.subject === 'CONTRACTOR'
+        ? this.subject
+        : undefined;
+    this.svc
+      .topFailedScanSubjects({ from, to, subjectType, limit: 10, minCount: this.minCount })
+      .subscribe({
+        next: (s) => (this.topSubjects = s),
+        error: () => (this.topSubjects = []),
+      });
   }
 
   focusOnSubject(s: TopFailedScanSubjectRow): void {

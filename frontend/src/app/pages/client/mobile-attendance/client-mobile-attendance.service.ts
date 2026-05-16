@@ -378,6 +378,7 @@ export class ClientMobileAttendanceService {
       branchId?: string;
       subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
       limit?: number;
+      minCount?: number;
     } = {},
   ): Observable<TopFailedScanSubjectRow[]> {
     const parts: string[] = [];
@@ -386,6 +387,7 @@ export class ClientMobileAttendanceService {
     if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
     if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
     if (opts.limit) parts.push(`limit=${opts.limit}`);
+    if (opts.minCount && opts.minCount > 0) parts.push(`minCount=${opts.minCount}`);
     const qs = parts.length ? `?${parts.join('&')}` : '';
     return this.http.get<TopFailedScanSubjectRow[]>(
       `${this.base}/failed-scans/top-subjects${qs}`,
