@@ -56,10 +56,14 @@ export class FaceFailureAlertCronService {
     threshold?: number;
     windowHours?: number;
     dedupeHours?: number;
+    clientId?: string | null;
+    branchId?: string | null;
   }): Promise<{
     threshold: number;
     windowHours: number;
     dedupeHours: number;
+    clientId: string | null;
+    branchId: string | null;
     candidates: number;
     emitted: number;
     skipped: number;
@@ -67,9 +71,22 @@ export class FaceFailureAlertCronService {
     const threshold = clampInt(overrides?.threshold, 1, 100000, this.getThreshold());
     const windowHours = clampInt(overrides?.windowHours, 1, 24 * 30, this.getWindowHours());
     const dedupeHours = clampInt(overrides?.dedupeHours, 0, 24 * 30, this.getDedupeHours());
+    const clientId = normalizeUuid(overrides?.clientId);
+    const branchId = normalizeUuid(overrides?.branchId);
     try {
       // Per-client override via clients.face_fail_alert_threshold (nullable).
-      // When NULL, the global env-derived threshold ($1) applies.
+      // When NULL, the global env-derived threshold ($1) applies. The optional
+      // scope filters (clientId / branchId) are admin-only narrowing knobs.
+      const params: any[] = [threshold, String(windowHours)];
+      let scopeSql = '';
+      if (clientId) {
+        params.push(clientId);
+        scopeSql += ` AND f.client_id = $${params.length}::uuid`;
+      }
+      if (branchId) {
+        params.push(branchId);
+        scopeSql += ` AND f.branch_id = $${params.length}::uuid`;
+      }
       const rows = (await this.dataSource.query(
         `SELECT f.client_id                                      AS "clientId",
                 f.branch_id                                      AS "branchId",
@@ -79,10 +96,10 @@ export class FaceFailureAlertCronService {
            FROM face_failed_scan_logs f
            JOIN clients c ON c.id = f.client_id
           WHERE f.attempted_at >= NOW() - ($2 || ' hours')::interval
-            AND f.client_id IS NOT NULL
+            AND f.client_id IS NOT NULL${scopeSql}
           GROUP BY f.client_id, f.branch_id, c.face_fail_alert_threshold
          HAVING COUNT(*) >= COALESCE(c.face_fail_alert_threshold, $1)`,
-        [threshold, String(windowHours)],
+        params,
       )) as Array<{
         clientId: string;
         branchId: string | null;
@@ -93,12 +110,14 @@ export class FaceFailureAlertCronService {
 
       if (!rows.length) {
         this.logger.log(
-          `face-failure detector: no (client,branch) crossed threshold=${threshold} window=${windowHours}h`,
+          `face-failure detector: no (client,branch) crossed threshold=${threshold} window=${windowHours}h${clientId ? ` clientId=${clientId}` : ''}${branchId ? ` branchId=${branchId}` : ''}`,
         );
         return {
           threshold,
           windowHours,
           dedupeHours,
+          clientId,
+          branchId,
           candidates: 0,
           emitted: 0,
           skipped: 0,
@@ -144,12 +163,14 @@ export class FaceFailureAlertCronService {
       }
 
       this.logger.log(
-        `face-failure detector: threshold=${threshold} window=${windowHours}h dedupe=${dedupeHours}h candidates=${rows.length} emitted=${emitted} skipped=${skipped}`,
+        `face-failure detector: threshold=${threshold} window=${windowHours}h dedupe=${dedupeHours}h${clientId ? ` clientId=${clientId}` : ''}${branchId ? ` branchId=${branchId}` : ''} candidates=${rows.length} emitted=${emitted} skipped=${skipped}`,
       );
       return {
         threshold,
         windowHours,
         dedupeHours,
+        clientId,
+        branchId,
         candidates: rows.length,
         emitted,
         skipped,
@@ -163,6 +184,8 @@ export class FaceFailureAlertCronService {
         threshold,
         windowHours,
         dedupeHours,
+        clientId,
+        branchId,
         candidates: 0,
         emitted: 0,
         skipped: 0,
@@ -181,4 +204,13 @@ function clampInt(
   const n = Number(raw);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeUuid(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = String(raw).trim().toLowerCase();
+  return UUID_RE.test(v) ? v : null;
 }

@@ -23,6 +23,8 @@ describe('FaceFailureAlertCronService.runDetector', () => {
       threshold: 20,
       windowHours: 24,
       dedupeHours: 20,
+      clientId: null,
+      branchId: null,
       candidates: 0,
       emitted: 0,
       skipped: 0,
