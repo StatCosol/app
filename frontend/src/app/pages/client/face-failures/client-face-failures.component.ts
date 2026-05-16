@@ -112,11 +112,17 @@ const REASONS: { value: string; label: string }[] = [
             Top branches
           </div>
           <ul class="divide-y divide-gray-100">
-            <li *ngFor="let b of topBranches()" class="flex items-center justify-between px-4 py-2 text-sm">
-              <span class="text-gray-700 truncate pr-2" [title]="b.branchName || ''">
-                {{ b.branchName || '(unassigned)' }}
-              </span>
-              <span class="text-indigo-700 font-medium text-xs">{{ b.count }}</span>
+            <li *ngFor="let b of topBranches()" class="text-sm">
+              <button type="button"
+                      class="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 text-left"
+                      [class.bg-indigo-50]="focusBranchId === b.branchId"
+                      [class.text-indigo-800]="focusBranchId === b.branchId"
+                      [disabled]="!b.branchId"
+                      [title]="focusBranchId === b.branchId ? 'Clear branch filter' : (b.branchId ? 'Filter by ' + (b.branchName || '(unassigned)') : 'No branch')"
+                      (click)="toggleBranchFocus(b)">
+                <span class="truncate pr-2">{{ b.branchName || '(unassigned)' }}</span>
+                <span class="text-indigo-700 font-medium text-xs">{{ b.count }}</span>
+              </button>
             </li>
             <li *ngIf="!stats.byBranch.length" class="px-4 py-3 text-xs text-gray-400 text-center">
               No data
@@ -327,12 +333,27 @@ const REASONS: { value: string; label: string }[] = [
       </div>
 
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div *ngIf="focusLabel" class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between">
-          <span class="text-xs text-blue-800">
-            Filtered to <span class="font-semibold">{{ focusLabel }}</span>
-          </span>
-          <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900"
-                  (click)="clearFocus()">Clear filter</button>
+        <div *ngIf="hasActiveFilters()" class="px-4 py-2 border-b border-blue-100 bg-blue-50 flex items-center justify-between gap-2 flex-wrap">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] uppercase font-semibold text-blue-700">Active filters:</span>
+            <span *ngIf="subject !== 'ALL'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Subject: {{ subject === 'EMPLOYEE' ? 'Employees' : 'Contractors' }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear subject" (click)="clearSubject()">×</button>
+            </span>
+            <span *ngIf="reason" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Reason: {{ reason }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear reason" (click)="clearReason()">×</button>
+            </span>
+            <span *ngIf="focusBranchName" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Branch: {{ focusBranchName }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear branch" (click)="clearBranchFocus()">×</button>
+            </span>
+            <span *ngIf="focusLabel" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-blue-200 text-xs text-blue-800">
+              Person: {{ focusLabel }}
+              <button type="button" class="text-blue-400 hover:text-blue-700" title="Clear person" (click)="clearFocus()">×</button>
+            </span>
+          </div>
+          <button type="button" class="text-xs font-medium text-blue-700 hover:text-blue-900" (click)="resetFilters()">Reset all</button>
         </div>
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 class="font-semibold text-gray-900">
@@ -448,6 +469,8 @@ export class ClientFaceFailuresComponent implements OnInit {
   exportingStats = false;
   focusEmployeeId: string | null = null;
   focusContractorId: string | null = null;
+  focusBranchId: string | null = null;
+  focusBranchName: string | null = null;
   focusLabel = '';
 
   constructor(
@@ -468,7 +491,7 @@ export class ClientFaceFailuresComponent implements OnInit {
         ? this.subject
         : undefined;
     this.svc
-      .failedScanStats({ from, to, subjectType })
+      .failedScanStats({ from, to, subjectType, branchId: this.focusBranchId || undefined })
       .subscribe({
         next: (s) => (this.stats = s),
         error: () => {
@@ -476,7 +499,7 @@ export class ClientFaceFailuresComponent implements OnInit {
         },
       });
     this.svc
-      .topFailedScanSubjects({ from, to, subjectType, limit: 10, minCount: this.minCount })
+      .topFailedScanSubjects({ from, to, subjectType, limit: 10, minCount: this.minCount, branchId: this.focusBranchId || undefined })
       .subscribe({
         next: (s) => (this.topSubjects = s),
         error: () => (this.topSubjects = []),
@@ -489,6 +512,7 @@ export class ClientFaceFailuresComponent implements OnInit {
         subjectType,
         employeeId: this.focusEmployeeId || undefined,
         contractorEmployeeId: this.focusContractorId || undefined,
+        branchId: this.focusBranchId || undefined,
         limit: 500,
       })
       .pipe(finalize(() => (this.loading = false)))
@@ -508,7 +532,7 @@ export class ClientFaceFailuresComponent implements OnInit {
     return this.stats?.byReason?.slice(0, 5) ?? [];
   }
 
-  topBranches(): Array<{ branchName: string | null; count: number }> {
+  topBranches(): Array<{ branchId: string | null; branchName: string | null; count: number }> {
     return this.stats?.byBranch?.slice(0, 5) ?? [];
   }
 
@@ -752,6 +776,58 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.load();
   }
 
+  toggleBranchFocus(b: { branchId: string | null; branchName: string | null }): void {
+    if (!b.branchId) return;
+    if (this.focusBranchId === b.branchId) {
+      this.focusBranchId = null;
+      this.focusBranchName = null;
+    } else {
+      this.focusBranchId = b.branchId;
+      this.focusBranchName = b.branchName || '(unassigned)';
+    }
+    this.load();
+  }
+
+  clearBranchFocus(): void {
+    if (!this.focusBranchId) return;
+    this.focusBranchId = null;
+    this.focusBranchName = null;
+    this.load();
+  }
+
+  clearSubject(): void {
+    if (this.subject === 'ALL') return;
+    this.subject = 'ALL';
+    this.load();
+  }
+
+  clearReason(): void {
+    if (!this.reason) return;
+    this.reason = '';
+    this.load();
+  }
+
+  hasActiveFilters(): boolean {
+    return (
+      this.subject !== 'ALL' ||
+      !!this.reason ||
+      !!this.focusBranchId ||
+      !!this.focusEmployeeId ||
+      !!this.focusContractorId
+    );
+  }
+
+  resetFilters(): void {
+    this.subject = 'ALL';
+    this.reason = '';
+    this.focusBranchId = null;
+    this.focusBranchName = null;
+    this.focusEmployeeId = null;
+    this.focusContractorId = null;
+    this.focusLabel = '';
+    this.setRange(7);
+  }
+
   topBranch(): { branchName: string | null; count: number } | null {
     return this.stats?.byBranch?.[0] ?? null;
   }
@@ -772,6 +848,7 @@ export class ClientFaceFailuresComponent implements OnInit {
         subjectType,
         employeeId: this.focusEmployeeId || undefined,
         contractorEmployeeId: this.focusContractorId || undefined,
+        branchId: this.focusBranchId || undefined,
       })
       .pipe(finalize(() => (this.exporting = false)))
       .subscribe({
@@ -799,7 +876,7 @@ export class ClientFaceFailuresComponent implements OnInit {
         ? this.subject
         : undefined;
     this.svc
-      .exportFailedScanStatsCsv({ from, to, subjectType })
+      .exportFailedScanStatsCsv({ from, to, subjectType, branchId: this.focusBranchId || undefined })
       .pipe(finalize(() => (this.exportingStats = false)))
       .subscribe({
         next: (blob) => {
