@@ -454,6 +454,8 @@ export interface FailedScanStats {
   byDevice: Array<{
     deviceId: string | null;
     deviceLabel: string | null;
+    mode: string | null;
+    lastFailedAt: string | null;
     count: number;
   }>;
   byMode: Array<{ mode: string; count: number }>;

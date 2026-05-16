@@ -189,10 +189,14 @@ const REASONS: { value: string; label: string }[] = [
         </div>
         <ul class="divide-y divide-gray-100">
           <li *ngFor="let d of topDevices()"
-              class="flex items-center justify-between px-4 py-2 text-sm">
-            <span class="text-gray-700 truncate pr-2" [title]="deviceLabel(d)">
-              {{ deviceLabel(d) }}
-            </span>
+              class="flex items-center justify-between px-4 py-2 text-sm gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-gray-700 truncate" [title]="deviceLabel(d)">{{ deviceLabel(d) }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                <span *ngIf="d.mode" class="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">{{ d.mode }}</span>
+                <span *ngIf="d.lastFailedAt" class="ml-1" [title]="d.lastFailedAt">last {{ d.lastFailedAt | date:'MMM d, HH:mm' }}</span>
+              </div>
+            </div>
             <span class="text-rose-700 font-medium text-xs whitespace-nowrap">{{ d.count }}</span>
           </li>
         </ul>
@@ -420,7 +424,13 @@ export class BranchFaceFailuresComponent implements OnInit {
     return (this.stats?.byHour ?? []).some((h) => h.count > 0);
   }
 
-  topDevices(): Array<{ deviceId: string | null; deviceLabel: string | null; count: number }> {
+  topDevices(): Array<{
+    deviceId: string | null;
+    deviceLabel: string | null;
+    mode: string | null;
+    lastFailedAt: string | null;
+    count: number;
+  }> {
     return (this.stats?.byDevice ?? []).slice(0, 5);
   }
 
