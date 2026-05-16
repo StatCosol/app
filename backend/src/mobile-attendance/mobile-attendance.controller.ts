@@ -384,8 +384,16 @@ export class MobileAttendanceAdminController {
   })
   @Roles('ADMIN', 'SUPER_ADMIN')
   @Post('failed-scans/run-detector')
-  runFaceFailureDetector() {
-    return this.faceAlertCron.runDetector();
+  runFaceFailureDetector(
+    @Query('threshold') threshold?: string,
+    @Query('windowHours') windowHours?: string,
+    @Query('dedupeHours') dedupeHours?: string,
+  ) {
+    return this.faceAlertCron.runDetector({
+      threshold: threshold !== undefined ? Number(threshold) : undefined,
+      windowHours: windowHours !== undefined ? Number(windowHours) : undefined,
+      dedupeHours: dedupeHours !== undefined ? Number(dedupeHours) : undefined,
+    });
   }
 
   @ApiOperation({
