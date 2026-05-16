@@ -463,6 +463,166 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
+      'Download face-attendance failure analytics as a multi-section CSV (summary + top reasons / branches / devices / modes / day-of-week / hours / offenders)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('failed-scans/stats-export.csv')
+  async exportFailedScanStatsCsv(
+    @CurrentUser() u: ReqUser,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+    @Query('subjectType') subjectType?: 'EMPLOYEE' | 'CONTRACTOR',
+    @Query('topSubjectsLimit') topSubjectsLimit?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    const subj =
+      subjectType === 'EMPLOYEE' || subjectType === 'CONTRACTOR'
+        ? subjectType
+        : null;
+    const stats = await this.svc.failedScanStats(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        subjectType: subj,
+      },
+      allowedBranchIds,
+    );
+    const topLim = topSubjectsLimit ? parseInt(topSubjectsLimit, 10) : 25;
+    const top = await this.svc.topFailedScanSubjects(
+      u.clientId,
+      {
+        from: from ?? null,
+        to: to ?? null,
+        branchId: branchId ?? null,
+        subjectType: subj,
+        limit: Number.isFinite(topLim) ? topLim : 25,
+        minCount: null,
+      },
+      allowedBranchIds,
+    );
+
+    const esc = (v: unknown): string => {
+      if (v === null || v === undefined) return '';
+      let s: string;
+      if (typeof v === 'string') s = v;
+      else if (typeof v === 'number' || typeof v === 'boolean') s = String(v);
+      else if (v instanceof Date) s = v.toISOString();
+      else s = JSON.stringify(v);
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const lines: string[] = [];
+    const section = (title: string, header: string[], rows: unknown[][]) => {
+      lines.push(esc(title));
+      lines.push(header.join(','));
+      for (const r of rows) lines.push(r.map(esc).join(','));
+      lines.push('');
+    };
+
+    section(
+      'Filters',
+      ['key', 'value'],
+      [
+        ['from', from ?? ''],
+        ['to', to ?? ''],
+        ['branchId', branchId ?? ''],
+        ['subjectType', subj ?? ''],
+        ['generatedAt', new Date().toISOString()],
+      ],
+    );
+    section(
+      'Summary',
+      ['metric', 'value'],
+      [
+        ['total', stats.total],
+        ['employee', stats.bySubject.employee],
+        ['contractor', stats.bySubject.contractor],
+        ['unknown', stats.bySubject.unknown],
+      ],
+    );
+    section(
+      'By Reason',
+      ['reason', 'count'],
+      stats.byReason.map((r) => [r.reason, r.count]),
+    );
+    section(
+      'By Branch',
+      ['branchId', 'branchName', 'count'],
+      stats.byBranch.map((r) => [r.branchId, r.branchName, r.count]),
+    );
+    section(
+      'By Device',
+      ['deviceId', 'deviceLabel', 'mode', 'lastFailedAt', 'count'],
+      stats.byDevice.map((r) => [
+        r.deviceId,
+        r.deviceLabel,
+        r.mode,
+        r.lastFailedAt,
+        r.count,
+      ]),
+    );
+    section(
+      'By Mode',
+      ['mode', 'count'],
+      stats.byMode.map((r) => [r.mode, r.count]),
+    );
+    section(
+      'By Day Of Week',
+      ['dow', 'label', 'count'],
+      stats.byDayOfWeek.map((r) => [r.dow, dowLabels[r.dow] ?? '', r.count]),
+    );
+    section(
+      'By Hour',
+      ['hour', 'count'],
+      stats.byHour.map((r) => [r.hour, r.count]),
+    );
+    section(
+      'By Day',
+      ['day', 'count'],
+      stats.byDay.map((r) => [r.day, r.count]),
+    );
+    section(
+      'Top Offenders',
+      [
+        'subjectType',
+        'employeeId',
+        'employeeCode',
+        'employeeName',
+        'contractorEmployeeId',
+        'contractorEmployeeName',
+        'contractorName',
+        'count',
+      ],
+      top.map((r) => [
+        r.subjectType,
+        r.employeeId,
+        r.employeeCode,
+        r.employeeName,
+        r.contractorEmployeeId,
+        r.contractorEmployeeName,
+        r.contractorName,
+        r.count,
+      ]),
+    );
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const fileName = `face-failed-scans-stats-${stamp}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`,
+    );
+    res.end(lines.join('\r\n'));
+  }
+
+  @ApiOperation({
+    summary:
       'List contractors (parent vendors) with active employees in the caller\u2019s allowed branches; drives the branch-portal contractor picker',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')

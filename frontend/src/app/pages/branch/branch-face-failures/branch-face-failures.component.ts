@@ -271,10 +271,16 @@ const REASONS: { value: string; label: string }[] = [
               ({{ rows.length }})
             </span>
           </h3>
-          <button type="button" class="ui-btn-secondary text-xs"
-                  [disabled]="exporting || loading" (click)="exportCsv()">
-            {{ exporting ? 'Exporting…' : 'Export CSV' }}
-          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" class="ui-btn-secondary text-xs"
+                    [disabled]="exportingStats || loading" (click)="exportStatsCsv()">
+              {{ exportingStats ? 'Exporting…' : 'Export stats CSV' }}
+            </button>
+            <button type="button" class="ui-btn-secondary text-xs"
+                    [disabled]="exporting || loading" (click)="exportCsv()">
+              {{ exporting ? 'Exporting…' : 'Export CSV' }}
+            </button>
+          </div>
         </div>
 
         <div *ngIf="loading" class="py-10 flex justify-center">
@@ -366,6 +372,7 @@ export class BranchFaceFailuresComponent implements OnInit {
   to = '';
   loading = false;
   exporting = false;
+  exportingStats = false;
   focusEmployeeId: string | null = null;
   focusContractorId: string | null = null;
   focusLabel = '';
@@ -606,6 +613,33 @@ export class BranchFaceFailuresComponent implements OnInit {
           URL.revokeObjectURL(url);
         },
         error: () => this.toast.error('Failed to export CSV'),
+      });
+  }
+
+  exportStatsCsv(): void {
+    this.exportingStats = true;
+    const from = this.from ? `${this.from}T00:00:00.000Z` : undefined;
+    const to = this.to ? `${this.to}T23:59:59.999Z` : undefined;
+    const subjectType =
+      this.subject === 'EMPLOYEE' || this.subject === 'CONTRACTOR'
+        ? this.subject
+        : undefined;
+    this.svc
+      .exportFailedScanStatsCsv({ from, to, subjectType })
+      .pipe(finalize(() => (this.exportingStats = false)))
+      .subscribe({
+        next: (blob) => {
+          const stamp = new Date().toISOString().slice(0, 10);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `face-failed-scans-stats-${stamp}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.toast.error('Failed to export stats CSV'),
       });
   }
 

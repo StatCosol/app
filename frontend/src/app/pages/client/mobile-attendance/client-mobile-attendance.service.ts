@@ -370,6 +370,29 @@ export class ClientMobileAttendanceService {
     });
   }
 
+  // ── Face-failure stats CSV export (Phase 4d step 26) ──
+  exportFailedScanStatsCsv(
+    opts: {
+      from?: string;
+      to?: string;
+      branchId?: string;
+      subjectType?: 'EMPLOYEE' | 'CONTRACTOR';
+      topSubjectsLimit?: number;
+    } = {},
+  ): Observable<Blob> {
+    const parts: string[] = [];
+    if (opts.from) parts.push(`from=${encodeURIComponent(opts.from)}`);
+    if (opts.to) parts.push(`to=${encodeURIComponent(opts.to)}`);
+    if (opts.branchId) parts.push(`branchId=${encodeURIComponent(opts.branchId)}`);
+    if (opts.subjectType) parts.push(`subjectType=${opts.subjectType}`);
+    if (opts.topSubjectsLimit)
+      parts.push(`topSubjectsLimit=${opts.topSubjectsLimit}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return this.http.get(`${this.base}/failed-scans/stats-export.csv${qs}`, {
+      responseType: 'blob',
+    });
+  }
+
   // ── Top offenders by failed-scan count (Phase 4d step 18) ──
   topFailedScanSubjects(
     opts: {
