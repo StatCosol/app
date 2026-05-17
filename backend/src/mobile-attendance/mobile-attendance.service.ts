@@ -466,6 +466,38 @@ export class MobileAttendanceService {
     return saved;
   }
 
+  /**
+   * Hard-delete an employee face enrollment row. Use when the row is wrong
+   * (e.g. enrolled with the wrong person's photo) and a clean re-enrollment
+   * is needed. The `face_enrollment_history` audit log is preserved; we
+   * append a final `DELETE` row before removing the live enrollment.
+   */
+  async deleteEnrollment(
+    clientId: string,
+    employeeId: string,
+    by: string | null,
+    reason: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; deleted: true; employeeId: string }> {
+    const row = await this.faceRepo.findOne({
+      where: { employeeId, clientId },
+    });
+    if (!row) throw new NotFoundException('Enrollment not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(row.branchId ?? '')) {
+      throw new ForbiddenException('Employee is not in your branch scope');
+    }
+    await this.logEnrollmentHistory({
+      employeeId,
+      clientId,
+      action: 'DELETE',
+      reason,
+      embeddingModel: row.embeddingModel ?? null,
+      actorUserId: by ?? null,
+    });
+    await this.faceRepo.remove(row);
+    return { ok: true, deleted: true, employeeId };
+  }
+
   // ---------------------------- re-enrollment approval workflow (Phase 3e)
 
   /**
@@ -1651,7 +1683,7 @@ export class MobileAttendanceService {
   private async logEnrollmentHistory(input: {
     employeeId: string;
     clientId: string;
-    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE';
+    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE' | 'DELETE';
     reason?: string | null;
     embeddingModel?: string | null;
     actorUserId?: string | null;
@@ -1835,6 +1867,38 @@ export class MobileAttendanceService {
   }
 
   /**
+   * Hard-delete a contractor face enrollment row. Mirror of
+   * `deleteEnrollment` for contractor employees.
+   */
+  async deleteContractorEnrollment(
+    clientId: string,
+    contractorEmployeeId: string,
+    by: string | null,
+    reason: string,
+    allowedBranchIds: string[] | null = null,
+  ): Promise<{ ok: true; deleted: true; contractorEmployeeId: string }> {
+    const row = await this.contractorFaceRepo.findOne({
+      where: { contractorEmployeeId, clientId },
+    });
+    if (!row) throw new NotFoundException('Contractor enrollment not found');
+    if (allowedBranchIds && !allowedBranchIds.includes(row.branchId ?? '')) {
+      throw new ForbiddenException(
+        'Contractor employee is not in your branch scope',
+      );
+    }
+    await this.logContractorEnrollmentHistory({
+      contractorEmployeeId,
+      clientId,
+      action: 'DELETE',
+      reason,
+      embeddingModel: row.embeddingModel ?? null,
+      actorUserId: by ?? null,
+    });
+    await this.contractorFaceRepo.remove(row);
+    return { ok: true, deleted: true, contractorEmployeeId };
+  }
+
+  /**
    * List every active contractor employee with their face-enrollment status
    * so admins (and branch desks) can see at a glance who is enrolled vs
    * pending. BRANCH_DESK callers pass `allowedBranchIds` to scope.
@@ -1906,7 +1970,7 @@ export class MobileAttendanceService {
   private async logContractorEnrollmentHistory(input: {
     contractorEmployeeId: string;
     clientId: string;
-    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE';
+    action: 'ENROLL' | 'RE_ENROLL' | 'DEACTIVATE' | 'REACTIVATE' | 'DELETE';
     reason?: string | null;
     embeddingModel?: string | null;
     actorUserId?: string | null;
