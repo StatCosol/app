@@ -45,13 +45,13 @@ android {
             dimension = "mode"
             applicationIdSuffix = ".kiosk"
             versionNameSuffix = "-kiosk"
-            resValue("string", "app_name", "Statco Kiosk")
+            resValue("string", "app_name", "StatCo Kiosk")
         }
         create("ess") {
             dimension = "mode"
             applicationIdSuffix = ".ess"
             versionNameSuffix = "-ess"
-            resValue("string", "app_name", "Statco ESS")
+            resValue("string", "app_name", "StatCo ESS")
         }
     }
 
