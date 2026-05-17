@@ -236,7 +236,7 @@ interface BranchOption { id: string; name: string }
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label for="enroll-emp" class="block text-xs font-medium text-gray-600 mb-1">Employee</label>
-              <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" class="ui-input">
+              <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" (ngModelChange)="onEnrollEmployeeChange()" class="ui-input">
                 <option value="">— Select employee —</option>
                 <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
               </select>
@@ -1130,8 +1130,31 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$), finalize(() => { this.enrolling = false; this.bump(); }))
       .subscribe({
         next: () => { this.toast.success('Face enrolled'); this.resetEnroll(); },
-        error: (e) => { this.enrollError = e?.error?.message || 'Enrollment failed'; this.bump(); },
+        error: (e) => {
+          this.enrollError = e?.error?.message || 'Enrollment failed';
+          // Clear the captured photo on failure so the operator is forced to
+          // re-capture/re-upload — prevents accidentally re-submitting the
+          // same (often wrong) photo against a different employee.
+          this.clearCapturedPhoto();
+          this.bump();
+        },
       });
+  }
+
+  /** Clears any captured/uploaded photo and stops the camera. Keeps employee + consent. */
+  clearCapturedPhoto(): void {
+    this.enrollForm.photoBase64 = '';
+    this.enrollForm.photoMime = '';
+    this.enrollForm.photoFileName = '';
+    this.enrollForm.photoSize = 0;
+    this.stopCamera();
+  }
+
+  /** Called when the operator picks a different employee. Drops any stale photo. */
+  onEnrollEmployeeChange(): void {
+    this.clearCapturedPhoto();
+    this.enrollError = '';
+    this.bump();
   }
 
   resetEnroll(): void {

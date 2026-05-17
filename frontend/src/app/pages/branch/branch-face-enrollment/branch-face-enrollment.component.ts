@@ -102,7 +102,7 @@ interface EnrollForm {
                 <label for="enroll-subj" class="block text-xs font-medium text-gray-600 mb-1">
                   {{ subjectType === 'contractor' ? 'Contractor Employee' : 'Employee' }}
                 </label>
-                <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" class="ui-input">
+                <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" (ngModelChange)="onEnrollSubjectChange()" class="ui-input">
                   <option value="">— Select —</option>
                   <ng-container *ngIf="subjectType === 'employee'">
                     <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
@@ -644,7 +644,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$), finalize(done))
         .subscribe({
           next: () => { this.toast.success('Contractor face enrolled'); this.resetEnroll(); this.loadEnrollments(); },
-          error: (e) => { this.enrollError = e?.error?.message || 'Enrollment failed'; this.cdr.markForCheck(); },
+          error: (e) => {
+            this.enrollError = e?.error?.message || 'Enrollment failed';
+            this.clearCapturedPhoto();
+            this.cdr.markForCheck();
+          },
         });
       return;
     }
@@ -659,8 +663,27 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$), finalize(done))
       .subscribe({
         next: () => { this.toast.success('Face enrolled'); this.resetEnroll(); this.loadEnrollments(); },
-        error: (e) => { this.enrollError = e?.error?.message || 'Enrollment failed'; this.cdr.markForCheck(); },
+        error: (e) => {
+          this.enrollError = e?.error?.message || 'Enrollment failed';
+          this.clearCapturedPhoto();
+          this.cdr.markForCheck();
+        },
       });
+  }
+
+  /** Clears any captured/uploaded photo and stops the camera. Keeps subject + consent. */
+  clearCapturedPhoto(): void {
+    this.enrollForm.photoBase64 = '';
+    this.enrollForm.photoMime = '';
+    this.enrollForm.photoFileName = '';
+    this.stopCamera();
+  }
+
+  /** Called when the operator picks a different subject. Drops any stale photo. */
+  onEnrollSubjectChange(): void {
+    this.clearCapturedPhoto();
+    this.enrollError = '';
+    this.cdr.markForCheck();
   }
 
   resetEnroll(): void {
