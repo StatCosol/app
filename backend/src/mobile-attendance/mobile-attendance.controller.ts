@@ -789,8 +789,11 @@ export class MobileAttendanceDeviceController {
     summary: 'Pull device config + employee roster (with embeddings)',
   })
   @Get('roster')
-  async roster(@Headers('x-device-token') token: string) {
-    const dev = await this.svc.resolveDeviceByToken(token);
+  async roster(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.roster(dev);
   }
 
@@ -800,9 +803,10 @@ export class MobileAttendanceDeviceController {
   @Post('enroll-self')
   async enrollSelf(
     @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
     @Body() body: EnrollSelfDto,
   ) {
-    const dev = await this.svc.resolveDeviceByToken(token);
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.enrollSelf(dev, body);
   }
 
@@ -810,9 +814,10 @@ export class MobileAttendanceDeviceController {
   @Post('punch')
   async punch(
     @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
     @Body() body: MobilePunchDto,
   ) {
-    const dev = await this.svc.resolveDeviceByToken(token);
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.recordPunch(dev, body);
   }
 
@@ -822,9 +827,10 @@ export class MobileAttendanceDeviceController {
   @Post('punch/contractor')
   async contractorPunch(
     @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
     @Body() body: ContractorMobilePunchDto,
   ) {
-    const dev = await this.svc.resolveDeviceByToken(token);
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.recordContractorPunch(dev, body);
   }
 }

@@ -37,6 +37,7 @@ class ApiClient(private val config: DeviceConfig) {
         val req = Request.Builder()
             .url("${config.apiBase}/api/v1/mobile-attendance/roster")
             .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
             .get()
             .build()
         http.newCall(req).execute().use { resp ->
@@ -53,6 +54,7 @@ class ApiClient(private val config: DeviceConfig) {
         val req = Request.Builder()
             .url("${config.apiBase}/api/v1/mobile-attendance/punch")
             .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
             .post(json.toRequestBody(JSON))
             .build()
         http.newCall(req).execute().use { resp ->
@@ -69,6 +71,7 @@ class ApiClient(private val config: DeviceConfig) {
         val req = Request.Builder()
             .url("${config.apiBase}/api/v1/mobile-attendance/enroll-self")
             .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
             .post(json.toRequestBody(JSON))
             .build()
         http.newCall(req).execute().use { resp ->
