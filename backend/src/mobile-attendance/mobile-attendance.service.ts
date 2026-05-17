@@ -57,11 +57,15 @@ const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000; // 5 min ahead
 const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
 // Duplicate-face guard at enrollment: if any *other* employee in the same
 // client has a stored embedding whose mapped similarity to the new one is
-// >= this value, reject as a duplicate. 0.82 mapped == raw cos 0.64, well
-// inside the same-person band but above the typical inter-class noise
-// floor (0.5–0.65 mapped). Looser than the per-punch match threshold on
-// purpose because enrollment is one-shot.
-const DUPLICATE_FACE_THRESHOLD = 0.82;
+// >= this value, reject as a duplicate. 0.88 mapped == raw cos ~0.76 —
+// a strong same-person signal that comfortably sits above the inter-class
+// noise floor we've observed in production (lookalike males of the same
+// demographic group were tripping the previous 0.82 mapped / cos ~0.64
+// threshold and getting falsely rejected as duplicates). This is still
+// looser than the per-punch MIN_MATCH_SCORE (0.85) on purpose — we don't
+// want a single bad enrollment frame to wedge a real employee out — but
+// tight enough to keep the actual same-face-twice case caught.
+const DUPLICATE_FACE_THRESHOLD = 0.88;
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
 // 8-hour gap between a shift end and the next shift start, even if the
