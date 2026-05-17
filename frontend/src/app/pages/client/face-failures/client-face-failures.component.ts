@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs/operators';
@@ -536,6 +536,7 @@ export class ClientFaceFailuresComponent implements OnInit {
     private svc: ClientMobileAttendanceService,
     private toast: ToastService,
     private notif: ComplianceNotificationCenterService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -551,9 +552,11 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.svc.listFaceFailureAlerts(20).subscribe({
       next: (rows) => {
         this.alerts = rows ?? [];
+        this.cdr.markForCheck();
       },
       error: () => {
         this.alerts = [];
+        this.cdr.markForCheck();
       },
     });
   }
@@ -642,7 +645,10 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.svc
       .failedScanStats({ from, to, subjectType, branchId: this.focusBranchId || undefined })
       .subscribe({
-        next: (s) => (this.stats = s),
+        next: (s) => {
+          this.stats = s;
+          this.cdr.markForCheck();
+        },
         error: () => {
           /* non-fatal; chips simply stay blank */
         },
@@ -650,8 +656,14 @@ export class ClientFaceFailuresComponent implements OnInit {
     this.svc
       .topFailedScanSubjects({ from, to, subjectType, limit: 10, minCount: this.minCount, branchId: this.focusBranchId || undefined })
       .subscribe({
-        next: (s) => (this.topSubjects = s),
-        error: () => (this.topSubjects = []),
+        next: (s) => {
+          this.topSubjects = s;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.topSubjects = [];
+          this.cdr.markForCheck();
+        },
       });
     this.svc
       .listFailedScans({
@@ -664,10 +676,16 @@ export class ClientFaceFailuresComponent implements OnInit {
         branchId: this.focusBranchId || undefined,
         limit: 500,
       })
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: (rows) => {
           this.rows = rows;
+          this.cdr.markForCheck();
         },
         error: () => this.toast.error('Failed to load face failures'),
       });
