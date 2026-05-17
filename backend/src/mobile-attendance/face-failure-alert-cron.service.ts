@@ -68,9 +68,24 @@ export class FaceFailureAlertCronService {
     emitted: number;
     skipped: number;
   }> {
-    const threshold = clampInt(overrides?.threshold, 1, 100000, this.getThreshold());
-    const windowHours = clampInt(overrides?.windowHours, 1, 24 * 30, this.getWindowHours());
-    const dedupeHours = clampInt(overrides?.dedupeHours, 0, 24 * 30, this.getDedupeHours());
+    const threshold = clampInt(
+      overrides?.threshold,
+      1,
+      100000,
+      this.getThreshold(),
+    );
+    const windowHours = clampInt(
+      overrides?.windowHours,
+      1,
+      24 * 30,
+      this.getWindowHours(),
+    );
+    const dedupeHours = clampInt(
+      overrides?.dedupeHours,
+      0,
+      24 * 30,
+      this.getDedupeHours(),
+    );
     const clientId = normalizeUuid(overrides?.clientId);
     const branchId = normalizeUuid(overrides?.branchId);
     try {
@@ -87,7 +102,7 @@ export class FaceFailureAlertCronService {
         params.push(branchId);
         scopeSql += ` AND f.branch_id = $${params.length}::uuid`;
       }
-      const rows = (await this.dataSource.query(
+      const rows = await this.dataSource.query(
         `SELECT f.client_id                                      AS "clientId",
                 f.branch_id                                      AS "branchId",
                 COUNT(*)::int                                    AS "count",
@@ -100,13 +115,7 @@ export class FaceFailureAlertCronService {
           GROUP BY f.client_id, f.branch_id, c.face_fail_alert_threshold
          HAVING COUNT(*) >= COALESCE(c.face_fail_alert_threshold, $1)`,
         params,
-      )) as Array<{
-        clientId: string;
-        branchId: string | null;
-        count: number;
-        lastAt: Date;
-        effectiveThreshold: number;
-      }>;
+      );
 
       if (!rows.length) {
         this.logger.log(
@@ -127,7 +136,7 @@ export class FaceFailureAlertCronService {
       let emitted = 0;
       let skipped = 0;
       for (const r of rows) {
-        const dup = (await this.dataSource.query(
+        const dup = await this.dataSource.query(
           `SELECT 1
              FROM compliance_notification_center
             WHERE "clientId" = $1
@@ -137,7 +146,7 @@ export class FaceFailureAlertCronService {
               AND "createdAt" >= NOW() - ($3 || ' hours')::interval
             LIMIT 1`,
           [r.clientId, r.branchId, String(dedupeHours)],
-        )) as Array<unknown>;
+        );
         if (dup.length) {
           skipped++;
           continue;

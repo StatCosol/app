@@ -14,7 +14,10 @@ import { HttpException, Injectable, Logger } from '@nestjs/common';
 @Injectable()
 export class FaceEmbeddingClient {
   private readonly logger = new Logger(FaceEmbeddingClient.name);
-  private readonly baseUrl = (process.env.FACE_SVC_URL || '').replace(/\/$/, '');
+  private readonly baseUrl = (process.env.FACE_SVC_URL || '').replace(
+    /\/$/,
+    '',
+  );
   private readonly timeoutMs = Number(process.env.FACE_SVC_TIMEOUT_MS || 15000);
 
   isEnabled(): boolean {
@@ -64,7 +67,11 @@ export class FaceEmbeddingClient {
       const code: string = body?.error || `http_${res.status}`;
       this.logger.warn(`face-svc rejected photo: ${code}`);
       // Map known errors to 4xx, everything else to 502 (upstream failure).
-      if (code === 'no_face' || code === 'decode_failed' || code === 'bad_crop') {
+      if (
+        code === 'no_face' ||
+        code === 'decode_failed' ||
+        code === 'bad_crop'
+      ) {
         throw new HttpException(`face_${code}`, 422);
       }
       throw new HttpException(`face_svc_error:${code}`, 502);

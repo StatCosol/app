@@ -475,7 +475,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         const cams = devices.filter((d) => d.kind === 'videoinput');
         const VIRTUAL = /(phone link|phone\s*\(|droidcam|obs|snap camera|virtual|xsplit|ndi|manycam)/i;
         const real = cams.find((c) => c.label && !VIRTUAL.test(c.label));
-        // eslint-disable-next-line no-console
         console.info('[face-enrollment] cameras:', cams.map((c) => c.label || '(no label)'));
         if (real?.deviceId) {
           chosenLabel = real.label;

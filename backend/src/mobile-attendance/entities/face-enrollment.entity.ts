@@ -19,16 +19,31 @@ export class FaceEnrollmentEntity {
   @Column({ name: 'branch_id', type: 'uuid', nullable: true })
   branchId: string | null;
 
-  @Column({ name: 'azure_person_id', type: 'varchar', length: 80, nullable: true })
+  @Column({
+    name: 'azure_person_id',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
   azurePersonId: string | null;
 
-  @Column({ name: 'azure_person_group', type: 'varchar', length: 80, nullable: true })
+  @Column({
+    name: 'azure_person_group',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
   azurePersonGroup: string | null;
 
   @Column({ name: 'embedding', type: 'bytea', nullable: true })
   embedding: Buffer | null;
 
-  @Column({ name: 'embedding_model', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'embedding_model',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   embeddingModel: string | null;
 
   @Column({ name: 'photo_url', type: 'text', nullable: true })

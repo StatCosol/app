@@ -73,7 +73,12 @@ export class ContractorBiometricPunchEntity {
   @Column({ name: 'liveness_score', type: 'numeric', nullable: true })
   livenessScore: string | null;
 
-  @Column({ name: 'match_provider', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'match_provider',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   matchProvider: string | null;
 
   @Column({ name: 'raw_payload', type: 'jsonb', nullable: true })

@@ -24,7 +24,12 @@ export class MobileAttendanceDeviceEntity {
   @Column({ name: 'mode', type: 'varchar', length: 16, default: 'KIOSK' })
   mode: MobileDeviceMode;
 
-  @Column({ name: 'device_label', type: 'varchar', length: 120, nullable: true })
+  @Column({
+    name: 'device_label',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
   deviceLabel: string | null;
 
   @Column({ name: 'android_id', type: 'varchar', length: 120, nullable: true })
@@ -33,13 +38,38 @@ export class MobileAttendanceDeviceEntity {
   @Column({ name: 'install_token', type: 'varchar', length: 64, unique: true })
   installToken: string;
 
-  @Column({ name: 'install_token_hash', type: 'varchar', length: 120, nullable: true })
+  @Column({
+    name: 'install_token_hash',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
   installTokenHash: string | null;
 
-  @Column({ name: 'geofence_lat', type: 'numeric', precision: 10, scale: 7, nullable: true, transformer: { from: (v: string | null) => (v == null ? null : Number(v)), to: (v: number | null) => v } })
+  @Column({
+    name: 'geofence_lat',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    transformer: {
+      from: (v: string | null) => (v == null ? null : Number(v)),
+      to: (v: number | null) => v,
+    },
+  })
   geofenceLat: number | null;
 
-  @Column({ name: 'geofence_lng', type: 'numeric', precision: 10, scale: 7, nullable: true, transformer: { from: (v: string | null) => (v == null ? null : Number(v)), to: (v: number | null) => v } })
+  @Column({
+    name: 'geofence_lng',
+    type: 'numeric',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    transformer: {
+      from: (v: string | null) => (v == null ? null : Number(v)),
+      to: (v: number | null) => v,
+    },
+  })
   geofenceLng: number | null;
 
   @Column({ name: 'geofence_radius_m', type: 'integer', nullable: true })

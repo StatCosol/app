@@ -34,7 +34,12 @@ export class ContractorFaceEnrollmentEntity {
   @Column({ name: 'embedding', type: 'bytea', nullable: true })
   embedding: Buffer | null;
 
-  @Column({ name: 'embedding_model', type: 'varchar', length: 40, nullable: true })
+  @Column({
+    name: 'embedding_model',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
   embeddingModel: string | null;
 
   @Column({ name: 'photo_url', type: 'text', nullable: true })
