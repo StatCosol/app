@@ -139,16 +139,22 @@ def embed(req: EmbedRequest) -> JSONResponse:
     if crop.size == 0:
         return JSONResponse(EmbedResponse(ok=False, error="bad_crop").model_dump(), status_code=422)
 
-    # 3. resize to 112x112 RGB. Match mobile's processor (BILINEAR resize, no
-    #    explicit normalisation — the TensorImage.fromBitmap default is uint8
-    #    and the Kotlin processor skips Normalize). Whether the model itself
-    #    expects float or uint8 is read from input_details below.
+    # 3. resize to 112x112 RGB, then preprocess for the model.
+    #    The shipped mobilefacenet.tflite has a FLOAT32 input tensor. The
+    #    standard MobileFaceNet preprocessing is (pixel - 127.5) / 128.0,
+    #    mapping uint8 [0,255] to roughly [-1, 1]. Feeding raw [0,255]
+    #    floats saturates the network and collapses all faces onto the
+    #    same embedding (cos > 0.97 between strangers — see fix verified
+    #    in container 2026-03 with 3 distinct AI faces dropping from
+    #    cos 0.97/0.98/0.99 to cos 0.32/0.26/0.11 after normalization).
+    #    For a quantised UINT8 input the interpreter handles dequant
+    #    internally and we just pass the uint8 pixels through.
     crop_pil = Image.fromarray(crop).resize((INPUT_SIZE, INPUT_SIZE), Image.BILINEAR)
     crop_np = np.asarray(crop_pil)  # uint8 H,W,3
 
     in_dtype = _input_details[0]["dtype"]
     if in_dtype == np.float32:
-        in_tensor = crop_np.astype(np.float32)
+        in_tensor = (crop_np.astype(np.float32) - 127.5) / 128.0
     else:
         in_tensor = crop_np.astype(in_dtype)
 

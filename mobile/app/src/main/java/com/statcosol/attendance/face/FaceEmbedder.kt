@@ -8,6 +8,7 @@ import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
+import org.tensorflow.lite.support.common.ops.NormalizeOp
 import java.io.FileInputStream
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
@@ -31,9 +32,18 @@ class FaceEmbedder(context: Context) {
     private val inputDataType: DataType by lazy { interpreter.getInputTensor(0).dataType() }
 
     private val processor: ImageProcessor by lazy {
-        ImageProcessor.Builder()
+        // MobileFaceNet expects normalised inputs in roughly [-1, 1] when the
+        // input tensor is FLOAT32. Feeding raw uint8 [0,255] floats saturates
+        // the network and collapses all faces to nearly the same embedding
+        // (verified in face-svc container: cos > 0.97 between strangers
+        // without normalisation; cos < 0.5 after). Quantised UINT8 models do
+        // their own dequantisation internally, so we skip Normalize there.
+        val builder = ImageProcessor.Builder()
             .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
-            .build()
+        if (inputDataType == DataType.FLOAT32) {
+            builder.add(NormalizeOp(127.5f, 128f))
+        }
+        builder.build()
     }
 
     fun embed(face: Bitmap): FloatArray {
