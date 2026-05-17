@@ -32,11 +32,15 @@ import {
   RegisterMobileDeviceDto,
 } from './mobile-attendance.dto';
 
-// Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (raw cos 0.56) in Phase 3a
-// to tighten the false-accept band; spec asks 0.90 but that's too strict
-// without server-side face alignment, so we step up to 0.78 first and will
-// raise again once we add alignment.
-const MIN_MATCH_SCORE = 0.78;
+// Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (Phase 3a) → 0.85 after
+// field reports of cross-identity false accepts on the kiosk (a different
+// person scanning was being marked present against an enrolled face).
+// 0.85 == raw cos 0.70, still below the 0.90 spec ceiling but well above
+// the MobileFaceNet inter-class noise band. The on-device matcher now
+// also enforces an ambiguity margin (best - 2nd >= 0.04) for 1:N kiosk
+// matching; this server-side gate is the second line of defence on the
+// per-punch payload.
+const MIN_MATCH_SCORE = 0.85;
 const MIN_LIVENESS_SCORE = 0.5;
 // Phase 3d: active liveness challenge. When the deployment env opts in
 // (FACE_LIVENESS_CHALLENGE_REQUIRED=true), every punch must carry a
