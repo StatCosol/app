@@ -26,7 +26,7 @@ class DeviceConfig(context: Context) {
      * (sufficient for our purpose: pasting the same token on a second tablet
      * will produce a different id and be rejected by the backend).
      */
-    @SuppressLint("HardwareIds")
+    @get:SuppressLint("HardwareIds")
     val androidId: String by lazy {
         Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID).orEmpty()
     }
