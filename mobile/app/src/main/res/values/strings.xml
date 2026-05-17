@@ -68,4 +68,12 @@
     <string name="liveness_failed_retry">Liveness check failed — please try again</string>
     <string name="liveness_timeout">Liveness check timed out — please try again</string>
     <string name="kiosk_liveness_prompt_with_name">Hi %1$s — %2$s</string>
+
+    <!-- Admin exit hatch (long-press the brand label on the kiosk header). -->
+    <string name="kiosk_admin_exit_title">Exit kiosk mode</string>
+    <string name="kiosk_admin_exit_message">Enter the admin PIN to unlock screen pinning and return to the device launcher.</string>
+    <string name="kiosk_admin_exit_hint">Admin PIN</string>
+    <string name="kiosk_admin_exit_confirm">Exit</string>
+    <string name="kiosk_admin_exit_cancel">Cancel</string>
+    <string name="kiosk_admin_exit_wrong_pin">Wrong PIN.</string>
 </resources>

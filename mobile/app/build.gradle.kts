@@ -17,6 +17,13 @@ android {
 
         // Default API host. Override at runtime via Settings screen if needed.
         buildConfigField("String", "DEFAULT_API_BASE", "\"https://app.statcosol.com\"")
+
+        // Admin PIN that unlocks the kiosk lock-task / immersive mode so an
+        // operator can exit back to the device launcher (e.g. for app
+        // updates or to switch accounts). Long-press the brand label in the
+        // kiosk header to bring up the PIN prompt. Override per-build by
+        // editing this line — do not commit production PINs.
+        buildConfigField("String", "ADMIN_EXIT_PIN", "\"2580\"")
     }
 
     buildFeatures {

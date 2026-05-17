@@ -7,10 +7,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.text.InputType
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.animation.AnimationUtils
+import android.widget.EditText
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -19,6 +22,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
+import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
 import com.statcosol.attendance.databinding.ActivityCameraBinding
 import com.statcosol.attendance.db.QueuedPunch
@@ -128,6 +132,7 @@ class KioskActivity : AppCompatActivity() {
         initTts()
         applyImmersive()
         startLockTaskIfPermitted()
+        setupAdminExit()
 
         loadRoster()
 
@@ -182,6 +187,53 @@ class KioskActivity : AppCompatActivity() {
      *  otherwise so we don't crash on un-provisioned devices. */
     private fun startLockTaskIfPermitted() {
         try { startLockTask() } catch (_: Exception) {}
+    }
+
+    /**
+     * Admin exit hatch. The kiosk intentionally blocks Home/Back via
+     * lock-task + immersive mode, but operators still need a way to leave
+     * the app for updates, account switches, or maintenance. Long-press
+     * the brand label on the header and enter the admin PIN configured at
+     * build time (BuildConfig.ADMIN_EXIT_PIN). On success we stopLockTask
+     * and finish() back to the device launcher.
+     */
+    private fun setupAdminExit() {
+        binding.headerBrand.setOnLongClickListener {
+            showAdminExitDialog()
+            true
+        }
+    }
+
+    private fun showAdminExitDialog() {
+        if (dialogActive) return
+        dialogActive = true
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = getString(R.string.kiosk_admin_exit_hint)
+            setPadding(48, 32, 48, 32)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.kiosk_admin_exit_title)
+            .setMessage(R.string.kiosk_admin_exit_message)
+            .setView(input)
+            .setPositiveButton(R.string.kiosk_admin_exit_confirm) { d, _ ->
+                val entered = input.text?.toString()?.trim().orEmpty()
+                if (entered.isNotEmpty() && entered == BuildConfig.ADMIN_EXIT_PIN) {
+                    try { stopLockTask() } catch (_: Exception) {}
+                    d.dismiss()
+                    dialogActive = false
+                    finish()
+                } else {
+                    Toast.makeText(this, R.string.kiosk_admin_exit_wrong_pin, Toast.LENGTH_SHORT).show()
+                    dialogActive = false
+                }
+            }
+            .setNegativeButton(R.string.kiosk_admin_exit_cancel) { d, _ ->
+                d.dismiss()
+                dialogActive = false
+            }
+            .setOnCancelListener { dialogActive = false }
+            .show()
     }
 
     private fun initTts() {
