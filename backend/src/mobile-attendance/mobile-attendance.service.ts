@@ -2268,11 +2268,11 @@ export class MobileAttendanceService {
     );
 
     const byBranch = await this.faceRepo.manager.query(
-      `SELECT f.branch_id AS "branchId", b.name AS "branchName", COUNT(*)::int AS count
+      `SELECT f.branch_id AS "branchId", b.branchname AS "branchName", COUNT(*)::int AS count
          FROM face_failed_scan_logs f
-         LEFT JOIN branches b ON b.id = f.branch_id
+         LEFT JOIN client_branches b ON b.id = f.branch_id
         WHERE ${whereSql}
-        GROUP BY f.branch_id, b.name
+        GROUP BY f.branch_id, b.branchname
         ORDER BY count DESC, "branchName" ASC NULLS LAST`,
       params,
     );
