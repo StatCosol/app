@@ -197,9 +197,23 @@ export class MobileAttendanceService {
     return { ok: true, id: deviceId };
   }
 
-  /** Resolve install-token -> device. Throws on revoked / unknown. */
+  /**
+   * Resolve install-token -> device, enforcing single-device binding.
+   *
+   * The first time a token is presented with a non-empty [androidId] we
+   * claim it on the device row (`android_id`). On every subsequent call:
+   *   - if the device row already has an `android_id`, the supplied
+   *     `androidId` MUST match exactly — otherwise we throw 401 so the
+   *     same install token can't be used to activate a second tablet.
+   *   - if no `androidId` header was supplied at all (older app build,
+   *     server-side internal call, etc.) we fall back to the previous
+   *     behaviour and only require an active row.
+   *
+   * Throws on revoked / unknown / token-already-bound-to-another-device.
+   */
   async resolveDeviceByToken(
     token: string,
+    androidId?: string | null,
   ): Promise<MobileAttendanceDeviceEntity> {
     if (!token) throw new UnauthorizedException('Missing device token');
     const dev = await this.deviceRepo.findOne({
@@ -207,6 +221,23 @@ export class MobileAttendanceService {
     });
     if (!dev || !dev.isActive)
       throw new UnauthorizedException('Invalid device token');
+
+    const supplied = (androidId ?? '').trim();
+    if (supplied) {
+      if (!dev.androidId) {
+        // First-use binding: claim this token for the calling device.
+        dev.androidId = supplied;
+        await this.deviceRepo.update(dev.id, { androidId: supplied });
+      } else if (dev.androidId !== supplied) {
+        this.logger.warn(
+          `device token reuse blocked deviceId=${dev.id} bound=${dev.androidId} attempt=${supplied}`,
+        );
+        throw new UnauthorizedException(
+          'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
+        );
+      }
+    }
+
     dev.lastSeenAt = new Date();
     await this.deviceRepo.update(dev.id, { lastSeenAt: dev.lastSeenAt });
     return dev;

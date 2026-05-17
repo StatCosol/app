@@ -1,7 +1,9 @@
 package com.statcosol.attendance.prefs
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import android.provider.Settings
 import com.statcosol.attendance.BuildConfig
 
 /**
@@ -13,8 +15,21 @@ import com.statcosol.attendance.BuildConfig
  */
 class DeviceConfig(context: Context) {
 
+    private val appContext: Context = context.applicationContext
+
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /**
+     * Stable per-device id used by the server to bind an install token to a
+     * single physical device. ANDROID_ID is per-app-signing-key on Android 8+
+     * (sufficient for our purpose: pasting the same token on a second tablet
+     * will produce a different id and be rejected by the backend).
+     */
+    @SuppressLint("HardwareIds")
+    val androidId: String by lazy {
+        Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID).orEmpty()
+    }
 
     var installToken: String?
         get() = prefs.getString(KEY_TOKEN, null)
