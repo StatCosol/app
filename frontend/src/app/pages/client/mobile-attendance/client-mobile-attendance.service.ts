@@ -197,6 +197,16 @@ export class ClientMobileAttendanceService {
     return this.http.delete<FaceEnrollment>(`${this.base}/enroll/${employeeId}${qs}`);
   }
 
+  deleteEnrollment(
+    employeeId: string,
+    reason?: string,
+  ): Observable<{ ok: true; deleted: true; employeeId: string }> {
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+    return this.http.delete<{ ok: true; deleted: true; employeeId: string }>(
+      `${this.base}/enroll/${employeeId}/permanent${qs}`,
+    );
+  }
+
   // Re-enrollment approval queue (Phase 3e)
   listReenrollRequests(status: ReenrollRequestStatus = 'PENDING'): Observable<ReenrollRequest[]> {
     return this.http.get<ReenrollRequest[]>(`${this.base}/reenroll-requests?status=${status}`);
@@ -235,6 +245,20 @@ export class ClientMobileAttendanceService {
     const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
     return this.http.delete<ContractorFaceEnrollment>(
       `${this.base}/contractors/enroll/${contractorEmployeeId}${qs}`,
+    );
+  }
+
+  deleteContractorEnrollment(
+    contractorEmployeeId: string,
+    reason?: string,
+  ): Observable<{ ok: true; deleted: true; contractorEmployeeId: string }> {
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+    return this.http.delete<{
+      ok: true;
+      deleted: true;
+      contractorEmployeeId: string;
+    }>(
+      `${this.base}/contractors/enroll/${contractorEmployeeId}/permanent${qs}`,
     );
   }
 

@@ -127,6 +127,28 @@ export class MobileAttendanceAdminController {
     );
   }
 
+  @ApiOperation({
+    summary:
+      'Permanently delete an employee face enrollment row (audit history is preserved)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Delete('enroll/:employeeId/permanent')
+  hardDeleteEnrollment(
+    @CurrentUser() u: ReqUser,
+    @Param('employeeId') employeeId: string,
+    @Query('reason') reason?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.deleteEnrollment(
+      u.clientId,
+      employeeId,
+      u.userId ?? null,
+      reason ?? 'Admin delete',
+      allowedBranchIds,
+    );
+  }
+
   // ----------------------------- Phase 3e: re-enrollment approval queue.
 
   @ApiOperation({
@@ -236,6 +258,28 @@ export class MobileAttendanceAdminController {
       contractorEmployeeId,
       u.userId ?? null,
       reason ?? 'Admin deactivation',
+      allowedBranchIds,
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'Permanently delete a contractor face enrollment row (audit history preserved)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Delete('contractors/enroll/:contractorEmployeeId/permanent')
+  hardDeleteContractorEnrollment(
+    @CurrentUser() u: ReqUser,
+    @Param('contractorEmployeeId') contractorEmployeeId: string,
+    @Query('reason') reason?: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.deleteContractorEnrollment(
+      u.clientId,
+      contractorEmployeeId,
+      u.userId ?? null,
+      reason ?? 'Admin delete',
       allowedBranchIds,
     );
   }
