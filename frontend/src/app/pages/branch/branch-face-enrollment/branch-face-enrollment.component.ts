@@ -398,8 +398,10 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       return;
     }
     this.loadingContractors = true;
+    // Use the CLIENT-portal endpoint; the contractor-portal `list()` is
+    // @Roles('CONTRACTOR') and 403s for branch (CLIENT-role) users.
     this.contractorEmpSvc
-      .list({ branchId, isActive: true })
+      .listForBranch({ branchId, isActive: true })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingContractors = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: (r) => { this.contractors = r?.data ?? []; this.cdr.markForCheck(); },
