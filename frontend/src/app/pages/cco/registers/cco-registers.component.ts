@@ -55,7 +55,7 @@ type PayrollClient = { id: string; clientName: string; clientCode: string };
     <div class="page">
       <ui-page-header
         title="Payroll Registers"
-        subtitle="View and download payroll registers across all clients">
+        subtitle="Cross-check approved (post-generation) payroll registers across all clients">
         <div slot="actions" class="flex items-center gap-3">
           <ui-button variant="secondary" [disabled]="loading" (clicked)="reload()">
             Refresh
@@ -218,6 +218,10 @@ export class CcoRegistersComponent implements OnInit, OnDestroy {
           approvedAt: r.approvedAt ?? null,
         })) as RegisterRow[];
       }),
+      // CCO role is a cross-check/oversight surface — only registers that have
+      // been APPROVED (i.e. post-generation) are relevant. DRAFT / PENDING /
+      // REJECTED registers are still in the payroll workflow and not yet final.
+      map((rows) => rows.filter((r) => r.approvalStatus === 'APPROVED')),
       finalize(() => {
         this.loading = false;
         this.cdr.markForCheck();
