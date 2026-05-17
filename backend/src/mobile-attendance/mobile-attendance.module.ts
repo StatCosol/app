@@ -30,8 +30,16 @@ import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
     BiometricModule,
     NotificationsModule,
   ],
-  controllers: [MobileAttendanceAdminController, MobileAttendanceDeviceController],
-  providers: [MobileAttendanceService, FaceEmbeddingClient, FacePhotoStorage, FaceFailureAlertCronService],
+  controllers: [
+    MobileAttendanceAdminController,
+    MobileAttendanceDeviceController,
+  ],
+  providers: [
+    MobileAttendanceService,
+    FaceEmbeddingClient,
+    FacePhotoStorage,
+    FaceFailureAlertCronService,
+  ],
   exports: [MobileAttendanceService],
 })
 export class MobileAttendanceModule {}

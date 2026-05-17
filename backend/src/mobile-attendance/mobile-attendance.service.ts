@@ -49,7 +49,7 @@ const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // fall inside this window relative to server time. Punches outside the
 // window are rejected unless `body.offlineSync === true`, which is set by
 // the Android queue worker when draining offline rows.
-const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;        // 5 min ahead
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000; // 5 min ahead
 const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
 // Duplicate-face guard at enrollment: if any *other* employee in the same
 // client has a stored embedding whose mapped similarity to the new one is
@@ -230,9 +230,7 @@ export class MobileAttendanceService {
     });
     if (!emp) throw new NotFoundException('Employee not found');
     if (allowedBranchIds && !allowedBranchIds.includes(emp.branchId ?? '')) {
-      throw new ForbiddenException(
-        'Employee is not in your branch scope',
-      );
+      throw new ForbiddenException('Employee is not in your branch scope');
     }
 
     // Resolve embedding. Three sources, in priority order:
@@ -251,7 +249,9 @@ export class MobileAttendanceService {
           'Server-side face embedding is not configured (FACE_SVC_URL unset)',
         );
       }
-      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      const result = await this.faceEmbeddingClient.embedPhoto(
+        body.photoBase64,
+      );
       if (!result) {
         throw new BadRequestException('Face embedding service unavailable');
       }
@@ -409,9 +409,7 @@ export class MobileAttendanceService {
     });
     if (!row) throw new NotFoundException('Enrollment not found');
     if (allowedBranchIds && !allowedBranchIds.includes(row.branchId ?? '')) {
-      throw new ForbiddenException(
-        'Employee is not in your branch scope',
-      );
+      throw new ForbiddenException('Employee is not in your branch scope');
     }
     row.isActive = false;
     row.deactivatedAt = new Date();
@@ -586,10 +584,7 @@ export class MobileAttendanceService {
         `Request already ${req.status.toLowerCase()}`,
       );
     }
-    if (
-      allowedBranchIds &&
-      !allowedBranchIds.includes(req.branch_id ?? '')
-    ) {
+    if (allowedBranchIds && !allowedBranchIds.includes(req.branch_id ?? '')) {
       throw new ForbiddenException('Request is not in your branch scope');
     }
 
@@ -957,10 +952,12 @@ export class MobileAttendanceService {
       excludeEmployeeId: string | null;
       excludeContractorEmployeeId: string | null;
     },
-  ): Promise<
-    | { kind: 'employee' | 'contractor'; id: string; label: string; score: number }
-    | null
-  > {
+  ): Promise<{
+    kind: 'employee' | 'contractor';
+    id: string;
+    label: string;
+    score: number;
+  } | null> {
     let bestKind: 'employee' | 'contractor' | null = null;
     let bestId: string | null = null;
     let bestScore = -Infinity;
@@ -969,7 +966,11 @@ export class MobileAttendanceService {
       where: { clientId, isActive: true },
     });
     for (const r of empRows) {
-      if (exclude.excludeEmployeeId && r.employeeId === exclude.excludeEmployeeId) continue;
+      if (
+        exclude.excludeEmployeeId &&
+        r.employeeId === exclude.excludeEmployeeId
+      )
+        continue;
       const cand = decodeEmbedding(r.embedding);
       if (!cand || cand.length !== probe.length) continue;
       const s = toMatchScore(cosineSim(probe, cand));
@@ -1005,9 +1006,12 @@ export class MobileAttendanceService {
     let label = bestId;
     if (bestKind === 'employee') {
       const dup = await this.empRepo.findOne({ where: { id: bestId } });
-      if (dup) label = `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`;
+      if (dup)
+        label = `${dup.employeeCode ?? dup.id} (${dup.name ?? 'unknown'})`;
     } else {
-      const dup = await this.contractorEmpRepo.findOne({ where: { id: bestId } });
+      const dup = await this.contractorEmpRepo.findOne({
+        where: { id: bestId },
+      });
       if (dup) label = dup.name ?? bestId;
     }
     return { kind: bestKind, id: bestId, label, score: bestScore };
@@ -1062,7 +1066,7 @@ export class MobileAttendanceService {
     // ESS mode: punch must be for the bound employee. Prefer the device
     // binding (it's authoritative) over the supplied employeeId.
     const expectedEmpId =
-      device.mode === 'ESS' ? device.essEmployeeId ?? actorEmployeeId : null;
+      device.mode === 'ESS' ? (device.essEmployeeId ?? actorEmployeeId) : null;
     if (
       device.mode === 'ESS' &&
       expectedEmpId &&
@@ -1170,8 +1174,7 @@ export class MobileAttendanceService {
     }
 
     const ts = new Date(body.punchTime);
-    if (isNaN(ts.getTime()))
-      throw new BadRequestException('Invalid punchTime');
+    if (isNaN(ts.getTime())) throw new BadRequestException('Invalid punchTime');
 
     // Phase 3a: server-time clock-skew gate. Live punches must be within a
     // tight window of server time. Offline-queue drains (offlineSync=true)
@@ -1211,7 +1214,11 @@ export class MobileAttendanceService {
       const last = lastPunchRows[0];
       const lastMs = new Date(last.punch_time).getTime();
       const elapsed = ts.getTime() - lastMs;
-      if (last.direction === 'OUT' && elapsed >= 0 && elapsed < POST_LOGOUT_COOLDOWN_MS) {
+      if (
+        last.direction === 'OUT' &&
+        elapsed >= 0 &&
+        elapsed < POST_LOGOUT_COOLDOWN_MS
+      ) {
         const remainMs = POST_LOGOUT_COOLDOWN_MS - elapsed;
         const h = Math.floor(remainMs / (60 * 60 * 1000));
         const m = Math.ceil((remainMs - h * 60 * 60 * 1000) / 60000);
@@ -1457,7 +1464,11 @@ export class MobileAttendanceService {
       const last = lastRows[0];
       const lastMs = new Date(last.punch_time).getTime();
       const elapsed = ts.getTime() - lastMs;
-      if (last.direction === 'OUT' && elapsed >= 0 && elapsed < POST_LOGOUT_COOLDOWN_MS) {
+      if (
+        last.direction === 'OUT' &&
+        elapsed >= 0 &&
+        elapsed < POST_LOGOUT_COOLDOWN_MS
+      ) {
         const remainMs = POST_LOGOUT_COOLDOWN_MS - elapsed;
         const h = Math.floor(remainMs / (60 * 60 * 1000));
         const m = Math.ceil((remainMs - h * 60 * 60 * 1000) / 60000);
@@ -1674,7 +1685,9 @@ export class MobileAttendanceService {
           'Server-side face embedding is not configured (FACE_SVC_URL unset)',
         );
       }
-      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      const result = await this.faceEmbeddingClient.embedPhoto(
+        body.photoBase64,
+      );
       if (!result) {
         throw new BadRequestException('Face embedding service unavailable');
       }
@@ -2235,7 +2248,7 @@ export class MobileAttendanceService {
 
     const whereSql = where.join(' AND ');
 
-    const [totalRow] = (await this.faceRepo.manager.query(
+    const [totalRow] = await this.faceRepo.manager.query(
       `SELECT COUNT(*)::int AS total,
               SUM(CASE WHEN f.employee_id IS NOT NULL THEN 1 ELSE 0 END)::int AS emp,
               SUM(CASE WHEN f.contractor_employee_id IS NOT NULL THEN 1 ELSE 0 END)::int AS ctr,
@@ -2243,18 +2256,18 @@ export class MobileAttendanceService {
          FROM face_failed_scan_logs f
         WHERE ${whereSql}`,
       params,
-    )) as Array<{ total: number; emp: number; ctr: number; unk: number }>;
+    );
 
-    const byReason = (await this.faceRepo.manager.query(
+    const byReason = await this.faceRepo.manager.query(
       `SELECT f.reason AS reason, COUNT(*)::int AS count
          FROM face_failed_scan_logs f
         WHERE ${whereSql}
         GROUP BY f.reason
         ORDER BY count DESC, reason ASC`,
       params,
-    )) as Array<{ reason: string; count: number }>;
+    );
 
-    const byBranch = (await this.faceRepo.manager.query(
+    const byBranch = await this.faceRepo.manager.query(
       `SELECT f.branch_id AS "branchId", b.name AS "branchName", COUNT(*)::int AS count
          FROM face_failed_scan_logs f
          LEFT JOIN branches b ON b.id = f.branch_id
@@ -2262,9 +2275,9 @@ export class MobileAttendanceService {
         GROUP BY f.branch_id, b.name
         ORDER BY count DESC, "branchName" ASC NULLS LAST`,
       params,
-    )) as Array<{ branchId: string | null; branchName: string | null; count: number }>;
+    );
 
-    const byDay = (await this.faceRepo.manager.query(
+    const byDay = await this.faceRepo.manager.query(
       `SELECT TO_CHAR(date_trunc('day', f.attempted_at), 'YYYY-MM-DD') AS day,
               COUNT(*)::int AS count
          FROM face_failed_scan_logs f
@@ -2272,9 +2285,9 @@ export class MobileAttendanceService {
         GROUP BY day
         ORDER BY day ASC`,
       params,
-    )) as Array<{ day: string; count: number }>;
+    );
 
-    const byHourRaw = (await this.faceRepo.manager.query(
+    const byHourRaw = await this.faceRepo.manager.query(
       `SELECT EXTRACT(HOUR FROM f.attempted_at)::int AS hour,
               COUNT(*)::int AS count
          FROM face_failed_scan_logs f
@@ -2282,14 +2295,15 @@ export class MobileAttendanceService {
         GROUP BY hour
         ORDER BY hour ASC`,
       params,
-    )) as Array<{ hour: number; count: number }>;
+    );
     // Zero-fill 0..23 so the FE sparkline always renders a full day axis.
     const byHourMap = new Map<number, number>();
     for (const r of byHourRaw) byHourMap.set(Number(r.hour), Number(r.count));
     const byHour: Array<{ hour: number; count: number }> = [];
-    for (let h = 0; h < 24; h++) byHour.push({ hour: h, count: byHourMap.get(h) ?? 0 });
+    for (let h = 0; h < 24; h++)
+      byHour.push({ hour: h, count: byHourMap.get(h) ?? 0 });
 
-    const byDeviceRaw = (await this.faceRepo.manager.query(
+    const byDeviceRaw = await this.faceRepo.manager.query(
       `SELECT f.device_id AS "deviceId",
               MAX(d.device_label) AS "deviceLabel",
               MAX(d.mode) AS "mode",
@@ -2302,22 +2316,17 @@ export class MobileAttendanceService {
         ORDER BY count DESC, "deviceLabel" ASC NULLS LAST
         LIMIT 20`,
       params,
-    )) as Array<{
-      deviceId: string | null;
-      deviceLabel: string | null;
-      mode: string | null;
-      lastFailedAt: string | Date | null;
-      count: number;
-    }>;
+    );
     const byDevice = byDeviceRaw.map((r) => ({
       deviceId: r.deviceId,
       deviceLabel: r.deviceLabel,
       mode: r.mode,
-      lastFailedAt: r.lastFailedAt == null ? null : new Date(r.lastFailedAt).toISOString(),
+      lastFailedAt:
+        r.lastFailedAt == null ? null : new Date(r.lastFailedAt).toISOString(),
       count: Number(r.count),
     }));
 
-    const byModeRaw = (await this.faceRepo.manager.query(
+    const byModeRaw = await this.faceRepo.manager.query(
       `SELECT COALESCE(d.mode, 'UNKNOWN') AS mode, COUNT(*)::int AS count
          FROM face_failed_scan_logs f
          LEFT JOIN mobile_attendance_devices d ON d.id = f.device_id
@@ -2325,10 +2334,13 @@ export class MobileAttendanceService {
         GROUP BY COALESCE(d.mode, 'UNKNOWN')
         ORDER BY count DESC, mode ASC`,
       params,
-    )) as Array<{ mode: string; count: number }>;
-    const byMode = byModeRaw.map((r) => ({ mode: String(r.mode), count: Number(r.count) }));
+    );
+    const byMode = byModeRaw.map((r) => ({
+      mode: String(r.mode),
+      count: Number(r.count),
+    }));
 
-    const byDowRaw = (await this.faceRepo.manager.query(
+    const byDowRaw = await this.faceRepo.manager.query(
       `SELECT EXTRACT(DOW FROM f.attempted_at)::int AS dow,
               COUNT(*)::int AS count
          FROM face_failed_scan_logs f
@@ -2336,11 +2348,12 @@ export class MobileAttendanceService {
         GROUP BY dow
         ORDER BY dow ASC`,
       params,
-    )) as Array<{ dow: number; count: number }>;
+    );
     const byDowMap = new Map<number, number>();
     for (const r of byDowRaw) byDowMap.set(Number(r.dow), Number(r.count));
     const byDayOfWeek: Array<{ dow: number; count: number }> = [];
-    for (let d = 0; d < 7; d++) byDayOfWeek.push({ dow: d, count: byDowMap.get(d) ?? 0 });
+    for (let d = 0; d < 7; d++)
+      byDayOfWeek.push({ dow: d, count: byDowMap.get(d) ?? 0 });
 
     return {
       total: Number(totalRow?.total ?? 0),
@@ -2433,7 +2446,7 @@ export class MobileAttendanceService {
     }> = [];
 
     if (wantEmp) {
-      const empRows = (await this.faceRepo.manager.query(
+      const empRows = await this.faceRepo.manager.query(
         `SELECT 'EMPLOYEE'::text AS "subjectType",
                 f.employee_id AS "employeeId",
                 MAX(f.employee_code) AS "employeeCode",
@@ -2454,12 +2467,12 @@ export class MobileAttendanceService {
           ORDER BY count DESC, "employeeName" ASC NULLS LAST
           LIMIT ${limit}`,
         params,
-      )) as typeof rows;
+      );
       rows.push(...empRows);
     }
 
     if (wantCtr) {
-      const ctrRows = (await this.faceRepo.manager.query(
+      const ctrRows = await this.faceRepo.manager.query(
         `SELECT 'CONTRACTOR'::text AS "subjectType",
                 NULL::uuid AS "employeeId",
                 NULL::text AS "employeeCode",
@@ -2481,17 +2494,19 @@ export class MobileAttendanceService {
           ORDER BY count DESC, "contractorEmployeeName" ASC NULLS LAST
           LIMIT ${limit}`,
         params,
-      )) as typeof rows;
+      );
       rows.push(...ctrRows);
     }
 
     rows.sort((a, b) => Number(b.count) - Number(a.count));
-    const filtered = minCount > 0 ? rows.filter((r) => Number(r.count) >= minCount) : rows;
+    const filtered =
+      minCount > 0 ? rows.filter((r) => Number(r.count) >= minCount) : rows;
     return filtered.slice(0, limit).map((r) => ({
       ...r,
       count: Number(r.count),
       avgMatchScore: r.avgMatchScore == null ? null : Number(r.avgMatchScore),
-      lastFailedAt: r.lastFailedAt == null ? null : new Date(r.lastFailedAt).toISOString(),
+      lastFailedAt:
+        r.lastFailedAt == null ? null : new Date(r.lastFailedAt).toISOString(),
     }));
   }
 
@@ -2530,24 +2545,20 @@ export class MobileAttendanceService {
       return [];
     }
     const lim = Math.min(Math.max(Number(limit) || 20, 1), 100);
-    const rows = (await this.faceRepo.manager.query(
+    const rows = await this.faceRepo.manager.query(
       `SELECT id, "branchId", title, message, priority, "createdAt"
          FROM compliance_notification_center
         WHERE ${where.join(' AND ')}
         ORDER BY "createdAt" DESC
         LIMIT ${lim}`,
       params,
-    )) as Array<{
-      id: string;
-      branchId: string | null;
-      title: string;
-      message: string | null;
-      priority: string;
-      createdAt: string | Date;
-    }>;
+    );
     return rows.map((r) => ({
       ...r,
-      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+      createdAt:
+        r.createdAt instanceof Date
+          ? r.createdAt.toISOString()
+          : String(r.createdAt),
     }));
   }
 
@@ -2848,8 +2859,7 @@ function classifyRejection(e: any): string {
   if (msg.includes('invalid punchtime')) return 'INVALID_TIME';
   if (msg.includes('quality') || msg.includes('below threshold'))
     return 'QUALITY_LOW';
-  if (msg.includes('device-bound') || msg.includes('not found'))
-    return 'OTHER';
+  if (msg.includes('device-bound') || msg.includes('not found')) return 'OTHER';
   return 'OTHER';
 }
 

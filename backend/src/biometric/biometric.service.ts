@@ -274,7 +274,9 @@ export class BiometricService {
       // Mobile face-kiosk punches share this rollup, but we tag captureMethod
       // as FACE so the UI can distinguish them from fingerprint biometric.
       const allMobile = dayPunches.every(
-        (p) => p.source === ('MOBILE_KIOSK' as any) || p.source === ('MOBILE_ESS' as any),
+        (p) =>
+          p.source === ('MOBILE_KIOSK' as any) ||
+          p.source === ('MOBILE_ESS' as any),
       );
       const captureMethod: AttendanceEntity['captureMethod'] = allMobile
         ? 'FACE'

@@ -40,7 +40,7 @@ describe('MobileAttendanceService.listFaceFailureAlerts', () => {
     expect(sql).not.toContain('"branchId" = ANY');
     expect(params).toEqual(['client-1']);
     expect(sql).toContain("status = 'OPEN'");
-    expect(sql).toContain("\"entityType\" = 'FACE_FAILURE'");
+    expect(sql).toContain('"entityType" = \'FACE_FAILURE\'');
     expect(sql).toContain('LIMIT 10');
   });
 

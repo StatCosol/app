@@ -51,9 +51,14 @@ export class MobileAttendanceAdminController {
     return this.svc.listDevices(u.clientId);
   }
 
-  @ApiOperation({ summary: 'Register a new mobile attendance device (kiosk or ESS)' })
+  @ApiOperation({
+    summary: 'Register a new mobile attendance device (kiosk or ESS)',
+  })
   @Post('devices')
-  registerDevice(@CurrentUser() u: ReqUser, @Body() body: RegisterMobileDeviceDto) {
+  registerDevice(
+    @CurrentUser() u: ReqUser,
+    @Body() body: RegisterMobileDeviceDto,
+  ) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     return this.svc.registerDevice(u.clientId, u.userId ?? null, body);
   }
@@ -65,23 +70,34 @@ export class MobileAttendanceAdminController {
     return this.svc.revokeDevice(u.clientId, id, u.userId ?? null);
   }
 
-  @ApiOperation({ summary: 'Permanently delete a revoked mobile attendance device' })
+  @ApiOperation({
+    summary: 'Permanently delete a revoked mobile attendance device',
+  })
   @Delete('devices/:id/permanent')
   hardDeleteDevice(@CurrentUser() u: ReqUser, @Param('id') id: string) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     return this.svc.hardDeleteDevice(u.clientId, id);
   }
 
-  @ApiOperation({ summary: 'Enroll an employee face (admin, branch desk, or self-service)' })
+  @ApiOperation({
+    summary: 'Enroll an employee face (admin, branch desk, or self-service)',
+  })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Post('enroll')
   enroll(@CurrentUser() u: ReqUser, @Body() body: EnrollFaceDto) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.enrollFace(u.clientId, u.userId ?? null, body, allowedBranchIds);
+    return this.svc.enrollFace(
+      u.clientId,
+      u.userId ?? null,
+      body,
+      allowedBranchIds,
+    );
   }
 
-  @ApiOperation({ summary: 'List employees with face-enrollment status (Enrolled / Pending)' })
+  @ApiOperation({
+    summary: 'List employees with face-enrollment status (Enrolled / Pending)',
+  })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Get('enrollments')
   listEnrollments(@CurrentUser() u: ReqUser) {
@@ -90,7 +106,9 @@ export class MobileAttendanceAdminController {
     return this.svc.listEnrollmentStatus(u.clientId, allowedBranchIds);
   }
 
-  @ApiOperation({ summary: 'Deactivate an employee face enrollment (DPDP delete)' })
+  @ApiOperation({
+    summary: 'Deactivate an employee face enrollment (DPDP delete)',
+  })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Delete('enroll/:employeeId')
   deactivate(
@@ -131,7 +149,9 @@ export class MobileAttendanceAdminController {
     );
   }
 
-  @ApiOperation({ summary: 'List re-enrollment requests by status (default PENDING)' })
+  @ApiOperation({
+    summary: 'List re-enrollment requests by status (default PENDING)',
+  })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Get('reenroll-requests')
   listReenroll(
@@ -500,10 +520,7 @@ export class MobileAttendanceAdminController {
     const stamp = new Date().toISOString().slice(0, 10);
     const fileName = `face-failed-scans-${stamp}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${fileName}"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.end(lines.join('\r\n'));
   }
 
@@ -660,10 +677,7 @@ export class MobileAttendanceAdminController {
     const stamp = new Date().toISOString().slice(0, 10);
     const fileName = `face-failed-scans-stats-${stamp}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${fileName}"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.end(lines.join('\r\n'));
   }
 
@@ -771,14 +785,18 @@ function scopeBranchIds(u: ReqUser): string[] | null {
 export class MobileAttendanceDeviceController {
   constructor(private readonly svc: MobileAttendanceService) {}
 
-  @ApiOperation({ summary: 'Pull device config + employee roster (with embeddings)' })
+  @ApiOperation({
+    summary: 'Pull device config + employee roster (with embeddings)',
+  })
   @Get('roster')
   async roster(@Headers('x-device-token') token: string) {
     const dev = await this.svc.resolveDeviceByToken(token);
     return this.svc.roster(dev);
   }
 
-  @ApiOperation({ summary: 'ESS self-enroll — from the device-bound employee phone' })
+  @ApiOperation({
+    summary: 'ESS self-enroll — from the device-bound employee phone',
+  })
   @Post('enroll-self')
   async enrollSelf(
     @Headers('x-device-token') token: string,
@@ -798,7 +816,9 @@ export class MobileAttendanceDeviceController {
     return this.svc.recordPunch(dev, body);
   }
 
-  @ApiOperation({ summary: 'Submit a face-verified contractor attendance punch (KIOSK only)' })
+  @ApiOperation({
+    summary: 'Submit a face-verified contractor attendance punch (KIOSK only)',
+  })
   @Post('punch/contractor')
   async contractorPunch(
     @Headers('x-device-token') token: string,

@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import {
-  BlobServiceClient,
-  ContainerClient,
-} from '@azure/storage-blob';
+import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
 
 /**
  * Phase 3c: face-evidence storage.
@@ -108,12 +105,7 @@ export class FacePhotoStorage {
     const ymd = input.timestamp.toISOString().slice(0, 10);
     const ts = input.timestamp.getTime();
     const safeEmp = input.employeeCode.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const dir = path.join(
-      this.rootDir,
-      input.clientId,
-      input.purpose,
-      ymd,
-    );
+    const dir = path.join(this.rootDir, input.clientId, input.purpose, ymd);
     await fs.mkdir(dir, { recursive: true });
     const file = path.join(dir, `${safeEmp}-${ts}.jpg`);
     await fs.writeFile(file, buf);
