@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsInt,
   IsNotEmpty,
+  Matches,
   Min,
   Max,
 } from 'class-validator';
@@ -100,6 +101,11 @@ export class ReviewComplianceDocDto {
 }
 
 export class ChecklistQueryDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+  monthKey?: string;
+
   @IsOptional()
   @IsString()
   branchId?: string;

@@ -129,7 +129,7 @@ export class ComplianceApiService {
   // Use this for branch document checklist/dashboard, not crm/compliance-tasks.
   // =========================
 
-  branchGetChecklist(query?: { monthKey?: string }) {
+  branchGetChecklist(query?: { monthKey?: string; year?: number; month?: number }) {
     return this.http.get(this.v1('branch/compliance-docs/checklist'), {
       params: this.toParams(query || {}),
     });
@@ -145,7 +145,7 @@ export class ComplianceApiService {
     return this.http.post(this.v1('branch/compliance-docs/upload'), fd);
   }
 
-  branchDashboardKpis(query?: { monthKey?: string }) {
+  branchDashboardKpis(query?: { monthKey?: string; year?: number; month?: number }) {
     return this.http.get(this.v1('branch/compliance-docs/dashboard-kpis'), {
       params: this.toParams(query || {}),
     });
