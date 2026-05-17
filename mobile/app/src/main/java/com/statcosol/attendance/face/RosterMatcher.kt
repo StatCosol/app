@@ -22,8 +22,18 @@ class RosterMatcher(roster: List<RosterEntry>) {
      * Returns the best match (cosine-derived score in 0..1) or null when no
      * candidate beats [minScore]. Always logs the top-3 candidates so we can
      * diagnose false negatives in production logs (logcat tag: FaceMatch).
+     *
+     * In addition to the absolute [minScore] gate, the 1:N kiosk path also
+     * enforces an ambiguity margin: the best score must beat the 2nd-best
+     * by at least [minMargin]. Without this, a probe that scores ~0.79 on
+     * three different roster entries gets silently bound to whichever one
+     * happens to win by a hair of noise — i.e. the wrong person is accepted.
      */
-    fun match(probe: FloatArray, minScore: Double = 0.70): Match? {
+    fun match(
+        probe: FloatArray,
+        minScore: Double = 0.85,
+        minMargin: Double = 0.04,
+    ): Match? {
         if (entries.isEmpty()) {
             Log.w(TAG, "match() called with empty roster")
             return null
@@ -41,12 +51,24 @@ class RosterMatcher(roster: List<RosterEntry>) {
             Log.i(TAG, "match REJECT (best=${"%.3f".format(bestScore)} < $minScore) top: $topLog")
             return null
         }
+        // Ambiguity guard: require a clear winner over the runner-up.
+        if (scored.size >= 2) {
+            val secondScore = scored[1].second
+            val margin = bestScore - secondScore
+            if (margin < minMargin) {
+                Log.i(
+                    TAG,
+                    "match REJECT (ambiguous margin=${"%.3f".format(margin)} < $minMargin) top: $topLog",
+                )
+                return null
+            }
+        }
         Log.i(TAG, "match OK ${bestEntry.employeeCode} score=${"%.3f".format(bestScore)} top: $topLog")
         return Match(bestEntry, bestScore)
     }
 
     /** ESS path: 1:1 verify against the bound employee. */
-    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.70): Match? {
+    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.85): Match? {
         val target = entries.firstOrNull { it.first.employeeId == employeeId } ?: run {
             Log.w(TAG, "verify: bound employee $employeeId not in roster (size=${entries.size})")
             return null
