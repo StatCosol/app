@@ -470,7 +470,9 @@ export class MobileAttendanceService {
    * Hard-delete an employee face enrollment row. Use when the row is wrong
    * (e.g. enrolled with the wrong person's photo) and a clean re-enrollment
    * is needed. The `face_enrollment_history` audit log is preserved; we
-   * append a final `DELETE` row before removing the live enrollment.
+   * append a final `DELETE` row before removing the live enrollment, and
+   * wrap both writes in a single transaction so a partial failure can't
+   * leave the audit log inconsistent with the live table.
    */
   async deleteEnrollment(
     clientId: string,
@@ -486,15 +488,21 @@ export class MobileAttendanceService {
     if (allowedBranchIds && !allowedBranchIds.includes(row.branchId ?? '')) {
       throw new ForbiddenException('Employee is not in your branch scope');
     }
-    await this.logEnrollmentHistory({
-      employeeId,
-      clientId,
-      action: 'DELETE',
-      reason,
-      embeddingModel: row.embeddingModel ?? null,
-      actorUserId: by ?? null,
+    await this.faceRepo.manager.transaction(async (tx) => {
+      await tx.query(
+        `INSERT INTO face_enrollment_history
+           (employee_id, client_id, action, reason, embedding_model, actor_user_id)
+         VALUES ($1, $2, 'DELETE', $3, $4, $5)`,
+        [
+          employeeId,
+          clientId,
+          reason,
+          row.embeddingModel ?? null,
+          by ?? null,
+        ],
+      );
+      await tx.delete(FaceEnrollmentEntity, { employeeId, clientId });
     });
-    await this.faceRepo.remove(row);
     return { ok: true, deleted: true, employeeId };
   }
 
@@ -1868,7 +1876,8 @@ export class MobileAttendanceService {
 
   /**
    * Hard-delete a contractor face enrollment row. Mirror of
-   * `deleteEnrollment` for contractor employees.
+   * `deleteEnrollment` for contractor employees. Audit-log append and
+   * row removal run in a single transaction.
    */
   async deleteContractorEnrollment(
     clientId: string,
@@ -1886,15 +1895,25 @@ export class MobileAttendanceService {
         'Contractor employee is not in your branch scope',
       );
     }
-    await this.logContractorEnrollmentHistory({
-      contractorEmployeeId,
-      clientId,
-      action: 'DELETE',
-      reason,
-      embeddingModel: row.embeddingModel ?? null,
-      actorUserId: by ?? null,
+    await this.contractorFaceRepo.manager.transaction(async (tx) => {
+      await tx.query(
+        `INSERT INTO contractor_face_enrollment_history
+           (contractor_employee_id, client_id, action, reason,
+            embedding_model, actor_user_id)
+         VALUES ($1, $2, 'DELETE', $3, $4, $5)`,
+        [
+          contractorEmployeeId,
+          clientId,
+          reason,
+          row.embeddingModel ?? null,
+          by ?? null,
+        ],
+      );
+      await tx.delete(ContractorFaceEnrollmentEntity, {
+        contractorEmployeeId,
+        clientId,
+      });
     });
-    await this.contractorFaceRepo.remove(row);
     return { ok: true, deleted: true, contractorEmployeeId };
   }
 
