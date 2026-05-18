@@ -97,42 +97,33 @@ interface EnrollForm {
           </div>
 
           <ng-container *ngIf="subjectCount">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label for="enroll-subj" class="block text-xs font-medium text-gray-600 mb-1">
-                  {{ subjectType === 'contractor' ? 'Contractor Employee' : 'Employee' }}
-                </label>
-                <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" (ngModelChange)="onEnrollSubjectChange()" class="ui-input">
-                  <option value="">— Select —</option>
-                  <ng-container *ngIf="subjectType === 'employee'">
-                    <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
-                  </ng-container>
-                  <ng-container *ngIf="subjectType === 'contractor'">
-                    <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span></option>
-                  </ng-container>
-                </select>
-              </div>
-              <div>
-                <label for="enroll-photo" class="block text-xs font-medium text-gray-600 mb-1">
-                  Reference Photo (clear, well-lit, front-facing)
-                </label>
-                <input id="enroll-photo" name="photo" type="file" accept="image/jpeg,image/png" capture="user"
-                  (change)="onPhotoChosen($event)" class="ui-input">
-                <p class="text-xs text-gray-500 mt-1">Or use the live camera below.</p>
-                <p *ngIf="enrollForm.photoFileName" class="text-xs text-emerald-700 mt-1">
-                  ✓ {{ enrollForm.photoFileName }} ({{ photoKB }} KB) ready
-                </p>
-              </div>
+            <div>
+              <label for="enroll-subj" class="block text-xs font-medium text-gray-600 mb-1">
+                {{ subjectType === 'contractor' ? 'Contractor Employee' : 'Employee' }}
+              </label>
+              <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" (ngModelChange)="onEnrollSubjectChange()" class="ui-input">
+                <option value="">— Select —</option>
+                <ng-container *ngIf="subjectType === 'employee'">
+                  <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
+                </ng-container>
+                <ng-container *ngIf="subjectType === 'contractor'">
+                  <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span></option>
+                </ng-container>
+              </select>
             </div>
 
-            <!-- Live camera capture -->
+            <!-- Live camera capture (only enrollment method — uploads disabled by design) -->
             <div class="mt-4 border-t border-gray-100 pt-4">
               <div class="flex items-center justify-between mb-2">
-                <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
+                <div>
+                  <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
+                  <p class="text-xs text-gray-500">Capture a clear, well-lit, front-facing photo using the camera.</p>
+                </div>
                 <div class="flex gap-2">
                   <ui-button *ngIf="!cameraActive" variant="secondary" size="sm" (clicked)="startCamera()">Start Camera</ui-button>
                   <ui-button *ngIf="cameraActive" variant="primary" size="sm" (clicked)="capturePhoto()">📷 Capture</ui-button>
                   <ui-button *ngIf="cameraActive" variant="secondary" size="sm" (clicked)="stopCamera()">Stop</ui-button>
+                  <ui-button *ngIf="!cameraActive && enrollForm.photoBase64" variant="secondary" size="sm" (clicked)="clearCapturedPhoto()">Retake</ui-button>
                 </div>
               </div>
               <div class="relative bg-gray-900 rounded-lg overflow-hidden" [style.maxWidth.px]="480" [style.aspectRatio]="'4 / 3'">
@@ -141,6 +132,9 @@ interface EnrollForm {
                   Camera off — click “Start Camera” to begin
                 </div>
               </div>
+              <p *ngIf="!cameraActive && enrollForm.photoBase64" class="text-xs text-emerald-700 mt-2">
+                ✓ Photo captured ({{ photoKB }} KB) — ready to enroll
+              </p>
               <p *ngIf="cameraError" class="text-xs text-red-600 mt-2">{{ cameraError }}</p>
               <canvas #cameraCanvas hidden></canvas>
             </div>
@@ -411,29 +405,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       });
   }
 
-  onPhotoChosen(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      this.toast.error('Photo too large (max 5 MB)');
-      input.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
-      const comma = dataUrl.indexOf(',');
-      this.enrollForm.photoBase64 = comma >= 0 ? dataUrl.substring(comma + 1) : dataUrl;
-      this.enrollForm.photoMime = file.type || 'image/jpeg';
-      this.enrollForm.photoFileName = file.name;
-      this.toast.success('Photo loaded — ready to enroll');
-      this.cdr.markForCheck();
-    };
-    reader.onerror = () => this.toast.error('Failed to read photo');
-    reader.readAsDataURL(file);
-  }
-
   // ── Live camera ──────────────────────────────────────────
   async startCamera(): Promise<void> {
     this.cameraError = '';
@@ -627,7 +598,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   submitEnroll(): void {
     this.enrollError = '';
     if (!this.canEnroll) {
-      this.enrollError = 'Select a subject, attach a photo, and tick consent';
+      this.enrollError = 'Select a subject, capture a photo from the live camera, and tick consent';
       return;
     }
     this.enrolling = true;

@@ -233,30 +233,26 @@ interface BranchOption { id: string; name: string }
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
           <h3 class="font-semibold text-gray-900 mb-3">Enroll an Employee Face</h3>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label for="enroll-emp" class="block text-xs font-medium text-gray-600 mb-1">Employee</label>
-              <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" (ngModelChange)="onEnrollEmployeeChange()" class="ui-input">
-                <option value="">— Select employee —</option>
-                <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
-              </select>
-            </div>
-            <div>
-              <label for="enroll-photo" class="block text-xs font-medium text-gray-600 mb-1">Reference Photo (clear, well-lit, front-facing)</label>
-              <input id="enroll-photo" name="photo" type="file" accept="image/jpeg,image/png" capture="user" (change)="onPhotoChosen($event)" class="ui-input">
-              <p class="text-xs text-gray-500 mt-1">Or use the live camera below.</p>
-              <p *ngIf="enrollForm.photoFileName" class="text-xs text-emerald-700 mt-1">✓ {{ enrollForm.photoFileName }} ({{ photoKB }} KB) ready</p>
-            </div>
+          <div>
+            <label for="enroll-emp" class="block text-xs font-medium text-gray-600 mb-1">Employee</label>
+            <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" (ngModelChange)="onEnrollEmployeeChange()" class="ui-input">
+              <option value="">— Select employee —</option>
+              <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
+            </select>
           </div>
 
-          <!-- Live camera capture -->
+          <!-- Live camera capture (only enrollment method — uploads disabled by design) -->
           <div class="mt-4 border-t border-gray-100 pt-4">
             <div class="flex items-center justify-between mb-2">
-              <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
+              <div>
+                <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
+                <p class="text-xs text-gray-500">Capture a clear, well-lit, front-facing photo using the camera.</p>
+              </div>
               <div class="flex gap-2">
                 <ui-button *ngIf="!cameraActive" variant="secondary" size="sm" (clicked)="startCamera()">Start Camera</ui-button>
                 <ui-button *ngIf="cameraActive" variant="primary" size="sm" (clicked)="capturePhoto()">📷 Capture</ui-button>
                 <ui-button *ngIf="cameraActive" variant="secondary" size="sm" (clicked)="stopCamera()">Stop</ui-button>
+                <ui-button *ngIf="!cameraActive && enrollForm.photoBase64" variant="secondary" size="sm" (clicked)="clearCapturedPhoto()">Retake</ui-button>
               </div>
             </div>
             <div class="relative bg-gray-900 rounded-lg overflow-hidden" [style.maxWidth.px]="480" [style.aspectRatio]="'4 / 3'">
@@ -265,6 +261,9 @@ interface BranchOption { id: string; name: string }
                 Camera off — click “Start Camera” to begin
               </div>
             </div>
+            <p *ngIf="!cameraActive && enrollForm.photoBase64" class="text-xs text-emerald-700 mt-2">
+              ✓ Photo captured ({{ photoKB }} KB) — ready to enroll
+            </p>
             <p *ngIf="cameraError" class="text-xs text-red-600 mt-2">{{ cameraError }}</p>
             <canvas #cameraCanvas hidden></canvas>
           </div>
@@ -902,30 +901,6 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   get photoKB(): number {
     return Math.round(this.enrollForm.photoSize / 1024);
-  }
-
-  onPhotoChosen(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      this.toast.error('Photo too large (max 5 MB)');
-      input.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
-      const comma = dataUrl.indexOf(',');
-      this.enrollForm.photoBase64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-      this.enrollForm.photoMime = file.type || 'image/jpeg';
-      this.enrollForm.photoFileName = file.name;
-      this.enrollForm.photoSize = file.size;
-      this.toast.success('Photo loaded — ready to enroll');
-      this.bump();
-    };
-    reader.onerror = () => this.toast.error('Failed to read photo');
-    reader.readAsDataURL(file);
   }
 
   // ── Live camera ──────────────────────────────────────────
