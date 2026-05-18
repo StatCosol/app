@@ -44,6 +44,16 @@ class EnrollActivity : AppCompatActivity() {
     private var pending: CompletableDeferred<FloatArray>? = null
     private var enrolling = false
 
+    /** Wall-clock of the last accepted frame; used to enforce a minimum
+     *  spacing between captures so we don't average 5 near-identical
+     *  frames produced inside ~100 ms. */
+    @Volatile private var lastAcceptedAtMs: Long = 0L
+    /** Running unit-norm average of accepted embeddings. Each new candidate
+     *  frame must be at least [MIN_PROBE_TO_AVG_COS] cosine-similar to this
+     *  vector before we accept it, so a different face wandering into the
+     *  view can't pollute the enrollment template. */
+    private var runningAvg: FloatArray? = null
+
     private val cameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) startCamera()
@@ -74,11 +84,28 @@ class EnrollActivity : AppCompatActivity() {
             previewView = binding.previewView,
             scope = lifecycleScope,
             onFace = { probe, liveness ->
-                pending?.let { p ->
-                    if (!p.isCompleted && liveness >= MIN_LIVENESS) {
-                        p.complete(probe)
-                    }
+                val p = pending ?: return@FaceCaptureSession
+                if (p.isCompleted) return@FaceCaptureSession
+                // Tighter liveness gate during enrollment so the template
+                // is built from clearly-live frames only.
+                if (liveness < MIN_LIVENESS) return@FaceCaptureSession
+                // Temporal spacing: skip frames that arrive too quickly
+                // after the previous accepted one (avoids 5 near-identical
+                // copies of the same instant).
+                val now = System.currentTimeMillis()
+                if (now - lastAcceptedAtMs < MIN_FRAME_INTERVAL_MS) {
+                    return@FaceCaptureSession
                 }
+                // Consistency gate: starting from the second frame, the
+                // candidate must be cosine-similar to the running average.
+                // Rejects bystanders who briefly enter the view.
+                val avg = runningAvg
+                if (avg != null) {
+                    val cos = cosine(avg, probe)
+                    if (cos < MIN_PROBE_TO_AVG_COS) return@FaceCaptureSession
+                }
+                lastAcceptedAtMs = now
+                p.complete(probe)
             },
         ).also { it.start() }
     }
@@ -92,6 +119,8 @@ class EnrollActivity : AppCompatActivity() {
         enrolling = true
         binding.captureBtn.isEnabled = false
         collected.clear()
+        runningAvg = null
+        lastAcceptedAtMs = 0L
         renderProgress()
 
         lifecycleScope.launch {
@@ -106,11 +135,26 @@ class EnrollActivity : AppCompatActivity() {
                         return@launch
                     }
                     collected += frame
+                    runningAvg = averageAndNormalize(collected)
                     renderProgress()
                 }
 
+                // Final consistency check: every accepted frame must be
+                // strongly similar to the averaged template. Any outlier
+                // means a different face slipped in (e.g. the user
+                // swapped places mid-capture) — better to fail and retry
+                // than to enroll a polluted vector.
+                val averaged = runningAvg ?: averageAndNormalize(collected)
+                val minCos = collected.minOf { cosine(averaged, it) }
+                if (minCos < MIN_PROBE_TO_AVG_COS) {
+                    binding.statusText.text = getString(
+                        R.string.enroll_failed,
+                        "frames inconsistent (please retry, keeping the same face in view)",
+                    )
+                    return@launch
+                }
+
                 binding.statusText.text = getString(R.string.enroll_uploading)
-                val averaged = averageAndNormalize(collected)
                 val b64 = floatArrayToBase64(averaged)
                 val resp = withContext(Dispatchers.IO) {
                     app.apiClient.enrollSelf(EnrollSelfBody(embeddingBase64 = b64))
@@ -156,9 +200,28 @@ class EnrollActivity : AppCompatActivity() {
         return Base64.encodeToString(bb.array(), Base64.NO_WRAP)
     }
 
+    /** Plain cosine of two equal-length vectors; embeddings coming out of
+     *  the embedder are already L2-normalised so this is a dot product
+     *  in (-1, 1). */
+    private fun cosine(a: FloatArray, b: FloatArray): Double {
+        if (a.size != b.size) return 0.0
+        var dot = 0.0
+        for (i in a.indices) dot += a[i].toDouble() * b[i]
+        return dot
+    }
+
     companion object {
-        private const val REQUIRED_FRAMES = 5
-        private const val MIN_LIVENESS = 0.5
+        private const val REQUIRED_FRAMES = 8
+        private const val MIN_LIVENESS = 0.7
         private const val CAPTURE_TIMEOUT_MS = 15_000L
+        /** Minimum wall-clock gap between accepted enrollment frames so
+         *  the captured set covers a small window of expressions and
+         *  micro-poses, not a single instant. */
+        private const val MIN_FRAME_INTERVAL_MS = 350L
+        /** Each new candidate (and the final accepted set) must have at
+         *  least this cosine similarity to the running average. Tuned to
+         *  reject a different face wandering into view while keeping
+         *  natural micro-expression variance. */
+        private const val MIN_PROBE_TO_AVG_COS = 0.78
     }
 }

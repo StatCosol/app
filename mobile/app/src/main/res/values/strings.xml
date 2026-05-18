@@ -50,7 +50,7 @@
     <string name="permission_location_required">Location permission is required for ESS mode geofence.</string>
 
     <string name="enroll_title">Enroll Face</string>
-    <string name="enroll_intro">We need 5 clear selfies to enroll your face. Look at the camera and stay still.</string>
+    <string name="enroll_intro">We need 8 clear selfies to enroll your face. Look straight at the camera, keep still, and make sure no one else is in the frame.</string>
     <string name="enroll_consent">I consent to processing of my facial biometric data for attendance purposes (DPDP Act).</string>
     <string name="enroll_progress">Captured %1$d of %2$d</string>
     <string name="enroll_capture_btn">Start Enrollment</string>

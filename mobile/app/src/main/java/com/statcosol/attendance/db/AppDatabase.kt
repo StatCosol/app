@@ -27,6 +27,8 @@ data class QueuedPunch(
      *  not run a challenge (e.g. older queued rows after upgrade). */
     val livenessChallengeType: String? = null,
     val livenessChallengePassedAtIso: String? = null,
+    /** Phase 3f: probe embedding (b64) for server-side match re-verification. */
+    val probeEmbeddingB64: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val attempts: Int = 0
 )
@@ -49,7 +51,7 @@ interface PunchDao {
     suspend fun count(): Int
 }
 
-@Database(entities = [QueuedPunch::class], version = 2, exportSchema = false)
+@Database(entities = [QueuedPunch::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun punchDao(): PunchDao
 

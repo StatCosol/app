@@ -80,6 +80,9 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var pendingChallengeLiveness: Double = 0.0
     @Volatile private var pendingChallengeDirection: String = "IN"
     @Volatile private var pendingChallengeTracker: LivenessChallengeTracker? = null
+    /** Phase 3f: probe embedding captured in [handleFace], forwarded to the
+     *  server in [recordPunch] for cosine re-verification. */
+    @Volatile private var pendingChallengeProbe: FloatArray? = null
     private val pendingChallengeTimeout = Runnable { abortChallenge(timedOut = true) }
 
     /** Voice feedback for noisy factory floors. Best-effort — silently
@@ -135,6 +138,8 @@ class KioskActivity : AppCompatActivity() {
         setupAdminExit()
 
         loadRoster()
+        mainHandler.removeCallbacks(rosterRefreshRunnable)
+        mainHandler.postDelayed(rosterRefreshRunnable, ROSTER_REFRESH_MS)
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
@@ -148,6 +153,7 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(hideOverlayRunnable)
         mainHandler.removeCallbacks(clockRunnable)
         mainHandler.removeCallbacks(pendingChallengeTimeout)
+        mainHandler.removeCallbacks(rosterRefreshRunnable)
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -273,8 +279,21 @@ class KioskActivity : AppCompatActivity() {
                     binding.statusText.text = getString(R.string.roster_empty)
                 }
             } catch (e: Exception) {
-                binding.statusText.text = "Roster load failed: ${e.message}"
+                // Soft-fail on refresh: keep the cached matcher in use rather
+                // than dropping all employees if the API blips.
+                if (matcher == null) {
+                    binding.statusText.text = "Roster load failed: ${e.message}"
+                }
             }
+        }
+    }
+
+    /** Phase 3f: re-fetch the roster every [ROSTER_REFRESH_MS] so newly
+     *  enrolled employees become matchable without restarting the kiosk. */
+    private val rosterRefreshRunnable = object : Runnable {
+        override fun run() {
+            loadRoster()
+            mainHandler.postDelayed(this, ROSTER_REFRESH_MS)
         }
     }
 
@@ -336,12 +355,14 @@ class KioskActivity : AppCompatActivity() {
         when {
             prev == null -> {
                 // First time today on this device -> log them IN immediately.
+                pendingChallengeProbe = probe
                 beginChallenge(match, "IN", liveness)
             }
             prev.direction == "IN" -> {
                 // Already punched in today — confirm before queuing OUT so accidental
                 // looks at the camera don't log the user out.
                 lastPunchAt = now  // still throttle so we don't spam the dialog
+                pendingChallengeProbe = probe
                 runOnUiThread { showLogoutConfirmation(match, liveness) }
             }
             else -> {
@@ -397,6 +418,7 @@ class KioskActivity : AppCompatActivity() {
         if (pendingChallengeTracker == null) return
         pendingChallengeTracker = null
         pendingChallengeMatch = null
+        pendingChallengeProbe = null
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         // Reset cooldown so a determined user can immediately retry.
         lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
@@ -461,9 +483,11 @@ class KioskActivity : AppCompatActivity() {
         val tracker = pendingChallengeTracker
         val challengeType = tracker?.challenge?.wireName
         val challengePassedAt = tracker?.passedAtIso()
+        val probe = pendingChallengeProbe
         // Clear before any UI work so a stale tracker can't re-fire.
         pendingChallengeTracker = null
         pendingChallengeMatch = null
+        pendingChallengeProbe = null
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         val q = QueuedPunch(
             employeeId = match.entry.employeeId,
@@ -477,6 +501,7 @@ class KioskActivity : AppCompatActivity() {
             captureAccuracyM = null,
             livenessChallengeType = challengeType,
             livenessChallengePassedAtIso = challengePassedAt,
+            probeEmbeddingB64 = probe?.let { com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(it) },
         )
         withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
         WorkManager.getInstance(this).enqueue(
@@ -554,5 +579,8 @@ class KioskActivity : AppCompatActivity() {
          *  a head-turn but short enough that a person who walks away
          *  doesn't pin the kiosk in challenge mode. */
         private const val CHALLENGE_TIMEOUT_MS = 8_000L
+        /** Phase 3f: re-fetch the roster every 5 minutes so freshly
+         *  enrolled employees become matchable without restarting. */
+        private const val ROSTER_REFRESH_MS = 5 * 60_000L
     }
 }

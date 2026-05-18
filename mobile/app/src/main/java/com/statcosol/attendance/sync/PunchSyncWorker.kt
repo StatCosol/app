@@ -38,6 +38,7 @@ class PunchSyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
                     offlineSync = true,
                     livenessChallengeType = q.livenessChallengeType,
                     livenessChallengePassedAt = q.livenessChallengePassedAtIso,
+                    probeEmbeddingB64 = q.probeEmbeddingB64,
                 )
                 val resp = api.postPunch(body)
                 if (resp.ok) {
