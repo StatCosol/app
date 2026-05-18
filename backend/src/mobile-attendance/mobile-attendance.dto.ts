@@ -165,6 +165,18 @@ export class MobilePunchDto {
   @IsString()
   matchProvider?: string;
 
+  /**
+   * Phase 3f: on-device probe embedding (192-d Float32 little-endian,
+   * base64-encoded — same encoding as RosterEntry.embeddingB64). When
+   * present the server recomputes the cosine match against the stored
+   * enrollment and overrides `matchScore` with that server-computed value.
+   * Old APKs that omit this field fall through to the legacy device-trusted
+   * `matchScore` gate.
+   */
+  @IsOptional()
+  @IsString()
+  probeEmbeddingB64?: string;
+
   /** Optional captured photo (base64, no data: prefix) for audit / Azure verify. */
   @IsOptional()
   @IsString()
@@ -257,6 +269,11 @@ export class ContractorMobilePunchDto {
   @IsOptional()
   @IsString()
   matchProvider?: string;
+
+  /** Phase 3f: see MobilePunchDto.probeEmbeddingB64. */
+  @IsOptional()
+  @IsString()
+  probeEmbeddingB64?: string;
 
   @IsOptional()
   @IsString()

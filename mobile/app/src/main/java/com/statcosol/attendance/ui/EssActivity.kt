@@ -28,6 +28,9 @@ import com.statcosol.attendance.security.IntegrityCheck
 import com.statcosol.attendance.sync.PunchSyncWorker
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -124,9 +127,28 @@ class EssActivity : AppCompatActivity() {
                     finish()
                 }
             } catch (e: Exception) {
-                binding.statusText.text = "Roster load failed: ${e.message}"
+                // Soft-fail on refresh: only surface when we have no roster yet.
+                if (roster == null) {
+                    binding.statusText.text = "Roster load failed: ${e.message}"
+                }
             }
         }
+        if (rosterRefreshJob == null) {
+            rosterRefreshJob = lifecycleScope.launch {
+                while (isActive) {
+                    delay(ROSTER_REFRESH_MS)
+                    loadRoster()
+                }
+            }
+        }
+    }
+
+    private var rosterRefreshJob: Job? = null
+
+    override fun onDestroy() {
+        rosterRefreshJob?.cancel()
+        rosterRefreshJob = null
+        super.onDestroy()
     }
 
     private fun startCamera() {
@@ -245,6 +267,7 @@ class EssActivity : AppCompatActivity() {
                     captureAccuracyM = location.accuracy.toDouble(),
                     livenessChallengeType = tracker.challenge.wireName,
                     livenessChallengePassedAtIso = tracker.passedAtIso(),
+                    probeEmbeddingB64 = com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(probe),
                 )
                 withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
                 WorkManager.getInstance(this@EssActivity).enqueue(
@@ -306,5 +329,8 @@ class EssActivity : AppCompatActivity() {
         private const val MIN_LIVENESS = 0.5
         private const val CAPTURE_TIMEOUT_MS = 10_000L
         private const val CHALLENGE_TIMEOUT_MS = 8_000L
+        /** Phase 3f: re-fetch the roster every 5 minutes so freshly
+         *  enrolled employees become matchable without restarting. */
+        private const val ROSTER_REFRESH_MS = 5 * 60_000L
     }
 }

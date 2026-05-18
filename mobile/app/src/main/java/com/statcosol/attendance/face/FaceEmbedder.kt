@@ -99,5 +99,12 @@ class FaceEmbedder(context: Context) {
             for (i in floats.indices) floats[i] = bb.float
             return floats
         }
+
+        /** Encode a Float32 embedding into base64 little-endian bytes (mirror of [decodeEmbeddingB64]). */
+        fun encodeEmbeddingB64(emb: FloatArray): String {
+            val bb = java.nio.ByteBuffer.allocate(emb.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (v in emb) bb.putFloat(v)
+            return Base64.encodeToString(bb.array(), Base64.NO_WRAP)
+        }
     }
 }

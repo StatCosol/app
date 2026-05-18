@@ -65,7 +65,9 @@ const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queu
 // looser than the per-punch MIN_MATCH_SCORE (0.85) on purpose — we don't
 // want a single bad enrollment frame to wedge a real employee out — but
 // tight enough to keep the actual same-face-twice case caught.
-const DUPLICATE_FACE_THRESHOLD = 0.88;
+const DUPLICATE_FACE_THRESHOLD = Number(
+  process.env.FACE_DUPLICATE_THRESHOLD || 0.97,
+);
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
 // 8-hour gap between a shift end and the next shift start, even if the
@@ -493,13 +495,7 @@ export class MobileAttendanceService {
         `INSERT INTO face_enrollment_history
            (employee_id, client_id, action, reason, embedding_model, actor_user_id)
          VALUES ($1, $2, 'DELETE', $3, $4, $5)`,
-        [
-          employeeId,
-          clientId,
-          reason,
-          row.embeddingModel ?? null,
-          by ?? null,
-        ],
+        [employeeId, clientId, reason, row.embeddingModel ?? null, by ?? null],
       );
       await tx.delete(FaceEnrollmentEntity, { employeeId, clientId });
     });
@@ -1161,6 +1157,22 @@ export class MobileAttendanceService {
     });
     if (!emp) throw new NotFoundException('Employee not found');
 
+    // Phase 3f hardening: the device-side matcher may be stale (e.g. an
+    // enrollment was deleted/re-assigned after the kiosk last fetched the
+    // roster). Without this guard a stale matcher could keep posting
+    // punches for a deleted enrollment until the roster TTL refresh
+    // catches up. Require an active face enrollment for the claimed
+    // employee before accepting any punch.
+    const activeEnrollment = await this.faceRepo.findOne({
+      where: { employeeId: emp.id, clientId: device.clientId, isActive: true },
+    });
+    if (!activeEnrollment) {
+      throw new ForbiddenException(
+        `No active face enrollment for employee ${emp.employeeCode ?? emp.id} — ` +
+          `the device roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
     // Employee-status gate: inactive, resigned, or already-exited employees
     // cannot punch. exitDate is a yyyy-mm-dd string in IST; if today >= exit
     // we treat them as separated.
@@ -1194,7 +1206,28 @@ export class MobileAttendanceService {
     }
 
     // Quality gates — reject low confidence / liveness
-    if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
+    //
+    // Phase 3f: server-side embedding re-verification. When the device
+    // includes its probe embedding we recompute the cosine against the
+    // stored enrollment and use THAT score for the threshold gate, since
+    // a tampered APK could otherwise post any matchScore for any
+    // employeeId. Falls through to the device-trusted matchScore gate when
+    // the probe is absent (old APKs).
+    let effectiveMatchScore: number | null = body.matchScore ?? null;
+    if (body.probeEmbeddingB64) {
+      const serverScore = await this.verifyProbeAgainstEnrollment(
+        body.probeEmbeddingB64,
+        emp.id,
+        device.clientId,
+        false,
+      );
+      effectiveMatchScore = serverScore;
+      if (serverScore < MIN_MATCH_SCORE) {
+        throw new BadRequestException(
+          `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
+        );
+      }
+    } else if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
         `Face match score ${body.matchScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
       );
@@ -1384,7 +1417,7 @@ export class MobileAttendanceService {
         body.captureLng ?? null,
         body.captureAccuracyM ?? null,
         photoUrl,
-        body.matchScore ?? null,
+        effectiveMatchScore,
         body.livenessScore ?? null,
         body.matchProvider ?? 'mobilefacenet',
         source,
@@ -1463,6 +1496,23 @@ export class MobileAttendanceService {
     });
     if (!ctr) throw new NotFoundException('Contractor employee not found');
 
+    // Phase 3f hardening parity: require an active contractor face
+    // enrollment so a stale kiosk roster cannot keep posting punches
+    // against a deleted enrollment. See _recordPunchInner for rationale.
+    const activeCtrEnrollment = await this.contractorFaceRepo.findOne({
+      where: {
+        contractorEmployeeId: ctr.id,
+        clientId: device.clientId,
+        isActive: true,
+      },
+    });
+    if (!activeCtrEnrollment) {
+      throw new ForbiddenException(
+        `No active face enrollment for contractor ${ctr.id} — the device ` +
+          `roster is stale. Please re-open the app to refresh.`,
+      );
+    }
+
     // Integrity gates BEFORE quality so spoofed punches surface clearly.
     if (body.isMockLocation === true) {
       throw new ForbiddenException(
@@ -1483,6 +1533,23 @@ export class MobileAttendanceService {
     }
     if (body.livenessScore != null && body.livenessScore < MIN_LIVENESS_SCORE) {
       throw new BadRequestException('Liveness check failed');
+    }
+
+    // Phase 3f: server-side embedding re-verification (contractor parity).
+    let effectiveMatchScore: number | null = body.matchScore ?? null;
+    if (body.probeEmbeddingB64) {
+      const serverScore = await this.verifyProbeAgainstEnrollment(
+        body.probeEmbeddingB64,
+        ctr.id,
+        device.clientId,
+        true,
+      );
+      effectiveMatchScore = serverScore;
+      if (serverScore < MIN_MATCH_SCORE) {
+        throw new BadRequestException(
+          `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
+        );
+      }
     }
 
     if (LIVENESS_CHALLENGE_REQUIRED) {
@@ -1591,7 +1658,7 @@ export class MobileAttendanceService {
           body.captureLng ?? null,
           body.captureAccuracyM ?? null,
           photoUrl,
-          body.matchScore ?? null,
+          effectiveMatchScore,
           body.livenessScore ?? null,
           body.matchProvider ?? 'mobilefacenet',
         ],
@@ -1607,6 +1674,57 @@ export class MobileAttendanceService {
       punchTime: ts.toISOString(),
       mode: device.mode,
     };
+  }
+
+  // ------------------------------------------------ embedding verification
+
+  /**
+   * Phase 3f: recompute cosine match between a device-supplied probe
+   * embedding (base64 little-endian Float32, 192 dims) and the stored
+   * enrollment for the given employee / contractor employee. Returns the
+   * server-computed match score in [0,1]. Throws when the probe is
+   * malformed, no active enrollment exists, or the dimensions disagree.
+   */
+  private async verifyProbeAgainstEnrollment(
+    probeB64: string,
+    subjectId: string,
+    clientId: string,
+    isContractor: boolean,
+  ): Promise<number> {
+    let probeBuf: Buffer;
+    try {
+      probeBuf = Buffer.from(probeB64, 'base64');
+    } catch {
+      throw new BadRequestException('Invalid probe embedding encoding');
+    }
+    const probe = decodeEmbedding(probeBuf);
+    if (!probe) {
+      throw new BadRequestException('Malformed probe embedding');
+    }
+
+    const enrollment = isContractor
+      ? await this.contractorFaceRepo.findOne({
+          where: { contractorEmployeeId: subjectId, clientId, isActive: true },
+        })
+      : await this.faceRepo.findOne({
+          where: { employeeId: subjectId, clientId, isActive: true },
+        });
+    if (!enrollment || !enrollment.embedding) {
+      throw new BadRequestException(
+        'No active face enrollment found for this subject',
+      );
+    }
+    const stored = decodeEmbedding(enrollment.embedding);
+    if (!stored) {
+      throw new BadRequestException('Stored enrollment is malformed');
+    }
+    if (stored.length !== probe.length) {
+      throw new BadRequestException(
+        `Probe/enrollment dimension mismatch (probe=${probe.length}, stored=${stored.length})`,
+      );
+    }
+    const cos = cosineSim(probe, stored);
+    return toMatchScore(cos);
   }
 
   // ----------------------------------------------------------- audit logs

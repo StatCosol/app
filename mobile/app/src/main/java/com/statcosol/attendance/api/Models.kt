@@ -40,6 +40,9 @@ data class PunchBody(
     val captureLng: Double?,
     val captureAccuracyM: Double?,
     val photoB64: String? = null,
+    /** Phase 3f: device probe embedding (192 floats LE -> base64) so the
+     *  server can recompute the match and reject tampered matchScore values. */
+    val probeEmbeddingB64: String? = null,
     /** Phase 3a: integrity hints sent to the server gate. */
     val isMockLocation: Boolean? = null,
     val isRooted: Boolean? = null,
