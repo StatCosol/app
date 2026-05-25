@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Headers,
   Param,
@@ -82,18 +83,20 @@ export class MobileAttendanceAdminController {
   }
 
   @ApiOperation({
-    summary: 'Enroll an employee face (admin, branch desk, or self-service)',
+    summary:
+      'DISABLED — face enrollment must be performed from the employee\'s paired ESS device',
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Post('enroll')
-  enroll(@CurrentUser() u: ReqUser, @Body() body: EnrollFaceDto) {
-    if (!u?.clientId) throw new BadRequestException('Client context required');
-    const allowedBranchIds = scopeBranchIds(u);
-    return this.svc.enrollFace(
-      u.clientId,
-      u.userId ?? null,
-      body,
-      allowedBranchIds,
+  enroll(@CurrentUser() _u: ReqUser, @Body() _body: EnrollFaceDto) {
+    // Admin-side enrollment was retired so every employee embedding originates
+    // from a paired ESS device (X-Device-Token + live 5-frame averaging).
+    // Use POST /mobile-attendance/enroll-self from the device, or raise a
+    // re-enrollment request for the audited admin escape hatch.
+    throw new ForbiddenException(
+      'Face enrollment must be done from the employee\'s registered ESS mobile device. ' +
+        'Pair the device, sign in, and use the in-app self-enroll flow. ' +
+        'For exceptions, raise a re-enrollment request.',
     );
   }
 
