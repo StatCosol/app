@@ -280,7 +280,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadStartUrl() {
-        val url = prefs.getString(KEY_PORTAL_URL, null) ?: BuildConfig.DEFAULT_PORTAL_URL
+        val stored = prefs.getString(KEY_PORTAL_URL, null)
+        val url = if (stored != null && isAllowedUrl(stored)) {
+            stored
+        } else {
+            // Clear any previously-saved out-of-allowlist URL so the hidden
+            // settings dialog can't be used to silently pin the app to a
+            // phishing host across launches.
+            if (stored != null) prefs.edit().remove(KEY_PORTAL_URL).apply()
+            BuildConfig.DEFAULT_PORTAL_URL
+        }
         if (!isOnline()) {
             binding.offlineBanner.visibility = android.view.View.VISIBLE
         }
@@ -290,6 +299,19 @@ class MainActivity : AppCompatActivity() {
     private fun isAllowedHost(host: String): Boolean {
         val suffix = BuildConfig.ALLOWED_HOST_SUFFIX
         return host == suffix || host.endsWith(".$suffix")
+    }
+
+    private fun isAllowedUrl(raw: String): Boolean {
+        return try {
+            val u = Uri.parse(raw)
+            val scheme = u.scheme?.lowercase()
+            val host = u.host?.lowercase()
+            if (scheme != "https" && scheme != "http") return false
+            if (host.isNullOrBlank()) return false
+            isAllowedHost(host)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun isOnline(): Boolean {
@@ -319,9 +341,19 @@ class MainActivity : AppCompatActivity() {
             .setView(container)
             .setPositiveButton(R.string.settings_save) { _, _ ->
                 val v = input.text.toString().trim()
-                val target = if (v.startsWith("http")) v else BuildConfig.DEFAULT_PORTAL_URL
-                prefs.edit().putString(KEY_PORTAL_URL, target).apply()
-                binding.webView.loadUrl(target)
+                if (isAllowedUrl(v)) {
+                    prefs.edit().putString(KEY_PORTAL_URL, v).apply()
+                    binding.webView.loadUrl(v)
+                } else {
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.settings_invalid_host,
+                            BuildConfig.ALLOWED_HOST_SUFFIX,
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
             }
             .setNeutralButton(R.string.settings_reset) { _, _ ->
                 prefs.edit().remove(KEY_PORTAL_URL).apply()

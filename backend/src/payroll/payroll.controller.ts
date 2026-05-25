@@ -27,6 +27,7 @@ import { ClientMasterGuard } from '../auth/policies/client-master.guard';
 import { ClientPayrollToggleGuard } from '../auth/policies/client-payroll-toggle.guard';
 
 import { PayrollService } from './payroll.service';
+import { assertSafeFileOnDisk } from '../common/safe-upload';
 import { SaveClientPayslipLayoutDto } from './dto/save-client-payslip-layout.dto';
 import { SaveClientComponentsDto } from './dto/save-client-components.dto';
 import { ClientUpdatePayrollInputStatusDto } from './dto/client-update-payroll-input-status.dto';
@@ -235,6 +236,7 @@ export class PayrollController {
     @Body() dto: PayrollUploadRegisterRecordDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFileOnDisk(file);
     return this.svc.payrollUploadRegisterRecord(user, dto, file);
   }
 
@@ -356,6 +358,7 @@ export class PayrollController {
     @Param('runId') runId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFileOnDisk(file);
     return this.svc.uploadPayrollRunEmployees(user, runId, file);
   }
 
@@ -498,6 +501,7 @@ export class PayrollController {
     @Body() dto: { effectiveFrom?: string; effectiveTo?: string },
   ) {
     if (!file) throw new BadRequestException('File is required');
+    assertSafeFileOnDisk(file);
     return this.svc.payrollUploadClientTemplate(user, clientId, file, dto);
   }
 
@@ -639,6 +643,7 @@ export class PayrollController {
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     if (!docType) throw new BadRequestException('docType is required');
+    assertSafeFileOnDisk(file);
     return this.svc.uploadFnfDocument(
       user,
       fnfId,
@@ -760,6 +765,7 @@ export class ClientPayrollInputsController {
     @Body() dto: ClientUploadPayrollInputFileDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFileOnDisk(file);
     return this.svc.clientUploadPayrollInputFile(user, id, dto, file);
   }
 
@@ -990,6 +996,7 @@ export class ClientRegistersRecordsController {
     @Body() dto: ClientUploadRegisterRecordDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    assertSafeFileOnDisk(file);
     return this.svc.clientUploadRegisterRecord(user, dto, file);
   }
 

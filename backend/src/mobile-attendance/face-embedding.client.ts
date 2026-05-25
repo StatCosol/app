@@ -19,6 +19,7 @@ export class FaceEmbeddingClient {
     '',
   );
   private readonly timeoutMs = Number(process.env.FACE_SVC_TIMEOUT_MS || 15000);
+  private readonly apiKey = (process.env.FACE_SVC_API_KEY || '').trim();
 
   isEnabled(): boolean {
     return !!this.baseUrl;
@@ -43,9 +44,13 @@ export class FaceEmbeddingClient {
     const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
     let res: Response;
     try {
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+      };
+      if (this.apiKey) headers['x-face-svc-key'] = this.apiKey;
       res = await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers,
         body: JSON.stringify({ photoBase64 }),
         signal: ctrl.signal,
       });

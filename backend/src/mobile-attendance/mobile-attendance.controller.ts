@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -27,8 +28,9 @@ import {
   ReviewReenrollRequestDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
+import type { PunchRequestMeta } from './mobile-attendance.service';
 import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 // =============================================================================
 // Admin / Client controller — register devices, enroll faces, view roster.
@@ -859,10 +861,26 @@ export class MobileAttendanceDeviceController {
   async punch(
     @Headers('x-device-token') token: string,
     @Headers('x-android-id') androidId: string,
+    @Headers('user-agent') userAgent: string,
+    @Req() req: Request,
     @Body() body: MobilePunchDto,
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.recordPunch(dev, body);
+    return this.svc.recordPunch(dev, body, null, deriveMeta(req, userAgent));
+  }
+
+  @ApiOperation({
+    summary:
+      'Phase 4c: issue a server-bound, single-use liveness challenge nonce',
+  })
+  @Post('liveness/challenge')
+  async issueLivenessChallenge(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+    @Body() body: { employeeId?: string | null } = {},
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.issueLivenessChallenge(dev, body?.employeeId ?? null);
   }
 
   @ApiOperation({
@@ -872,9 +890,38 @@ export class MobileAttendanceDeviceController {
   async contractorPunch(
     @Headers('x-device-token') token: string,
     @Headers('x-android-id') androidId: string,
+    @Headers('user-agent') userAgent: string,
+    @Req() req: Request,
     @Body() body: ContractorMobilePunchDto,
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.recordContractorPunch(dev, body);
+    return this.svc.recordContractorPunch(dev, body, deriveMeta(req, userAgent));
   }
+
+  @ApiOperation({
+    summary:
+      'K9: compact today-at-a-glance dashboard for the kiosk side panel',
+  })
+  @Get('kiosk-dashboard')
+  async kioskDashboard(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.kioskDashboard(dev);
+  }
+}
+
+/**
+ * Roadmap #17: extract a best-effort client IP for audit. Honors the
+ * first entry of X-Forwarded-For (Azure Container Apps + Front Door set
+ * it correctly), falls back to req.ip. UA is trimmed to 500 chars so a
+ * malicious header can't bloat the audit table.
+ */
+function deriveMeta(req: Request, userAgent: string | undefined): PunchRequestMeta {
+  const xff = (req.headers['x-forwarded-for'] || '') as string;
+  const first = xff.split(',')[0]?.trim();
+  const ip = first || req.ip || (req.socket && req.socket.remoteAddress) || null;
+  const ua = (userAgent || '').slice(0, 500) || null;
+  return { ip: ip || null, userAgent: ua };
 }

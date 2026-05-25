@@ -170,16 +170,13 @@ export class AdminClientsController {
         file: { mimetype: string },
         cb: (err: Error | null, accept: boolean) => void,
       ) => {
-        const allowed = [
-          'image/png',
-          'image/jpeg',
-          'image/svg+xml',
-          'image/webp',
-        ];
+        // SVG intentionally NOT allowed — /uploads/logos is publicly served
+        // and SVG can carry script payloads.
+        const allowed = ['image/png', 'image/jpeg', 'image/webp'];
         if (!allowed.includes(file.mimetype)) {
           return cb(
             new BadRequestException(
-              'Only PNG, JPG, SVG, or WebP images are allowed',
+              'Only PNG, JPG, or WebP images are allowed',
             ),
             false,
           );
@@ -198,48 +195,18 @@ export class AdminClientsController {
     return this.clientsService.updateLogo(id, logoUrl);
   }
 
-  // ── Client Logo SVG Code Upload ─────────────────────────
-  @ApiOperation({ summary: 'Upload Svg Code' })
+  // ── Client Logo SVG Code Upload — removed 2026-05-24 ─────
+  // The previous endpoint persisted raw SVG markup to disk under the
+  // publicly-served /uploads/logos path and relied on a regex sanitizer
+  // that could be bypassed. Admins should upload PNG/JPEG/WebP via the
+  // POST /clients/:id/logo endpoint instead. Returning 410 keeps any
+  // stale frontend client informed rather than silently 404'ing.
+  @ApiOperation({ summary: 'Upload Svg Code (removed)' })
   @Post('clients/:id/logo-svg')
-  async uploadSvgCode(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('svgCode') svgCode: string,
-  ) {
-    if (!svgCode || typeof svgCode !== 'string') {
-      throw new BadRequestException('svgCode is required');
-    }
-
-    const trimmed = svgCode.trim();
-
-    // Basic size limit (2 MB)
-    if (Buffer.byteLength(trimmed, 'utf8') > 2 * 1024 * 1024) {
-      throw new BadRequestException('SVG code must be under 2 MB');
-    }
-
-    // Must start with <svg
-    if (!trimmed.toLowerCase().startsWith('<svg')) {
-      throw new BadRequestException('SVG code must start with <svg');
-    }
-
-    // Security: reject scripts, event handlers, and javascript: URIs
-    const dangerous =
-      /<script/i.test(trimmed) ||
-      /javascript\s*:/i.test(trimmed) ||
-      /on[a-z]+\s*=/i.test(trimmed);
-    if (dangerous) {
-      throw new BadRequestException(
-        'SVG contains disallowed content (scripts or event handlers)',
-      );
-    }
-
-    // Write to disk
-    const dir = path.join(process.cwd(), 'uploads', 'logos');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const filePath = path.join(dir, `${id}.svg`);
-    fs.writeFileSync(filePath, trimmed, 'utf8');
-
-    const logoUrl = `/uploads/logos/${id}.svg`;
-    return this.clientsService.updateLogo(id, logoUrl);
+  uploadSvgCode(): never {
+    throw new BadRequestException(
+      'SVG logo upload has been disabled. Upload a PNG, JPEG, or WebP image instead.',
+    );
   }
 
   // ── Toggle CRM On-Behalf ────────────────────────────────

@@ -38,6 +38,8 @@ az acr build `
 
 # 3. First-time create (internal-only ingress, on the same env as backend).
 $env_id = az containerapp env list -g statcompy-rg --query "[0].id" -o tsv
+# Generate a shared secret used to auth backend → face-svc.
+$apiKey = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Min 0 -Max 256 } | ForEach-Object { [byte]$_ }))
 az containerapp create `
     -g statcompy-rg -n statcompy-face-svc `
     --environment $env_id `
@@ -45,13 +47,17 @@ az containerapp create `
     --ingress internal --target-port 8080 `
     --min-replicas 1 --max-replicas 3 `
     --cpu 1.0 --memory 2.0Gi `
+    --secrets "api-key=$apiKey" `
+    --env-vars "FACE_SVC_API_KEY=secretref:api-key" `
     --registry-server statcompyacr001.azurecr.io
 
-# 4. Tell the backend where to find it.
+# 4. Tell the backend where to find it (and inject the same shared secret).
 $face_url = "http://statcompy-face-svc"  # internal DNS in the env
+az containerapp secret set -g statcompy-rg -n statcompy-backend `
+    --secrets "face-svc-api-key=$apiKey"
 az containerapp update `
     -n statcompy-backend -g statcompy-rg `
-    --set-env-vars "FACE_SVC_URL=$face_url"
+    --set-env-vars "FACE_SVC_URL=$face_url" "FACE_SVC_API_KEY=secretref:face-svc-api-key"
 ```
 
 ## Subsequent updates

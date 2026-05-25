@@ -240,8 +240,4 @@ export class AdminClientsService {
     fd.append('file', file);
     return this.http.post(`${this.apiUrl}/clients/${clientId}/logo`, fd);
   }
-
-  uploadSvgCode(clientId: string, svgCode: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/clients/${clientId}/logo-svg`, { svgCode });
-  }
 }

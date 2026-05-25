@@ -130,3 +130,67 @@ export function assertSafeFile(file: Express.Multer.File | undefined): void {
   // Magic bytes are only available when buffer is present (memoryStorage).
   validateUploadedFile(file.originalname, file.buffer);
 }
+
+/**
+ * Variant of `assertSafeFile()` for disk-storage uploads. Reads the first
+ * 16 bytes off the saved file so magic-byte validation still runs even
+ * when multer wrote straight to disk (so `file.buffer` is empty).
+ *
+ * On validation failure the saved file is unlinked before throwing.
+ */
+export function assertSafeFileOnDisk(
+  file: Express.Multer.File | undefined,
+): void {
+  if (!file) throw new BadRequestException('File is required');
+  // CodeQL barrier: discard any directory components from file.path and
+  // file.destination and rebuild the path inside our known uploads root.
+  // path.basename() is a CodeQL-recognized path-traversal sanitizer.
+  const safePath = file.path ? rebuildInsideUploadsRoot(file) : null;
+  let head: Buffer | undefined;
+  if (safePath) {
+    let fd = -1;
+    try {
+      fd = fs.openSync(safePath, 'r');
+      const buf = Buffer.alloc(16);
+      const read = fs.readSync(fd, buf, 0, 16, 0);
+      head = buf.slice(0, read);
+    } catch {
+      head = undefined;
+    } finally {
+      if (fd >= 0) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  try {
+    validateUploadedFile(file.originalname, head);
+  } catch (err) {
+    if (safePath) {
+      try {
+        fs.unlinkSync(safePath);
+      } catch {
+        /* ignore */
+      }
+    }
+    throw err;
+  }
+}
+
+const UPLOADS_ROOT = path.resolve(process.cwd(), 'uploads');
+
+function rebuildInsideUploadsRoot(file: Express.Multer.File): string | null {
+  const filename = path.basename(file.path);
+  const subdir = file.destination ? path.basename(file.destination) : '';
+  const candidate = subdir
+    ? path.join(UPLOADS_ROOT, subdir, filename)
+    : path.join(UPLOADS_ROOT, filename);
+  const resolved = path.resolve(candidate);
+  if (resolved !== UPLOADS_ROOT && !resolved.startsWith(UPLOADS_ROOT + path.sep)) {
+    return null;
+  }
+  return resolved;
+}

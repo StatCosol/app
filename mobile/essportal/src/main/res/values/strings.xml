@@ -7,6 +7,7 @@
     <string name="settings_hint">https://app.statcosol.com/ess/login</string>
     <string name="settings_save">Save &amp; reload</string>
     <string name="settings_reset">Reset to default</string>
+    <string name="settings_invalid_host">URL must be HTTPS and on %1$s.</string>
     <string name="permission_camera_denied">Camera permission is required for Face ID attendance.</string>
     <string name="permission_location_denied">Location permission is required for geofence check-in.</string>
 </resources>
