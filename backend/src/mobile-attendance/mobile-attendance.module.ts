@@ -4,6 +4,7 @@ import { BiometricModule } from '../biometric/biometric.module';
 import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AttendanceShiftEntity } from './entities/attendance-shift.entity';
 import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-punch.entity';
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
@@ -29,6 +30,7 @@ import { PAD_PROVIDER, createPadProvider } from './pad/pad-provider';
       ContractorBiometricPunchEntity,
       MobileAttendanceDeviceEntity,
       FaceLivenessNonceEntity,
+      AttendanceShiftEntity,
       EmployeeEntity,
       ContractorEmployeeEntity,
     ]),
