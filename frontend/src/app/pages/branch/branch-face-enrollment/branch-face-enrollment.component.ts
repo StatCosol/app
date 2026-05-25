@@ -19,9 +19,12 @@ import {
 import {
   ClientMobileAttendanceService,
   ContractorEnrollmentStatusRow,
+  CreateKioskEnrollTicketBody,
   EnrollContractorFaceBody,
   EnrollFaceBody,
   EnrollmentStatusRow,
+  KioskEnrollTicket,
+  MobileAttendanceDevice,
 } from '../../client/mobile-attendance/client-mobile-attendance.service';
 
 type SubjectType = 'employee' | 'contractor';
@@ -233,7 +236,9 @@ interface EnrollForm {
                     (click)="deactivate(r)">Deactivate</button>
                   <button *ngIf="r.isEnrolled" class="text-xs text-red-700 hover:underline font-semibold"
                     (click)="hardDelete(r)" title="Permanently remove this enrollment row (audit history preserved)">Delete</button>
-                  <span *ngIf="!r.isEnrolled" class="text-xs text-gray-400" title="Employee must enroll from their paired ESS device">Enroll on device</span>
+                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline font-semibold"
+                    (click)="openKioskEnrollForEmployee(r)"
+                    title="Send a one-time capture instruction to a KIOSK device">Enroll on Kiosk</button>
                 </td>
               </tr>
             </tbody>
@@ -264,8 +269,11 @@ interface EnrollForm {
                 </td>
                 <td class="px-3 py-2 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
+                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline mr-3"
                     (click)="selectContractorForEnroll(r)">Enroll</button>
+                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline mr-3 font-semibold"
+                    (click)="openKioskEnrollForContractor(r)"
+                    title="Send a one-time capture instruction to a KIOSK device">Enroll on Kiosk</button>
                   <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
                     (click)="deactivateContractor(r)">Deactivate</button>
                   <button *ngIf="r.isEnrolled" class="text-xs text-red-700 hover:underline font-semibold"
@@ -280,6 +288,75 @@ interface EnrollForm {
              class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} match the current filter.</div>
         <div *ngIf="!loadingEnrollments && activeRows.length === 0"
              class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your branch.</div>
+      </div>
+
+      <!-- Kiosk-supervised enrollment modal -->
+      <div *ngIf="kioskModalOpen"
+        class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+        (click)="closeKioskModal()">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5" (click)="$event.stopPropagation()">
+          <h3 class="text-lg font-semibold text-gray-900 mb-1">Enroll on Kiosk</h3>
+          <p class="text-xs text-gray-500 mb-3">
+            Capturing for <strong class="text-gray-800">{{ kioskSubjectName }}</strong>
+            <span *ngIf="kioskSubjectCode" class="font-mono">({{ kioskSubjectCode }})</span>
+          </p>
+
+          <ng-container *ngIf="!kioskActiveTicket">
+            <div class="mb-3">
+              <label class="block text-xs font-medium text-gray-600 mb-1" for="kiosk-device-sel">Kiosk device</label>
+              <select id="kiosk-device-sel" [(ngModel)]="kioskSelectedDeviceId" name="kioskDeviceId" class="ui-input">
+                <option value="">— Select a kiosk —</option>
+                <option *ngFor="let d of kioskDevicesForSubject" [value]="d.id">
+                  {{ d.deviceLabel || ('Device ' + d.id.slice(0, 8)) }}
+                </option>
+              </select>
+              <p *ngIf="!loadingKioskDevices && kioskDevicesForSubject.length === 0"
+                class="text-xs text-amber-700 mt-1">
+                No active KIOSK device is registered in this subject's branch.
+              </p>
+              <div *ngIf="loadingKioskDevices" class="py-2"><ui-loading-spinner></ui-loading-spinner></div>
+            </div>
+            <div class="flex items-start gap-2 mb-4">
+              <input id="kiosk-consent" type="checkbox" [(ngModel)]="kioskConsentGiven" name="kioskConsent" class="mt-0.5">
+              <label for="kiosk-consent" class="text-xs text-gray-700">
+                I confirm the subject has given explicit informed consent for face capture at the kiosk (DPDP Act 2023).
+              </label>
+            </div>
+            <div *ngIf="kioskError" class="text-sm text-red-600 mb-3">{{ kioskError }}</div>
+            <div class="flex justify-end gap-2">
+              <ui-button variant="secondary" (clicked)="closeKioskModal()">Cancel</ui-button>
+              <ui-button variant="primary"
+                [disabled]="!kioskSelectedDeviceId || !kioskConsentGiven || kioskCreating"
+                [loading]="kioskCreating"
+                (clicked)="startKioskEnrollment()">Send to Kiosk</ui-button>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="kioskActiveTicket">
+            <div class="rounded-lg border p-3 mb-3"
+              [class.bg-amber-50]="kioskActiveTicket.status === 'PENDING'"
+              [class.bg-emerald-50]="kioskActiveTicket.status === 'COMPLETED'"
+              [class.bg-gray-100]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
+              <div class="text-sm font-semibold"
+                [class.text-amber-800]="kioskActiveTicket.status === 'PENDING'"
+                [class.text-emerald-800]="kioskActiveTicket.status === 'COMPLETED'"
+                [class.text-gray-700]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
+                <span *ngIf="kioskActiveTicket.status === 'PENDING'">Waiting for kiosk capture…</span>
+                <span *ngIf="kioskActiveTicket.status === 'COMPLETED'">✓ Face enrolled successfully</span>
+                <span *ngIf="kioskActiveTicket.status === 'CANCELLED'">Cancelled</span>
+                <span *ngIf="kioskActiveTicket.status === 'EXPIRED'">Ticket expired — try again</span>
+              </div>
+              <div *ngIf="kioskActiveTicket.status === 'PENDING'" class="text-xs text-amber-700 mt-1">
+                Expires in {{ kioskCountdownLabel }}. Tell the subject to stand in front of the selected kiosk.
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <ui-button *ngIf="kioskActiveTicket.status === 'PENDING'" variant="secondary"
+                (clicked)="cancelKioskEnrollment()" [loading]="kioskCancelling">Cancel Ticket</ui-button>
+              <ui-button variant="primary" (clicked)="closeKioskModal()">Close</ui-button>
+            </div>
+          </ng-container>
+        </div>
       </div>
     </div>
   `,
@@ -319,6 +396,25 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
   statusSearch = '';
 
+  // Kiosk-supervised enrollment modal state
+  kioskModalOpen = false;
+  kioskSubjectType: 'EMPLOYEE' | 'CONTRACTOR' = 'EMPLOYEE';
+  kioskSubjectId = '';
+  kioskSubjectName = '';
+  kioskSubjectCode: string | null = null;
+  kioskSubjectBranchId: string | null = null;
+  kioskDevices: MobileAttendanceDevice[] = [];
+  loadingKioskDevices = false;
+  kioskSelectedDeviceId = '';
+  kioskConsentGiven = false;
+  kioskCreating = false;
+  kioskCancelling = false;
+  kioskError = '';
+  kioskActiveTicket: KioskEnrollTicket | null = null;
+  kioskCountdownLabel = '5:00';
+  private kioskPollTimer: any = null;
+  private kioskCountdownTimer: any = null;
+
   constructor(
     private auth: AuthService,
     private empSvc: ClientEmployeesService,
@@ -335,6 +431,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopCamera();
+    this.stopKioskTimers();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -805,5 +902,197 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       photoFileName: '',
       consentGiven: false,
     };
+  }
+
+  // ── Kiosk-supervised enrollment ─────────────────────────
+  openKioskEnrollForEmployee(r: EnrollmentStatusRow): void {
+    this.openKioskModal({
+      subjectType: 'EMPLOYEE',
+      subjectId: r.employeeId,
+      subjectName: r.employeeName,
+      subjectCode: r.employeeCode,
+      subjectBranchId: (r as any).branchId ?? null,
+    });
+  }
+
+  openKioskEnrollForContractor(r: ContractorEnrollmentStatusRow): void {
+    this.openKioskModal({
+      subjectType: 'CONTRACTOR',
+      subjectId: r.contractorEmployeeId,
+      subjectName: r.name,
+      subjectCode: null,
+      subjectBranchId: (r as any).branchId ?? null,
+    });
+  }
+
+  private openKioskModal(opts: {
+    subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+    subjectId: string;
+    subjectName: string;
+    subjectCode: string | null;
+    subjectBranchId: string | null;
+  }): void {
+    this.kioskSubjectType = opts.subjectType;
+    this.kioskSubjectId = opts.subjectId;
+    this.kioskSubjectName = opts.subjectName;
+    this.kioskSubjectCode = opts.subjectCode;
+    this.kioskSubjectBranchId =
+      opts.subjectBranchId ?? this.auth.getBranchIds()?.[0] ?? null;
+    this.kioskSelectedDeviceId = '';
+    this.kioskConsentGiven = false;
+    this.kioskError = '';
+    this.kioskActiveTicket = null;
+    this.kioskModalOpen = true;
+    this.loadKioskDevices();
+    this.cdr.markForCheck();
+  }
+
+  closeKioskModal(): void {
+    this.kioskModalOpen = false;
+    this.stopKioskTimers();
+    if (this.kioskActiveTicket?.status === 'COMPLETED') {
+      this.loadEnrollments();
+    }
+    this.kioskActiveTicket = null;
+    this.cdr.markForCheck();
+  }
+
+  private loadKioskDevices(): void {
+    this.loadingKioskDevices = true;
+    this.svc
+      .listDevices()
+      .pipe(takeUntil(this.destroy$), finalize(() => {
+        this.loadingKioskDevices = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: (rows) => {
+          this.kioskDevices = rows ?? [];
+          this.cdr.markForCheck();
+        },
+        error: (e) => {
+          this.kioskError = e?.error?.message || 'Failed to load kiosk devices';
+        },
+      });
+  }
+
+  get kioskDevicesForSubject(): MobileAttendanceDevice[] {
+    const bid = this.kioskSubjectBranchId;
+    return this.kioskDevices.filter(
+      (d) =>
+        d.isActive &&
+        d.mode === 'KIOSK' &&
+        (!bid || !d.branchId || d.branchId === bid),
+    );
+  }
+
+  startKioskEnrollment(): void {
+    if (!this.kioskSelectedDeviceId || !this.kioskConsentGiven) return;
+    this.kioskError = '';
+    this.kioskCreating = true;
+    const body: CreateKioskEnrollTicketBody = {
+      deviceId: this.kioskSelectedDeviceId,
+      subjectType: this.kioskSubjectType,
+      subjectId: this.kioskSubjectId,
+      consentGiven: true,
+    };
+    this.svc
+      .createKioskEnrollTicket(body)
+      .pipe(takeUntil(this.destroy$), finalize(() => {
+        this.kioskCreating = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: (t) => {
+          this.kioskActiveTicket = t;
+          this.startKioskTimers();
+          this.toast.success('Ticket sent to kiosk');
+        },
+        error: (e) => {
+          this.kioskError = e?.error?.message || 'Failed to create ticket';
+        },
+      });
+  }
+
+  cancelKioskEnrollment(): void {
+    if (!this.kioskActiveTicket) return;
+    this.kioskCancelling = true;
+    this.svc
+      .cancelKioskEnrollTicket(this.kioskActiveTicket.id)
+      .pipe(takeUntil(this.destroy$), finalize(() => {
+        this.kioskCancelling = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: () => {
+          if (this.kioskActiveTicket) {
+            this.kioskActiveTicket = {
+              ...this.kioskActiveTicket,
+              status: 'CANCELLED',
+            };
+          }
+          this.stopKioskTimers();
+          this.toast.info('Ticket cancelled');
+        },
+        error: (e) => this.toast.error(e?.error?.message || 'Cancel failed'),
+      });
+  }
+
+  private startKioskTimers(): void {
+    this.stopKioskTimers();
+    this.updateKioskCountdown();
+    this.kioskCountdownTimer = setInterval(
+      () => this.updateKioskCountdown(),
+      1000,
+    );
+    this.kioskPollTimer = setInterval(() => this.pollKioskTicket(), 2000);
+  }
+
+  private stopKioskTimers(): void {
+    if (this.kioskPollTimer) {
+      clearInterval(this.kioskPollTimer);
+      this.kioskPollTimer = null;
+    }
+    if (this.kioskCountdownTimer) {
+      clearInterval(this.kioskCountdownTimer);
+      this.kioskCountdownTimer = null;
+    }
+  }
+
+  private updateKioskCountdown(): void {
+    if (!this.kioskActiveTicket) return;
+    const ms =
+      new Date(this.kioskActiveTicket.expiresAt).getTime() - Date.now();
+    if (ms <= 0) {
+      this.kioskCountdownLabel = '0:00';
+      return;
+    }
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    this.kioskCountdownLabel = `${m}:${s.toString().padStart(2, '0')}`;
+    this.cdr.markForCheck();
+  }
+
+  private pollKioskTicket(): void {
+    if (!this.kioskActiveTicket) return;
+    this.svc
+      .getKioskEnrollTicket(this.kioskActiveTicket.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (t) => {
+          this.kioskActiveTicket = t;
+          if (t.status !== 'PENDING') {
+            this.stopKioskTimers();
+            if (t.status === 'COMPLETED') {
+              this.toast.success(`${t.subjectName} enrolled successfully`);
+            }
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          /* transient — keep polling */
+        },
+      });
   }
 }

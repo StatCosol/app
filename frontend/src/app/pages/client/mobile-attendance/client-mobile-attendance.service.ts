@@ -447,6 +447,58 @@ export class ClientMobileAttendanceService {
       `${this.base}/failed-scans/alerts?limit=${limit}`,
     );
   }
+
+  // ── Operator-supervised kiosk enrollment tickets ──
+  createKioskEnrollTicket(
+    body: CreateKioskEnrollTicketBody,
+  ): Observable<KioskEnrollTicket> {
+    return this.http.post<KioskEnrollTicket>(
+      `${this.base}/kiosk-enroll/tickets`,
+      body,
+    );
+  }
+
+  getKioskEnrollTicket(id: string): Observable<KioskEnrollTicket> {
+    return this.http.get<KioskEnrollTicket>(
+      `${this.base}/kiosk-enroll/tickets/${id}`,
+    );
+  }
+
+  cancelKioskEnrollTicket(id: string): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(
+      `${this.base}/kiosk-enroll/tickets/${id}/cancel`,
+      {},
+    );
+  }
+}
+
+export interface CreateKioskEnrollTicketBody {
+  deviceId: string;
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  subjectId: string;
+  consentGiven: boolean;
+  notes?: string;
+}
+
+export interface KioskEnrollTicket {
+  id: string;
+  clientId: string;
+  branchId: string | null;
+  deviceId: string;
+  subjectType: 'EMPLOYEE' | 'CONTRACTOR';
+  employeeId: string | null;
+  contractorEmployeeId: string | null;
+  subjectName: string;
+  subjectCode: string | null;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  embeddingModel: string | null;
+  notes: string | null;
 }
 
 export interface ContractorForBranchRow {

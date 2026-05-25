@@ -82,6 +82,51 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    /**
+     * Kiosk poll for a pending operator-issued enrollment ticket. Returns
+     * null when no ticket is waiting (server returns `{"ticket": null}`).
+     */
+    fun fetchPendingKioskEnrollTicket(): KioskEnrollTicket? {
+        val token = requireToken()
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/kiosk-enroll/pending")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .get()
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) {
+                throw IOException("kiosk-enroll/pending ${resp.code}: $text")
+            }
+            val env = moshi.adapter(KioskEnrollTicketEnvelope::class.java).fromJson(text)
+                ?: throw IOException("could not parse kiosk-enroll pending response")
+            return env.ticket
+        }
+    }
+
+    fun submitKioskEnrollTicket(
+        ticketId: String,
+        body: KioskEnrollSubmitBody,
+    ): KioskEnrollSubmitResponse {
+        val token = requireToken()
+        val json = moshi.adapter(KioskEnrollSubmitBody::class.java).toJson(body)
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/kiosk-enroll/tickets/$ticketId/submit")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) {
+                throw IOException("kiosk-enroll submit ${resp.code}: $text")
+            }
+            return moshi.adapter(KioskEnrollSubmitResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse kiosk-enroll submit response")
+        }
+    }
+
     private fun requireToken(): String =
         config.installToken ?: throw IllegalStateException("device not registered")
 }

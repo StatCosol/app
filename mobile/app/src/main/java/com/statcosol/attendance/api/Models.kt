@@ -79,3 +79,35 @@ data class EnrollSelfResponse(
     val employeeId: String? = null,
     val message: String? = null
 )
+
+/** GET /api/v1/mobile-attendance/kiosk-enroll/pending response. */
+@JsonClass(generateAdapter = true)
+data class KioskEnrollTicketEnvelope(
+    val ticket: KioskEnrollTicket? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class KioskEnrollTicket(
+    val id: String,
+    val subjectType: String,          // "EMPLOYEE" | "CONTRACTOR"
+    val subjectName: String,
+    val subjectCode: String? = null,
+    val expiresAt: String,            // ISO-8601
+    val notes: String? = null
+)
+
+/** POST /api/v1/mobile-attendance/kiosk-enroll/tickets/:id/submit body. */
+@JsonClass(generateAdapter = true)
+data class KioskEnrollSubmitBody(
+    val embeddingBase64: String,
+    val embeddingModel: String = "mobilefacenet-v1",
+    val photoBase64: String? = null,
+    val selfMatchScore: Double? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class KioskEnrollSubmitResponse(
+    val ok: Boolean,
+    val ticketId: String? = null,
+    val message: String? = null
+)

@@ -20,6 +20,7 @@ import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrol
 import { AttendanceShiftEntity } from './entities/attendance-shift.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
+import { KioskEnrollTicketEntity } from './entities/kiosk-enroll-ticket.entity';
 import type { PadProvider } from './pad/pad-provider';
 import { PAD_PROVIDER } from './pad/pad-provider';
 import type { MaskDetector } from './mask/mask-detector';
@@ -33,11 +34,13 @@ import {
 } from './entities/mobile-attendance-device.entity';
 import {
   ContractorMobilePunchDto,
+  CreateKioskEnrollTicketDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
   MobilePunchDto,
   RegisterMobileDeviceDto,
+  SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 
 // Mapped (cos+1)/2 threshold. Bumped 0.70 → 0.78 (Phase 3a) → 0.85 after
@@ -191,6 +194,8 @@ export class MobileAttendanceService {
     private readonly contractorEmpRepo: Repository<ContractorEmployeeEntity>,
     @InjectRepository(AttendanceShiftEntity)
     private readonly attendanceShiftRepo: Repository<AttendanceShiftEntity>,
+    @InjectRepository(KioskEnrollTicketEntity)
+    private readonly kioskTicketRepo: Repository<KioskEnrollTicketEntity>,
     private readonly biometricService: BiometricService,
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
     private readonly notifications: NotificationsService,
@@ -3634,6 +3639,373 @@ export class MobileAttendanceService {
       queryType: 'ATTENDANCE',
       priority: 1,
     });
+  }
+
+  // ---------------------------------------------------- kiosk-supervised
+  // -------------------------------------------------- enrollment tickets
+
+  private static readonly KIOSK_ENROLL_TTL_MIN = 5;
+
+  /**
+   * Branch / client operator creates a single-use ticket telling one
+   * KIOSK-mode device to capture and submit an embedding for one named
+   * subject (employee or contractor employee). Validates device mode, branch
+   * match, and explicit consent.
+   */
+  async createKioskEnrollTicket(
+    clientId: string,
+    createdBy: string,
+    allowedBranchIds: string[] | null,
+    body: CreateKioskEnrollTicketDto,
+  ): Promise<KioskEnrollTicketEntity> {
+    if (!body.consentGiven) {
+      throw new BadRequestException(
+        'Subject consent must be confirmed before creating the ticket',
+      );
+    }
+    const device = await this.deviceRepo.findOne({
+      where: { id: body.deviceId, clientId },
+    });
+    if (!device) throw new NotFoundException('Kiosk device not found');
+    if (!device.isActive) {
+      throw new BadRequestException('Device is not active');
+    }
+    if (device.mode !== 'KIOSK') {
+      throw new BadRequestException(
+        'Enrollment tickets are only supported on KIOSK-mode devices',
+      );
+    }
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      if (!device.branchId || !allowedBranchIds.includes(device.branchId)) {
+        throw new ForbiddenException('Device is outside your branch scope');
+      }
+    }
+
+    let subjectName = '';
+    let subjectCode: string | null = null;
+    let employeeId: string | null = null;
+    let contractorEmployeeId: string | null = null;
+    let branchId: string | null = device.branchId ?? null;
+
+    if (body.subjectType === 'EMPLOYEE') {
+      const emp = await this.empRepo.findOne({
+        where: { id: body.subjectId, clientId },
+      });
+      if (!emp) throw new NotFoundException('Employee not found');
+      if (!emp.isActive) {
+        throw new BadRequestException('Employee is not active');
+      }
+      if (device.branchId && emp.branchId && emp.branchId !== device.branchId) {
+        throw new BadRequestException(
+          'Employee belongs to a different branch than this kiosk',
+        );
+      }
+      if (
+        allowedBranchIds &&
+        allowedBranchIds.length > 0 &&
+        emp.branchId &&
+        !allowedBranchIds.includes(emp.branchId)
+      ) {
+        throw new ForbiddenException('Employee is outside your branch scope');
+      }
+      employeeId = emp.id;
+      subjectName = emp.name;
+      subjectCode = emp.employeeCode ?? null;
+      branchId = emp.branchId ?? branchId;
+    } else {
+      const ce = await this.contractorEmpRepo.findOne({
+        where: { id: body.subjectId, clientId },
+      });
+      if (!ce) throw new NotFoundException('Contractor employee not found');
+      if (!ce.isActive) {
+        throw new BadRequestException('Contractor employee is not active');
+      }
+      if (device.branchId && ce.branchId && ce.branchId !== device.branchId) {
+        throw new BadRequestException(
+          'Contractor employee belongs to a different branch than this kiosk',
+        );
+      }
+      if (
+        allowedBranchIds &&
+        allowedBranchIds.length > 0 &&
+        ce.branchId &&
+        !allowedBranchIds.includes(ce.branchId)
+      ) {
+        throw new ForbiddenException(
+          'Contractor employee is outside your branch scope',
+        );
+      }
+      contractorEmployeeId = ce.id;
+      subjectName = ce.name;
+      branchId = ce.branchId ?? branchId;
+    }
+
+    // Cancel any existing PENDING ticket for this device first — the partial
+    // unique index would block a fresh INSERT otherwise.
+    await this.kioskTicketRepo.update(
+      { deviceId: device.id, status: 'PENDING' },
+      {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledBy: createdBy,
+      },
+    );
+
+    const expiresAt = new Date(
+      Date.now() +
+        MobileAttendanceService.KIOSK_ENROLL_TTL_MIN * 60 * 1000,
+    );
+    const row = this.kioskTicketRepo.create({
+      clientId,
+      branchId,
+      deviceId: device.id,
+      subjectType: body.subjectType,
+      employeeId,
+      contractorEmployeeId,
+      subjectName,
+      subjectCode,
+      consentGiven: true,
+      status: 'PENDING',
+      createdBy,
+      expiresAt,
+      notes: body.notes ?? null,
+    });
+    return this.kioskTicketRepo.save(row);
+  }
+
+  /** Kiosk poll: at most one active ticket per device. */
+  async getPendingKioskEnrollTicket(
+    device: MobileAttendanceDeviceEntity,
+  ): Promise<KioskEnrollTicketEntity | null> {
+    if (device.mode !== 'KIOSK') return null;
+    await this.expireStaleKioskEnrollTickets(device.id);
+    return this.kioskTicketRepo.findOne({
+      where: { deviceId: device.id, status: 'PENDING' },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /** Auto-expire any PENDING ticket past its expires_at. */
+  private async expireStaleKioskEnrollTickets(deviceId: string): Promise<void> {
+    await this.ds.query(
+      `UPDATE kiosk_enroll_tickets
+         SET status = 'EXPIRED'
+       WHERE status = 'PENDING'
+         AND device_id = $1
+         AND expires_at < now()`,
+      [deviceId],
+    );
+  }
+
+  /**
+   * Kiosk submits the on-device captured embedding for a previously issued
+   * ticket. We re-validate ownership, then upsert into face_enrollments
+   * (or contractor_face_enrollments) using the same shape the self-enroll
+   * path does, so the kiosk roster + ESS punch pipelines see it identically.
+   */
+  async submitKioskEnrollTicket(
+    device: MobileAttendanceDeviceEntity,
+    ticketId: string,
+    body: SubmitKioskEnrollDto,
+  ): Promise<{ ok: true; ticketId: string }> {
+    if (device.mode !== 'KIOSK') {
+      throw new ForbiddenException(
+        'Only KIOSK devices may submit enrollment tickets',
+      );
+    }
+    const ticket = await this.kioskTicketRepo.findOne({
+      where: { id: ticketId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (ticket.deviceId !== device.id) {
+      throw new ForbiddenException('Ticket was not issued to this device');
+    }
+    if (ticket.status !== 'PENDING') {
+      throw new ConflictException(
+        `Ticket is ${ticket.status.toLowerCase()}, cannot submit`,
+      );
+    }
+    if (ticket.expiresAt.getTime() < Date.now()) {
+      await this.kioskTicketRepo.update(
+        { id: ticket.id },
+        { status: 'EXPIRED' },
+      );
+      throw new ConflictException('Ticket has expired');
+    }
+
+    const embedding = Buffer.from(body.embeddingBase64, 'base64');
+    if (embedding.length === 0 || embedding.length % 4 !== 0) {
+      throw new BadRequestException('embeddingBase64 is malformed');
+    }
+    const embeddingModel = body.embeddingModel ?? 'mobilefacenet-v1';
+    const now = new Date();
+
+    if (ticket.subjectType === 'EMPLOYEE') {
+      const empId = ticket.employeeId!;
+      await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding);
+      const photoUrl = await this.facePhotos.put({
+        clientId: ticket.clientId,
+        employeeCode: ticket.subjectCode ?? `emp-${empId}`,
+        purpose: 'enroll',
+        timestamp: now,
+        photoB64: body.photoBase64,
+      });
+      const payload: Partial<FaceEnrollmentEntity> = {
+        employeeId: empId,
+        clientId: ticket.clientId,
+        branchId: ticket.branchId ?? null,
+        embedding,
+        embeddingModel,
+        photoUrl,
+        consentGivenAt: now,
+        consentGivenBy: ticket.createdBy,
+        enrolledAt: now,
+        enrolledBy: ticket.createdBy,
+        isActive: true,
+        deactivatedAt: null,
+        deactivationReason: null,
+      };
+      const existing = await this.faceRepo.findOne({
+        where: { employeeId: empId },
+      });
+      if (existing) {
+        await this.faceRepo.update({ employeeId: empId }, payload);
+      } else {
+        await this.faceRepo.save(this.faceRepo.create(payload));
+      }
+      await this.logEnrollmentHistory({
+        employeeId: empId,
+        clientId: ticket.clientId,
+        action: existing ? 'RE_ENROLL' : 'ENROLL',
+        embeddingModel,
+        actorUserId: ticket.createdBy,
+      });
+    } else {
+      const ceId = ticket.contractorEmployeeId!;
+      const ce = await this.contractorEmpRepo.findOne({ where: { id: ceId } });
+      if (!ce) throw new NotFoundException('Contractor employee not found');
+      const photoUrl = await this.facePhotos.put({
+        clientId: ticket.clientId,
+        employeeCode: `contractor-${ce.id}`,
+        purpose: 'enroll',
+        timestamp: now,
+        photoB64: body.photoBase64,
+      });
+      const payload: Partial<ContractorFaceEnrollmentEntity> = {
+        contractorEmployeeId: ce.id,
+        clientId: ticket.clientId,
+        branchId: ce.branchId ?? null,
+        contractorUserId: ce.contractorUserId ?? null,
+        embedding,
+        embeddingModel,
+        photoUrl,
+        consentGivenAt: now,
+        consentGivenBy: ticket.createdBy,
+        enrolledAt: now,
+        enrolledBy: ticket.createdBy,
+        isActive: true,
+        deactivatedAt: null,
+        deactivationReason: null,
+      };
+      const existing = await this.contractorFaceRepo.findOne({
+        where: { contractorEmployeeId: ce.id },
+      });
+      if (existing) {
+        await this.contractorFaceRepo.update(
+          { contractorEmployeeId: ce.id },
+          payload,
+        );
+        await this.logContractorEnrollmentHistory({
+          contractorEmployeeId: ce.id,
+          clientId: ticket.clientId,
+          action: 'RE_ENROLL',
+          embeddingModel,
+          actorUserId: ticket.createdBy,
+        });
+      } else {
+        await this.contractorFaceRepo.save(
+          this.contractorFaceRepo.create(payload),
+        );
+        await this.logContractorEnrollmentHistory({
+          contractorEmployeeId: ce.id,
+          clientId: ticket.clientId,
+          action: 'ENROLL',
+          embeddingModel,
+          actorUserId: ticket.createdBy,
+        });
+      }
+    }
+
+    await this.kioskTicketRepo.update(
+      { id: ticket.id },
+      {
+        status: 'COMPLETED',
+        completedAt: now,
+        embeddingModel,
+        matchScoreSelf:
+          body.selfMatchScore != null ? String(body.selfMatchScore) : null,
+      },
+    );
+    return { ok: true, ticketId: ticket.id };
+  }
+
+  /** Portal poll: get the ticket the operator created (any status). */
+  async getKioskEnrollTicket(
+    clientId: string,
+    ticketId: string,
+  ): Promise<KioskEnrollTicketEntity> {
+    const t = await this.kioskTicketRepo.findOne({
+      where: { id: ticketId, clientId },
+    });
+    if (!t) throw new NotFoundException('Ticket not found');
+    if (
+      t.status === 'PENDING' &&
+      t.expiresAt.getTime() < Date.now()
+    ) {
+      await this.kioskTicketRepo.update(
+        { id: t.id },
+        { status: 'EXPIRED' },
+      );
+      t.status = 'EXPIRED';
+    }
+    return t;
+  }
+
+  /** Portal cancel — operator aborts a still-pending ticket. */
+  async cancelKioskEnrollTicket(
+    clientId: string,
+    cancelledBy: string,
+    ticketId: string,
+  ): Promise<{ ok: true }> {
+    const t = await this.kioskTicketRepo.findOne({
+      where: { id: ticketId, clientId },
+    });
+    if (!t) throw new NotFoundException('Ticket not found');
+    if (t.status !== 'PENDING') {
+      return { ok: true };
+    }
+    await this.kioskTicketRepo.update(
+      { id: t.id },
+      { status: 'CANCELLED', cancelledAt: new Date(), cancelledBy },
+    );
+    return { ok: true };
+  }
+
+  /** Portal listing for an operator dashboard / debugging. */
+  async listKioskEnrollTickets(
+    clientId: string,
+    allowedBranchIds: string[] | null,
+    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+  ): Promise<KioskEnrollTicketEntity[]> {
+    const qb = this.kioskTicketRepo
+      .createQueryBuilder('t')
+      .where('t.client_id = :clientId', { clientId });
+    if (status) qb.andWhere('t.status = :status', { status });
+    if (allowedBranchIds && allowedBranchIds.length > 0) {
+      qb.andWhere('t.branch_id = ANY(:bids)', { bids: allowedBranchIds });
+    }
+    qb.orderBy('t.created_at', 'DESC').limit(100);
+    return qb.getMany();
   }
 }
 
