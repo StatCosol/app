@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,6 +19,8 @@ import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
+import type { PadProvider } from './pad/pad-provider';
+import { PAD_PROVIDER } from './pad/pad-provider';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
 import {
@@ -186,6 +189,7 @@ export class MobileAttendanceService {
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
     private readonly notifications: NotificationsService,
     private readonly facePhotos: FacePhotoStorage,
+    @Inject(PAD_PROVIDER) private readonly padProvider: PadProvider,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -1570,6 +1574,19 @@ export class MobileAttendanceService {
       throw new BadRequestException('Liveness check failed');
     }
 
+    // Roadmap #11 / K11: pluggable PAD anti-spoof gate. Defaults to
+    // noop until FACE_ANTISPOOF_PROVIDER picks a real implementation.
+    const padResult = await this.padProvider.check({
+      livenessScore: body.livenessScore ?? null,
+      matchScore: effectiveMatchScore,
+      probeEmbeddingB64: body.probeEmbeddingB64 ?? null,
+    });
+    if (!padResult.ok) {
+      throw new BadRequestException(
+        padResult.reason || 'Anti-spoof check failed',
+      );
+    }
+
     // Phase 4c: nonce-bound active liveness. The device must first call
     // POST /mobile-attendance/liveness/challenge, perform the returned
     // challenge type, then echo the nonce on the punch. The server
@@ -1924,6 +1941,18 @@ export class MobileAttendanceService {
           `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
         );
       }
+    }
+
+    // Roadmap #11 / K11: PAD anti-spoof gate (contractor parity).
+    const padResult = await this.padProvider.check({
+      livenessScore: body.livenessScore ?? null,
+      matchScore: effectiveMatchScore,
+      probeEmbeddingB64: body.probeEmbeddingB64 ?? null,
+    });
+    if (!padResult.ok) {
+      throw new BadRequestException(
+        padResult.reason || 'Anti-spoof check failed',
+      );
     }
 
     if (LIVENESS_CHALLENGE_REQUIRED) {

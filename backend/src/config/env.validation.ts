@@ -99,4 +99,8 @@ export const envValidationSchema = Joi.object({
   FACE_DRIFT_THRESHOLD: Joi.number().min(0).max(1).optional(),
   FACE_DRIFT_REALERT_DAYS: Joi.number().integer().min(1).optional(),
   FACE_DRIFT_REALERT_DELTA: Joi.number().min(0).max(1).optional(),
+  // Roadmap #11 / K11 — PAD anti-spoof provider selection
+  FACE_ANTISPOOF_PROVIDER: Joi.string()
+    .valid('none', 'azure', 'facetec')
+    .optional(),
 });

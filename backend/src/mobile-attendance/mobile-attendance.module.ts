@@ -19,6 +19,7 @@ import { FacePhotoStorage } from './face-photo-storage.service';
 import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
 import { FacePhotoRetentionCron } from './face-photo-retention.cron';
 import { FaceAppearanceDriftCron } from './face-appearance-drift.cron';
+import { PAD_PROVIDER, createPadProvider } from './pad/pad-provider';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { FaceAppearanceDriftCron } from './face-appearance-drift.cron';
     FaceFailureAlertCronService,
     FacePhotoRetentionCron,
     FaceAppearanceDriftCron,
+    { provide: PAD_PROVIDER, useFactory: createPadProvider },
   ],
   exports: [MobileAttendanceService],
 })
