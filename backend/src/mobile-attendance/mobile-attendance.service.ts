@@ -17,10 +17,12 @@ import { EmployeeEntity } from '../employees/entities/employee.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-punch.entity';
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
+import { AttendanceShiftEntity } from './entities/attendance-shift.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
 import type { PadProvider } from './pad/pad-provider';
 import { PAD_PROVIDER } from './pad/pad-provider';
+import { getShiftMode, validateAgainstShift } from './shift/shift-validator';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
 import {
@@ -185,6 +187,8 @@ export class MobileAttendanceService {
     private readonly empRepo: Repository<EmployeeEntity>,
     @InjectRepository(ContractorEmployeeEntity)
     private readonly contractorEmpRepo: Repository<ContractorEmployeeEntity>,
+    @InjectRepository(AttendanceShiftEntity)
+    private readonly attendanceShiftRepo: Repository<AttendanceShiftEntity>,
     private readonly biometricService: BiometricService,
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
     private readonly notifications: NotificationsService,
@@ -1659,6 +1663,33 @@ export class MobileAttendanceService {
     const ts = new Date(body.punchTime);
     if (isNaN(ts.getTime())) throw new BadRequestException('Invalid punchTime');
 
+    // Roadmap #7 / K10: shift validation. Loads the employee's active
+    // shift row (if any) and either warns or rejects punches outside
+    // the configured window. Default mode is `off` so absence of a row
+    // or the table itself is fully safe.
+    {
+      const mode = getShiftMode();
+      if (mode !== 'off') {
+        const shift = await this.attendanceShiftRepo.findOne({
+          where: { employeeId: emp.id, active: true },
+        });
+        const result = validateAgainstShift(
+          shift,
+          (body.direction ?? 'AUTO') as 'IN' | 'OUT' | 'AUTO',
+          ts,
+        );
+        if (result.hasShift && !result.withinWindow) {
+          if (mode === 'enforce') {
+            throw new BadRequestException(
+              result.reason || 'Punch outside shift window',
+            );
+          }
+          this.logger.warn(
+            `[shift] ${emp.employeeCode ?? emp.id} ${result.reason} (warn-only)`,
+          );
+        }
+      }
+    }
     // Phase 3a: server-time clock-skew gate. Live punches must be within a
     // tight window of server time. Offline-queue drains (offlineSync=true)
     // bypass the backlog cap because legitimate offline rows can be days

@@ -103,4 +103,8 @@ export const envValidationSchema = Joi.object({
   FACE_ANTISPOOF_PROVIDER: Joi.string()
     .valid('none', 'azure', 'facetec')
     .optional(),
+  // Roadmap #7 / K10 — shift validation enforcement mode
+  SHIFT_VALIDATION_MODE: Joi.string()
+    .valid('off', 'warn', 'enforce')
+    .optional(),
 });
