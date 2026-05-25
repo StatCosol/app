@@ -142,9 +142,10 @@ export function assertSafeFileOnDisk(
   file: Express.Multer.File | undefined,
 ): void {
   if (!file) throw new BadRequestException('File is required');
-  // CodeQL barrier: confine fs ops to the uploads root regardless of what
-  // multer (or a tampered request) put into file.path / file.originalname.
-  const safePath = file.path ? resolveInsideUploadsRoot(file.path) : null;
+  // CodeQL barrier: discard any directory components from file.path and
+  // file.destination and rebuild the path inside our known uploads root.
+  // path.basename() is a CodeQL-recognized path-traversal sanitizer.
+  const safePath = file.path ? rebuildInsideUploadsRoot(file) : null;
   let head: Buffer | undefined;
   if (safePath) {
     let fd = -1;
@@ -181,8 +182,13 @@ export function assertSafeFileOnDisk(
 
 const UPLOADS_ROOT = path.resolve(process.cwd(), 'uploads');
 
-function resolveInsideUploadsRoot(p: string): string | null {
-  const resolved = path.resolve(p);
+function rebuildInsideUploadsRoot(file: Express.Multer.File): string | null {
+  const filename = path.basename(file.path);
+  const subdir = file.destination ? path.basename(file.destination) : '';
+  const candidate = subdir
+    ? path.join(UPLOADS_ROOT, subdir, filename)
+    : path.join(UPLOADS_ROOT, filename);
+  const resolved = path.resolve(candidate);
   if (resolved !== UPLOADS_ROOT && !resolved.startsWith(UPLOADS_ROOT + path.sep)) {
     return null;
   }
