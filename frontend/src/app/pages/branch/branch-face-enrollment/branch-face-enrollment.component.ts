@@ -77,10 +77,23 @@ interface EnrollForm {
         </button>
       </div>
 
-      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h3 class="font-semibold text-gray-900 mb-3">
-          Enroll {{ subjectType === 'contractor' ? 'a Contractor Employee' : 'an Employee' }} Face
-        </h3>
+      <!-- Notice: employees self-enroll from their paired ESS device. -->
+      <div *ngIf="subjectType === 'employee'" class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
+        <h3 class="font-semibold text-indigo-900 mb-1">Employee face enrollment moved to the ESS mobile app</h3>
+        <p class="text-sm text-indigo-800">
+          To strengthen identity assurance, employees now enroll their face directly from their
+          paired ESS device using a live 5-frame capture. Pair the device under
+          <strong>Mobile Devices</strong>, link it to the employee, and ask them to open the
+          ESS app — the enroll screen launches automatically the first time.
+        </p>
+        <p class="text-xs text-indigo-700 mt-2">
+          You can still view enrollment status and deactivate / delete a stored template below.
+          For exceptional re-enrollments, use the re-enrollment request workflow.
+        </p>
+      </div>
+
+      <div *ngIf="subjectType === 'contractor'" class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <h3 class="font-semibold text-gray-900 mb-3">Enroll a Contractor Employee Face</h3>
 
         <div *ngIf="loadingSubjects" class="py-6 flex justify-center">
           <ui-loading-spinner></ui-loading-spinner>
@@ -221,12 +234,11 @@ interface EnrollForm {
                 </td>
                 <td class="px-3 py-2 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
-                    (click)="selectForEnroll(r)">Enroll</button>
                   <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
                     (click)="deactivate(r)">Deactivate</button>
                   <button *ngIf="r.isEnrolled" class="text-xs text-red-700 hover:underline font-semibold"
                     (click)="hardDelete(r)" title="Permanently remove this enrollment row (audit history preserved)">Delete</button>
+                  <span *ngIf="!r.isEnrolled" class="text-xs text-gray-400" title="Employee must enroll from their paired ESS device">Enroll on device</span>
                 </td>
               </tr>
             </tbody>
