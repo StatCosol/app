@@ -7,6 +7,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-punch.entity';
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
+import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
 import { MobileAttendanceDeviceEntity } from './entities/mobile-attendance-device.entity';
 import {
   MobileAttendanceAdminController,
@@ -16,6 +17,8 @@ import { MobileAttendanceService } from './mobile-attendance.service';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
 import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
+import { FacePhotoRetentionCron } from './face-photo-retention.cron';
+import { FaceAppearanceDriftCron } from './face-appearance-drift.cron';
 
 @Module({
   imports: [
@@ -24,6 +27,7 @@ import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
       ContractorFaceEnrollmentEntity,
       ContractorBiometricPunchEntity,
       MobileAttendanceDeviceEntity,
+      FaceLivenessNonceEntity,
       EmployeeEntity,
       ContractorEmployeeEntity,
     ]),
@@ -39,6 +43,8 @@ import { FaceFailureAlertCronService } from './face-failure-alert-cron.service';
     FaceEmbeddingClient,
     FacePhotoStorage,
     FaceFailureAlertCronService,
+    FacePhotoRetentionCron,
+    FaceAppearanceDriftCron,
   ],
   exports: [MobileAttendanceService],
 })

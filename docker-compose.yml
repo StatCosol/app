@@ -51,7 +51,6 @@ services:
       DB_PASS: ${DB_PASS:?DB_PASS is required}
       DB_NAME: statcompy
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      JWT_EXPIRES_IN: 12h
       JWT_ACCESS_EXPIRES_SEC: 900
       SKIP_BOOTSTRAP_SEED: "true"
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}

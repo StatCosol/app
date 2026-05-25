@@ -58,7 +58,9 @@ export class EnrollFaceDto {
   @IsString()
   photoMime?: string;
 
-  /** 128/512-d Float32 embedding, base64-encoded, generated on-device (MobileFaceNet). */
+  /** @deprecated Ignored as of Phase 4c; admin-enrol always recomputes the
+   *  embedding from `photoBase64` server-side. Kept in the DTO only so old
+   *  clients don't get a 400 for an extra field. */
   @IsOptional()
   @IsString()
   embeddingBase64?: string;
@@ -89,6 +91,8 @@ export class EnrollContractorFaceDto {
   @IsString()
   photoMime?: string;
 
+  /** @deprecated Ignored as of Phase 4c; contractor admin-enrol always
+   *  recomputes the embedding from `photoBase64` server-side. */
   @IsOptional()
   @IsString()
   embeddingBase64?: string;
@@ -215,6 +219,16 @@ export class MobilePunchDto {
   @IsOptional()
   @IsString()
   livenessChallengePassedAt?: string;
+
+  /**
+   * Phase 4c: server-issued single-use liveness nonce. Obtained from
+   * POST /mobile-attendance/liveness/challenge and atomically consumed
+   * by the server during punch validation when
+   * FACE_LIVENESS_CHALLENGE_REQUIRED is true.
+   */
+  @IsOptional()
+  @IsString()
+  livenessNonce?: string;
 }
 
 export class MobilePunchBatchDto {
@@ -302,6 +316,11 @@ export class ContractorMobilePunchDto {
   @IsOptional()
   @IsString()
   livenessChallengePassedAt?: string;
+
+  /** Phase 4c: see MobilePunchDto.livenessNonce. */
+  @IsOptional()
+  @IsString()
+  livenessNonce?: string;
 }
 
 // ---------------------------------------------------------------------------

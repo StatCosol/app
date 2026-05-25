@@ -108,8 +108,6 @@ properties:
         value: 'true'
       - name: JWT_SECRET
         secretRef: jwt-secret
-      - name: JWT_EXPIRES_IN
-        value: 12h
       - name: JWT_ACCESS_EXPIRES_SEC
         value: '900'
       - name: SKIP_BOOTSTRAP_SEED

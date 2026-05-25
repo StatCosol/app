@@ -48,6 +48,47 @@ EMBEDDING_MODEL_NAME = "mobilefacenet-v1"
 app = FastAPI(title="statcompy face embedding service", version="1.0.0")
 
 
+# Reject oversize bodies before FastAPI parses them. The backend caps JSON
+# at 2 MB but a misconfigured or directly-reachable face-svc would otherwise
+# accept arbitrary-size base64 and try to PIL.Image.open() it.
+MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", str(4 * 1024 * 1024)))
+
+# Shared-secret header. When set, all requests except /health must present
+# a matching X-Face-Svc-Key. Empty/unset = auth disabled (back-compat for
+# local dev), but production must inject it via Container App secret.
+FACE_SVC_API_KEY = os.environ.get("FACE_SVC_API_KEY", "").strip()
+_AUTH_EXEMPT_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+
+
+@app.middleware("http")
+async def _limit_body_size(request, call_next):
+    cl = request.headers.get("content-length")
+    if cl is not None:
+        try:
+            if int(cl) > MAX_BODY_BYTES:
+                return JSONResponse(
+                    {"ok": False, "error": "payload_too_large"}, status_code=413
+                )
+        except ValueError:
+            return JSONResponse(
+                {"ok": False, "error": "bad_content_length"}, status_code=400
+            )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def _require_api_key(request, call_next):
+    if FACE_SVC_API_KEY and request.url.path not in _AUTH_EXEMPT_PATHS:
+        supplied = request.headers.get("x-face-svc-key", "").strip()
+        # constant-time compare to avoid timing leaks
+        import hmac
+        if not supplied or not hmac.compare_digest(supplied, FACE_SVC_API_KEY):
+            return JSONResponse(
+                {"ok": False, "error": "unauthorized"}, status_code=401
+            )
+    return await call_next(request)
+
+
 # ---------------------------------------------------------------- model loaders
 def _load_tflite():
     try:

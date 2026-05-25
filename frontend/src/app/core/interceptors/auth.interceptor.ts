@@ -68,6 +68,14 @@ export function authInterceptor(
         return throwError(() => error);
       }
 
+      // Only auto-retry idempotent verbs. POST/PUT/PATCH/DELETE may have
+      // partially succeeded server-side; replaying them after a token refresh
+      // could create duplicate invoices, double-charge payments, etc.
+      // For mutating requests we refresh the token (so the *next* user action
+      // works) but surface the 401 to the caller so they can decide.
+      const method = (authReq.method || 'GET').toUpperCase();
+      const isIdempotent = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+
       const refreshToken = authService.getRefreshToken();
       if (!refreshToken) {
         authService.logoutOnce('no refresh token', isEssPath);
@@ -90,7 +98,10 @@ export function authInterceptor(
           switchMap((newToken) => {
             refreshTokenSubject.next(newToken);
             isRefreshing = false;
-            // Retry original request with the new token
+            if (!isIdempotent) {
+              return throwError(() => error);
+            }
+            // Retry original request with the new token (idempotent only)
             return next(req.clone({
               setHeaders: { Authorization: `Bearer ${newToken}` },
             }));
@@ -104,6 +115,9 @@ export function authInterceptor(
         take(1),
         switchMap((token) => {
           if (token === 'REFRESH_FAILED') {
+            return throwError(() => error);
+          }
+          if (!isIdempotent) {
             return throwError(() => error);
           }
           return next(req.clone({

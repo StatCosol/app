@@ -30,39 +30,40 @@ export class ScopeGuard implements CanActivate {
       userType: user.userType ?? null,
     };
 
-    // Hard check: route-level clientId scope for CRM users
     const clientId =
       req.params?.clientId || req.query?.clientId || req.body?.clientId;
 
-    if (
-      user.roleCode === 'CRM' &&
-      clientId &&
-      Array.isArray(user.assignedClientIds) &&
-      user.assignedClientIds.length > 0 &&
-      !user.assignedClientIds.includes(clientId)
-    ) {
-      Logger.warn(
-        `ScopeGuard: CRM user ${user.id} blocked from client ${clientId}`,
-        'ScopeGuard',
-      );
-      throw new ForbiddenException('CRM is not assigned to this client');
+    // Hard check: route-level clientId scope for CRM users.
+    // CRM/PAYROLL with NO assignments must be denied — an empty
+    // assignedClientIds array previously fell through and granted access
+    // to any client.
+    if (user.roleCode === 'CRM' && clientId) {
+      const assigned = Array.isArray(user.assignedClientIds)
+        ? user.assignedClientIds
+        : [];
+      if (assigned.length === 0 || !assigned.includes(clientId)) {
+        Logger.warn(
+          `ScopeGuard: CRM user ${user.id} blocked from client ${clientId}`,
+          'ScopeGuard',
+        );
+        throw new ForbiddenException('CRM is not assigned to this client');
+      }
     }
 
     // Hard check: route-level clientId scope for PAYROLL users
-    if (
-      user.roleCode === 'PAYROLL' &&
-      clientId &&
-      Array.isArray(user.assignedClientIds) &&
-      user.assignedClientIds.length > 0 &&
-      !user.assignedClientIds.includes(clientId)
-    ) {
-      Logger.warn(
-        `ScopeGuard: PAYROLL user ${user.id} blocked from client ${clientId}`,
-        'ScopeGuard',
-      );
-      throw new ForbiddenException(
-        'Payroll user is not assigned to this client',
-      );
+    if (user.roleCode === 'PAYROLL' && clientId) {
+      const assigned = Array.isArray(user.assignedClientIds)
+        ? user.assignedClientIds
+        : [];
+      if (assigned.length === 0 || !assigned.includes(clientId)) {
+        Logger.warn(
+          `ScopeGuard: PAYROLL user ${user.id} blocked from client ${clientId}`,
+          'ScopeGuard',
+        );
+        throw new ForbiddenException(
+          'Payroll user is not assigned to this client',
+        );
+      }
     }
 
     return true;

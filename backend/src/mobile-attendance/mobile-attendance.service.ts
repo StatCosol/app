@@ -7,9 +7,9 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { BiometricService } from '../biometric/biometric.service';
 import { ContractorEmployeeEntity } from '../contractor/contractor-employees/entities/contractor-employee.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
@@ -17,6 +17,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-punch.entity';
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
+import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
 import {
@@ -42,6 +43,17 @@ import {
 // per-punch payload.
 const MIN_MATCH_SCORE = 0.85;
 const MIN_LIVENESS_SCORE = 0.5;
+// Face-quality gate at enrollment time (roadmap #2). face-svc returns a
+// 0..1 confidence/quality score per embedded photo; rejecting low-quality
+// enrollments here prevents bad reference embeddings from cascading into
+// repeated MATCH_FAIL rejections at punch time. Tunable via env so ops can
+// loosen it if a site has poor lighting before the camera is replaced.
+const MIN_FACE_QUALITY_SCORE = (() => {
+  const raw = process.env.FACE_MIN_QUALITY_SCORE;
+  if (raw == null || raw === '') return 0.5;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.5;
+})();
 // Phase 3d: active liveness challenge. When the deployment env opts in
 // (FACE_LIVENESS_CHALLENGE_REQUIRED=true), every punch must carry a
 // challenge that was satisfied on-device within this window.
@@ -49,6 +61,42 @@ const LIVENESS_CHALLENGE_REQUIRED =
   String(process.env.FACE_LIVENESS_CHALLENGE_REQUIRED || '').toLowerCase() ===
   'true';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
+// Phase 4c: server-issued nonce flow. The set of challenges the server
+// may issue — the device must perform exactly the type returned and
+// echo back the nonce on the next punch. Adding to this list also
+// requires updating the Android client.
+const LIVENESS_CHALLENGE_TYPES = [
+  'BLINK',
+  'HEAD_TURN_LEFT',
+  'HEAD_TURN_RIGHT',
+  'SMILE',
+] as const;
+// Lifetime of an issued nonce. Must be long enough for the user to
+// perform the action + capture the punch, short enough to limit replay.
+const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
+// Phase 4c: defence-in-depth gate that forces every punch to carry a
+// server-recomputable probe embedding (probeEmbeddingB64). When true a
+// tampered APK can no longer post a synthetic matchScore for any
+// employeeId because the gate immediately rejects punches without a
+// probe. Default ON; ops can flip to false ONLY during an APK rollout
+// window where old clients without the probe field are still live.
+const PUNCH_REQUIRE_SERVER_PROBE =
+  String(
+    process.env.FACE_PUNCH_REQUIRE_PROBE ?? 'true',
+  ).toLowerCase() !== 'false';
+// Phase 4c: photo-retention policy. Punch selfies older than this are
+// purged by the daily retention cron; enrollment selfies are kept for a
+// longer window because they're the consented reference image. Both are
+// tunable via env so deployments with stricter data-residency rules can
+// shorten the windows.
+const PUNCH_PHOTO_RETENTION_DAYS = (() => {
+  const raw = Number(process.env.FACE_PUNCH_PHOTO_RETENTION_DAYS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 90;
+})();
+const ENROLLMENT_PHOTO_RETENTION_DAYS = (() => {
+  const raw = Number(process.env.FACE_ENROLL_PHOTO_RETENTION_DAYS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 365;
+})();
 // Phase 3a: server-time clock-skew gate. A live punch's `punchTime` must
 // fall inside this window relative to server time. Punches outside the
 // window are rejected unless `body.offlineSync === true`, which is set by
@@ -74,6 +122,47 @@ const DUPLICATE_FACE_THRESHOLD = Number(
 // next shift crosses midnight.
 const POST_LOGOUT_COOLDOWN_MS = 8 * 60 * 60 * 1000;
 
+// Phase 4c roadmap #16: real-time alerts. Only these rejection reasons
+// are considered "security-relevant" \u2014 benign reasons (cooldown,
+// employee inactive, clock skew) would just spam admins. Keep in sync
+// with the taxonomy in classifyRejection().
+const SUSPICIOUS_REJECTION_REASONS: ReadonlySet<string> = new Set([
+  'FACE_MISMATCH',
+  'LIVENESS_FAIL',
+  'MULTI_FACE',
+  'MASK_DETECTED',
+  'GEOFENCE_OUTSIDE',
+  'MOCK_LOCATION',
+  'ROOTED_DEVICE',
+  'QUALITY_LOW',
+]);
+const REJECTION_ALERT_WINDOW_MIN = (() => {
+  const raw = Number(process.env.FACE_REJECTION_ALERT_WINDOW_MIN);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 10;
+})();
+const REJECTION_ALERT_THRESHOLD = (() => {
+  const raw = Number(process.env.FACE_REJECTION_ALERT_THRESHOLD);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 3;
+})();
+const DEVICE_REJECTION_ALERT_THRESHOLD = (() => {
+  const raw = Number(process.env.FACE_DEVICE_REJECTION_ALERT_THRESHOLD);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5;
+})();
+const DASHBOARD_LATE_CUTOFF_HHMM = (() => {
+  const raw = String(process.env.FACE_DASHBOARD_LATE_CUTOFF_HHMM || '').trim();
+  return /^\d{1,2}:\d{2}$/.test(raw) ? raw : '10:00';
+})();
+
+/**
+ * Roadmap #17: per-request audit metadata captured by the controller and
+ * threaded through to the DB row so admins can see who/where/from-what
+ * client a punch (or rejection) actually came from.
+ */
+export interface PunchRequestMeta {
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 @Injectable()
 export class MobileAttendanceService {
   private readonly logger = new Logger(MobileAttendanceService.name);
@@ -87,6 +176,8 @@ export class MobileAttendanceService {
     private readonly contractorPunchRepo: Repository<ContractorBiometricPunchEntity>,
     @InjectRepository(MobileAttendanceDeviceEntity)
     private readonly deviceRepo: Repository<MobileAttendanceDeviceEntity>,
+    @InjectRepository(FaceLivenessNonceEntity)
+    private readonly nonceRepo: Repository<FaceLivenessNonceEntity>,
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
     @InjectRepository(ContractorEmployeeEntity)
@@ -95,6 +186,7 @@ export class MobileAttendanceService {
     private readonly faceEmbeddingClient: FaceEmbeddingClient,
     private readonly notifications: NotificationsService,
     private readonly facePhotos: FacePhotoStorage,
+    @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
   // ---------------------------------------------------------------- devices
@@ -222,31 +314,37 @@ export class MobileAttendanceService {
     androidId?: string | null,
   ): Promise<MobileAttendanceDeviceEntity> {
     if (!token) throw new UnauthorizedException('Missing device token');
-    const dev = await this.deviceRepo.findOne({
-      where: { installToken: token },
-    });
-    if (!dev || !dev.isActive)
-      throw new UnauthorizedException('Invalid device token');
-
     const supplied = (androidId ?? '').trim();
-    if (supplied) {
-      if (!dev.androidId) {
-        // First-use binding: claim this token for the calling device.
-        dev.androidId = supplied;
-        await this.deviceRepo.update(dev.id, { androidId: supplied });
-      } else if (dev.androidId !== supplied) {
-        this.logger.warn(
-          `device token reuse blocked deviceId=${dev.id} bound=${dev.androidId} attempt=${supplied}`,
-        );
-        throw new UnauthorizedException(
-          'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
-        );
-      }
-    }
 
-    dev.lastSeenAt = new Date();
-    await this.deviceRepo.update(dev.id, { lastSeenAt: dev.lastSeenAt });
-    return dev;
+    // Lock the device row for the read-modify-write of `androidId` to avoid
+    // two devices simultaneously binding the same install-token. Without the
+    // pessimistic lock, both calls see androidId=null and both succeed.
+    return await this.ds.transaction(async (mgr) => {
+      const dev = await mgr
+        .createQueryBuilder(MobileAttendanceDeviceEntity, 'd')
+        .setLock('pessimistic_write')
+        .where('d.installToken = :token', { token })
+        .getOne();
+      if (!dev || !dev.isActive)
+        throw new UnauthorizedException('Invalid device token');
+
+      if (supplied) {
+        if (!dev.androidId) {
+          dev.androidId = supplied;
+        } else if (dev.androidId !== supplied) {
+          this.logger.warn(
+            `device token reuse blocked deviceId=${dev.id} bound=${dev.androidId} attempt=${supplied}`,
+          );
+          throw new UnauthorizedException(
+            'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
+          );
+        }
+      }
+
+      dev.lastSeenAt = new Date();
+      await mgr.save(MobileAttendanceDeviceEntity, dev);
+      return dev;
+    });
   }
 
   // -------------------------------------------------------------- enrollment
@@ -261,9 +359,13 @@ export class MobileAttendanceService {
         'Employee consent is required for biometric enrollment',
       );
     }
-    if (!body.embeddingBase64 && !body.photoBase64) {
+    // Phase 4c: admin-enrol path must always recompute the embedding from
+    // the supplied photo, so a tampered client cannot inject a noise /
+    // adversarial embedding under a real employee. Pre-computed
+    // `embeddingBase64` is silently ignored here.
+    if (!body.photoBase64) {
       throw new BadRequestException(
-        'Provide either embeddingBase64 or photoBase64',
+        'photoBase64 is required for admin enrolment (server recomputes the embedding)',
       );
     }
     const emp = await this.empRepo.findOne({
@@ -274,35 +376,27 @@ export class MobileAttendanceService {
       throw new ForbiddenException('Employee is not in your branch scope');
     }
 
-    // Resolve embedding. Three sources, in priority order:
-    //   1. caller supplied embeddingBase64 (mobile self-enroll forwarded by admin)
-    //   2. caller supplied photoBase64  → call face-svc to compute embedding
-    //   3. neither → already rejected above
-    let embedding: Buffer | null = body.embeddingBase64
-      ? Buffer.from(body.embeddingBase64, 'base64')
-      : null;
-    let embeddingModel: string | null = body.embeddingModel ?? null;
-    let faceScore: number | null = null;
-
-    if (!embedding && body.photoBase64) {
-      if (!this.faceEmbeddingClient.isEnabled()) {
-        throw new BadRequestException(
-          'Server-side face embedding is not configured (FACE_SVC_URL unset)',
-        );
-      }
-      const result = await this.faceEmbeddingClient.embedPhoto(
-        body.photoBase64,
-      );
-      if (!result) {
-        throw new BadRequestException('Face embedding service unavailable');
-      }
-      embedding = Buffer.from(result.embeddingBase64, 'base64');
-      embeddingModel = embeddingModel || result.embeddingModel;
-      faceScore = result.faceScore;
-      this.logger.log(
-        `enrollFace photo→embed ok employee=${emp.id} score=${faceScore.toFixed(3)} bytes=${embedding.length}`,
+    if (!this.faceEmbeddingClient.isEnabled()) {
+      throw new BadRequestException(
+        'Server-side face embedding is not configured (FACE_SVC_URL unset)',
       );
     }
+    const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+    if (!result) {
+      throw new BadRequestException('Face embedding service unavailable');
+    }
+    const embedding: Buffer = Buffer.from(result.embeddingBase64, 'base64');
+    const embeddingModel: string = body.embeddingModel || result.embeddingModel;
+    const faceScore: number = result.faceScore;
+    if (faceScore < MIN_FACE_QUALITY_SCORE) {
+      throw new BadRequestException(
+        `Face image quality too low (score ${faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}) — ` +
+          `retake the photo with better lighting and the face clearly centered`,
+      );
+    }
+    this.logger.log(
+      `enrollFace photo→embed ok employee=${emp.id} score=${faceScore.toFixed(3)} bytes=${embedding.length}`,
+    );
 
     // Phase 3c: persist the enrollment selfie when FACE_PHOTO_AUDIT is on.
     // When disabled (default) we never write the photo, only the embedding.
@@ -314,52 +408,65 @@ export class MobileAttendanceService {
       photoB64: body.photoBase64,
     });
 
-    // Duplicate-face guard: a face that already belongs to a *different*
-    // employee in this client must not be re-enrolled (prevents one person
-    // registering under multiple employee codes).
-    if (embedding) {
-      await this.assertFaceNotDuplicate(clientId, emp.id, embedding);
-    }
-
-    const existing = await this.faceRepo.findOne({
-      where: { employeeId: emp.id },
-    });
-    const now = new Date();
-    const payload: Partial<FaceEnrollmentEntity> = {
-      employeeId: emp.id,
-      clientId,
-      branchId: emp.branchId ?? null,
-      embedding,
-      embeddingModel: embeddingModel ?? 'mobilefacenet-v1',
-      photoUrl,
-      consentGivenAt: now,
-      consentGivenBy: enrolledBy,
-      enrolledAt: now,
-      enrolledBy,
-      isActive: true,
-      deactivatedAt: null,
-      deactivationReason: null,
-    };
-    if (existing) {
-      await this.faceRepo.update({ employeeId: emp.id }, payload);
+    // Duplicate-face guard + upsert must run inside one transaction so a
+    // concurrent enrollment of the same face for a different employee can't
+    // slip between the check and the save. The pessimistic_write lock
+    // serialises concurrent enrolls for the same employee row.
+    return await this.ds.transaction(async (mgr) => {
+      if (embedding) {
+        await this.assertFaceNotDuplicate(clientId, emp.id, embedding);
+      }
+      const existing = await mgr
+        .createQueryBuilder(FaceEnrollmentEntity, 'fe')
+        .setLock('pessimistic_write')
+        .where('fe.employeeId = :eid', { eid: emp.id })
+        .getOne();
+      const now = new Date();
+      const payload: Partial<FaceEnrollmentEntity> = {
+        employeeId: emp.id,
+        clientId,
+        branchId: emp.branchId ?? null,
+        embedding,
+        embeddingModel: embeddingModel ?? 'mobilefacenet-v1',
+        photoUrl,
+        consentGivenAt: now,
+        consentGivenBy: enrolledBy,
+        enrolledAt: now,
+        enrolledBy,
+        isActive: true,
+        deactivatedAt: null,
+        deactivationReason: null,
+      };
+      if (existing) {
+        await mgr.update(
+          FaceEnrollmentEntity,
+          { employeeId: emp.id },
+          payload,
+        );
+        await this.logEnrollmentHistory({
+          employeeId: emp.id,
+          clientId,
+          action: 'RE_ENROLL',
+          embeddingModel: payload.embeddingModel ?? null,
+          actorUserId: enrolledBy ?? null,
+        });
+        return (await mgr.findOne(FaceEnrollmentEntity, {
+          where: { employeeId: emp.id },
+        }))!;
+      }
+      const created = await mgr.save(
+        FaceEnrollmentEntity,
+        mgr.create(FaceEnrollmentEntity, payload),
+      );
       await this.logEnrollmentHistory({
         employeeId: emp.id,
         clientId,
-        action: 'RE_ENROLL',
+        action: 'ENROLL',
         embeddingModel: payload.embeddingModel ?? null,
         actorUserId: enrolledBy ?? null,
       });
-      return (await this.faceRepo.findOne({ where: { employeeId: emp.id } }))!;
-    }
-    const created = await this.faceRepo.save(this.faceRepo.create(payload));
-    await this.logEnrollmentHistory({
-      employeeId: emp.id,
-      clientId,
-      action: 'ENROLL',
-      embeddingModel: payload.embeddingModel ?? null,
-      actorUserId: enrolledBy ?? null,
+      return created;
     });
-    return created;
   }
 
   /**
@@ -390,7 +497,30 @@ export class MobileAttendanceService {
     });
     if (!emp) throw new NotFoundException('Bound employee not found');
 
-    const embedding = Buffer.from(body.embeddingBase64, 'base64');
+    // Phase 4c: prefer server-side recomputed embedding when the device
+    // also uploaded the photo and face-svc is configured. Falls back to
+    // the device-computed embedding for ESS clients on older APKs that
+    // omit photoBase64. The server recompute path additionally applies
+    // the MIN_FACE_QUALITY_SCORE gate so a poor-quality enrolment is
+    // rejected before it pollutes future match scores.
+    let embedding: Buffer;
+    let embeddingModel: string = body.embeddingModel ?? 'mobilefacenet-v1';
+    if (body.photoBase64 && this.faceEmbeddingClient.isEnabled()) {
+      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      if (!result) {
+        throw new BadRequestException('Face embedding service unavailable');
+      }
+      if (result.faceScore < MIN_FACE_QUALITY_SCORE) {
+        throw new BadRequestException(
+          `Face image quality too low (score ${result.faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}) — ` +
+            `retake the photo with better lighting and the face clearly centered`,
+        );
+      }
+      embedding = Buffer.from(result.embeddingBase64, 'base64');
+      embeddingModel = body.embeddingModel || result.embeddingModel;
+    } else {
+      embedding = Buffer.from(body.embeddingBase64, 'base64');
+    }
 
     // Duplicate-face guard: a face already enrolled for a different employee
     // in this client must not be re-enrolled under another employee code.
@@ -410,7 +540,7 @@ export class MobileAttendanceService {
       clientId: device.clientId,
       branchId: emp.branchId ?? device.branchId ?? null,
       embedding,
-      embeddingModel: body.embeddingModel ?? 'mobilefacenet-v1',
+      embeddingModel,
       photoUrl,
       consentGivenAt: now,
       consentGivenBy: emp.id,
@@ -455,6 +585,14 @@ export class MobileAttendanceService {
     row.isActive = false;
     row.deactivatedAt = new Date();
     row.deactivationReason = reason;
+    // Phase 4c / DPDP: crypto-shred the embedding bytes so a soft-deleted
+    // enrollment cannot be reconstructed even with read-only DB access.
+    // The audit log row in face_enrollment_history retains the action and
+    // model fields for non-repudiation, but the biometric template itself
+    // is gone after this write commits.
+    if (row.embedding && row.embedding.length > 0) {
+      row.embedding = randomBytes(row.embedding.length);
+    }
     void by;
     const saved = await this.faceRepo.save(row);
     await this.logEnrollmentHistory({
@@ -497,6 +635,19 @@ export class MobileAttendanceService {
          VALUES ($1, $2, 'DELETE', $3, $4, $5)`,
         [employeeId, clientId, reason, row.embeddingModel ?? null, by ?? null],
       );
+      // Phase 4c / DPDP: overwrite embedding bytes before the row delete
+      // so the *live* tuple briefly visible inside this tx contains random
+      // bytes. Note: Postgres MVCC leaves the original pre-UPDATE tuple
+      // version on disk until autovacuum reclaims it, so a recovery from
+      // the raw pages could still surface the original embedding. Final
+      // shred only completes after autovacuum runs.
+      if (row.embedding && row.embedding.length > 0) {
+        await tx.update(
+          FaceEnrollmentEntity,
+          { employeeId, clientId },
+          { embedding: randomBytes(row.embedding.length) },
+        );
+      }
       await tx.delete(FaceEnrollmentEntity, { employeeId, clientId });
     });
     return { ok: true, deleted: true, employeeId };
@@ -913,6 +1064,118 @@ export class MobileAttendanceService {
   }
 
   /**
+   * K9 side-panel dashboard for the kiosk/ESS Android app. Returns a compact
+   * "today at a glance" snapshot scoped to the device's client + branch:
+   * enrolled headcount, present-today, late arrivals, contractor counts.
+   * Late cutoff is FACE_DASHBOARD_LATE_CUTOFF_HHMM (IST, default 10:00).
+   * ESS-mode devices only report on their bound employee.
+   */
+  async kioskDashboard(device: MobileAttendanceDeviceEntity) {
+    const branchId = device.branchId ?? null;
+    const isEss = device.mode === 'ESS' && !!device.essEmployeeId;
+
+    // Enrolled headcount (in-house).
+    const enrolledWhere: Record<string, unknown> = {
+      clientId: device.clientId,
+      isActive: true,
+    };
+    if (isEss) enrolledWhere.employeeId = device.essEmployeeId;
+    else if (branchId) enrolledWhere.branchId = branchId;
+    const enrolledEmployees = await this.faceRepo.count({
+      where: enrolledWhere as any,
+    });
+
+    // Present + late (in-house). Distinct employee_code with first IN today.
+    const empCodeFilter = isEss
+      ? `AND employee_code = (SELECT employee_code FROM employees WHERE id = $4 LIMIT 1)`
+      : '';
+    const empParams: unknown[] = [
+      device.clientId,
+      branchId,
+      DASHBOARD_LATE_CUTOFF_HHMM,
+    ];
+    if (isEss) empParams.push(device.essEmployeeId);
+    const empRows: Array<{ present: string; late: string }> =
+      await this.faceRepo.manager.query(
+        `WITH first_punch AS (
+           SELECT employee_code, MIN(punch_time) AS first_in
+             FROM biometric_punches
+            WHERE client_id = $1
+              AND ($2::uuid IS NULL OR branch_id = $2)
+              AND direction IN ('IN','AUTO')
+              AND (punch_time AT TIME ZONE 'Asia/Kolkata')::date
+                  = (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+              ${empCodeFilter}
+            GROUP BY employee_code
+         )
+         SELECT COUNT(*)::int AS present,
+                COUNT(*) FILTER (
+                  WHERE (first_in AT TIME ZONE 'Asia/Kolkata')::time > $3::time
+                )::int AS late
+           FROM first_punch`,
+        empParams,
+      );
+    const presentToday = Number(empRows?.[0]?.present ?? 0);
+    const lateToday = Number(empRows?.[0]?.late ?? 0);
+
+    // Contractor counts — KIOSK-only (ESS devices never see contractors).
+    let contractorEnrolled = 0;
+    let contractorPresentToday = 0;
+    let contractorLateToday = 0;
+    if (!isEss) {
+      const ctrWhere: Record<string, unknown> = {
+        clientId: device.clientId,
+        isActive: true,
+      };
+      if (branchId) ctrWhere.branchId = branchId;
+      contractorEnrolled = await this.contractorFaceRepo.count({
+        where: ctrWhere as any,
+      });
+      const ctrRows: Array<{ present: string; late: string }> =
+        await this.faceRepo.manager.query(
+          `WITH first_punch AS (
+             SELECT contractor_employee_id, MIN(punch_time) AS first_in
+               FROM contractor_biometric_punches
+              WHERE client_id = $1
+                AND ($2::uuid IS NULL OR branch_id = $2)
+                AND direction IN ('IN','AUTO')
+                AND (punch_time AT TIME ZONE 'Asia/Kolkata')::date
+                    = (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+              GROUP BY contractor_employee_id
+           )
+           SELECT COUNT(*)::int AS present,
+                  COUNT(*) FILTER (
+                    WHERE (first_in AT TIME ZONE 'Asia/Kolkata')::time > $3::time
+                  )::int AS late
+             FROM first_punch`,
+          [device.clientId, branchId, DASHBOARD_LATE_CUTOFF_HHMM],
+        );
+      contractorPresentToday = Number(ctrRows?.[0]?.present ?? 0);
+      contractorLateToday = Number(ctrRows?.[0]?.late ?? 0);
+    }
+
+    return {
+      deviceId: device.id,
+      mode: device.mode,
+      branchId,
+      asOf: new Date().toISOString(),
+      lateCutoff: DASHBOARD_LATE_CUTOFF_HHMM,
+      employees: {
+        enrolled: enrolledEmployees,
+        presentToday,
+        lateToday,
+        absentToday: Math.max(0, enrolledEmployees - presentToday),
+      },
+      contractors: {
+        enrolled: contractorEnrolled,
+        presentToday: contractorPresentToday,
+        lateToday: contractorLateToday,
+        absentToday: Math.max(0, contractorEnrolled - contractorPresentToday),
+      },
+    };
+  }
+
+  /**
    * Reject an enrollment if its embedding is too similar to one already on
    * file for a *different* employee in the same client. Threshold:
    * DUPLICATE_FACE_THRESHOLD (mapped (cos+1)/2). Throws ConflictException
@@ -935,6 +1198,11 @@ export class MobileAttendanceService {
     });
     if (!best || best.score < DUPLICATE_FACE_THRESHOLD) return;
 
+    // Redacted error: do NOT reveal which employee/contractor the face
+    // matched. The full match details (score, target id) are persisted to
+    // face_duplicate_attempt_logs so an admin can still investigate, but
+    // the caller only learns that the face is already registered. This
+    // prevents the enrol endpoint from being used as a roster oracle.
     if (best.kind === 'employee') {
       await this.logDuplicateAttempt({
         clientId,
@@ -943,26 +1211,17 @@ export class MobileAttendanceService {
         score: best.score,
         source: 'enroll',
       });
-      throw new ConflictException(
-        `This face already appears to be enrolled for employee ${best.label} ` +
-          `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
-          `registered to one employee. Deactivate the other enrollment first ` +
-          `if this is genuinely the same person.`,
-      );
+    } else {
+      await this.logDuplicateAttempt({
+        clientId,
+        attemptingEmployeeId: employeeId,
+        matchedContractorEmployeeId: best.id,
+        score: best.score,
+        source: 'enroll-cross',
+      });
     }
-    // best.kind === 'contractor'
-    await this.logDuplicateAttempt({
-      clientId,
-      attemptingEmployeeId: employeeId,
-      matchedContractorEmployeeId: best.id,
-      score: best.score,
-      source: 'enroll-cross',
-    });
     throw new ConflictException(
-      `This face is already enrolled for contractor employee ${best.label} ` +
-        `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
-        `registered to one person across employees and contractor employees. ` +
-        `Deactivate the contractor enrollment first if this is genuinely the same person.`,
+      'This face is already registered in the system. Contact your administrator to resolve the duplicate before enrolling.',
     );
   }
 
@@ -991,26 +1250,17 @@ export class MobileAttendanceService {
         score: best.score,
         source: 'enroll-contractor',
       });
-      throw new ConflictException(
-        `This face already appears to be enrolled for contractor employee ${best.label} ` +
-          `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
-          `registered to one contractor employee. Deactivate the other enrollment first ` +
-          `if this is genuinely the same person.`,
-      );
+    } else {
+      await this.logDuplicateAttempt({
+        clientId,
+        attemptingContractorEmployeeId: contractorEmployeeId,
+        matchedEmployeeId: best.id,
+        score: best.score,
+        source: 'enroll-cross',
+      });
     }
-    // best.kind === 'employee'
-    await this.logDuplicateAttempt({
-      clientId,
-      attemptingContractorEmployeeId: contractorEmployeeId,
-      matchedEmployeeId: best.id,
-      score: best.score,
-      source: 'enroll-cross',
-    });
     throw new ConflictException(
-      `This face is already enrolled for employee ${best.label} ` +
-        `(similarity ${best.score.toFixed(2)}). Each face may only be ` +
-        `registered to one person across employees and contractor employees. ` +
-        `Deactivate the employee enrollment first if this is genuinely the same person.`,
+      'This face is already registered in the system. Contact your administrator to resolve the duplicate before enrolling.',
     );
   }
 
@@ -1092,6 +1342,72 @@ export class MobileAttendanceService {
     return { kind: bestKind, id: bestId, label, score: bestScore };
   }
 
+  // ------------------------------------------------------ liveness challenge
+  // Phase 4c: nonce-bound active liveness. The device first calls
+  // `issueLivenessChallenge`, performs the returned action (BLINK /
+  // HEAD_TURN / SMILE), then echoes the nonce back on the next punch.
+  // The server consumes the nonce atomically inside the punch flow so a
+  // captured-and-replayed nonce cannot be reused.
+  async issueLivenessChallenge(
+    device: MobileAttendanceDeviceEntity,
+    employeeId: string | null,
+  ): Promise<{ nonce: string; challengeType: string; expiresAt: string }> {
+    const nonce = randomBytes(24).toString('base64url');
+    const challengeType =
+      LIVENESS_CHALLENGE_TYPES[
+        Math.floor(Math.random() * LIVENESS_CHALLENGE_TYPES.length)
+      ];
+    const expiresAt = new Date(Date.now() + LIVENESS_NONCE_TTL_MS);
+    await this.nonceRepo.insert({
+      clientId: device.clientId,
+      deviceId: device.id,
+      employeeId,
+      nonce,
+      challengeType,
+      expiresAt,
+      consumedAt: null,
+    });
+    return {
+      nonce,
+      challengeType,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  /** Atomically validate + consume a nonce. Returns true iff a row was
+   *  flipped from unconsumed→consumed in this call. Scoped to the
+   *  device so a nonce issued to one device cannot be punched by
+   *  another. */
+  private async consumeLivenessNonce(
+    deviceId: string,
+    nonce: string,
+  ): Promise<{ ok: boolean; challengeType: string | null }> {
+    const rows: Array<{ challenge_type: string }> = await this.ds.query(
+      `UPDATE face_liveness_nonces
+          SET consumed_at = NOW()
+        WHERE nonce = $1
+          AND device_id = $2
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        RETURNING challenge_type`,
+      [nonce, deviceId],
+    );
+    if (rows.length === 0) return { ok: false, challengeType: null };
+    return { ok: true, challengeType: rows[0].challenge_type };
+  }
+
+  /** Best-effort cleanup of expired + old consumed nonces. Called from
+   *  the daily retention cron. */
+  async cleanupExpiredLivenessNonces(): Promise<number> {
+    const res = await this.ds.query(
+      `DELETE FROM face_liveness_nonces
+        WHERE expires_at < NOW() - INTERVAL '1 hour'
+           OR (consumed_at IS NOT NULL
+               AND consumed_at < NOW() - INTERVAL '7 days')`,
+    );
+    return Array.isArray(res) ? 0 : (res?.rowCount ?? 0);
+  }
+
   // ------------------------------------------------------------------ punch
   // Public entry: wraps the validation+insert flow and writes a row to
   // face_failed_scan_logs for every rejection so admins have a single
@@ -1101,9 +1417,10 @@ export class MobileAttendanceService {
     device: MobileAttendanceDeviceEntity,
     body: MobilePunchDto,
     actorEmployeeId?: string | null,
+    meta?: PunchRequestMeta,
   ) {
     try {
-      return await this._recordPunchInner(device, body, actorEmployeeId);
+      return await this._recordPunchInner(device, body, actorEmployeeId, meta);
     } catch (e: any) {
       const reason = classifyRejection(e);
       await this.logFailedScan({
@@ -1118,6 +1435,8 @@ export class MobileAttendanceService {
         livenessScore: body.livenessScore ?? null,
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
+        ip: meta?.ip ?? null,
+        userAgent: meta?.userAgent ?? null,
       });
       // Repeated-failure alert (best-effort).
       if (body.employeeCode) {
@@ -1129,6 +1448,13 @@ export class MobileAttendanceService {
           this.logger.warn(`alert hook failed: ${err?.message ?? err}`),
         );
       }
+      this.maybeAlertRepeatedDeviceFailures(
+        device.clientId,
+        device.id,
+        reason,
+      ).catch((err) =>
+        this.logger.warn(`device alert hook failed: ${err?.message ?? err}`),
+      );
       throw e;
     }
   }
@@ -1137,6 +1463,7 @@ export class MobileAttendanceService {
     device: MobileAttendanceDeviceEntity,
     body: MobilePunchDto,
     actorEmployeeId?: string | null,
+    meta?: PunchRequestMeta,
   ) {
     // ESS mode: punch must be for the bound employee. Prefer the device
     // binding (it's authoritative) over the supplied employeeId.
@@ -1207,12 +1534,19 @@ export class MobileAttendanceService {
 
     // Quality gates — reject low confidence / liveness
     //
-    // Phase 3f: server-side embedding re-verification. When the device
-    // includes its probe embedding we recompute the cosine against the
-    // stored enrollment and use THAT score for the threshold gate, since
-    // a tampered APK could otherwise post any matchScore for any
-    // employeeId. Falls through to the device-trusted matchScore gate when
-    // the probe is absent (old APKs).
+    // Phase 3f / 4c: server-side embedding re-verification. When the
+    // device includes its probe embedding we recompute the cosine against
+    // the stored enrollment and use THAT score for the threshold gate.
+    // PUNCH_REQUIRE_SERVER_PROBE (default true) makes the probe field
+    // mandatory — a tampered APK can no longer post a synthetic
+    // matchScore for any employeeId. The fallback that trusts
+    // body.matchScore is kept behind the env flag for emergency rollback
+    // only.
+    if (PUNCH_REQUIRE_SERVER_PROBE && !body.probeEmbeddingB64) {
+      throw new BadRequestException(
+        'probeEmbeddingB64 is required on punch — please update the attendance app',
+      );
+    }
     let effectiveMatchScore: number | null = body.matchScore ?? null;
     if (body.probeEmbeddingB64) {
       const serverScore = await this.verifyProbeAgainstEnrollment(
@@ -1236,30 +1570,50 @@ export class MobileAttendanceService {
       throw new BadRequestException('Liveness check failed');
     }
 
-    // Phase 3d: active liveness challenge. When required by env, the punch
-    // must carry a recently-satisfied challenge token (BLINK / HEAD_TURN /
-    // SMILE). Empty or stale tokens are rejected; the failure is logged
-    // under the LIVENESS_FAIL bucket via classifyRejection.
+    // Phase 4c: nonce-bound active liveness. The device must first call
+    // POST /mobile-attendance/liveness/challenge, perform the returned
+    // challenge type, then echo the nonce on the punch. The server
+    // atomically consumes the nonce here so a captured payload cannot be
+    // replayed. The client-supplied livenessChallengeType + timestamp are
+    // still validated for backwards compatibility but are NOT trusted on
+    // their own — the nonce is the authoritative gate.
     if (LIVENESS_CHALLENGE_REQUIRED) {
-      if (!body.livenessChallengeType || !body.livenessChallengePassedAt) {
+      if (!body.livenessNonce) {
         throw new BadRequestException(
-          'Active liveness challenge required (perform the on-screen action and try again)',
+          'Active liveness challenge required (request a challenge and try again)',
         );
       }
-      const passedAt = Date.parse(body.livenessChallengePassedAt);
-      if (Number.isNaN(passedAt)) {
-        throw new BadRequestException('Invalid liveness challenge timestamp');
-      }
-      const ageMs = Date.now() - passedAt;
-      if (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS) {
+      const consumed = await this.consumeLivenessNonce(
+        device.id,
+        body.livenessNonce,
+      );
+      if (!consumed.ok) {
         throw new BadRequestException(
-          'Liveness challenge timestamp is in the future — check device clock',
+          'Liveness challenge expired or already used — please retake the action',
         );
       }
-      if (ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+      if (
+        body.livenessChallengeType &&
+        body.livenessChallengeType !== consumed.challengeType
+      ) {
         throw new BadRequestException(
-          'Liveness challenge expired — please retake the action',
+          'Liveness challenge type mismatch — please retake the action',
         );
+      }
+      if (body.livenessChallengePassedAt) {
+        const passedAt = Date.parse(body.livenessChallengePassedAt);
+        if (Number.isNaN(passedAt)) {
+          throw new BadRequestException('Invalid liveness challenge timestamp');
+        }
+        const ageMs = Date.now() - passedAt;
+        if (
+          ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS ||
+          ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS
+        ) {
+          throw new BadRequestException(
+            'Liveness challenge timestamp out of range — check device clock',
+          );
+        }
       }
     }
 
@@ -1406,7 +1760,9 @@ export class MobileAttendanceService {
              match_score = $6,
              liveness_score = $7,
              match_provider = $8,
-             source = $9
+             source = $9,
+             capture_ip = $14,
+             capture_user_agent = $15
        WHERE client_id = $10
          AND employee_code = $11
          AND punch_time = $12
@@ -1425,6 +1781,8 @@ export class MobileAttendanceService {
         emp.employeeCode,
         ts,
         `mobile:${device.id}`,
+        meta?.ip ?? null,
+        meta?.userAgent ?? null,
       ],
     );
 
@@ -1449,9 +1807,10 @@ export class MobileAttendanceService {
   async recordContractorPunch(
     device: MobileAttendanceDeviceEntity,
     body: ContractorMobilePunchDto,
+    meta?: PunchRequestMeta,
   ) {
     try {
-      return await this._recordContractorPunchInner(device, body);
+      return await this._recordContractorPunchInner(device, body, meta);
     } catch (e: any) {
       const reason = classifyRejection(e);
       await this.logFailedScan({
@@ -1467,6 +1826,8 @@ export class MobileAttendanceService {
         livenessScore: body.livenessScore ?? null,
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
+        ip: meta?.ip ?? null,
+        userAgent: meta?.userAgent ?? null,
       });
       if (body.contractorEmployeeId) {
         this.maybeAlertRepeatedContractorFailures(
@@ -1477,6 +1838,13 @@ export class MobileAttendanceService {
           this.logger.warn(`alert hook failed: ${err?.message ?? err}`),
         );
       }
+      this.maybeAlertRepeatedDeviceFailures(
+        device.clientId,
+        device.id,
+        reason,
+      ).catch((err) =>
+        this.logger.warn(`device alert hook failed: ${err?.message ?? err}`),
+      );
       throw e;
     }
   }
@@ -1484,6 +1852,7 @@ export class MobileAttendanceService {
   private async _recordContractorPunchInner(
     device: MobileAttendanceDeviceEntity,
     body: ContractorMobilePunchDto,
+    meta?: PunchRequestMeta,
   ) {
     if (device.mode !== 'KIOSK') {
       throw new ForbiddenException(
@@ -1526,6 +1895,11 @@ export class MobileAttendanceService {
       // Soft-block (parity with employee path).
     }
 
+    if (PUNCH_REQUIRE_SERVER_PROBE && !body.probeEmbeddingB64) {
+      throw new BadRequestException(
+        'probeEmbeddingB64 is required on punch — please update the attendance app',
+      );
+    }
     if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
         `Face match score ${body.matchScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
@@ -1553,25 +1927,42 @@ export class MobileAttendanceService {
     }
 
     if (LIVENESS_CHALLENGE_REQUIRED) {
-      if (!body.livenessChallengeType || !body.livenessChallengePassedAt) {
+      if (!body.livenessNonce) {
         throw new BadRequestException(
-          'Active liveness challenge required (perform the on-screen action and try again)',
+          'Active liveness challenge required (request a challenge and try again)',
         );
       }
-      const passedAt = Date.parse(body.livenessChallengePassedAt);
-      if (Number.isNaN(passedAt)) {
-        throw new BadRequestException('Invalid liveness challenge timestamp');
-      }
-      const ageMs = Date.now() - passedAt;
-      if (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS) {
+      const consumed = await this.consumeLivenessNonce(
+        device.id,
+        body.livenessNonce,
+      );
+      if (!consumed.ok) {
         throw new BadRequestException(
-          'Liveness challenge timestamp is in the future — check device clock',
+          'Liveness challenge expired or already used — please retake the action',
         );
       }
-      if (ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+      if (
+        body.livenessChallengeType &&
+        body.livenessChallengeType !== consumed.challengeType
+      ) {
         throw new BadRequestException(
-          'Liveness challenge expired — please retake the action',
+          'Liveness challenge type mismatch — please retake the action',
         );
+      }
+      if (body.livenessChallengePassedAt) {
+        const passedAt = Date.parse(body.livenessChallengePassedAt);
+        if (Number.isNaN(passedAt)) {
+          throw new BadRequestException('Invalid liveness challenge timestamp');
+        }
+        const ageMs = Date.now() - passedAt;
+        if (
+          ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS ||
+          ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS
+        ) {
+          throw new BadRequestException(
+            'Liveness challenge timestamp out of range — check device clock',
+          );
+        }
       }
     }
 
@@ -1641,9 +2032,9 @@ export class MobileAttendanceService {
            (client_id, branch_id, contractor_employee_id, punch_time, direction,
             source, mobile_device_id, device_id, capture_lat, capture_lng,
             capture_accuracy_m, photo_url, match_score, liveness_score,
-            match_provider)
+            match_provider, capture_ip, capture_user_agent)
          VALUES ($1, $2, $3, $4, $5, 'MOBILE_KIOSK', $6, $7, $8, $9, $10, $11,
-                 $12, $13, $14)
+                 $12, $13, $14, $15, $16)
          ON CONFLICT (client_id, contractor_employee_id, punch_time) DO NOTHING
          RETURNING id`,
         [
@@ -1661,6 +2052,8 @@ export class MobileAttendanceService {
           effectiveMatchScore,
           body.livenessScore ?? null,
           body.matchProvider ?? 'mobilefacenet',
+          meta?.ip ?? null,
+          meta?.userAgent ?? null,
         ],
       );
 
@@ -1743,14 +2136,16 @@ export class MobileAttendanceService {
     livenessScore: number | null;
     captureLat: number | null;
     captureLng: number | null;
+    ip?: string | null;
+    userAgent?: string | null;
   }): Promise<void> {
     try {
       await this.faceRepo.manager.query(
         `INSERT INTO face_failed_scan_logs
            (client_id, branch_id, device_id, employee_id, employee_code,
             contractor_employee_id, reason, reason_detail, match_score,
-            liveness_score, capture_lat, capture_lng)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            liveness_score, capture_lat, capture_lng, ip, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           input.clientId,
           input.branchId,
@@ -1764,6 +2159,8 @@ export class MobileAttendanceService {
           input.livenessScore,
           input.captureLat,
           input.captureLng,
+          input.ip ?? null,
+          input.userAgent ?? null,
         ],
       );
     } catch (e: any) {
@@ -1851,9 +2248,9 @@ export class MobileAttendanceService {
         'Contractor employee consent is required for biometric enrollment',
       );
     }
-    if (!body.embeddingBase64 && !body.photoBase64) {
+    if (!body.photoBase64) {
       throw new BadRequestException(
-        'Provide either embeddingBase64 or photoBase64',
+        'photoBase64 is required for contractor enrolment (server recomputes the embedding)',
       );
     }
     const ce = await this.contractorEmpRepo.findOne({
@@ -1871,29 +2268,26 @@ export class MobileAttendanceService {
       );
     }
 
-    let embedding: Buffer | null = body.embeddingBase64
-      ? Buffer.from(body.embeddingBase64, 'base64')
-      : null;
-    let embeddingModel: string | null = body.embeddingModel ?? null;
-
-    if (!embedding && body.photoBase64) {
-      if (!this.faceEmbeddingClient.isEnabled()) {
-        throw new BadRequestException(
-          'Server-side face embedding is not configured (FACE_SVC_URL unset)',
-        );
-      }
-      const result = await this.faceEmbeddingClient.embedPhoto(
-        body.photoBase64,
-      );
-      if (!result) {
-        throw new BadRequestException('Face embedding service unavailable');
-      }
-      embedding = Buffer.from(result.embeddingBase64, 'base64');
-      embeddingModel = embeddingModel || result.embeddingModel;
-      this.logger.log(
-        `enrollContractorFace photo→embed ok contractorEmp=${ce.id} bytes=${embedding.length}`,
+    if (!this.faceEmbeddingClient.isEnabled()) {
+      throw new BadRequestException(
+        'Server-side face embedding is not configured (FACE_SVC_URL unset)',
       );
     }
+    const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+    if (!result) {
+      throw new BadRequestException('Face embedding service unavailable');
+    }
+    const embedding: Buffer = Buffer.from(result.embeddingBase64, 'base64');
+    const embeddingModel: string = body.embeddingModel || result.embeddingModel;
+    if (result.faceScore < MIN_FACE_QUALITY_SCORE) {
+      throw new BadRequestException(
+        `Face image quality too low (score ${result.faceScore.toFixed(2)} < ${MIN_FACE_QUALITY_SCORE}) — ` +
+          `retake the photo with better lighting and the face clearly centered`,
+      );
+    }
+    this.logger.log(
+      `enrollContractorFace photo→embed ok contractorEmp=${ce.id} bytes=${embedding.length}`,
+    );
 
     // Phase 4b: cross-table duplicate-face guard. Reject if this face is
     // already enrolled to a different employee OR a different contractor
@@ -1980,6 +2374,10 @@ export class MobileAttendanceService {
     row.isActive = false;
     row.deactivatedAt = new Date();
     row.deactivationReason = reason;
+    // Phase 4c / DPDP: crypto-shred the embedding (see deactivateEnrollment).
+    if (row.embedding && row.embedding.length > 0) {
+      row.embedding = randomBytes(row.embedding.length);
+    }
     const saved = await this.contractorFaceRepo.save(row);
     await this.logContractorEnrollmentHistory({
       contractorEmployeeId,
@@ -2027,6 +2425,16 @@ export class MobileAttendanceService {
           by ?? null,
         ],
       );
+      // Phase 4c / DPDP: shred embedding bytes before delete (see
+      // deleteEnrollment for the MVCC caveat — full shred only completes
+      // once autovacuum reclaims the original tuple version).
+      if (row.embedding && row.embedding.length > 0) {
+        await tx.update(
+          ContractorFaceEnrollmentEntity,
+          { contractorEmployeeId, clientId },
+          { embedding: randomBytes(row.embedding.length) },
+        );
+      }
       await tx.delete(ContractorFaceEnrollmentEntity, {
         contractorEmployeeId,
         clientId,
@@ -2997,26 +3405,29 @@ export class MobileAttendanceService {
   }
 
   /**
-   * If an employee has accumulated >=3 failed scans of the same reason in
-   * the last 10 minutes, raise a system notification (deduplicated per
-   * employee + reason + IST date so admins don't get spammed).
+   * If an employee has accumulated repeated security-relevant rejections
+   * within the alert window, raise a system notification. Deduplicated
+   * per employee + reason + IST date so admins don't get spammed. Benign
+   * reasons (cooldown, employee inactive, clock skew) are filtered out
+   * via SUSPICIOUS_REJECTION_REASONS so the signal stays high.
    */
   private async maybeAlertRepeatedFailures(
     clientId: string,
     employeeCode: string,
     reason: string,
   ): Promise<void> {
+    if (!SUSPICIOUS_REJECTION_REASONS.has(reason)) return;
     const rows: Array<{ n: string }> = await this.faceRepo.manager.query(
       `SELECT COUNT(*)::text AS n
          FROM face_failed_scan_logs
         WHERE client_id = $1
           AND employee_code = $2
           AND reason = $3
-          AND attempted_at >= now() - interval '10 minutes'`,
-      [clientId, employeeCode, reason],
+          AND attempted_at >= now() - ($4 || ' minutes')::interval`,
+      [clientId, employeeCode, reason, String(REJECTION_ALERT_WINDOW_MIN)],
     );
     const n = Number(rows?.[0]?.n ?? 0);
-    if (n < 3) return;
+    if (n < REJECTION_ALERT_THRESHOLD) return;
     const today = new Date().toISOString().slice(0, 10);
     await this.notifications.createSystemNotification({
       clientId,
@@ -3024,8 +3435,8 @@ export class MobileAttendanceService {
       subject: `Repeated face-attendance failures: ${employeeCode}`,
       message:
         `Employee ${employeeCode} has triggered ${n} ${reason} rejections ` +
-        `in the last 10 minutes today (${today}). Please verify identity ` +
-        `and review enrollment.`,
+        `in the last ${REJECTION_ALERT_WINDOW_MIN} minutes today (${today}). ` +
+        `Please verify identity and review enrollment.`,
       queryType: 'ATTENDANCE',
       priority: 1,
     });
@@ -3041,17 +3452,23 @@ export class MobileAttendanceService {
     contractorEmployeeId: string,
     reason: string,
   ): Promise<void> {
+    if (!SUSPICIOUS_REJECTION_REASONS.has(reason)) return;
     const rows: Array<{ n: string }> = await this.faceRepo.manager.query(
       `SELECT COUNT(*)::text AS n
          FROM face_failed_scan_logs
         WHERE client_id = $1
           AND contractor_employee_id = $2
           AND reason = $3
-          AND attempted_at >= now() - interval '10 minutes'`,
-      [clientId, contractorEmployeeId, reason],
+          AND attempted_at >= now() - ($4 || ' minutes')::interval`,
+      [
+        clientId,
+        contractorEmployeeId,
+        reason,
+        String(REJECTION_ALERT_WINDOW_MIN),
+      ],
     );
     const n = Number(rows?.[0]?.n ?? 0);
-    if (n < 3) return;
+    if (n < REJECTION_ALERT_THRESHOLD) return;
     const ctr = await this.contractorEmpRepo.findOne({
       where: { id: contractorEmployeeId },
     });
@@ -3063,8 +3480,55 @@ export class MobileAttendanceService {
       subject: `Repeated face-attendance failures (contractor): ${label}`,
       message:
         `Contractor employee ${label} has triggered ${n} ${reason} rejections ` +
-        `in the last 10 minutes today (${today}). Please verify identity ` +
-        `and review enrollment.`,
+        `in the last ${REJECTION_ALERT_WINDOW_MIN} minutes today (${today}). ` +
+        `Please verify identity and review enrollment.`,
+      queryType: 'ATTENDANCE',
+      priority: 1,
+    });
+  }
+
+  /**
+   * Phase 4c roadmap #16: device-level rejection alert. Catches the case
+   * where an attacker hammers a kiosk with random faces (no employeeCode
+   * resolved on the punch payload, so the per-employee helper above
+   * never fires). Dedupes per device + reason + hour-of-day bucket so
+   * at most one alert per device per reason per hour reaches admins.
+   */
+  private async maybeAlertRepeatedDeviceFailures(
+    clientId: string,
+    deviceId: string,
+    reason: string,
+  ): Promise<void> {
+    if (!SUSPICIOUS_REJECTION_REASONS.has(reason)) return;
+    const rows: Array<{ n: string }> = await this.faceRepo.manager.query(
+      `SELECT COUNT(*)::text AS n
+         FROM face_failed_scan_logs
+        WHERE client_id = $1
+          AND device_id = $2
+          AND reason = $3
+          AND attempted_at >= now() - ($4 || ' minutes')::interval`,
+      [clientId, deviceId, reason, String(REJECTION_ALERT_WINDOW_MIN)],
+    );
+    const n = Number(rows?.[0]?.n ?? 0);
+    if (n < DEVICE_REJECTION_ALERT_THRESHOLD) return;
+    // Hour-of-day bucket keeps follow-up bursts within the same hour
+    // collapsed into one notification thread.
+    const bucket = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
+    const device = await this.deviceRepo.findOne({
+      where: { id: deviceId },
+    });
+    const label =
+      device?.deviceLabel ?? device?.androidId ?? deviceId.slice(0, 8);
+    await this.notifications.createSystemNotification({
+      clientId,
+      branchId: device?.branchId ?? undefined,
+      sourceKey: `device-face-rejection:${deviceId}:${reason}:${bucket}`,
+      subject: `Suspicious face-attendance activity on device: ${label}`,
+      message:
+        `Device "${label}" has accumulated ${n} ${reason} rejections in ` +
+        `the last ${REJECTION_ALERT_WINDOW_MIN} minutes. This may indicate ` +
+        `spoofing attempts, a hardware issue, or a misconfigured kiosk — ` +
+        `please review recent activity on this device.`,
       queryType: 'ATTENDANCE',
       priority: 1,
     });

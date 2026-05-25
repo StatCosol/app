@@ -6,6 +6,7 @@ import { RecurringInvoiceConfig, BillingClient } from '../entities';
 import { BillingFrequency, InvoiceType } from '../enums';
 import { InvoicesService } from '../services/invoices.service';
 import { InvoiceEmailService } from '../services/invoice-email.service';
+import { CronLockService } from '../../common/services/cron-lock.service';
 
 /**
  * Generates and emails recurring invoices on the 1st of each month.
@@ -27,11 +28,25 @@ export class RecurringInvoiceCron {
     private readonly clientRepo: Repository<BillingClient>,
     private readonly invoicesService: InvoicesService,
     private readonly invoiceEmailService: InvoiceEmailService,
+    private readonly cronLock: CronLockService,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
-  @Cron('0 0 9 1 * *')
+  @Cron('0 0 9 1 * *', { timeZone: 'Asia/Kolkata' })
   async runMonthly(): Promise<{
+    due: number;
+    ok: number;
+    failed: number;
+    skippedNoEmail: number;
+  }> {
+    const result = await this.cronLock.runExclusive(
+      'recurring-invoice:runMonthly',
+      () => this.doRun(),
+    );
+    return result ?? { due: 0, ok: 0, failed: 0, skippedNoEmail: 0 };
+  }
+
+  private async doRun(): Promise<{
     due: number;
     ok: number;
     failed: number;

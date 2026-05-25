@@ -130,3 +130,48 @@ export function assertSafeFile(file: Express.Multer.File | undefined): void {
   // Magic bytes are only available when buffer is present (memoryStorage).
   validateUploadedFile(file.originalname, file.buffer);
 }
+
+/**
+ * Variant of `assertSafeFile()` for disk-storage uploads. Reads the first
+ * 16 bytes off the saved file so magic-byte validation still runs even
+ * when multer wrote straight to disk (so `file.buffer` is empty).
+ *
+ * On validation failure the saved file is unlinked before throwing.
+ */
+export function assertSafeFileOnDisk(
+  file: Express.Multer.File | undefined,
+): void {
+  if (!file) throw new BadRequestException('File is required');
+  let head: Buffer | undefined;
+  if (file.path) {
+    let fd = -1;
+    try {
+      fd = fs.openSync(file.path, 'r');
+      const buf = Buffer.alloc(16);
+      const read = fs.readSync(fd, buf, 0, 16, 0);
+      head = buf.slice(0, read);
+    } catch {
+      head = undefined;
+    } finally {
+      if (fd >= 0) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+  try {
+    validateUploadedFile(file.originalname, head);
+  } catch (err) {
+    if (file.path) {
+      try {
+        fs.unlinkSync(file.path);
+      } catch {
+        /* ignore */
+      }
+    }
+    throw err;
+  }
+}

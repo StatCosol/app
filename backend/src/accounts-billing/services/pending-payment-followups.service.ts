@@ -15,6 +15,7 @@ import {
 import { InvoiceEmailLog } from '../entities/invoice-email-log.entity';
 import { MailStatus } from '../enums';
 import { EmailService } from '../../email/email.service';
+import { CronLockService } from '../../common/services/cron-lock.service';
 import {
   CreatePendingPaymentFollowupDto,
   UpdatePendingPaymentFollowupDto,
@@ -55,6 +56,7 @@ export class PendingPaymentFollowupsService {
     private readonly emailLogRepo: Repository<InvoiceEmailLog>,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
+    private readonly cronLock: CronLockService,
   ) {}
 
   // ── CSV parsing ─────────────────────────────────────────────────────
@@ -429,6 +431,12 @@ export class PendingPaymentFollowupsService {
     name: 'pendingPaymentDailyReminder',
   })
   async runDailyReminders(): Promise<void> {
+    await this.cronLock.runExclusive('pending-payment:dailyReminder', () =>
+      this.doDailyReminders(),
+    );
+  }
+
+  private async doDailyReminders(): Promise<void> {
     const due = await this.repo.find({
       where: {
         status: PendingPaymentStatus.PENDING,

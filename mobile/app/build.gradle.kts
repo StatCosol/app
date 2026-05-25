@@ -21,9 +21,19 @@ android {
         // Admin PIN that unlocks the kiosk lock-task / immersive mode so an
         // operator can exit back to the device launcher (e.g. for app
         // updates or to switch accounts). Long-press the brand label in the
-        // kiosk header to bring up the PIN prompt. Override per-build by
-        // editing this line — do not commit production PINs.
-        buildConfigField("String", "ADMIN_EXIT_PIN", "\"2580\"")
+        // kiosk header to bring up the PIN prompt.
+        //
+        // The PIN is read at build time from one of:
+        //   * gradle.properties  →  statco.adminExitPin=...
+        //   * CLI                →  -Pstatco.adminExitPin=...
+        //   * env var            →  STATCO_ADMIN_EXIT_PIN=...
+        // If unset, the value is empty and the exit dialog will refuse to
+        // unlock — set a PIN before producing a release build.
+        val adminExitPin: String =
+            (project.findProperty("statco.adminExitPin") as String?)
+                ?: System.getenv("STATCO_ADMIN_EXIT_PIN")
+                ?: ""
+        buildConfigField("String", "ADMIN_EXIT_PIN", "\"$adminExitPin\"")
     }
 
     buildFeatures {
@@ -81,6 +91,11 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.activity:activity-ktx:1.9.1")
+
+    // Encrypted SharedPreferences for the install token (AES-256-GCM keyed
+    // off the device keystore). Pinned to the last stable; the 1.1.0-alpha
+    // line keeps changing API.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // CameraX
     implementation("androidx.camera:camera-core:$cameraxVersion")

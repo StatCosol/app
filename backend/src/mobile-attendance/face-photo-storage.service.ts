@@ -190,4 +190,58 @@ export class FacePhotoStorage {
     const baseUrl = block.url.split('?')[0];
     return baseUrl;
   }
+
+  /**
+   * Phase 4c: best-effort delete of a previously-stored selfie URL. Used
+   * by the daily retention cron to enforce the photo-retention policy.
+   * Never throws — a missing/already-deleted blob is success. The caller
+   * is responsible for nulling the photo_url column in DB afterwards.
+   */
+  async remove(url: string | null | undefined): Promise<boolean> {
+    if (!url) return false;
+    try {
+      if (
+        this.mode === 'azure-blob' &&
+        this.blobContainer &&
+        url.startsWith('http')
+      ) {
+        const accountHost = this.blobContainer.url.split('?')[0];
+        // url is like https://<acct>.blob.../<container>/<blobName>
+        const base = accountHost.endsWith('/')
+          ? accountHost.slice(0, -1)
+          : accountHost;
+        if (!url.startsWith(base + '/')) {
+          this.logger.debug(
+            `FacePhotoStorage.remove: url not in expected container (${url})`,
+          );
+          return false;
+        }
+        const blobName = decodeURIComponent(url.slice(base.length + 1));
+        const block = this.blobContainer.getBlockBlobClient(blobName);
+        const res = await block.deleteIfExists();
+        return res.succeeded === true;
+      }
+      if (this.mode === 'local') {
+        // Stored value is a relative path under cwd; normalise then ensure
+        // it stays inside the rootDir before touching the filesystem.
+        const abs = path.resolve(process.cwd(), url);
+        const rootAbs = path.resolve(this.rootDir);
+        if (!abs.startsWith(rootAbs + path.sep) && abs !== rootAbs) {
+          this.logger.warn(
+            `FacePhotoStorage.remove: refusing path outside rootDir (${url})`,
+          );
+          return false;
+        }
+        await fs.unlink(abs).catch((e: NodeJS.ErrnoException) => {
+          if (e.code !== 'ENOENT') throw e;
+        });
+        return true;
+      }
+    } catch (e: any) {
+      this.logger.warn(
+        `FacePhotoStorage.remove failed (${this.mode}) for ${url}: ${e?.message ?? e}`,
+      );
+    }
+    return false;
+  }
 }

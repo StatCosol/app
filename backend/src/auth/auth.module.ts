@@ -32,14 +32,16 @@ import { JwtStrategy } from './jwt.strategy';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        // Prefer JWT_EXPIRES_IN (e.g. '12h') if set; fall back to JWT_ACCESS_EXPIRES_SEC (seconds)
-        const expiresRaw = config.get<string>('JWT_EXPIRES_IN');
-        const expiresIn: string | number = expiresRaw
-          ? expiresRaw
-          : Number(config.get<string>('JWT_ACCESS_EXPIRES_SEC', '900'));
+        // Single source of truth: JWT_ACCESS_EXPIRES_SEC (in seconds), also
+        // returned to the frontend by /auth/session-config. The legacy
+        // JWT_EXPIRES_IN env (e.g. "12h") is no longer honored — having two
+        // knobs caused prod to issue 12h tokens while the UI idle timer
+        // assumed 15m.
+        const sec = Number(config.get<string>('JWT_ACCESS_EXPIRES_SEC', '900'));
+        const expiresIn = Number.isFinite(sec) && sec > 0 ? sec : 900;
         return {
           secret: config.getOrThrow<string>('JWT_SECRET'),
-          signOptions: { expiresIn: expiresIn as any },
+          signOptions: { expiresIn },
         };
       },
     }),

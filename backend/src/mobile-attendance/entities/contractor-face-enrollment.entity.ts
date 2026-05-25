@@ -66,6 +66,27 @@ export class ContractorFaceEnrollmentEntity {
   @Column({ name: 'deactivation_reason', type: 'text', nullable: true })
   deactivationReason: string | null;
 
+  @Column({
+    name: 'appearance_drift_flagged_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  appearanceDriftFlaggedAt: Date | null;
+
+  @Column({
+    name: 'appearance_drift_avg_score',
+    type: 'numeric',
+    nullable: true,
+  })
+  appearanceDriftAvgScore: string | null;
+
+  @Column({
+    name: 'appearance_drift_sample_count',
+    type: 'integer',
+    nullable: true,
+  })
+  appearanceDriftSampleCount: number | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

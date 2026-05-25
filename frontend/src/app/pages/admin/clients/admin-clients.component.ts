@@ -138,10 +138,8 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   masterUserResetResult: { newPassword: string } | null = null;
 
   // Logo upload state
-  logoUploadMode: 'file' | 'svg' = 'file';
   logoFile: File | null = null;
   logoPreviewUrl: string | null = null;
-  svgCodeInput = '';
   uploadingLogo = false;
   logoUploadMessage = '';
   logoUploadError = '';
@@ -1200,42 +1198,23 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
 
   uploadLogo(): void {
     if (!this.selectedClient) return;
-    if (this.logoUploadMode === 'file') {
-      if (!this.logoFile) { this.logoUploadError = 'Select a file first'; return; }
-      this.uploadingLogo = true;
-      this.logoUploadMessage = '';
-      this.logoUploadError = '';
-      this.service.uploadLogo(this.selectedClient.id, this.logoFile).pipe(
-        timeout(15000),
-        catchError((err) => { this.logoUploadError = err.error?.message || 'Upload failed'; return of(null); }),
-        finalize(() => { this.uploadingLogo = false; this.cdr.detectChanges(); }),
-        takeUntil(this.destroy$),
-      ).subscribe((res) => {
-        if (res) {
-          this.logoUploadMessage = 'Logo uploaded successfully';
-          this.selectedClient!.logoUrl = res.logoUrl;
-          this.logoFile = null;
-          this.logoPreviewUrl = null;
-        }
-      });
-    } else {
-      if (!this.svgCodeInput.trim()) { this.logoUploadError = 'Paste SVG code first'; return; }
-      this.uploadingLogo = true;
-      this.logoUploadMessage = '';
-      this.logoUploadError = '';
-      this.service.uploadSvgCode(this.selectedClient.id, this.svgCodeInput.trim()).pipe(
-        timeout(15000),
-        catchError((err) => { this.logoUploadError = err.error?.message || 'Upload failed'; return of(null); }),
-        finalize(() => { this.uploadingLogo = false; this.cdr.detectChanges(); }),
-        takeUntil(this.destroy$),
-      ).subscribe((res) => {
-        if (res) {
-          this.logoUploadMessage = 'SVG logo saved successfully';
-          this.selectedClient!.logoUrl = res.logoUrl;
-          this.svgCodeInput = '';
-        }
-      });
-    }
+    if (!this.logoFile) { this.logoUploadError = 'Select a file first'; return; }
+    this.uploadingLogo = true;
+    this.logoUploadMessage = '';
+    this.logoUploadError = '';
+    this.service.uploadLogo(this.selectedClient.id, this.logoFile).pipe(
+      timeout(15000),
+      catchError((err) => { this.logoUploadError = err.error?.message || 'Upload failed'; return of(null); }),
+      finalize(() => { this.uploadingLogo = false; this.cdr.detectChanges(); }),
+      takeUntil(this.destroy$),
+    ).subscribe((res) => {
+      if (res) {
+        this.logoUploadMessage = 'Logo uploaded successfully';
+        this.selectedClient!.logoUrl = res.logoUrl;
+        this.logoFile = null;
+        this.logoPreviewUrl = null;
+      }
+    });
   }
 
   getAuthenticatedLogoUrl(url: string): string {

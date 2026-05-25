@@ -24,6 +24,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PayrollProcessingService } from './payroll-processing.service';
+import { assertSafeFileOnDisk } from '../common/safe-upload';
 import { PayrollEngineService } from './engine/payroll-engine.service';
 import { PfEcrGenerator } from './generators/pf-ecr.generator';
 import { EsiGenerator } from './generators/esi.generator';
@@ -115,6 +116,7 @@ export class PayrollProcessingController {
     @CurrentUser() user: ReqUser,
   ) {
     if (!file) throw new BadRequestException('File is required');
+    assertSafeFileOnDisk(file);
     await this.loadRunForUser(runId, user);
     return this.processingSvc.uploadBreakup(runId, file);
   }
@@ -129,6 +131,7 @@ export class PayrollProcessingController {
     @CurrentUser() user: ReqUser,
   ) {
     if (!file) throw new BadRequestException('File is required');
+    assertSafeFileOnDisk(file);
     await this.loadRunForUser(runId, user);
     return this.processingSvc.uploadAttendance(runId, file);
   }
