@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MOBILEFACENET_TFLITE_URL: ${{ secrets.MOBILEFACENET_TFLITE_URL }}
+      # Baked into BuildConfig.ADMIN_EXIT_PIN via build.gradle.kts. If
+      # unset, the kiosk admin-exit dialog rejects every PIN.
+      STATCO_ADMIN_EXIT_PIN: ${{ secrets.ADMIN_EXIT_PIN }}
     defaults:
       run:
         working-directory: mobile
