@@ -116,12 +116,7 @@ interface EnrollForm {
               </label>
               <select id="enroll-subj" name="subjectId" [(ngModel)]="enrollForm.subjectId" (ngModelChange)="onEnrollSubjectChange()" class="ui-input">
                 <option value="">— Select —</option>
-                <ng-container *ngIf="subjectType === 'employee'">
-                  <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
-                </ng-container>
-                <ng-container *ngIf="subjectType === 'contractor'">
-                  <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span></option>
-                </ng-container>
+                <option *ngFor="let c of contractors" [value]="c.id">{{ c.name }}<span *ngIf="c.designation"> · {{ c.designation }}</span></option>
               </select>
             </div>
 
