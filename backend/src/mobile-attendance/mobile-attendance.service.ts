@@ -22,6 +22,8 @@ import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
 import type { PadProvider } from './pad/pad-provider';
 import { PAD_PROVIDER } from './pad/pad-provider';
+import type { MaskDetector } from './mask/mask-detector';
+import { MASK_DETECTOR, getMaskPolicy } from './mask/mask-detector';
 import { getShiftMode, validateAgainstShift } from './shift/shift-validator';
 import { FaceEmbeddingClient } from './face-embedding.client';
 import { FacePhotoStorage } from './face-photo-storage.service';
@@ -194,6 +196,7 @@ export class MobileAttendanceService {
     private readonly notifications: NotificationsService,
     private readonly facePhotos: FacePhotoStorage,
     @Inject(PAD_PROVIDER) private readonly padProvider: PadProvider,
+    @Inject(MASK_DETECTOR) private readonly maskDetector: MaskDetector,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
 
@@ -1591,6 +1594,27 @@ export class MobileAttendanceService {
       );
     }
 
+    // Roadmap #9 / K13: mask / PPE detection. Detection happens via
+    // the configured provider; enforcement is gated by FACE_MASK_POLICY
+    // (allow|warn|block). Default policy `allow` means provider output
+    // is logged for audit only.
+    {
+      const maskResult = await this.maskDetector.check({});
+      if (maskResult.masked) {
+        const policy = getMaskPolicy();
+        if (policy === 'block') {
+          throw new BadRequestException(
+            maskResult.reason || 'Face covering detected — please remove it',
+          );
+        }
+        if (policy === 'warn') {
+          this.logger.warn(
+            `[mask] ${emp.employeeCode ?? emp.id} masked=true (warn-only)`,
+          );
+        }
+      }
+    }
+
     // Phase 4c: nonce-bound active liveness. The device must first call
     // POST /mobile-attendance/liveness/challenge, perform the returned
     // challenge type, then echo the nonce on the punch. The server
@@ -1984,6 +2008,24 @@ export class MobileAttendanceService {
       throw new BadRequestException(
         padResult.reason || 'Anti-spoof check failed',
       );
+    }
+
+    // Roadmap #9 / K13: mask / PPE detection (contractor parity).
+    {
+      const maskResult = await this.maskDetector.check({});
+      if (maskResult.masked) {
+        const policy = getMaskPolicy();
+        if (policy === 'block') {
+          throw new BadRequestException(
+            maskResult.reason || 'Face covering detected — please remove it',
+          );
+        }
+        if (policy === 'warn') {
+          this.logger.warn(
+            `[mask] contractor ${ctr.id} masked=true (warn-only)`,
+          );
+        }
+      }
     }
 
     if (LIVENESS_CHALLENGE_REQUIRED) {

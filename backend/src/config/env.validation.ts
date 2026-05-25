@@ -107,4 +107,7 @@ export const envValidationSchema = Joi.object({
   SHIFT_VALIDATION_MODE: Joi.string()
     .valid('off', 'warn', 'enforce')
     .optional(),
+  // Roadmap #9 / K13 — mask / PPE detector + policy
+  FACE_MASK_DETECTOR: Joi.string().valid('none', 'onnx', 'azure').optional(),
+  FACE_MASK_POLICY: Joi.string().valid('allow', 'warn', 'block').optional(),
 });
