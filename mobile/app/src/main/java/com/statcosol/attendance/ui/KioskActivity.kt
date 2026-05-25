@@ -24,9 +24,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
+import com.statcosol.attendance.api.KioskEnrollSubmitBody
+import com.statcosol.attendance.api.KioskEnrollTicket
 import com.statcosol.attendance.databinding.ActivityCameraBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
+import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.face.FaceSignal
 import com.statcosol.attendance.face.LivenessChallenge
 import com.statcosol.attendance.face.LivenessChallengeTracker
@@ -39,6 +42,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.sqrt
 
 /**
  * Shared-tablet KIOSK mode. Camera runs continuously; whenever a face passes
@@ -84,6 +88,19 @@ class KioskActivity : AppCompatActivity() {
      *  server in [recordPunch] for cosine re-verification. */
     @Volatile private var pendingChallengeProbe: FloatArray? = null
     private val pendingChallengeTimeout = Runnable { abortChallenge(timedOut = true) }
+
+    /** Operator-supervised enrollment state. When [enrollTicket] is non-null
+     *  the kiosk is in enrollment mode: normal matching is paused, frames are
+     *  collected into [enrollFrames], and once enough frames + the liveness
+     *  challenge are satisfied the [showEnrollRegisterDialog] is shown. */
+    @Volatile private var enrollTicket: KioskEnrollTicket? = null
+    private val enrollFrames = mutableListOf<FloatArray>()
+    private var enrollRunningAvg: FloatArray? = null
+    @Volatile private var enrollLastAcceptedAt: Long = 0L
+    @Volatile private var enrollChallenge: LivenessChallengeTracker? = null
+    @Volatile private var enrollChallengePassed: Boolean = false
+    @Volatile private var enrollSubmitting: Boolean = false
+    private val enrollChallengeTimeout = Runnable { abortKioskEnrollment("liveness timed out") }
 
     /** Voice feedback for noisy factory floors. Best-effort — silently
      *  no-ops if the device has no TTS engine installed. */
@@ -141,6 +158,9 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(rosterRefreshRunnable)
         mainHandler.postDelayed(rosterRefreshRunnable, ROSTER_REFRESH_MS)
 
+        mainHandler.removeCallbacks(enrollTicketPollRunnable)
+        mainHandler.postDelayed(enrollTicketPollRunnable, ENROLL_POLL_FIRST_MS)
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
             startCamera()
@@ -154,6 +174,8 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(clockRunnable)
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         mainHandler.removeCallbacks(rosterRefreshRunnable)
+        mainHandler.removeCallbacks(enrollTicketPollRunnable)
+        mainHandler.removeCallbacks(enrollChallengeTimeout)
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -325,6 +347,11 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private suspend fun handleFace(probe: FloatArray, liveness: Double) {
+        // Operator-supervised enrollment takes priority over normal matching.
+        if (enrollTicket != null) {
+            handleEnrollmentFrame(probe, liveness)
+            return
+        }
         val now = System.currentTimeMillis()
         val matcherSnap = matcher ?: return
         if (dialogActive) return
@@ -399,6 +426,16 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun handleFaceSignal(signal: FaceSignal) {
+        // Route to enrollment challenge tracker when in enroll mode.
+        if (enrollTicket != null) {
+            val tracker = enrollChallenge ?: return
+            if (!tracker.feed(signal)) return
+            enrollChallengePassed = true
+            mainHandler.removeCallbacks(enrollChallengeTimeout)
+            runOnUiThread { binding.statusText.text = getString(R.string.liveness_passed) }
+            maybeShowEnrollRegisterDialog()
+            return
+        }
         val tracker = pendingChallengeTracker ?: return
         val match = pendingChallengeMatch ?: return
         if (!tracker.feed(signal)) return
@@ -560,6 +597,189 @@ class KioskActivity : AppCompatActivity() {
     private fun currentDayKey(): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
+    // ── Operator-supervised enrollment ──────────────────────────────────
+
+    private val enrollTicketPollRunnable = object : Runnable {
+        override fun run() {
+            pollEnrollTicket()
+            mainHandler.postDelayed(this, ENROLL_POLL_MS)
+        }
+    }
+
+    private fun pollEnrollTicket() {
+        if (enrollTicket != null || enrollSubmitting) return
+        lifecycleScope.launch {
+            val t = try {
+                withContext(Dispatchers.IO) { app.apiClient.fetchPendingKioskEnrollTicket() }
+            } catch (_: Exception) { null }
+            if (t != null && enrollTicket == null) beginKioskEnrollment(t)
+        }
+    }
+
+    private fun beginKioskEnrollment(t: KioskEnrollTicket) {
+        enrollTicket = t
+        enrollFrames.clear()
+        enrollRunningAvg = null
+        enrollLastAcceptedAt = 0L
+        enrollChallengePassed = false
+        // Arm a random liveness challenge so the operator can't enroll
+        // a static photo.
+        val challenge = LivenessChallenge.random()
+        enrollChallenge = LivenessChallengeTracker(challenge)
+        mainHandler.removeCallbacks(enrollChallengeTimeout)
+        mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
+        runOnUiThread {
+            binding.statusText.text = getString(
+                R.string.kiosk_liveness_prompt_with_name,
+                t.subjectName,
+                getString(promptResFor(challenge)),
+            )
+            speak(getString(R.string.kiosk_enroll_prompt, t.subjectName))
+        }
+    }
+
+    private fun handleEnrollmentFrame(probe: FloatArray, liveness: Double) {
+        if (enrollSubmitting) return
+        if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) return
+        if (liveness < ENROLL_MIN_LIVENESS) return
+        val now = System.currentTimeMillis()
+        if (now - enrollLastAcceptedAt < ENROLL_MIN_FRAME_INTERVAL_MS) return
+        val avg = enrollRunningAvg
+        if (avg != null && cosine(avg, probe) < ENROLL_MIN_PROBE_TO_AVG_COS) return
+        enrollLastAcceptedAt = now
+        enrollFrames += probe
+        enrollRunningAvg = averageAndNormalize(enrollFrames)
+        runOnUiThread {
+            binding.statusText.text = getString(
+                R.string.kiosk_enroll_capturing,
+                enrollFrames.size,
+                ENROLL_REQUIRED_FRAMES,
+            )
+        }
+        if (enrollFrames.size >= ENROLL_REQUIRED_FRAMES) maybeShowEnrollRegisterDialog()
+    }
+
+    private fun maybeShowEnrollRegisterDialog() {
+        val t = enrollTicket ?: return
+        if (enrollFrames.size < ENROLL_REQUIRED_FRAMES) return
+        if (!enrollChallengePassed) return
+        if (dialogActive || enrollSubmitting) return
+        // Outlier check: every captured frame must be similar to the average.
+        val avg = enrollRunningAvg ?: averageAndNormalize(enrollFrames)
+        val minCos = enrollFrames.minOf { cosine(avg, it) }
+        if (minCos < ENROLL_MIN_PROBE_TO_AVG_COS) {
+            runOnUiThread {
+                binding.statusText.text = getString(R.string.kiosk_enroll_inconsistent)
+            }
+            // Reset frames and let the operator have another attempt.
+            enrollFrames.clear()
+            enrollRunningAvg = null
+            return
+        }
+        runOnUiThread { showEnrollRegisterDialog(t) }
+    }
+
+    private fun showEnrollRegisterDialog(t: KioskEnrollTicket) {
+        if (dialogActive) return
+        dialogActive = true
+        MaterialAlertDialogBuilder(this)
+            .setIcon(R.drawable.ic_shield_check)
+            .setTitle(R.string.kiosk_enroll_ready_title)
+            .setMessage(getString(R.string.kiosk_enroll_ready_message, t.subjectName))
+            .setCancelable(false)
+            .setPositiveButton(R.string.kiosk_enroll_register_btn) { d, _ ->
+                d.dismiss()
+                dialogActive = false
+                submitKioskEnrollment()
+            }
+            .setNegativeButton(R.string.kiosk_enroll_cancel_btn) { d, _ ->
+                d.dismiss()
+                dialogActive = false
+                abortKioskEnrollment(reason = "cancelled by operator")
+            }
+            .show()
+    }
+
+    private fun submitKioskEnrollment() {
+        val t = enrollTicket ?: return
+        val avg = enrollRunningAvg ?: averageAndNormalize(enrollFrames)
+        enrollSubmitting = true
+        runOnUiThread { binding.statusText.text = getString(R.string.kiosk_enroll_uploading) }
+        lifecycleScope.launch {
+            try {
+                val body = KioskEnrollSubmitBody(
+                    embeddingBase64 = FaceEmbedder.encodeEmbeddingB64(avg),
+                )
+                val resp = withContext(Dispatchers.IO) {
+                    app.apiClient.submitKioskEnrollTicket(t.id, body)
+                }
+                if (resp.ok) {
+                    runOnUiThread {
+                        binding.statusText.text =
+                            getString(R.string.kiosk_enroll_success, t.subjectName)
+                        speak(getString(R.string.kiosk_enroll_success, t.subjectName))
+                    }
+                    clearKioskEnrollmentState()
+                    runOnUiThread {
+                        mainHandler.postDelayed({
+                            binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+                        }, 3_000L)
+                    }
+                } else {
+                    abortKioskEnrollment(resp.message ?: "server rejected")
+                }
+            } catch (e: Exception) {
+                abortKioskEnrollment(e.message ?: "unknown error")
+            } finally {
+                enrollSubmitting = false
+            }
+        }
+    }
+
+    private fun abortKioskEnrollment(reason: String) {
+        runOnUiThread {
+            binding.statusText.text = getString(R.string.kiosk_enroll_failed, reason)
+        }
+        clearKioskEnrollmentState()
+        runOnUiThread {
+            mainHandler.postDelayed({
+                if (enrollTicket == null) {
+                    binding.statusText.text = getString(R.string.kiosk_look_at_camera)
+                }
+            }, 3_000L)
+        }
+    }
+
+    private fun clearKioskEnrollmentState() {
+        enrollTicket = null
+        enrollFrames.clear()
+        enrollRunningAvg = null
+        enrollChallenge = null
+        enrollChallengePassed = false
+        enrollLastAcceptedAt = 0L
+        mainHandler.removeCallbacks(enrollChallengeTimeout)
+    }
+
+    private fun averageAndNormalize(frames: List<FloatArray>): FloatArray {
+        require(frames.isNotEmpty())
+        val dim = frames[0].size
+        val sum = FloatArray(dim)
+        for (f in frames) for (i in 0 until dim) sum[i] += f[i]
+        for (i in 0 until dim) sum[i] /= frames.size.toFloat()
+        var norm = 0.0
+        for (v in sum) norm += v.toDouble() * v
+        norm = sqrt(norm).coerceAtLeast(1e-12)
+        for (i in 0 until dim) sum[i] = (sum[i] / norm).toFloat()
+        return sum
+    }
+
+    private fun cosine(a: FloatArray, b: FloatArray): Double {
+        if (a.size != b.size) return 0.0
+        var dot = 0.0
+        for (i in a.indices) dot += a[i].toDouble() * b[i]
+        return dot
+    }
+
     companion object {
         // Mapped (cos+1)/2. 0.85 == raw cos 0.70. Phase 3a started at 0.78
         // (raw 0.56) which was inside the inter-class noise band of
@@ -582,5 +802,14 @@ class KioskActivity : AppCompatActivity() {
         /** Phase 3f: re-fetch the roster every 5 minutes so freshly
          *  enrolled employees become matchable without restarting. */
         private const val ROSTER_REFRESH_MS = 5 * 60_000L
+
+        // Operator-supervised enrollment constants.
+        private const val ENROLL_POLL_FIRST_MS = 3_000L
+        private const val ENROLL_POLL_MS = 8_000L
+        private const val ENROLL_REQUIRED_FRAMES = 8
+        private const val ENROLL_MIN_LIVENESS = 0.7
+        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 350L
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.78
+        private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
     }
 }

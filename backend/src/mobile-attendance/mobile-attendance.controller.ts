@@ -20,6 +20,7 @@ import { Roles } from '../auth/roles.decorator';
 import {
   CreateContractorReenrollRequestDto,
   ContractorMobilePunchDto,
+  CreateKioskEnrollTicketDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -27,6 +28,7 @@ import {
   RegisterMobileDeviceDto,
   CreateReenrollRequestDto,
   ReviewReenrollRequestDto,
+  SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
 import type { PunchRequestMeta } from './mobile-attendance.service';
@@ -811,6 +813,69 @@ export class MobileAttendanceAdminController {
       allowedBranchIds,
     );
   }
+
+  // ------------------------------------------------- kiosk-supervised
+  // ----------------------------------------------- enrollment tickets
+
+  @ApiOperation({
+    summary:
+      'Create a kiosk-supervised face-enrollment ticket targeting one device + subject',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('kiosk-enroll/tickets')
+  createKioskEnrollTicket(
+    @CurrentUser() u: ReqUser,
+    @Body() body: CreateKioskEnrollTicketDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    if (!u?.userId) throw new BadRequestException('User context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.createKioskEnrollTicket(
+      u.clientId,
+      u.userId,
+      allowedBranchIds,
+      body,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'List kiosk-supervised enrollment tickets (most recent first)',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('kiosk-enroll/tickets')
+  listKioskEnrollTickets(
+    @CurrentUser() u: ReqUser,
+    @Query('status')
+    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.listKioskEnrollTickets(
+      u.clientId,
+      allowedBranchIds,
+      status,
+    );
+  }
+
+  @ApiOperation({ summary: 'Poll the current status of one ticket' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Get('kiosk-enroll/tickets/:id')
+  getKioskEnrollTicket(@CurrentUser() u: ReqUser, @Param('id') id: string) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    return this.svc.getKioskEnrollTicket(u.clientId, id);
+  }
+
+  @ApiOperation({ summary: 'Cancel a still-pending enrollment ticket' })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('kiosk-enroll/tickets/:id/cancel')
+  cancelKioskEnrollTicket(
+    @CurrentUser() u: ReqUser,
+    @Param('id') id: string,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    if (!u?.userId) throw new BadRequestException('User context required');
+    return this.svc.cancelKioskEnrollTicket(u.clientId, u.userId, id);
+  }
 }
 
 /**
@@ -912,6 +977,44 @@ export class MobileAttendanceDeviceController {
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.kioskDashboard(dev);
+  }
+
+  @ApiOperation({
+    summary:
+      'Kiosk poll: pending operator-issued face enrollment ticket (if any)',
+  })
+  @Get('kiosk-enroll/pending')
+  async pendingKioskEnrollTicket(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    const t = await this.svc.getPendingKioskEnrollTicket(dev);
+    if (!t) return { ticket: null };
+    return {
+      ticket: {
+        id: t.id,
+        subjectType: t.subjectType,
+        subjectName: t.subjectName,
+        subjectCode: t.subjectCode,
+        expiresAt: t.expiresAt.toISOString(),
+        notes: t.notes,
+      },
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Kiosk submits the captured embedding for a pending ticket',
+  })
+  @Post('kiosk-enroll/tickets/:id/submit')
+  async submitKioskEnrollTicket(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+    @Param('id') id: string,
+    @Body() body: SubmitKioskEnrollDto,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.submitKioskEnrollTicket(dev, id, body);
   }
 }
 

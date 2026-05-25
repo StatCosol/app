@@ -9,6 +9,7 @@ import { ContractorBiometricPunchEntity } from './entities/contractor-biometric-
 import { ContractorFaceEnrollmentEntity } from './entities/contractor-face-enrollment.entity';
 import { FaceEnrollmentEntity } from './entities/face-enrollment.entity';
 import { FaceLivenessNonceEntity } from './entities/face-liveness-nonce.entity';
+import { KioskEnrollTicketEntity } from './entities/kiosk-enroll-ticket.entity';
 import { MobileAttendanceDeviceEntity } from './entities/mobile-attendance-device.entity';
 import {
   MobileAttendanceAdminController,
@@ -34,6 +35,7 @@ import { MASK_DETECTOR, createMaskDetector } from './mask/mask-detector';
       AttendanceShiftEntity,
       EmployeeEntity,
       ContractorEmployeeEntity,
+      KioskEnrollTicketEntity,
     ]),
     BiometricModule,
     NotificationsModule,

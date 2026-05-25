@@ -393,3 +393,49 @@ export class CreateContractorReenrollRequestDto {
   @IsIn(['ADMIN', 'ESS', 'KIOSK'])
   source?: 'ADMIN' | 'ESS' | 'KIOSK';
 }
+
+/**
+ * Branch / client user creates a kiosk-supervised enrollment ticket targeting
+ * one KIOSK-mode device + one employee (or contractor employee). The kiosk
+ * picks up the ticket on its next poll, captures live frames, and submits the
+ * embedding back via {@link SubmitKioskEnrollDto}.
+ */
+export class CreateKioskEnrollTicketDto {
+  @IsUUID()
+  deviceId!: string;
+
+  @IsIn(['EMPLOYEE', 'CONTRACTOR'])
+  subjectType!: 'EMPLOYEE' | 'CONTRACTOR';
+
+  @IsUUID()
+  subjectId!: string;
+
+  @IsBoolean()
+  consentGiven!: boolean;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+/** Body the kiosk POSTs back when it has captured + embedded the subject. */
+export class SubmitKioskEnrollDto {
+  /** 192-d Float32 embedding, base64-encoded (little-endian, L2-normalized). */
+  @IsString()
+  embeddingBase64!: string;
+
+  @IsOptional()
+  @IsString()
+  embeddingModel?: string;
+
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
+  /** Cosine of probe-vs-average across the captured frames; quality signal. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  selfMatchScore?: number;
+}

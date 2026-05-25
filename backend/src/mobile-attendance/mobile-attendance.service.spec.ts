@@ -21,6 +21,7 @@ describe('MobileAttendanceService.listFaceFailureAlerts', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
   };
 
