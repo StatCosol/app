@@ -423,6 +423,80 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
       cmp.cancelKioskTicketFromList(buildTicket());
       expect(toast.error).toHaveBeenCalledWith('nope');
     });
+
+    it('starts a poll timer when PENDING tickets are loaded', () => {
+      vi.useFakeTimers();
+      const list = vi
+        .fn()
+        .mockReturnValue(of([buildTicket({ status: 'PENDING' })]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.loadKioskTickets();
+      expect(list).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS + 50,
+      );
+      expect(list).toHaveBeenCalledTimes(2);
+      cmp.ngOnDestroy();
+    });
+
+    it('stops the poll timer once no PENDING tickets remain', () => {
+      vi.useFakeTimers();
+      const list = vi.fn();
+      list
+        .mockReturnValueOnce(of([buildTicket({ status: 'PENDING' })]))
+        .mockReturnValueOnce(of([buildTicket({ status: 'COMPLETED' })]))
+        .mockReturnValue(of([]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.loadKioskTickets();
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS + 50,
+      );
+      expect(list).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS * 3,
+      );
+      // Timer should have stopped after the COMPLETED-only response.
+      expect(list).toHaveBeenCalledTimes(2);
+      cmp.ngOnDestroy();
+    });
+
+    it('skips the scheduled poll while a previous load is still in flight', () => {
+      vi.useFakeTimers();
+      const pending = new Subject<KioskEnrollTicket[]>();
+      const list = vi.fn();
+      // First call: never resolves until we emit on `pending` — simulates a
+      // slow request that exceeds the poll interval.
+      list.mockReturnValueOnce(pending.asObservable());
+      // Subsequent calls (if any) would return immediately, but the in-flight
+      // guard should prevent them from being made.
+      list.mockReturnValue(of([buildTicket({ status: 'PENDING' })]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      // Seed the timer by completing one fast cycle with PENDING rows.
+      cmp.kioskTickets = [buildTicket({ status: 'PENDING' })];
+      (cmp as any).syncKioskTicketPoll();
+      // Now trigger a slow load that won't complete.
+      cmp.loadKioskTickets();
+      expect(list).toHaveBeenCalledTimes(1);
+      // Advance well past 3 intervals; guard should drop all of them.
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS * 3 + 50,
+      );
+      expect(list).toHaveBeenCalledTimes(1);
+      // Resolve the slow request and let the timer fire once more.
+      pending.next([buildTicket({ status: 'PENDING' })]);
+      pending.complete();
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS + 50,
+      );
+      expect(list).toHaveBeenCalledTimes(2);
+      cmp.ngOnDestroy();
+    });
   });
 
   // Silence unused import warnings for symbols only kept for type clarity.
