@@ -423,6 +423,46 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
       cmp.cancelKioskTicketFromList(buildTicket());
       expect(toast.error).toHaveBeenCalledWith('nope');
     });
+
+    it('starts a poll timer when PENDING tickets are loaded', () => {
+      vi.useFakeTimers();
+      const list = vi
+        .fn()
+        .mockReturnValue(of([buildTicket({ status: 'PENDING' })]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.loadKioskTickets();
+      expect(list).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS + 50,
+      );
+      expect(list).toHaveBeenCalledTimes(2);
+      cmp.ngOnDestroy();
+    });
+
+    it('stops the poll timer once no PENDING tickets remain', () => {
+      vi.useFakeTimers();
+      const list = vi.fn();
+      list
+        .mockReturnValueOnce(of([buildTicket({ status: 'PENDING' })]))
+        .mockReturnValueOnce(of([buildTicket({ status: 'COMPLETED' })]))
+        .mockReturnValue(of([]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.loadKioskTickets();
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS + 50,
+      );
+      expect(list).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS * 3,
+      );
+      // Timer should have stopped after the COMPLETED-only response.
+      expect(list).toHaveBeenCalledTimes(2);
+      cmp.ngOnDestroy();
+    });
   });
 
   // Silence unused import warnings for symbols only kept for type clarity.

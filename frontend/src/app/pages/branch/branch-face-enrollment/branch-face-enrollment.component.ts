@@ -488,6 +488,9 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   // Kiosk ticket history panel
   kioskTickets: KioskEnrollTicket[] = [];
   loadingKioskTickets = false;
+  private kioskTicketPollTimer: any = null;
+  // Auto-refresh interval while at least one PENDING ticket is in view.
+  static readonly KIOSK_TICKET_POLL_MS = 30_000;
   kioskTicketStatusFilter:
     | ''
     | 'PENDING'
@@ -523,6 +526,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopCamera();
     this.stopKioskTimers();
+    this.stopKioskTicketPoll();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -1212,6 +1216,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.kioskTickets = rows ?? [];
+          this.syncKioskTicketPoll();
         },
         error: (e) => {
           this.toast.error(
@@ -1219,6 +1224,25 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           );
         },
       });
+  }
+
+  private syncKioskTicketPoll(): void {
+    const hasPending = this.kioskTickets.some((t) => t.status === 'PENDING');
+    if (hasPending && !this.kioskTicketPollTimer) {
+      this.kioskTicketPollTimer = setInterval(
+        () => this.loadKioskTickets(),
+        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS,
+      );
+    } else if (!hasPending && this.kioskTicketPollTimer) {
+      this.stopKioskTicketPoll();
+    }
+  }
+
+  private stopKioskTicketPoll(): void {
+    if (this.kioskTicketPollTimer) {
+      clearInterval(this.kioskTicketPollTimer);
+      this.kioskTicketPollTimer = null;
+    }
   }
 
   kioskTicketStatusClass(
