@@ -1229,10 +1229,13 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private syncKioskTicketPoll(): void {
     const hasPending = this.kioskTickets.some((t) => t.status === 'PENDING');
     if (hasPending && !this.kioskTicketPollTimer) {
-      this.kioskTicketPollTimer = setInterval(
-        () => this.loadKioskTickets(),
-        BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS,
-      );
+      this.kioskTicketPollTimer = setInterval(() => {
+        // Serialize: if a previous poll is still in flight (slow network /
+        // backend), skip this tick so we don't issue concurrent requests
+        // and risk processing responses out of order.
+        if (this.loadingKioskTickets) return;
+        this.loadKioskTickets();
+      }, BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS);
     } else if (!hasPending && this.kioskTicketPollTimer) {
       this.stopKioskTicketPoll();
     }
