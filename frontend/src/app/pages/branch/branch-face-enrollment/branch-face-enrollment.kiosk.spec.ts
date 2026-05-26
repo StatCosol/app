@@ -263,7 +263,10 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
         .mockReturnValue(of(buildTicket({ status: 'COMPLETED' })));
       const toast = { success: vi.fn(), info: vi.fn(), error: vi.fn() };
       const cmp = makeComponent({
-        svc: { getKioskEnrollTicket: get },
+        svc: {
+          getKioskEnrollTicket: get,
+          listKioskEnrollTickets: vi.fn().mockReturnValue(of([])),
+        },
         toast,
       });
       cmp.kioskActiveTicket = buildTicket();
