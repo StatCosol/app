@@ -290,6 +290,76 @@ interface EnrollForm {
              class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your branch.</div>
       </div>
 
+      <!-- Kiosk-enroll ticket history -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="font-semibold text-gray-900">Kiosk Enrollment Tickets</h3>
+            <p class="text-xs text-gray-500">Last 100 tickets you sent to a kiosk, most recent first.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button"
+              *ngFor="let s of kioskTicketStatusFilters"
+              class="px-3 py-1 rounded-full text-xs font-medium border transition"
+              [class.bg-indigo-600]="kioskTicketStatusFilter === s.value"
+              [class.text-white]="kioskTicketStatusFilter === s.value"
+              [class.border-indigo-600]="kioskTicketStatusFilter === s.value"
+              [class.text-gray-700]="kioskTicketStatusFilter !== s.value"
+              [class.border-gray-300]="kioskTicketStatusFilter !== s.value"
+              [class.hover:bg-gray-50]="kioskTicketStatusFilter !== s.value"
+              (click)="setKioskTicketStatusFilter(s.value)">{{ s.label }}</button>
+            <button type="button"
+              class="px-3 py-1 rounded-lg text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+              (click)="loadKioskTickets()" [disabled]="loadingKioskTickets">Refresh</button>
+          </div>
+        </div>
+
+        <ui-loading-spinner *ngIf="loadingKioskTickets"></ui-loading-spinner>
+
+        <div *ngIf="!loadingKioskTickets && kioskTickets.length === 0"
+             class="text-sm text-gray-500">No tickets in this view yet.</div>
+
+        <div *ngIf="!loadingKioskTickets && kioskTickets.length > 0" class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-xs uppercase text-gray-500 border-b border-gray-200">
+              <tr>
+                <th class="text-left py-2 pr-3">Subject</th>
+                <th class="text-left py-2 pr-3">Type</th>
+                <th class="text-left py-2 pr-3">Status</th>
+                <th class="text-left py-2 pr-3">Created</th>
+                <th class="text-left py-2 pr-3">Resolved</th>
+                <th class="text-right py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let t of kioskTickets" class="border-b border-gray-100 last:border-0">
+                <td class="py-2 pr-3">
+                  <div class="font-medium text-gray-900">{{ t.subjectName }}</div>
+                  <div class="text-xs text-gray-500" *ngIf="t.subjectCode">{{ t.subjectCode }}</div>
+                </td>
+                <td class="py-2 pr-3 text-gray-700">{{ t.subjectType === 'EMPLOYEE' ? 'Employee' : 'Contractor' }}</td>
+                <td class="py-2 pr-3">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                    [ngClass]="kioskTicketStatusClass(t.status)">{{ t.status }}</span>
+                </td>
+                <td class="py-2 pr-3 text-xs text-gray-700">{{ t.createdAt | date:'medium' }}</td>
+                <td class="py-2 pr-3 text-xs text-gray-700">
+                  <span *ngIf="t.completedAt">{{ t.completedAt | date:'medium' }}</span>
+                  <span *ngIf="!t.completedAt && t.cancelledAt">{{ t.cancelledAt | date:'medium' }}</span>
+                  <span *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'PENDING'" class="text-gray-400">expires {{ t.expiresAt | date:'shortTime' }}</span>
+                </td>
+                <td class="py-2 text-right">
+                  <button type="button"
+                    *ngIf="t.status === 'PENDING'"
+                    class="text-xs text-red-700 hover:underline"
+                    (click)="cancelKioskTicketFromList(t)">Cancel</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Kiosk-supervised enrollment modal -->
       <div *ngIf="kioskModalOpen"
         class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
@@ -415,6 +485,26 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private kioskPollTimer: any = null;
   private kioskCountdownTimer: any = null;
 
+  // Kiosk ticket history panel
+  kioskTickets: KioskEnrollTicket[] = [];
+  loadingKioskTickets = false;
+  kioskTicketStatusFilter:
+    | ''
+    | 'PENDING'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'EXPIRED' = '';
+  readonly kioskTicketStatusFilters: ReadonlyArray<{
+    label: string;
+    value: '' | 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+  }> = [
+    { label: 'All', value: '' },
+    { label: 'Pending', value: 'PENDING' },
+    { label: 'Completed', value: 'COMPLETED' },
+    { label: 'Cancelled', value: 'CANCELLED' },
+    { label: 'Expired', value: 'EXPIRED' },
+  ];
+
   constructor(
     private auth: AuthService,
     private empSvc: ClientEmployeesService,
@@ -427,6 +517,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadSubjects();
     this.loadEnrollments();
+    this.loadKioskTickets();
   }
 
   ngOnDestroy(): void {
@@ -1087,12 +1178,76 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
             if (t.status === 'COMPLETED') {
               this.toast.success(`${t.subjectName} enrolled successfully`);
             }
+            this.loadKioskTickets();
           }
           this.cdr.markForCheck();
         },
         error: () => {
           /* transient — keep polling */
         },
+      });
+  }
+
+  // ── Kiosk ticket history panel ──
+  setKioskTicketStatusFilter(
+    s: '' | 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+  ): void {
+    if (this.kioskTicketStatusFilter === s) return;
+    this.kioskTicketStatusFilter = s;
+    this.loadKioskTickets();
+  }
+
+  loadKioskTickets(): void {
+    this.loadingKioskTickets = true;
+    const status = this.kioskTicketStatusFilter || undefined;
+    this.svc
+      .listKioskEnrollTickets(status)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingKioskTickets = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.kioskTickets = rows ?? [];
+        },
+        error: (e) => {
+          this.toast.error(
+            e?.error?.message || 'Failed to load kiosk tickets',
+          );
+        },
+      });
+  }
+
+  kioskTicketStatusClass(
+    s: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+  ): string {
+    switch (s) {
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-800';
+      case 'PENDING':
+        return 'bg-amber-100 text-amber-800';
+      case 'CANCELLED':
+        return 'bg-gray-100 text-gray-700';
+      case 'EXPIRED':
+        return 'bg-red-100 text-red-700';
+    }
+  }
+
+  cancelKioskTicketFromList(t: KioskEnrollTicket): void {
+    if (t.status !== 'PENDING') return;
+    this.svc
+      .cancelKioskEnrollTicket(t.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.info('Ticket cancelled');
+          this.loadKioskTickets();
+        },
+        error: (e) =>
+          this.toast.error(e?.error?.message || 'Cancel failed'),
       });
   }
 }

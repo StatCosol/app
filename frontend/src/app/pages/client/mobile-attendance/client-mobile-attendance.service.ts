@@ -470,6 +470,15 @@ export class ClientMobileAttendanceService {
       {},
     );
   }
+
+  listKioskEnrollTickets(
+    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+  ): Observable<KioskEnrollTicket[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.http.get<KioskEnrollTicket[]>(
+      `${this.base}/kiosk-enroll/tickets${qs}`,
+    );
+  }
 }
 
 export interface CreateKioskEnrollTicketBody {
