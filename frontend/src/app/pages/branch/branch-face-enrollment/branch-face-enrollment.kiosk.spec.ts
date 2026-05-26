@@ -314,6 +314,117 @@ describe('BranchFaceEnrollmentComponent kiosk-enroll flow', () => {
     });
   });
 
+  describe('kiosk ticket history panel', () => {
+    it('loadKioskTickets populates kioskTickets and flips loading flag', () => {
+      const list = vi
+        .fn()
+        .mockReturnValue(
+          of([buildTicket({ id: 't-a' }), buildTicket({ id: 't-b' })]),
+        );
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.loadKioskTickets();
+      expect(list).toHaveBeenCalledWith(undefined);
+      expect(cmp.kioskTickets.length).toBe(2);
+      expect(cmp.loadingKioskTickets).toBe(false);
+    });
+
+    it('loadKioskTickets passes the active status filter to the service', () => {
+      const list = vi.fn().mockReturnValue(of([]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.kioskTicketStatusFilter = 'COMPLETED';
+      cmp.loadKioskTickets();
+      expect(list).toHaveBeenCalledWith('COMPLETED');
+    });
+
+    it('loadKioskTickets toasts the API error message and resets loading', () => {
+      const list = vi
+        .fn()
+        .mockReturnValue(throwError(() => ({ error: { message: 'boom' } })));
+      const toast = { success: vi.fn(), info: vi.fn(), error: vi.fn() };
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+        toast,
+      });
+      cmp.loadKioskTickets();
+      expect(toast.error).toHaveBeenCalledWith('boom');
+      expect(cmp.loadingKioskTickets).toBe(false);
+    });
+
+    it('setKioskTicketStatusFilter no-ops when value is unchanged', () => {
+      const list = vi.fn().mockReturnValue(of([]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.kioskTicketStatusFilter = 'PENDING';
+      cmp.setKioskTicketStatusFilter('PENDING');
+      expect(list).not.toHaveBeenCalled();
+    });
+
+    it('setKioskTicketStatusFilter updates filter and reloads when changed', () => {
+      const list = vi.fn().mockReturnValue(of([]));
+      const cmp = makeComponent({
+        svc: { listKioskEnrollTickets: list },
+      });
+      cmp.setKioskTicketStatusFilter('EXPIRED');
+      expect(cmp.kioskTicketStatusFilter).toBe('EXPIRED');
+      expect(list).toHaveBeenCalledWith('EXPIRED');
+    });
+
+    it('kioskTicketStatusClass returns distinct classes per status', () => {
+      const cmp = makeComponent();
+      const pending = cmp.kioskTicketStatusClass('PENDING');
+      const completed = cmp.kioskTicketStatusClass('COMPLETED');
+      const cancelled = cmp.kioskTicketStatusClass('CANCELLED');
+      const expired = cmp.kioskTicketStatusClass('EXPIRED');
+      expect(new Set([pending, completed, cancelled, expired]).size).toBe(4);
+      expect(completed).toMatch(/green/);
+      expect(expired).toMatch(/red/);
+    });
+
+    it('cancelKioskTicketFromList ignores non-PENDING rows', () => {
+      const cancel = vi.fn();
+      const cmp = makeComponent({
+        svc: { cancelKioskEnrollTicket: cancel },
+      });
+      cmp.cancelKioskTicketFromList(buildTicket({ status: 'COMPLETED' }));
+      expect(cancel).not.toHaveBeenCalled();
+    });
+
+    it('cancelKioskTicketFromList cancels then reloads list on success', () => {
+      const cancel = vi.fn().mockReturnValue(of(buildTicket({ status: 'CANCELLED' })));
+      const list = vi.fn().mockReturnValue(of([]));
+      const toast = { success: vi.fn(), info: vi.fn(), error: vi.fn() };
+      const cmp = makeComponent({
+        svc: {
+          cancelKioskEnrollTicket: cancel,
+          listKioskEnrollTickets: list,
+        },
+        toast,
+      });
+      cmp.cancelKioskTicketFromList(buildTicket({ id: 't-x' }));
+      expect(cancel).toHaveBeenCalledWith('t-x');
+      expect(toast.info).toHaveBeenCalledWith('Ticket cancelled');
+      expect(list).toHaveBeenCalled();
+    });
+
+    it('cancelKioskTicketFromList toasts API error message on failure', () => {
+      const cancel = vi
+        .fn()
+        .mockReturnValue(throwError(() => ({ error: { message: 'nope' } })));
+      const toast = { success: vi.fn(), info: vi.fn(), error: vi.fn() };
+      const cmp = makeComponent({
+        svc: { cancelKioskEnrollTicket: cancel },
+        toast,
+      });
+      cmp.cancelKioskTicketFromList(buildTicket());
+      expect(toast.error).toHaveBeenCalledWith('nope');
+    });
+  });
+
   // Silence unused import warnings for symbols only kept for type clarity.
   void Subject;
 });
