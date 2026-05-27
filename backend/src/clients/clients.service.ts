@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -16,6 +17,17 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UsersService } from '../users/users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UserEntity } from '../users/entities/user.entity';
+
+interface RetentionSnapshotData {
+  registers: any[];
+  payrollRuns: any[];
+  payrollEmployees: any[];
+  auditReports: any[];
+  ncPoints: any[];
+  contractorEmployees: any[];
+  contractorAccounts: any[];
+  contractorNcSummary: any[];
+}
 
 @Injectable()
 export class ClientsService {
@@ -609,6 +621,28 @@ export class ClientsService {
   ) {
     const now = new Date();
 
+    // Look up the client first (outside the tx) so we can take the retention
+    // snapshot BEFORE the cascade mutates audits/NCs/reports below. Reads
+    // are issued on pooled connections (not the soft-delete tx), so a
+    // failing select can never poison the soft-delete transaction.
+    const preClient = await this.repo.findOne({
+      where: { id: clientId, isDeleted: false },
+    });
+    if (!preClient) throw new NotFoundException('Client not found');
+
+    // Snapshot of operational rows in their pre-deletion state. Captured
+    // here rather than after commit because the cascade inside the tx
+    // flips audits/NCs/reports to CANCELLED/CLOSED, and the retention
+    // archive must record the state AT deletion, not the cleanup state.
+    let snapshotData: RetentionSnapshotData | null = null;
+    try {
+      snapshotData = await this.gatherRetentionSnapshot(clientId);
+    } catch (err: any) {
+      this.logger.error(
+        `Retention snapshot (pre-cascade gather) failed for client ${clientId}: ${err?.message || err}`,
+      );
+    }
+
     const result = await this.dataSource.transaction(async (m) => {
       const clientRepo = m.getRepository(ClientEntity);
       const userRepo = m.getRepository(UserEntity);
@@ -620,29 +654,47 @@ export class ClientsService {
       if (!client) throw new NotFoundException('Client not found');
 
       // ─────────────────────────────────────────────────────────────────
-      // 18-MONTH RETENTION SNAPSHOT
-      // Capture registers, payroll, audit reports and contractor details
-      // (deployment dates, termination dates, NC points) BEFORE the
-      // cascade cancels/deactivates the source rows. The snapshot lives
-      // in `client_deletion_archive` for 548 days, then is purged by
-      // ClientArchivePurgeCronService.
+      // FLIP THE SOFT-DELETE FLAG FIRST via raw SQL.
+      // Previous implementation called snapshotForRetention BEFORE the
+      // soft-delete UPDATE. If snapshot's INSERT (run via `m.query`)
+      // failed for any reason, the PostgreSQL transaction entered an
+      // aborted state. The outer try/catch swallowed the JS error, but
+      // every subsequent statement in the tx (including the actual
+      // soft-delete UPDATE) silently failed. node-postgres returns
+      // "ROLLBACK" instead of an error on COMMIT-of-aborted-tx, so the
+      // service returned 200 OK and the deletion request was stamped
+      // APPROVED — yet `clients.is_deleted` was never flipped.
+      //
+      // Fix: do the critical UPDATE first (raw SQL, with rowCount check
+      // so a no-op surfaces as an error), then do the snapshot OUTSIDE
+      // the tx in `restore`-style fire-and-log so it cannot poison the
+      // committed soft-delete.
       // ─────────────────────────────────────────────────────────────────
-      try {
-        await this.snapshotForRetention(
-          m,
-          clientId,
-          client,
-          deletedBy ?? null,
-          reason ?? null,
-        );
-      } catch (err: any) {
-        // Snapshot failure must NOT block the soft-delete itself; just log.
-        this.logger.error(
-          `Retention snapshot failed for client ${clientId}: ${err?.message || err}`,
+      const updateResult = await m.query(
+        `UPDATE clients
+            SET is_deleted = true,
+                is_active = false,
+                status = 'INACTIVE',
+                deleted_at = $2,
+                deleted_by = $3,
+                delete_reason = $4,
+                updated_at = NOW()
+          WHERE id = $1
+            AND is_deleted = false`,
+        [clientId, now, deletedBy ?? null, reason ?? null],
+      );
+      // pg returns [rows, rowCount] for UPDATE; typeorm passes through.
+      const affected: number = Array.isArray(updateResult)
+        ? Number(updateResult[1] ?? 0)
+        : Number(
+            (updateResult as { rowCount?: number })?.rowCount ?? 0,
+          );
+      if (!affected) {
+        throw new ConflictException(
+          'Client soft-delete UPDATE affected 0 rows (already deleted or row vanished mid-transaction)',
         );
       }
-
-      // Soft delete client
+      // Keep in-memory entity in sync for any downstream code that reads it.
       Object.assign(client, {
         isDeleted: true,
         isActive: false,
@@ -651,7 +703,6 @@ export class ClientsService {
         deletedBy: deletedBy ?? null,
         deleteReason: reason ?? null,
       });
-      await clientRepo.save(client);
 
       // Soft delete branches for this client
       const branches = await branchRepo.find({
@@ -916,6 +967,27 @@ export class ClientsService {
       return client.id;
     });
 
+    // Persist the pre-cascade snapshot AFTER the soft-delete tx has
+    // committed. Reads were already done above (so the archive captures
+    // the state at deletion time, not the post-cascade cleanup state).
+    // Doing the INSERT post-commit keeps it isolated from the soft-delete
+    // tx — an INSERT failure here cannot revert the soft-delete.
+    if (snapshotData) {
+      try {
+        await this.persistRetentionSnapshot(
+          clientId,
+          preClient,
+          deletedBy ?? null,
+          reason ?? null,
+          snapshotData,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Retention snapshot (post-commit persist) failed for client ${clientId}: ${err?.message || err}`,
+        );
+      }
+    }
+
     await this.auditLogs.log({
       entityType: 'CLIENT',
       entityId: result,
@@ -935,30 +1007,18 @@ export class ClientsService {
   }
 
   /**
-   * Snapshot a client's registers, payroll, audit reports and contractor
-   * deployment / termination / NC details into `client_deletion_archive`
-   * for 18-month retention. Called inside the soft-delete transaction.
+   * Gather a client's registers, payroll, audit reports and contractor
+   * deployment / termination / NC details for the 18-month retention
+   * archive. Called BEFORE the soft-delete transaction starts so the
+   * snapshot reflects state AT deletion (the in-tx cascade would otherwise
+   * flip audits/NCs/reports to CANCELLED/CLOSED before we read them).
    *
-   * Each fetch is wrapped in its own try/catch so a missing optional
-   * table on a particular environment doesn't abort the snapshot.
+   * Reads use `this.dataSource.query` (pool connections), so any single
+   * failing select returns an empty list rather than poisoning anything.
    */
-  private async snapshotForRetention(
-    m: import('typeorm').EntityManager,
+  private async gatherRetentionSnapshot(
     clientId: string,
-    client: ClientEntity,
-    archivedBy: string | null,
-    reason: string | null,
-  ): Promise<void> {
-    const RETENTION_DAYS = 548; // ≈ 18 months (1.5 years)
-
-    // IMPORTANT: snapshot reads MUST run on a separate connection (not the
-    // outer soft-delete transaction). If a SELECT throws inside `m`, the
-    // PostgreSQL transaction enters an aborted state and EVERY subsequent
-    // statement (including the actual soft-delete UPDATE on clients) fails
-    // with "current transaction is aborted, commands ignored until end of
-    // transaction block" — which the global filter then converts to HTTP
-    // 409 Conflict. Using `this.dataSource.query` runs each read on its
-    // own pool connection, so per-read failures are contained.
+  ): Promise<RetentionSnapshotData> {
     const safeFetch = async <T = any>(
       label: string,
       sql: string,
@@ -1090,6 +1150,43 @@ export class ClientsService {
         GROUP BY a.contractor_user_id`,
     );
 
+    return {
+      registers,
+      payrollRuns,
+      payrollEmployees,
+      auditReports,
+      ncPoints,
+      contractorEmployees,
+      contractorAccounts,
+      contractorNcSummary,
+    };
+  }
+
+  /**
+   * Persist a previously-gathered retention snapshot into
+   * `client_deletion_archive`. Called AFTER the soft-delete transaction
+   * commits so an INSERT failure here cannot revert the soft-delete.
+   */
+  private async persistRetentionSnapshot(
+    clientId: string,
+    client: ClientEntity,
+    archivedBy: string | null,
+    reason: string | null,
+    data: RetentionSnapshotData,
+  ): Promise<void> {
+    const RETENTION_DAYS = 548; // ≈ 18 months (1.5 years)
+
+    const {
+      registers,
+      payrollRuns,
+      payrollEmployees,
+      auditReports,
+      ncPoints,
+      contractorEmployees,
+      contractorAccounts,
+      contractorNcSummary,
+    } = data;
+
     const contractorsSnapshot = {
       accounts: contractorAccounts,
       employees: contractorEmployees,
@@ -1120,7 +1217,7 @@ export class ClientsService {
       snapshotVersion: 1,
     };
 
-    await m.query(
+    await this.dataSource.query(
       `INSERT INTO client_deletion_archive
          (client_id, client_code, client_name,
           archived_by, delete_reason,
