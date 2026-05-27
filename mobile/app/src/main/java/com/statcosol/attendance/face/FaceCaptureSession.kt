@@ -184,16 +184,44 @@ class FaceCaptureSession(
     }
 
     private fun yuv420ToNv21(image: ImageProxy): ByteArray {
-        val yBuffer: ByteBuffer = image.planes[0].buffer
-        val uBuffer: ByteBuffer = image.planes[1].buffer
-        val vBuffer: ByteBuffer = image.planes[2].buffer
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-        val nv21 = ByteArray(ySize + uSize + vSize)
-        yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
+        val width = image.width
+        val height = image.height
+        val nv21 = ByteArray(width * height * 3 / 2)
+
+        val yPlane = image.planes[0]
+        val uPlane = image.planes[1]
+        val vPlane = image.planes[2]
+        val yBuffer: ByteBuffer = yPlane.buffer
+        val uBuffer: ByteBuffer = uPlane.buffer
+        val vBuffer: ByteBuffer = vPlane.buffer
+
+        var out = 0
+        for (row in 0 until height) {
+            val rowStart = row * yPlane.rowStride
+            if (yPlane.pixelStride == 1) {
+                yBuffer.position(rowStart)
+                yBuffer.get(nv21, out, width)
+                out += width
+            } else {
+                for (col in 0 until width) {
+                    nv21[out++] = yBuffer.get(rowStart + col * yPlane.pixelStride)
+                }
+            }
+        }
+
+        val chromaWidth = width / 2
+        val chromaHeight = height / 2
+        for (row in 0 until chromaHeight) {
+            val uRowStart = row * uPlane.rowStride
+            val vRowStart = row * vPlane.rowStride
+            for (col in 0 until chromaWidth) {
+                // NV21 stores chroma as VU pairs. CameraX planes often have
+                // row/pixel padding, so copying remaining() bytes directly can
+                // corrupt crops and make enrolled faces fail to match later.
+                nv21[out++] = vBuffer.get(vRowStart + col * vPlane.pixelStride)
+                nv21[out++] = uBuffer.get(uRowStart + col * uPlane.pixelStride)
+            }
+        }
         return nv21
     }
 

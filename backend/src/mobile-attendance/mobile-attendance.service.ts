@@ -1444,7 +1444,7 @@ export class MobileAttendanceService {
         employeeId: body.employeeId ?? null,
         reason,
         reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
-        matchScore: body.matchScore ?? null,
+        matchScore: rejectionMatchScore(e, body.matchScore ?? null),
         livenessScore: body.livenessScore ?? null,
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
@@ -1570,9 +1570,11 @@ export class MobileAttendanceService {
       );
       effectiveMatchScore = serverScore;
       if (serverScore < MIN_MATCH_SCORE) {
-        throw new BadRequestException(
+        const err = new BadRequestException(
           `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
         );
+        (err as any).matchScore = serverScore;
+        throw err;
       }
     } else if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
@@ -1896,7 +1898,7 @@ export class MobileAttendanceService {
         contractorEmployeeId: body.contractorEmployeeId ?? null,
         reason,
         reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
-        matchScore: body.matchScore ?? null,
+        matchScore: rejectionMatchScore(e, body.matchScore ?? null),
         livenessScore: body.livenessScore ?? null,
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
@@ -1994,9 +1996,11 @@ export class MobileAttendanceService {
       );
       effectiveMatchScore = serverScore;
       if (serverScore < MIN_MATCH_SCORE) {
-        throw new BadRequestException(
+        const err = new BadRequestException(
           `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
         );
+        (err as any).matchScore = serverScore;
+        throw err;
       }
     }
 
@@ -4029,6 +4033,12 @@ function classifyRejection(e: any): string {
     return 'QUALITY_LOW';
   if (msg.includes('device-bound') || msg.includes('not found')) return 'OTHER';
   return 'OTHER';
+}
+
+function rejectionMatchScore(e: any, fallback: number | null): number | null {
+  return typeof e?.matchScore === 'number' && Number.isFinite(e.matchScore)
+    ? e.matchScore
+    : fallback;
 }
 
 function haversineMeters(
