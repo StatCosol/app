@@ -37,6 +37,7 @@ import { AiModule } from '../ai/ai.module';
 import { ContractorListController } from './contractor-list.controller';
 import { ListQueriesModule } from '../list-queries/list-queries.module';
 import { ComplianceModule } from '../compliance/compliance.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ContractorEmployeeEntity } from './contractor-employees/entities/contractor-employee.entity';
 import {
   ContractorEmployeesController,
@@ -57,6 +58,14 @@ import { ClraWagePeriod } from './entities/clra-wage-period.entity';
 import { ClraAttendance } from './entities/clra-attendance.entity';
 import { ClraWage } from './entities/clra-wage.entity';
 import { ClraRegisterRun } from './entities/clra-register-run.entity';
+import { ContractorQuotationWageEntity } from './entities/contractor-quotation-wage.entity';
+import { ContractorMcdUploadEntity } from './entities/contractor-mcd-upload.entity';
+import { ContractorMcdRowEntity } from './entities/contractor-mcd-row.entity';
+import {
+  ContractorComputationController,
+  CrmContractorComputationController,
+} from './contractor-computation.controller';
+import { ContractorComputationService } from './contractor-computation.service';
 
 @Module({
   imports: [
@@ -83,6 +92,9 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
       ClraAttendance,
       ClraWage,
       ClraRegisterRun,
+      ContractorQuotationWageEntity,
+      ContractorMcdUploadEntity,
+      ContractorMcdRowEntity,
     ]),
     AuthModule, // ✅ required (ClientContractorsController uses BranchAccessService)
     UsersModule,
@@ -92,6 +104,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
     AiModule,
     ListQueriesModule,
     ComplianceModule,
+    NotificationsModule,
   ],
   controllers: [
     ContractorController,
@@ -107,6 +120,8 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
     ClientContractorEmployeesController,
     MinimumWageController,
     ClraAssignmentsController,
+    ContractorComputationController,
+    CrmContractorComputationController,
   ],
   providers: [
     ContractorService,
@@ -117,6 +132,7 @@ import { ClraRegisterRun } from './entities/clra-register-run.entity';
     ContractorEmployeesService,
     MinimumWageService,
     ClraAssignmentsService,
+    ContractorComputationService,
   ],
 })
 export class ContractorModule {}

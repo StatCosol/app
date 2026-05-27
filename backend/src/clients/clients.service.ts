@@ -251,7 +251,9 @@ export class ClientsService {
     // is supplied (CCO-scoped endpoints), restrict to clients whose assigned
     // CRM is owned by this CCO. Admins / global callers should pass `null`
     // / undefined to skip the scope filter.
-    const qb = this.repo.createQueryBuilder('client').orderBy('client.id', 'DESC');
+    const qb = this.repo
+      .createQueryBuilder('client')
+      .orderBy('client.id', 'DESC');
     if (!includeDeleted) {
       qb.andWhere('client.isDeleted = :no', { no: false });
     }
@@ -366,9 +368,7 @@ export class ClientsService {
       );
     }
     if (expectedRoleCode && row.role_code !== expectedRoleCode) {
-      throw new ForbiddenException(
-        `Target user is not a ${expectedRoleCode}`,
-      );
+      throw new ForbiddenException(`Target user is not a ${expectedRoleCode}`);
     }
   }
 

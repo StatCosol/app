@@ -125,10 +125,7 @@ export class FilesService {
         if (!['PF', 'ESI', 'PAYSLIP'].includes(ticket.category)) {
           throw new ForbiddenException();
         }
-        if (
-          ticket.assignedToUserId &&
-          ticket.assignedToUserId !== user.id
-        ) {
+        if (ticket.assignedToUserId && ticket.assignedToUserId !== user.id) {
           throw new ForbiddenException();
         }
         return;

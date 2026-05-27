@@ -1437,10 +1437,7 @@ export class UsersService implements OnModuleInit {
 
     // Scope CRM/AUDITOR dropdowns to the current CCO so a CCO only sees
     // their own subordinates (not every CRM/auditor in the system).
-    if (
-      opts?.ownerCcoId &&
-      (roleCode === 'CRM' || roleCode === 'AUDITOR')
-    ) {
+    if (opts?.ownerCcoId && (roleCode === 'CRM' || roleCode === 'AUDITOR')) {
       where.ownerCcoId = opts.ownerCcoId;
     }
 

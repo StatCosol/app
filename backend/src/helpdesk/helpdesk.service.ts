@@ -450,9 +450,7 @@ export class HelpdeskService {
    * ticket is already assigned, it must be assigned to the requesting PF user.
    */
   private assertPfTeamScope(t: HelpdeskTicketEntity, userId: string) {
-    if (
-      !(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)
-    ) {
+    if (!(PF_TEAM_CATEGORIES as readonly string[]).includes(t.category)) {
       throw new ForbiddenException('Ticket is not a PF Team category');
     }
     if (t.assignedToUserId && t.assignedToUserId !== userId) {

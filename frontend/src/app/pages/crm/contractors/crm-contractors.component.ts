@@ -26,8 +26,9 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
     { key: 'name', header: 'Name', width: '16%' },
     { key: 'email', header: 'Email', width: '20%' },
     { key: 'mobile', header: 'Mobile', width: '16%' },
-    { key: 'clientName', header: 'Client', width: '24%' },
-    { key: 'status', header: 'Status', width: '12%' },
+    { key: 'clientName', header: 'Client', width: '20%' },
+    { key: 'status', header: 'Status', width: '10%' },
+    { key: 'actions', header: 'Actions', width: '14%', align: 'center' },
   ];
   myClients: any[] = [];
   showForm = false;
@@ -44,6 +45,11 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   };
 
   registrationResult: any = null;
+  quoteUploadFor: any = null;
+  quoteFile: File | null = null;
+  quoteEffectiveFrom = new Date().toISOString().slice(0, 10);
+  quoteUploading = false;
+  quoteUploadResult: any = null;
 
   constructor(
     private contractorApi: CrmContractorsService,
@@ -174,6 +180,53 @@ export class CrmContractorsComponent implements OnInit, OnDestroy {
   closeCredentials() {
     this.registrationResult = null;
     this.cancelForm();
+  }
+
+  openQuoteUpload(contractor: any) {
+    this.quoteUploadFor = contractor;
+    this.quoteFile = null;
+    this.quoteUploadResult = null;
+    this.quoteEffectiveFrom = new Date().toISOString().slice(0, 10);
+  }
+
+  closeQuoteUpload() {
+    this.quoteUploadFor = null;
+    this.quoteFile = null;
+    this.quoteUploadResult = null;
+    this.quoteUploading = false;
+  }
+
+  onQuoteFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.quoteFile = input.files?.[0] ?? null;
+  }
+
+  uploadQuote() {
+    if (!this.quoteUploadFor?.id || !this.quoteUploadFor?.clientId || !this.quoteFile) {
+      this.toast.warning('Select quotation Excel file');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.quoteEffectiveFrom)) {
+      this.toast.warning('Effective date must be YYYY-MM-DD');
+      return;
+    }
+    this.quoteUploading = true;
+    this.contractorApi.uploadQuotationWages({
+      clientId: this.quoteUploadFor.clientId,
+      contractorUserId: this.quoteUploadFor.id,
+      effectiveFrom: this.quoteEffectiveFrom,
+      file: this.quoteFile,
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.quoteUploading = false; this.cdr.detectChanges(); }),
+    ).subscribe({
+      next: (res) => {
+        this.quoteUploadResult = res;
+        this.toast.success(`Quotation uploaded: ${res.inserted || 0} inserted, ${res.updated || 0} updated`);
+        this.cdr.detectChanges();
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Quotation upload failed'),
+    });
   }
 
   ngOnDestroy(): void {
