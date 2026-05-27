@@ -58,9 +58,7 @@ export class NoopMaskDetector implements MaskDetector {
 }
 
 export function createMaskDetector(): MaskDetector {
-  const choice = String(
-    process.env.FACE_MASK_DETECTOR || 'none',
-  ).toLowerCase();
+  const choice = String(process.env.FACE_MASK_DETECTOR || 'none').toLowerCase();
   switch (choice) {
     case 'none':
     case '':

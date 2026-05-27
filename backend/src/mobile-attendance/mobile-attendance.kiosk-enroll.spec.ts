@@ -146,11 +146,18 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
     const empRepo = { findOne: jest.fn().mockResolvedValue(activeEmployee) };
     const update = jest.fn().mockResolvedValue({});
     const create = jest.fn((x) => x);
-    const save = jest.fn().mockImplementation(async (x) => ({ id: 't-1', ...x }));
+    const save = jest
+      .fn()
+      .mockImplementation(async (x) => ({ id: 't-1', ...x }));
     const kioskTicketRepo = { update, create, save };
 
     const svc = makeService({ deviceRepo, empRepo, kioskTicketRepo });
-    const t = await svc.createKioskEnrollTicket('c-1', 'user-1', null, baseBody);
+    const t = await svc.createKioskEnrollTicket(
+      'c-1',
+      'user-1',
+      null,
+      baseBody,
+    );
 
     expect(update).toHaveBeenCalledWith(
       { deviceId: 'dev-1', status: 'PENDING' },
@@ -175,9 +182,7 @@ describe('MobileAttendanceService.createKioskEnrollTicket', () => {
     expect(t.id).toBe('t-1');
 
     // expiresAt must be ~5 min in the future.
-    const ttlMs =
-      (t as any).expiresAt.getTime() -
-      Date.now();
+    const ttlMs = (t as any).expiresAt.getTime() - Date.now();
     expect(ttlMs).toBeGreaterThan(4 * 60 * 1000);
     expect(ttlMs).toBeLessThanOrEqual(5 * 60 * 1000 + 1000);
   });
@@ -225,7 +230,8 @@ describe('MobileAttendanceService.getPendingKioskEnrollTicket', () => {
       ds: { query: jest.fn() },
     });
     const result = await svc.getPendingKioskEnrollTicket({
-      id: 'd', mode: 'ESS',
+      id: 'd',
+      mode: 'ESS',
     } as any);
     expect(result).toBeNull();
     expect(findOne).not.toHaveBeenCalled();
@@ -241,7 +247,8 @@ describe('MobileAttendanceService.getPendingKioskEnrollTicket', () => {
       ds: { query },
     });
     const t = await svc.getPendingKioskEnrollTicket({
-      id: 'd-1', mode: 'KIOSK',
+      id: 'd-1',
+      mode: 'KIOSK',
     } as any);
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining("status = 'EXPIRED'"),
@@ -267,10 +274,7 @@ describe('MobileAttendanceService.getKioskEnrollTicket', () => {
     });
     const svc = makeService({ kioskTicketRepo: { findOne, update } });
     const t = await svc.getKioskEnrollTicket('c-1', 't-1');
-    expect(update).toHaveBeenCalledWith(
-      { id: 't-1' },
-      { status: 'EXPIRED' },
-    );
+    expect(update).toHaveBeenCalledWith({ id: 't-1' }, { status: 'EXPIRED' });
     expect(t.status).toBe('EXPIRED');
   });
 
@@ -287,7 +291,9 @@ describe('MobileAttendanceService.cancelKioskEnrollTicket', () => {
   it('cancels a PENDING ticket', async () => {
     const update = jest.fn().mockResolvedValue({});
     const findOne = jest.fn().mockResolvedValue({
-      id: 't-1', clientId: 'c-1', status: 'PENDING',
+      id: 't-1',
+      clientId: 'c-1',
+      status: 'PENDING',
     });
     const svc = makeService({ kioskTicketRepo: { findOne, update } });
     const r = await svc.cancelKioskEnrollTicket('c-1', 'user-1', 't-1');
@@ -301,7 +307,9 @@ describe('MobileAttendanceService.cancelKioskEnrollTicket', () => {
   it('is a no-op when the ticket is already terminal', async () => {
     const update = jest.fn();
     const findOne = jest.fn().mockResolvedValue({
-      id: 't-1', clientId: 'c-1', status: 'COMPLETED',
+      id: 't-1',
+      clientId: 'c-1',
+      status: 'COMPLETED',
     });
     const svc = makeService({ kioskTicketRepo: { findOne, update } });
     const r = await svc.cancelKioskEnrollTicket('c-1', 'user-1', 't-1');
@@ -336,10 +344,18 @@ describe('MobileAttendanceService.listKioskEnrollTickets', () => {
     const svc = makeService({
       kioskTicketRepo: { createQueryBuilder: jest.fn().mockReturnValue(qb) },
     });
-    const rows = await svc.listKioskEnrollTickets('c-1', ['b-1', 'b-2'], 'PENDING');
+    const rows = await svc.listKioskEnrollTickets(
+      'c-1',
+      ['b-1', 'b-2'],
+      'PENDING',
+    );
     expect(rows).toEqual([{ id: 't-1' }]);
-    expect(qb.where).toHaveBeenCalledWith('t.client_id = :clientId', { clientId: 'c-1' });
-    expect(qb.andWhere).toHaveBeenCalledWith('t.status = :status', { status: 'PENDING' });
+    expect(qb.where).toHaveBeenCalledWith('t.client_id = :clientId', {
+      clientId: 'c-1',
+    });
+    expect(qb.andWhere).toHaveBeenCalledWith('t.status = :status', {
+      status: 'PENDING',
+    });
     expect(qb.andWhere).toHaveBeenCalledWith('t.branch_id = ANY(:bids)', {
       bids: ['b-1', 'b-2'],
     });
@@ -366,11 +382,9 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
   it('rejects ESS-mode devices', async () => {
     const svc = makeService();
     await expect(
-      svc.submitKioskEnrollTicket(
-        { id: 'd-1', mode: 'ESS' } as any,
-        't-1',
-        { embeddingBase64: 'AAAA' },
-      ),
+      svc.submitKioskEnrollTicket({ id: 'd-1', mode: 'ESS' } as any, 't-1', {
+        embeddingBase64: 'AAAA',
+      }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -389,7 +403,9 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     const svc = makeService({
       kioskTicketRepo: {
         findOne: jest.fn().mockResolvedValue({
-          id: 't-1', deviceId: 'd-other', status: 'PENDING',
+          id: 't-1',
+          deviceId: 'd-other',
+          status: 'PENDING',
           expiresAt: new Date(Date.now() + 60_000),
         }),
       },
@@ -405,7 +421,9 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     const svc = makeService({
       kioskTicketRepo: {
         findOne: jest.fn().mockResolvedValue({
-          id: 't-1', deviceId: 'd-1', status: 'COMPLETED',
+          id: 't-1',
+          deviceId: 'd-1',
+          status: 'COMPLETED',
           expiresAt: new Date(Date.now() + 60_000),
         }),
       },
@@ -422,7 +440,9 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
     const svc = makeService({
       kioskTicketRepo: {
         findOne: jest.fn().mockResolvedValue({
-          id: 't-1', deviceId: 'd-1', status: 'PENDING',
+          id: 't-1',
+          deviceId: 'd-1',
+          status: 'PENDING',
           expiresAt: new Date(Date.now() - 1000),
         }),
         update,
@@ -433,20 +453,22 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
         embeddingBase64: 'AAAA',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
-    expect(update).toHaveBeenCalledWith(
-      { id: 't-1' },
-      { status: 'EXPIRED' },
-    );
+    expect(update).toHaveBeenCalledWith({ id: 't-1' }, { status: 'EXPIRED' });
   });
 
   it('rejects malformed (odd-length) embedding payload', async () => {
     const svc = makeService({
       kioskTicketRepo: {
         findOne: jest.fn().mockResolvedValue({
-          id: 't-1', deviceId: 'd-1', status: 'PENDING',
+          id: 't-1',
+          deviceId: 'd-1',
+          status: 'PENDING',
           expiresAt: new Date(Date.now() + 60_000),
-          subjectType: 'EMPLOYEE', employeeId: 'e-1',
-          clientId: 'c-1', subjectCode: 'E001', branchId: 'b-1',
+          subjectType: 'EMPLOYEE',
+          employeeId: 'e-1',
+          clientId: 'c-1',
+          subjectCode: 'E001',
+          branchId: 'b-1',
           createdBy: 'user-1',
         }),
       },

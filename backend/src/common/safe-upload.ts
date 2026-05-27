@@ -189,7 +189,10 @@ function rebuildInsideUploadsRoot(file: Express.Multer.File): string | null {
     ? path.join(UPLOADS_ROOT, subdir, filename)
     : path.join(UPLOADS_ROOT, filename);
   const resolved = path.resolve(candidate);
-  if (resolved !== UPLOADS_ROOT && !resolved.startsWith(UPLOADS_ROOT + path.sep)) {
+  if (
+    resolved !== UPLOADS_ROOT &&
+    !resolved.startsWith(UPLOADS_ROOT + path.sep)
+  ) {
     return null;
   }
   return resolved;

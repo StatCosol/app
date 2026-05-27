@@ -86,7 +86,7 @@ export class MobileAttendanceAdminController {
 
   @ApiOperation({
     summary:
-      'DISABLED — face enrollment must be performed from the employee\'s paired ESS device',
+      "DISABLED — face enrollment must be performed from the employee's paired ESS device",
   })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Post('enroll')
@@ -96,7 +96,7 @@ export class MobileAttendanceAdminController {
     // Use POST /mobile-attendance/enroll-self from the device, or raise a
     // re-enrollment request for the audited admin escape hatch.
     throw new ForbiddenException(
-      'Face enrollment must be done from the employee\'s registered ESS mobile device. ' +
+      "Face enrollment must be done from the employee's registered ESS mobile device. " +
         'Pair the device, sign in, and use the in-app self-enroll flow. ' +
         'For exceptions, raise a re-enrollment request.',
     );
@@ -868,10 +868,7 @@ export class MobileAttendanceAdminController {
   @ApiOperation({ summary: 'Cancel a still-pending enrollment ticket' })
   @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
   @Post('kiosk-enroll/tickets/:id/cancel')
-  cancelKioskEnrollTicket(
-    @CurrentUser() u: ReqUser,
-    @Param('id') id: string,
-  ) {
+  cancelKioskEnrollTicket(@CurrentUser() u: ReqUser, @Param('id') id: string) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     if (!u?.userId) throw new BadRequestException('User context required');
     return this.svc.cancelKioskEnrollTicket(u.clientId, u.userId, id);
@@ -963,12 +960,15 @@ export class MobileAttendanceDeviceController {
     @Body() body: ContractorMobilePunchDto,
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.recordContractorPunch(dev, body, deriveMeta(req, userAgent));
+    return this.svc.recordContractorPunch(
+      dev,
+      body,
+      deriveMeta(req, userAgent),
+    );
   }
 
   @ApiOperation({
-    summary:
-      'K9: compact today-at-a-glance dashboard for the kiosk side panel',
+    summary: 'K9: compact today-at-a-glance dashboard for the kiosk side panel',
   })
   @Get('kiosk-dashboard')
   async kioskDashboard(
@@ -1024,10 +1024,14 @@ export class MobileAttendanceDeviceController {
  * it correctly), falls back to req.ip. UA is trimmed to 500 chars so a
  * malicious header can't bloat the audit table.
  */
-function deriveMeta(req: Request, userAgent: string | undefined): PunchRequestMeta {
+function deriveMeta(
+  req: Request,
+  userAgent: string | undefined,
+): PunchRequestMeta {
   const xff = (req.headers['x-forwarded-for'] || '') as string;
   const first = xff.split(',')[0]?.trim();
-  const ip = first || req.ip || (req.socket && req.socket.remoteAddress) || null;
+  const ip =
+    first || req.ip || (req.socket && req.socket.remoteAddress) || null;
   const ua = (userAgent || '').slice(0, 500) || null;
   return { ip: ip || null, userAgent: ua };
 }

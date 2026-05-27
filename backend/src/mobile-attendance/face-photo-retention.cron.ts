@@ -37,7 +37,10 @@ export class FacePhotoRetentionCron {
     if (!this.facePhotos.isEnabled()) return;
     await this.cronLock.runExclusive('face-photo:retention', async () => {
       try {
-        const punchDays = this.daysFromEnv('FACE_PUNCH_PHOTO_RETENTION_DAYS', 90);
+        const punchDays = this.daysFromEnv(
+          'FACE_PUNCH_PHOTO_RETENTION_DAYS',
+          90,
+        );
         const enrollDays = this.daysFromEnv(
           'FACE_ENROLL_PHOTO_RETENTION_DAYS',
           365,
@@ -131,7 +134,9 @@ export class FacePhotoRetentionCron {
       !ALLOWED.test(opts.pkCol) ||
       !ALLOWED.test(opts.timeCol)
     ) {
-      throw new Error(`unsafe identifier passed to purgePhotos: ${JSON.stringify(opts)}`);
+      throw new Error(
+        `unsafe identifier passed to purgePhotos: ${JSON.stringify(opts)}`,
+      );
     }
     if (!Number.isInteger(opts.days) || opts.days <= 0) {
       throw new Error(`invalid retention days: ${opts.days}`);
@@ -139,13 +144,14 @@ export class FacePhotoRetentionCron {
     const batch = 200;
     let total = 0;
     while (true) {
-      const rows: Array<{ pk: string; photo_url: string }> = await this.ds.query(
-        `SELECT ${opts.pkCol} AS pk, photo_url FROM ${opts.table}
+      const rows: Array<{ pk: string; photo_url: string }> =
+        await this.ds.query(
+          `SELECT ${opts.pkCol} AS pk, photo_url FROM ${opts.table}
           WHERE photo_url IS NOT NULL
             AND ${opts.timeCol} < NOW() - ($1 || ' days')::interval
           LIMIT $2`,
-        [String(opts.days), batch],
-      );
+          [String(opts.days), batch],
+        );
       if (rows.length === 0) break;
       for (const r of rows) {
         await this.facePhotos.remove(r.photo_url);
