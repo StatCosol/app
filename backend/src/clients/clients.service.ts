@@ -18,6 +18,17 @@ import { UsersService } from '../users/users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { UserEntity } from '../users/entities/user.entity';
 
+interface RetentionSnapshotData {
+  registers: any[];
+  payrollRuns: any[];
+  payrollEmployees: any[];
+  auditReports: any[];
+  ncPoints: any[];
+  contractorEmployees: any[];
+  contractorAccounts: any[];
+  contractorNcSummary: any[];
+}
+
 @Injectable()
 export class ClientsService {
   private readonly logger = new Logger(ClientsService.name);
@@ -610,6 +621,28 @@ export class ClientsService {
   ) {
     const now = new Date();
 
+    // Look up the client first (outside the tx) so we can take the retention
+    // snapshot BEFORE the cascade mutates audits/NCs/reports below. Reads
+    // are issued on pooled connections (not the soft-delete tx), so a
+    // failing select can never poison the soft-delete transaction.
+    const preClient = await this.repo.findOne({
+      where: { id: clientId, isDeleted: false },
+    });
+    if (!preClient) throw new NotFoundException('Client not found');
+
+    // Snapshot of operational rows in their pre-deletion state. Captured
+    // here rather than after commit because the cascade inside the tx
+    // flips audits/NCs/reports to CANCELLED/CLOSED, and the retention
+    // archive must record the state AT deletion, not the cleanup state.
+    let snapshotData: RetentionSnapshotData | null = null;
+    try {
+      snapshotData = await this.gatherRetentionSnapshot(clientId);
+    } catch (err: any) {
+      this.logger.error(
+        `Retention snapshot (pre-cascade gather) failed for client ${clientId}: ${err?.message || err}`,
+      );
+    }
+
     const result = await this.dataSource.transaction(async (m) => {
       const clientRepo = m.getRepository(ClientEntity);
       const userRepo = m.getRepository(UserEntity);
@@ -934,24 +967,25 @@ export class ClientsService {
       return client.id;
     });
 
-    // Snapshot AFTER the soft-delete tx has committed. Running snapshot
-    // inside the tx caused silent rollbacks (see comment above the
-    // raw-SQL UPDATE in softDelete). It is acceptable for the snapshot
-    // to fail independently — we just log a warning so ops can re-run.
-    try {
-      const client = await this.repo.findOne({ where: { id: result } });
-      if (client) {
-        await this.snapshotForRetention(
+    // Persist the pre-cascade snapshot AFTER the soft-delete tx has
+    // committed. Reads were already done above (so the archive captures
+    // the state at deletion time, not the post-cascade cleanup state).
+    // Doing the INSERT post-commit keeps it isolated from the soft-delete
+    // tx — an INSERT failure here cannot revert the soft-delete.
+    if (snapshotData) {
+      try {
+        await this.persistRetentionSnapshot(
           clientId,
-          client,
+          preClient,
           deletedBy ?? null,
           reason ?? null,
+          snapshotData,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Retention snapshot (post-commit persist) failed for client ${clientId}: ${err?.message || err}`,
         );
       }
-    } catch (err: any) {
-      this.logger.error(
-        `Retention snapshot failed (post-commit) for client ${clientId}: ${err?.message || err}`,
-      );
     }
 
     await this.auditLogs.log({
@@ -973,31 +1007,18 @@ export class ClientsService {
   }
 
   /**
-   * Snapshot a client's registers, payroll, audit reports and contractor
-   * deployment / termination / NC details into `client_deletion_archive`
-   * for 18-month retention. Called AFTER the soft-delete transaction
-   * commits (running it inside the tx caused silent rollbacks when an
-   * INSERT/SELECT failure poisoned the PG transaction state).
+   * Gather a client's registers, payroll, audit reports and contractor
+   * deployment / termination / NC details for the 18-month retention
+   * archive. Called BEFORE the soft-delete transaction starts so the
+   * snapshot reflects state AT deletion (the in-tx cascade would otherwise
+   * flip audits/NCs/reports to CANCELLED/CLOSED before we read them).
    *
-   * Each fetch is wrapped in its own try/catch so a missing optional
-   * table on a particular environment doesn't abort the snapshot.
+   * Reads use `this.dataSource.query` (pool connections), so any single
+   * failing select returns an empty list rather than poisoning anything.
    */
-  private async snapshotForRetention(
+  private async gatherRetentionSnapshot(
     clientId: string,
-    client: ClientEntity,
-    archivedBy: string | null,
-    reason: string | null,
-  ): Promise<void> {
-    const RETENTION_DAYS = 548; // ≈ 18 months (1.5 years)
-
-    // IMPORTANT: snapshot reads MUST run on a separate connection (not the
-    // outer soft-delete transaction). If a SELECT throws inside `m`, the
-    // PostgreSQL transaction enters an aborted state and EVERY subsequent
-    // statement (including the actual soft-delete UPDATE on clients) fails
-    // with "current transaction is aborted, commands ignored until end of
-    // transaction block" — which the global filter then converts to HTTP
-    // 409 Conflict. Using `this.dataSource.query` runs each read on its
-    // own pool connection, so per-read failures are contained.
+  ): Promise<RetentionSnapshotData> {
     const safeFetch = async <T = any>(
       label: string,
       sql: string,
@@ -1128,6 +1149,43 @@ export class ClientsService {
           AND a.contractor_user_id IS NOT NULL
         GROUP BY a.contractor_user_id`,
     );
+
+    return {
+      registers,
+      payrollRuns,
+      payrollEmployees,
+      auditReports,
+      ncPoints,
+      contractorEmployees,
+      contractorAccounts,
+      contractorNcSummary,
+    };
+  }
+
+  /**
+   * Persist a previously-gathered retention snapshot into
+   * `client_deletion_archive`. Called AFTER the soft-delete transaction
+   * commits so an INSERT failure here cannot revert the soft-delete.
+   */
+  private async persistRetentionSnapshot(
+    clientId: string,
+    client: ClientEntity,
+    archivedBy: string | null,
+    reason: string | null,
+    data: RetentionSnapshotData,
+  ): Promise<void> {
+    const RETENTION_DAYS = 548; // ≈ 18 months (1.5 years)
+
+    const {
+      registers,
+      payrollRuns,
+      payrollEmployees,
+      auditReports,
+      ncPoints,
+      contractorEmployees,
+      contractorAccounts,
+      contractorNcSummary,
+    } = data;
 
     const contractorsSnapshot = {
       accounts: contractorAccounts,
