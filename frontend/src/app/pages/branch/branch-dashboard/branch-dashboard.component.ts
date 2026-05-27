@@ -11,11 +11,12 @@ import { DashboardService } from '../../../core/dashboard.service';
 import { AuthService } from '../../../core/auth.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { TaskCenterService, TaskSummary, SystemTask } from '../../../core/task-center.service';
+import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widget/face-failures-widget.component';
 
 @Component({
   selector: 'app-branch-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, FaceFailuresWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './branch-dashboard.component.html',
   styleUrls: ['./branch-dashboard.component.scss'],

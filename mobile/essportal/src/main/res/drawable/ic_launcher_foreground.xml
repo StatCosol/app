@@ -1,0 +1,38 @@
+<!-- ESS portal: 3 white figures under an arch (matches login brand tile) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Arch over the figures -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M30,52 Q54,28 78,52"/>
+
+    <!-- Center figure -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,52 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,82 C44,72 47,68 54,68 C61,68 64,72 64,82 L64,84 Q64,86 62,86 L46,86 Q44,86 44,84 Z"/>
+
+    <!-- Left figure -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M37,58 m-5.2,0 a5.2,5.2 0 1,0 10.4,0 a5.2,5.2 0 1,0 -10.4,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M29,82 C29,74 31.5,70 37,70 C40,70 42,71 43.5,73 L43.5,86 L30.5,86 Q29,86 29,84.5 Z"/>
+
+    <!-- Right figure -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M71,58 m-5.2,0 a5.2,5.2 0 1,0 10.4,0 a5.2,5.2 0 1,0 -10.4,0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64.5,73 C66,71 68,70 71,70 C76.5,70 79,74 79,82 L79,84.5 Q79,86 77.5,86 L64.5,86 Z"/>
+</vector>

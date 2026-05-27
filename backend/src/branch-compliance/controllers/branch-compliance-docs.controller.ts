@@ -30,6 +30,13 @@ type UploadedFile = { originalname: string; buffer: Buffer; mimetype: string };
 
 const uploadOptions = makeSafeUploadOptions({ memory: true, maxMb: 10 });
 
+function parseMonthKey(monthKey?: string): { year?: number; month?: number } {
+  if (!monthKey) return {};
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(monthKey);
+  if (!match) return {};
+  return { year: Number(match[1]), month: Number(match[2]) };
+}
+
 @ApiTags('Branch Compliance')
 @ApiBearerAuth('JWT')
 @Controller({ path: 'branch/compliance-docs', version: '1' })
@@ -90,8 +97,11 @@ export class BranchComplianceDocsController {
     @Query() q: Record<string, string>,
   ) {
     const branchId = await this.svc.resolveBranchId(user, q.branchId);
-    const year = q.year ? Number(q.year) : new Date().getFullYear();
-    const month = q.month ? Number(q.month) : undefined;
+    const period = parseMonthKey(q.monthKey);
+    const year = q.year
+      ? Number(q.year)
+      : period.year || new Date().getFullYear();
+    const month = q.month ? Number(q.month) : period.month;
     return this.svc.getBranchDashboardKpis(user, branchId, year, month);
   }
 

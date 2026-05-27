@@ -25,6 +25,11 @@ export class EssCheckInDto {
   @IsOptional() @IsNumber() latitude?: number;
   @IsOptional() @IsNumber() longitude?: number;
   @IsOptional() @IsString() deviceInfo?: string;
+  // Optional base64-encoded selfie (without the data: URL prefix) when
+  // captureMethod === 'FACE'. Captured client-side via getUserMedia. Not
+  // currently persisted server-side — accepted so the validation pipe
+  // (forbidNonWhitelisted: true) does not reject the request.
+  @IsOptional() @IsString() selfieB64?: string;
 }
 
 export class EssCheckOutDto {
@@ -32,6 +37,7 @@ export class EssCheckOutDto {
   @IsOptional() @IsNumber() latitude?: number;
   @IsOptional() @IsNumber() longitude?: number;
   @IsOptional() @IsString() deviceInfo?: string;
+  @IsOptional() @IsString() selfieB64?: string;
 }
 
 export class SubmitShortWorkReasonDto {

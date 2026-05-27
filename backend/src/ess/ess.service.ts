@@ -1297,46 +1297,55 @@ export class EssService {
       throw new BadRequestException('Invalid leave date range');
     }
 
-    // Check balance
+    // Lock the leave-balance row for this (employee, year, leaveType) for the
+    // duration of the balance-check + application insert. Without the
+    // pessimistic lock, two concurrent submissions can each read the same
+    // `available` value and both pass the check even though their combined
+    // totalDays exceeds the balance.
     const yr = from.getFullYear();
-    const bal = await this.leaveBalRepo.findOne({
-      where: { employeeId: empId, year: yr, leaveType: dto.leaveType },
-    });
-    const available = bal ? parseFloat(bal.available) : 0;
+    return await this.ds.transaction(async (mgr) => {
+      const bal = await mgr
+        .createQueryBuilder(LeaveBalanceEntity, 'lb')
+        .setLock('pessimistic_write')
+        .where(
+          'lb.employeeId = :eid AND lb.year = :yr AND lb.leaveType = :lt',
+          { eid: empId, yr, lt: dto.leaveType },
+        )
+        .getOne();
+      const available = bal ? parseFloat(bal.available) : 0;
 
-    // Check if policy allows negative
-    const policy = await this.leavePolicyRepo.findOne({
-      where: {
+      const policy = await mgr.findOne(LeavePolicyEntity, {
+        where: {
+          clientId: emp.clientId,
+          leaveType: dto.leaveType,
+          isActive: true,
+        },
+      });
+      if (!policy)
+        throw new BadRequestException(
+          `No leave policy found for type ${dto.leaveType}`,
+        );
+      if (!policy.allowNegative && totalDays > available) {
+        throw new BadRequestException(
+          `Insufficient leave balance. Available: ${available}, Requested: ${totalDays}`,
+        );
+      }
+
+      const app = mgr.create(LeaveApplicationEntity, {
+        employeeId: empId,
         clientId: emp.clientId,
+        branchId: emp.branchId,
         leaveType: dto.leaveType,
-        isActive: true,
-      },
+        fromDate: dto.fromDate,
+        toDate: dto.toDate,
+        totalDays: String(totalDays),
+        reason: dto.reason || null,
+        status: 'SUBMITTED',
+        appliedAt: new Date(),
+      });
+      const saved = await mgr.save(LeaveApplicationEntity, app);
+      return { id: saved.id, status: saved.status, totalDays };
     });
-    if (!policy)
-      throw new BadRequestException(
-        `No leave policy found for type ${dto.leaveType}`,
-      );
-    if (!policy.allowNegative && totalDays > available) {
-      throw new BadRequestException(
-        `Insufficient leave balance. Available: ${available}, Requested: ${totalDays}`,
-      );
-    }
-
-    const app = this.leaveAppRepo.create({
-      employeeId: empId,
-      clientId: emp.clientId,
-      branchId: emp.branchId,
-      leaveType: dto.leaveType,
-      fromDate: dto.fromDate,
-      toDate: dto.toDate,
-      totalDays: String(totalDays),
-      reason: dto.reason || null,
-      status: 'SUBMITTED',
-      appliedAt: new Date(),
-    });
-    const saved = await this.leaveAppRepo.save(app);
-
-    return { id: saved.id, status: saved.status, totalDays };
   }
 
   async cancelLeave(user: EssUser, leaveId: string) {

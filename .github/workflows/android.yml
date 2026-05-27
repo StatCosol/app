@@ -1,0 +1,76 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch: {}   # lets you build on demand from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MOBILEFACENET_TFLITE_URL: ${{ secrets.MOBILEFACENET_TFLITE_URL }}
+      # Baked into BuildConfig.ADMIN_EXIT_PIN via build.gradle.kts. If
+      # unset, the kiosk admin-exit dialog rejects every PIN.
+      STATCO_ADMIN_EXIT_PIN: ${{ secrets.ADMIN_EXIT_PIN }}
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # Fetch MobileFaceNet TFLite from Azure Blob (read-only SAS URL stored as
+      # a repo secret). Skipped when the secret isn't set so PRs from forks
+      # still build (the resulting APK won't do face matching, but it compiles).
+      - name: Fetch MobileFaceNet TFLite
+        if: ${{ env.MOBILEFACENET_TFLITE_URL != '' }}
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fsSL "$MOBILEFACENET_TFLITE_URL" -o app/src/main/assets/mobilefacenet.tflite
+          ls -l app/src/main/assets/mobilefacenet.tflite
+
+      - name: Build debug APKs (kiosk + ess flavors + ess portal webview)
+        run: gradle :app:assembleKioskDebug :app:assembleEssDebug :essportal:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload Kiosk APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: statcompy-kiosk-debug-apk
+          path: mobile/app/build/outputs/apk/kiosk/debug/app-kiosk-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ESS APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: statcompy-ess-debug-apk
+          path: mobile/app/build/outputs/apk/ess/debug/app-ess-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ESS Portal (WebView) APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: statcompy-ess-portal-debug-apk
+          path: mobile/essportal/build/outputs/apk/debug/essportal-debug.apk
+          if-no-files-found: error
+          retention-days: 30

@@ -28,6 +28,7 @@ import {
   DEFAULT_TEMPLATES,
   TEMPLATE_PLACEHOLDERS,
 } from './client-comm-templates.service';
+import { sanitizeMailHtml } from '../common/html-sanitizer';
 import {
   CLIENT_COMM_TYPES,
   ClientCommType,
@@ -128,11 +129,21 @@ export class ClientContactsController {
       return { ok: false, error: `Unknown comm_type: ${commType}` };
     }
     const subject = (dto.subjectTemplate || '').trim();
-    const body = (dto.bodyTemplate || '').trim();
-    if (!subject || !body) {
+    const rawBody = (dto.bodyTemplate || '').trim();
+    if (!subject || !rawBody) {
       return {
         ok: false,
         error: 'subjectTemplate and bodyTemplate are required',
+      };
+    }
+    // HTML is rendered into both the outgoing email and the Angular admin
+    // preview pane. Sanitize on the way in so a single bad save can't seed
+    // stored-XSS for every other admin who later opens the editor.
+    const body = sanitizeMailHtml(rawBody);
+    if (!body) {
+      return {
+        ok: false,
+        error: 'bodyTemplate contained no allowed HTML after sanitization',
       };
     }
     await this.templates.upsert(ct, subject, body, user?.userId);
@@ -184,7 +195,7 @@ export class ClientContactsController {
     if (dto?.subjectTemplate || dto?.bodyTemplate) {
       const def = DEFAULT_TEMPLATES[ct];
       const subjTpl = dto.subjectTemplate || def.subject;
-      const bodyTpl = dto.bodyTemplate || def.body;
+      const bodyTpl = sanitizeMailHtml(dto.bodyTemplate || def.body);
       // Use the public render path via a transient resolve helper
       const escape = (s: string) =>
         String(s ?? '')
@@ -208,7 +219,7 @@ export class ClientContactsController {
     return {
       ok: true,
       subject: tpl.subject,
-      body: tpl.body,
+      body: sanitizeMailHtml(tpl.body),
       source: tpl.source,
       placeholders: TEMPLATE_PLACEHOLDERS,
     };

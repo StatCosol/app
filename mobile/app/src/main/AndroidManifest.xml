@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="true" />
+
+    <application
+        android:name=".AttendanceApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.StatcompyAttendance"
+        android:usesCleartextTraffic="false">
+
+        <!-- Token entry / mode bootstrap -->
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="true"
+            android:label="@string/setup_title">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Shared gate kiosk: 1:N face identification -->
+        <activity
+            android:name=".ui.KioskActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:keepScreenOn="true"
+            android:label="@string/kiosk_title" />
+
+        <!-- Employee personal phone: 1:1 face verification + geofence -->
+        <activity
+            android:name=".ui.EssActivity"
+            android:exported="false"
+            android:label="@string/ess_title" />
+
+        <!-- One-time face self-enrollment for ESS-bound personal phone -->
+        <activity
+            android:name=".ui.EnrollActivity"
+            android:exported="false"
+            android:label="@string/enroll_title" />
+
+    </application>
+
+</manifest>

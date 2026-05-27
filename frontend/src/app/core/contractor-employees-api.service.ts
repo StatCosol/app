@@ -98,6 +98,29 @@ export class ContractorEmployeesApiService {
     );
   }
 
+  /**
+   * Branch/Client-portal listing of contractor employees for a given branch.
+   * Backed by `/api/v1/client/contractor-employees` which accepts CLIENT/ADMIN/CRM
+   * roles (the contractor-portal `list()` above is CONTRACTOR-only and 403s for
+   * branch users).
+   */
+  listForBranch(params: {
+    branchId?: string;
+    contractorUserId?: string;
+    isActive?: boolean;
+    search?: string;
+  } = {}): Observable<{ data: ContractorEmployee[]; total: number }> {
+    const query: Record<string, string> = {};
+    if (params.branchId) query['branchId'] = params.branchId;
+    if (params.contractorUserId) query['contractorUserId'] = params.contractorUserId;
+    if (params.isActive !== undefined) query['isActive'] = String(params.isActive);
+    if (params.search) query['search'] = params.search;
+    return this.http.get<{ data: ContractorEmployee[]; total: number }>(
+      '/api/v1/client/contractor-employees',
+      { params: query },
+    );
+  }
+
   create(dto: CreateEmployeeDto): Observable<ContractorEmployee> {
     return this.http.post<ContractorEmployee>('/api/v1/contractor/employees', dto);
   }

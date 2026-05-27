@@ -1,0 +1,91 @@
+<resources>
+    <!-- app_name is provided per product flavor (kiosk / ess) via build.gradle.kts resValue -->
+    <string name="setup_title">Device Setup</string>
+    <string name="kiosk_title">Gate Attendance</string>
+    <string name="ess_title">My Attendance</string>
+
+    <string name="setup_intro">Paste the install token issued by your administrator. Token is 64 characters.</string>
+    <string name="setup_token_hint">Install token</string>
+    <string name="setup_api_hint">API base (optional)</string>
+    <string name="setup_register">Register Device</string>
+    <string name="setup_invalid_token">Token must be 64 hex characters</string>
+
+    <string name="kiosk_look_at_camera">Look at the camera to mark attendance</string>
+    <string name="kiosk_match_low">Face not recognised — please try again</string>
+    <string name="kiosk_punch_recorded">Punch recorded for %1$s</string>
+    <string name="kiosk_punch_in_title">Login recorded</string>
+    <string name="kiosk_punch_out_title">Logout recorded</string>
+    <string name="kiosk_punch_subtitle">%1$s • %2$s</string>
+    <string name="kiosk_badge_in">LOGIN</string>
+    <string name="kiosk_badge_out">LOGOUT</string>
+    <string name="kiosk_time_format">%1$s • %2$s</string>
+    <string name="brand_name">Statco Comply</string>
+    <string name="brand_powered_by">Powered by Statco Comply Attendance</string>
+    <string name="kiosk_logout_confirm_title">Already punched in</string>
+    <string name="kiosk_logout_confirm_message">%1$s, your attendance is already recorded for today.\n\nDo you want to punch out now?</string>
+    <string name="kiosk_logout_confirm_yes">Yes, punch out</string>
+    <string name="kiosk_logout_confirm_no">Cancel</string>
+    <string name="kiosk_already_done_title">Attendance complete</string>
+    <string name="kiosk_already_done_message">%1$s, you have already punched in and out for today.\n\nSee you tomorrow!</string>
+    <string name="kiosk_already_done_ok">OK</string>
+    <string name="face_model_missing">Face matcher not configured — please reinstall the latest app build (the bundled MobileFaceNet model is missing).</string>
+    <string name="face_embed_failed">Face processing error: %1$s</string>
+    <string name="face_multiple_detected">Multiple faces in view (%1$d). Only one person at a time — ask others to step away.</string>
+    <string name="hint_no_face">No face detected — please look at the camera</string>
+    <string name="hint_too_small">Please move closer to the camera</string>
+    <string name="hint_too_dim">Lighting too low — please move into the light</string>
+    <string name="kiosk_branch_unknown">Branch not assigned</string>
+    <string name="kiosk_voice_recorded">Attendance recorded for %1$s</string>
+    <string name="kiosk_voice_logout_recorded">Logout recorded for %1$s</string>
+    <string name="kiosk_voice_face_not_recognised">Face not recognised, please try again</string>
+    <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
+
+    <string name="ess_punch_in">Punch In</string>
+    <string name="ess_punch_out">Punch Out</string>
+    <string name="ess_outside_geofence">You are outside the workplace geofence</string>
+    <string name="ess_mock_location_blocked">Mock location detected — disable fake-GPS apps and try again</string>
+    <string name="ess_no_enrollment">Your face is not enrolled. Please contact your administrator.</string>
+
+    <string name="permission_camera_required">Camera permission is required for attendance.</string>
+    <string name="permission_location_required">Location permission is required for ESS mode geofence.</string>
+
+    <string name="enroll_title">Enroll Face</string>
+    <string name="enroll_intro">We need 8 clear selfies to enroll your face. Look straight at the camera, keep still, and make sure no one else is in the frame.</string>
+    <string name="enroll_consent">I consent to processing of my facial biometric data for attendance purposes (DPDP Act).</string>
+    <string name="enroll_progress">Captured %1$d of %2$d</string>
+    <string name="enroll_capture_btn">Start Enrollment</string>
+    <string name="enroll_uploading">Uploading enrollment…</string>
+    <string name="enroll_success">Enrollment complete</string>
+    <string name="enroll_failed">Enrollment failed: %1$s</string>
+    <string name="enroll_consent_required">You must consent before enrolling.</string>
+
+    <!-- Active-liveness challenge prompts (Phase 3d). -->
+    <string name="liveness_prompt_blink">Please blink your eyes</string>
+    <string name="liveness_prompt_smile">Please smile at the camera</string>
+    <string name="liveness_prompt_head_left">Slowly turn your head to the LEFT</string>
+    <string name="liveness_prompt_head_right">Slowly turn your head to the RIGHT</string>
+    <string name="liveness_passed">Liveness check passed</string>
+    <string name="liveness_failed_retry">Liveness check failed — please try again</string>
+    <string name="liveness_timeout">Liveness check timed out — please try again</string>
+    <string name="kiosk_liveness_prompt_with_name">Hi %1$s — %2$s</string>
+
+    <!-- Admin exit hatch (long-press the brand label on the kiosk header). -->
+    <string name="kiosk_admin_exit_title">Exit kiosk mode</string>
+    <string name="kiosk_admin_exit_message">Enter the admin PIN to unlock screen pinning and return to the device launcher.</string>
+    <string name="kiosk_admin_exit_hint">Admin PIN</string>
+    <string name="kiosk_admin_exit_confirm">Exit</string>
+    <string name="kiosk_admin_exit_cancel">Cancel</string>
+    <string name="kiosk_admin_exit_wrong_pin">Wrong PIN.</string>
+
+    <!-- Operator-supervised kiosk enrollment. -->
+    <string name="kiosk_enroll_prompt">Enrolling %1$s — please show your face to the camera</string>
+    <string name="kiosk_enroll_capturing">Capturing face… %1$d / %2$d</string>
+    <string name="kiosk_enroll_ready_title">Face captured</string>
+    <string name="kiosk_enroll_ready_message">Ready to enroll %1$s. Tap Register to complete enrollment.</string>
+    <string name="kiosk_enroll_register_btn">Register</string>
+    <string name="kiosk_enroll_cancel_btn">Cancel</string>
+    <string name="kiosk_enroll_success">%1$s enrolled successfully</string>
+    <string name="kiosk_enroll_failed">Enrollment failed: %1$s</string>
+    <string name="kiosk_enroll_uploading">Uploading enrollment…</string>
+    <string name="kiosk_enroll_inconsistent">Frames inconsistent — please retry</string>
+</resources>

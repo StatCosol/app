@@ -15,9 +15,19 @@ node_modules/
 tmpclaude-*
 tmp_job_*/
 tmp-*
+tmp_*
+tmp-art/
+apk-out/
 backend/tmp-check-*.js
 backend/tmp-*.txt
 [{]*
+
+# Stray shell-redirect artifacts from accidental command pastes
+console.log(*
+console.error(*
+
+# Logs — any
+*.log
 
 # Test / smoke result files
 *_results*.txt

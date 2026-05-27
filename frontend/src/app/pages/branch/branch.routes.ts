@@ -94,6 +94,19 @@ const BranchAppraisalCyclesComponent = () =>
 const VendorAuditNcsComponent = () =>
   import('../shared-vendor/vendor-audit-ncs.component').then((m) => m.VendorAuditNcsComponent);
 
+const BranchFaceEnrollmentComponent = () =>
+  import('./branch-face-enrollment/branch-face-enrollment.component').then(
+    (m) => m.BranchFaceEnrollmentComponent,
+  );
+const BranchContractorAttendanceComponent = () =>
+  import('./branch-contractor-attendance/branch-contractor-attendance.component').then(
+    (m) => m.BranchContractorAttendanceComponent,
+  );
+const BranchFaceFailuresComponent = () =>
+  import('./branch-face-failures/branch-face-failures.component').then(
+    (m) => m.BranchFaceFailuresComponent,
+  );
+
 export const BRANCH_ROUTES: Routes = [
   {
     path: 'branch',
@@ -136,6 +149,9 @@ export const BRANCH_ROUTES: Routes = [
       { path: 'attendance', loadComponent: BranchAttendanceReviewComponent },
       { path: 'attendance/mark', loadComponent: BranchMarkAttendanceComponent },
       { path: 'attendance/daily', loadComponent: BranchDailyAttendanceComponent },
+      { path: 'attendance/contractor', loadComponent: BranchContractorAttendanceComponent },
+      { path: 'face-enrollment', loadComponent: BranchFaceEnrollmentComponent },
+      { path: 'face-failures', loadComponent: BranchFaceFailuresComponent },
       { path: 'notifications', loadComponent: BranchNotificationsComponent },
       { path: 'helpdesk', loadComponent: BranchHelpdeskComponent },
       { path: 'compliance-items', loadComponent: BranchComplianceItemsComponent },

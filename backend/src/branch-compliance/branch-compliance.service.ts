@@ -260,6 +260,21 @@ export class BranchComplianceService {
 
   // ─── Return Master CRUD ────────────────────────────────────
 
+  private getPeriodFromQuery(q: ChecklistQueryDto): {
+    year: number;
+    month?: number;
+  } {
+    if (q.monthKey) {
+      const [year, month] = q.monthKey.split('-').map(Number);
+      return { year, month };
+    }
+
+    return {
+      year: q.year || new Date().getFullYear(),
+      month: q.month,
+    };
+  }
+
   async getReturnMaster(q: ReturnMasterQueryDto) {
     await this.ensureCombinedReturnMasters();
 
@@ -338,7 +353,7 @@ export class BranchComplianceService {
     await this.assertBranchAccess(user, branchId);
 
     const companyId = q.companyId || user.clientId;
-    const year = q.year || new Date().getFullYear();
+    const { year, month } = this.getPeriodFromQuery(q);
     const frequency = q.frequency || 'MONTHLY';
 
     // Resolve the branch state code and type for state-based filtering
@@ -410,8 +425,8 @@ export class BranchComplianceService {
       .andWhere('d.period_year = :year', { year })
       .andWhere('d.frequency = :frequency', { frequency });
 
-    if (frequency === 'MONTHLY' && q.month) {
-      docsQb.andWhere('d.period_month = :month', { month: q.month });
+    if (frequency === 'MONTHLY' && month) {
+      docsQb.andWhere('d.period_month = :month', { month });
     }
     if (frequency === 'QUARTERLY' && q.quarter) {
       docsQb.andWhere('d.period_quarter = :quarter', { quarter: q.quarter });

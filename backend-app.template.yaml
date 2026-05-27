@@ -18,6 +18,7 @@ properties:
       - name: jwt-secret
       - name: ai-encryption-key
       - name: smtp-pass
+      - name: face-svc-api-key
   template:
     containers:
       - name: statcompy-backend
@@ -42,8 +43,6 @@ properties:
           # DB_SSL_CA_PATH is set as an ENV in the Dockerfile; no override needed.
           - name: JWT_SECRET
             secretRef: jwt-secret
-          - name: JWT_EXPIRES_IN
-            value: 12h
           - name: JWT_ACCESS_EXPIRES_SEC
             value: '900'
           - name: AI_ENCRYPTION_KEY
@@ -62,3 +61,9 @@ properties:
             value: https://app.statcosol.com
           - name: CORS_ORIGINS
             value: https://app.statcosol.com
+          # face-svc (internal-only ingress). API key required to gate
+          # access from other workloads in the same Container App env.
+          - name: FACE_SVC_URL
+            value: http://statcompy-face-svc
+          - name: FACE_SVC_API_KEY
+            secretRef: face-svc-api-key

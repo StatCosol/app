@@ -36,6 +36,7 @@ import { ReturnsService } from '../../../core/returns.service';
 import { ComplianceCalendarItem } from '../../../core/models/returns.models';
 import { ComplianceCalendarWidgetComponent } from '../../../shared/components/compliance-calendar-widget/compliance-calendar-widget.component';
 import { ComplianceNotificationCenterComponent } from '../../../shared/components/compliance-notification-center/compliance-notification-center.component';
+import { FaceFailuresWidgetComponent } from '../../../shared/face-failures-widget/face-failures-widget.component';
 // Skeleton loading handled via CSS (no spinner component needed)
 
 type ChartKey =
@@ -51,7 +52,7 @@ type ChartKey =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-client-dashboard',
-  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent],
+  imports: [CommonModule, FormsModule, RouterModule, AiRiskScoreComponent, BranchAuditKpiComponent, ComplianceCalendarWidgetComponent, ComplianceNotificationCenterComponent, FaceFailuresWidgetComponent],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['../shared/client-theme.scss', './client-dashboard.component.scss'],
 })

@@ -141,7 +141,6 @@ az containerapp create `
         "DB_NAME=${DbName}" `
         DB_SSL=true `
         "JWT_SECRET=${JwtSecret}" `
-        JWT_EXPIRES_IN=12h `
         JWT_ACCESS_EXPIRES_SEC=900 `
         SKIP_BOOTSTRAP_SEED=true `
         EMAIL_ENABLED=false `

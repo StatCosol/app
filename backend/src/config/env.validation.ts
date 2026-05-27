@@ -63,4 +63,51 @@ export const envValidationSchema = Joi.object({
   }),
 
   SCHEDULE_TIMEZONE: Joi.string().optional().default('Asia/Kolkata'),
+
+  // face-svc microservice
+  FACE_SVC_URL: Joi.string().uri().optional().allow(''),
+  FACE_SVC_TIMEOUT_MS: Joi.number().optional(),
+  FACE_SVC_API_KEY: Joi.string().when('FACE_SVC_URL', {
+    is: Joi.string().uri().required(),
+    then: Joi.string().min(16).required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+
+  // Phase 4c hardening — face capture
+  FACE_PUNCH_REQUIRE_PROBE: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .optional()
+    .default(true),
+  FACE_PUNCH_PHOTO_RETENTION_DAYS: Joi.number().integer().min(1).optional(),
+  FACE_ENROLL_PHOTO_RETENTION_DAYS: Joi.number().integer().min(1).optional(),
+
+  // Phase 4c hardening — real-time rejection alerts (roadmap #16)
+  FACE_REJECTION_ALERT_WINDOW_MIN: Joi.number().integer().min(1).optional(),
+  FACE_REJECTION_ALERT_THRESHOLD: Joi.number().integer().min(1).optional(),
+  FACE_DEVICE_REJECTION_ALERT_THRESHOLD: Joi.number()
+    .integer()
+    .min(1)
+    .optional(),
+  // K9 — kiosk side-panel dashboard
+  FACE_DASHBOARD_LATE_CUTOFF_HHMM: Joi.string()
+    .pattern(/^\d{1,2}:\d{2}$/)
+    .optional(),
+  // Roadmap #14 — appearance-drift detection
+  FACE_DRIFT_WINDOW_DAYS: Joi.number().integer().min(1).optional(),
+  FACE_DRIFT_MIN_SAMPLES: Joi.number().integer().min(1).optional(),
+  FACE_DRIFT_THRESHOLD: Joi.number().min(0).max(1).optional(),
+  FACE_DRIFT_REALERT_DAYS: Joi.number().integer().min(1).optional(),
+  FACE_DRIFT_REALERT_DELTA: Joi.number().min(0).max(1).optional(),
+  // Roadmap #11 / K11 — PAD anti-spoof provider selection
+  FACE_ANTISPOOF_PROVIDER: Joi.string()
+    .valid('none', 'azure', 'facetec')
+    .optional(),
+  // Roadmap #7 / K10 — shift validation enforcement mode
+  SHIFT_VALIDATION_MODE: Joi.string()
+    .valid('off', 'warn', 'enforce')
+    .optional(),
+  // Roadmap #9 / K13 — mask / PPE detector + policy
+  FACE_MASK_DETECTOR: Joi.string().valid('none', 'onnx', 'azure').optional(),
+  FACE_MASK_POLICY: Joi.string().valid('allow', 'warn', 'block').optional(),
 });

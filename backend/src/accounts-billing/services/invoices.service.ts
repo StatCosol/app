@@ -58,9 +58,15 @@ export class InvoicesService {
     const dueDate = dto.dueDate ? dto.dueDate : null;
 
     const itemResults = dto.items.map((item) => {
-      const itemGstRate = item.gstRate ?? gstRate;
+      // Reimbursement / pass-through line items (e.g. statutory / government
+      // fees that we collect on the client's behalf) are not a supply by us
+      // and therefore do not attract GST. Force the GST rate to 0 so the
+      // line is added to subtotal but contributes nothing to taxable value.
+      const isReimbursement = item.isReimbursement || false;
+      const itemGstRate = isReimbursement ? 0 : (item.gstRate ?? gstRate);
       return {
         ...item,
+        isReimbursement,
         gstRate: itemGstRate,
         ...this.calcService.calculateItem({
           quantity: item.quantity,

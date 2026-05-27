@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { EmailService } from '../email/email.service';
+import { CronLockService } from '../common/services/cron-lock.service';
 
 type DigestType = 'WEEKLY' | 'CRITICAL';
 type DigestRunStatus = 'SUCCESS' | 'FAILED' | 'SKIPPED';
@@ -47,36 +48,41 @@ export class AdminDigestService {
   constructor(
     private readonly ds: DataSource,
     private readonly email: EmailService,
+    private readonly cronLock: CronLockService,
   ) {}
 
-  // Monday at 09:00 AM
-  @Cron('0 0 9 * * 1')
+  // Monday at 09:00 IST
+  @Cron('0 0 9 * * 1', { timeZone: 'Asia/Kolkata' })
   async weeklyDigest(): Promise<void> {
-    try {
-      this.logger.log('Running scheduled weekly digest');
-      await this.sendDigest(null, 'SCHEDULED_WEEKLY');
-      this.logger.log('Weekly digest completed');
-    } catch (err) {
-      this.logger.error(
-        'Weekly digest failed',
-        err instanceof Error ? err.stack : String(err),
-      );
-    }
+    await this.cronLock.runExclusive('admin-digest:weekly', async () => {
+      try {
+        this.logger.log('Running scheduled weekly digest');
+        await this.sendDigest(null, 'SCHEDULED_WEEKLY');
+        this.logger.log('Weekly digest completed');
+      } catch (err) {
+        this.logger.error(
+          'Weekly digest failed',
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    });
   }
 
-  // Daily at 08:00 AM for critical alerts
-  @Cron('0 0 8 * * *')
+  // Daily at 08:00 IST for critical alerts
+  @Cron('0 0 8 * * *', { timeZone: 'Asia/Kolkata' })
   async dailyCriticalAlerts(): Promise<void> {
-    try {
-      this.logger.log('Running scheduled daily critical alerts');
-      await this.sendCriticalAlerts(null, 'SCHEDULED_CRITICAL');
-      this.logger.log('Daily critical alerts completed');
-    } catch (err) {
-      this.logger.error(
-        'Daily critical alerts failed',
-        err instanceof Error ? err.stack : String(err),
-      );
-    }
+    await this.cronLock.runExclusive('admin-digest:critical', async () => {
+      try {
+        this.logger.log('Running scheduled daily critical alerts');
+        await this.sendCriticalAlerts(null, 'SCHEDULED_CRITICAL');
+        this.logger.log('Daily critical alerts completed');
+      } catch (err) {
+        this.logger.error(
+          'Daily critical alerts failed',
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    });
   }
 
   async getConfig() {

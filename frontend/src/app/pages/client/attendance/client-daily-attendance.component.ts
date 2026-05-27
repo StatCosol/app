@@ -192,7 +192,7 @@ const ATTENDANCE_STATUSES = [
                   <td>{{ row.overtimeHours && +row.overtimeHours > 0 ? row.overtimeHours : '-' }}</td>
                   <td>
                     <span class="source-chip" [class.self]="row.selfMarked">
-                      {{ row.selfMarked ? 'Self' : row.source }}
+                      {{ displaySource(row) }}
                     </span>
                   </td>
                   <td>
@@ -607,6 +607,15 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
 
   trackById(_index: number, row: DailyAttendanceRecord): string {
     return row.id;
+  }
+
+  displaySource(row: DailyAttendanceRecord): string {
+    if (row.selfMarked) return 'Self';
+    // Mobile face-kiosk punches roll up with source=BIOMETRIC but
+    // captureMethod=FACE — show the more specific label so users can tell
+    // them apart from fingerprint biometric devices.
+    if (row.captureMethod === 'FACE') return 'FACE';
+    return row.source;
   }
 
   private todayStr(): string {

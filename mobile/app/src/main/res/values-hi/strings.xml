@@ -1,0 +1,38 @@
+<resources>
+    <!-- Kiosk-only Hindi translations. Strings not overridden here fall
+         back to values/strings.xml (English). Translations checked by a
+         native Hindi speaker on the StatComPy team — keep idiomatic, not
+         literal. -->
+    <string name="kiosk_title">गेट हाज़िरी</string>
+    <string name="kiosk_look_at_camera">हाज़िरी लगाने के लिए कैमरे की ओर देखें</string>
+    <string name="kiosk_match_low">चेहरा पहचाना नहीं गया — कृपया फिर से कोशिश करें</string>
+    <string name="kiosk_punch_in_title">हाज़िरी दर्ज</string>
+    <string name="kiosk_punch_out_title">छुट्टी दर्ज</string>
+    <string name="kiosk_badge_in">हाज़िरी</string>
+    <string name="kiosk_badge_out">छुट्टी</string>
+    <string name="kiosk_logout_confirm_title">हाज़िरी पहले से दर्ज है</string>
+    <string name="kiosk_logout_confirm_message">%1$s, आपकी आज की हाज़िरी पहले ही दर्ज हो चुकी है।\n\nक्या आप अभी छुट्टी दर्ज करना चाहते हैं?</string>
+    <string name="kiosk_logout_confirm_yes">हाँ, छुट्टी दर्ज करें</string>
+    <string name="kiosk_logout_confirm_no">रद्द करें</string>
+    <string name="kiosk_already_done_title">हाज़िरी पूरी</string>
+    <string name="kiosk_already_done_message">%1$s, आज आप हाज़िरी और छुट्टी दोनों दर्ज कर चुके हैं।\n\nकल मिलते हैं!</string>
+    <string name="kiosk_already_done_ok">ठीक है</string>
+    <string name="face_multiple_detected">एक से अधिक चेहरे (%1$d) दिख रहे हैं। एक समय में केवल एक व्यक्ति — बाकी लोग कृपया हटें।</string>
+    <string name="hint_no_face">चेहरा नहीं मिला — कृपया कैमरे की ओर देखें</string>
+    <string name="hint_too_small">कृपया कैमरे के पास आएँ</string>
+    <string name="hint_too_dim">रोशनी बहुत कम है — कृपया रोशनी में आएँ</string>
+    <string name="kiosk_branch_unknown">शाखा निर्धारित नहीं</string>
+    <string name="kiosk_voice_recorded">%1$s की हाज़िरी दर्ज हो गई</string>
+    <string name="kiosk_voice_logout_recorded">%1$s की छुट्टी दर्ज हो गई</string>
+    <string name="kiosk_voice_face_not_recognised">चेहरा पहचाना नहीं गया, फिर से कोशिश करें</string>
+
+    <!-- Active-liveness challenge prompts (Phase 3d). -->
+    <string name="liveness_prompt_blink">कृपया अपनी आँखें झपकाएँ</string>
+    <string name="liveness_prompt_smile">कृपया कैमरे की ओर मुस्कुराएँ</string>
+    <string name="liveness_prompt_head_left">धीरे-धीरे अपना सिर बाईं ओर घुमाएँ</string>
+    <string name="liveness_prompt_head_right">धीरे-धीरे अपना सिर दाईं ओर घुमाएँ</string>
+    <string name="liveness_passed">जीवंतता जाँच सफल</string>
+    <string name="liveness_failed_retry">जीवंतता जाँच विफल — कृपया फिर से कोशिश करें</string>
+    <string name="liveness_timeout">जीवंतता जाँच समय समाप्त — कृपया फिर से कोशिश करें</string>
+    <string name="kiosk_liveness_prompt_with_name">नमस्ते %1$s — %2$s</string>
+</resources>

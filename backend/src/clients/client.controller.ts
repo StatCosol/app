@@ -77,7 +77,9 @@ export class ClientController {
         },
       }),
       fileFilter: (_req, file, cb) => {
-        const allowed = ['.png', '.jpg', '.jpeg', '.svg', '.webp'];
+        // SVG intentionally NOT allowed — /uploads/logos is publicly served
+        // and SVG can carry script payloads.
+        const allowed = ['.png', '.jpg', '.jpeg', '.webp'];
         const ext = path.extname(file.originalname).toLowerCase();
         cb(null, allowed.includes(ext));
       },
