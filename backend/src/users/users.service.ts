@@ -1662,7 +1662,7 @@ export class UsersService implements OnModuleInit {
       .orderBy('r.requestedAt', 'DESC');
 
     const rows = await qb.getMany();
-    const visibleRows =
+    const visibleRows: DeletionRequestEntity[] =
       roleCode === 'CCO'
         ? (
             await Promise.all(
@@ -1673,7 +1673,7 @@ export class UsersService implements OnModuleInit {
                   : null,
               ),
             )
-          ).filter(Boolean)
+          ).filter((row): row is DeletionRequestEntity => row !== null)
         : rows;
 
     // Enrich with friendly labels for UI (entity + requester)
@@ -1691,7 +1691,6 @@ export class UsersService implements OnModuleInit {
       updatedAt: Date | null;
     }[] = [];
     for (const r of visibleRows) {
-      if (!r) continue;
       let entityLabel: string | null = null;
       if (r.entityType === 'USER') {
         const u = await this.usersRepo.findOne({ where: { id: r.entityId } });

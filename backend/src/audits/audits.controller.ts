@@ -98,8 +98,6 @@ export class CrmAuditsController {
   constructor(
     private readonly svc: AuditsService,
     private readonly auditOutputEngine: AuditOutputEngineService,
-    private readonly ds: DataSource,
-    private readonly branchAccess: BranchAccessService,
   ) {}
 
   @ApiOperation({ summary: 'List' })
@@ -116,23 +114,7 @@ export class CrmAuditsController {
 
   @ApiOperation({ summary: 'Latest report for an audit' })
   @Get(':id/latest-report')
-  async getLatestReport(
-    @CurrentUser() user: ReqUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    const [audit] = await this.ds.query(
-      `SELECT client_id AS "clientId", branch_id AS "branchId"
-         FROM audits
-        WHERE id = $1
-        LIMIT 1`,
-      [id],
-    );
-    if (!audit || audit.clientId !== user.clientId) {
-      throw new ForbiddenException('Audit not in client scope');
-    }
-    if (audit.branchId) {
-      await this.branchAccess.assertBranchAccess(user.userId, audit.branchId);
-    }
+  async getLatestReport(@Param('id', ParseUUIDPipe) id: string) {
     return this.auditOutputEngine.getLatestReport(id);
   }
 
@@ -864,7 +846,23 @@ export class ClientAuditsController {
 
   @ApiOperation({ summary: 'Latest report for an audit' })
   @Get(':id/latest-report')
-  async getLatestReport(@Param('id', ParseUUIDPipe) id: string) {
+  async getLatestReport(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const [audit] = await this.ds.query(
+      `SELECT client_id AS "clientId", branch_id AS "branchId"
+         FROM audits
+        WHERE id = $1
+        LIMIT 1`,
+      [id],
+    );
+    if (!audit || audit.clientId !== user.clientId) {
+      throw new ForbiddenException('Audit not in client scope');
+    }
+    if (audit.branchId) {
+      await this.branchAccess.assertBranchAccess(user.userId, audit.branchId);
+    }
     return this.auditOutputEngine.getLatestReport(id);
   }
 }

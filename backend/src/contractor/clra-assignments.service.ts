@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -58,6 +59,94 @@ export class ClraAssignmentsService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private async assertAssignmentInClient(
+    assignmentId: string,
+    clientId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM clra_contractor_assignments a
+         JOIN clra_pe_establishments pe ON pe.id = a.pe_establishment_id
+        WHERE a.id = $1 AND pe.client_id = $2
+        LIMIT 1`,
+      [assignmentId, clientId],
+    );
+    if (!rows.length) {
+      throw new ForbiddenException('CLRA assignment not in client scope');
+    }
+  }
+
+  private async assertContractorInClient(
+    contractorId: string,
+    clientId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM clra_contractor_assignments a
+         JOIN clra_pe_establishments pe ON pe.id = a.pe_establishment_id
+        WHERE a.contractor_id = $1 AND pe.client_id = $2
+        LIMIT 1`,
+      [contractorId, clientId],
+    );
+    if (!rows.length) {
+      throw new ForbiddenException('CLRA contractor not in client scope');
+    }
+  }
+
+  private async assertWorkerInClient(
+    workerId: string,
+    clientId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM clra_contractor_workers w
+         JOIN clra_contractor_assignments a ON a.contractor_id = w.contractor_id
+         JOIN clra_pe_establishments pe ON pe.id = a.pe_establishment_id
+        WHERE w.id = $1 AND pe.client_id = $2
+        LIMIT 1`,
+      [workerId, clientId],
+    );
+    if (!rows.length) {
+      throw new ForbiddenException('CLRA worker not in client scope');
+    }
+  }
+
+  private async assertDeploymentInClient(
+    deploymentId: string,
+    clientId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM clra_worker_deployments d
+         JOIN clra_contractor_assignments a ON a.id = d.assignment_id
+         JOIN clra_pe_establishments pe ON pe.id = a.pe_establishment_id
+        WHERE d.id = $1 AND pe.client_id = $2
+        LIMIT 1`,
+      [deploymentId, clientId],
+    );
+    if (!rows.length) {
+      throw new ForbiddenException('CLRA deployment not in client scope');
+    }
+  }
+
+  private async assertWagePeriodInClient(
+    wagePeriodId: string,
+    clientId: string,
+  ): Promise<void> {
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM clra_wage_periods wp
+         JOIN clra_contractor_assignments a ON a.id = wp.assignment_id
+         JOIN clra_pe_establishments pe ON pe.id = a.pe_establishment_id
+        WHERE wp.id = $1 AND pe.client_id = $2
+        LIMIT 1`,
+      [wagePeriodId, clientId],
+    );
+    if (!rows.length) {
+      throw new ForbiddenException('CLRA wage period not in client scope');
+    }
+  }
+
   // ─────────────── PE Establishments ───────────────
 
   async createPeEstablishment(
@@ -77,6 +166,17 @@ export class ClraAssignmentsService {
   async getPeEstablishment(id: string): Promise<ClraPeEstablishment> {
     const entity = await this.peRepo.findOne({ where: { id } });
     if (!entity) throw new NotFoundException('PE establishment not found');
+    return entity;
+  }
+
+  async getPeEstablishmentScoped(
+    id: string,
+    clientId?: string,
+  ): Promise<ClraPeEstablishment> {
+    const entity = await this.getPeEstablishment(id);
+    if (clientId && entity.clientId !== clientId) {
+      throw new ForbiddenException('PE establishment not in client scope');
+    }
     return entity;
   }
 
@@ -112,9 +212,32 @@ export class ClraAssignmentsService {
     });
   }
 
+  async listContractorsForClient(clientId: string): Promise<ClraContractor[]> {
+    return this.contractorRepo
+      .createQueryBuilder('c')
+      .innerJoin('c.assignments', 'a')
+      .innerJoin('a.peEstablishment', 'pe')
+      .where('c.active = true')
+      .andWhere('pe.clientId = :clientId', { clientId })
+      .distinct(true)
+      .orderBy('c.legalName', 'ASC')
+      .getMany();
+  }
+
   async getContractor(id: string): Promise<ClraContractor> {
     const entity = await this.contractorRepo.findOne({ where: { id } });
     if (!entity) throw new NotFoundException('Contractor not found');
+    return entity;
+  }
+
+  async getContractorScoped(
+    id: string,
+    clientId?: string,
+  ): Promise<ClraContractor> {
+    const entity = await this.getContractor(id);
+    if (clientId) {
+      await this.assertContractorInClient(id, clientId);
+    }
     return entity;
   }
 
@@ -146,10 +269,28 @@ export class ClraAssignmentsService {
   async listAssignments(
     contractorId?: string,
     peEstablishmentId?: string,
+    clientId?: string,
   ): Promise<ClraContractorAssignment[]> {
     const where: any = {};
     if (contractorId) where.contractorId = contractorId;
     if (peEstablishmentId) where.peEstablishmentId = peEstablishmentId;
+    if (clientId) {
+      const qb = this.assignmentRepo
+        .createQueryBuilder('a')
+        .leftJoinAndSelect('a.contractor', 'contractor')
+        .leftJoinAndSelect('a.peEstablishment', 'pe')
+        .where('pe.clientId = :clientId', { clientId })
+        .orderBy('a.startDate', 'DESC');
+      if (contractorId) {
+        qb.andWhere('a.contractorId = :contractorId', { contractorId });
+      }
+      if (peEstablishmentId) {
+        qb.andWhere('a.peEstablishmentId = :peEstablishmentId', {
+          peEstablishmentId,
+        });
+      }
+      return qb.getMany();
+    }
     return this.assignmentRepo.find({
       where,
       relations: ['contractor', 'peEstablishment'],
@@ -163,6 +304,17 @@ export class ClraAssignmentsService {
       relations: ['contractor', 'peEstablishment'],
     });
     if (!entity) throw new NotFoundException('Assignment not found');
+    return entity;
+  }
+
+  async getAssignmentScoped(
+    id: string,
+    clientId?: string,
+  ): Promise<ClraContractorAssignment> {
+    const entity = await this.getAssignment(id);
+    if (clientId) {
+      await this.assertAssignmentInClient(id, clientId);
+    }
     return entity;
   }
 
@@ -202,6 +354,17 @@ export class ClraAssignmentsService {
     return entity;
   }
 
+  async getWorkerScoped(
+    id: string,
+    clientId?: string,
+  ): Promise<ClraContractorWorker> {
+    const entity = await this.getWorker(id);
+    if (clientId) {
+      await this.assertWorkerInClient(id, clientId);
+    }
+    return entity;
+  }
+
   async updateWorker(
     id: string,
     dto: Partial<CreateClraWorkerDto>,
@@ -237,6 +400,17 @@ export class ClraAssignmentsService {
     return entity;
   }
 
+  async getDeploymentScoped(
+    id: string,
+    clientId?: string,
+  ): Promise<ClraWorkerDeployment> {
+    const entity = await this.getDeployment(id);
+    if (clientId) {
+      await this.assertDeploymentInClient(id, clientId);
+    }
+    return entity;
+  }
+
   async updateDeployment(
     id: string,
     dto: Partial<CreateClraDeploymentDto>,
@@ -266,6 +440,35 @@ export class ClraAssignmentsService {
     const entity = await this.wagePeriodRepo.findOne({ where: { id } });
     if (!entity) throw new NotFoundException('Wage period not found');
     return entity;
+  }
+
+  async getWagePeriodScoped(
+    id: string,
+    clientId?: string,
+  ): Promise<ClraWagePeriod> {
+    const entity = await this.getWagePeriod(id);
+    if (clientId) {
+      await this.assertWagePeriodInClient(id, clientId);
+    }
+    return entity;
+  }
+
+  async assertReadableAssignment(assignmentId: string, clientId?: string) {
+    if (clientId) {
+      await this.assertAssignmentInClient(assignmentId, clientId);
+    }
+  }
+
+  async assertReadableContractor(contractorId: string, clientId?: string) {
+    if (clientId) {
+      await this.assertContractorInClient(contractorId, clientId);
+    }
+  }
+
+  async assertReadableWagePeriod(wagePeriodId: string, clientId?: string) {
+    if (clientId) {
+      await this.assertWagePeriodInClient(wagePeriodId, clientId);
+    }
   }
 
   async closeWagePeriod(id: string): Promise<ClraWagePeriod> {

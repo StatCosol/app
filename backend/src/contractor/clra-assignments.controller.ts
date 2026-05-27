@@ -8,7 +8,6 @@ import {
   Post,
   Put,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -25,18 +24,27 @@ import {
   UpsertClraAttendanceDto,
   UpsertClraWageDto,
 } from './clra-assignments.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ReqUser } from '../access/access-scope.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('clra')
 export class ClraAssignmentsController {
   constructor(private readonly svc: ClraAssignmentsService) {}
 
+  private clientScope(user: ReqUser): string | undefined {
+    return user.roleCode === 'CLIENT' ? user.clientId || undefined : undefined;
+  }
+
   // ─────────────── PE Establishments ───────────────
 
   @Get('pe-establishments')
   @Roles('ADMIN', 'CEO', 'CCO', 'CLIENT', 'CRM')
-  listPeEstablishments(@Query('clientId') clientId: string) {
-    return this.svc.listPeEstablishments(clientId);
+  listPeEstablishments(
+    @CurrentUser() user: ReqUser,
+    @Query('clientId') clientId: string,
+  ) {
+    return this.svc.listPeEstablishments(this.clientScope(user) || clientId);
   }
 
   @Post('pe-establishments')
@@ -47,8 +55,11 @@ export class ClraAssignmentsController {
 
   @Get('pe-establishments/:id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CLIENT', 'CRM')
-  getPeEstablishment(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getPeEstablishment(id);
+  getPeEstablishment(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getPeEstablishmentScoped(id, this.clientScope(user));
   }
 
   @Put('pe-establishments/:id')
@@ -64,7 +75,9 @@ export class ClraAssignmentsController {
 
   @Get('contractors')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listContractors() {
+  listContractors(@CurrentUser() user: ReqUser) {
+    const clientId = this.clientScope(user);
+    if (clientId) return this.svc.listContractorsForClient(clientId);
     return this.svc.listContractors();
   }
 
@@ -76,8 +89,11 @@ export class ClraAssignmentsController {
 
   @Get('contractors/:id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  getContractor(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getContractor(id);
+  getContractor(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getContractorScoped(id, this.clientScope(user));
   }
 
   @Put('contractors/:id')
@@ -94,10 +110,15 @@ export class ClraAssignmentsController {
   @Get('assignments')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
   listAssignments(
+    @CurrentUser() user: ReqUser,
     @Query('contractorId') contractorId: string,
     @Query('peEstablishmentId') peEstablishmentId: string,
   ) {
-    return this.svc.listAssignments(contractorId, peEstablishmentId);
+    return this.svc.listAssignments(
+      contractorId,
+      peEstablishmentId,
+      this.clientScope(user),
+    );
   }
 
   @Post('assignments')
@@ -108,8 +129,11 @@ export class ClraAssignmentsController {
 
   @Get('assignments/:id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  getAssignment(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getAssignment(id);
+  getAssignment(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getAssignmentScoped(id, this.clientScope(user));
   }
 
   @Put('assignments/:id')
@@ -125,7 +149,11 @@ export class ClraAssignmentsController {
 
   @Get('workers')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listWorkers(@Query('contractorId') contractorId: string) {
+  async listWorkers(
+    @CurrentUser() user: ReqUser,
+    @Query('contractorId') contractorId: string,
+  ) {
+    await this.svc.assertReadableContractor(contractorId, this.clientScope(user));
     return this.svc.listWorkers(contractorId);
   }
 
@@ -137,8 +165,11 @@ export class ClraAssignmentsController {
 
   @Get('workers/:id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  getWorker(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getWorker(id);
+  getWorker(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getWorkerScoped(id, this.clientScope(user));
   }
 
   @Put('workers/:id')
@@ -154,7 +185,14 @@ export class ClraAssignmentsController {
 
   @Get('assignments/:assignmentId/deployments')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listDeployments(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
+  async listDeployments(
+    @CurrentUser() user: ReqUser,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+  ) {
+    await this.svc.assertReadableAssignment(
+      assignmentId,
+      this.clientScope(user),
+    );
     return this.svc.listDeployments(assignmentId);
   }
 
@@ -166,8 +204,11 @@ export class ClraAssignmentsController {
 
   @Get('deployments/:id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  getDeployment(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getDeployment(id);
+  getDeployment(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getDeploymentScoped(id, this.clientScope(user));
   }
 
   @Put('deployments/:id')
@@ -183,7 +224,14 @@ export class ClraAssignmentsController {
 
   @Get('assignments/:assignmentId/wage-periods')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listWagePeriods(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
+  async listWagePeriods(
+    @CurrentUser() user: ReqUser,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+  ) {
+    await this.svc.assertReadableAssignment(
+      assignmentId,
+      this.clientScope(user),
+    );
     return this.svc.listWagePeriods(assignmentId);
   }
 
@@ -195,8 +243,11 @@ export class ClraAssignmentsController {
 
   @Get('wage-periods/:id')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  getWagePeriod(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getWagePeriod(id);
+  getWagePeriod(
+    @CurrentUser() user: ReqUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.svc.getWagePeriodScoped(id, this.clientScope(user));
   }
 
   @Put('wage-periods/:id/close')
@@ -209,7 +260,14 @@ export class ClraAssignmentsController {
 
   @Get('wage-periods/:wagePeriodId/attendance')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listAttendance(@Param('wagePeriodId', ParseUUIDPipe) wagePeriodId: string) {
+  async listAttendance(
+    @CurrentUser() user: ReqUser,
+    @Param('wagePeriodId', ParseUUIDPipe) wagePeriodId: string,
+  ) {
+    await this.svc.assertReadableWagePeriod(
+      wagePeriodId,
+      this.clientScope(user),
+    );
     return this.svc.listAttendance(wagePeriodId);
   }
 
@@ -223,7 +281,14 @@ export class ClraAssignmentsController {
 
   @Get('wage-periods/:wagePeriodId/wages')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listWages(@Param('wagePeriodId', ParseUUIDPipe) wagePeriodId: string) {
+  async listWages(
+    @CurrentUser() user: ReqUser,
+    @Param('wagePeriodId', ParseUUIDPipe) wagePeriodId: string,
+  ) {
+    await this.svc.assertReadableWagePeriod(
+      wagePeriodId,
+      this.clientScope(user),
+    );
     return this.svc.listWages(wagePeriodId);
   }
 
@@ -237,7 +302,14 @@ export class ClraAssignmentsController {
 
   @Get('assignments/:assignmentId/register-runs')
   @Roles('ADMIN', 'CEO', 'CCO', 'CRM', 'CLIENT')
-  listRegisterRuns(@Param('assignmentId', ParseUUIDPipe) assignmentId: string) {
+  async listRegisterRuns(
+    @CurrentUser() user: ReqUser,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+  ) {
+    await this.svc.assertReadableAssignment(
+      assignmentId,
+      this.clientScope(user),
+    );
     return this.svc.listRegisterRuns(assignmentId);
   }
 }
