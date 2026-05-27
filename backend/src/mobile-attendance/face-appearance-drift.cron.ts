@@ -121,7 +121,15 @@ export class FaceAppearanceDriftCron {
       const priorFlaggedAt = r.prior_flagged_at
         ? new Date(r.prior_flagged_at)
         : null;
-      if (!this.shouldAlert(avg, priorAvg, priorFlaggedAt, realertDays, realertDelta)) {
+      if (
+        !this.shouldAlert(
+          avg,
+          priorAvg,
+          priorFlaggedAt,
+          realertDays,
+          realertDelta,
+        )
+      ) {
         continue;
       }
       await this.ds.query(
@@ -132,7 +140,8 @@ export class FaceAppearanceDriftCron {
           WHERE employee_id = $1`,
         [r.employee_id, avg, Number(r.sample_count)],
       );
-      const label = r.display_name || r.employee_code || r.employee_id.slice(0, 8);
+      const label =
+        r.display_name || r.employee_code || r.employee_id.slice(0, 8);
       await this.notifications.createSystemNotification({
         clientId: r.client_id,
         branchId: r.branch_id ?? undefined,
@@ -201,7 +210,15 @@ export class FaceAppearanceDriftCron {
       const priorFlaggedAt = r.prior_flagged_at
         ? new Date(r.prior_flagged_at)
         : null;
-      if (!this.shouldAlert(avg, priorAvg, priorFlaggedAt, realertDays, realertDelta)) {
+      if (
+        !this.shouldAlert(
+          avg,
+          priorAvg,
+          priorFlaggedAt,
+          realertDays,
+          realertDelta,
+        )
+      ) {
         continue;
       }
       await this.ds.query(

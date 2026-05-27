@@ -91,9 +91,8 @@ const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
 // probe. Default ON; ops can flip to false ONLY during an APK rollout
 // window where old clients without the probe field are still live.
 const PUNCH_REQUIRE_SERVER_PROBE =
-  String(
-    process.env.FACE_PUNCH_REQUIRE_PROBE ?? 'true',
-  ).toLowerCase() !== 'false';
+  String(process.env.FACE_PUNCH_REQUIRE_PROBE ?? 'true').toLowerCase() !==
+  'false';
 // Phase 4c: photo-retention policy. Punch selfies older than this are
 // purged by the daily retention cron; enrollment selfies are kept for a
 // longer window because they're the consented reference image. Both are
@@ -454,11 +453,7 @@ export class MobileAttendanceService {
         deactivationReason: null,
       };
       if (existing) {
-        await mgr.update(
-          FaceEnrollmentEntity,
-          { employeeId: emp.id },
-          payload,
-        );
+        await mgr.update(FaceEnrollmentEntity, { employeeId: emp.id }, payload);
         await this.logEnrollmentHistory({
           employeeId: emp.id,
           clientId,
@@ -522,7 +517,9 @@ export class MobileAttendanceService {
     let embedding: Buffer;
     let embeddingModel: string = body.embeddingModel ?? 'mobilefacenet-v1';
     if (body.photoBase64 && this.faceEmbeddingClient.isEnabled()) {
-      const result = await this.faceEmbeddingClient.embedPhoto(body.photoBase64);
+      const result = await this.faceEmbeddingClient.embedPhoto(
+        body.photoBase64,
+      );
       if (!result) {
         throw new BadRequestException('Face embedding service unavailable');
       }
@@ -1704,7 +1701,7 @@ export class MobileAttendanceService {
         });
         const result = validateAgainstShift(
           shift,
-          (body.direction ?? 'AUTO') as 'IN' | 'OUT' | 'AUTO',
+          body.direction ?? 'AUTO',
           ts,
         );
         if (result.hasShift && !result.withinWindow) {
@@ -3752,8 +3749,7 @@ export class MobileAttendanceService {
     );
 
     const expiresAt = new Date(
-      Date.now() +
-        MobileAttendanceService.KIOSK_ENROLL_TTL_MIN * 60 * 1000,
+      Date.now() + MobileAttendanceService.KIOSK_ENROLL_TTL_MIN * 60 * 1000,
     );
     const row = this.kioskTicketRepo.create({
       clientId,
@@ -3958,14 +3954,8 @@ export class MobileAttendanceService {
       where: { id: ticketId, clientId },
     });
     if (!t) throw new NotFoundException('Ticket not found');
-    if (
-      t.status === 'PENDING' &&
-      t.expiresAt.getTime() < Date.now()
-    ) {
-      await this.kioskTicketRepo.update(
-        { id: t.id },
-        { status: 'EXPIRED' },
-      );
+    if (t.status === 'PENDING' && t.expiresAt.getTime() < Date.now()) {
+      await this.kioskTicketRepo.update({ id: t.id }, { status: 'EXPIRED' });
       t.status = 'EXPIRED';
     }
     return t;

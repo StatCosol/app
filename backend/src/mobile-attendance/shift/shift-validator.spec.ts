@@ -18,7 +18,7 @@ const shift = (overrides: Partial<any> = {}) => ({
 // IST=UTC+5:30. Convert an IST h:m to its UTC Date by subtracting 330 min.
 const istUtc = (hh: number, mm: number) => {
   const totalMin = hh * 60 + mm - 330;
-  const h = Math.floor(((totalMin % 1440) + 1440) % 1440 / 60);
+  const h = Math.floor((((totalMin % 1440) + 1440) % 1440) / 60);
   const m = ((totalMin % 60) + 60) % 60;
   return new Date(Date.UTC(2026, 4, 25, h, m));
 };
