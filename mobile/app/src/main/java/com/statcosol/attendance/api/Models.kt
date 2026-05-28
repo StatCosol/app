@@ -55,6 +55,12 @@ data class PunchBody(
     /** ISO-8601 UTC timestamp when the challenge was satisfied on-device.
      *  Server requires it within ±2 minutes of receipt. */
     val livenessChallengePassedAt: String? = null,
+    /** Phase 4c: single-use nonce issued by POST /mobile-attendance/
+     *  liveness/challenge. Server atomically consumes the row inside
+     *  the punch transaction so a captured-and-replayed payload
+     *  cannot be used twice. Required when the server has
+     *  FACE_LIVENESS_CHALLENGE_REQUIRED=true (the prod default). */
+    val livenessNonce: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -62,6 +68,25 @@ data class PunchResponse(
     val ok: Boolean,
     val punchId: String? = null,
     val message: String? = null
+)
+
+/** POST /api/v1/mobile-attendance/liveness/challenge body. */
+@JsonClass(generateAdapter = true)
+data class LivenessChallengeRequest(
+    /** ESS flow can scope the nonce to a specific employee; KIOSK sends null. */
+    val employeeId: String? = null,
+)
+
+/** Response from POST /api/v1/mobile-attendance/liveness/challenge. */
+@JsonClass(generateAdapter = true)
+data class LivenessChallengeResponse(
+    val nonce: String,
+    /** One of BLINK | HEAD_TURN_LEFT | HEAD_TURN_RIGHT | SMILE \u2014 the
+     *  device MUST perform exactly this gesture; the server compares
+     *  the punch's `livenessChallengeType` against the nonce's stored
+     *  type. */
+    val challengeType: String,
+    val expiresAt: String,
 )
 
 /** POST /api/v1/mobile-attendance/enroll-self body. */

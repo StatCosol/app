@@ -33,7 +33,36 @@ class SetupActivity : AppCompatActivity() {
         binding.apiInput.setText(cfg.apiBase)
 
         if (cfg.isRegistered() && cfg.mode != null) {
-            launchModeActivity(cfg.mode!!)
+            // Re-validate the token against the server before launching the
+            // mode activity. If admin has revoked the device (or rotated the
+            // token) we want to land back on this screen, not deep inside
+            // KioskActivity / EssActivity where the user can't recover.
+            binding.progress.visibility = View.VISIBLE
+            lifecycleScope.launch {
+                val ok = runCatching {
+                    withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
+                }
+                binding.progress.visibility = View.GONE
+                if (ok.isSuccess) {
+                    launchModeActivity(cfg.mode!!)
+                } else {
+                    val msg = ok.exceptionOrNull()?.message.orEmpty()
+                    if (msg.contains(" 401") || msg.contains(" 403")) {
+                        // Token revoked / rebound — force re-pairing.
+                        cfg.installToken = null
+                        cfg.mode = null
+                        cfg.deviceId = null
+                        cfg.essEmployeeId = null
+                        binding.tokenInput.setText("")
+                        binding.statusText.text =
+                            getString(R.string.setup_token_revoked)
+                    } else {
+                        // Network failure — allow offline use of cached mode.
+                        launchModeActivity(cfg.mode!!)
+                    }
+                }
+            }
+            binding.registerBtn.setOnClickListener { handleRegister() }
             return
         }
 

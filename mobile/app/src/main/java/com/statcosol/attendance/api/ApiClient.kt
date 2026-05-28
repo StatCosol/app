@@ -65,6 +65,32 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    /**
+     * Phase 4c: request a single-use liveness nonce. The returned
+     * `challengeType` MUST drive the on-device prompt — the server
+     * compares it against what the punch payload reports and rejects
+     * mismatches. Throws on any non-2xx (caller should abort the punch).
+     */
+    fun requestLivenessChallenge(employeeId: String?): LivenessChallengeResponse {
+        val token = requireToken()
+        val json = moshi.adapter(LivenessChallengeRequest::class.java)
+            .toJson(LivenessChallengeRequest(employeeId))
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/liveness/challenge")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) {
+                throw IOException("liveness/challenge ${resp.code}: $text")
+            }
+            return moshi.adapter(LivenessChallengeResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse liveness/challenge response")
+        }
+    }
+
     fun enrollSelf(body: EnrollSelfBody): EnrollSelfResponse {
         val token = requireToken()
         val json = moshi.adapter(EnrollSelfBody::class.java).toJson(body)

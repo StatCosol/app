@@ -92,7 +92,7 @@ export class MobileAttendanceAdminController {
   @Post('enroll')
   enroll(@CurrentUser() _u: ReqUser, @Body() _body: EnrollFaceDto) {
     // Admin-side enrollment was retired so every employee embedding originates
-    // from a paired ESS device (X-Device-Token + live 5-frame averaging).
+    // from a paired ESS device (X-Device-Token + live 8-frame averaging).
     // Use POST /mobile-attendance/enroll-self from the device, or raise a
     // re-enrollment request for the audited admin escape hatch.
     throw new ForbiddenException(

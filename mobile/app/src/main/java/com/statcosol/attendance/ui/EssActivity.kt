@@ -221,7 +221,22 @@ class EssActivity : AppCompatActivity() {
                 }
 
                 // ---- Active-liveness challenge ---------------------------
-                val challenge = LivenessChallenge.random()
+                // Phase 4c: nonce must come from the server FIRST so the
+                // gesture type is server-bound. If the request fails the
+                // punch is aborted (server-required nonce).
+                val livenessReq = try {
+                    withContext(Dispatchers.IO) {
+                        app.apiClient.requestLivenessChallenge(empId)
+                    }
+                } catch (e: Exception) {
+                    binding.statusText.text = getString(R.string.liveness_request_failed)
+                    return@launch
+                }
+                val challenge = LivenessChallenge.fromWire(livenessReq.challengeType)
+                if (challenge == null) {
+                    binding.statusText.text = getString(R.string.liveness_request_failed)
+                    return@launch
+                }
                 val tracker = LivenessChallengeTracker(challenge)
                 val awaiter = CompletableDeferred<Boolean>()
                 challengeTracker = tracker
@@ -267,6 +282,7 @@ class EssActivity : AppCompatActivity() {
                     captureAccuracyM = location.accuracy.toDouble(),
                     livenessChallengeType = tracker.challenge.wireName,
                     livenessChallengePassedAtIso = tracker.passedAtIso(),
+                    livenessNonce = livenessReq.nonce,
                     probeEmbeddingB64 = com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(probe),
                 )
                 withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }

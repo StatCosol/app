@@ -27,6 +27,12 @@ enum class LivenessChallenge(val wireName: String) {
         /** Picks one challenge uniformly at random. */
         fun random(rng: Random = Random.Default): LivenessChallenge =
             values()[rng.nextInt(values().size)]
+
+        /** Map a server-issued `challengeType` string back to its enum, or
+         *  null if the server returned a value this build doesn't know
+         *  about (caller should treat as a fatal request error). */
+        fun fromWire(name: String?): LivenessChallenge? =
+            values().firstOrNull { it.wireName.equals(name, ignoreCase = false) }
     }
 }
 

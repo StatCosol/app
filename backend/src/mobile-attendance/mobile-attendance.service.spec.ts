@@ -101,3 +101,85 @@ describe('MobileAttendanceService.listFaceFailureAlerts', () => {
     expect(rows[1].createdAt).toBe('2026-05-14T01:02:03Z');
   });
 });
+
+describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () => {
+  const makeService = (deviceRow: any, saveSpy?: jest.Mock) => {
+    const save = saveSpy ?? jest.fn(async (_e: any, v: any) => v);
+    const qb = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(deviceRow),
+    };
+    const mgr = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+      save,
+    };
+    const ds: any = {
+      transaction: jest.fn(async (fn: any) => fn(mgr)),
+    };
+    return new MobileAttendanceService(
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      ds,
+    );
+  };
+
+  it('claims androidId on first use when row is unbound', async () => {
+    const row: any = { id: 'd1', isActive: true, androidId: null };
+    const save = jest.fn(async (_e: any, v: any) => v);
+    const svc = makeService(row, save);
+    const out = await svc.resolveDeviceByToken('tok', 'android-xyz');
+    expect(out.androidId).toBe('android-xyz');
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts when supplied androidId matches the bound value', async () => {
+    const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
+    const svc = makeService(row);
+    await expect(
+      svc.resolveDeviceByToken('tok', 'android-xyz'),
+    ).resolves.toBe(row);
+  });
+
+  it('rejects when supplied androidId differs from the bound value', async () => {
+    const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
+    const svc = makeService(row);
+    await expect(
+      svc.resolveDeviceByToken('tok', 'attacker-phone'),
+    ).rejects.toThrow(/already activated/i);
+  });
+
+  it('rejects when header is missing but row has a bound androidId (H4)', async () => {
+    const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
+    const svc = makeService(row);
+    await expect(svc.resolveDeviceByToken('tok', '')).rejects.toThrow(
+      /header missing/i,
+    );
+    await expect(svc.resolveDeviceByToken('tok', undefined)).rejects.toThrow(
+      /header missing/i,
+    );
+  });
+
+  it('allows missing header when row has no bound androidId yet', async () => {
+    const row: any = { id: 'd1', isActive: true, androidId: null };
+    const svc = makeService(row);
+    await expect(svc.resolveDeviceByToken('tok', '')).resolves.toBe(row);
+  });
+
+  it('throws Unauthorized on revoked (isActive=false) device', async () => {
+    const row: any = { id: 'd1', isActive: false, androidId: null };
+    const svc = makeService(row);
+    await expect(
+      svc.resolveDeviceByToken('tok', 'android-xyz'),
+    ).rejects.toThrow(/invalid device token/i);
+  });
+
+  it('throws Unauthorized when token is empty', async () => {
+    const svc = makeService(null);
+    await expect(svc.resolveDeviceByToken('', 'x')).rejects.toThrow(
+      /missing device token/i,
+    );
+  });
+});
+

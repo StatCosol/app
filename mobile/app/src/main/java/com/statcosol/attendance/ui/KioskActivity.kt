@@ -87,6 +87,12 @@ class KioskActivity : AppCompatActivity() {
     /** Phase 3f: probe embedding captured in [handleFace], forwarded to the
      *  server in [recordPunch] for cosine re-verification. */
     @Volatile private var pendingChallengeProbe: FloatArray? = null
+    /** Phase 4c: server-issued single-use liveness nonce that scopes the
+     *  active-liveness challenge. Cleared in [recordPunch] / [abortChallenge]. */
+    @Volatile private var pendingChallengeNonce: String? = null
+    /** True while [requestLivenessChallenge] is in flight — blocks
+     *  [handleFace] from kicking off a parallel challenge. */
+    @Volatile private var requestingChallenge: Boolean = false
     private val pendingChallengeTimeout = Runnable { abortChallenge(timedOut = true) }
 
     /** Operator-supervised enrollment state. When [enrollTicket] is non-null
@@ -355,10 +361,10 @@ class KioskActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         val matcherSnap = matcher ?: return
         if (dialogActive) return
-        // While a challenge is in flight ignore further embeddings — the
-        // user has already been matched and we're only waiting for the
-        // gesture to be performed.
-        if (pendingChallengeTracker != null) return
+        // While a challenge is in flight (or being negotiated with the
+        // server) ignore further embeddings — the user has already been
+        // matched and we're only waiting for the gesture to be performed.
+        if (pendingChallengeTracker != null || requestingChallenge) return
         if (now - lastPunchAt < COOLDOWN_MS) return
         if (liveness < MIN_LIVENESS) return
 
@@ -402,27 +408,60 @@ class KioskActivity : AppCompatActivity() {
     }
 
     /**
-     * Switches the kiosk into "challenge mode": picks a random gesture,
-     * displays its localized prompt, arms the [LivenessChallengeTracker]
-     * that [handleFaceSignal] feeds, and schedules a timeout that aborts
-     * the punch if the gesture isn't completed.
+     * Switches the kiosk into "challenge mode". Phase 4c: first asks the
+     * server to issue a single-use nonce + challenge type, then arms the
+     * [LivenessChallengeTracker] with the SERVER-CHOSEN gesture so the
+     * gate cannot be replayed. If the network call fails the punch is
+     * aborted (server-required nonce — no nonce, no punch).
      */
     private fun beginChallenge(match: RosterMatcher.Match, direction: String, liveness: Double) {
-        val challenge = LivenessChallenge.random()
-        pendingChallengeMatch = match
-        pendingChallengeLiveness = liveness
-        pendingChallengeDirection = direction
-        pendingChallengeTracker = LivenessChallengeTracker(challenge)
+        if (requestingChallenge || pendingChallengeTracker != null) return
+        requestingChallenge = true
         runOnUiThread {
-            binding.statusText.text = getString(
-                R.string.kiosk_liveness_prompt_with_name,
-                match.entry.displayName,
-                getString(promptResFor(challenge)),
-            )
-            speak(getString(promptResFor(challenge)))
+            binding.statusText.text = getString(R.string.liveness_requesting)
         }
-        mainHandler.removeCallbacks(pendingChallengeTimeout)
-        mainHandler.postDelayed(pendingChallengeTimeout, CHALLENGE_TIMEOUT_MS)
+        lifecycleScope.launch {
+            val resp = try {
+                withContext(Dispatchers.IO) {
+                    app.apiClient.requestLivenessChallenge(match.entry.employeeId)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("KioskActivity", "liveness challenge request failed", e)
+                requestingChallenge = false
+                pendingChallengeProbe = null
+                runOnUiThread {
+                    binding.statusText.text = getString(R.string.liveness_request_failed)
+                }
+                lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
+                return@launch
+            }
+            val challenge = LivenessChallenge.fromWire(resp.challengeType)
+            if (challenge == null) {
+                android.util.Log.e("KioskActivity", "unknown challengeType=${resp.challengeType}")
+                requestingChallenge = false
+                pendingChallengeProbe = null
+                runOnUiThread {
+                    binding.statusText.text = getString(R.string.liveness_request_failed)
+                }
+                return@launch
+            }
+            pendingChallengeMatch = match
+            pendingChallengeLiveness = liveness
+            pendingChallengeDirection = direction
+            pendingChallengeNonce = resp.nonce
+            pendingChallengeTracker = LivenessChallengeTracker(challenge)
+            requestingChallenge = false
+            runOnUiThread {
+                binding.statusText.text = getString(
+                    R.string.kiosk_liveness_prompt_with_name,
+                    match.entry.displayName,
+                    getString(promptResFor(challenge)),
+                )
+                speak(getString(promptResFor(challenge)))
+            }
+            mainHandler.removeCallbacks(pendingChallengeTimeout)
+            mainHandler.postDelayed(pendingChallengeTimeout, CHALLENGE_TIMEOUT_MS)
+        }
     }
 
     private fun handleFaceSignal(signal: FaceSignal) {
@@ -456,6 +495,7 @@ class KioskActivity : AppCompatActivity() {
         pendingChallengeTracker = null
         pendingChallengeMatch = null
         pendingChallengeProbe = null
+        pendingChallengeNonce = null
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         // Reset cooldown so a determined user can immediately retry.
         lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
@@ -521,10 +561,12 @@ class KioskActivity : AppCompatActivity() {
         val challengeType = tracker?.challenge?.wireName
         val challengePassedAt = tracker?.passedAtIso()
         val probe = pendingChallengeProbe
+        val nonce = pendingChallengeNonce
         // Clear before any UI work so a stale tracker can't re-fire.
         pendingChallengeTracker = null
         pendingChallengeMatch = null
         pendingChallengeProbe = null
+        pendingChallengeNonce = null
         mainHandler.removeCallbacks(pendingChallengeTimeout)
         val q = QueuedPunch(
             employeeId = match.entry.employeeId,
@@ -538,6 +580,7 @@ class KioskActivity : AppCompatActivity() {
             captureAccuracyM = null,
             livenessChallengeType = challengeType,
             livenessChallengePassedAtIso = challengePassedAt,
+            livenessNonce = nonce,
             probeEmbeddingB64 = probe?.let { com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(it) },
         )
         withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }

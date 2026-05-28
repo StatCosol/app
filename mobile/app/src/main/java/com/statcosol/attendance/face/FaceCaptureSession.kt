@@ -43,6 +43,7 @@ class FaceCaptureSession(
     private val detector = FaceDetector()
     private val embedder by lazy { FaceEmbedder(context) }
     private val analysisLock = Mutex()
+    @Volatile private var cameraProvider: ProcessCameraProvider? = null
     @Volatile private var modelMissing = false
     @Volatile private var lastErrorAt: Long = 0
     @Volatile private var lastHintAt: Long = 0
@@ -62,6 +63,7 @@ class FaceCaptureSession(
         val provider = ProcessCameraProvider.getInstance(context)
         provider.addListener({
             val cameraProvider = provider.get()
+            this.cameraProvider = cameraProvider
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
@@ -76,6 +78,17 @@ class FaceCaptureSession(
                 owner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, analyzer
             )
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    /** Release the front camera and analyzer. Safe to call multiple times.
+     *  Without this, switching between Kiosk/Enroll screens or backgrounding
+     *  the ESS punch flow can leave a stale binding that fights the next
+     *  Activity for the camera. */
+    fun stop() {
+        try {
+            cameraProvider?.unbindAll()
+        } catch (_: Throwable) { /* best-effort */ }
+        cameraProvider = null
     }
 
     private fun handleFrame(proxy: ImageProxy) {
@@ -184,16 +197,57 @@ class FaceCaptureSession(
     }
 
     private fun yuv420ToNv21(image: ImageProxy): ByteArray {
-        val yBuffer: ByteBuffer = image.planes[0].buffer
-        val uBuffer: ByteBuffer = image.planes[1].buffer
-        val vBuffer: ByteBuffer = image.planes[2].buffer
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-        val nv21 = ByteArray(ySize + uSize + vSize)
-        yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
+        val width = image.width
+        val height = image.height
+        val nv21 = ByteArray(width * height * 3 / 2)
+
+        val yPlane = image.planes[0]
+        val uPlane = image.planes[1]
+        val vPlane = image.planes[2]
+        val yBuffer: ByteBuffer = yPlane.buffer
+        val uBuffer: ByteBuffer = uPlane.buffer
+        val vBuffer: ByteBuffer = vPlane.buffer
+
+        var out = 0
+        for (row in 0 until height) {
+            val rowStart = row * yPlane.rowStride
+            if (yPlane.pixelStride == 1) {
+                yBuffer.position(rowStart)
+                yBuffer.get(nv21, out, width)
+                out += width
+            } else {
+                for (col in 0 until width) {
+                    nv21[out++] = yBuffer.get(rowStart + col * yPlane.pixelStride)
+                }
+            }
+        }
+
+        val chromaWidth = width / 2
+        val chromaHeight = height / 2
+        // Guard against rare OEM layouts where the chroma planes are smaller
+        // than width*height/4 (e.g. cropped sensors, MediaTek YUV oddities).
+        // Reading past `remaining()` would either ArrayIndexOutOfBoundsException
+        // or splice in stale bytes from an adjacent allocation. If the planes
+        // are too small, leave the chroma block zeroed → grayscale-ish frame
+        // that ML Kit can still detect a face in.
+        val uNeeded = (chromaHeight - 1) * uPlane.rowStride +
+            (chromaWidth - 1) * uPlane.pixelStride + 1
+        val vNeeded = (chromaHeight - 1) * vPlane.rowStride +
+            (chromaWidth - 1) * vPlane.pixelStride + 1
+        if (uBuffer.limit() < uNeeded || vBuffer.limit() < vNeeded) {
+            return nv21
+        }
+        for (row in 0 until chromaHeight) {
+            val uRowStart = row * uPlane.rowStride
+            val vRowStart = row * vPlane.rowStride
+            for (col in 0 until chromaWidth) {
+                // NV21 stores chroma as VU pairs. CameraX planes often have
+                // row/pixel padding, so copying remaining() bytes directly can
+                // corrupt crops and make enrolled faces fail to match later.
+                nv21[out++] = vBuffer.get(vRowStart + col * vPlane.pixelStride)
+                nv21[out++] = uBuffer.get(uRowStart + col * uPlane.pixelStride)
+            }
+        }
         return nv21
     }
 

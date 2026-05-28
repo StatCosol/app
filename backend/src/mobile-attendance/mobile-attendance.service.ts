@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -64,12 +65,14 @@ const MIN_FACE_QUALITY_SCORE = (() => {
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.5;
 })();
-// Phase 3d: active liveness challenge. When the deployment env opts in
-// (FACE_LIVENESS_CHALLENGE_REQUIRED=true), every punch must carry a
-// challenge that was satisfied on-device within this window.
+// Phase 3d / 4c: active liveness challenge. Default ON — the device
+// must request a server nonce via POST /mobile-attendance/liveness/
+// challenge, perform the returned action, then echo nonce on the
+// punch. Ops can flip to false ONLY during an APK rollout window
+// where pre-nonce clients are still in the field.
 const LIVENESS_CHALLENGE_REQUIRED =
-  String(process.env.FACE_LIVENESS_CHALLENGE_REQUIRED || '').toLowerCase() ===
-  'true';
+  String(process.env.FACE_LIVENESS_CHALLENGE_REQUIRED ?? 'true').toLowerCase() !==
+  'false';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // Phase 4c: server-issued nonce flow. The set of challenges the server
 // may issue — the device must perform exactly the type returned and
@@ -173,7 +176,7 @@ export interface PunchRequestMeta {
 }
 
 @Injectable()
-export class MobileAttendanceService {
+export class MobileAttendanceService implements OnModuleInit {
   private readonly logger = new Logger(MobileAttendanceService.name);
 
   constructor(
@@ -203,6 +206,26 @@ export class MobileAttendanceService {
     @Inject(MASK_DETECTOR) private readonly maskDetector: MaskDetector,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
+
+  /** Surface mis-configured anti-spoof gates at boot so an operator sees
+   *  them in the deploy logs rather than discovering them after a
+   *  fraudulent punch is investigated. */
+  onModuleInit(): void {
+    if (!LIVENESS_CHALLENGE_REQUIRED) {
+      this.logger.warn(
+        'FACE_LIVENESS_CHALLENGE_REQUIRED is OFF — punches will be accepted ' +
+          'without a server-issued single-use nonce. Re-enable as soon as the ' +
+          'pre-nonce APK rollout window closes.',
+      );
+    }
+    if (!PUNCH_REQUIRE_SERVER_PROBE) {
+      this.logger.warn(
+        'FACE_PUNCH_REQUIRE_PROBE is OFF — punches can be accepted with a ' +
+          'client-supplied matchScore and no server recomputation. Re-enable ' +
+          'as soon as the legacy APK rollout window closes.',
+      );
+    }
+  }
 
   // ---------------------------------------------------------------- devices
   async registerDevice(
@@ -354,6 +377,17 @@ export class MobileAttendanceService {
             'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
           );
         }
+      } else if (dev.androidId) {
+        // Header missing but row has a bound androidId — older/replayed
+        // client. Refuse rather than silently fall through, otherwise the
+        // single-device-binding promise can be bypassed by stripping the
+        // header.
+        this.logger.warn(
+          `device token used without X-Android-Id header deviceId=${dev.id} bound=${dev.androidId}`,
+        );
+        throw new UnauthorizedException(
+          'Device identity header missing. Update the StatCo app to the latest version.',
+        );
       }
 
       dev.lastSeenAt = new Date();
@@ -1444,7 +1478,7 @@ export class MobileAttendanceService {
         employeeId: body.employeeId ?? null,
         reason,
         reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
-        matchScore: body.matchScore ?? null,
+        matchScore: rejectionMatchScore(e, body.matchScore ?? null),
         livenessScore: body.livenessScore ?? null,
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
@@ -1570,9 +1604,11 @@ export class MobileAttendanceService {
       );
       effectiveMatchScore = serverScore;
       if (serverScore < MIN_MATCH_SCORE) {
-        throw new BadRequestException(
+        const err = new BadRequestException(
           `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
         );
+        (err as any).matchScore = serverScore;
+        throw err;
       }
     } else if (body.matchScore != null && body.matchScore < MIN_MATCH_SCORE) {
       throw new BadRequestException(
@@ -1896,7 +1932,7 @@ export class MobileAttendanceService {
         contractorEmployeeId: body.contractorEmployeeId ?? null,
         reason,
         reasonDetail: typeof e?.message === 'string' ? e.message : String(e),
-        matchScore: body.matchScore ?? null,
+        matchScore: rejectionMatchScore(e, body.matchScore ?? null),
         livenessScore: body.livenessScore ?? null,
         captureLat: body.captureLat ?? null,
         captureLng: body.captureLng ?? null,
@@ -1994,9 +2030,11 @@ export class MobileAttendanceService {
       );
       effectiveMatchScore = serverScore;
       if (serverScore < MIN_MATCH_SCORE) {
-        throw new BadRequestException(
+        const err = new BadRequestException(
           `Server face match score ${serverScore.toFixed(2)} below threshold ${MIN_MATCH_SCORE}`,
         );
+        (err as any).matchScore = serverScore;
+        throw err;
       }
     }
 
@@ -4029,6 +4067,12 @@ function classifyRejection(e: any): string {
     return 'QUALITY_LOW';
   if (msg.includes('device-bound') || msg.includes('not found')) return 'OTHER';
   return 'OTHER';
+}
+
+function rejectionMatchScore(e: any, fallback: number | null): number | null {
+  return typeof e?.matchScore === 'number' && Number.isFinite(e.matchScore)
+    ? e.matchScore
+    : fallback;
 }
 
 function haversineMeters(
