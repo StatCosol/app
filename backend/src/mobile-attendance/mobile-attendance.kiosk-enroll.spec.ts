@@ -378,6 +378,11 @@ describe('MobileAttendanceService.listKioskEnrollTickets', () => {
 
 describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
   const kioskDevice = { id: 'd-1', mode: 'KIOSK' };
+  const embeddingB64 = (values: number[]) => {
+    const buf = Buffer.alloc(values.length * 4);
+    values.forEach((v, i) => buf.writeFloatLE(v, i * 4));
+    return buf.toString('base64');
+  };
 
   it('rejects ESS-mode devices', async () => {
     const svc = makeService();
@@ -479,5 +484,112 @@ describe('MobileAttendanceService.submitKioskEnrollTicket', () => {
         embeddingBase64: Buffer.from([1, 2, 3]).toString('base64'),
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects employee enrollment when the submitted face matches another employee', async () => {
+    const ticket = {
+      id: 't-1',
+      deviceId: 'd-1',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+      subjectType: 'EMPLOYEE',
+      employeeId: 'emp-divya',
+      clientId: 'c-1',
+      subjectCode: 'DIVYA',
+      branchId: 'b-1',
+      createdBy: 'user-1',
+    };
+    const faceRepo = {
+      manager: { query: jest.fn().mockResolvedValue(undefined) },
+      find: jest.fn().mockResolvedValue([
+        {
+          employeeId: 'emp-karthik',
+          clientId: 'c-1',
+          isActive: true,
+          embedding: Buffer.from(embeddingB64([1, 0]), 'base64'),
+        },
+      ]),
+    };
+    const contractorFaceRepo = { find: jest.fn().mockResolvedValue([]) };
+    const empRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'emp-karthik',
+        employeeCode: 'KARTHIK',
+        name: 'Cheguri Karthik',
+      }),
+    };
+    const svc = makeService({
+      faceRepo,
+      contractorFaceRepo,
+      empRepo,
+      kioskTicketRepo: { findOne: jest.fn().mockResolvedValue(ticket) },
+    });
+
+    await expect(
+      svc.submitKioskEnrollTicket(kioskDevice as any, 't-1', {
+        // raw cosine 0.80 => mapped duplicate score 0.90, above the 0.88 guard.
+        embeddingBase64: embeddingB64([0.8, 0.6]),
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(faceRepo.manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('face_duplicate_attempt_logs'),
+      expect.arrayContaining(['emp-divya', 'emp-karthik']),
+    );
+  });
+
+  it('rejects contractor kiosk enrollment when the face is already enrolled to an employee', async () => {
+    const ticket = {
+      id: 't-2',
+      deviceId: 'd-1',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+      subjectType: 'CONTRACTOR',
+      contractorEmployeeId: 'ce-1',
+      clientId: 'c-1',
+      branchId: 'b-1',
+      createdBy: 'user-1',
+    };
+    const faceRepo = {
+      manager: { query: jest.fn().mockResolvedValue(undefined) },
+      find: jest.fn().mockResolvedValue([
+        {
+          employeeId: 'emp-karthik',
+          clientId: 'c-1',
+          isActive: true,
+          embedding: Buffer.from(embeddingB64([1, 0]), 'base64'),
+        },
+      ]),
+    };
+    const contractorFaceRepo = { find: jest.fn().mockResolvedValue([]) };
+    const contractorEmpRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'ce-1',
+        clientId: 'c-1',
+        name: 'Vendor Worker',
+        branchId: 'b-1',
+      }),
+    };
+    const empRepo = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'emp-karthik',
+        employeeCode: 'KARTHIK',
+        name: 'Cheguri Karthik',
+      }),
+    };
+    const contractorSave = jest.fn();
+    const svc = makeService({
+      faceRepo,
+      contractorFaceRepo: { ...contractorFaceRepo, save: contractorSave },
+      contractorEmpRepo,
+      empRepo,
+      kioskTicketRepo: { findOne: jest.fn().mockResolvedValue(ticket) },
+    });
+
+    await expect(
+      svc.submitKioskEnrollTicket(kioskDevice as any, 't-2', {
+        embeddingBase64: embeddingB64([0.8, 0.6]),
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(contractorSave).not.toHaveBeenCalled();
   });
 });

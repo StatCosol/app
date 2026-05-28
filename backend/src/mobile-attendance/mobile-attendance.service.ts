@@ -71,8 +71,9 @@ const MIN_FACE_QUALITY_SCORE = (() => {
 // punch. Ops can flip to false ONLY during an APK rollout window
 // where pre-nonce clients are still in the field.
 const LIVENESS_CHALLENGE_REQUIRED =
-  String(process.env.FACE_LIVENESS_CHALLENGE_REQUIRED ?? 'true').toLowerCase() !==
-  'false';
+  String(
+    process.env.FACE_LIVENESS_CHALLENGE_REQUIRED ?? 'true',
+  ).toLowerCase() !== 'false';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // Phase 4c: server-issued nonce flow. The set of challenges the server
 // may issue — the device must perform exactly the type returned and
@@ -126,7 +127,7 @@ const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queu
 // want a single bad enrollment frame to wedge a real employee out — but
 // tight enough to keep the actual same-face-twice case caught.
 const DUPLICATE_FACE_THRESHOLD = Number(
-  process.env.FACE_DUPLICATE_THRESHOLD || 0.97,
+  process.env.FACE_DUPLICATE_THRESHOLD || 0.88,
 );
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
@@ -3918,6 +3919,11 @@ export class MobileAttendanceService implements OnModuleInit {
       const ceId = ticket.contractorEmployeeId!;
       const ce = await this.contractorEmpRepo.findOne({ where: { id: ceId } });
       if (!ce) throw new NotFoundException('Contractor employee not found');
+      await this.assertContractorFaceNotDuplicate(
+        ticket.clientId,
+        ce.id,
+        embedding,
+      );
       const photoUrl = await this.facePhotos.put({
         clientId: ticket.clientId,
         employeeCode: `contractor-${ce.id}`,
