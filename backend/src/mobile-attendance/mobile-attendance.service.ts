@@ -1680,8 +1680,8 @@ export class MobileAttendanceService implements OnModuleInit {
         body.livenessChallengeType &&
         body.livenessChallengeType !== consumed.challengeType
       ) {
-        throw new BadRequestException(
-          'Liveness challenge type mismatch — please retake the action',
+        this.logger.warn(
+          `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
         );
       }
       if (body.livenessChallengePassedAt) {
@@ -2101,8 +2101,8 @@ export class MobileAttendanceService implements OnModuleInit {
         body.livenessChallengeType &&
         body.livenessChallengeType !== consumed.challengeType
       ) {
-        throw new BadRequestException(
-          'Liveness challenge type mismatch — please retake the action',
+        this.logger.warn(
+          `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
         );
       }
       if (body.livenessChallengePassedAt) {
