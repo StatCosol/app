@@ -1,9 +1,11 @@
 package com.statcosol.attendance
 
 import android.app.Application
+import android.util.Log
 import androidx.work.Configuration
 import com.statcosol.attendance.api.ApiClient
 import com.statcosol.attendance.db.AppDatabase
+import com.statcosol.attendance.face.FaceEmbedder
 import com.statcosol.attendance.prefs.DeviceConfig
 import com.statcosol.attendance.security.IntegrityCheck
 
@@ -24,6 +26,11 @@ class AttendanceApp : Application(), Configuration.Provider {
     var isDeviceRooted: Boolean = false
         private set
 
+    /** True if the bundled MobileFaceNet asset loaded successfully at startup.
+     *  Lets the UI fail loudly at launch rather than silently at first punch. */
+    var faceModelReady: Boolean = false
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -31,6 +38,13 @@ class AttendanceApp : Application(), Configuration.Provider {
         apiClient = ApiClient(deviceConfig)
         database = AppDatabase.build(this)
         isDeviceRooted = runCatching { IntegrityCheck.isProbablyRooted() }.getOrDefault(false)
+        // Preload the TFLite model so a missing/corrupt asset fails at launch
+        // (where it's obvious) instead of 30s later at first face capture.
+        faceModelReady = runCatching {
+            FaceEmbedder.warmup(this)
+            true
+        }.onFailure { Log.e("AttendanceApp", "face model preload failed", it) }
+         .getOrDefault(false)
     }
 
     override val workManagerConfiguration: Configuration

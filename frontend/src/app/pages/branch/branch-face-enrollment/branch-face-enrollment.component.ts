@@ -85,7 +85,7 @@ interface EnrollForm {
         <h3 class="font-semibold text-indigo-900 mb-1">Employee face enrollment moved to the ESS mobile app</h3>
         <p class="text-sm text-indigo-800">
           To strengthen identity assurance, employees now enroll their face directly from their
-          paired ESS device using a live 5-frame capture. Pair the device under
+          paired ESS device using a live 8-frame capture. Pair the device under
           <strong>Mobile Devices</strong>, link it to the employee, and ask them to open the
           ESS app — the enroll screen launches automatically the first time.
         </p>

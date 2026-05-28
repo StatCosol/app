@@ -109,6 +109,44 @@ export class FacePhotoRetentionCron {
     });
   }
 
+  /**
+   * Phase 4c / DPDP: weekly VACUUM on the face-enrollment tables so the
+   * tuples left behind by crypto-shred (overwrite-with-random + UPDATE
+   * isActive=false) are actually reclaimed instead of lingering in the
+   * heap until the next autovacuum cycle. Plain VACUUM does NOT take an
+   * ACCESS EXCLUSIVE lock so this is safe to run while traffic is live.
+   *
+   * Sunday 04:00 IST is chosen because:
+   *  - Off-peak (no attendance punches expected).
+   *  - After the daily 03:30 retention pass, so the freshly purged rows
+   *    are also reclaimed.
+   */
+  @Cron('0 0 4 * * 0', { timeZone: 'Asia/Kolkata' })
+  async runEmbeddingVacuum(): Promise<void> {
+    await this.cronLock.runExclusive('face-embed:vacuum', async () => {
+      const tables = [
+        'face_enrollments',
+        'contractor_face_enrollments',
+        'face_liveness_nonces',
+      ];
+      for (const t of tables) {
+        try {
+          // VACUUM cannot run inside a transaction block; TypeORM's
+          // `query` opens one implicitly. Use a fresh connection.
+          await this.ds.manager.connection.query(`VACUUM ${t}`);
+        } catch (err) {
+          this.logger.error(
+            `vacuum ${t} failed`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        }
+      }
+      this.logger.log(
+        `face-embed vacuum complete: tables=${tables.join(',')}`,
+      );
+    });
+  }
+
   private daysFromEnv(key: string, def: number): number {
     const raw = Number(process.env[key]);
     return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : def;

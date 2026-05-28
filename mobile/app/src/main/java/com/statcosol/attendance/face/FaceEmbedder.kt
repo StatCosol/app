@@ -71,6 +71,21 @@ class FaceEmbedder(context: Context) {
         const val INPUT_SIZE = 112
         const val EMBED_DIM = 192
 
+        /** Load the asset once at app start so a missing/corrupt model
+         *  fails at launch rather than at the first frame. Safe to call
+         *  multiple times; later [FaceEmbedder] instances will still lazy-
+         *  init their own Interpreter (cheap once the file is in cache). */
+        fun warmup(ctx: android.content.Context) {
+            ctx.assets.openFd("mobilefacenet.tflite").use { fd ->
+                java.io.FileInputStream(fd.fileDescriptor).use { fis ->
+                    fis.channel.map(
+                        java.nio.channels.FileChannel.MapMode.READ_ONLY,
+                        fd.startOffset, fd.declaredLength,
+                    )
+                }
+            }
+        }
+
         fun l2Normalize(v: FloatArray): FloatArray {
             var s = 0.0
             for (x in v) s += x * x

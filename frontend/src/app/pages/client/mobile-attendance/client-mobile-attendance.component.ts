@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -39,6 +39,7 @@ interface ReenrollViewRow {
   requestedAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
+  photoUrl: string | null;
 }
 
 interface BranchOption { id: string; name: string }
@@ -67,7 +68,6 @@ interface BranchOption { id: string; name: string }
       <div class="tab-bar">
         <button class="tab-btn" [class.active]="tab === 'devices'" (click)="switchTab('devices')">Devices</button>
         <button class="tab-btn" [class.active]="tab === 'status'" (click)="switchTab('status')">Enrollment Status</button>
-        <button class="tab-btn" [class.active]="tab === 'enroll'" (click)="switchTab('enroll')">Face Enrollment</button>
         <button class="tab-btn" [class.active]="tab === 'reenroll'" (click)="switchTab('reenroll')">
           Re-enrollment Requests
           <span *ngIf="totalPendingReenrollCount > 0"
@@ -206,8 +206,8 @@ interface BranchOption { id: string; name: string }
                 <td class="px-4 py-3 text-gray-700 text-xs">{{ r.embeddingModel || '—' }}</td>
                 <td class="px-4 py-3 text-gray-700">{{ r.enrolledAt ? (r.enrolledAt | date: 'dd MMM yyyy, HH:mm') : '—' }}</td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                  <button *ngIf="!r.isEnrolled" class="text-xs text-indigo-600 hover:underline"
-                    (click)="jumpToEnroll(r)">Enroll</button>
+                  <span *ngIf="!r.isEnrolled" class="text-xs text-gray-500 italic"
+                    title="Face enrollment is done by the Branch user on a paired kiosk/ESS device. Client admins only review status here.">Pending kiosk enrollment</span>
                   <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-emerald-700 hover:underline mr-3"
                     (click)="deputeAsEss(r)" title="Register a personal phone for this employee (ESS mode) — useful for project deputation">Depute (ESS)</button>
                   <button *ngIf="r.isEnrolled && r.isActive" class="text-xs text-red-600 hover:underline mr-3"
@@ -222,66 +222,6 @@ interface BranchOption { id: string; name: string }
 
         <div *ngIf="!loadingEnrollments && enrollmentRows.length > 0 && filteredEnrollments.length === 0"
              class="text-sm text-gray-500 mt-4">No employees match the current filter.</div>
-      </ng-container>
-
-      <!-- ────── ENROLLMENT TAB ────── -->
-      <ng-container *ngIf="tab === 'enroll'">
-        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900 mb-4">
-          <strong>DPDP Compliance:</strong> Face data is biometric Sensitive Personal Information. The employee MUST give explicit, informed consent before enrollment. Tick the consent box only after the employee has read the privacy notice and agreed.
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h3 class="font-semibold text-gray-900 mb-3">Enroll an Employee Face</h3>
-
-          <div>
-            <label for="enroll-emp" class="block text-xs font-medium text-gray-600 mb-1">Employee</label>
-            <select id="enroll-emp" name="employeeId" [(ngModel)]="enrollForm.employeeId" (ngModelChange)="onEnrollEmployeeChange()" class="ui-input">
-              <option value="">— Select employee —</option>
-              <option *ngFor="let e of employees" [value]="e.id">{{ e.employeeCode }} · {{ e.name }}</option>
-            </select>
-          </div>
-
-          <!-- Live camera capture (only enrollment method — uploads disabled by design) -->
-          <div class="mt-4 border-t border-gray-100 pt-4">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <h4 class="text-sm font-semibold text-gray-800">Live Camera Capture</h4>
-                <p class="text-xs text-gray-500">Capture a clear, well-lit, front-facing photo using the camera.</p>
-              </div>
-              <div class="flex gap-2">
-                <ui-button *ngIf="!cameraActive" variant="secondary" size="sm" (clicked)="startCamera()">Start Camera</ui-button>
-                <ui-button *ngIf="cameraActive" variant="primary" size="sm" (clicked)="capturePhoto()">📷 Capture</ui-button>
-                <ui-button *ngIf="cameraActive" variant="secondary" size="sm" (clicked)="stopCamera()">Stop</ui-button>
-                <ui-button *ngIf="!cameraActive && enrollForm.photoBase64" variant="secondary" size="sm" (clicked)="clearCapturedPhoto()">Retake</ui-button>
-              </div>
-            </div>
-            <div class="relative bg-gray-900 rounded-lg overflow-hidden" [style.maxWidth.px]="480" [style.aspectRatio]="'4 / 3'">
-              <video #cameraVideo autoplay playsinline muted [hidden]="!cameraActive" class="w-full h-full object-cover"></video>
-              <div *ngIf="!cameraActive" class="flex items-center justify-center h-full text-gray-400 text-sm" style="min-height: 180px;">
-                Camera off — click “Start Camera” to begin
-              </div>
-            </div>
-            <p *ngIf="!cameraActive && enrollForm.photoBase64" class="text-xs text-emerald-700 mt-2">
-              ✓ Photo captured ({{ photoKB }} KB) — ready to enroll
-            </p>
-            <p *ngIf="cameraError" class="text-xs text-red-600 mt-2">{{ cameraError }}</p>
-            <canvas #cameraCanvas hidden></canvas>
-          </div>
-
-          <div class="mt-4 flex items-start gap-2">
-            <input id="enroll-consent" type="checkbox" name="consentGiven" [(ngModel)]="enrollForm.consentGiven" class="mt-0.5">
-            <label for="enroll-consent" class="text-sm text-gray-700">
-              I confirm the employee has read the biometric data privacy notice and has given explicit informed consent for face enrollment under the DPDP Act 2023.
-            </label>
-          </div>
-
-          <div *ngIf="enrollError" class="mt-3 text-sm text-red-600">{{ enrollError }}</div>
-
-          <div class="mt-4 flex gap-2">
-            <ui-button variant="primary" (clicked)="submitEnroll()" [loading]="enrolling" [disabled]="!canEnroll">Enroll Face</ui-button>
-            <ui-button variant="secondary" (clicked)="resetEnroll()">Reset</ui-button>
-          </div>
-        </div>
       </ng-container>
 
       <!-- ────── RE-ENROLLMENT REQUESTS TAB ────── -->
@@ -432,8 +372,8 @@ interface BranchOption { id: string; name: string }
             <p>Download <code>statcompy-attendance.apk</code> on the device, open it, paste the install token, and grant Camera + Location permissions.</p>
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-1">4. Enroll employee faces</h3>
-            <p>Switch to the <em>Face Enrollment</em> tab. For each employee, take a clear reference photo, tick the consent checkbox, and submit. Enrollments are stored as embeddings (not images) on the server.</p>
+            <h3 class="font-semibold text-gray-900 mb-1">4. Enroll employee faces (Branch user)</h3>
+            <p>Face enrollment is performed by the <strong>Branch user</strong>, not from this page. The Branch user opens <em>Branch portal → Face Enrollment</em>, picks the employee, and runs an operator-supervised live capture on the paired KIOSK / ESS device. Client admins approve the joiner-registration flow and review enrollment status here.</p>
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-1">5. Punches flow into payroll automatically</h3>
@@ -460,7 +400,7 @@ interface BranchOption { id: string; name: string }
         </div>
         <div>
           <label for="dev-branch" class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
-          <select id="dev-branch" name="branchId" [(ngModel)]="form.branchId" class="ui-input">
+          <select id="dev-branch" name="branchId" [(ngModel)]="form.branchId" (ngModelChange)="onBranchChange()" class="ui-input">
             <option value="">— None —</option>
             <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
           </select>
@@ -468,11 +408,11 @@ interface BranchOption { id: string; name: string }
         <div *ngIf="form.mode === 'ESS'" class="space-y-3">
           <div>
             <label for="dev-ess-emp" class="block text-xs font-medium text-gray-600 mb-1">Bound Employee (ESS)</label>
-            <select id="dev-ess-emp" name="essEmployeeId" [(ngModel)]="form.essEmployeeId" class="ui-input">
-              <option value="">— Select employee —</option>
-              <option *ngFor="let e of employees" [value]="e.id">{{ e.name }} ({{ e.employeeCode }})</option>
+            <select id="dev-ess-emp" name="essEmployeeId" [(ngModel)]="form.essEmployeeId" class="ui-input" [disabled]="!form.branchId">
+              <option value="">{{ form.branchId ? '— Select employee —' : '— Pick a branch first —' }}</option>
+              <option *ngFor="let e of essEligibleEmployees" [value]="e.id">{{ e.name }} ({{ e.employeeCode }})</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">This personal phone will only be able to punch and self-enroll for this employee.</p>
+            <p class="text-xs text-gray-500 mt-1">This personal phone will only be able to punch and self-enroll for this employee. Showing employees from the selected branch only.</p>
           </div>
           <div class="grid grid-cols-3 gap-2">
             <div>
@@ -525,6 +465,14 @@ interface BranchOption { id: string; name: string }
           <div><strong>Requested:</strong> {{ reviewRequest.requestedAt | date:'medium' }}</div>
           <div *ngIf="reviewRequest.reason"><strong>Reason:</strong> {{ reviewRequest.reason }}</div>
         </div>
+        <div *ngIf="reviewRequest.photoUrl" class="border rounded overflow-hidden bg-gray-50">
+          <div class="px-2 py-1 text-xs font-medium text-gray-600 border-b bg-white">Submitted photo</div>
+          <img [src]="reviewRequest.photoUrl" alt="Submitted re-enrollment photo"
+               class="block w-full max-h-72 object-contain bg-black" referrerpolicy="no-referrer" />
+        </div>
+        <p *ngIf="!reviewRequest.photoUrl" class="text-xs text-gray-500 italic">
+          No photo available — review the request based on the source and reason only.
+        </p>
         <p *ngIf="reviewDecision === 'APPROVED'" class="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-xs">
           Approving will overwrite this {{ reviewRequest.scope === 'contractor' ? 'contractor employee' : 'employee' }}'s live face embedding with the new one. The previous embedding cannot be recovered.
         </p>
@@ -576,7 +524,7 @@ interface BranchOption { id: string; name: string }
 export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  tab: 'devices' | 'enroll' | 'help' | 'status' | 'reenroll' = 'devices';
+  tab: 'devices' | 'help' | 'status' | 'reenroll' = 'devices';
 
   // Devices
   devices: MobileAttendanceDevice[] = [];
@@ -605,25 +553,6 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   branches: BranchOption[] = [];
   employees: Employee[] = [];
 
-  // Enroll form
-  enrollForm: {
-    employeeId: string;
-    consentGiven: boolean;
-    photoBase64: string;
-    photoMime: string;
-    photoFileName: string;
-    photoSize: number;
-  } = { employeeId: '', consentGiven: false, photoBase64: '', photoMime: '', photoFileName: '', photoSize: 0 };
-  enrolling = false;
-  enrollError = '';
-
-  // Live camera capture
-  @ViewChild('cameraVideo') cameraVideo?: ElementRef<HTMLVideoElement>;
-  @ViewChild('cameraCanvas') cameraCanvas?: ElementRef<HTMLCanvasElement>;
-  cameraActive = false;
-  cameraError = '';
-  private cameraStream: MediaStream | null = null;
-
   // Enrollment status tab
   enrollmentRows: EnrollmentStatusRow[] = [];
   loadingEnrollments = false;
@@ -644,6 +573,23 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
 
   get totalPendingReenrollCount(): number {
     return this.pendingReenrollCount + this.pendingContractorReenrollCount;
+  }
+
+  /** Employees selectable for ESS device binding — filtered to the branch
+   *  picked in the Register Device modal. Prevents binding an ESS phone to
+   *  an employee in a different branch (which would break geofencing and
+   *  payroll routing). */
+  get essEligibleEmployees(): Employee[] {
+    if (!this.form.branchId) return [];
+    return this.employees.filter((e) => e.branchId === this.form.branchId);
+  }
+
+  /** Reset the bound ESS employee when the operator changes the branch — the
+   *  previously-selected employee is almost certainly from a different
+   *  branch now and must be re-picked. */
+  onBranchChange(): void {
+    this.form.essEmployeeId = '';
+    this.bump();
   }
 
   constructor(
@@ -669,13 +615,11 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopCamera();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  switchTab(t: 'devices' | 'enroll' | 'help' | 'status' | 'reenroll'): void {
-    if (t !== 'enroll') this.stopCamera();
+  switchTab(t: 'devices' | 'help' | 'status' | 'reenroll'): void {
     this.tab = t;
     if (t === 'status' && this.enrollmentRows.length === 0) {
       this.loadEnrollments();
@@ -694,7 +638,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
           this.branches = (rows || []).map((b: any) => ({ id: b.id, name: b.name || b.branchCode || b.code || b.id }));
           this.bump();
         },
-        error: () => { /* silent */ },
+        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load branches'); this.bump(); },
       });
   }
 
@@ -706,7 +650,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
           this.employees = (res?.data || []).slice().sort((a, b) => a.name.localeCompare(b.name));
           this.bump();
         },
-        error: () => { /* silent */ },
+        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load employees'); this.bump(); },
       });
   }
 
@@ -827,8 +771,28 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       this.formError = 'ESS mode requires geofence latitude and longitude — click 📍 Use my current location';
       return;
     }
+    if (this.form.mode === 'ESS') {
+      const lat = this.form.geofenceLat ?? 0;
+      const lng = this.form.geofenceLng ?? 0;
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        this.formError = 'Geofence coordinates are out of range. Latitude must be -90..90 and longitude -180..180.';
+        return;
+      }
+      // Soft sanity guard for India operations — rejects accidental
+      // 0,0 (null-island) or Western Hemisphere coordinates that almost
+      // always indicate a typo.
+      const inIndia = lat >= 6 && lat <= 38 && lng >= 68 && lng <= 98;
+      if (!inIndia) {
+        this.formError = `Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}) look wrong for an Indian work site. Re-capture or confirm before saving.`;
+        return;
+      }
+    }
     if (this.form.mode === 'ESS' && (!this.form.geofenceRadiusM || this.form.geofenceRadiusM <= 0)) {
       this.formError = 'ESS mode requires a geofence radius (metres)';
+      return;
+    }
+    if (this.form.mode === 'ESS' && this.form.geofenceRadiusM && this.form.geofenceRadiusM > 10000) {
+      this.formError = 'Geofence radius must be 10000 m or less. Use a tighter perimeter for ESS.';
       return;
     }
     this.saving = true;
@@ -892,251 +856,10 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ── Enrollment ────────────────────────────────────────────
-  get canEnroll(): boolean {
-    return !!this.enrollForm.employeeId
-      && this.enrollForm.consentGiven
-      && !!this.enrollForm.photoBase64;
-  }
-
-  get photoKB(): number {
-    return Math.round(this.enrollForm.photoSize / 1024);
-  }
-
-  // ── Live camera ──────────────────────────────────────────
-  async startCamera(): Promise<void> {
-    this.cameraError = '';
-    // getUserMedia requires a Secure Context (https:// or localhost).
-    const isSecure =
-      typeof window !== 'undefined' &&
-      ((window as any).isSecureContext === true ||
-        location.hostname === 'localhost' ||
-        location.hostname === '127.0.0.1');
-    if (!isSecure) {
-      this.cameraError =
-        'Camera blocked: this page must be loaded over HTTPS to use the camera.';
-      this.toast.error(this.cameraError);
-      this.bump();
-      return;
-    }
-    if (!navigator?.mediaDevices?.getUserMedia) {
-      this.cameraError =
-        'Camera API not available in this browser. Try Chrome / Edge / Safari and allow camera access.';
-      this.toast.error(this.cameraError);
-      this.bump();
-      return;
-    }
-    // Show the <video> element BEFORE requesting the stream so it is in the
-    // DOM and visible by the time we assign srcObject. This avoids a race
-    // where setTimeout(0) attached the stream to a still-hidden element and
-    // play() rejected silently on some Android Chrome versions.
-    this.cameraActive = true;
-    this.bump();
-    try {
-      // Enumerate cameras and prefer a real one over virtual cameras
-      // (Windows Phone Link "Use as connected camera", DroidCam, OBS,
-      // Snap Camera, XSplit, NDI). Labels are usually empty until the
-      // user has granted camera permission once — that's fine, we just
-      // fall back to facingMode in that case.
-      let constraints: MediaStreamConstraints = {
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      };
-      let chosenLabel = '';
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cams = devices.filter((d) => d.kind === 'videoinput');
-        const VIRTUAL = /(phone link|phone\s*\(|droidcam|obs|snap camera|virtual|xsplit|ndi|manycam)/i;
-        const real = cams.find((c) => c.label && !VIRTUAL.test(c.label));
-        console.info('[mobile-attendance] cameras:', cams.map((c) => c.label || '(no label)'));
-        if (real?.deviceId) {
-          chosenLabel = real.label;
-          constraints = {
-            video: { deviceId: { exact: real.deviceId }, width: { ideal: 640 }, height: { ideal: 480 } },
-            audio: false,
-          };
-        }
-      } catch { /* enumerateDevices is best-effort */ }
-      // Race getUserMedia against an 8s timeout. Some virtual cameras
-      // (notably Windows Phone Link in 'connecting' state) leave the
-      // promise pending forever instead of rejecting.
-      let timedOut = false;
-      const gumPromise = navigator.mediaDevices.getUserMedia(constraints);
-      gumPromise.then((s) => { if (timedOut) s.getTracks().forEach((t) => t.stop()); }).catch(() => {});
-      const stream = await Promise.race<MediaStream>([
-        gumPromise,
-        new Promise<MediaStream>((_, rej) => setTimeout(() => {
-          timedOut = true;
-          rej(new Error(
-            `Camera open timed out (8s)${chosenLabel ? ` on "${chosenLabel}"` : ''}. ` +
-            'A virtual camera (Windows Phone Link "Use as connected camera", DroidCam, OBS, Snap Camera) is most likely holding it. ' +
-            'Disable it in Windows Settings → Bluetooth & devices → Cameras, or close the app, then retry.'
-          ));
-        }, 8000)),
-      ]);
-      this.cameraStream = stream;
-      const v = this.cameraVideo?.nativeElement;
-      if (!v) {
-        stream.getTracks().forEach((t) => t.stop());
-        this.cameraStream = null;
-        this.cameraActive = false;
-        this.cameraError = 'Camera element not ready — please retry.';
-        this.toast.error(this.cameraError);
-        this.bump();
-        return;
-      }
-      v.srcObject = stream;
-      v.muted = true;
-      v.setAttribute('playsinline', 'true');
-      v.play().catch(() => {
-        requestAnimationFrame(() => { v.play().catch(() => { /* ignore */ }); });
-      });
-      // Wait for the first real video frame. If none arrives in 6s the
-      // camera is almost certainly held by another app (Windows Phone
-      // Link, Teams, Zoom, OBS virtual cam, etc.) — surface that clearly.
-      await new Promise<void>((resolve, reject) => {
-        let done = false;
-        const cleanup = () => {
-          v.removeEventListener('loadedmetadata', check);
-          v.removeEventListener('playing', check);
-          v.removeEventListener('canplay', check);
-        };
-        const check = () => {
-          if (done) return;
-          if (v.videoWidth > 0 && v.videoHeight > 0) {
-            done = true; cleanup(); resolve();
-          }
-        };
-        v.addEventListener('loadedmetadata', check);
-        v.addEventListener('playing', check);
-        v.addEventListener('canplay', check);
-        check();
-        setTimeout(() => {
-          if (done) return;
-          done = true; cleanup();
-          if (v.videoWidth > 0 && v.videoHeight > 0) {
-            resolve();
-          } else {
-            const label = stream.getVideoTracks()[0]?.label || 'unknown';
-            reject(new Error(
-              `Camera "${label}" was opened but is not sending frames. Another app (e.g. Windows Phone Link "use phone as webcam", Teams, Zoom, OBS) is most likely holding it. Close that app and click Start again.`
-            ));
-          }
-        }, 6000);
-      });
-      this.bump();
-    } catch (err: any) {
-      this.cameraActive = false;
-      this.cameraStream?.getTracks().forEach((t) => t.stop());
-      this.cameraStream = null;
-      const name = err?.name || '';
-      const msg =
-        name === 'NotAllowedError' || name === 'SecurityError'
-          ? 'Camera permission denied. Open site settings, allow camera, and retry.'
-          : name === 'NotFoundError' || name === 'DevicesNotFoundError'
-            ? 'No camera found on this device.'
-            : name === 'NotReadableError' || name === 'TrackStartError'
-              ? 'Camera is in use by another app or unavailable. Close other camera apps and retry.'
-              : name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError'
-                ? 'Camera does not support the requested settings.'
-                : name === 'AbortError'
-                  ? 'Camera start was aborted. Please retry.'
-                  : `Camera error: ${err?.message || name || 'unknown'}`;
-      this.cameraError = msg;
-      this.toast.error(msg);
-      this.bump();
-    }
-  }
-
-  stopCamera(): void {
-    if (this.cameraStream) {
-      this.cameraStream.getTracks().forEach((t) => t.stop());
-      this.cameraStream = null;
-    }
-    if (this.cameraVideo?.nativeElement) {
-      this.cameraVideo.nativeElement.srcObject = null;
-    }
-    this.cameraActive = false;
-    this.bump();
-  }
-
-  capturePhoto(): void {
-    const v = this.cameraVideo?.nativeElement;
-    const c = this.cameraCanvas?.nativeElement;
-    if (!v || !c) {
-      this.toast.error('Camera not ready');
-      return;
-    }
-    const w = v.videoWidth || 640;
-    const h = v.videoHeight || 480;
-    if (!w || !h) {
-      this.toast.error('Camera not ready — wait a moment and try again');
-      return;
-    }
-    c.width = w;
-    c.height = h;
-    const ctx = c.getContext('2d');
-    if (!ctx) { this.toast.error('Canvas not supported'); return; }
-    ctx.drawImage(v, 0, 0, w, h);
-    const dataUrl = c.toDataURL('image/jpeg', 0.9);
-    const comma = dataUrl.indexOf(',');
-    const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-    this.enrollForm.photoBase64 = base64;
-    this.enrollForm.photoMime = 'image/jpeg';
-    this.enrollForm.photoFileName = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-    this.enrollForm.photoSize = Math.round((base64.length * 3) / 4);
-    this.toast.success('Photo captured — ready to enroll');
-    this.stopCamera();
-  }
-
-  submitEnroll(): void {
-    this.enrollError = '';
-    if (!this.canEnroll) {
-      this.enrollError = 'Select employee, attach photo, and tick consent';
-      return;
-    }
-    this.enrolling = true;
-    this.svc.enrollFace({
-      employeeId: this.enrollForm.employeeId,
-      consentGiven: true,
-      photoBase64: this.enrollForm.photoBase64,
-      photoMime: this.enrollForm.photoMime,
-    })
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.enrolling = false; this.bump(); }))
-      .subscribe({
-        next: () => { this.toast.success('Face enrolled'); this.resetEnroll(); },
-        error: (e) => {
-          this.enrollError = e?.error?.message || 'Enrollment failed';
-          // Clear the captured photo on failure so the operator is forced to
-          // re-capture/re-upload — prevents accidentally re-submitting the
-          // same (often wrong) photo against a different employee.
-          this.clearCapturedPhoto();
-          this.bump();
-        },
-      });
-  }
-
-  /** Clears any captured/uploaded photo and stops the camera. Keeps employee + consent. */
-  clearCapturedPhoto(): void {
-    this.enrollForm.photoBase64 = '';
-    this.enrollForm.photoMime = '';
-    this.enrollForm.photoFileName = '';
-    this.enrollForm.photoSize = 0;
-    this.stopCamera();
-  }
-
-  /** Called when the operator picks a different employee. Drops any stale photo. */
-  onEnrollEmployeeChange(): void {
-    this.clearCapturedPhoto();
-    this.enrollError = '';
-    this.bump();
-  }
-
-  resetEnroll(): void {
-    this.enrollForm = { employeeId: '', consentGiven: false, photoBase64: '', photoMime: '', photoFileName: '', photoSize: 0 };
-    this.enrollError = '';
-    this.stopCamera();
-  }
+  // ── Live camera + face enrollment ─────────────────────────
+  // Removed: face enrollment is now performed by Branch users on a paired
+  // kiosk / ESS device. The Client portal only views enrollment status and
+  // reviews re-enrollment requests.
 
   // ── Enrollment status ────────────────────────────────────
   loadEnrollments(): void {
@@ -1166,11 +889,6 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       if (q && !(r.employeeCode.toLowerCase().includes(q) || r.employeeName.toLowerCase().includes(q))) return false;
       return true;
     });
-  }
-
-  jumpToEnroll(r: EnrollmentStatusRow): void {
-    this.enrollForm.employeeId = r.employeeId;
-    this.tab = 'enroll';
   }
 
   deactivate(r: EnrollmentStatusRow): void {
@@ -1251,6 +969,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       requestedAt: r.requestedAt,
       reviewedAt: r.reviewedAt,
       reviewNotes: r.reviewNotes,
+      photoUrl: r.photoUrl,
     };
   }
 
@@ -1268,6 +987,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       requestedAt: r.requestedAt,
       reviewedAt: r.reviewedAt,
       reviewNotes: r.reviewNotes,
+      photoUrl: r.photoUrl,
     };
   }
 
