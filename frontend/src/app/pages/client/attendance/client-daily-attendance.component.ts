@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, forkJoin, fromEvent, interval, merge, of } from 'rxjs';
 import { catchError, finalize, takeUntil } from 'rxjs/operators';
 
 import { ToastService } from '../../../shared/toast/toast.service';
@@ -326,6 +326,7 @@ const ATTENDANCE_STATUSES = [
 })
 export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly liveRefreshMs = 5000;
 
   readonly attendanceStatuses = ATTENDANCE_STATUSES;
 
@@ -358,6 +359,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadBranches();
     this.load();
+    this.startLiveRefresh();
   }
 
   ngOnDestroy(): void {
@@ -385,9 +387,13 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  load(): void {
-    this.loading = true;
-    this.selectedIds.clear();
+  load(silent = false): void {
+    if (this.loading) return;
+
+    if (!silent) {
+      this.loading = true;
+      this.selectedIds.clear();
+    }
 
     const bid = this.branchId || undefined;
 
@@ -400,7 +406,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.loading = false;
+          if (!silent) this.loading = false;
           this.cdr.markForCheck();
         }),
       )
@@ -621,5 +627,25 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   private todayStr(): string {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  private startLiveRefresh(): void {
+    merge(interval(this.liveRefreshMs), fromEvent(window, 'focus'))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.shouldLiveRefresh()) {
+          this.load(true);
+        }
+      });
+  }
+
+  private shouldLiveRefresh(): boolean {
+    return (
+      this.selectedDate === this.todayStr() &&
+      !this.loading &&
+      !this.actionBusy &&
+      !this.editBusy &&
+      !this.editRow
+    );
   }
 }
