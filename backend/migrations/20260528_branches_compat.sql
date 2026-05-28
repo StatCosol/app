@@ -17,19 +17,11 @@ BEGIN
     EXECUTE '
       CREATE OR REPLACE VIEW branches AS
       SELECT
-        id,
-        clientid AS client_id,
+        client_branches.*,
         branchname AS branch_name,
-        branchtype,
-        isactive AS is_active,
-        deletedat,
-        createdat,
-        updatedat,
+        clientid AS client_id,
         statecode AS state,
-        address,
-        headcount,
-        employeecount,
-        contractorcount
+        isactive AS is_active
       FROM client_branches
     ';
     RAISE NOTICE 'Created compatibility view "branches" -> client_branches.';
