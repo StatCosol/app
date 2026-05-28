@@ -96,6 +96,14 @@ export class BranchesController {
     return this.service.restore(id, user?.userId, user?.roleCode);
   }
 
+  // ---- Branch desk users ----
+
+  @ApiOperation({ summary: 'List Branch Users' })
+  @Get('branches/:id/users')
+  listBranchUsers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.listBranchUsers(id);
+  }
+
   // ---- Contractors per branch ----
 
   @ApiOperation({ summary: 'List Contractors' })

@@ -479,6 +479,27 @@ export class BranchesService {
     }));
   }
 
+  async listBranchUsers(branchId: string) {
+    const branch = await this.findById(branchId);
+
+    const rows = await this.dataSource.query(
+      `SELECT u.id AS "userId",
+              u.email,
+              u.name,
+              u.mobile,
+              u.is_active AS "isActive",
+              u.user_type AS "userType",
+              u.created_at AS "createdAt"
+       FROM user_branches ub
+       JOIN users u ON u.id = ub.user_id
+       WHERE ub.branch_id = $1
+       ORDER BY u.name ASC`,
+      [branch.id],
+    );
+
+    return rows;
+  }
+
   async addContractor(branchId: string, contractorUserId: string) {
     const branch = await this.findById(branchId);
 
