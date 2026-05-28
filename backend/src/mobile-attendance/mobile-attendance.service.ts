@@ -1885,6 +1885,7 @@ export class MobileAttendanceService implements OnModuleInit {
           direction: body.direction ?? 'AUTO',
           deviceId: `mobile:${device.id}`,
           branchId: emp.branchId ?? device.branchId ?? undefined,
+          source,
         } as any,
       ],
       true,

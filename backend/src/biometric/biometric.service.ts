@@ -80,6 +80,9 @@ export class BiometricService {
       const ts = new Date(it.punchTime);
       if (isNaN(ts.getTime())) continue;
 
+      const requestedSource = (it as IngestPunchItemDto & {
+        source?: BiometricPunchEntity['source'];
+      }).source;
       toInsert.push({
         clientId,
         branchId: emp?.branchId ?? it.branchId ?? null,
@@ -88,7 +91,7 @@ export class BiometricService {
         punchTime: ts,
         direction: it.direction ?? 'AUTO',
         deviceId: it.deviceId ?? null,
-        source: 'DEVICE',
+        source: requestedSource ?? 'DEVICE',
         rawPayload: { ...it },
       });
 

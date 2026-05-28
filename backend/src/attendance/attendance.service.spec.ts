@@ -19,6 +19,7 @@ describe('AttendanceService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     }),
   });
@@ -66,6 +67,21 @@ describe('AttendanceService', () => {
       true,
     );
     expect(qb.getRawMany).toHaveBeenCalled();
+  });
+
+  it('processes unprocessed biometric punches before range listing', async () => {
+    await service.list({
+      clientId: 'client-1',
+      from: '2026-05-01',
+      to: '2026-05-31',
+    });
+
+    expect(biometricService.processRange).toHaveBeenCalledWith(
+      'client-1',
+      '2026-05-01',
+      '2026-05-31',
+      false,
+    );
   });
 
   it('processes biometric punches before returning daily approval stats', async () => {

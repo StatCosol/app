@@ -104,6 +104,13 @@ export class AttendanceService {
     from: string;
     to: string;
   }) {
+    await this.biometricService.processRange(
+      params.clientId,
+      params.from,
+      params.to,
+      false,
+    );
+
     const qb = this.repo
       .createQueryBuilder('a')
       .where('a.client_id = :clientId', { clientId: params.clientId })
@@ -138,6 +145,13 @@ export class AttendanceService {
     const lastDay = new Date(params.year, params.month, 0);
     const toDate = `${params.year}-${String(params.month).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
     const totalDays = lastDay.getDate();
+
+    await this.biometricService.processRange(
+      params.clientId,
+      firstDay,
+      toDate,
+      false,
+    );
 
     const qb = this.repo
       .createQueryBuilder('a')
