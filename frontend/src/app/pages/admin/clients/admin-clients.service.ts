@@ -100,6 +100,16 @@ export interface ContractorOption {
   email: string;
 }
 
+export interface BranchUserLink {
+  userId: string;
+  email: string;
+  name: string;
+  mobile: string | null;
+  isActive: boolean;
+  userType: string | null;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminClientsService {
   private http = inject(HttpClient);
@@ -155,6 +165,11 @@ export class AdminClientsService {
 
   removeBranchContractor(branchId: string, userId: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/branches/${branchId}/contractors/${userId}`);
+  }
+
+  // Branch desk user APIs
+  getBranchUsers(branchId: string): Observable<BranchUserLink[]> {
+    return this.http.get<BranchUserLink[]>(`${this.apiUrl}/branches/${branchId}/users`);
   }
 
   // Client user linking APIs

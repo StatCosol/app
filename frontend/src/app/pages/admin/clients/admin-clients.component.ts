@@ -5,7 +5,7 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize, timeout, catchError } from 'rxjs/operators';
 import { of, Subscription, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, ContractorOption } from './admin-clients.service';
+import { AdminClientsService, Client, Branch, BranchComplianceApplicability, ClientUserLink, ClientUserOption, BranchContractorLink, BranchUserLink, ContractorOption } from './admin-clients.service';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { AuthService } from '../../../core/auth.service';
 import { INDIAN_STATES } from '../../../shared/utils/indian-states';
@@ -102,6 +102,12 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
   availableContractors: ContractorOption[] = [];
   selectedContractorUserId: string | null = null;
 
+  // Branch desk users (login accounts) per branch
+  branchForUsers: Branch | null = null;
+  branchUsers: BranchUserLink[] = [];
+  branchUserResetResult: { email: string; newPassword: string } | null = null;
+  resettingBranchUserId: string | null = null;
+
   // Branch save state
   isSavingBranch = false;
   branchSaveMessage = '';
@@ -169,7 +175,15 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     { key: 'address', header: 'Address' },
     { key: 'employeeCount', header: 'On-Role Employees' },
     { key: 'contractorCount', header: 'Contract Employees' },
-    { key: 'actions', header: 'Actions', align: 'right', width: '220px' },
+    { key: 'actions', header: 'Actions', align: 'right', width: '280px' },
+  ];
+
+  branchUserColumns: TableColumn[] = [
+    { key: 'name', header: 'Name' },
+    { key: 'email', header: 'Email' },
+    { key: 'mobile', header: 'Mobile' },
+    { key: 'isActive', header: 'Active' },
+    { key: 'action', header: 'Action', align: 'right' },
   ];
 
   contractorColumns: TableColumn[] = [
@@ -923,6 +937,67 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     });
   }
 
+  // BRANCH USERS (login accounts)
+
+  selectBranchForUsers(branch: Branch) {
+    this.branchForUsers = branch;
+    this.branchUsers = [];
+    this.branchUserResetResult = null;
+
+    setTimeout(() => {
+      document.getElementById('branchUsersCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+
+    if (branch.id) {
+      this.loadBranchUsers(branch.id);
+    }
+  }
+
+  loadBranchUsers(branchId: string) {
+    this.service.getBranchUsers(branchId).pipe(
+      timeout(8000),
+      catchError((err) => {
+        this.error = err?.error?.message || 'Failed to load branch users';
+        this.cdr.detectChanges();
+        return of([] as BranchUserLink[]);
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (users) => {
+        this.branchUsers = users || [];
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  resetBranchUserPassword(user: BranchUserLink) {
+    if (!confirm(`Reset password for ${user.name} (${user.email})? A new password will be generated.`)) return;
+
+    this.error = '';
+    this.success = '';
+    this.branchUserResetResult = null;
+    this.resettingBranchUserId = user.userId;
+
+    this.service.resetUserPassword(user.userId).pipe(
+      timeout(8000),
+      catchError((err) => {
+        this.error = err?.error?.message || 'Failed to reset password';
+        return of(null);
+      }),
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.resettingBranchUserId = null;
+        this.cdr.detectChanges();
+      }),
+    ).subscribe((res) => {
+      if (res) {
+        this.branchUserResetResult = { email: user.email, newPassword: res.newPassword };
+        this.success = 'Password reset successfully';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   saveBranchCompliances() {
     if (!this.branchForCompliance?.id || !this.selectedClient) return;
 
@@ -977,6 +1052,9 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     this.branchContractors = [];
     this.availableContractors = [];
     this.selectedContractorUserId = null;
+    this.branchForUsers = null;
+    this.branchUsers = [];
+    this.branchUserResetResult = null;
     this.editingMasterUser = null;
     this.masterUserResetResult = null;
     this.activeTab = 'company';
