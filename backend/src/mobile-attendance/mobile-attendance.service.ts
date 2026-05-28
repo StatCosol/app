@@ -1776,23 +1776,36 @@ export class MobileAttendanceService implements OnModuleInit {
     // midnight. Direction 'AUTO' is treated like OUT only when the prior
     // punch in the same session was an IN, but to keep the rule simple and
     // strict we honour an explicit OUT in the most recent row.
-    const lastPunchRows: Array<{ punch_time: Date; direction: string }> =
-      await this.faceRepo.manager.query(
-        `SELECT punch_time, direction
-           FROM biometric_punches
-          WHERE client_id = $1
-            AND employee_code = $2
-            AND punch_time <= $3
-          ORDER BY punch_time DESC
-          LIMIT 1`,
-        [device.clientId, emp.employeeCode, ts],
-      );
+    const lastPunchRows: Array<{
+      punch_time: Date;
+      direction: string;
+      prior_count: string | number;
+    }> = await this.faceRepo.manager.query(
+      `SELECT p.punch_time,
+              p.direction,
+              (
+                SELECT COUNT(*)
+                  FROM biometric_punches p2
+                 WHERE p2.client_id = p.client_id
+                   AND p2.employee_code = p.employee_code
+                   AND (p2.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+                       = (p.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+                   AND p2.punch_time < p.punch_time
+              ) AS prior_count
+         FROM biometric_punches p
+        WHERE p.client_id = $1
+          AND p.employee_code = $2
+          AND p.punch_time <= $3
+        ORDER BY p.punch_time DESC
+        LIMIT 1`,
+      [device.clientId, emp.employeeCode, ts],
+    );
     if (lastPunchRows.length) {
       const last = lastPunchRows[0];
       const lastMs = new Date(last.punch_time).getTime();
       const elapsed = ts.getTime() - lastMs;
       if (
-        last.direction === 'OUT' &&
+        this.isLogoutCooldownViolation(last.direction, last.prior_count) &&
         elapsed >= 0 &&
         elapsed < POST_LOGOUT_COOLDOWN_MS
       ) {
@@ -2129,23 +2142,36 @@ export class MobileAttendanceService implements OnModuleInit {
     }
 
     // Post-logout cooldown against the contractor's own punch history.
-    const lastRows: Array<{ punch_time: Date; direction: string }> =
-      await this.contractorPunchRepo.manager.query(
-        `SELECT punch_time, direction
-           FROM contractor_biometric_punches
-          WHERE client_id = $1
-            AND contractor_employee_id = $2
-            AND punch_time <= $3
-          ORDER BY punch_time DESC
-          LIMIT 1`,
-        [device.clientId, ctr.id, ts],
-      );
+    const lastRows: Array<{
+      punch_time: Date;
+      direction: string;
+      prior_count: string | number;
+    }> = await this.contractorPunchRepo.manager.query(
+      `SELECT p.punch_time,
+              p.direction,
+              (
+                SELECT COUNT(*)
+                  FROM contractor_biometric_punches p2
+                 WHERE p2.client_id = p.client_id
+                   AND p2.contractor_employee_id = p.contractor_employee_id
+                   AND (p2.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+                       = (p.punch_time AT TIME ZONE 'Asia/Kolkata')::date
+                   AND p2.punch_time < p.punch_time
+              ) AS prior_count
+         FROM contractor_biometric_punches p
+        WHERE p.client_id = $1
+          AND p.contractor_employee_id = $2
+          AND p.punch_time <= $3
+        ORDER BY p.punch_time DESC
+        LIMIT 1`,
+      [device.clientId, ctr.id, ts],
+    );
     if (lastRows.length) {
       const last = lastRows[0];
       const lastMs = new Date(last.punch_time).getTime();
       const elapsed = ts.getTime() - lastMs;
       if (
-        last.direction === 'OUT' &&
+        this.isLogoutCooldownViolation(last.direction, last.prior_count) &&
         elapsed >= 0 &&
         elapsed < POST_LOGOUT_COOLDOWN_MS
       ) {
@@ -3675,6 +3701,16 @@ export class MobileAttendanceService implements OnModuleInit {
       queryType: 'ATTENDANCE',
       priority: 1,
     });
+  }
+
+  private isLogoutCooldownViolation(
+    direction: string | null | undefined,
+    priorCount: string | number | null | undefined,
+  ): boolean {
+    const normalized = String(direction || '').toUpperCase();
+    if (normalized === 'OUT') return true;
+    if (normalized !== 'AUTO') return false;
+    return Number(priorCount ?? 0) > 0;
   }
 
   // ---------------------------------------------------- kiosk-supervised

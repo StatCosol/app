@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { BiometricService } from '../biometric/biometric.service';
 
 @Injectable()
 export class AttendanceService {
@@ -12,6 +13,7 @@ export class AttendanceService {
     @InjectRepository(EmployeeEntity)
     private readonly empRepo: Repository<EmployeeEntity>,
     private readonly ds: DataSource,
+    private readonly biometricService: BiometricService,
   ) {}
 
   /** Mark attendance for a single employee/date */
@@ -327,6 +329,13 @@ export class AttendanceService {
     branchId?: string;
     approvalStatus?: string;
   }) {
+    await this.biometricService.processRange(
+      params.clientId,
+      params.date,
+      params.date,
+      true,
+    );
+
     const qb = this.ds
       .createQueryBuilder()
       .select([
@@ -451,6 +460,8 @@ export class AttendanceService {
 
   /** Approval stats for a given day */
   async getApprovalStats(clientId: string, date: string, branchId?: string) {
+    await this.biometricService.processRange(clientId, date, date, true);
+
     const qb = this.repo
       .createQueryBuilder('a')
       .select('a.approval_status', 'status')

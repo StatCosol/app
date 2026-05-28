@@ -118,9 +118,21 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
       transaction: jest.fn(async (fn: any) => fn(mgr)),
     };
     return new MobileAttendanceService(
-      {} as any, {} as any, {} as any, {} as any, {} as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
       ds,
     );
   };
@@ -137,9 +149,9 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
   it('accepts when supplied androidId matches the bound value', async () => {
     const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
     const svc = makeService(row);
-    await expect(
-      svc.resolveDeviceByToken('tok', 'android-xyz'),
-    ).resolves.toBe(row);
+    await expect(svc.resolveDeviceByToken('tok', 'android-xyz')).resolves.toBe(
+      row,
+    );
   });
 
   it('rejects when supplied androidId differs from the bound value', async () => {
@@ -183,3 +195,38 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
   });
 });
 
+describe('MobileAttendanceService post-logout cooldown direction handling', () => {
+  const makeService = () =>
+    new MobileAttendanceService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    ) as any;
+
+  it('treats explicit OUT as a logout regardless of same-day prior punches', () => {
+    expect(makeService().isLogoutCooldownViolation('OUT', 0)).toBe(true);
+  });
+
+  it('treats AUTO as logout only when it is not the first same-day punch', () => {
+    const svc = makeService();
+    expect(svc.isLogoutCooldownViolation('AUTO', 0)).toBe(false);
+    expect(svc.isLogoutCooldownViolation('AUTO', 1)).toBe(true);
+  });
+
+  it('does not treat explicit IN as logout', () => {
+    expect(makeService().isLogoutCooldownViolation('IN', 3)).toBe(false);
+  });
+});
