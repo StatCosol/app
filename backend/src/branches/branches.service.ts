@@ -489,7 +489,7 @@ export class BranchesService {
               u.mobile,
               u.is_active AS "isActive",
               u.user_type AS "userType",
-              ub.created_at AS "createdAt"
+              u.created_at AS "createdAt"
        FROM user_branches ub
        JOIN users u ON u.id = ub.user_id
        WHERE ub.branch_id = $1
