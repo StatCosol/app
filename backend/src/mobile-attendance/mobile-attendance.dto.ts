@@ -439,3 +439,12 @@ export class SubmitKioskEnrollDto {
   @Max(1)
   selfMatchScore?: number;
 }
+
+export class ReviewKioskEnrollTicketDto {
+  @IsIn(['APPROVED', 'REJECTED'])
+  decision!: 'APPROVED' | 'REJECTED';
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

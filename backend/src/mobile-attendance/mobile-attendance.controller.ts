@@ -28,6 +28,7 @@ import {
   RegisterMobileDeviceDto,
   CreateReenrollRequestDto,
   ReviewReenrollRequestDto,
+  ReviewKioskEnrollTicketDto,
   SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 import { MobileAttendanceService } from './mobile-attendance.service';
@@ -846,7 +847,13 @@ export class MobileAttendanceAdminController {
   listKioskEnrollTickets(
     @CurrentUser() u: ReqUser,
     @Query('status')
-    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+    status?:
+      | 'PENDING'
+      | 'REVIEW_PENDING'
+      | 'COMPLETED'
+      | 'REJECTED'
+      | 'CANCELLED'
+      | 'EXPIRED',
   ) {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     const allowedBranchIds = scopeBranchIds(u);
@@ -872,6 +879,28 @@ export class MobileAttendanceAdminController {
     if (!u?.clientId) throw new BadRequestException('Client context required');
     if (!u?.userId) throw new BadRequestException('User context required');
     return this.svc.cancelKioskEnrollTicket(u.clientId, u.userId, id);
+  }
+
+  @ApiOperation({
+    summary: 'Approve or reject a kiosk-captured face before activating it',
+  })
+  @Roles('CLIENT', 'ADMIN', 'CRM', 'BRANCH_DESK')
+  @Post('kiosk-enroll/tickets/:id/review')
+  reviewKioskEnrollTicket(
+    @CurrentUser() u: ReqUser,
+    @Param('id') id: string,
+    @Body() body: ReviewKioskEnrollTicketDto,
+  ) {
+    if (!u?.clientId) throw new BadRequestException('Client context required');
+    if (!u?.userId) throw new BadRequestException('User context required');
+    const allowedBranchIds = scopeBranchIds(u);
+    return this.svc.reviewKioskEnrollTicket(
+      u.clientId,
+      u.userId,
+      allowedBranchIds,
+      id,
+      body,
+    );
   }
 }
 

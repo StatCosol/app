@@ -472,14 +472,32 @@ export class ClientMobileAttendanceService {
   }
 
   listKioskEnrollTickets(
-    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+    status?: KioskEnrollTicketStatus,
   ): Observable<KioskEnrollTicket[]> {
     const qs = status ? `?status=${encodeURIComponent(status)}` : '';
     return this.http.get<KioskEnrollTicket[]>(
       `${this.base}/kiosk-enroll/tickets${qs}`,
     );
   }
+
+  reviewKioskEnrollTicket(
+    id: string,
+    body: { decision: 'APPROVED' | 'REJECTED'; reason?: string },
+  ): Observable<{ ok: true; status: 'COMPLETED' | 'REJECTED' }> {
+    return this.http.post<{ ok: true; status: 'COMPLETED' | 'REJECTED' }>(
+      `${this.base}/kiosk-enroll/tickets/${id}/review`,
+      body,
+    );
+  }
 }
+
+export type KioskEnrollTicketStatus =
+  | 'PENDING'
+  | 'REVIEW_PENDING'
+  | 'COMPLETED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'EXPIRED';
 
 export interface CreateKioskEnrollTicketBody {
   deviceId: string;
@@ -499,14 +517,19 @@ export interface KioskEnrollTicket {
   contractorEmployeeId: string | null;
   subjectName: string;
   subjectCode: string | null;
-  status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+  status: KioskEnrollTicketStatus;
   createdBy: string;
   createdAt: string;
   expiresAt: string;
   completedAt: string | null;
+  capturedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
   cancelledAt: string | null;
   cancelledBy: string | null;
   embeddingModel: string | null;
+  photoUrl: string | null;
   notes: string | null;
 }
 

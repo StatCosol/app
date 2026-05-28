@@ -1,4 +1,4 @@
-﻿import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -24,6 +24,7 @@ import {
   EnrollFaceBody,
   EnrollmentStatusRow,
   KioskEnrollTicket,
+  KioskEnrollTicketStatus,
   MobileAttendanceDevice,
 } from '../../client/mobile-attendance/client-mobile-attendance.service';
 
@@ -95,7 +96,15 @@ interface EnrollForm {
         </p>
       </div>
 
-      <div *ngIf="subjectType === 'contractor'" class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+      <div *ngIf="subjectType === 'contractor'" class="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
+        <h3 class="font-semibold text-indigo-900 mb-1">Contractor face enrollment uses kiosk review</h3>
+        <p class="text-sm text-indigo-800">
+          Select a contractor employee below and use <strong>Enroll on Kiosk</strong>. The kiosk captures only;
+          the registration becomes active only after web approval.
+        </p>
+      </div>
+
+      <div *ngIf="false && subjectType === 'contractor'" class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <h3 class="font-semibold text-gray-900 mb-3">Enroll a Contractor Employee Face</h3>
 
         <div *ngIf="loadingSubjects" class="py-6 flex justify-center">
@@ -340,15 +349,25 @@ interface EnrollForm {
                 <td class="py-2 pr-3 text-gray-700">{{ t.subjectType === 'EMPLOYEE' ? 'Employee' : 'Contractor' }}</td>
                 <td class="py-2 pr-3">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                    [ngClass]="kioskTicketStatusClass(t.status)">{{ t.status }}</span>
+                    [ngClass]="kioskTicketStatusClass(t.status)">{{ kioskTicketStatusLabel(t.status) }}</span>
                 </td>
                 <td class="py-2 pr-3 text-xs text-gray-700">{{ t.createdAt | date:'medium' }}</td>
                 <td class="py-2 pr-3 text-xs text-gray-700">
                   <span *ngIf="t.completedAt">{{ t.completedAt | date:'medium' }}</span>
+                  <span *ngIf="!t.completedAt && t.reviewedAt">{{ t.reviewedAt | date:'medium' }}</span>
+                  <span *ngIf="!t.completedAt && !t.reviewedAt && t.capturedAt">{{ t.capturedAt | date:'medium' }}</span>
                   <span *ngIf="!t.completedAt && t.cancelledAt">{{ t.cancelledAt | date:'medium' }}</span>
                   <span *ngIf="!t.completedAt && !t.cancelledAt && t.status === 'PENDING'" class="text-gray-400">expires {{ t.expiresAt | date:'shortTime' }}</span>
                 </td>
-                <td class="py-2 text-right">
+                <td class="py-2 text-right whitespace-nowrap">
+                  <button type="button"
+                    *ngIf="t.status === 'REVIEW_PENDING'"
+                    class="text-xs text-emerald-700 hover:underline mr-3"
+                    (click)="approveKioskTicket(t)">Approve</button>
+                  <button type="button"
+                    *ngIf="t.status === 'REVIEW_PENDING'"
+                    class="text-xs text-red-700 hover:underline mr-3"
+                    (click)="rejectKioskTicket(t)">Reject</button>
                   <button type="button"
                     *ngIf="t.status === 'PENDING'"
                     class="text-xs text-red-700 hover:underline"
@@ -405,14 +424,20 @@ interface EnrollForm {
           <ng-container *ngIf="kioskActiveTicket">
             <div class="rounded-lg border p-3 mb-3"
               [class.bg-amber-50]="kioskActiveTicket.status === 'PENDING'"
+              [class.bg-blue-50]="kioskActiveTicket.status === 'REVIEW_PENDING'"
               [class.bg-emerald-50]="kioskActiveTicket.status === 'COMPLETED'"
+              [class.bg-red-50]="kioskActiveTicket.status === 'REJECTED'"
               [class.bg-gray-100]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
               <div class="text-sm font-semibold"
                 [class.text-amber-800]="kioskActiveTicket.status === 'PENDING'"
+                [class.text-blue-800]="kioskActiveTicket.status === 'REVIEW_PENDING'"
                 [class.text-emerald-800]="kioskActiveTicket.status === 'COMPLETED'"
+                [class.text-red-800]="kioskActiveTicket.status === 'REJECTED'"
                 [class.text-gray-700]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
                 <span *ngIf="kioskActiveTicket.status === 'PENDING'">Waiting for kiosk capture…</span>
+                <span *ngIf="kioskActiveTicket.status === 'REVIEW_PENDING'">Captured — approve from web to activate</span>
                 <span *ngIf="kioskActiveTicket.status === 'COMPLETED'">✓ Face enrolled successfully</span>
+                <span *ngIf="kioskActiveTicket.status === 'REJECTED'">Rejected</span>
                 <span *ngIf="kioskActiveTicket.status === 'CANCELLED'">Cancelled</span>
                 <span *ngIf="kioskActiveTicket.status === 'EXPIRED'">Ticket expired — try again</span>
               </div>
@@ -493,17 +518,16 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   static readonly KIOSK_TICKET_POLL_MS = 30_000;
   kioskTicketStatusFilter:
     | ''
-    | 'PENDING'
-    | 'COMPLETED'
-    | 'CANCELLED'
-    | 'EXPIRED' = '';
+    | KioskEnrollTicketStatus = '';
   readonly kioskTicketStatusFilters: ReadonlyArray<{
     label: string;
-    value: '' | 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+    value: '' | KioskEnrollTicketStatus;
   }> = [
     { label: 'All', value: '' },
     { label: 'Pending', value: 'PENDING' },
+    { label: 'Review', value: 'REVIEW_PENDING' },
     { label: 'Completed', value: 'COMPLETED' },
+    { label: 'Rejected', value: 'REJECTED' },
     { label: 'Cancelled', value: 'CANCELLED' },
     { label: 'Expired', value: 'EXPIRED' },
   ];
@@ -1181,6 +1205,8 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
             this.stopKioskTimers();
             if (t.status === 'COMPLETED') {
               this.toast.success(`${t.subjectName} enrolled successfully`);
+            } else if (t.status === 'REVIEW_PENDING') {
+              this.toast.info(`${t.subjectName} captured, waiting for approval`);
             }
             this.loadKioskTickets();
           }
@@ -1193,9 +1219,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   // ── Kiosk ticket history panel ──
-  setKioskTicketStatusFilter(
-    s: '' | 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
-  ): void {
+  setKioskTicketStatusFilter(s: '' | KioskEnrollTicketStatus): void {
     if (this.kioskTicketStatusFilter === s) return;
     this.kioskTicketStatusFilter = s;
     this.loadKioskTickets();
@@ -1227,7 +1251,9 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   private syncKioskTicketPoll(): void {
-    const hasPending = this.kioskTickets.some((t) => t.status === 'PENDING');
+    const hasPending = this.kioskTickets.some(
+      (t) => t.status === 'PENDING' || t.status === 'REVIEW_PENDING',
+    );
     if (hasPending && !this.kioskTicketPollTimer) {
       this.kioskTicketPollTimer = setInterval(() => {
         // Serialize: if a previous poll is still in flight (slow network /
@@ -1248,19 +1274,63 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     }
   }
 
-  kioskTicketStatusClass(
-    s: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
-  ): string {
+  kioskTicketStatusClass(s: KioskEnrollTicketStatus): string {
     switch (s) {
       case 'COMPLETED':
         return 'bg-green-100 text-green-800';
+      case 'REVIEW_PENDING':
+        return 'bg-blue-100 text-blue-800';
       case 'PENDING':
         return 'bg-amber-100 text-amber-800';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800';
       case 'CANCELLED':
         return 'bg-gray-100 text-gray-700';
       case 'EXPIRED':
         return 'bg-red-100 text-red-700';
     }
+  }
+
+  kioskTicketStatusLabel(s: KioskEnrollTicketStatus): string {
+    return s === 'REVIEW_PENDING' ? 'REVIEW' : s;
+  }
+
+  approveKioskTicket(t: KioskEnrollTicket): void {
+    if (t.status !== 'REVIEW_PENDING') return;
+    this.svc
+      .reviewKioskEnrollTicket(t.id, { decision: 'APPROVED' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success(`${t.subjectName} face enrollment approved`);
+          this.loadKioskTickets();
+          this.loadEnrollments();
+        },
+        error: (e) =>
+          this.toast.error(e?.error?.message || 'Approval failed'),
+      });
+  }
+
+  rejectKioskTicket(t: KioskEnrollTicket): void {
+    if (t.status !== 'REVIEW_PENDING') return;
+    const reason =
+      prompt(`Reject kiosk capture for ${t.subjectName}? Enter reason:`, 'Recapture required') ||
+      '';
+    if (!reason.trim()) return;
+    this.svc
+      .reviewKioskEnrollTicket(t.id, {
+        decision: 'REJECTED',
+        reason: reason.trim(),
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.info('Kiosk capture rejected');
+          this.loadKioskTickets();
+        },
+        error: (e) =>
+          this.toast.error(e?.error?.message || 'Rejection failed'),
+      });
   }
 
   cancelKioskTicketFromList(t: KioskEnrollTicket): void {

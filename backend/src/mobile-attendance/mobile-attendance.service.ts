@@ -41,6 +41,7 @@ import {
   EnrollSelfDto,
   MobilePunchDto,
   RegisterMobileDeviceDto,
+  ReviewKioskEnrollTicketDto,
   SubmitKioskEnrollDto,
 } from './mobile-attendance.dto';
 
@@ -436,6 +437,16 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new BadRequestException('Face embedding service unavailable');
     }
     const embedding: Buffer = Buffer.from(result.embeddingBase64, 'base64');
+    if (!embedding || embedding.length === 0) {
+      throw new BadRequestException(
+        'Face embedding service returned empty or invalid embedding. Contact your administrator.',
+      );
+    }
+    if (embedding.length % 4 !== 0) {
+      throw new BadRequestException(
+        `Face embedding has invalid byte length (${embedding.length}). Must be a multiple of 4 bytes.`,
+      );
+    }
     const embeddingModel: string = body.embeddingModel || result.embeddingModel;
     const faceScore: number = result.faceScore;
     if (faceScore < MIN_FACE_QUALITY_SCORE) {
@@ -1239,7 +1250,15 @@ export class MobileAttendanceService implements OnModuleInit {
     embeddingBuf: Buffer,
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
-    if (!probe) return; // can't validate malformed buffers; let DB write fail later
+    if (!probe) {
+      // Embedding could not be decoded — this is a critical error that must not
+      // be silently ignored. A malformed embedding will cause duplicate detection
+      // to fail, allowing same face to be enrolled for different employees.
+      throw new BadRequestException(
+        `Face embedding is malformed or empty (buffer length: ${embeddingBuf?.length ?? 0} bytes). ` +
+          `This may indicate an issue with the face encoding service. Contact your administrator.`,
+      );
+    }
     const best = await this.findBestDuplicateMatch(probe, clientId, {
       excludeEmployeeId: employeeId,
       excludeContractorEmployeeId: null,
@@ -1283,7 +1302,15 @@ export class MobileAttendanceService implements OnModuleInit {
     embeddingBuf: Buffer,
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
-    if (!probe) return;
+    if (!probe) {
+      // Embedding could not be decoded — this is a critical error that must not
+      // be silently ignored. A malformed embedding will cause duplicate detection
+      // to fail, allowing same face to be enrolled for different employees.
+      throw new BadRequestException(
+        `Face embedding is malformed or empty (buffer length: ${embeddingBuf?.length ?? 0} bytes). ` +
+          `This may indicate an issue with the face encoding service. Contact your administrator.`,
+      );
+    }
     const best = await this.findBestDuplicateMatch(probe, clientId, {
       excludeEmployeeId: null,
       excludeContractorEmployeeId: contractorEmployeeId,
@@ -2447,6 +2474,16 @@ export class MobileAttendanceService implements OnModuleInit {
       throw new BadRequestException('Face embedding service unavailable');
     }
     const embedding: Buffer = Buffer.from(result.embeddingBase64, 'base64');
+    if (!embedding || embedding.length === 0) {
+      throw new BadRequestException(
+        'Face embedding service returned empty or invalid embedding. Contact your administrator.',
+      );
+    }
+    if (embedding.length % 4 !== 0) {
+      throw new BadRequestException(
+        `Face embedding has invalid byte length (${embedding.length}). Must be a multiple of 4 bytes.`,
+      );
+    }
     const embeddingModel: string = body.embeddingModel || result.embeddingModel;
     if (result.faceScore < MIN_FACE_QUALITY_SCORE) {
       throw new BadRequestException(
@@ -3870,9 +3907,8 @@ export class MobileAttendanceService implements OnModuleInit {
 
   /**
    * Kiosk submits the on-device captured embedding for a previously issued
-   * ticket. We re-validate ownership, then upsert into face_enrollments
-   * (or contractor_face_enrollments) using the same shape the self-enroll
-   * path does, so the kiosk roster + ESS punch pipelines see it identically.
+   * ticket. We re-validate ownership and duplicate risk, then hold the
+   * captured embedding on the ticket until the web operator approves it.
    */
   async submitKioskEnrollTicket(
     device: MobileAttendanceDeviceEntity,
@@ -3911,27 +3947,111 @@ export class MobileAttendanceService implements OnModuleInit {
     const embeddingModel = body.embeddingModel ?? 'mobilefacenet-v1';
     const now = new Date();
 
+    let photoUrl: string | null = null;
     if (ticket.subjectType === 'EMPLOYEE') {
       const empId = ticket.employeeId!;
       await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding);
-      const photoUrl = await this.facePhotos.put({
+      photoUrl = await this.facePhotos.put({
         clientId: ticket.clientId,
         employeeCode: ticket.subjectCode ?? `emp-${empId}`,
         purpose: 'enroll',
         timestamp: now,
         photoB64: body.photoBase64,
       });
+    } else {
+      const ceId = ticket.contractorEmployeeId!;
+      const ce = await this.contractorEmpRepo.findOne({ where: { id: ceId } });
+      if (!ce) throw new NotFoundException('Contractor employee not found');
+      await this.assertContractorFaceNotDuplicate(
+        ticket.clientId,
+        ce.id,
+        embedding,
+      );
+      photoUrl = await this.facePhotos.put({
+        clientId: ticket.clientId,
+        employeeCode: `contractor-${ce.id}`,
+        purpose: 'enroll',
+        timestamp: now,
+        photoB64: body.photoBase64,
+      });
+    }
+
+    await this.kioskTicketRepo.update(
+      { id: ticket.id },
+      {
+        status: 'REVIEW_PENDING',
+        capturedAt: now,
+        embeddingModel,
+        pendingEmbedding: embedding,
+        photoUrl,
+        matchScoreSelf:
+          body.selfMatchScore != null ? String(body.selfMatchScore) : null,
+      },
+    );
+    return { ok: true, ticketId: ticket.id };
+  }
+
+  async reviewKioskEnrollTicket(
+    clientId: string,
+    reviewedBy: string,
+    allowedBranchIds: string[] | null,
+    ticketId: string,
+    body: ReviewKioskEnrollTicketDto,
+  ): Promise<{ ok: true; status: 'COMPLETED' | 'REJECTED' }> {
+    const ticket = await this.kioskTicketRepo.findOne({
+      where: { id: ticketId, clientId },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    if (
+      allowedBranchIds &&
+      allowedBranchIds.length > 0 &&
+      ticket.branchId &&
+      !allowedBranchIds.includes(ticket.branchId)
+    ) {
+      throw new ForbiddenException('Ticket is outside your branch scope');
+    }
+    if (ticket.status !== 'REVIEW_PENDING') {
+      throw new ConflictException(
+        `Ticket is ${ticket.status.toLowerCase()}, cannot review`,
+      );
+    }
+
+    const now = new Date();
+    if (body.decision === 'REJECTED') {
+      await this.kioskTicketRepo.update(
+        { id: ticket.id },
+        {
+          status: 'REJECTED',
+          reviewedAt: now,
+          reviewedBy,
+          rejectionReason: body.reason ?? null,
+        },
+      );
+      return { ok: true, status: 'REJECTED' };
+    }
+
+    const embedding = ticket.pendingEmbedding;
+    if (!embedding || embedding.length === 0 || embedding.length % 4 !== 0) {
+      throw new BadRequestException(
+        'Captured embedding is missing or malformed',
+      );
+    }
+    const embeddingModel = ticket.embeddingModel ?? 'mobilefacenet-v1';
+
+    if (ticket.subjectType === 'EMPLOYEE') {
+      const empId = ticket.employeeId!;
+      await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding);
       const payload: Partial<FaceEnrollmentEntity> = {
         employeeId: empId,
         clientId: ticket.clientId,
         branchId: ticket.branchId ?? null,
         embedding,
         embeddingModel,
-        photoUrl,
+        photoUrl: ticket.photoUrl ?? null,
         consentGivenAt: now,
         consentGivenBy: ticket.createdBy,
         enrolledAt: now,
-        enrolledBy: ticket.createdBy,
+        enrolledBy: reviewedBy,
         isActive: true,
         deactivatedAt: null,
         deactivationReason: null,
@@ -3949,7 +4069,7 @@ export class MobileAttendanceService implements OnModuleInit {
         clientId: ticket.clientId,
         action: existing ? 'RE_ENROLL' : 'ENROLL',
         embeddingModel,
-        actorUserId: ticket.createdBy,
+        actorUserId: reviewedBy,
       });
     } else {
       const ceId = ticket.contractorEmployeeId!;
@@ -3960,25 +4080,18 @@ export class MobileAttendanceService implements OnModuleInit {
         ce.id,
         embedding,
       );
-      const photoUrl = await this.facePhotos.put({
-        clientId: ticket.clientId,
-        employeeCode: `contractor-${ce.id}`,
-        purpose: 'enroll',
-        timestamp: now,
-        photoB64: body.photoBase64,
-      });
       const payload: Partial<ContractorFaceEnrollmentEntity> = {
         contractorEmployeeId: ce.id,
         clientId: ticket.clientId,
-        branchId: ce.branchId ?? null,
+        branchId: ce.branchId ?? ticket.branchId ?? null,
         contractorUserId: ce.contractorUserId ?? null,
         embedding,
         embeddingModel,
-        photoUrl,
+        photoUrl: ticket.photoUrl ?? null,
         consentGivenAt: now,
         consentGivenBy: ticket.createdBy,
         enrolledAt: now,
-        enrolledBy: ticket.createdBy,
+        enrolledBy: reviewedBy,
         isActive: true,
         deactivatedAt: null,
         deactivationReason: null,
@@ -3991,25 +4104,18 @@ export class MobileAttendanceService implements OnModuleInit {
           { contractorEmployeeId: ce.id },
           payload,
         );
-        await this.logContractorEnrollmentHistory({
-          contractorEmployeeId: ce.id,
-          clientId: ticket.clientId,
-          action: 'RE_ENROLL',
-          embeddingModel,
-          actorUserId: ticket.createdBy,
-        });
       } else {
         await this.contractorFaceRepo.save(
           this.contractorFaceRepo.create(payload),
         );
-        await this.logContractorEnrollmentHistory({
-          contractorEmployeeId: ce.id,
-          clientId: ticket.clientId,
-          action: 'ENROLL',
-          embeddingModel,
-          actorUserId: ticket.createdBy,
-        });
       }
+      await this.logContractorEnrollmentHistory({
+        contractorEmployeeId: ce.id,
+        clientId: ticket.clientId,
+        action: existing ? 'RE_ENROLL' : 'ENROLL',
+        embeddingModel,
+        actorUserId: reviewedBy,
+      });
     }
 
     await this.kioskTicketRepo.update(
@@ -4017,12 +4123,11 @@ export class MobileAttendanceService implements OnModuleInit {
       {
         status: 'COMPLETED',
         completedAt: now,
-        embeddingModel,
-        matchScoreSelf:
-          body.selfMatchScore != null ? String(body.selfMatchScore) : null,
+        reviewedAt: now,
+        reviewedBy,
       },
     );
-    return { ok: true, ticketId: ticket.id };
+    return { ok: true, status: 'COMPLETED' };
   }
 
   /** Portal poll: get the ticket the operator created (any status). */
@@ -4065,7 +4170,13 @@ export class MobileAttendanceService implements OnModuleInit {
   async listKioskEnrollTickets(
     clientId: string,
     allowedBranchIds: string[] | null,
-    status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED',
+    status?:
+      | 'PENDING'
+      | 'REVIEW_PENDING'
+      | 'COMPLETED'
+      | 'REJECTED'
+      | 'CANCELLED'
+      | 'EXPIRED',
   ): Promise<KioskEnrollTicketEntity[]> {
     const qb = this.kioskTicketRepo
       .createQueryBuilder('t')

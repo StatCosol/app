@@ -8,7 +8,9 @@ import {
 
 export type KioskEnrollTicketStatus =
   | 'PENDING'
+  | 'REVIEW_PENDING'
   | 'COMPLETED'
+  | 'REJECTED'
   | 'CANCELLED'
   | 'EXPIRED';
 
@@ -63,6 +65,18 @@ export class KioskEnrollTicketEntity {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date | null;
 
+  @Column({ name: 'captured_at', type: 'timestamptz', nullable: true })
+  capturedAt: Date | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt: Date | null;
+
+  @Column({ name: 'reviewed_by', type: 'uuid', nullable: true })
+  reviewedBy: string | null;
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason: string | null;
+
   @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
   cancelledAt: Date | null;
 
@@ -76,6 +90,12 @@ export class KioskEnrollTicketEntity {
     nullable: true,
   })
   embeddingModel: string | null;
+
+  @Column({ name: 'pending_embedding', type: 'bytea', nullable: true })
+  pendingEmbedding: Buffer | null;
+
+  @Column({ name: 'photo_url', type: 'text', nullable: true })
+  photoUrl: string | null;
 
   @Column({ name: 'match_score_self', type: 'numeric', nullable: true })
   matchScoreSelf: string | null;
