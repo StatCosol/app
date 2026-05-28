@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { fromEvent, interval, merge, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ActionButtonComponent,
@@ -523,6 +523,7 @@ interface BranchOption { id: string; name: string }
 })
 export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private readonly liveRefreshMs = 10000;
 
   tab: 'devices' | 'help' | 'status' | 'reenroll' = 'devices';
 
@@ -612,6 +613,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.loadEmployees();
     this.refreshPendingReenrollCount();
     this.refreshPendingContractorReenrollCount();
+    this.startLiveRefresh();
   }
 
   ngOnDestroy(): void {
@@ -661,13 +663,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   }
 
   // ── Devices ───────────────────────────────────────────────
-  loadDevices(): void {
-    this.loadingDevices = true;
+  loadDevices(silent = false): void {
+    if (this.loadingDevices) return;
+    if (!silent) this.loadingDevices = true;
     this.svc.listDevices()
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingDevices = false; this.bump(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { if (!silent) this.loadingDevices = false; this.bump(); }))
       .subscribe({
         next: (rows) => { this.devices = rows || []; this.bump(); },
-        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load devices'); this.bump(); },
+        error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load devices'); this.bump(); },
       });
   }
 
@@ -862,13 +865,14 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
   // reviews re-enrollment requests.
 
   // ── Enrollment status ────────────────────────────────────
-  loadEnrollments(): void {
-    this.loadingEnrollments = true;
+  loadEnrollments(silent = false): void {
+    if (this.loadingEnrollments) return;
+    if (!silent) this.loadingEnrollments = true;
     this.svc.listEnrollments()
-      .pipe(takeUntil(this.destroy$), finalize(() => { this.loadingEnrollments = false; this.bump(); }))
+      .pipe(takeUntil(this.destroy$), finalize(() => { if (!silent) this.loadingEnrollments = false; this.bump(); }))
       .subscribe({
         next: (rows) => { this.enrollmentRows = rows || []; this.bump(); },
-        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load enrollments'); this.bump(); },
+        error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments'); this.bump(); },
       });
   }
 
@@ -922,12 +926,13 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     this.loadReenrollRequests();
   }
 
-  loadReenrollRequests(): void {
-    this.loadingReenroll = true;
+  loadReenrollRequests(silent = false): void {
+    if (this.loadingReenroll) return;
+    if (!silent) this.loadingReenroll = true;
     const scope = this.reenrollScope;
-    const done = () => { this.loadingReenroll = false; this.bump(); };
+    const done = () => { if (!silent) this.loadingReenroll = false; this.bump(); };
     const onError = (e: any) =>
-      this.toast.error(e?.error?.message || 'Failed to load re-enrollment requests');
+      !silent && this.toast.error(e?.error?.message || 'Failed to load re-enrollment requests');
     if (scope === 'contractor') {
       this.svc.listContractorReenrollRequests(this.reenrollFilter)
         .pipe(takeUntil(this.destroy$), finalize(done))
@@ -1007,6 +1012,23 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
         next: (rows) => { this.pendingContractorReenrollCount = (rows || []).length; this.bump(); },
         error: () => { /* badge is best-effort */ },
       });
+  }
+
+  private startLiveRefresh(): void {
+    merge(interval(this.liveRefreshMs), fromEvent(window, 'focus'))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (!this.shouldLiveRefresh()) return;
+        this.refreshPendingReenrollCount();
+        this.refreshPendingContractorReenrollCount();
+        if (this.tab === 'devices') this.loadDevices(true);
+        if (this.tab === 'status') this.loadEnrollments(true);
+        if (this.tab === 'reenroll') this.loadReenrollRequests(true);
+      });
+  }
+
+  private shouldLiveRefresh(): boolean {
+    return !this.showModal && !this.tokenModal && !this.reviewRequest && !this.saving;
   }
 
   openReview(r: ReenrollViewRow, decision: 'APPROVED' | 'REJECTED'): void {

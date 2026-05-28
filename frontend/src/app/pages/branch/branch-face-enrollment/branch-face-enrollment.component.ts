@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { fromEvent, interval, merge, Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import {
   ActionButtonComponent,
@@ -465,6 +465,7 @@ interface EnrollForm {
 })
 export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private readonly liveRefreshMs = 5000;
 
   subjectType: SubjectType = 'employee';
 
@@ -545,6 +546,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.loadSubjects();
     this.loadEnrollments();
     this.loadKioskTickets();
+    this.startLiveRefresh();
   }
 
   ngOnDestroy(): void {
@@ -888,15 +890,16 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   }
 
   // ── Enrollment status ────────────────────────────────────
-  loadEnrollments(): void {
-    this.loadingEnrollments = true;
-    const done = () => { this.loadingEnrollments = false; this.cdr.markForCheck(); };
+  loadEnrollments(silent = false): void {
+    if (this.loadingEnrollments) return;
+    if (!silent) this.loadingEnrollments = true;
+    const done = () => { if (!silent) this.loadingEnrollments = false; this.cdr.markForCheck(); };
     if (this.subjectType === 'contractor') {
       this.svc.listContractorEnrollments()
         .pipe(takeUntil(this.destroy$), finalize(done))
         .subscribe({
           next: (rows) => { this.contractorEnrollmentRows = rows || []; this.cdr.markForCheck(); },
-          error: (e) => { this.toast.error(e?.error?.message || 'Failed to load contractor enrollments'); },
+          error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load contractor enrollments'); },
         });
       return;
     }
@@ -904,7 +907,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$), finalize(done))
       .subscribe({
         next: (rows) => { this.enrollmentRows = rows || []; this.cdr.markForCheck(); },
-        error: (e) => { this.toast.error(e?.error?.message || 'Failed to load enrollments'); },
+        error: (e) => { if (!silent) this.toast.error(e?.error?.message || 'Failed to load enrollments'); },
       });
   }
 
@@ -1225,15 +1228,16 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     this.loadKioskTickets();
   }
 
-  loadKioskTickets(): void {
-    this.loadingKioskTickets = true;
+  loadKioskTickets(silent = false): void {
+    if (this.loadingKioskTickets) return;
+    if (!silent) this.loadingKioskTickets = true;
     const status = this.kioskTicketStatusFilter || undefined;
     this.svc
       .listKioskEnrollTickets(status)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.loadingKioskTickets = false;
+          if (!silent) this.loadingKioskTickets = false;
           this.cdr.markForCheck();
         }),
       )
@@ -1243,9 +1247,11 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
           this.syncKioskTicketPoll();
         },
         error: (e) => {
-          this.toast.error(
-            e?.error?.message || 'Failed to load kiosk tickets',
-          );
+          if (!silent) {
+            this.toast.error(
+              e?.error?.message || 'Failed to load kiosk tickets',
+            );
+          }
         },
       });
   }
@@ -1260,7 +1266,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
         // backend), skip this tick so we don't issue concurrent requests
         // and risk processing responses out of order.
         if (this.loadingKioskTickets) return;
-        this.loadKioskTickets();
+        this.loadKioskTickets(true);
       }, BranchFaceEnrollmentComponent.KIOSK_TICKET_POLL_MS);
     } else if (!hasPending && this.kioskTicketPollTimer) {
       this.stopKioskTicketPoll();
@@ -1272,6 +1278,27 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       clearInterval(this.kioskTicketPollTimer);
       this.kioskTicketPollTimer = null;
     }
+  }
+
+  private startLiveRefresh(): void {
+    merge(interval(this.liveRefreshMs), fromEvent(window, 'focus'))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.shouldLiveRefresh()) {
+          this.loadEnrollments(true);
+          this.loadKioskTickets(true);
+        }
+      });
+  }
+
+  private shouldLiveRefresh(): boolean {
+    return (
+      !this.cameraActive &&
+      !this.enrolling &&
+      !this.kioskCreating &&
+      !this.kioskCancelling &&
+      !this.kioskModalOpen
+    );
   }
 
   kioskTicketStatusClass(s: KioskEnrollTicketStatus): string {
