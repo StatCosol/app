@@ -434,6 +434,7 @@ interface EnrollForm {
                 [class.text-emerald-800]="kioskActiveTicket.status === 'COMPLETED'"
                 [class.text-red-800]="kioskActiveTicket.status === 'REJECTED'"
                 [class.text-gray-700]="kioskActiveTicket.status === 'CANCELLED' || kioskActiveTicket.status === 'EXPIRED'">
+                <span *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)">{{ kioskActiveTicketMessage(kioskActiveTicket.status) }}</span>
                 <span *ngIf="kioskActiveTicket.status === 'PENDING'">Waiting for kiosk capture…</span>
                 <span *ngIf="kioskActiveTicket.status === 'REVIEW_PENDING'">Captured — approve from web to activate</span>
                 <span *ngIf="kioskActiveTicket.status === 'COMPLETED'">✓ Face enrolled successfully</span>
@@ -443,6 +444,9 @@ interface EnrollForm {
               </div>
               <div *ngIf="kioskActiveTicket.status === 'PENDING'" class="text-xs text-amber-700 mt-1">
                 Expires in {{ kioskCountdownLabel }}. Tell the subject to stand in front of the selected kiosk.
+              </div>
+              <div *ngIf="!isKnownKioskTicketStatus(kioskActiveTicket.status)" class="text-xs text-gray-600 mt-1">
+                Refreshing ticket status. Close this dialog and check the ticket list if it does not update.
               </div>
             </div>
             <div class="flex justify-end gap-2">
@@ -1320,6 +1324,29 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
 
   kioskTicketStatusLabel(s: KioskEnrollTicketStatus): string {
     return s === 'REVIEW_PENDING' ? 'REVIEW' : s;
+  }
+
+  isKnownKioskTicketStatus(
+    s: KioskEnrollTicketStatus | string | null | undefined,
+  ): s is KioskEnrollTicketStatus {
+    return (
+      s === 'PENDING' ||
+      s === 'REVIEW_PENDING' ||
+      s === 'COMPLETED' ||
+      s === 'REJECTED' ||
+      s === 'CANCELLED' ||
+      s === 'EXPIRED'
+    );
+  }
+
+  kioskActiveTicketMessage(
+    s: KioskEnrollTicketStatus | string | null | undefined,
+  ): string {
+    if (!s) return 'Ticket created. Waiting for kiosk status...';
+    if (this.isKnownKioskTicketStatus(s)) {
+      return this.kioskTicketStatusLabel(s);
+    }
+    return `Ticket status: ${String(s).replace(/_/g, ' ')}`;
   }
 
   approveKioskTicket(t: KioskEnrollTicket): void {
