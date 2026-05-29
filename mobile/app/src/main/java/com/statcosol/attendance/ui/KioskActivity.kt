@@ -305,14 +305,7 @@ class KioskActivity : AppCompatActivity() {
     private fun loadRoster() {
         lifecycleScope.launch {
             try {
-                val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
-                matcher = RosterMatcher(roster.enrollments)
-                binding.headerBranch.text = roster.branchName
-                    ?: roster.clientName
-                    ?: getString(R.string.kiosk_branch_unknown)
-                if (roster.enrollments.isEmpty()) {
-                    binding.statusText.text = getString(R.string.roster_empty)
-                }
+                refreshRosterNow(showEmptyMessage = true)
             } catch (e: Exception) {
                 // Soft-fail on refresh: keep the cached matcher in use rather
                 // than dropping all employees if the API blips.
@@ -321,6 +314,18 @@ class KioskActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private suspend fun refreshRosterNow(showEmptyMessage: Boolean): Int {
+        val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
+        matcher = RosterMatcher(roster.enrollments)
+        binding.headerBranch.text = roster.branchName
+            ?: roster.clientName
+            ?: getString(R.string.kiosk_branch_unknown)
+        if (showEmptyMessage && roster.enrollments.isEmpty()) {
+            binding.statusText.text = getString(R.string.roster_empty)
+        }
+        return roster.enrollments.size
     }
 
     /** Phase 3f: re-fetch the roster every [ROSTER_REFRESH_MS] so newly
@@ -765,6 +770,9 @@ class KioskActivity : AppCompatActivity() {
                     app.apiClient.submitKioskEnrollTicket(t.id, body)
                 }
                 if (resp.ok) {
+                    val rosterSize = runCatching {
+                        refreshRosterNow(showEmptyMessage = false)
+                    }.getOrNull()
                     runOnUiThread {
                         binding.statusText.text =
                             getString(R.string.kiosk_enroll_success, t.subjectName)
@@ -775,6 +783,10 @@ class KioskActivity : AppCompatActivity() {
                         mainHandler.postDelayed({
                             binding.statusText.text = getString(R.string.kiosk_look_at_camera)
                         }, 3_000L)
+                    }
+                    if (rosterSize == null) {
+                        mainHandler.removeCallbacks(rosterRefreshRunnable)
+                        mainHandler.postDelayed(rosterRefreshRunnable, 1_000L)
                     }
                 } else {
                     abortKioskEnrollment(resp.message ?: "server rejected")
