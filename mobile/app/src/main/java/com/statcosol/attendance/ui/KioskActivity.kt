@@ -234,10 +234,15 @@ class KioskActivity : AppCompatActivity() {
      * and finish() back to the device launcher.
      */
     private fun setupAdminExit() {
-        binding.headerBrand.setOnLongClickListener {
+        val listener = View.OnLongClickListener {
             showAdminExitDialog()
             true
         }
+        binding.headerStrip.setOnLongClickListener(listener)
+        binding.headerBrand.setOnLongClickListener(listener)
+        binding.headerBranch.setOnLongClickListener(listener)
+        binding.headerClock.setOnLongClickListener(listener)
+        binding.headerDate.setOnLongClickListener(listener)
     }
 
     private fun showAdminExitDialog() {
