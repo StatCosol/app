@@ -39,6 +39,8 @@ const AuditorOverdueNcsComponent = () =>
   import('./analytics/auditor-overdue-ncs.component').then(
     (m) => m.AuditorOverdueNcsComponent,
   );
+const NewsDetailComponent = () =>
+  import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 export const AUDITOR_ROUTES: Routes = [
   {
     path: 'auditor',
@@ -56,6 +58,8 @@ export const AUDITOR_ROUTES: Routes = [
       { path: 'reports/:auditId/builder', loadComponent: AuditorReportBuilderPageComponent },
       { path: 'reports', loadComponent: AuditorReportsComponent },
       { path: 'notifications', loadComponent: AuditorNotificationsComponent },
+      { path: 'news', loadComponent: NewsDetailComponent },
+      { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'ai-audit', loadComponent: AuditorAiAuditComponent },
       { path: 'analytics/repeat-ncs', loadComponent: AuditorRepeatNcAnalyticsComponent },
       { path: 'analytics/overdue-ncs', loadComponent: AuditorOverdueNcsComponent },

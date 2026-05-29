@@ -4,12 +4,13 @@ import { RouterOutlet } from '@angular/router';
 import { CrmSidebarComponent } from './crm-sidebar.component';
 import { AuthService } from '../../../core/auth.service';
 import { ComplianceContextBootstrapService } from '../../../core/services/compliance-context-bootstrap.service';
+import { NewsTickerComponent } from '../../../shared/news/news-ticker.component';
 
 @Component({
   selector: 'app-crm-layout',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, RouterOutlet, CrmSidebarComponent],
+  imports: [CommonModule, RouterOutlet, CrmSidebarComponent, NewsTickerComponent],
   template: `
     <div class="crm-shell">
       <!-- Mobile menu toggle -->
@@ -85,6 +86,9 @@ import { ComplianceContextBootstrapService } from '../../../core/services/compli
             </div>
           </div>
         </header>
+
+        <!-- News ticker ribbon -->
+        <app-news-ticker></app-news-ticker>
 
         <!-- Page content -->
         <main class="flex-1 bg-gradient-to-br from-slate-50 via-teal-50/30 to-slate-50">

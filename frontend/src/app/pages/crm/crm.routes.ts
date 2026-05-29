@@ -92,6 +92,8 @@ const CrmContractorComputationComponent = () =>
   import('./contractor-computation/crm-contractor-computation.component').then(
     (m) => m.CrmContractorComputationComponent,
   );
+const NewsDetailComponent = () =>
+  import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 
 export const CRM_ROUTES: Routes = [
   {
@@ -143,6 +145,8 @@ export const CRM_ROUTES: Routes = [
       { path: 'notices', loadComponent: CrmNoticesComponent },
       { path: 'minimum-wages', loadComponent: CrmMinimumWagesComponent },
       { path: 'contractor-computation', loadComponent: CrmContractorComputationComponent },
+      { path: 'news', loadComponent: NewsDetailComponent },
+      { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'profile', loadComponent: CrmProfileComponent },
       { path: 'calendar', loadComponent: ComplianceCalendarComponent },
       { path: 'sla', loadComponent: SlaTrackerComponent },

@@ -129,6 +129,10 @@ export class NewsTickerComponent implements OnInit, OnDestroy {
     if (url.startsWith('/contractor')) portalBase = '/contractor';
     else if (url.startsWith('/client')) portalBase = '/client';
     else if (url.startsWith('/branch')) portalBase = '/branch';
+    else if (url.startsWith('/crm')) portalBase = '/crm';
+    else if (url.startsWith('/cco')) portalBase = '/cco';
+    else if (url.startsWith('/ceo')) portalBase = '/ceo';
+    else if (url.startsWith('/auditor')) portalBase = '/auditor';
 
     this.router.navigate([portalBase, 'news', item.id]);
   }
@@ -139,6 +143,10 @@ export class NewsTickerComponent implements OnInit, OnDestroy {
     if (url.startsWith('/contractor')) portalBase = '/contractor';
     else if (url.startsWith('/client')) portalBase = '/client';
     else if (url.startsWith('/branch')) portalBase = '/branch';
+    else if (url.startsWith('/crm')) portalBase = '/crm';
+    else if (url.startsWith('/cco')) portalBase = '/cco';
+    else if (url.startsWith('/ceo')) portalBase = '/ceo';
+    else if (url.startsWith('/auditor')) portalBase = '/auditor';
     this.router.navigate([portalBase, 'news']);
   }
 
