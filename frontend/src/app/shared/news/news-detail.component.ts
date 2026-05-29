@@ -3,6 +3,7 @@ import { CommonModule, DatePipe, Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil, finalize, timeout } from 'rxjs';
 import { NewsService, NewsItem } from '../../shared/services/news.service';
+import { ProtectedFileService } from '../files/services/protected-file.service';
 
 @Component({
   selector: 'app-news-detail',
@@ -79,6 +80,14 @@ import { NewsService, NewsItem } from '../../shared/services/news.service';
             <div class="text-gray-700 leading-relaxed whitespace-pre-wrap text-base sm:text-lg">
               {{ selectedItem.body }}
             </div>
+            <button
+              *ngIf="selectedItem.imageUrl"
+              type="button"
+              class="download-btn"
+              (click)="downloadAttachment(selectedItem, $event)"
+            >
+              Download attachment
+            </button>
           </div>
         </article>
 
@@ -117,6 +126,14 @@ import { NewsService, NewsItem } from '../../shared/services/news.service';
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
                 </span>
+                <button
+                  *ngIf="n.imageUrl"
+                  type="button"
+                  class="download-btn download-btn--sm"
+                  (click)="downloadAttachment(n, $event)"
+                >
+                  Download
+                </button>
               </div>
             </article>
           </div>
@@ -158,6 +175,14 @@ import { NewsService, NewsItem } from '../../shared/services/news.service';
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
               </svg>
             </span>
+            <button
+              *ngIf="allItems[0].imageUrl"
+              type="button"
+              class="download-btn"
+              (click)="downloadAttachment(allItems[0], $event)"
+            >
+              Download attachment
+            </button>
           </div>
         </article>
 
@@ -189,6 +214,14 @@ import { NewsService, NewsItem } from '../../shared/services/news.service';
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </span>
+              <button
+                *ngIf="n.imageUrl"
+                type="button"
+                class="download-btn download-btn--sm"
+                (click)="downloadAttachment(n, $event)"
+              >
+                Download
+              </button>
             </div>
           </article>
         </div>
@@ -352,6 +385,26 @@ import { NewsService, NewsItem } from '../../shared/services/news.service';
     .read-more:hover { gap: 8px; }
     .read-more--lg { font-size: 0.875rem; margin-top: 1rem; }
 
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 1rem;
+      padding: 0.45rem 0.8rem;
+      border-radius: 0.5rem;
+      background: #0a2656;
+      color: #fff;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+    }
+    .download-btn:hover { background: #144B7A; }
+    .download-btn--sm {
+      margin-top: 0.75rem;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.75rem;
+    }
+
     /* ── Divider ── */
     .article-divider {
       height: 3px;
@@ -431,6 +484,7 @@ export class NewsDetailComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private newsService: NewsService,
+    private files: ProtectedFileService,
     private location: Location,
     private cdr: ChangeDetectorRef,
   ) {}
@@ -495,6 +549,28 @@ export class NewsDetailComponent implements OnInit, OnDestroy {
 
   isPdf(url: string): boolean {
     return url?.toLowerCase().endsWith('.pdf');
+  }
+
+  downloadAttachment(item: NewsItem, event?: Event): void {
+    event?.stopPropagation();
+    if (!item.imageUrl) return;
+    this.files.download(item.imageUrl, this.attachmentName(item)).subscribe();
+  }
+
+  private attachmentName(item: NewsItem): string {
+    const extension = this.extensionFromUrl(item.imageUrl || '');
+    const base = (item.title || 'news-attachment')
+      .trim()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase() || 'news-attachment';
+    return `${base}${extension}`;
+  }
+
+  private extensionFromUrl(url: string): string {
+    const clean = url.split('?')[0] || '';
+    const match = clean.match(/\.([a-z0-9]{2,5})$/i);
+    return match ? `.${match[1].toLowerCase()}` : '';
   }
 
   goBack(): void {
