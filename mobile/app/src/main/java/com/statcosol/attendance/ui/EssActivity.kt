@@ -347,7 +347,7 @@ class EssActivity : AppCompatActivity() {
         // Mapped (cos+1)/2. 0.85 == raw cos 0.70. See KioskActivity for the
         // rationale; ESS is 1:1 against the bound employee so only the
         // absolute threshold applies here (no margin guard needed).
-        private const val MIN_MATCH = 0.78
+        private const val MIN_MATCH = 0.85
         private const val MIN_LIVENESS = 0.5
         private const val CAPTURE_TIMEOUT_MS = 10_000L
         private const val CHALLENGE_TIMEOUT_MS = 8_000L
