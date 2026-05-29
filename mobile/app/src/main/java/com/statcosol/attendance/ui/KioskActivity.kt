@@ -838,7 +838,7 @@ class KioskActivity : AppCompatActivity() {
         // above it. Combined with the ambiguity-margin check inside
         // RosterMatcher.match(), 0.85 keeps same-person accept rates high
         // while sharply cutting cross-identity false accepts.
-        private const val MIN_MATCH = 0.85
+        private const val MIN_MATCH = 0.78
         private const val MIN_LIVENESS = 0.5
         // Bumped from 8 s -> 30 s so the kiosk doesn't immediately re-capture
         // a person right after their punch is recorded (which previously felt

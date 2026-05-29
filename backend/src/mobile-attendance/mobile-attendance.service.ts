@@ -53,7 +53,12 @@ import {
 // also enforces an ambiguity margin (best - 2nd >= 0.04) for 1:N kiosk
 // matching; this server-side gate is the second line of defence on the
 // per-punch payload.
-const MIN_MATCH_SCORE = 0.85;
+const MIN_MATCH_SCORE = (() => {
+  const raw = process.env.FACE_MIN_MATCH_SCORE;
+  if (raw == null || raw === '') return 0.78;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.78;
+})();
 const MIN_LIVENESS_SCORE = 0.5;
 // Face-quality gate at enrollment time (roadmap #2). face-svc returns a
 // 0..1 confidence/quality score per embedded photo; rejecting low-quality

@@ -31,7 +31,7 @@ class RosterMatcher(roster: List<RosterEntry>) {
      */
     fun match(
         probe: FloatArray,
-        minScore: Double = 0.85,
+        minScore: Double = 0.78,
         minMargin: Double = 0.04,
     ): Match? {
         if (entries.isEmpty()) {
@@ -68,7 +68,7 @@ class RosterMatcher(roster: List<RosterEntry>) {
     }
 
     /** ESS path: 1:1 verify against the bound employee. */
-    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.85): Match? {
+    fun verify(probe: FloatArray, employeeId: String, minScore: Double = 0.78): Match? {
         val target = entries.firstOrNull { it.first.employeeId == employeeId } ?: run {
             Log.w(TAG, "verify: bound employee $employeeId not in roster (size=${entries.size})")
             return null
