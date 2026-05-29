@@ -18,6 +18,21 @@ data class RosterResponse(
     val enrollments: List<RosterEntry>
 )
 
+/** GET /api/v1/mobile-attendance/config response, no embeddings. */
+@JsonClass(generateAdapter = true)
+data class DeviceInfoResponse(
+    val deviceId: String,
+    val mode: String,
+    val clientId: String,
+    val clientName: String? = null,
+    val branchId: String?,
+    val branchName: String? = null,
+    val geofenceLat: Double?,
+    val geofenceLng: Double?,
+    val geofenceRadiusM: Int?,
+    val essEmployeeId: String?,
+)
+
 /** One enrolled employee. `embeddingB64` decodes to a Float32[] of 192 dims. */
 @JsonClass(generateAdapter = true)
 data class RosterEntry(

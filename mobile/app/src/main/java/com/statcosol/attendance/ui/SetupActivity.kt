@@ -14,9 +14,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * First-launch screen. Operator pastes the install token issued by the admin
- * portal, optionally overrides the API base, and we call `/roster` to confirm
- * the token + learn the device mode (KIOSK vs ESS). On success we route to the
- * appropriate Activity.
+ * portal, optionally overrides the API base, and we call `/config` to confirm
+ * the token + learn the device mode (KIOSK vs ESS). The full roster loads only
+ * after the relevant mode Activity opens.
  */
 class SetupActivity : AppCompatActivity() {
 
@@ -40,7 +40,7 @@ class SetupActivity : AppCompatActivity() {
             binding.progress.visibility = View.VISIBLE
             lifecycleScope.launch {
                 val ok = runCatching {
-                    withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
+                    withContext(Dispatchers.IO) { app.apiClient.fetchDeviceInfo() }
                 }
                 binding.progress.visibility = View.GONE
                 if (ok.isSuccess) {
@@ -86,11 +86,11 @@ class SetupActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
-                app.deviceConfig.mode = roster.mode
-                app.deviceConfig.deviceId = roster.deviceId
-                app.deviceConfig.essEmployeeId = roster.essEmployeeId
-                launchModeActivity(roster.mode)
+                val info = withContext(Dispatchers.IO) { app.apiClient.fetchDeviceInfo() }
+                app.deviceConfig.mode = info.mode
+                app.deviceConfig.deviceId = info.deviceId
+                app.deviceConfig.essEmployeeId = info.essEmployeeId
+                launchModeActivity(info.mode)
             } catch (e: Exception) {
                 binding.statusText.text = e.message ?: "registration failed"
                 app.deviceConfig.installToken = null

@@ -1122,6 +1122,40 @@ export class MobileAttendanceService implements OnModuleInit {
     };
   }
 
+  async deviceConfig(device: MobileAttendanceDeviceEntity) {
+    let branchName: string | null = null;
+    let clientName: string | null = null;
+    try {
+      const rows = await this.faceRepo.manager.query(
+        `SELECT c.client_name AS "clientName", b.branchname AS "branchName"
+         FROM clients c
+         LEFT JOIN client_branches b ON b.id = $2
+         WHERE c.id = $1
+         LIMIT 1`,
+        [device.clientId, device.branchId ?? null],
+      );
+      if (rows && rows[0]) {
+        clientName = rows[0].clientName ?? null;
+        branchName = rows[0].branchName ?? null;
+      }
+    } catch {
+      // best-effort; setup can continue without labels.
+    }
+
+    return {
+      deviceId: device.id,
+      mode: device.mode,
+      clientId: device.clientId,
+      clientName,
+      branchId: device.branchId,
+      branchName,
+      geofenceLat: device.geofenceLat,
+      geofenceLng: device.geofenceLng,
+      geofenceRadiusM: device.geofenceRadiusM,
+      essEmployeeId: device.essEmployeeId,
+    };
+  }
+
   /**
    * K9 side-panel dashboard for the kiosk/ESS Android app. Returns a compact
    * "today at a glance" snapshot scoped to the device's client + branch:

@@ -77,6 +77,12 @@ class EnrollActivity : AppCompatActivity() {
         binding.captureBtn.setOnClickListener { startEnrollment() }
     }
 
+    override fun onDestroy() {
+        capture?.stop()
+        capture = null
+        super.onDestroy()
+    }
+
     private fun startCamera() {
         capture = FaceCaptureSession(
             context = this,
@@ -211,13 +217,13 @@ class EnrollActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val REQUIRED_FRAMES = 8
+        private const val REQUIRED_FRAMES = 5
         private const val MIN_LIVENESS = 0.7
-        private const val CAPTURE_TIMEOUT_MS = 15_000L
+        private const val CAPTURE_TIMEOUT_MS = 8_000L
         /** Minimum wall-clock gap between accepted enrollment frames so
          *  the captured set covers a small window of expressions and
          *  micro-poses, not a single instant. */
-        private const val MIN_FRAME_INTERVAL_MS = 350L
+        private const val MIN_FRAME_INTERVAL_MS = 250L
         /** Each new candidate (and the final accepted set) must have at
          *  least this cosine similarity to the running average. Tuned to
          *  reject a different face wandering into view while keeping

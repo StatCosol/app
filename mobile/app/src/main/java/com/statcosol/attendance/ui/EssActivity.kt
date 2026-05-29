@@ -148,6 +148,8 @@ class EssActivity : AppCompatActivity() {
     override fun onDestroy() {
         rosterRefreshJob?.cancel()
         rosterRefreshJob = null
+        capture?.stop()
+        capture = null
         super.onDestroy()
     }
 
@@ -174,6 +176,10 @@ class EssActivity : AppCompatActivity() {
                             val n = code.substringAfter(':').toIntOrNull() ?: 2
                             getString(R.string.face_multiple_detected, n)
                         }
+                        code == "hint:no_face" -> getString(R.string.hint_no_face)
+                        code == "hint:too_small" -> getString(R.string.hint_too_small)
+                        code == "hint:too_dim" -> getString(R.string.hint_too_dim)
+                        code == "hint:not_straight" -> getString(R.string.hint_not_straight)
                         else -> code
                     }
                 }

@@ -33,7 +33,7 @@ class FaceDetector {
 
     data class Result(
         val face: Face,
-        val crop: Bitmap,
+        val crop: Bitmap?,
         val livenessScore: Double,
         /** Total number of faces ML Kit detected in this frame. >1 means
          *  the caller MUST reject the punch (multi-face / proxy attempt). */
@@ -49,12 +49,11 @@ class FaceDetector {
         val headPitchDeg: Float,
     )
 
-    suspend fun detectLargest(source: Bitmap, rotationDegrees: Int = 0): Result? {
-        val image = InputImage.fromBitmap(source, rotationDegrees)
+    suspend fun detectLargest(image: InputImage, cropSource: Bitmap? = null): Result? {
         val faces = awaitDetect(image)
         val largest = faces.maxByOrNull { it.boundingBox.width().toLong() * it.boundingBox.height() }
             ?: return null
-        val crop = safeCrop(source, largest.boundingBox)
+        val crop = cropSource?.let { safeCrop(it, largest.boundingBox) }
         return Result(
             face = largest,
             crop = crop,
@@ -67,6 +66,9 @@ class FaceDetector {
             headPitchDeg = largest.headEulerAngleX,
         )
     }
+
+    suspend fun detectLargest(source: Bitmap, rotationDegrees: Int = 0): Result? =
+        detectLargest(InputImage.fromBitmap(source, rotationDegrees), source)
 
     private suspend fun awaitDetect(image: InputImage): List<Face> =
         suspendCancellableCoroutine { cont ->
@@ -87,11 +89,17 @@ class FaceDetector {
         return (eye * 0.6f + pose.coerceIn(0f, 1f) * 0.4f).toDouble().coerceIn(0.0, 1.0)
     }
 
+    fun cropFace(src: Bitmap, box: Rect): Bitmap = safeCrop(src, box)
+
     private fun safeCrop(src: Bitmap, box: Rect): Bitmap {
-        val x = max(0, box.left)
-        val y = max(0, box.top)
-        val w = min(src.width - x, box.width())
-        val h = min(src.height - y, box.height())
+        val side = max(box.width(), box.height())
+        val padded = (side * 1.35f).toInt()
+        val cx = box.centerX()
+        val cy = box.centerY()
+        val x = max(0, cx - padded / 2)
+        val y = max(0, cy - padded / 2)
+        val w = min(src.width - x, padded)
+        val h = min(src.height - y, padded)
         return Bitmap.createBitmap(src, x, y, w, h)
     }
 }

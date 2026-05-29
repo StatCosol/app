@@ -80,9 +80,11 @@ export class BiometricService {
       const ts = new Date(it.punchTime);
       if (isNaN(ts.getTime())) continue;
 
-      const requestedSource = (it as IngestPunchItemDto & {
-        source?: BiometricPunchEntity['source'];
-      }).source;
+      const requestedSource = (
+        it as IngestPunchItemDto & {
+          source?: BiometricPunchEntity['source'];
+        }
+      ).source;
       toInsert.push({
         clientId,
         branchId: emp?.branchId ?? it.branchId ?? null,

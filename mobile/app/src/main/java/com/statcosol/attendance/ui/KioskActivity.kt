@@ -182,6 +182,8 @@ class KioskActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(rosterRefreshRunnable)
         mainHandler.removeCallbacks(enrollTicketPollRunnable)
         mainHandler.removeCallbacks(enrollChallengeTimeout)
+        capture?.stop()
+        capture = null
         try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -348,6 +350,7 @@ class KioskActivity : AppCompatActivity() {
             code == "hint:no_face" -> getString(R.string.hint_no_face)
             code == "hint:too_small" -> getString(R.string.hint_too_small)
             code == "hint:too_dim" -> getString(R.string.hint_too_dim)
+            code == "hint:not_straight" -> getString(R.string.hint_not_straight)
             else -> code
         }
     }
@@ -849,9 +852,9 @@ class KioskActivity : AppCompatActivity() {
         // Operator-supervised enrollment constants.
         private const val ENROLL_POLL_FIRST_MS = 3_000L
         private const val ENROLL_POLL_MS = 8_000L
-        private const val ENROLL_REQUIRED_FRAMES = 8
+        private const val ENROLL_REQUIRED_FRAMES = 5
         private const val ENROLL_MIN_LIVENESS = 0.7
-        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 350L
+        private const val ENROLL_MIN_FRAME_INTERVAL_MS = 250L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.78
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
     }

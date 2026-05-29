@@ -48,6 +48,23 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    fun fetchDeviceInfo(): DeviceInfoResponse {
+        val token = requireToken()
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/config")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .get()
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val body = resp.body?.string() ?: throw IOException("empty body")
+            if (resp.code == 404) return fetchRoster().toDeviceInfo()
+            if (!resp.isSuccessful) throw IOException("config ${resp.code}: $body")
+            return moshi.adapter(DeviceInfoResponse::class.java).fromJson(body)
+                ?: throw IOException("could not parse config response")
+        }
+    }
+
     fun postPunch(body: PunchBody): PunchResponse {
         val token = requireToken()
         val json = moshi.adapter(PunchBody::class.java).toJson(body)
@@ -155,4 +172,18 @@ class ApiClient(private val config: DeviceConfig) {
 
     private fun requireToken(): String =
         config.installToken ?: throw IllegalStateException("device not registered")
+
+    private fun RosterResponse.toDeviceInfo(): DeviceInfoResponse =
+        DeviceInfoResponse(
+            deviceId = deviceId,
+            mode = mode,
+            clientId = clientId,
+            clientName = clientName,
+            branchId = branchId,
+            branchName = branchName,
+            geofenceLat = geofenceLat,
+            geofenceLng = geofenceLng,
+            geofenceRadiusM = geofenceRadiusM,
+            essEmployeeId = essEmployeeId,
+        )
 }

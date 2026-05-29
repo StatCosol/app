@@ -938,6 +938,18 @@ export class MobileAttendanceDeviceController {
   }
 
   @ApiOperation({
+    summary: 'Pull lightweight device config without roster embeddings',
+  })
+  @Get('config')
+  async config(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.deviceConfig(dev);
+  }
+
+  @ApiOperation({
     summary: 'ESS self-enroll — from the device-bound employee phone',
   })
   @Post('enroll-self')

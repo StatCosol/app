@@ -31,6 +31,8 @@ import {
   UpdateLeavePolicyDto,
 } from './dto/ess.dto';
 
+const BUSINESS_TZ_OFFSET_MIN = 330;
+
 // ─── Types ────────────────────────────────────────────────────
 export type EssUser = {
   id: string;
@@ -93,6 +95,17 @@ export class EssService {
       throw new ForbiddenException('No employee record linked to this user');
     }
     return user.employeeId;
+  }
+
+  private businessNow(now = new Date()): { date: string; time: string } {
+    const local = new Date(now.getTime() + BUSINESS_TZ_OFFSET_MIN * 60 * 1000);
+    const y = local.getUTCFullYear();
+    const m = String(local.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(local.getUTCDate()).padStart(2, '0');
+    const h = String(local.getUTCHours()).padStart(2, '0');
+    const min = String(local.getUTCMinutes()).padStart(2, '0');
+    const s = String(local.getUTCSeconds()).padStart(2, '0');
+    return { date: `${y}-${m}-${d}`, time: `${h}:${min}:${s}` };
   }
 
   private resolveMonthRange(month?: string) {
@@ -484,7 +497,7 @@ export class EssService {
   // -- Self Check-In / Check-Out -----------------------------------------------
   async getTodayAttendance(user: EssUser) {
     const empId = this.ensureEmployee(user);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = this.businessNow().date;
     const rows = await this.ds.query(
       `SELECT id, date::text AS date, status, check_in AS "checkIn", check_out AS "checkOut",
               capture_method AS "captureMethod", self_marked AS "selfMarked",
@@ -512,9 +525,9 @@ export class EssService {
     const emp = await this.empRepo.findOne({ where: { id: empId } });
     if (!emp) throw new NotFoundException('Employee not found');
 
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const businessNow = this.businessNow();
+    const today = businessNow.date;
+    const timeStr = businessNow.time;
 
     // Check if record already exists
     const existing = await this.ds.query(
@@ -604,9 +617,9 @@ export class EssService {
     const emp = await this.empRepo.findOne({ where: { id: empId } });
     if (!emp) throw new NotFoundException('Employee not found');
 
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const businessNow = this.businessNow();
+    const today = businessNow.date;
+    const timeStr = businessNow.time;
 
     const existing = await this.ds.query(
       `SELECT id, status, check_in AS "checkIn", check_out AS "checkOut"
@@ -626,7 +639,8 @@ export class EssService {
     // Calculate worked hours
     const checkInParts = String(existing[0].checkIn).split(':').map(Number);
     const checkInMinutes = checkInParts[0] * 60 + checkInParts[1];
-    const checkOutMinutes = now.getHours() * 60 + now.getMinutes();
+    const checkOutParts = timeStr.split(':').map(Number);
+    const checkOutMinutes = checkOutParts[0] * 60 + checkOutParts[1];
     const workedDecimal = Math.max(0, (checkOutMinutes - checkInMinutes) / 60);
     const workedHrs = workedDecimal.toFixed(2);
     const STANDARD_HOURS = 9;
@@ -704,7 +718,7 @@ export class EssService {
     body: { date?: string; reason: string },
   ) {
     const empId = this.ensureEmployee(user);
-    const targetDate = body.date || new Date().toISOString().slice(0, 10);
+    const targetDate = body.date || this.businessNow().date;
     const reason = (body.reason || '').trim();
     if (!reason || reason.length < 5) {
       throw new BadRequestException(
