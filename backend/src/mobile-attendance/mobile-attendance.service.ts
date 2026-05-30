@@ -346,9 +346,9 @@ export class MobileAttendanceService implements OnModuleInit {
    *   - if the device row already has an `android_id`, the supplied
    *     `androidId` MUST match exactly — otherwise we throw 401 so the
    *     same install token can't be used to activate a second tablet.
-   *   - if no `androidId` header was supplied at all (older app build,
-   *     server-side internal call, etc.) we fall back to the previous
-   *     behaviour and only require an active row.
+   *   - if no `androidId` header was supplied at all, reject. Every
+   *     supported app build sends X-Android-Id; allowing a missing header
+   *     would make the one-code/one-device rule bypassable by old clients.
    *
    * Throws on revoked / unknown / token-already-bound-to-another-device.
    */
@@ -358,6 +358,11 @@ export class MobileAttendanceService implements OnModuleInit {
   ): Promise<MobileAttendanceDeviceEntity> {
     if (!token) throw new UnauthorizedException('Missing device token');
     const supplied = (androidId ?? '').trim();
+    if (!supplied) {
+      throw new UnauthorizedException(
+        'Device identity header missing. Update the StatCo app to the latest version.',
+      );
+    }
 
     // Lock the device row for the read-modify-write of `androidId` to avoid
     // two devices simultaneously binding the same install-token. Without the
@@ -371,27 +376,14 @@ export class MobileAttendanceService implements OnModuleInit {
       if (!dev || !dev.isActive)
         throw new UnauthorizedException('Invalid device token');
 
-      if (supplied) {
-        if (!dev.androidId) {
-          dev.androidId = supplied;
-        } else if (dev.androidId !== supplied) {
-          this.logger.warn(
-            `device token reuse blocked deviceId=${dev.id} bound=${dev.androidId} attempt=${supplied}`,
-          );
-          throw new UnauthorizedException(
-            'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
-          );
-        }
-      } else if (dev.androidId) {
-        // Header missing but row has a bound androidId — older/replayed
-        // client. Refuse rather than silently fall through, otherwise the
-        // single-device-binding promise can be bypassed by stripping the
-        // header.
+      if (!dev.androidId) {
+        dev.androidId = supplied;
+      } else if (dev.androidId !== supplied) {
         this.logger.warn(
-          `device token used without X-Android-Id header deviceId=${dev.id} bound=${dev.androidId}`,
+          `device token reuse blocked deviceId=${dev.id} bound=${dev.androidId} attempt=${supplied}`,
         );
         throw new UnauthorizedException(
-          'Device identity header missing. Update the StatCo app to the latest version.',
+          'This install code is already activated on another device. Ask your administrator to revoke the existing device before re-using the code.',
         );
       }
 

@@ -162,7 +162,7 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
     ).rejects.toThrow(/already activated/i);
   });
 
-  it('rejects when header is missing but row has a bound androidId (H4)', async () => {
+  it('rejects when header is missing', async () => {
     const row: any = { id: 'd1', isActive: true, androidId: 'android-xyz' };
     const svc = makeService(row);
     await expect(svc.resolveDeviceByToken('tok', '')).rejects.toThrow(
@@ -173,10 +173,12 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
     );
   });
 
-  it('allows missing header when row has no bound androidId yet', async () => {
+  it('rejects missing header even when row is not bound yet', async () => {
     const row: any = { id: 'd1', isActive: true, androidId: null };
     const svc = makeService(row);
-    await expect(svc.resolveDeviceByToken('tok', '')).resolves.toBe(row);
+    await expect(svc.resolveDeviceByToken('tok', '')).rejects.toThrow(
+      /header missing/i,
+    );
   });
 
   it('throws Unauthorized on revoked (isActive=false) device', async () => {
