@@ -137,8 +137,13 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
     );
   };
 
-  it('claims androidId on first use when row is unbound', async () => {
-    const row: any = { id: 'd1', isActive: true, androidId: null };
+  it('claims androidId on first use when row is unbound and fresh', async () => {
+    const row: any = {
+      id: 'd1',
+      isActive: true,
+      androidId: null,
+      registeredAt: new Date(),
+    };
     const save = jest.fn(async (_e: any, v: any) => v);
     const svc = makeService(row, save);
     const out = await svc.resolveDeviceByToken('tok', 'android-xyz');
@@ -178,6 +183,32 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
     const svc = makeService(row);
     await expect(svc.resolveDeviceByToken('tok', '')).rejects.toThrow(
       /header missing/i,
+    );
+  });
+
+  it('rejects stale unbound install codes', async () => {
+    const row: any = {
+      id: 'd1',
+      isActive: true,
+      androidId: null,
+      registeredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    };
+    const svc = makeService(row);
+    await expect(svc.resolveDeviceByToken('tok', 'android-xyz')).rejects.toThrow(
+      /expired before activation/i,
+    );
+  });
+
+  it('allows an old code when it is already bound to the same device', async () => {
+    const row: any = {
+      id: 'd1',
+      isActive: true,
+      androidId: 'android-xyz',
+      registeredAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    };
+    const svc = makeService(row);
+    await expect(svc.resolveDeviceByToken('tok', 'android-xyz')).resolves.toBe(
+      row,
     );
   });
 

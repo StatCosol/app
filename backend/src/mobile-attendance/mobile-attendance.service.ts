@@ -165,6 +165,11 @@ const DEVICE_REJECTION_ALERT_THRESHOLD = (() => {
   const raw = Number(process.env.FACE_DEVICE_REJECTION_ALERT_THRESHOLD);
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5;
 })();
+const DEVICE_INSTALL_TOKEN_TTL_MS = (() => {
+  const raw = Number(process.env.MOBILE_DEVICE_INSTALL_TOKEN_TTL_MIN);
+  const minutes = Number.isFinite(raw) && raw > 0 ? raw : 60;
+  return minutes * 60 * 1000;
+})();
 const DASHBOARD_LATE_CUTOFF_HHMM = (() => {
   const raw = String(process.env.FACE_DASHBOARD_LATE_CUTOFF_HHMM || '').trim();
   return /^\d{1,2}:\d{2}$/.test(raw) ? raw : '10:00';
@@ -377,6 +382,16 @@ export class MobileAttendanceService implements OnModuleInit {
         throw new UnauthorizedException('Invalid device token');
 
       if (!dev.androidId) {
+        const issuedAt = dev.registeredAt?.getTime?.() ?? null;
+        if (
+          issuedAt != null &&
+          Number.isFinite(issuedAt) &&
+          Date.now() - issuedAt > DEVICE_INSTALL_TOKEN_TTL_MS
+        ) {
+          throw new UnauthorizedException(
+            'This install code has expired before activation. Ask your administrator to create a new device code.',
+          );
+        }
         dev.androidId = supplied;
       } else if (dev.androidId !== supplied) {
         this.logger.warn(
