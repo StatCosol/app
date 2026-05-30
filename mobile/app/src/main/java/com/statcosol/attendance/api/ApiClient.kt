@@ -82,6 +82,23 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    fun postContractorPunch(body: ContractorPunchBody): PunchResponse {
+        val token = requireToken()
+        val json = moshi.adapter(ContractorPunchBody::class.java).toJson(body)
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/punch/contractor")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) throw IOException("contractor punch ${resp.code}: $text")
+            return moshi.adapter(PunchResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse contractor punch response")
+        }
+    }
+
     fun postFailedScan(body: FailedScanBody): FailedScanResponse {
         val token = requireToken()
         val json = moshi.adapter(FailedScanBody::class.java).toJson(body)

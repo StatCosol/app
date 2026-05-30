@@ -15,7 +15,8 @@ data class RosterResponse(
     val geofenceLng: Double?,
     val geofenceRadiusM: Int?,
     val essEmployeeId: String?,       // populated when mode == ESS
-    val enrollments: List<RosterEntry>
+    val enrollments: List<RosterEntry>,
+    val contractorEnrollments: List<ContractorRosterEntry> = emptyList(),
 )
 
 /** GET /api/v1/mobile-attendance/config response, no embeddings. */
@@ -40,6 +41,16 @@ data class RosterEntry(
     val employeeCode: String,
     val displayName: String,
     val embeddingB64: String
+)
+
+/** One enrolled contractor worker for kiosk 1:N matching. */
+@JsonClass(generateAdapter = true)
+data class ContractorRosterEntry(
+    val contractorEmployeeId: String,
+    val displayName: String,
+    val branchId: String? = null,
+    val embeddingB64: String,
+    val embeddingModel: String? = null,
 )
 
 /** POST /api/v1/mobile-attendance/punch body. */
@@ -83,6 +94,27 @@ data class PunchResponse(
     val ok: Boolean,
     val punchId: String? = null,
     val message: String? = null
+)
+
+/** POST /api/v1/mobile-attendance/punch/contractor body. */
+@JsonClass(generateAdapter = true)
+data class ContractorPunchBody(
+    val contractorEmployeeId: String,
+    val punchTime: String,
+    val direction: String,
+    val matchScore: Double,
+    val livenessScore: Double,
+    val captureLat: Double?,
+    val captureLng: Double?,
+    val captureAccuracyM: Double?,
+    val photoB64: String? = null,
+    val probeEmbeddingB64: String? = null,
+    val isMockLocation: Boolean? = null,
+    val isRooted: Boolean? = null,
+    val offlineSync: Boolean? = null,
+    val livenessChallengeType: String? = null,
+    val livenessChallengePassedAt: String? = null,
+    val livenessNonce: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

@@ -41,6 +41,7 @@
     <string name="kiosk_voice_logout_recorded">Logout recorded for %1$s</string>
     <string name="kiosk_voice_face_not_recognised">Face not recognised, please try again</string>
     <string name="kiosk_punch_queued">Network issue — attendance queued for sync</string>
+    <string name="kiosk_punch_network_failed">Network issue — attendance not recorded, please try again</string>
     <string name="kiosk_punch_rejected">Attendance not recorded — roster refreshed, please try again</string>
     <string name="roster_empty">No employees enrolled yet — enroll faces from the admin portal.</string>
 

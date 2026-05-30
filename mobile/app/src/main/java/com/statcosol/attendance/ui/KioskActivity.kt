@@ -22,6 +22,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
+import com.statcosol.attendance.api.ContractorPunchBody
 import com.statcosol.attendance.api.FailedScanBody
 import com.statcosol.attendance.api.KioskEnrollSubmitBody
 import com.statcosol.attendance.api.KioskEnrollTicket
@@ -322,14 +323,14 @@ class KioskActivity : AppCompatActivity() {
 
     private suspend fun refreshRosterNow(showEmptyMessage: Boolean): Int {
         val roster = withContext(Dispatchers.IO) { app.apiClient.fetchRoster() }
-        matcher = RosterMatcher(roster.enrollments)
+        matcher = RosterMatcher(roster.enrollments, roster.contractorEnrollments)
         binding.headerBranch.text = roster.branchName
             ?: roster.clientName
             ?: getString(R.string.kiosk_branch_unknown)
-        if (showEmptyMessage && roster.enrollments.isEmpty()) {
+        if (showEmptyMessage && roster.enrollments.isEmpty() && roster.contractorEnrollments.isEmpty()) {
             binding.statusText.text = getString(R.string.roster_empty)
         }
-        return roster.enrollments.size
+        return roster.enrollments.size + roster.contractorEnrollments.size
     }
 
     /** Phase 3f: re-fetch the roster every [ROSTER_REFRESH_MS] so newly
@@ -408,8 +409,8 @@ class KioskActivity : AppCompatActivity() {
             todayPunches.clear()
         }
 
-        val empId = match.entry.employeeId
-        val prev = todayPunches[empId]
+        val subjectKey = match.entry.subjectKey
+        val prev = todayPunches[subjectKey]
         when {
             prev == null -> {
                 // First time today on this device -> log them IN immediately.
@@ -591,10 +592,29 @@ class KioskActivity : AppCompatActivity() {
         pendingChallengeProbe = null
         pendingChallengeNonce = null
         mainHandler.removeCallbacks(pendingChallengeTimeout)
+        val punchTimeIso = isoNow()
+        if (match.entry.subjectType == "CONTRACTOR") {
+            val accepted = recordContractorPunch(
+                match = match,
+                direction = direction,
+                liveness = liveness,
+                punchTimeIso = punchTimeIso,
+                challengeType = challengeType,
+                challengePassedAt = challengePassedAt,
+                nonce = nonce,
+                probe = probe,
+            )
+            if (accepted) {
+                todayPunches[match.entry.subjectKey] = PunchState(direction, now)
+                runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+            }
+            return
+        }
+        val employeeId = match.entry.employeeId ?: return
         val q = QueuedPunch(
-            employeeId = match.entry.employeeId,
+            employeeId = employeeId,
             employeeCode = match.entry.employeeCode,
-            punchTimeIso = isoNow(),
+            punchTimeIso = punchTimeIso,
             direction = direction,
             matchScore = match.score,
             livenessScore = liveness,
@@ -626,8 +646,56 @@ class KioskActivity : AppCompatActivity() {
             false
         }
         if (punchAccepted) {
-            todayPunches[match.entry.employeeId] = PunchState(direction, now)
+            todayPunches[match.entry.subjectKey] = PunchState(direction, now)
             runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+        }
+    }
+
+    private suspend fun recordContractorPunch(
+        match: RosterMatcher.Match,
+        direction: String,
+        liveness: Double,
+        punchTimeIso: String,
+        challengeType: String?,
+        challengePassedAt: String?,
+        nonce: String?,
+        probe: FloatArray?,
+    ): Boolean {
+        val contractorId = match.entry.contractorEmployeeId ?: return false
+        val probeB64 = probe?.let { FaceEmbedder.encodeEmbeddingB64(it) }
+        return try {
+            withContext(Dispatchers.IO) {
+                val resp = app.apiClient.postContractorPunch(
+                    ContractorPunchBody(
+                        contractorEmployeeId = contractorId,
+                        punchTime = punchTimeIso,
+                        direction = direction,
+                        matchScore = match.score,
+                        livenessScore = liveness,
+                        captureLat = null,
+                        captureLng = null,
+                        captureAccuracyM = null,
+                        isRooted = if (app.isDeviceRooted) true else null,
+                        offlineSync = false,
+                        livenessChallengeType = challengeType,
+                        livenessChallengePassedAt = challengePassedAt,
+                        livenessNonce = nonce,
+                        probeEmbeddingB64 = probeB64,
+                    )
+                )
+                resp.ok
+            }
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            val status = parseHttpStatus(msg)
+            if (status in 400..499) {
+                handleRejectedPunch(match, msg)
+            } else {
+                runOnUiThread {
+                    binding.statusText.text = getString(R.string.kiosk_punch_network_failed)
+                }
+            }
+            false
         }
     }
 
@@ -653,6 +721,7 @@ class KioskActivity : AppCompatActivity() {
     private fun handleRejectedPunch(match: RosterMatcher.Match, message: String) {
         if (
             message.contains("No active face enrollment", ignoreCase = true) ||
+            message.contains("No active face enrollment for contractor", ignoreCase = true) ||
             message.contains("roster is stale", ignoreCase = true)
         ) {
             matcher = null
@@ -666,7 +735,7 @@ class KioskActivity : AppCompatActivity() {
         }
         android.util.Log.w(
             "KioskActivity",
-            "punch rejected for ${match.entry.employeeCode}: ${message.take(300)}",
+            "punch rejected for ${match.entry.employeeCode.ifBlank { match.entry.subjectKey }}: ${message.take(300)}",
         )
     }
 

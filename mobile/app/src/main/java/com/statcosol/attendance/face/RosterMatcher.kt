@@ -1,18 +1,58 @@
 package com.statcosol.attendance.face
 
 import android.util.Log
+import com.statcosol.attendance.api.ContractorRosterEntry
 import com.statcosol.attendance.api.RosterEntry
 
 /**
  * Holds the decoded roster embeddings in memory and runs nearest-neighbour
  * matching for KIOSK 1:N identification.
  */
-class RosterMatcher(roster: List<RosterEntry>) {
+class RosterMatcher(
+    roster: List<RosterEntry>,
+    contractorRoster: List<ContractorRosterEntry> = emptyList(),
+) {
 
-    data class Match(val entry: RosterEntry, val score: Double)
+    data class MatchEntry(
+        val subjectType: String,
+        val employeeId: String?,
+        val contractorEmployeeId: String?,
+        val employeeCode: String,
+        val displayName: String,
+        val embeddingB64: String,
+    ) {
+        val subjectKey: String
+            get() = if (subjectType == "CONTRACTOR") {
+                "CONTRACTOR:${contractorEmployeeId.orEmpty()}"
+            } else {
+                "EMPLOYEE:${employeeId.orEmpty()}"
+            }
+    }
 
-    private val entries: List<Pair<RosterEntry, FloatArray>> =
-        roster.map { it to FaceEmbedder.decodeEmbeddingB64(it.embeddingB64) }
+    data class Match(val entry: MatchEntry, val score: Double)
+
+    private val entries: List<Pair<MatchEntry, FloatArray>> =
+        roster.map {
+            MatchEntry(
+                subjectType = "EMPLOYEE",
+                employeeId = it.employeeId,
+                contractorEmployeeId = null,
+                employeeCode = it.employeeCode,
+                displayName = it.displayName,
+                embeddingB64 = it.embeddingB64,
+            )
+        }.plus(
+            contractorRoster.map {
+                MatchEntry(
+                    subjectType = "CONTRACTOR",
+                    employeeId = null,
+                    contractorEmployeeId = it.contractorEmployeeId,
+                    employeeCode = "",
+                    displayName = it.displayName,
+                    embeddingB64 = it.embeddingB64,
+                )
+            }
+        ).map { it to FaceEmbedder.decodeEmbeddingB64(it.embeddingB64) }
 
     init {
         Log.i(TAG, "RosterMatcher loaded ${entries.size} enrollments")
@@ -44,7 +84,7 @@ class RosterMatcher(roster: List<RosterEntry>) {
         }.sortedByDescending { it.second }
 
         val topLog = scored.take(3).joinToString(", ") { (e, s) ->
-            "${e.employeeCode.ifBlank { e.employeeId.take(6) }}=${"%.3f".format(s)}"
+            "${e.employeeCode.ifBlank { e.contractorEmployeeId?.take(6) ?: e.employeeId?.take(6).orEmpty() }}=${"%.3f".format(s)}"
         }
         val (bestEntry, bestScore) = scored.first()
         if (bestScore < minScore) {
@@ -63,7 +103,7 @@ class RosterMatcher(roster: List<RosterEntry>) {
                 return null
             }
         }
-        Log.i(TAG, "match OK ${bestEntry.employeeCode} score=${"%.3f".format(bestScore)} top: $topLog")
+        Log.i(TAG, "match OK ${bestEntry.employeeCode.ifBlank { bestEntry.subjectKey }} score=${"%.3f".format(bestScore)} top: $topLog")
         return Match(bestEntry, bestScore)
     }
 
