@@ -867,12 +867,12 @@ class KioskActivity : AppCompatActivity() {
         private const val ROSTER_REFRESH_MS = 5 * 60_000L
 
         // Operator-supervised enrollment constants.
-        private const val ENROLL_POLL_FIRST_MS = 3_000L
-        private const val ENROLL_POLL_MS = 8_000L
-        private const val ENROLL_REQUIRED_FRAMES = 5
-        private const val ENROLL_MIN_LIVENESS = 0.7
+        private const val ENROLL_POLL_FIRST_MS = 1_000L
+        private const val ENROLL_POLL_MS = 3_000L
+        private const val ENROLL_REQUIRED_FRAMES = 3
+        private const val ENROLL_MIN_LIVENESS = 0.5
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 250L
-        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.78
+        private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.68
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
     }
 }
