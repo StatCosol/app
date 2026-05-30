@@ -106,6 +106,7 @@ class KioskActivity : AppCompatActivity() {
     @Volatile private var enrollChallenge: LivenessChallengeTracker? = null
     @Volatile private var enrollChallengePassed: Boolean = false
     @Volatile private var enrollSubmitting: Boolean = false
+    @Volatile private var rosterFastRefreshUntil: Long = 0L
     private val enrollChallengeTimeout = Runnable { abortKioskEnrollment("liveness timed out") }
 
     /** Voice feedback for noisy factory floors. Best-effort — silently
@@ -335,7 +336,12 @@ class KioskActivity : AppCompatActivity() {
     private val rosterRefreshRunnable = object : Runnable {
         override fun run() {
             loadRoster()
-            mainHandler.postDelayed(this, ROSTER_REFRESH_MS)
+            val delay = if (System.currentTimeMillis() < rosterFastRefreshUntil) {
+                ENROLL_ROSTER_FAST_REFRESH_MS
+            } else {
+                ROSTER_REFRESH_MS
+            }
+            mainHandler.postDelayed(this, delay)
         }
     }
 
@@ -758,6 +764,7 @@ class KioskActivity : AppCompatActivity() {
                             getString(R.string.kiosk_enroll_success, t.subjectName)
                         speak(getString(R.string.kiosk_enroll_success, t.subjectName))
                     }
+                    startFastRosterRefresh()
                     clearKioskEnrollmentState()
                     runOnUiThread {
                         mainHandler.postDelayed({
@@ -777,6 +784,12 @@ class KioskActivity : AppCompatActivity() {
                 enrollSubmitting = false
             }
         }
+    }
+
+    private fun startFastRosterRefresh() {
+        rosterFastRefreshUntil = System.currentTimeMillis() + ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS
+        mainHandler.removeCallbacks(rosterRefreshRunnable)
+        mainHandler.postDelayed(rosterRefreshRunnable, ENROLL_ROSTER_FAST_REFRESH_MS)
     }
 
     private fun abortKioskEnrollment(reason: String) {
@@ -856,5 +869,7 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_MIN_FRAME_INTERVAL_MS = 250L
         private const val ENROLL_MIN_PROBE_TO_AVG_COS = 0.68
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
+        private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
+        private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L
     }
 }
