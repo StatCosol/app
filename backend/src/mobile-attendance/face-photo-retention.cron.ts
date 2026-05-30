@@ -141,9 +141,7 @@ export class FacePhotoRetentionCron {
           );
         }
       }
-      this.logger.log(
-        `face-embed vacuum complete: tables=${tables.join(',')}`,
-      );
+      this.logger.log(`face-embed vacuum complete: tables=${tables.join(',')}`);
     });
   }
 

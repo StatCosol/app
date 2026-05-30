@@ -268,7 +268,7 @@ interface BulkPreviewRow {
                   </div>
                 </td>
                 <td class="px-4 py-3 text-right">
-                  <div class="flex items-center justify-end gap-2">
+                  <div class="flex flex-col items-end justify-end gap-2">
                     <button
                       (click)="openEdit(emp)"
                       class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"

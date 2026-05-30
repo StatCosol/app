@@ -48,6 +48,13 @@ _write_test.txt
 # via `az containerapp show`. Commit only the sanitized template; treat the live
 # YAML as a local-only file.
 backend-app.yaml
+
+# Large deliverable artifacts and logs
+delivery/
+*.apk
+*.zip
+run-26584380657-logs/
+run-26584380657-logs.zip
 frontend-app.yaml
 *-app.yaml
 !*-app.template.yaml

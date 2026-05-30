@@ -686,9 +686,7 @@ export class ClientsService {
       // pg returns [rows, rowCount] for UPDATE; typeorm passes through.
       const affected: number = Array.isArray(updateResult)
         ? Number(updateResult[1] ?? 0)
-        : Number(
-            (updateResult as { rowCount?: number })?.rowCount ?? 0,
-          );
+        : Number((updateResult as { rowCount?: number })?.rowCount ?? 0);
       if (!affected) {
         throw new ConflictException(
           'Client soft-delete UPDATE affected 0 rows (already deleted or row vanished mid-transaction)',
