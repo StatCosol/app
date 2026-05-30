@@ -25,6 +25,7 @@ import com.statcosol.attendance.R
 import com.statcosol.attendance.api.FailedScanBody
 import com.statcosol.attendance.api.KioskEnrollSubmitBody
 import com.statcosol.attendance.api.KioskEnrollTicket
+import com.statcosol.attendance.api.PunchBody
 import com.statcosol.attendance.databinding.ActivityCameraBinding
 import com.statcosol.attendance.db.QueuedPunch
 import com.statcosol.attendance.face.FaceCaptureSession
@@ -605,11 +606,72 @@ class KioskActivity : AppCompatActivity() {
             livenessNonce = nonce,
             probeEmbeddingB64 = probe?.let { com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(it) },
         )
-        withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-        PunchSyncWorker.enqueue(this)
-        todayPunches[match.entry.employeeId] = PunchState(direction, now)
-        runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+        val punchAccepted = try {
+            withContext(Dispatchers.IO) {
+                val resp = app.apiClient.postPunch(q.toPunchBody(offlineSync = false))
+                resp.ok
+            }
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            val status = parseHttpStatus(msg)
+            if (status in 400..499) {
+                handleRejectedPunch(match, msg)
+                return
+            }
+            withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
+            PunchSyncWorker.enqueue(this)
+            runOnUiThread {
+                binding.statusText.text = getString(R.string.kiosk_punch_queued)
+            }
+            false
+        }
+        if (punchAccepted) {
+            todayPunches[match.entry.employeeId] = PunchState(direction, now)
+            runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
+        }
     }
+
+    private fun QueuedPunch.toPunchBody(offlineSync: Boolean): PunchBody =
+        PunchBody(
+            employeeId = employeeId,
+            employeeCode = employeeCode,
+            punchTime = punchTimeIso,
+            direction = direction,
+            matchScore = matchScore,
+            livenessScore = livenessScore,
+            captureLat = captureLat,
+            captureLng = captureLng,
+            captureAccuracyM = captureAccuracyM,
+            isRooted = if (app.isDeviceRooted) true else null,
+            offlineSync = offlineSync,
+            livenessChallengeType = livenessChallengeType,
+            livenessChallengePassedAt = livenessChallengePassedAtIso,
+            livenessNonce = livenessNonce,
+            probeEmbeddingB64 = probeEmbeddingB64,
+        )
+
+    private fun handleRejectedPunch(match: RosterMatcher.Match, message: String) {
+        if (
+            message.contains("No active face enrollment", ignoreCase = true) ||
+            message.contains("roster is stale", ignoreCase = true)
+        ) {
+            matcher = null
+            lifecycleScope.launch {
+                runCatching { refreshRosterNow(showEmptyMessage = true) }
+            }
+        }
+        runOnUiThread {
+            binding.statusText.text = getString(R.string.kiosk_punch_rejected)
+            speak(getString(R.string.kiosk_voice_face_not_recognised))
+        }
+        android.util.Log.w(
+            "KioskActivity",
+            "punch rejected for ${match.entry.employeeCode}: ${message.take(300)}",
+        )
+    }
+
+    private fun parseHttpStatus(msg: String): Int =
+        Regex("""\b(\d{3})\b""").find(msg)?.value?.toIntOrNull() ?: 0
 
     private fun showPunchSuccess(name: String, direction: String) {
         val isOut = direction == "OUT"
