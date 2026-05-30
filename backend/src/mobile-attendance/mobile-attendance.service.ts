@@ -87,9 +87,6 @@ const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // requires updating the Android client.
 const LIVENESS_CHALLENGE_TYPES = [
   'BLINK',
-  'HEAD_TURN_LEFT',
-  'HEAD_TURN_RIGHT',
-  'SMILE',
 ] as const;
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.

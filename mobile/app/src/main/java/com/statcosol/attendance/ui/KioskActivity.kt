@@ -98,7 +98,8 @@ class KioskActivity : AppCompatActivity() {
     /** Operator-supervised enrollment state. When [enrollTicket] is non-null
      *  the kiosk is in enrollment mode: normal matching is paused, frames are
      *  collected into [enrollFrames], and once enough frames + the liveness
-     *  challenge are satisfied the [showEnrollRegisterDialog] is shown. */
+     *  challenge are satisfied the enrollment is submitted without touching
+     *  the kiosk screen. */
     @Volatile private var enrollTicket: KioskEnrollTicket? = null
     private val enrollFrames = mutableListOf<FloatArray>()
     private var enrollRunningAvg: FloatArray? = null
@@ -405,11 +406,11 @@ class KioskActivity : AppCompatActivity() {
                 beginChallenge(match, "IN", liveness)
             }
             prev.direction == "IN" -> {
-                // Already punched in today — confirm before queuing OUT so accidental
-                // looks at the camera don't log the user out.
-                lastPunchAt = now  // still throttle so we don't spam the dialog
+                // Already punched in today -> require the same server-issued
+                // liveness gesture, then log OUT without touching the kiosk.
+                lastPunchAt = now
                 pendingChallengeProbe = probe
-                runOnUiThread { showLogoutConfirmation(match, liveness) }
+                beginChallenge(match, "OUT", liveness)
             }
             else -> {
                 // Already punched out today -> just acknowledge, never queue
@@ -543,30 +544,6 @@ class KioskActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showLogoutConfirmation(match: RosterMatcher.Match, liveness: Double) {
-        if (dialogActive) return
-        dialogActive = true
-        MaterialAlertDialogBuilder(this)
-            .setIcon(R.drawable.ic_shield_check)
-            .setTitle(R.string.kiosk_logout_confirm_title)
-            .setMessage(getString(R.string.kiosk_logout_confirm_message, match.entry.displayName))
-            .setCancelable(false)
-            .setPositiveButton(R.string.kiosk_logout_confirm_yes) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                lastPunchAt = System.currentTimeMillis()
-                beginChallenge(match, "OUT", liveness)
-            }
-            .setNegativeButton(R.string.kiosk_logout_confirm_no) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                // Reset cooldown so the dialog doesn't pop again immediately.
-                lastPunchAt = System.currentTimeMillis()
-                binding.statusText.text = getString(R.string.kiosk_look_at_camera)
-            }
-            .show()
-    }
-
     private suspend fun recordPunch(match: RosterMatcher.Match, direction: String, liveness: Double) {
         val now = System.currentTimeMillis()
         lastPunchAt = now
@@ -678,9 +655,9 @@ class KioskActivity : AppCompatActivity() {
         enrollRunningAvg = null
         enrollLastAcceptedAt = 0L
         enrollChallengePassed = false
-        // Arm a random liveness challenge so the operator can't enroll
-        // a static photo.
-        val challenge = LivenessChallenge.random()
+        // Use blink-only liveness for the kiosk demo flow: no screen touch,
+        // simple instruction, still blocks static-photo enrollment.
+        val challenge = LivenessChallenge.BLINK
         enrollChallenge = LivenessChallengeTracker(challenge)
         mainHandler.removeCallbacks(enrollChallengeTimeout)
         mainHandler.postDelayed(enrollChallengeTimeout, ENROLL_CHALLENGE_TIMEOUT_MS)
@@ -716,7 +693,7 @@ class KioskActivity : AppCompatActivity() {
     }
 
     private fun maybeShowEnrollRegisterDialog() {
-        val t = enrollTicket ?: return
+        if (enrollTicket == null) return
         if (enrollFrames.size < ENROLL_REQUIRED_FRAMES) return
         if (!enrollChallengePassed) return
         if (dialogActive || enrollSubmitting) return
@@ -732,28 +709,7 @@ class KioskActivity : AppCompatActivity() {
             enrollRunningAvg = null
             return
         }
-        runOnUiThread { showEnrollRegisterDialog(t) }
-    }
-
-    private fun showEnrollRegisterDialog(t: KioskEnrollTicket) {
-        if (dialogActive) return
-        dialogActive = true
-        MaterialAlertDialogBuilder(this)
-            .setIcon(R.drawable.ic_shield_check)
-            .setTitle(R.string.kiosk_enroll_ready_title)
-            .setMessage(getString(R.string.kiosk_enroll_ready_message, t.subjectName))
-            .setCancelable(false)
-            .setPositiveButton(R.string.kiosk_enroll_register_btn) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                submitKioskEnrollment()
-            }
-            .setNegativeButton(R.string.kiosk_enroll_cancel_btn) { d, _ ->
-                d.dismiss()
-                dialogActive = false
-                abortKioskEnrollment(reason = "cancelled by operator")
-            }
-            .show()
+        submitKioskEnrollment()
     }
 
     private fun submitKioskEnrollment() {

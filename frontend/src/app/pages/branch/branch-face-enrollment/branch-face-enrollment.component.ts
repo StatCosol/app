@@ -363,7 +363,7 @@ interface EnrollForm {
                   <button type="button"
                     *ngIf="t.status === 'REVIEW_PENDING'"
                     class="text-xs text-emerald-700 hover:underline mr-3"
-                    (click)="approveKioskTicket(t)">Approve</button>
+                    (click)="approveKioskTicket(t)">Register</button>
                   <button type="button"
                     *ngIf="t.status === 'REVIEW_PENDING'"
                     class="text-xs text-red-700 hover:underline mr-3"
@@ -1356,7 +1356,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
-          this.toast.success(`${t.subjectName} face enrollment approved`);
+          this.toast.success(`${t.subjectName} face enrollment registered`);
           this.loadKioskTickets();
           this.loadEnrollments();
         },
