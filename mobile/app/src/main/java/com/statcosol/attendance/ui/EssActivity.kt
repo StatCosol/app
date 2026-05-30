@@ -10,8 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.statcosol.attendance.AttendanceApp
@@ -292,9 +290,7 @@ class EssActivity : AppCompatActivity() {
                     probeEmbeddingB64 = com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(probe),
                 )
                 withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-                WorkManager.getInstance(this@EssActivity).enqueue(
-                    OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
-                )
+                PunchSyncWorker.enqueue(this@EssActivity)
                 binding.statusText.text = "Punch queued ($direction)"
             } finally {
                 binding.punchInBtn.isEnabled = true

@@ -18,8 +18,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.BuildConfig
@@ -602,9 +600,7 @@ class KioskActivity : AppCompatActivity() {
             probeEmbeddingB64 = probe?.let { com.statcosol.attendance.face.FaceEmbedder.encodeEmbeddingB64(it) },
         )
         withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
-        WorkManager.getInstance(this).enqueue(
-            OneTimeWorkRequestBuilder<PunchSyncWorker>().build()
-        )
+        PunchSyncWorker.enqueue(this)
         todayPunches[match.entry.employeeId] = PunchState(direction, now)
         runOnUiThread { showPunchSuccess(match.entry.displayName, direction) }
     }

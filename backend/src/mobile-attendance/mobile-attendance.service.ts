@@ -56,9 +56,9 @@ import {
 // per-punch payload.
 const MIN_MATCH_SCORE = (() => {
   const raw = process.env.FACE_MIN_MATCH_SCORE;
-  if (raw == null || raw === '') return 0.78;
+  if (raw == null || raw === '') return 0.85;
   const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.78;
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.85;
 })();
 const MIN_LIVENESS_SCORE = 0.5;
 // Face-quality gate at enrollment time (roadmap #2). face-svc returns a
