@@ -238,6 +238,40 @@ export class MobilePunchBatchDto {
   punches!: MobilePunchDto[];
 }
 
+export class DeviceFailedScanDto {
+  @IsIn(['FACE_MISMATCH', 'MULTI_FACE', 'QUALITY_LOW', 'LIVENESS_FAIL', 'OTHER'])
+  reason!:
+    | 'FACE_MISMATCH'
+    | 'MULTI_FACE'
+    | 'QUALITY_LOW'
+    | 'LIVENESS_FAIL'
+    | 'OTHER';
+
+  @IsOptional()
+  @IsString()
+  reasonDetail?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  matchScore?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  livenessScore?: number;
+
+  @IsOptional()
+  @IsNumber()
+  captureLat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  captureLng?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Phase 4d: contractor kiosk punch. Mirrors MobilePunchDto but keyed by
 // contractor_employees.id and routed to a parallel write path so existing

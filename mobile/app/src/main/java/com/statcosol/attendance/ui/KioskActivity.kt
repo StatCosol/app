@@ -24,6 +24,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.statcosol.attendance.AttendanceApp
 import com.statcosol.attendance.BuildConfig
 import com.statcosol.attendance.R
+import com.statcosol.attendance.api.FailedScanBody
 import com.statcosol.attendance.api.KioskEnrollSubmitBody
 import com.statcosol.attendance.api.KioskEnrollTicket
 import com.statcosol.attendance.databinding.ActivityCameraBinding
@@ -113,6 +114,8 @@ class KioskActivity : AppCompatActivity() {
      *  no-ops if the device has no TTS engine installed. */
     private var tts: TextToSpeech? = null
     @Volatile private var ttsReady: Boolean = false
+    private var consecutiveNoMatchCount: Int = 0
+    private var lastFailedScanReportAt: Long = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -383,12 +386,15 @@ class KioskActivity : AppCompatActivity() {
         if (liveness < MIN_LIVENESS) return
 
         val match = matcherSnap.match(probe, MIN_MATCH) ?: run {
+            consecutiveNoMatchCount += 1
+            maybeReportRepeatedNoMatch(liveness)
             runOnUiThread {
                 binding.statusText.text = getString(R.string.kiosk_match_low)
                 speak(getString(R.string.kiosk_voice_face_not_recognised))
             }
             return
         }
+        consecutiveNoMatchCount = 0
 
         // Roll the per-day map over at midnight.
         val day = currentDayKey()
@@ -525,6 +531,28 @@ class KioskActivity : AppCompatActivity() {
         LivenessChallenge.SMILE -> R.string.liveness_prompt_smile
         LivenessChallenge.HEAD_TURN_LEFT -> R.string.liveness_prompt_head_left
         LivenessChallenge.HEAD_TURN_RIGHT -> R.string.liveness_prompt_head_right
+    }
+
+    private fun maybeReportRepeatedNoMatch(liveness: Double) {
+        if (consecutiveNoMatchCount < FAILED_SCAN_REPORT_AFTER) return
+        val now = System.currentTimeMillis()
+        if (now - lastFailedScanReportAt < FAILED_SCAN_REPORT_COOLDOWN_MS) return
+        lastFailedScanReportAt = now
+        lifecycleScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    app.apiClient.postFailedScan(
+                        FailedScanBody(
+                            reason = "FACE_MISMATCH",
+                            reasonDetail = "Kiosk local 1:N match failed $consecutiveNoMatchCount times",
+                            livenessScore = liveness,
+                        )
+                    )
+                }
+            }.onFailure {
+                android.util.Log.w("KioskActivity", "failed-scan report failed", it)
+            }
+        }
     }
 
     private fun showAlreadyDoneInfo(match: RosterMatcher.Match) {
@@ -821,6 +849,8 @@ class KioskActivity : AppCompatActivity() {
         /** Phase 3f: re-fetch the roster every 5 minutes so freshly
          *  enrolled employees become matchable without restarting. */
         private const val ROSTER_REFRESH_MS = 5 * 60_000L
+        private const val FAILED_SCAN_REPORT_AFTER = 3
+        private const val FAILED_SCAN_REPORT_COOLDOWN_MS = 60_000L
 
         // Operator-supervised enrollment constants.
         private const val ENROLL_POLL_FIRST_MS = 1_000L

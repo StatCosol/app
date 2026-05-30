@@ -82,6 +82,23 @@ class ApiClient(private val config: DeviceConfig) {
         }
     }
 
+    fun postFailedScan(body: FailedScanBody): FailedScanResponse {
+        val token = requireToken()
+        val json = moshi.adapter(FailedScanBody::class.java).toJson(body)
+        val req = Request.Builder()
+            .url("${config.apiBase}/api/v1/mobile-attendance/failed-scan")
+            .header("X-Device-Token", token)
+            .header("X-Android-Id", config.androidId)
+            .post(json.toRequestBody(JSON))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string() ?: throw IOException("empty body")
+            if (!resp.isSuccessful) throw IOException("failed-scan ${resp.code}: $text")
+            return moshi.adapter(FailedScanResponse::class.java).fromJson(text)
+                ?: throw IOException("could not parse failed-scan response")
+        }
+    }
+
     /**
      * Phase 4c: request a single-use liveness nonce. The returned
      * `challengeType` MUST drive the on-device prompt — the server

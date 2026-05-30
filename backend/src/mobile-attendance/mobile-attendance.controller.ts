@@ -21,6 +21,7 @@ import {
   CreateContractorReenrollRequestDto,
   ContractorMobilePunchDto,
   CreateKioskEnrollTicketDto,
+  DeviceFailedScanDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -1056,6 +1057,22 @@ export class MobileAttendanceDeviceController {
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
     return this.svc.submitKioskEnrollTicket(dev, id, body);
+  }
+
+  @ApiOperation({
+    summary:
+      'Kiosk reports repeated local face failures that never reached punch validation',
+  })
+  @Post('failed-scan')
+  async reportDeviceFailedScan(
+    @Headers('x-device-token') token: string,
+    @Headers('x-android-id') androidId: string,
+    @Headers('user-agent') userAgent: string | undefined,
+    @Req() req: Request,
+    @Body() body: DeviceFailedScanDto,
+  ) {
+    const dev = await this.svc.resolveDeviceByToken(token, androidId);
+    return this.svc.reportDeviceFailedScan(dev, body, deriveMeta(req, userAgent));
   }
 }
 

@@ -85,6 +85,21 @@ data class PunchResponse(
     val message: String? = null
 )
 
+@JsonClass(generateAdapter = true)
+data class FailedScanBody(
+    val reason: String,
+    val reasonDetail: String? = null,
+    val matchScore: Double? = null,
+    val livenessScore: Double? = null,
+    val captureLat: Double? = null,
+    val captureLng: Double? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class FailedScanResponse(
+    val ok: Boolean,
+)
+
 /** POST /api/v1/mobile-attendance/liveness/challenge body. */
 @JsonClass(generateAdapter = true)
 data class LivenessChallengeRequest(

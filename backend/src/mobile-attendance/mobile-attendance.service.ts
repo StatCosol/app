@@ -36,6 +36,7 @@ import {
 import {
   ContractorMobilePunchDto,
   CreateKioskEnrollTicketDto,
+  DeviceFailedScanDto,
   EnrollContractorFaceDto,
   EnrollFaceDto,
   EnrollSelfDto,
@@ -4165,6 +4166,30 @@ export class MobileAttendanceService implements OnModuleInit {
       },
     );
     return { ok: true, status: 'COMPLETED' };
+  }
+
+  async reportDeviceFailedScan(
+    device: MobileAttendanceDeviceEntity,
+    body: DeviceFailedScanDto,
+    meta: PunchRequestMeta,
+  ): Promise<{ ok: true }> {
+    await this.logFailedScan({
+      clientId: device.clientId,
+      branchId: device.branchId ?? null,
+      deviceId: device.id,
+      employeeId: null,
+      employeeCode: null,
+      contractorEmployeeId: null,
+      reason: body.reason,
+      reasonDetail: (body.reasonDetail || 'device-reported local failure').slice(0, 500),
+      matchScore: body.matchScore ?? null,
+      livenessScore: body.livenessScore ?? null,
+      captureLat: body.captureLat ?? null,
+      captureLng: body.captureLng ?? null,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+    return { ok: true };
   }
 
   /** Portal poll: get the ticket the operator created (any status). */
