@@ -217,6 +217,35 @@ import { AuthService } from '../../../core/auth.service';
       justify-content: center;
       padding: 18px clamp(18px, 4vw, 64px);
       overflow-x: hidden;
+      position: relative;
+      isolation: isolate;
+    }
+    .page::before {
+      content: "";
+      position: absolute;
+      left: -10vw;
+      bottom: -18vh;
+      width: min(42vw, 560px);
+      height: min(48vh, 440px);
+      background:
+        linear-gradient(135deg, rgba(15,94,154,.1), rgba(8,126,245,.18)),
+        repeating-linear-gradient(135deg, rgba(8,126,245,.16) 0 2px, transparent 2px 24px);
+      clip-path: polygon(0 28%, 74% 0, 100% 72%, 20% 100%);
+      z-index: -1;
+    }
+    .page::after {
+      content: "";
+      position: absolute;
+      right: clamp(24px, 5vw, 86px);
+      top: clamp(86px, 15vh, 150px);
+      width: min(18vw, 260px);
+      height: min(38vh, 360px);
+      background:
+        linear-gradient(135deg, transparent 0 42%, rgba(255,255,255,.72) 42.4% 44.4%, transparent 44.8%),
+        repeating-linear-gradient(135deg, rgba(255,255,255,.62) 0 1px, transparent 1px 18px);
+      opacity: .68;
+      transform: skewX(-8deg);
+      z-index: -1;
     }
 
     /* ═══ SCREEN (white card) ═════════════════ */
@@ -231,6 +260,8 @@ import { AuthService } from '../../../core/auth.service';
       overflow: hidden;
       box-shadow: 0 26px 70px rgba(15, 38, 79, .2);
       margin: 0 auto;
+      position: relative;
+      z-index: 1;
     }
 
     /* ═══ LEFT BRAND PANEL ═════════════════════ */
@@ -672,6 +703,7 @@ import { AuthService } from '../../../core/auth.service';
     /* phone — stack panels, hide hero ornaments */
     @media (max-width: 900px) {
       .page { padding: 0; align-items: stretch; background: #fff; }
+      .page::before, .page::after { display: none; }
       .screen {
         height: auto;
         min-height: 100vh;
