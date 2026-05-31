@@ -169,6 +169,10 @@ import { AuthService } from '../../../core/auth.service';
                   it_admin@statcosol.com
                 </a>
               </div>
+              <div class="login-footer">
+                <span>&copy; {{ currentYear }} StatCo Solutions</span>
+                <span>Developed by StatCo Solutions</span>
+              </div>
             </form>
 
             <div class="help">
@@ -633,6 +637,20 @@ import { AuthService } from '../../../core/auth.service';
       height: 14px;
       flex-shrink: 0;
     }
+    .login-footer {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 14px;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
 
     .help { display: none; }
     .help-icon {
@@ -768,6 +786,10 @@ import { AuthService } from '../../../core/auth.service';
       .support-strip {
         justify-content: center;
         font-size: 12px;
+      }
+      .login-footer {
+        justify-content: center;
+        text-align: center;
       }
 
       .help { padding: 16px; gap: 14px; margin-top: 28px; }
