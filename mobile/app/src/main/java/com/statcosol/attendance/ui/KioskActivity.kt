@@ -286,16 +286,44 @@ class KioskActivity : AppCompatActivity() {
         tts = TextToSpeech(applicationContext) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) {
-                // Match the device locale so Hindi/Telugu speakers get
-                // localised voice feedback when those engines are present.
-                runCatching { tts?.language = Locale.getDefault() }
+                configureTtsLanguage(Locale.getDefault())
             }
         }
     }
 
-    private fun speak(text: String) {
+    private fun configureTtsLanguage(locale: Locale): Boolean {
+        val engine = tts ?: return false
+        val available = runCatching { engine.isLanguageAvailable(locale) }
+            .getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
+        if (available < TextToSpeech.LANG_AVAILABLE) return false
+
+        runCatching { engine.language = locale }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            runCatching {
+                engine.voices
+                    ?.filter { it.locale.language == locale.language }
+                    ?.sortedWith(
+                        compareBy(
+                            { it.isNetworkConnectionRequired },
+                            { it.name.contains("male", ignoreCase = true) },
+                            { it.name },
+                        ),
+                    )
+                    ?.firstOrNull()
+                    ?.let { engine.voice = it }
+            }
+        }
+        runCatching { engine.setPitch(1.02f) }
+        runCatching { engine.setSpeechRate(if (locale.language == "te") 0.82f else 0.92f) }
+        return true
+    }
+
+    private fun speak(text: String, locale: Locale? = null) {
         if (!ttsReady) return
         try {
+            if (!configureTtsLanguage(locale ?: Locale.getDefault())) {
+                configureTtsLanguage(Locale.ENGLISH)
+            }
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kiosk")
         } catch (_: Exception) {}
     }
@@ -787,7 +815,8 @@ class KioskActivity : AppCompatActivity() {
             getString(
                 if (isOut) R.string.kiosk_voice_logout_motivation
                 else R.string.kiosk_voice_login_motivation,
-            )
+            ),
+            TELUGU_VOICE_LOCALE,
         )
         mainHandler.removeCallbacks(hideOverlayRunnable)
         mainHandler.postDelayed(hideOverlayRunnable, OVERLAY_VISIBLE_MS)
@@ -1019,5 +1048,6 @@ class KioskActivity : AppCompatActivity() {
         private const val ENROLL_CHALLENGE_TIMEOUT_MS = 12_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_MS = 5_000L
         private const val ENROLL_ROSTER_FAST_REFRESH_WINDOW_MS = 2 * 60_000L
+        private val TELUGU_VOICE_LOCALE: Locale = Locale("te", "IN")
     }
 }
