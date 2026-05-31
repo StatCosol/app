@@ -11,6 +11,7 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import { ClientEmployeesService, Employee } from '../employees/client-employees.service';
 import {
@@ -600,6 +601,7 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
+    private dialog: ConfirmDialogService,
   ) {}
 
   private bump(): void {
@@ -835,8 +837,8 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     );
   }
 
-  revoke(d: MobileAttendanceDevice): void {
-    if (!confirm(`Revoke device "${d.deviceLabel || d.id}"? It will stop accepting punches immediately.`)) return;
+  async revoke(d: MobileAttendanceDevice): Promise<void> {
+    if (!(await this.dialog.confirm('Revoke Device', `Revoke device "${d.deviceLabel || d.id}"? It will stop accepting punches immediately.`, { variant: 'danger', confirmText: 'Revoke' }))) return;
     this.svc.revokeDevice(d.id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -845,12 +847,12 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  hardDelete(d: MobileAttendanceDevice): void {
+  async hardDelete(d: MobileAttendanceDevice): Promise<void> {
     if (d.isActive) {
       this.toast.error('Revoke the device before deleting it');
       return;
     }
-    if (!confirm(`Permanently delete device "${d.deviceLabel || d.id}"? This cannot be undone. Past punches are preserved.`)) return;
+    if (!(await this.dialog.confirm('Delete Device', `Permanently delete device "${d.deviceLabel || d.id}"? This cannot be undone. Past punches are preserved.`, { variant: 'danger', confirmText: 'Delete' }))) return;
     this.svc.hardDeleteDevice(d.id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -895,10 +897,15 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
     });
   }
 
-  deactivate(r: EnrollmentStatusRow): void {
-    const reason = prompt(`Deactivate face enrollment for ${r.employeeName}? Enter a reason (required for DPDP audit):`, 'Employee request');
-    if (!reason || !reason.trim()) return;
-    this.svc.deactivateEnrollment(r.employeeId, reason.trim())
+  async deactivate(r: EnrollmentStatusRow): Promise<void> {
+    const result = await this.dialog.prompt('Deactivate Enrollment', `Deactivate face enrollment for ${r.employeeName}?`, {
+      defaultValue: 'Employee request',
+      placeholder: 'Reason required for DPDP audit',
+      confirmText: 'Deactivate',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+    this.svc.deactivateEnrollment(r.employeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
@@ -906,11 +913,16 @@ export class ClientMobileAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
-  hardDeleteEnrollment(r: EnrollmentStatusRow): void {
-    if (!confirm(`PERMANENTLY DELETE the face enrollment row for ${r.employeeName}?\n\nThis removes the stored face template so the employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`)) return;
-    const reason = prompt(`Reason (required for DPDP audit):`, 'Wrong enrollment — re-enrollment required');
-    if (!reason || !reason.trim()) return;
-    this.svc.deleteEnrollment(r.employeeId, reason.trim())
+  async hardDeleteEnrollment(r: EnrollmentStatusRow): Promise<void> {
+    if (!(await this.dialog.confirm('Delete Face Enrollment', `Permanently delete the face enrollment row for ${r.employeeName}?\n\nThis removes the stored face template so the employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    const result = await this.dialog.prompt('Delete Reason', 'Reason required for DPDP audit:', {
+      defaultValue: 'Wrong enrollment - re-enrollment required',
+      placeholder: 'Reason',
+      confirmText: 'Delete',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+    this.svc.deleteEnrollment(r.employeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.toast.success('Enrollment permanently deleted'); this.loadEnrollments(); },

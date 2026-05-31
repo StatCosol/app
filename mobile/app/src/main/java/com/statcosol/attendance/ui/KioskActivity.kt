@@ -453,28 +453,27 @@ class KioskActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 android.util.Log.w("KioskActivity", "liveness challenge request failed", e)
-                requestingChallenge = false
-                pendingChallengeProbe = null
-                runOnUiThread {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
-                }
-                lastPunchAt = System.currentTimeMillis() - (COOLDOWN_MS - 3_000L).coerceAtLeast(0L)
-                return@launch
+                null
             }
-            val challenge = LivenessChallenge.fromWire(resp.challengeType)
-            if (challenge == null) {
-                android.util.Log.e("KioskActivity", "unknown challengeType=${resp.challengeType}")
-                requestingChallenge = false
-                pendingChallengeProbe = null
-                runOnUiThread {
-                    binding.statusText.text = getString(R.string.liveness_request_failed)
+            val challenge = if (resp == null) {
+                LivenessChallenge.random()
+            } else {
+                val serverChallenge = LivenessChallenge.fromWire(resp.challengeType)
+                if (serverChallenge == null) {
+                    android.util.Log.e("KioskActivity", "unknown challengeType=${resp.challengeType}")
+                    requestingChallenge = false
+                    pendingChallengeProbe = null
+                    runOnUiThread {
+                        binding.statusText.text = getString(R.string.liveness_request_failed)
+                    }
+                    return@launch
                 }
-                return@launch
+                serverChallenge
             }
             pendingChallengeMatch = match
             pendingChallengeLiveness = liveness
             pendingChallengeDirection = direction
-            pendingChallengeNonce = resp.nonce
+            pendingChallengeNonce = resp?.nonce
             pendingChallengeTracker = LivenessChallengeTracker(challenge)
             requestingChallenge = false
             runOnUiThread {

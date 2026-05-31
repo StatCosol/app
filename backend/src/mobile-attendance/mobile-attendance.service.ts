@@ -82,6 +82,7 @@ const LIVENESS_CHALLENGE_REQUIRED =
     process.env.FACE_LIVENESS_CHALLENGE_REQUIRED ?? 'true',
   ).toLowerCase() !== 'false';
 const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
+const OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Phase 4c: server-issued nonce flow. The set of challenges the server
 // may issue — the device must perform exactly the type returned and
 // echo back the nonce on the next punch. Adding to this list also
@@ -1498,19 +1499,63 @@ export class MobileAttendanceService implements OnModuleInit {
   private async consumeLivenessNonce(
     deviceId: string,
     nonce: string,
+    allowExpired = false,
   ): Promise<{ ok: boolean; challengeType: string | null }> {
+    const expiryClause = allowExpired ? '' : 'AND expires_at > NOW()';
     const rows: Array<{ challenge_type: string }> = await this.ds.query(
       `UPDATE face_liveness_nonces
           SET consumed_at = NOW()
         WHERE nonce = $1
           AND device_id = $2
           AND consumed_at IS NULL
-          AND expires_at > NOW()
+          ${expiryClause}
         RETURNING challenge_type`,
       [nonce, deviceId],
     );
     if (rows.length === 0) return { ok: false, challengeType: null };
     return { ok: true, challengeType: rows[0].challenge_type };
+  }
+
+  private validateOfflineLivenessFallback(
+    device: MobileAttendanceDeviceEntity,
+    body: Pick<
+      MobilePunchDto,
+      | 'offlineSync'
+      | 'livenessChallengeType'
+      | 'livenessChallengePassedAt'
+      | 'punchTime'
+    >,
+    subjectLabel: string,
+  ): boolean {
+    if (!body.offlineSync) return false;
+    if (!body.livenessChallengeType || !body.livenessChallengePassedAt) {
+      throw new BadRequestException(
+        'Offline liveness proof is incomplete — please retake the action',
+      );
+    }
+    if (!LIVENESS_CHALLENGE_TYPES.includes(body.livenessChallengeType as any)) {
+      throw new BadRequestException('Invalid offline liveness challenge type');
+    }
+    const passedAt = Date.parse(body.livenessChallengePassedAt);
+    const punchAt = Date.parse(body.punchTime);
+    if (Number.isNaN(passedAt) || Number.isNaN(punchAt)) {
+      throw new BadRequestException('Invalid offline liveness timestamp');
+    }
+    const deltaMs = Math.abs(punchAt - passedAt);
+    if (deltaMs > LIVENESS_CHALLENGE_MAX_AGE_MS) {
+      throw new BadRequestException(
+        'Offline liveness timestamp does not match punch time',
+      );
+    }
+    if (Date.now() - punchAt > OFFLINE_LIVENESS_FALLBACK_MAX_AGE_MS) {
+      throw new BadRequestException(
+        'Offline liveness proof is older than 24 hours',
+      );
+    }
+    this.logger.warn(
+      `offline liveness fallback accepted subject=${subjectLabel} device=${device.id} client=${device.clientId}`,
+    );
+    return true;
   }
 
   /** Best-effort cleanup of expired + old consumed nonces. Called from
@@ -1732,40 +1777,63 @@ export class MobileAttendanceService implements OnModuleInit {
     // their own — the nonce is the authoritative gate.
     if (LIVENESS_CHALLENGE_REQUIRED) {
       if (!body.livenessNonce) {
-        throw new BadRequestException(
-          'Active liveness challenge required (request a challenge and try again)',
-        );
-      }
-      const consumed = await this.consumeLivenessNonce(
-        device.id,
-        body.livenessNonce,
-      );
-      if (!consumed.ok) {
-        throw new BadRequestException(
-          'Liveness challenge expired or already used — please retake the action',
-        );
-      }
-      if (
-        body.livenessChallengeType &&
-        body.livenessChallengeType !== consumed.challengeType
-      ) {
-        this.logger.warn(
-          `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
-        );
-      }
-      if (body.livenessChallengePassedAt) {
-        const passedAt = Date.parse(body.livenessChallengePassedAt);
-        if (Number.isNaN(passedAt)) {
-          throw new BadRequestException('Invalid liveness challenge timestamp');
-        }
-        const ageMs = Date.now() - passedAt;
         if (
-          ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS ||
-          ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS
+          this.validateOfflineLivenessFallback(
+            device,
+            body,
+            emp.employeeCode ?? emp.id,
+          )
         ) {
+          // Offline queue fallback accepted.
+        } else {
           throw new BadRequestException(
-            'Liveness challenge timestamp out of range — check device clock',
+            'Active liveness challenge required (request a challenge and try again)',
           );
+        }
+      }
+      if (body.livenessNonce) {
+        const consumed = await this.consumeLivenessNonce(
+          device.id,
+          body.livenessNonce,
+          body.offlineSync === true,
+        );
+        if (!consumed.ok) {
+          throw new BadRequestException(
+            'Liveness challenge expired or already used — please retake the action',
+          );
+        }
+        if (
+          body.livenessChallengeType &&
+          body.livenessChallengeType !== consumed.challengeType
+        ) {
+          this.logger.warn(
+            `Liveness challenge type mismatch ignored device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
+          );
+        }
+        if (body.livenessChallengePassedAt) {
+          const passedAt = Date.parse(body.livenessChallengePassedAt);
+          if (Number.isNaN(passedAt)) {
+            throw new BadRequestException(
+              'Invalid liveness challenge timestamp',
+            );
+          }
+          const ageMs = Date.now() - passedAt;
+          if (
+            !body.offlineSync &&
+            (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS ||
+              ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS)
+          ) {
+            throw new BadRequestException(
+              'Liveness challenge timestamp out of range — check device clock',
+            );
+          }
+          if (body.offlineSync) {
+            this.validateOfflineLivenessFallback(
+              device,
+              body,
+              emp.employeeCode ?? emp.id,
+            );
+          }
         }
       }
     }
@@ -2154,40 +2222,56 @@ export class MobileAttendanceService implements OnModuleInit {
 
     if (LIVENESS_CHALLENGE_REQUIRED) {
       if (!body.livenessNonce) {
-        throw new BadRequestException(
-          'Active liveness challenge required (request a challenge and try again)',
-        );
-      }
-      const consumed = await this.consumeLivenessNonce(
-        device.id,
-        body.livenessNonce,
-      );
-      if (!consumed.ok) {
-        throw new BadRequestException(
-          'Liveness challenge expired or already used — please retake the action',
-        );
-      }
-      if (
-        body.livenessChallengeType &&
-        body.livenessChallengeType !== consumed.challengeType
-      ) {
-        this.logger.warn(
-          `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
-        );
-      }
-      if (body.livenessChallengePassedAt) {
-        const passedAt = Date.parse(body.livenessChallengePassedAt);
-        if (Number.isNaN(passedAt)) {
-          throw new BadRequestException('Invalid liveness challenge timestamp');
-        }
-        const ageMs = Date.now() - passedAt;
         if (
-          ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS ||
-          ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS
+          this.validateOfflineLivenessFallback(
+            device,
+            body,
+            `contractor:${ctr.id}`,
+          )
         ) {
+          // Offline queue fallback accepted.
+        } else {
           throw new BadRequestException(
-            'Liveness challenge timestamp out of range — check device clock',
+            'Active liveness challenge required (request a challenge and try again)',
           );
+        }
+      }
+      if (body.livenessNonce) {
+        const consumed = await this.consumeLivenessNonce(
+          device.id,
+          body.livenessNonce,
+          body.offlineSync === true,
+        );
+        if (!consumed.ok) {
+          throw new BadRequestException(
+            'Liveness challenge expired or already used — please retake the action',
+          );
+        }
+        if (
+          body.livenessChallengeType &&
+          body.livenessChallengeType !== consumed.challengeType
+        ) {
+          this.logger.warn(
+            `Liveness challenge type mismatch ignored contractor device=${device.id} client=${device.clientId} supplied=${body.livenessChallengeType} nonceType=${consumed.challengeType}`,
+          );
+        }
+        if (body.livenessChallengePassedAt) {
+          const passedAt = Date.parse(body.livenessChallengePassedAt);
+          if (Number.isNaN(passedAt)) {
+            throw new BadRequestException(
+              'Invalid liveness challenge timestamp',
+            );
+          }
+          const ageMs = Date.now() - passedAt;
+          if (
+            !body.offlineSync &&
+            (ageMs < -LIVENESS_CHALLENGE_MAX_AGE_MS ||
+              ageMs > LIVENESS_CHALLENGE_MAX_AGE_MS)
+          ) {
+            throw new BadRequestException(
+              'Liveness challenge timestamp out of range — check device clock',
+            );
+          }
         }
       }
     }

@@ -10,6 +10,7 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { AuthService } from '../../../core/auth.service';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import {
@@ -544,6 +545,7 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     private svc: ClientMobileAttendanceService,
     private toast: ToastService,
     private cdr: ChangeDetectorRef,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -973,10 +975,15 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  deactivate(r: EnrollmentStatusRow): void {
-    const reason = prompt(`Deactivate face enrollment for ${r.employeeName}? Enter a reason (required for DPDP audit):`, 'Employee request');
-    if (!reason || !reason.trim()) return;
-    this.svc.deactivateEnrollment(r.employeeId, reason.trim())
+  async deactivate(r: EnrollmentStatusRow): Promise<void> {
+    const result = await this.dialog.prompt('Deactivate Enrollment', `Deactivate face enrollment for ${r.employeeName}?`, {
+      defaultValue: 'Employee request',
+      placeholder: 'Reason required for DPDP audit',
+      confirmText: 'Deactivate',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+    this.svc.deactivateEnrollment(r.employeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
@@ -984,10 +991,15 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       });
   }
 
-  deactivateContractor(r: ContractorEnrollmentStatusRow): void {
-    const reason = prompt(`Deactivate face enrollment for ${r.name}? Enter a reason (required for DPDP audit):`, 'Contractor request');
-    if (!reason || !reason.trim()) return;
-    this.svc.deactivateContractorEnrollment(r.contractorEmployeeId, reason.trim())
+  async deactivateContractor(r: ContractorEnrollmentStatusRow): Promise<void> {
+    const result = await this.dialog.prompt('Deactivate Enrollment', `Deactivate face enrollment for ${r.name}?`, {
+      defaultValue: 'Contractor request',
+      placeholder: 'Reason required for DPDP audit',
+      confirmText: 'Deactivate',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+    this.svc.deactivateContractorEnrollment(r.contractorEmployeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.toast.success('Enrollment deactivated'); this.loadEnrollments(); },
@@ -995,11 +1007,16 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       });
   }
 
-  hardDelete(r: EnrollmentStatusRow): void {
-    if (!confirm(`PERMANENTLY DELETE the face enrollment row for ${r.employeeName}?\n\nThis removes the stored face template so the employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`)) return;
-    const reason = prompt(`Reason (required for DPDP audit):`, 'Wrong enrollment — re-enrollment required');
-    if (!reason || !reason.trim()) return;
-    this.svc.deleteEnrollment(r.employeeId, reason.trim())
+  async hardDelete(r: EnrollmentStatusRow): Promise<void> {
+    if (!(await this.dialog.confirm('Delete Face Enrollment', `Permanently delete the face enrollment row for ${r.employeeName}?\n\nThis removes the stored face template so the employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    const result = await this.dialog.prompt('Delete Reason', 'Reason required for DPDP audit:', {
+      defaultValue: 'Wrong enrollment - re-enrollment required',
+      placeholder: 'Reason',
+      confirmText: 'Delete',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+    this.svc.deleteEnrollment(r.employeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.toast.success('Enrollment permanently deleted'); this.loadEnrollments(); },
@@ -1007,11 +1024,16 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       });
   }
 
-  hardDeleteContractor(r: ContractorEnrollmentStatusRow): void {
-    if (!confirm(`PERMANENTLY DELETE the face enrollment row for ${r.name}?\n\nThis removes the stored face template so the contractor employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`)) return;
-    const reason = prompt(`Reason (required for DPDP audit):`, 'Wrong enrollment — re-enrollment required');
-    if (!reason || !reason.trim()) return;
-    this.svc.deleteContractorEnrollment(r.contractorEmployeeId, reason.trim())
+  async hardDeleteContractor(r: ContractorEnrollmentStatusRow): Promise<void> {
+    if (!(await this.dialog.confirm('Delete Contractor Enrollment', `Permanently delete the face enrollment row for ${r.name}?\n\nThis removes the stored face template so the contractor employee can be enrolled again from scratch. The audit history is preserved.\n\nThis action cannot be undone.`, { variant: 'danger', confirmText: 'Delete' }))) return;
+    const result = await this.dialog.prompt('Delete Reason', 'Reason required for DPDP audit:', {
+      defaultValue: 'Wrong enrollment - re-enrollment required',
+      placeholder: 'Reason',
+      confirmText: 'Delete',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+    this.svc.deleteContractorEnrollment(r.contractorEmployeeId, reason)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { this.toast.success('Enrollment permanently deleted'); this.loadEnrollments(); },
@@ -1365,16 +1387,19 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       });
   }
 
-  rejectKioskTicket(t: KioskEnrollTicket): void {
+  async rejectKioskTicket(t: KioskEnrollTicket): Promise<void> {
     if (t.status !== 'REVIEW_PENDING') return;
-    const reason =
-      prompt(`Reject kiosk capture for ${t.subjectName}? Enter reason:`, 'Recapture required') ||
-      '';
-    if (!reason.trim()) return;
+    const result = await this.dialog.prompt('Reject Kiosk Capture', `Reject kiosk capture for ${t.subjectName}?`, {
+      defaultValue: 'Recapture required',
+      placeholder: 'Reason',
+      confirmText: 'Reject',
+    });
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
     this.svc
       .reviewKioskEnrollTicket(t.id, {
         decision: 'REJECTED',
-        reason: reason.trim(),
+        reason,
       })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
