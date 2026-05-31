@@ -137,6 +137,9 @@ const ATTENDANCE_STATUSES = [
             <ui-button size="sm" variant="primary" [disabled]="actionBusy" [loading]="actionBusy && actionType==='approveAll'" (clicked)="approveAllPending()">
               Approve All Pending
             </ui-button>
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='rejectAll'" (clicked)="rejectAllPending()">
+              Reject All Pending
+            </ui-button>
           </div>
         </section>
 
@@ -207,6 +210,12 @@ const ATTENDANCE_STATUSES = [
                       [disabled]="actionBusy"
                       (clicked)="approveSingle(row.id)">
                       Approve
+                    </ui-button>
+                    <ui-button size="sm" variant="danger"
+                      *ngIf="row.approvalStatus !== 'REJECTED'"
+                      [disabled]="actionBusy"
+                      (clicked)="rejectSingle(row.id)">
+                      Reject
                     </ui-button>
                   </td>
                 </tr>
@@ -311,7 +320,7 @@ const ATTENDANCE_STATUSES = [
       .approval-chip[data-approval=REJECTED] { border-color: #fca5a5; color: #991b1b; background: #fef2f2; }
       .row-pending { background: #fffbeb; }
       .row-rejected { background: #fef2f2; }
-      .actions-cell { white-space: nowrap; display: flex; gap: .3rem; }
+      .actions-cell { white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: .3rem; }
       .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
       .modal-card { background: #fff; border-radius: 16px; padding: 1.2rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
       .modal-card h3 { margin: 0 0 .3rem; font-size: 1rem; color: #111827; }
@@ -541,6 +550,30 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
+  rejectAllPending(): void {
+    const ids = this.pendingRecords.map((r) => r.id);
+    if (!ids.length) return;
+    this.actionBusy = true;
+    this.actionType = 'rejectAll';
+    this.svc
+      .rejectRecords(ids)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.toast.success(`${res.rejected} record(s) rejected.`);
+          this.load();
+        },
+        error: () => this.toast.error('Failed to reject records.'),
+      });
+  }
+
   approveSingle(id: string): void {
     this.actionBusy = true;
     this.actionType = 'approve';
@@ -560,6 +593,28 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
           this.load();
         },
         error: () => this.toast.error('Failed to approve.'),
+      });
+  }
+
+  rejectSingle(id: string): void {
+    this.actionBusy = true;
+    this.actionType = 'reject';
+    this.svc
+      .rejectRecords([id])
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Record rejected.');
+          this.load();
+        },
+        error: () => this.toast.error('Failed to reject.'),
       });
   }
 
