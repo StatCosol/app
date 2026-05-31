@@ -12,6 +12,7 @@ import {
   PageHeaderComponent,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientBranchesService } from '../../../core/client-branches.service';
 import {
   BiometricDevice,
@@ -355,6 +356,7 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
     private svc: ClientBiometricService,
     private branchSvc: ClientBranchesService,
     private toast: ToastService,
+    private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
   ) {}
@@ -481,8 +483,12 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
       });
   }
 
-  remove(d: BiometricDevice): void {
-    const ok = confirm(`Delete device "${d.label || d.serialNumber}"? This cannot be undone.`);
+  async remove(d: BiometricDevice): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Device',
+      `Delete device "${d.label || d.serialNumber}"? This cannot be undone.`,
+      { variant: 'danger', confirmText: 'Delete' },
+    );
     if (!ok) return;
     this.svc.deleteDevice(d.id)
       .pipe(takeUntil(this.destroy$))
@@ -529,9 +535,13 @@ export class ClientBiometricComponent implements OnInit, OnDestroy {
       });
   }
 
-  reprocess(): void {
+  async reprocess(): Promise<void> {
     if (!this.punchFrom || !this.punchTo) return;
-    const ok = confirm(`Reprocess attendance from ${this.punchFrom} to ${this.punchTo}? Manual edits will be preserved.`);
+    const ok = await this.dialog.confirm(
+      'Reprocess Attendance',
+      `Reprocess attendance from ${this.punchFrom} to ${this.punchTo}? Manual edits will be preserved.`,
+      { confirmText: 'Reprocess' },
+    );
     if (!ok) return;
     this.reprocessing = true;
     this.svc.processRange({ from: this.punchFrom, to: this.punchTo, reprocess: true })

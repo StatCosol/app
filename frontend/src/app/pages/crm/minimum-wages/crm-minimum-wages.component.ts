@@ -19,6 +19,7 @@ import {
   TableColumn,
 } from '../../../shared/ui';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   CrmMinimumWagesService,
   MinimumWageRow,
@@ -214,6 +215,7 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
   constructor(
     private api: CrmMinimumWagesService,
     private toast: ToastService,
+    private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -325,8 +327,13 @@ export class CrmMinimumWagesComponent implements OnInit, OnDestroy {
       });
   }
 
-  remove(row: MinimumWageRow): void {
-    if (!confirm(`Delete minimum wage row for ${row.stateCode} / ${row.skillCategory}?`)) return;
+  async remove(row: MinimumWageRow): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Minimum Wage',
+      `Delete minimum wage row for ${row.stateCode} / ${row.skillCategory}?`,
+      { variant: 'danger', confirmText: 'Delete' },
+    );
+    if (!ok) return;
     this.api.remove(row.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.toast.success('Deleted');
