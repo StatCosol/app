@@ -197,11 +197,21 @@ class ApiClient(private val config: DeviceConfig) {
         http.newCall(req).execute().use { resp ->
             val text = resp.body?.string() ?: throw IOException("empty body")
             if (!resp.isSuccessful) {
-                throw IOException("kiosk-enroll submit ${resp.code}: $text")
+                throw IOException(apiErrorMessage("kiosk-enroll submit", resp.code, text))
             }
             return moshi.adapter(KioskEnrollSubmitResponse::class.java).fromJson(text)
                 ?: throw IOException("could not parse kiosk-enroll submit response")
         }
+    }
+
+    private fun apiErrorMessage(prefix: String, code: Int, body: String): String {
+        val parsed = runCatching {
+            moshi.adapter(ApiErrorResponse::class.java).fromJson(body)
+        }.getOrNull()
+        val message = parsed?.message
+            ?.takeIf { it.isNotBlank() }
+            ?: parsed?.error?.takeIf { it.isNotBlank() }
+        return message ?: "$prefix failed ($code)"
     }
 
     private fun requireToken(): String =

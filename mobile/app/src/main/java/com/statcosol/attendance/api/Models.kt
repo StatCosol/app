@@ -2,6 +2,13 @@ package com.statcosol.attendance.api
 
 import com.squareup.moshi.JsonClass
 
+@JsonClass(generateAdapter = true)
+data class ApiErrorResponse(
+    val message: String? = null,
+    val error: String? = null,
+    val statusCode: Int? = null
+)
+
 /** GET /api/v1/mobile-attendance/roster response. */
 @JsonClass(generateAdapter = true)
 data class RosterResponse(
