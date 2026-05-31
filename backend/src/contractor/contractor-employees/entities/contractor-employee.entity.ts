@@ -78,9 +78,9 @@ export class ContractorEmployeeEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
-  /** Worker employment lifecycle: ACTIVE | LEFT | INACTIVE. Replaces is_active for state semantics. */
+  /** Worker employment lifecycle: ACTIVE | LEFT | INACTIVE | PENDING_DELETE. */
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
-  status: 'ACTIVE' | 'LEFT' | 'INACTIVE';
+  status: 'ACTIVE' | 'LEFT' | 'INACTIVE' | 'PENDING_DELETE';
 
   /** Statutory skill category (Minimum Wages Act). */
   @Column({

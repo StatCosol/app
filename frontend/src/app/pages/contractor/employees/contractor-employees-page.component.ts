@@ -20,6 +20,7 @@ import {
   ContractorProfileApiService,
 } from '../../../core/contractor-profile-api.service';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 import {
   EmptyStateComponent,
   LoadingSpinnerComponent,
@@ -276,12 +277,18 @@ interface BulkPreviewRow {
                     <button
                       *ngIf="emp.isActive"
                       (click)="confirmDeactivate(emp)"
+                      [disabled]="emp.status === 'PENDING_DELETE'"
                       class="text-xs font-medium text-red-500 hover:text-red-700 hover:underline"
                     >Deactivate</button>
                     <button
+                      (click)="requestDelete(emp)"
+                      [disabled]="saving || emp.status === 'PENDING_DELETE'"
+                      class="text-xs font-medium text-red-700 hover:text-red-900 hover:underline disabled:opacity-50"
+                    >{{ emp.status === 'PENDING_DELETE' ? 'Delete Pending' : 'Delete' }}</button>
+                    <button
                       *ngIf="!emp.isActive"
                       (click)="doReactivate(emp)"
-                      [disabled]="saving"
+                      [disabled]="saving || emp.status === 'PENDING_DELETE'"
                       class="text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline disabled:opacity-50"
                     >Reactivate</button>
                   </div>
@@ -770,6 +777,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     private api: ContractorEmployeesApiService,
     private profileApi: ContractorProfileApiService,
     private toast: ToastService,
+    private dialog: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -1005,6 +1013,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   statusLabel(emp: ContractorEmployee): string {
+    if (emp.status === 'PENDING_DELETE') return 'Delete pending';
     if (emp.isActive) return 'Active';
     if (emp.status === 'LEFT') return 'Left';
     if (emp.status === 'INACTIVE') return 'Inactive';
@@ -1012,6 +1021,7 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   statusBadgeClass(emp: ContractorEmployee): string {
+    if (emp.status === 'PENDING_DELETE') return 'bg-red-50 text-red-700 border-red-200';
     if (emp.isActive) return 'bg-green-50 text-green-700 border-green-200';
     if (emp.status === 'LEFT') return 'bg-amber-50 text-amber-800 border-amber-200';
     return 'bg-gray-100 text-gray-500 border-gray-200';
@@ -1044,6 +1054,47 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────── Bulk Upload ──────────────────────────
+  async requestDelete(emp: ContractorEmployee): Promise<void> {
+    if (this.saving || emp.status === 'PENDING_DELETE') return;
+    const result = await this.dialog.prompt(
+      'Request Worker Deletion',
+      `Send ${emp.name} deletion request to BranchDesk for approval?`,
+      {
+        defaultValue: 'Worker no longer engaged',
+        placeholder: 'Reason',
+        confirmText: 'Send Request',
+      },
+    );
+    const reason = result.value?.trim();
+    if (!result.confirmed || !reason) return;
+
+    this.saving = true;
+    this.api
+      .requestDelete(emp.id, reason)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.allRows = this.allRows.map((row) =>
+            row.id === emp.id ? { ...row, status: 'PENDING_DELETE' } : row,
+          );
+          this.applyFilters();
+          this.toast.success(
+            'Delete request sent',
+            'BranchDesk approval is required before deletion.',
+          );
+        },
+        error: (err: any) => {
+          this.toast.error('Error', err?.error?.message || 'Could not send delete request.');
+        },
+      });
+  }
+
   openBulkUpload(): void {
     this.bulkOpen = true;
     this.bulkPreview = [];

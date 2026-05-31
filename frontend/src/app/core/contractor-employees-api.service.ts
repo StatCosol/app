@@ -8,7 +8,7 @@ export type SkillCategory =
   | 'SKILLED'
   | 'HIGHLY_SKILLED';
 
-export type EmployeeStatus = 'ACTIVE' | 'LEFT' | 'INACTIVE';
+export type EmployeeStatus = 'ACTIVE' | 'LEFT' | 'INACTIVE' | 'PENDING_DELETE';
 
 export interface ContractorEmployee {
   id: string;
@@ -79,6 +79,18 @@ export interface BulkUploadResponse {
   results: BulkRowResult[];
 }
 
+export interface ContractorEmployeeDeleteRequest {
+  id: string;
+  contractorEmployeeId: string;
+  contractorEmployeeName: string;
+  contractorUserId: string;
+  contractorName: string | null;
+  branchId: string;
+  reason: string | null;
+  status: string;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ContractorEmployeesApiService {
   constructor(private http: HttpClient) {}
@@ -136,10 +148,41 @@ export class ContractorEmployeesApiService {
     );
   }
 
+  requestDelete(id: string, reason?: string): Observable<{
+    message: string;
+    requestId: string;
+    status: string;
+  }> {
+    return this.http.post<{
+      message: string;
+      requestId: string;
+      status: string;
+    }>(`/api/v1/contractor/employees/${id}/delete-request`, {
+      reason: reason || null,
+    });
+  }
+
   reactivate(id: string): Observable<ContractorEmployee> {
     return this.http.put<ContractorEmployee>(
       `/api/v1/contractor/employees/${id}/reactivate`,
       {},
+    );
+  }
+
+  listDeleteRequests(): Observable<ContractorEmployeeDeleteRequest[]> {
+    return this.http.get<ContractorEmployeeDeleteRequest[]>(
+      '/api/v1/client/contractor-employees/delete-requests',
+    );
+  }
+
+  reviewDeleteRequest(
+    id: string,
+    decision: 'APPROVED' | 'REJECTED',
+    notes?: string,
+  ): Observable<{ ok: true; status: string }> {
+    return this.http.post<{ ok: true; status: string }>(
+      `/api/v1/client/contractor-employees/delete-requests/${id}/review`,
+      { decision, notes: notes || null },
     );
   }
 
