@@ -785,9 +785,8 @@ class KioskActivity : AppCompatActivity() {
         binding.statusText.text = getString(R.string.kiosk_look_at_camera)
         speak(
             getString(
-                if (isOut) R.string.kiosk_voice_logout_recorded
-                else R.string.kiosk_voice_recorded,
-                name,
+                if (isOut) R.string.kiosk_voice_logout_motivation
+                else R.string.kiosk_voice_login_motivation,
             )
         )
         mainHandler.removeCallbacks(hideOverlayRunnable)
