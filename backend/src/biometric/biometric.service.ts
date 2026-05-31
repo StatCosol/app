@@ -300,7 +300,6 @@ export class BiometricService {
         existing.overtimeHours = overtimeHours.toFixed(2);
         existing.source = 'BIOMETRIC';
         existing.captureMethod = captureMethod;
-        existing.approvalStatus = 'APPROVED';
         await this.attRepo.save(existing);
       } else {
         existing = await this.attRepo.save(

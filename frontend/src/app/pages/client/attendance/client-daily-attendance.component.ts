@@ -451,28 +451,35 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
   }
 
   toggleSelect(id: string): void {
-    if (this.selectedIds.has(id)) this.selectedIds.delete(id);
-    else this.selectedIds.add(id);
+    const next = new Set(this.selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedIds = next;
     this.cdr.markForCheck();
   }
 
   toggleSelectAll(ev: Event): void {
     const checked = (ev.target as HTMLInputElement).checked;
+    const next = new Set(this.selectedIds);
     if (checked) {
-      this.filteredRecords.forEach((r) => this.selectedIds.add(r.id));
+      this.filteredRecords.forEach((r) => next.add(r.id));
     } else {
-      this.filteredRecords.forEach((r) => this.selectedIds.delete(r.id));
+      this.filteredRecords.forEach((r) => next.delete(r.id));
     }
+    this.selectedIds = next;
     this.cdr.markForCheck();
   }
 
   selectAllPending(): void {
-    this.pendingRecords.forEach((r) => this.selectedIds.add(r.id));
+    this.selectedIds = new Set([
+      ...this.selectedIds,
+      ...this.pendingRecords.map((r) => r.id),
+    ]);
     this.cdr.markForCheck();
   }
 
   clearSelection(): void {
-    this.selectedIds.clear();
+    this.selectedIds = new Set<string>();
     this.cdr.markForCheck();
   }
 
@@ -494,7 +501,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.toast.success(`${res.approved} record(s) approved.`);
-          this.selectedIds.clear();
+          this.clearSelection();
           this.load();
         },
         error: () => this.toast.error('Failed to approve records.'),
@@ -519,7 +526,7 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.toast.success(`${res.rejected} record(s) rejected.`);
-          this.selectedIds.clear();
+          this.clearSelection();
           this.load();
         },
         error: () => this.toast.error('Failed to reject records.'),
