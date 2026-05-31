@@ -10,6 +10,7 @@ import { takeUntil, finalize } from 'rxjs/operators';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import { AuthService } from '../../../core/auth.service';
 import { environment } from '../../../../environments/environment';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   selector: 'app-branch-employees',
@@ -257,6 +258,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private router: Router,
     private http: HttpClient,
+    private dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -367,13 +369,16 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  revertLastImport(): void {
+  async revertLastImport(): Promise<void> {
     if (!this.lastImportBatchId || this.reverting) return;
     const batchId = this.lastImportBatchId;
     const count = this.lastImportNewCount;
-    if (!window.confirm(`Revert this import? This will permanently delete the ${count} employee(s) newly created in the last bulk upload. Updated existing employees will NOT be reverted.`)) {
-      return;
-    }
+    const ok = await this.dialog.confirm(
+      'Revert Import',
+      `Revert this import? This will permanently delete the ${count} employee(s) newly created in the last bulk upload. Updated existing employees will NOT be reverted.`,
+      { variant: 'danger', confirmText: 'Revert' },
+    );
+    if (!ok) return;
     this.reverting = true;
     this.cdr.markForCheck();
     this.http.delete<any>(`${environment.apiBaseUrl}/api/v1/client/employees/bulk-import/${batchId}/revert`).pipe(

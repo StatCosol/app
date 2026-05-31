@@ -408,12 +408,17 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   }
 
-  provisionEssLogin(): void {
+  async provisionEssLogin(): Promise<void> {
     if (!this.emp || !this.hasValidEmail()) {
       this.toast.error('Please add a valid email address for this employee first');
       return;
     }
-    if (!confirm(`Create ESS login for ${this.emp.name}?\nEmail: ${this.emp.email}`)) return;
+    const ok = await this.dialog.confirm(
+      'Create ESS Login',
+      `Create ESS login for ${this.emp.name}?\nEmail: ${this.emp.email}`,
+      { confirmText: 'Create' },
+    );
+    if (!ok) return;
     this.provisioningEss = true;
     this.essResult = null;
     this.cdr.detectChanges();

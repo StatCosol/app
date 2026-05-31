@@ -126,15 +126,20 @@ export class CcoPayrollApprovalsComponent implements OnInit, OnDestroy {
 
   async reject(row: QueueRow): Promise<void> {
     if (row.approvalStatus !== 'PENDING') return;
-    const reason = window.prompt('Reason for rejection (required):', '');
-    if (reason === null) return;
-    if (!reason.trim()) {
+    const result = await this.dialog.prompt(
+      'Reject Structure',
+      'Reason for rejection (required):',
+      { placeholder: 'Reason', confirmText: 'Reject' },
+    );
+    if (!result.confirmed) return;
+    const reason = (result.value || '').trim();
+    if (!reason) {
       this.toast.error('Rejection reason is required');
       return;
     }
     this.acting = true;
     this.engineApi
-      .rejectStructure(row.id, reason.trim())
+      .rejectStructure(row.id, reason)
       .pipe(takeUntil(this.destroy$), finalize(() => { this.acting = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: () => {

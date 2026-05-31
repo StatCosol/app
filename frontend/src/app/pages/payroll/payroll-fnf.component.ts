@@ -20,6 +20,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 type FnfLifecycleFilter = 'ALL' | 'INITIATED' | 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
 type LifecycleAction = 'UNDER_REVIEW' | 'APPROVED' | 'SETTLED' | 'DOCS_ISSUED' | 'COMPLETED';
@@ -130,6 +131,7 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
   constructor(
     private readonly payrollApi: PayrollApiService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
   ) {}
@@ -588,8 +590,13 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
     { value: 'NO_DUES_CERTIFICATE', label: 'No Dues Certificate' },
   ];
 
-  deleteFnfDoc(doc: any): void {
-    if (!confirm('Remove this document permanently?')) return;
+  async deleteFnfDoc(doc: any): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Remove Document',
+      'Remove this document permanently?',
+      { variant: 'danger', confirmText: 'Remove' },
+    );
+    if (!ok) return;
     this.payrollApi
       .deleteFnfDocument(doc.id)
       .pipe(takeUntil(this.destroy$))

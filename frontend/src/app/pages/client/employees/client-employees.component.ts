@@ -385,16 +385,26 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
     });
   }
 
-  approveEmployee(emp: Employee): void {
-    if (!confirm(`Approve registration of ${emp.name}?`)) return;
+  async approveEmployee(emp: Employee): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Approve Registration',
+      `Approve registration of ${emp.name}?`,
+      { confirmText: 'Approve' },
+    );
+    if (!ok) return;
     this.svc.approve(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee approved'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to approve'),
     });
   }
 
-  rejectEmployee(emp: Employee): void {
-    if (!confirm(`Reject registration of ${emp.name}? The employee will be deactivated.`)) return;
+  async rejectEmployee(emp: Employee): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Reject Registration',
+      `Reject registration of ${emp.name}? The employee will be deactivated.`,
+      { variant: 'danger', confirmText: 'Reject' },
+    );
+    if (!ok) return;
     this.svc.reject(emp.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee rejected'); this.load(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to reject'),

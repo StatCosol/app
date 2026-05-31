@@ -13,6 +13,7 @@ import {
   StatusBadgeComponent,
 } from '../../../shared/ui';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-engine-config',
@@ -375,6 +376,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
 export class EngineConfigComponent implements OnInit {
   private readonly api = inject(AdminApplicabilityConfigService);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly toast = inject(ToastService);
   private readonly zone = inject(NgZone);
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -518,7 +520,7 @@ export class EngineConfigComponent implements OnInit {
         this.editingItem = null;
         this.api.listComplianceItems().subscribe(items => { this.complianceItems = items; this.rebuildComplianceSelectOptions(); });
       },
-      error: (e: any) => alert(e?.error?.message || 'Error saving item'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error saving item'),
     });
   }
 
@@ -607,7 +609,7 @@ export class EngineConfigComponent implements OnInit {
         this.editingPackage = null;
         this.api.listPackages().subscribe(pkgs => this.packages = pkgs);
       },
-      error: (e: any) => alert(e?.error?.message || 'Error saving package'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error saving package'),
     });
   }
 
@@ -655,7 +657,7 @@ export class EngineConfigComponent implements OnInit {
         this.selectedComplianceForPackage = '';
         this.loadPackageDetails(packageId);
       },
-      error: (e: any) => alert(e?.error?.message || 'Error adding item'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error adding item'),
     });
   }
 
@@ -665,7 +667,7 @@ export class EngineConfigComponent implements OnInit {
     const ids = available.map((i: any) => i.value);
     this.api.bulkAddPackageItems(packageId, ids).subscribe({
       next: () => this.loadPackageDetails(packageId),
-      error: (e: any) => alert(e?.error?.message || 'Error adding items'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error adding items'),
     });
   }
 
@@ -682,7 +684,7 @@ export class EngineConfigComponent implements OnInit {
         this.selectedRuleForPackage = '';
         this.loadPackageDetails(packageId);
       },
-      error: (e: any) => alert(e?.error?.message || 'Error adding rule'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error adding rule'),
     });
   }
 
@@ -692,7 +694,7 @@ export class EngineConfigComponent implements OnInit {
     const ids = available.map((r: any) => r.value);
     this.api.bulkAddPackageRules(packageId, ids).subscribe({
       next: () => this.loadPackageDetails(packageId),
-      error: (e: any) => alert(e?.error?.message || 'Error adding rules'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error adding rules'),
     });
   }
 
@@ -712,7 +714,7 @@ export class EngineConfigComponent implements OnInit {
     try {
       conditionsJson = JSON.parse(this.ruleForm.conditionsJsonStr);
     } catch {
-      alert('Invalid JSON in conditions field');
+      this.toast.error('Invalid JSON in conditions field');
       return;
     }
 
@@ -735,7 +737,7 @@ export class EngineConfigComponent implements OnInit {
         this.editingRule = null;
         this.api.listRules().subscribe(rules => this.rules = rules);
       },
-      error: (e: any) => alert(e?.error?.message || 'Error saving rule'),
+      error: (e: any) => this.toast.error(e?.error?.message || 'Error saving rule'),
     });
   }
 

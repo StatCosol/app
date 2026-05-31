@@ -701,8 +701,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  deleteBranch(branchId: string) {
-    if (!confirm('Delete this branch?')) return;
+  async deleteBranch(branchId: string): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Branch',
+      'Delete this branch?',
+      { variant: 'danger', confirmText: 'Delete' },
+    );
+    if (!ok) return;
 
     this.service.deleteBranch(branchId).pipe(
       timeout(8000),
@@ -906,9 +911,14 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     });
   }
 
-  unlinkContractorFromBranch(link: BranchContractorLink) {
+  async unlinkContractorFromBranch(link: BranchContractorLink): Promise<void> {
     if (!this.branchForContractors?.id) return;
-    if (!confirm(`Unlink contractor ${link.name} (${link.email}) from this branch?`)) return;
+    const ok = await this.dialog.confirm(
+      'Unlink Contractor',
+      `Unlink contractor ${link.name} (${link.email}) from this branch?`,
+      { variant: 'danger', confirmText: 'Unlink' },
+    );
+    if (!ok) return;
 
     this.loading = true;
     this.error = '';
@@ -970,8 +980,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     });
   }
 
-  resetBranchUserPassword(user: BranchUserLink) {
-    if (!confirm(`Reset password for ${user.name} (${user.email})? A new password will be generated.`)) return;
+  async resetBranchUserPassword(user: BranchUserLink): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Reset Password',
+      `Reset password for ${user.name} (${user.email})? A new password will be generated.`,
+      { confirmText: 'Reset' },
+    );
+    if (!ok) return;
 
     this.error = '';
     this.success = '';
@@ -1222,8 +1237,13 @@ export class AdminClientsComponent implements OnInit, OnDestroy {
     });
   }
 
-  resetMasterUserPassword(userId: string) {
-    if (!confirm('Reset this user\'s password? A new password will be generated.')) return;
+  async resetMasterUserPassword(userId: string): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Reset Password',
+      'Reset this user\'s password? A new password will be generated.',
+      { confirmText: 'Reset' },
+    );
+    if (!ok) return;
 
     this.error = '';
     this.success = '';

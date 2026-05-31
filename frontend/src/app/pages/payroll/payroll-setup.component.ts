@@ -26,6 +26,7 @@ import {
 } from './payroll-engine-api.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { ClientContextStripComponent } from '../../shared/ui/client-context-strip/client-context-strip.component';
 import { LeaveManagementService } from '../client/leave-management.service';
 import {
@@ -279,6 +280,7 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     private readonly engineApi: PayrollEngineApiService,
     private readonly leaveMgmtSvc: LeaveManagementService,
     private readonly toast: ToastService,
+    private readonly dialog: ConfirmDialogService,
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
@@ -712,7 +714,11 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
 
   async deleteComp(component: PayrollComponent): Promise<void> {
     if (!this.selectedClientId) return;
-    const ok = window.confirm(`Delete component "${component.name}"?`);
+    const ok = await this.dialog.confirm(
+      'Delete Component',
+      `Delete component "${component.name}"?`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
     if (!ok) return;
 
     this.setupApi
@@ -814,7 +820,11 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
 
   async deleteRule(rule: ComponentRule): Promise<void> {
     if (!this.selectedClientId || !this.selectedComponent) return;
-    const ok = window.confirm('Delete this rule?');
+    const ok = await this.dialog.confirm(
+      'Delete Rule',
+      'Delete this rule?',
+      { confirmText: 'Delete', variant: 'danger' },
+    );
     if (!ok) return;
 
     this.setupApi
@@ -949,17 +959,23 @@ export class PayrollSetupComponent implements OnInit, OnDestroy {
     this.toast.success(`Loaded template "${tpl.name}"`);
   }
 
-  saveAsTemplate(): void {
+  async saveAsTemplate(): Promise<void> {
     if (!this.formulaForm.formulaJson || !this.formulaTargetComponent) return;
-    const name = window.prompt(
+    const result = await this.dialog.prompt(
+      'Save Formula Template',
       'Template name:',
-      `${this.formulaTargetComponent.code} formula`,
+      {
+        defaultValue: `${this.formulaTargetComponent.code} formula`,
+        placeholder: 'Template name',
+        confirmText: 'Save',
+      },
     );
+    const name = (result.value || '').trim();
     if (!name?.trim()) return;
     this.savingTemplate = true;
     this.engineApi
       .createFormulaTemplate({
-        name: name.trim(),
+        name,
         clientId: this.selectedClientId || null,
         componentId: this.formulaTargetComponent.id,
         formulaJson: this.formulaForm.formulaJson,

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AccountsBillingService } from '../services/accounts-billing.service';
 import { PendingPaymentFollowup } from '../models/billing.models';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   selector: 'app-billing-pending-payments',
@@ -193,7 +194,10 @@ export class BillingPendingPaymentsComponent implements OnInit {
 
   templateUrl: string;
 
-  constructor(private svc: AccountsBillingService) {
+  constructor(
+    private svc: AccountsBillingService,
+    private dialog: ConfirmDialogService,
+  ) {
     this.templateUrl = svc.pendingPaymentsCsvTemplateUrl();
   }
 
@@ -274,8 +278,13 @@ export class BillingPendingPaymentsComponent implements OnInit {
     else this.rows.forEach((r) => this.selectedIds.delete(r.id));
   }
 
-  sendOne(p: PendingPaymentFollowup): void {
-    if (!confirm(`Send reminder to ${p.clientEmail} for invoice ${p.invoiceNumber}?`)) return;
+  async sendOne(p: PendingPaymentFollowup): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Send Reminder',
+      `Send reminder to ${p.clientEmail} for invoice ${p.invoiceNumber}?`,
+      { confirmText: 'Send' },
+    );
+    if (!ok) return;
     this.svc.sendPendingPaymentReminder(p.id).subscribe({
       next: (r) => {
         this.flash(r?.success ? 'Reminder sent.' : 'Reminder send failed.', !r?.success);
@@ -285,10 +294,15 @@ export class BillingPendingPaymentsComponent implements OnInit {
     });
   }
 
-  sendBulk(): void {
+  async sendBulk(): Promise<void> {
     const ids = Array.from(this.selectedIds);
     if (!ids.length) return;
-    if (!confirm(`Send reminders to ${ids.length} client(s)?`)) return;
+    const ok = await this.dialog.confirm(
+      'Send Reminders',
+      `Send reminders to ${ids.length} client(s)?`,
+      { confirmText: 'Send' },
+    );
+    if (!ok) return;
     this.svc.sendPendingPaymentReminders(ids).subscribe({
       next: (r) => {
         this.flash(`Sent: ${r.sent}, failed: ${r.failed}, skipped: ${r.skipped}.`,
@@ -299,25 +313,41 @@ export class BillingPendingPaymentsComponent implements OnInit {
     });
   }
 
-  markPaid(p: PendingPaymentFollowup): void {
-    if (!confirm(`Mark invoice ${p.invoiceNumber} as PAID?`)) return;
+  async markPaid(p: PendingPaymentFollowup): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Mark Paid',
+      `Mark invoice ${p.invoiceNumber} as PAID?`,
+      { confirmText: 'Mark Paid' },
+    );
+    if (!ok) return;
     this.svc.updatePendingPayment(p.id, { status: 'PAID' }).subscribe({
       next: () => { this.flash('Marked paid.'); this.load(); },
       error: (e) => this.flash('Update failed: ' + (e.error?.message || e.message), true),
     });
   }
 
-  togglePause(p: PendingPaymentFollowup, paused: boolean): void {
+  async togglePause(p: PendingPaymentFollowup, paused: boolean): Promise<void> {
     const verb = paused ? 'pause' : 'resume';
-    if (!confirm(`${paused ? 'Pause' : 'Resume'} daily auto-reminders for invoice ${p.invoiceNumber}?`)) return;
+    const label = paused ? 'Pause' : 'Resume';
+    const ok = await this.dialog.confirm(
+      `${label} Reminders`,
+      `${label} daily auto-reminders for invoice ${p.invoiceNumber}?`,
+      { confirmText: label },
+    );
+    if (!ok) return;
     this.svc.setPendingPaymentPause(p.id, paused).subscribe({
       next: () => { this.flash(`Auto-reminders ${verb}d.`); this.load(); },
       error: (e) => this.flash(`Failed to ${verb}: ` + (e.error?.message || e.message), true),
     });
   }
 
-  onDelete(p: PendingPaymentFollowup): void {
-    if (!confirm(`Delete pending entry for invoice ${p.invoiceNumber}?`)) return;
+  async onDelete(p: PendingPaymentFollowup): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Delete Pending Entry',
+      `Delete pending entry for invoice ${p.invoiceNumber}?`,
+      { confirmText: 'Delete', variant: 'danger' },
+    );
+    if (!ok) return;
     this.svc.deletePendingPayment(p.id).subscribe({
       next: () => { this.flash('Deleted.'); this.load(); },
       error: (e) => this.flash('Delete failed: ' + (e.error?.message || e.message), true),

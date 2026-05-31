@@ -797,26 +797,42 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  confirmDeactivate(): void {
-    if (!this.emp || !confirm(`Deactivate ${this.emp.name}?`)) return;
+  async confirmDeactivate(): Promise<void> {
+    if (!this.emp) return;
+    const ok = await this.dialog.confirm(
+      'Deactivate Employee',
+      `Deactivate ${this.emp.name}?`,
+      { variant: 'danger', confirmText: 'Deactivate' },
+    );
+    if (!ok) return;
     this.svc.deactivate(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.loadEmployee(),
       error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
     });
   }
 
-  approveEmployee(): void {
+  async approveEmployee(): Promise<void> {
     if (!this.emp) return;
-    if (!confirm(`Approve registration of ${this.emp.name}?`)) return;
+    const ok = await this.dialog.confirm(
+      'Approve Registration',
+      `Approve registration of ${this.emp.name}?`,
+      { confirmText: 'Approve' },
+    );
+    if (!ok) return;
     this.svc.approve(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee approved'); this.loadEmployee(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to approve'),
     });
   }
 
-  rejectEmployee(): void {
+  async rejectEmployee(): Promise<void> {
     if (!this.emp) return;
-    if (!confirm(`Reject registration of ${this.emp.name}? The employee will be deactivated.`)) return;
+    const ok = await this.dialog.confirm(
+      'Reject Registration',
+      `Reject registration of ${this.emp.name}? The employee will be deactivated.`,
+      { variant: 'danger', confirmText: 'Reject' },
+    );
+    if (!ok) return;
     this.svc.reject(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.toast.success('Employee rejected'); this.loadEmployee(); },
       error: (e) => this.toast.error(e?.error?.message || 'Failed to reject'),
@@ -828,12 +844,17 @@ export class ClientEmployeeDetailComponent implements OnInit, OnDestroy {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.emp.email);
   }
 
-  provisionEssLogin(): void {
+  async provisionEssLogin(): Promise<void> {
     if (!this.emp || !this.hasValidEmail()) {
       this.toast.error('Please add a valid email address for this employee first');
       return;
     }
-    if (!confirm(`Create ESS login for ${this.emp.name}?\nEmail: ${this.emp.email}`)) return;
+    const ok = await this.dialog.confirm(
+      'Create ESS Login',
+      `Create ESS login for ${this.emp.name}?\nEmail: ${this.emp.email}`,
+      { confirmText: 'Create' },
+    );
+    if (!ok) return;
     this.provisioningEss = true;
     this.essResult = null;
     this.essError = '';

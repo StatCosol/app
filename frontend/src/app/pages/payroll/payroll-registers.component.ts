@@ -738,8 +738,13 @@ export class PayrollRegistersComponent implements OnInit, OnDestroy {
 
   /* ── Approval ── */
 
-  approve(r: RegisterRecordRow): void {
-    if (!confirm('Are you sure you want to approve this register?')) return;
+  async approve(r: RegisterRecordRow): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Approve Register',
+      'Are you sure you want to approve this register?',
+      { confirmText: 'Approve' },
+    );
+    if (!ok) return;
     this.api.approveRegister(r.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => this.reload(),
       error: (e) => { this.error = e?.error?.message || 'Approve failed'; },

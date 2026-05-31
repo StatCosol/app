@@ -16,6 +16,7 @@ import {
 } from '../../../core/api/safety-documents.api';
 import { CrmClientsApi } from '../../../core/api/crm-clients.api';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
 
 @Component({
   standalone: true,
@@ -265,6 +266,7 @@ export class CrmSafetyComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly route: ActivatedRoute,
     private readonly crmClientsApi: CrmClientsApi,
+    private readonly dialog: ConfirmDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -312,8 +314,13 @@ export class CrmSafetyComponent implements OnInit, OnDestroy {
     });
   }
 
-  verify(doc: SafetyDocument & { verifying?: boolean }): void {
-    if (!confirm(`Verify "${doc.documentName}" as reviewed?`)) return;
+  async verify(doc: SafetyDocument & { verifying?: boolean }): Promise<void> {
+    const ok = await this.dialog.confirm(
+      'Verify Document',
+      `Verify "${doc.documentName}" as reviewed?`,
+      { confirmText: 'Verify' },
+    );
+    if (!ok) return;
     doc.verifying = true;
     this.api.verifyCrm(doc.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
