@@ -209,8 +209,9 @@ import { AuthService } from '../../../core/auth.service';
       min-height: 100vh;
       width: 100%;
       background:
-        radial-gradient(circle at 16% 18%, rgba(20, 184, 166, .2), transparent 28%),
-        linear-gradient(135deg, #f7fafc 0%, #eaf2ff 48%, #d9f4f0 100%);
+        linear-gradient(43deg, transparent 0 61%, #ffffff 61.15% 62.05%, transparent 62.2%),
+        linear-gradient(43deg, transparent 0 55%, #06335f 55.15%, #087ef5 68%, #06335f 96%),
+        #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
