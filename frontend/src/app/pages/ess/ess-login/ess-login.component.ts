@@ -52,6 +52,7 @@ import { AuthService } from '../../../core/auth.service';
               <p>Empowering<br/>Employees</p>
             </div>
           </div>
+          <p class="brand-footer">&copy; {{ currentYear }} StatCo Solutions</p>
         </aside>
 
         <!-- ═══════ RIGHT: LOGIN PANEL ═══════ -->
@@ -169,10 +170,6 @@ import { AuthService } from '../../../core/auth.service';
                   it_admin@statcosol.com
                 </a>
               </div>
-              <div class="login-footer">
-                <span>&copy; {{ currentYear }} StatCo Solutions</span>
-                <span>Developed by StatCo Solutions</span>
-              </div>
             </form>
 
             <div class="help">
@@ -277,6 +274,8 @@ import { AuthService } from '../../../core/auth.service';
         radial-gradient(circle at 20% 80%, rgba(20, 184, 166, .8), transparent 35%);
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .left::after {
       content: "";
@@ -349,6 +348,16 @@ import { AuthService } from '../../../core/auth.service';
       margin: 0;
       font-size: 12px;
       line-height: 1.45;
+    }
+    .brand-footer {
+      margin-top: auto;
+      padding-top: 24px;
+      position: relative;
+      z-index: 2;
+      color: rgba(255,255,255,.72);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
     }
 
     /* ═══ RIGHT LOGIN PANEL ═══════════════════ */
@@ -637,20 +646,6 @@ import { AuthService } from '../../../core/auth.service';
       height: 14px;
       flex-shrink: 0;
     }
-    .login-footer {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #e2e8f0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px 14px;
-      color: #64748b;
-      font-size: 11px;
-      font-weight: 600;
-      line-height: 1.35;
-    }
 
     .help { display: none; }
     .help-icon {
@@ -744,6 +739,11 @@ import { AuthService } from '../../../core/auth.service';
       .left h3 { font-size: 18px; }
       .line { margin: 22px auto 0; }
       .features { display: none; }
+      .brand-footer {
+        margin-top: 22px;
+        padding-top: 0;
+        text-align: center;
+      }
 
       .right {
         border-top-left-radius: 0;
@@ -787,11 +787,6 @@ import { AuthService } from '../../../core/auth.service';
         justify-content: center;
         font-size: 12px;
       }
-      .login-footer {
-        justify-content: center;
-        text-align: center;
-      }
-
       .help { padding: 16px; gap: 14px; margin-top: 28px; }
       .help-icon { width: 52px; height: 52px; }
       .help-icon svg { width: 22px; height: 22px; }
