@@ -119,18 +119,12 @@ const ENROLLMENT_PHOTO_RETENTION_DAYS = (() => {
 // the Android queue worker when draining offline rows.
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000; // 5 min ahead
 const MAX_OFFLINE_BACKLOG_MS = 24 * 60 * 60 * 1000; // 24h behind for live; queue worker can override
-// Duplicate-face guard at enrollment: if any *other* employee in the same
-// client has a stored embedding whose mapped similarity to the new one is
-// >= this value, reject as a duplicate. 0.88 mapped == raw cos ~0.76 —
-// a strong same-person signal that comfortably sits above the inter-class
-// noise floor we've observed in production (lookalike males of the same
-// demographic group were tripping the previous 0.82 mapped / cos ~0.64
-// threshold and getting falsely rejected as duplicates). This is still
-// looser than the per-punch MIN_MATCH_SCORE (0.85) on purpose — we don't
-// want a single bad enrollment frame to wedge a real employee out — but
-// tight enough to keep the actual same-face-twice case caught.
+// Duplicate-face guard at enrollment: reject when another active enrollment
+// or pending kiosk review in the same client is too similar to the new face.
+// This must be stricter than attendance matching because an accepted
+// duplicate poisons the roster and can make later 1:N punches ambiguous.
 const DUPLICATE_FACE_THRESHOLD = Number(
-  process.env.FACE_DUPLICATE_THRESHOLD || 0.88,
+  process.env.FACE_DUPLICATE_THRESHOLD || 0.8,
 );
 // After an OUT (logout) punch, the same employee cannot record any further
 // punch (IN or OUT) until this cooldown elapses. This enforces a minimum
@@ -1291,6 +1285,7 @@ export class MobileAttendanceService implements OnModuleInit {
     clientId: string,
     employeeId: string,
     embeddingBuf: Buffer,
+    options: { includePendingTickets?: boolean } = {},
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
     if (!probe) {
@@ -1305,6 +1300,7 @@ export class MobileAttendanceService implements OnModuleInit {
     const best = await this.findBestDuplicateMatch(probe, clientId, {
       excludeEmployeeId: employeeId,
       excludeContractorEmployeeId: null,
+      includePendingTickets: options.includePendingTickets ?? false,
     });
     if (!best || best.score < DUPLICATE_FACE_THRESHOLD) return;
 
@@ -1343,6 +1339,7 @@ export class MobileAttendanceService implements OnModuleInit {
     clientId: string,
     contractorEmployeeId: string,
     embeddingBuf: Buffer,
+    options: { includePendingTickets?: boolean } = {},
   ): Promise<void> {
     const probe = decodeEmbedding(embeddingBuf);
     if (!probe) {
@@ -1357,6 +1354,7 @@ export class MobileAttendanceService implements OnModuleInit {
     const best = await this.findBestDuplicateMatch(probe, clientId, {
       excludeEmployeeId: null,
       excludeContractorEmployeeId: contractorEmployeeId,
+      includePendingTickets: options.includePendingTickets ?? false,
     });
     if (!best || best.score < DUPLICATE_FACE_THRESHOLD) return;
 
@@ -1394,6 +1392,7 @@ export class MobileAttendanceService implements OnModuleInit {
     exclude: {
       excludeEmployeeId: string | null;
       excludeContractorEmployeeId: string | null;
+      includePendingTickets?: boolean;
     },
   ): Promise<{
     kind: 'employee' | 'contractor';
@@ -1441,6 +1440,41 @@ export class MobileAttendanceService implements OnModuleInit {
         bestScore = s;
         bestId = r.contractorEmployeeId;
         bestKind = 'contractor';
+      }
+    }
+
+    if (exclude.includePendingTickets && bestScore < DUPLICATE_FACE_THRESHOLD) {
+      const pendingRows = await this.kioskTicketRepo.find({
+        where: { clientId, status: 'REVIEW_PENDING' },
+      });
+      for (const r of pendingRows) {
+        if (
+          r.subjectType === 'EMPLOYEE' &&
+          exclude.excludeEmployeeId &&
+          r.employeeId === exclude.excludeEmployeeId
+        ) {
+          continue;
+        }
+        if (
+          r.subjectType === 'CONTRACTOR' &&
+          exclude.excludeContractorEmployeeId &&
+          r.contractorEmployeeId === exclude.excludeContractorEmployeeId
+        ) {
+          continue;
+        }
+        const cand = decodeEmbedding(r.pendingEmbedding);
+        if (!cand || cand.length !== probe.length) continue;
+        const s = toMatchScore(cosineSim(probe, cand));
+        if (s > bestScore) {
+          bestScore = s;
+          if (r.subjectType === 'EMPLOYEE') {
+            bestId = r.employeeId;
+            bestKind = 'employee';
+          } else {
+            bestId = r.contractorEmployeeId;
+            bestKind = 'contractor';
+          }
+        }
       }
     }
 
@@ -4077,7 +4111,9 @@ export class MobileAttendanceService implements OnModuleInit {
     let photoUrl: string | null = null;
     if (ticket.subjectType === 'EMPLOYEE') {
       const empId = ticket.employeeId!;
-      await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding);
+      await this.assertFaceNotDuplicate(ticket.clientId, empId, embedding, {
+        includePendingTickets: true,
+      });
       photoUrl = await this.facePhotos.put({
         clientId: ticket.clientId,
         employeeCode: ticket.subjectCode ?? `emp-${empId}`,
@@ -4093,6 +4129,7 @@ export class MobileAttendanceService implements OnModuleInit {
         ticket.clientId,
         ce.id,
         embedding,
+        { includePendingTickets: true },
       );
       photoUrl = await this.facePhotos.put({
         clientId: ticket.clientId,
