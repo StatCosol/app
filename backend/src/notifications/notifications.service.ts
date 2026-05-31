@@ -395,7 +395,10 @@ export class NotificationsService {
       relations: { notification: true },
     });
     if (!message) throw new NotFoundException('Message not found');
-    if (!message.notification || !this.canAccessThread(user, message.notification)) {
+    if (
+      !message.notification ||
+      !this.canAccessThread(user, message.notification)
+    ) {
       throw new ForbiddenException('Access denied');
     }
     if (!message.attachmentPath) {
@@ -411,7 +414,10 @@ export class NotificationsService {
   }
 
   private resolveUploadPath(storedPath: string): string {
-    if (/(^|[\\/])\.\.([\\/]|$)/.test(storedPath) || path.isAbsolute(storedPath)) {
+    if (
+      /(^|[\\/])\.\.([\\/]|$)/.test(storedPath) ||
+      path.isAbsolute(storedPath)
+    ) {
       throw new ForbiddenException('Invalid attachment path');
     }
 

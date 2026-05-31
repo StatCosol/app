@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.statcosol.attendance.AttendanceApp
+import com.statcosol.attendance.api.ContractorPunchBody
 import com.statcosol.attendance.api.PunchBody
 import java.util.concurrent.TimeUnit
 
@@ -31,24 +32,52 @@ class PunchSyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
         var transient = 0
         for (q in pending) {
             try {
-                val body = PunchBody(
-                    employeeId = q.employeeId,
-                    employeeCode = q.employeeCode,
-                    punchTime = q.punchTimeIso,
-                    direction = q.direction,
-                    matchScore = q.matchScore,
-                    livenessScore = q.livenessScore,
-                    captureLat = q.captureLat,
-                    captureLng = q.captureLng,
-                    captureAccuracyM = q.captureAccuracyM,
-                    isRooted = if (app.isDeviceRooted) true else null,
-                    offlineSync = true,
-                    livenessChallengeType = q.livenessChallengeType,
-                    livenessChallengePassedAt = q.livenessChallengePassedAtIso,
-                    livenessNonce = q.livenessNonce,
-                    probeEmbeddingB64 = q.probeEmbeddingB64,
-                )
-                val resp = api.postPunch(body)
+                val resp = if (q.contractorEmployeeId != null) {
+                    api.postContractorPunch(
+                        ContractorPunchBody(
+                            contractorEmployeeId = q.contractorEmployeeId,
+                            punchTime = q.punchTimeIso,
+                            direction = q.direction,
+                            matchScore = q.matchScore,
+                            livenessScore = q.livenessScore,
+                            captureLat = q.captureLat,
+                            captureLng = q.captureLng,
+                            captureAccuracyM = q.captureAccuracyM,
+                            isRooted = if (app.isDeviceRooted) true else null,
+                            offlineSync = true,
+                            livenessChallengeType = q.livenessChallengeType,
+                            livenessChallengePassedAt = q.livenessChallengePassedAtIso,
+                            livenessNonce = q.livenessNonce,
+                            probeEmbeddingB64 = q.probeEmbeddingB64,
+                        )
+                    )
+                } else {
+                    val employeeId = q.employeeId
+                    val employeeCode = q.employeeCode
+                    if (employeeId.isNullOrBlank() || employeeCode.isNullOrBlank()) {
+                        dao.delete(q.id)
+                        continue
+                    }
+                    api.postPunch(
+                        PunchBody(
+                            employeeId = employeeId,
+                            employeeCode = employeeCode,
+                            punchTime = q.punchTimeIso,
+                            direction = q.direction,
+                            matchScore = q.matchScore,
+                            livenessScore = q.livenessScore,
+                            captureLat = q.captureLat,
+                            captureLng = q.captureLng,
+                            captureAccuracyM = q.captureAccuracyM,
+                            isRooted = if (app.isDeviceRooted) true else null,
+                            offlineSync = true,
+                            livenessChallengeType = q.livenessChallengeType,
+                            livenessChallengePassedAt = q.livenessChallengePassedAtIso,
+                            livenessNonce = q.livenessNonce,
+                            probeEmbeddingB64 = q.probeEmbeddingB64,
+                        )
+                    )
+                }
                 if (resp.ok) {
                     dao.delete(q.id)
                 } else {

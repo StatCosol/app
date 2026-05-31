@@ -86,9 +86,7 @@ const LIVENESS_CHALLENGE_MAX_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // may issue — the device must perform exactly the type returned and
 // echo back the nonce on the next punch. Adding to this list also
 // requires updating the Android client.
-const LIVENESS_CHALLENGE_TYPES = [
-  'BLINK',
-] as const;
+const LIVENESS_CHALLENGE_TYPES = ['BLINK'] as const;
 // Lifetime of an issued nonce. Must be long enough for the user to
 // perform the action + capture the punch, short enough to limit replay.
 const LIVENESS_NONCE_TTL_MS = LIVENESS_CHALLENGE_MAX_AGE_MS;
@@ -4188,7 +4186,9 @@ export class MobileAttendanceService implements OnModuleInit {
       employeeCode: null,
       contractorEmployeeId: null,
       reason: body.reason,
-      reasonDetail: (body.reasonDetail || 'device-reported local failure').slice(0, 500),
+      reasonDetail: (
+        body.reasonDetail || 'device-reported local failure'
+      ).slice(0, 500),
       matchScore: body.matchScore ?? null,
       livenessScore: body.livenessScore ?? null,
       captureLat: body.captureLat ?? null,

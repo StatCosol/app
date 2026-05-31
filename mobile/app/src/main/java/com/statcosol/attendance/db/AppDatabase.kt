@@ -14,8 +14,9 @@ import android.content.Context
 @Entity(tableName = "queued_punch")
 data class QueuedPunch(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val employeeId: String,
-    val employeeCode: String,
+    val employeeId: String? = null,
+    val employeeCode: String? = null,
+    val contractorEmployeeId: String? = null,
     val punchTimeIso: String,
     val direction: String,
     val matchScore: Double,
@@ -55,7 +56,7 @@ interface PunchDao {
     suspend fun count(): Int
 }
 
-@Database(entities = [QueuedPunch::class], version = 4, exportSchema = false)
+@Database(entities = [QueuedPunch::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun punchDao(): PunchDao
 

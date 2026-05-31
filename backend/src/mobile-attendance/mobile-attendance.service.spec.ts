@@ -194,9 +194,9 @@ describe('MobileAttendanceService.resolveDeviceByToken (androidId binding)', () 
       registeredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
     };
     const svc = makeService(row);
-    await expect(svc.resolveDeviceByToken('tok', 'android-xyz')).rejects.toThrow(
-      /expired before activation/i,
-    );
+    await expect(
+      svc.resolveDeviceByToken('tok', 'android-xyz'),
+    ).rejects.toThrow(/expired before activation/i);
   });
 
   it('allows an old code when it is already bound to the same device', async () => {

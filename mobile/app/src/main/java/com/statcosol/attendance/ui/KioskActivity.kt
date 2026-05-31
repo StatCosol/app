@@ -663,6 +663,20 @@ class KioskActivity : AppCompatActivity() {
     ): Boolean {
         val contractorId = match.entry.contractorEmployeeId ?: return false
         val probeB64 = probe?.let { FaceEmbedder.encodeEmbeddingB64(it) }
+        val q = QueuedPunch(
+            contractorEmployeeId = contractorId,
+            punchTimeIso = punchTimeIso,
+            direction = direction,
+            matchScore = match.score,
+            livenessScore = liveness,
+            captureLat = null,
+            captureLng = null,
+            captureAccuracyM = null,
+            livenessChallengeType = challengeType,
+            livenessChallengePassedAtIso = challengePassedAt,
+            livenessNonce = nonce,
+            probeEmbeddingB64 = probeB64,
+        )
         return try {
             withContext(Dispatchers.IO) {
                 val resp = app.apiClient.postContractorPunch(
@@ -691,18 +705,22 @@ class KioskActivity : AppCompatActivity() {
             if (status in 400..499) {
                 handleRejectedPunch(match, msg)
             } else {
+                withContext(Dispatchers.IO) { app.database.punchDao().insert(q) }
+                PunchSyncWorker.enqueue(this)
                 runOnUiThread {
-                    binding.statusText.text = getString(R.string.kiosk_punch_network_failed)
+                    binding.statusText.text = getString(R.string.kiosk_punch_queued)
                 }
             }
             false
         }
     }
 
-    private fun QueuedPunch.toPunchBody(offlineSync: Boolean): PunchBody =
-        PunchBody(
-            employeeId = employeeId,
-            employeeCode = employeeCode,
+    private fun QueuedPunch.toPunchBody(offlineSync: Boolean): PunchBody {
+        val id = requireNotNull(employeeId) { "employeeId required for employee punch" }
+        val code = requireNotNull(employeeCode) { "employeeCode required for employee punch" }
+        return PunchBody(
+            employeeId = id,
+            employeeCode = code,
             punchTime = punchTimeIso,
             direction = direction,
             matchScore = matchScore,
@@ -717,6 +735,7 @@ class KioskActivity : AppCompatActivity() {
             livenessNonce = livenessNonce,
             probeEmbeddingB64 = probeEmbeddingB64,
         )
+    }
 
     private fun handleRejectedPunch(match: RosterMatcher.Match, message: String) {
         if (

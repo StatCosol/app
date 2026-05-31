@@ -1072,7 +1072,11 @@ export class MobileAttendanceDeviceController {
     @Body() body: DeviceFailedScanDto,
   ) {
     const dev = await this.svc.resolveDeviceByToken(token, androidId);
-    return this.svc.reportDeviceFailedScan(dev, body, deriveMeta(req, userAgent));
+    return this.svc.reportDeviceFailedScan(
+      dev,
+      body,
+      deriveMeta(req, userAgent),
+    );
   }
 }
 

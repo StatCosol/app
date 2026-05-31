@@ -239,7 +239,13 @@ export class MobilePunchBatchDto {
 }
 
 export class DeviceFailedScanDto {
-  @IsIn(['FACE_MISMATCH', 'MULTI_FACE', 'QUALITY_LOW', 'LIVENESS_FAIL', 'OTHER'])
+  @IsIn([
+    'FACE_MISMATCH',
+    'MULTI_FACE',
+    'QUALITY_LOW',
+    'LIVENESS_FAIL',
+    'OTHER',
+  ])
   reason!:
     | 'FACE_MISMATCH'
     | 'MULTI_FACE'
