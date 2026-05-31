@@ -148,16 +148,27 @@ import { AuthService } from '../../../core/auth.service';
                 </span>
               </button>
 
-              <div class="or">
-                <i></i><p>or</p><i></i>
-              </div>
+            <div class="or">
+              <i></i><p>or</p><i></i>
+            </div>
 
-              <button type="button" class="bio" (click)="loginWithBiometrics()">
+            <button type="button" class="bio" (click)="loginWithBiometrics()">
                 <span aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3a2 2 0 002 2"/><path d="M5.5 9.5A8 8 0 0112 6a8 8 0 016.5 3.5"/><path d="M3 13a10 10 0 014-7.5"/><path d="M21 13a10 10 0 00-4-7.5"/><path d="M7 14a5 5 0 015-5 5 5 0 015 5v2"/><path d="M9 19a3 3 0 003-3"/><path d="M15 21a8 8 0 002-5"/></svg>
                 </span>
                 Login with Biometrics
               </button>
+
+              <div class="support-strip">
+                <a href="tel:+919000607839">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.62 2.61a2 2 0 0 1-.45 2.11L8 9.72a16 16 0 0 0 6.28 6.28l1.28-1.28a2 2 0 0 1 2.11-.45c.84.29 1.71.5 2.61.62A2 2 0 0 1 22 16.92z"/></svg>
+                  +91 9000607839
+                </a>
+                <a href="mailto:compliance@statcosol.com">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                  compliance@statcosol.com
+                </a>
+              </div>
             </form>
 
             <div class="help">
@@ -197,7 +208,9 @@ import { AuthService } from '../../../core/auth.service';
     .page {
       min-height: 100vh;
       width: 100%;
-      background: #005cff;
+      background:
+        radial-gradient(circle at 16% 18%, rgba(20, 184, 166, .2), transparent 28%),
+        linear-gradient(135deg, #f7fafc 0%, #eaf2ff 48%, #d9f4f0 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -215,7 +228,7 @@ import { AuthService } from '../../../core/auth.service';
       display: grid;
       grid-template-columns: 34% 66%;
       overflow: hidden;
-      box-shadow: 0 35px 90px rgba(0, 30, 100, .45);
+      box-shadow: 0 26px 70px rgba(15, 38, 79, .2);
       margin: 0 auto;
     }
 
@@ -224,8 +237,8 @@ import { AuthService } from '../../../core/auth.service';
       color: #fff;
       padding: 36px 30px;
       background:
-        linear-gradient(180deg, rgba(0,95,255,.95), rgba(0,20,95,.98)),
-        radial-gradient(circle at 20% 80%, #48c7ff, transparent 35%);
+        linear-gradient(180deg, rgba(15, 94, 154, .96), rgba(7, 37, 84, .98)),
+        radial-gradient(circle at 20% 80%, rgba(20, 184, 166, .8), transparent 35%);
       position: relative;
       overflow: hidden;
     }
@@ -563,6 +576,32 @@ import { AuthService } from '../../../core/auth.service';
     .bio span { display: inline-flex; }
     .bio span svg { width: 20px; height: 20px; }
 
+    .support-strip {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .support-strip a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #0f766e;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .support-strip a:hover { color: #0f5e9a; text-decoration: underline; }
+    .support-strip svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
     .help { display: none; }
     .help-icon {
       flex-shrink: 0;
@@ -692,6 +731,11 @@ import { AuthService } from '../../../core/auth.service';
         border-radius: 14px;
       }
       .bio span svg { width: 22px; height: 22px; }
+
+      .support-strip {
+        justify-content: center;
+        font-size: 12px;
+      }
 
       .help { padding: 16px; gap: 14px; margin-top: 28px; }
       .help-icon { width: 52px; height: 52px; }
