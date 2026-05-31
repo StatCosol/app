@@ -195,27 +195,25 @@ import { AuthService } from '../../../core/auth.service';
 
     /* ═══ PAGE ═════════════════════════════════ */
     .page {
-      height: 100vh;
-      min-height: 720px;
+      min-height: 100vh;
       width: 100%;
       background: #005cff;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px clamp(28px, 5vw, 96px);
-      overflow: hidden;
+      padding: 18px clamp(18px, 4vw, 64px);
+      overflow-x: hidden;
     }
 
     /* ═══ SCREEN (white card) ═════════════════ */
     .screen {
       width: 100%;
-      max-width: 1080px;
-      height: min(860px, calc(100vh - 48px));
-      min-height: 672px;
+      max-width: 840px;
+      min-height: min(580px, calc(100vh - 36px));
       background: #fff;
-      border-radius: 36px;
+      border-radius: 24px;
       display: grid;
-      grid-template-columns: 38% 62%;
+      grid-template-columns: 34% 66%;
       overflow: hidden;
       box-shadow: 0 35px 90px rgba(0, 30, 100, .45);
       margin: 0 auto;
@@ -224,7 +222,7 @@ import { AuthService } from '../../../core/auth.service';
     /* ═══ LEFT BRAND PANEL ═════════════════════ */
     .left {
       color: #fff;
-      padding: 66px 56px;
+      padding: 36px 30px;
       background:
         linear-gradient(180deg, rgba(0,95,255,.95), rgba(0,20,95,.98)),
         radial-gradient(circle at 20% 80%, #48c7ff, transparent 35%);
@@ -235,25 +233,25 @@ import { AuthService } from '../../../core/auth.service';
       content: "";
       position: absolute;
       bottom: 0; left: 0;
-      width: 100%; height: 260px;
+      width: 100%; height: 180px;
       background: linear-gradient(transparent, rgba(0,0,0,.35));
       pointer-events: none;
     }
 
     .logo-box {
-      width: 120px; height: 120px;
+      width: 72px; height: 72px;
       background: #fff;
-      border-radius: 28px;
+      border-radius: 22px;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 20px 45px rgba(0,0,0,.18);
       position: relative;
       z-index: 2;
     }
-    .people-icon { width: 78px; height: 78px; }
+    .people-icon { width: 46px; height: 46px; }
 
     .left h1 {
-      font-size: 78px;
-      margin: 44px 0 0;
+      font-size: 44px;
+      margin: 24px 0 0;
       line-height: 1;
       font-weight: 900;
       letter-spacing: -1.5px;
@@ -261,17 +259,17 @@ import { AuthService } from '../../../core/auth.service';
       z-index: 2;
     }
     .left h3 {
-      font-size: 22px;
-      margin: 16px 0 0;
+      font-size: 15px;
+      margin: 12px 0 0;
       font-weight: 600;
       position: relative;
       z-index: 2;
     }
     .line {
       width: 74px;
-      height: 5px;
+      height: 4px;
       background: #19c8ff;
-      margin: 28px 0 48px;
+      margin: 18px 0 22px;
       border-radius: 20px;
       position: relative;
       z-index: 2;
@@ -281,7 +279,7 @@ import { AuthService } from '../../../core/auth.service';
       position: relative;
       z-index: 2;
       display: grid;
-      gap: 24px;
+      gap: 12px;
     }
     .features > div {
       display: flex;
@@ -290,38 +288,38 @@ import { AuthService } from '../../../core/auth.service';
     }
     .features span {
       flex-shrink: 0;
-      width: 52px; height: 52px;
+      width: 34px; height: 34px;
       border: 1px solid rgba(255,255,255,.45);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       background: rgba(255,255,255,.08);
       color: #fff;
     }
-    .features span svg { width: 26px; height: 26px; }
+    .features span svg { width: 17px; height: 17px; }
     .features p {
       margin: 0;
-      font-size: 16px;
+      font-size: 12px;
       line-height: 1.45;
     }
 
     /* ═══ RIGHT LOGIN PANEL ═══════════════════ */
     .right {
       background: #fbfdff;
-      border-top-left-radius: 120px;
-      padding: 46px 56px;
+      border-top-left-radius: 76px;
+      padding: 26px 36px;
       position: relative;
       overflow-y: auto;
     }
 
     .language {
       position: absolute;
-      top: 42px; right: 56px;
+      top: 22px; right: 36px;
       background: #fff;
       border: 0;
       border-radius: 35px;
-      padding: 12px 20px;
+      padding: 8px 14px;
       color: #33405c;
-      font-size: 17px;
+      font-size: 14px;
       box-shadow: 0 10px 30px rgba(0,0,0,.08);
       display: inline-flex;
       align-items: center;
@@ -329,58 +327,61 @@ import { AuthService } from '../../../core/auth.service';
       cursor: pointer;
       font-family: inherit;
     }
-    .language svg { width: 18px; height: 18px; color: #005cff; }
-    .language .caret { width: 14px; height: 14px; color: #8794ad; }
+    .language svg { width: 15px; height: 15px; color: #005cff; }
+    .language .caret { width: 12px; height: 12px; color: #8794ad; }
 
     .shield {
       position: absolute;
-      top: 238px; right: 116px;
-      width: 84px; height: 84px;
-      border-radius: 26px;
+      top: 112px; right: 68px;
+      width: 46px; height: 46px;
+      border-radius: 18px;
       background: linear-gradient(145deg, #1685ff, #0046d9);
       color: #fff;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 18px 36px rgba(0,98,255,.3);
       animation: floatY 3.4s ease-in-out infinite;
     }
-    .shield svg { width: 40px; height: 40px; }
+    .shield svg { width: 24px; height: 24px; }
 
-    .form-area { margin-top: 174px; }
+    .form-area {
+      margin-top: 74px;
+      max-width: 370px;
+    }
 
     .form-area h2 {
-      font-size: 36px;
+      font-size: 25px;
       color: #11284f;
       margin: 0;
       font-weight: 900;
       letter-spacing: -.4px;
     }
     .caption {
-      font-size: 18px;
+      font-size: 13px;
       color: #68738a;
       margin: 10px 0 0;
     }
     .blue-line {
       width: 70px;
-      height: 5px;
+      height: 4px;
       background: #086dff;
       border-radius: 20px;
-      margin: 24px 0 32px;
+      margin: 12px 0 18px;
     }
 
     .frm { display: block; }
 
-    .field { margin-bottom: 8px; }
+    .field { margin-bottom: 6px; }
 
     .input {
-      height: 68px;
-      border-radius: 18px;
+      height: 46px;
+      border-radius: 14px;
       background: #fff;
       border: 1px solid #dde7f6;
       display: flex;
       align-items: center;
-      gap: 18px;
-      padding: 0 24px;
-      margin-bottom: 6px;
+      gap: 14px;
+      padding: 0 18px;
+      margin-bottom: 4px;
       box-shadow: 0 12px 28px rgba(30,80,150,.07);
       transition: border-color .2s, box-shadow .2s;
     }
@@ -393,13 +394,13 @@ import { AuthService } from '../../../core/auth.service';
       display: inline-flex; align-items: center; justify-content: center;
       color: #6b7790;
     }
-    .input > span svg { width: 24px; height: 24px; }
+    .input > span svg { width: 18px; height: 18px; }
 
     .input input {
       flex: 1;
       border: 0;
       outline: 0;
-      font-size: 18px;
+      font-size: 14px;
       color: #11284f;
       background: transparent;
       font-family: inherit;
@@ -421,9 +422,9 @@ import { AuthService } from '../../../core/auth.service';
 
     .field-err {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       color: #dc2626;
-      margin: 6px 4px 14px;
+      margin: 4px 4px 8px;
     }
     .caps-note {
       display: inline-flex; align-items: center; gap: 6px;
@@ -451,8 +452,8 @@ import { AuthService } from '../../../core/auth.service';
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin: 10px 4px 22px;
-      font-size: 16px;
+      margin: 6px 4px 10px;
+      font-size: 13px;
       flex-wrap: wrap;
       gap: 10px;
     }
@@ -463,7 +464,7 @@ import { AuthService } from '../../../core/auth.service';
       user-select: none;
     }
     .remember input {
-      width: 20px; height: 20px;
+      width: 16px; height: 16px;
       accent-color: #0072ff;
       margin-right: 10px;
       cursor: pointer;
@@ -490,11 +491,11 @@ import { AuthService } from '../../../core/auth.service';
 
     .login {
       width: 100%;
-      height: 66px;
+      height: 46px;
       border: 0;
-      border-radius: 22px;
+      border-radius: 14px;
       color: #fff;
-      font-size: 21px;
+      font-size: 15px;
       font-weight: 800;
       background: linear-gradient(135deg, #087cff, #003ab8);
       box-shadow: 0 18px 38px rgba(0,82,255,.35);
@@ -513,11 +514,11 @@ import { AuthService } from '../../../core/auth.service';
     .login:disabled { opacity: .7; cursor: progress; }
     .login .arrow {
       position: absolute;
-      right: 24px;
+      right: 18px;
       top: 50%; transform: translateY(-50%);
       display: inline-flex;
     }
-    .login .arrow svg { width: 26px; height: 26px; }
+    .login .arrow svg { width: 20px; height: 20px; }
     .spinner {
       width: 18px; height: 18px;
       border: 2.5px solid rgba(255,255,255,.4);
@@ -533,7 +534,7 @@ import { AuthService } from '../../../core/auth.service';
       display: flex;
       align-items: center;
       gap: 26px;
-      margin: 24px 0 20px;
+      margin: 12px 0 10px;
       color: #8d96a8;
     }
     .or i {
@@ -545,12 +546,12 @@ import { AuthService } from '../../../core/auth.service';
 
     .bio {
       width: 100%;
-      height: 58px;
-      border-radius: 18px;
+      height: 42px;
+      border-radius: 14px;
       border: 1px solid #d3e1f5;
       background: #fff;
       color: #005cff;
-      font-size: 17px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
@@ -560,37 +561,29 @@ import { AuthService } from '../../../core/auth.service';
     }
     .bio:hover { background: #f1f7ff; border-color: #086dff; }
     .bio span { display: inline-flex; }
-    .bio span svg { width: 26px; height: 26px; }
+    .bio span svg { width: 20px; height: 20px; }
 
-    .help {
-      margin-top: 24px;
-      background: #eef5ff;
-      border-radius: 18px;
-      padding: 16px 18px;
-      display: flex;
-      align-items: center;
-      gap: 18px;
-    }
+    .help { display: none; }
     .help-icon {
       flex-shrink: 0;
-      width: 50px; height: 50px;
+      width: 38px; height: 38px;
       background: #d9ebff;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       color: #005cff;
     }
-    .help-icon svg { width: 22px; height: 22px; }
+    .help-icon svg { width: 18px; height: 18px; }
     .help-text { flex: 1; min-width: 0; }
     .help h4 {
       margin: 0;
-      font-size: 17px;
+      font-size: 14px;
       color: #11284f;
       font-weight: 700;
     }
     .help p {
       margin: 7px 0 0;
       color: #68738a;
-      font-size: 14px;
+      font-size: 12px;
     }
     .help p a {
       color: #005cff;
@@ -599,23 +592,13 @@ import { AuthService } from '../../../core/auth.service';
     .help p a:hover { text-decoration: underline; }
     .help strong {
       margin-left: auto;
-      font-size: 42px;
+      font-size: 28px;
       color: #8792a5;
       line-height: 1;
       font-weight: 400;
     }
 
-    .secure {
-      text-align: center;
-      margin-top: 18px;
-      color: #7b9ad1;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      justify-content: center;
-    }
+    .secure { display: none; }
     .secure svg { width: 16px; height: 16px; }
 
     /* ═══ ANIMATIONS ═══════════════════════════ */
@@ -637,12 +620,13 @@ import { AuthService } from '../../../core/auth.service';
 
     /* tablet — tighten paddings, reduce hero typography */
     @media (max-width: 1100px) {
-      .left { padding: 64px 44px; }
-      .left h1 { font-size: 78px; }
-      .right { padding: 60px 44px; border-top-left-radius: 110px; }
-      .language { top: 40px; right: 44px; }
-      .shield { top: 230px; right: 88px; width: 84px; height: 84px; }
-      .form-area { margin-top: 210px; }
+      .screen { max-width: 880px; grid-template-columns: 32% 68%; }
+      .left { padding: 38px 32px; }
+      .left h1 { font-size: 48px; }
+      .right { padding: 30px 36px; border-top-left-radius: 64px; }
+      .language { top: 24px; right: 36px; }
+      .shield { top: 140px; right: 68px; width: 52px; height: 52px; }
+      .form-area { margin-top: 96px; max-width: 400px; }
     }
 
     /* phone — stack panels, hide hero ornaments */
@@ -662,12 +646,12 @@ import { AuthService } from '../../../core/auth.service';
       }
       .logo-box {
         margin: 0 auto;
-        width: 110px; height: 110px;
-        border-radius: 28px;
+        width: 86px; height: 86px;
+        border-radius: 22px;
       }
-      .people-icon { width: 70px; height: 70px; }
-      .left h1 { font-size: 62px; margin-top: 32px; }
-      .left h3 { font-size: 20px; }
+      .people-icon { width: 54px; height: 54px; }
+      .left h1 { font-size: 46px; margin-top: 24px; }
+      .left h3 { font-size: 18px; }
       .line { margin: 22px auto 0; }
       .features { display: none; }
 
@@ -678,24 +662,24 @@ import { AuthService } from '../../../core/auth.service';
       .language, .shield { display: none; }
 
       .form-area { margin-top: 8px; }
-      .form-area h2 { font-size: 32px; }
+      .form-area h2 { font-size: 28px; }
       .caption { font-size: 16px; }
       .blue-line { margin: 24px 0 32px; }
 
       .input {
-        height: 64px;
-        padding: 0 20px;
+        height: 56px;
+        padding: 0 18px;
         gap: 16px;
-        border-radius: 18px;
+        border-radius: 14px;
       }
       .input > span svg { width: 20px; height: 20px; }
       .input input { font-size: 16px; /* prevents iOS focus-zoom */ }
 
       .row { font-size: 15px; margin: 8px 4px 22px; }
       .login {
-        height: 60px;
-        font-size: 18px;
-        border-radius: 18px;
+        height: 54px;
+        font-size: 17px;
+        border-radius: 14px;
       }
       .login .arrow { right: 18px; }
       .login .arrow svg { width: 20px; height: 20px; }
@@ -703,9 +687,9 @@ import { AuthService } from '../../../core/auth.service';
       .or { margin: 26px 0 22px; }
 
       .bio {
-        height: 56px;
-        font-size: 16px;
-        border-radius: 16px;
+        height: 48px;
+        font-size: 15px;
+        border-radius: 14px;
       }
       .bio span svg { width: 22px; height: 22px; }
 
