@@ -391,6 +391,35 @@ async function bootstrap() {
 
     try {
       await ds.query(`
+        ALTER TABLE contractor_employees
+          ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+      `);
+      await ds.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+              FROM pg_constraint
+             WHERE conname = 'chk_ce_status'
+               AND conrelid = 'contractor_employees'::regclass
+          ) THEN
+            ALTER TABLE contractor_employees DROP CONSTRAINT chk_ce_status;
+          END IF;
+
+          ALTER TABLE contractor_employees
+            ADD CONSTRAINT chk_ce_status
+            CHECK (status IN ('ACTIVE','LEFT','INACTIVE','PENDING_DELETE'));
+        END $$;
+      `);
+      logger.log('Schema patch: contractor_employees.status values OK');
+    } catch (e: any) {
+      logger.warn(
+        `Schema patch contractor_employees.status skipped: ${e?.message}`,
+      );
+    }
+
+    try {
+      await ds.query(`
         ALTER TABLE payroll_client_setup
           ADD COLUMN IF NOT EXISTS wage_basis_days VARCHAR(20) NOT NULL DEFAULT 'FIXED_26'
       `);
