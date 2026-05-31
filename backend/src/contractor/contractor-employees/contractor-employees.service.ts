@@ -467,12 +467,30 @@ export class ContractorEmployeesService {
     } catch (err: any) {
       if (err?.code !== '23505') throw err;
       const latest = await this.findLatestDeleteRequest(id);
+      if (latest?.id) {
+        await this.dataSource.query(
+          `UPDATE approval_requests
+              SET status = 'PENDING',
+                  requester_user_id = $2,
+                  reason = $3,
+                  approver_user_id = NULL,
+                  approver_notes = NULL,
+                  approved_at = NULL,
+                  updated_at = NOW()
+            WHERE id = $1::uuid`,
+          [
+            latest.id,
+            contractorUserId,
+            reason?.trim() || `Contractor requested deletion of ${emp.name}`,
+          ],
+        );
+      }
       emp.status = 'PENDING_DELETE';
       await this.repo.save(emp);
       return {
-        message: 'Delete request already exists',
+        message: 'Delete request already pending branch approval',
         requestId: latest?.id || '',
-        status: latest?.status || 'PENDING',
+        status: 'PENDING',
       };
     }
 
@@ -502,6 +520,8 @@ export class ContractorEmployeesService {
       createdAt: string;
     }>
   > {
+    await this.repairMissingPendingDeleteRequests(clientId);
+
     const params: any[] = [clientId];
     let branchSql = '';
     if (allowedBranchIds !== 'ALL') {
@@ -686,5 +706,64 @@ export class ContractorEmployeesService {
       [contractorEmployeeId],
     );
     return rows?.[0] ?? null;
+  }
+
+  private async repairMissingPendingDeleteRequests(clientId: string) {
+    await this.dataSource.query(
+      `WITH stale AS (
+         SELECT
+           ce.id AS employee_id,
+           ce.contractor_user_id,
+           ce.name,
+           latest.id AS latest_request_id
+         FROM contractor_employees ce
+         LEFT JOIN LATERAL (
+           SELECT ar.id
+             FROM approval_requests ar
+            WHERE ar.request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+              AND ar.target_entity_type = 'CONTRACTOR_EMPLOYEE'
+              AND ar.target_entity_id = ce.id
+            ORDER BY ar.created_at DESC
+            LIMIT 1
+         ) latest ON TRUE
+         WHERE ce.client_id = $1
+           AND ce.status = 'PENDING_DELETE'
+           AND NOT EXISTS (
+             SELECT 1
+               FROM approval_requests pending
+              WHERE pending.request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+                AND pending.target_entity_type = 'CONTRACTOR_EMPLOYEE'
+                AND pending.target_entity_id = ce.id
+                AND pending.status = 'PENDING'
+           )
+       ),
+       reopened AS (
+         UPDATE approval_requests ar
+            SET status = 'PENDING',
+                requester_user_id = stale.contractor_user_id,
+                reason = COALESCE(ar.reason, 'Contractor requested deletion of ' || stale.name),
+                approver_user_id = NULL,
+                approver_notes = NULL,
+                approved_at = NULL,
+                updated_at = NOW()
+           FROM stale
+          WHERE ar.id = stale.latest_request_id
+          RETURNING stale.employee_id
+       )
+       INSERT INTO approval_requests
+         (request_type, requester_user_id, target_entity_id, target_entity_type, reason, status, created_at, updated_at)
+       SELECT
+         'DELETE_CONTRACTOR_EMPLOYEE',
+         stale.contractor_user_id,
+         stale.employee_id,
+         'CONTRACTOR_EMPLOYEE',
+         'Contractor requested deletion of ' || stale.name,
+         'PENDING',
+         NOW(),
+         NOW()
+       FROM stale
+       WHERE stale.latest_request_id IS NULL`,
+      [clientId],
+    );
   }
 }
