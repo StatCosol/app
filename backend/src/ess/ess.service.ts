@@ -32,6 +32,7 @@ import {
 } from './dto/ess.dto';
 
 const BUSINESS_TZ_OFFSET_MIN = 330;
+const ESS_NATIVE_APP_UA = /\bStatcoEssPortal\//i;
 
 // ─── Types ────────────────────────────────────────────────────
 export type EssUser = {
@@ -546,6 +547,14 @@ export class EssService {
     )
       ? String(body.captureMethod).toUpperCase()
       : 'MANUAL';
+    if (
+      method === 'FACE' &&
+      !ESS_NATIVE_APP_UA.test(String(body.deviceInfo || ''))
+    ) {
+      throw new BadRequestException(
+        'Face ID attendance is available only in the StatCo ESS app.',
+      );
+    }
 
     if (existing.length) {
       // Update existing record (e.g. admin-seeded WEEK_OFF or HOLIDAY shouldn't be overwritten)
@@ -667,6 +676,14 @@ export class EssService {
     )
       ? String(body.captureMethod).toUpperCase()
       : 'MANUAL';
+    if (
+      method === 'FACE' &&
+      !ESS_NATIVE_APP_UA.test(String(body.deviceInfo || ''))
+    ) {
+      throw new BadRequestException(
+        'Face ID attendance is available only in the StatCo ESS app.',
+      );
+    }
 
     await this.ds.query(
       `UPDATE attendance_records

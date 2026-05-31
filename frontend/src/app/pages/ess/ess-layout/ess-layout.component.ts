@@ -73,7 +73,7 @@ interface NavItem {
           </button>
 
           <!-- company name (mobile) -->
-          <span class="tb-title mobile-only">{{ companyName }}</span>
+          <span class="tb-title mobile-only" [title]="companyName">{{ companyName }}</span>
 
           <!-- company logo -->
           <img *ngIf="companyLogoUrl" [src]="companyLogoUrl" alt="" class="tb-logo" />
@@ -318,6 +318,54 @@ interface NavItem {
     @media (max-width: 860px) {
       .desktop-only { display: none !important; }
       .mobile-only { display: flex !important; }
+      :host { --tb-h: 58px; }
+      .main-wrap { width: 100%; min-width: 0; }
+      .topbar {
+        padding: 0 10px;
+        gap: 8px;
+        overflow: hidden;
+      }
+      .tb-hamburger {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        padding: 0;
+        color: #0f172a;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+      }
+      .tb-hamburger svg { width: 24px; height: 24px; stroke-width: 2.4; }
+      .tb-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 34vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+        line-height: 1.15;
+      }
+      .tb-logo {
+        height: 30px;
+        max-width: 112px;
+        flex: 0 1 112px;
+        object-fit: contain;
+      }
+      .tb-avatar-wrap {
+        flex: 0 0 auto;
+        padding: 2px 4px;
+        gap: 2px;
+      }
+      .tb-avatar {
+        width: 34px;
+        height: 34px;
+        font-size: 13px;
+      }
+      .tb-chev { width: 12px; height: 12px; }
       .sidebar {
         position: fixed; left: 0; top: 0; bottom: 0;
         transform: translateX(-100%);
