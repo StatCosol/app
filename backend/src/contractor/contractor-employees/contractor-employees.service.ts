@@ -450,18 +450,31 @@ export class ContractorEmployeesService {
       };
     }
 
-    const rows = await this.dataSource.query(
-      `INSERT INTO approval_requests
-         (request_type, requester_user_id, target_entity_id, target_entity_type, reason, status, created_at, updated_at)
-       VALUES
-         ('DELETE_CONTRACTOR_EMPLOYEE', $1, $2, 'CONTRACTOR_EMPLOYEE', $3, 'PENDING', NOW(), NOW())
-       RETURNING id::text, status`,
-      [
-        contractorUserId,
-        id,
-        reason?.trim() || `Contractor requested deletion of ${emp.name}`,
-      ],
-    );
+    let rows: Array<{ id: string; status: string }>;
+    try {
+      rows = await this.dataSource.query(
+        `INSERT INTO approval_requests
+           (request_type, requester_user_id, target_entity_id, target_entity_type, reason, status, created_at, updated_at)
+         VALUES
+           ('DELETE_CONTRACTOR_EMPLOYEE', $1, $2, 'CONTRACTOR_EMPLOYEE', $3, 'PENDING', NOW(), NOW())
+         RETURNING id::text, status`,
+        [
+          contractorUserId,
+          id,
+          reason?.trim() || `Contractor requested deletion of ${emp.name}`,
+        ],
+      );
+    } catch (err: any) {
+      if (err?.code !== '23505') throw err;
+      const latest = await this.findLatestDeleteRequest(id);
+      emp.status = 'PENDING_DELETE';
+      await this.repo.save(emp);
+      return {
+        message: 'Delete request already exists',
+        requestId: latest?.id || '',
+        status: latest?.status || 'PENDING',
+      };
+    }
 
     emp.status = 'PENDING_DELETE';
     await this.repo.save(emp);
@@ -652,6 +665,22 @@ export class ContractorEmployeesService {
           AND target_entity_type = 'CONTRACTOR_EMPLOYEE'
           AND target_entity_id = $1::uuid
           AND status = 'PENDING'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [contractorEmployeeId],
+    );
+    return rows?.[0] ?? null;
+  }
+
+  private async findLatestDeleteRequest(
+    contractorEmployeeId: string,
+  ): Promise<{ id: string; status: string } | null> {
+    const rows = await this.dataSource.query(
+      `SELECT id::text, status
+         FROM approval_requests
+        WHERE request_type = 'DELETE_CONTRACTOR_EMPLOYEE'
+          AND target_entity_type = 'CONTRACTOR_EMPLOYEE'
+          AND target_entity_id = $1::uuid
         ORDER BY created_at DESC
         LIMIT 1`,
       [contractorEmployeeId],

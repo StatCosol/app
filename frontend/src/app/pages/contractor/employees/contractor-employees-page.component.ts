@@ -217,7 +217,7 @@ interface BulkPreviewRow {
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">PF</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">ESI</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[230px]">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -268,29 +268,44 @@ interface BulkPreviewRow {
                     {{ emp.exitReason | slice:0:24 }}{{ (emp.exitReason.length > 24) ? '…' : '' }}
                   </div>
                 </td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex flex-col items-end justify-end gap-2">
+                <td class="px-4 py-3 text-right min-w-[230px]">
+                  <div class="flex flex-wrap items-center justify-end gap-2">
+                    <ng-container *ngIf="emp.status === 'PENDING_DELETE'; else availableActions">
+                      <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-200">
+                        Pending approval
+                      </span>
+                      <button
+                        (click)="openEdit(emp)"
+                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                      >Edit</button>
+                    </ng-container>
+
+                    <ng-template #availableActions>
+                      <button
+                        *ngIf="!emp.isActive"
+                        (click)="doReactivate(emp)"
+                        [disabled]="saving"
+                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50"
+                      >Reactivate</button>
+
                     <button
                       (click)="openEdit(emp)"
-                      class="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
                     >Edit</button>
+
                     <button
                       *ngIf="emp.isActive"
                       (click)="confirmDeactivate(emp)"
-                      [disabled]="emp.status === 'PENDING_DELETE'"
-                      class="text-xs font-medium text-red-500 hover:text-red-700 hover:underline"
+                        [disabled]="saving"
+                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50"
                     >Deactivate</button>
+
                     <button
                       (click)="requestDelete(emp)"
-                      [disabled]="saving || emp.status === 'PENDING_DELETE'"
-                      class="text-xs font-medium text-red-700 hover:text-red-900 hover:underline disabled:opacity-50"
-                    >{{ emp.status === 'PENDING_DELETE' ? 'Delete Pending' : 'Delete' }}</button>
-                    <button
-                      *ngIf="!emp.isActive"
-                      (click)="doReactivate(emp)"
-                      [disabled]="saving || emp.status === 'PENDING_DELETE'"
-                      class="text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline disabled:opacity-50"
-                    >Reactivate</button>
+                        [disabled]="saving"
+                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50"
+                      >Delete</button>
+                    </ng-template>
                   </div>
                 </td>
               </tr>
@@ -1090,6 +1105,18 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
           );
         },
         error: (err: any) => {
+          if (err?.status === 409) {
+            this.allRows = this.allRows.map((row) =>
+              row.id === emp.id ? { ...row, status: 'PENDING_DELETE' } : row,
+            );
+            this.applyFilters();
+            this.load();
+            this.toast.warning(
+              'Delete request already pending',
+              'BranchDesk approval is required before deletion.',
+            );
+            return;
+          }
           this.toast.error('Error', err?.error?.message || 'Could not send delete request.');
         },
       });
