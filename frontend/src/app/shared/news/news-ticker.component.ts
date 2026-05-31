@@ -166,6 +166,7 @@ export class NewsTickerComponent implements OnInit, OnDestroy {
     if (url.startsWith('/cco')) return '/cco';
     if (url.startsWith('/ceo')) return '/ceo';
     if (url.startsWith('/auditor')) return '/auditor';
+    if (url.startsWith('/admin')) return '/admin';
     return '/';
   }
 

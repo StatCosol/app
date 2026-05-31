@@ -63,6 +63,8 @@ const EngineConfigComponent = () =>
   import('./applicability/engine-config.component').then((m) => m.EngineConfigComponent);
 const AdminNewsComponent = () =>
   import('./news/admin-news.component').then((m) => m.AdminNewsComponent);
+const NewsDetailComponent = () =>
+  import('../../shared/news/news-detail.component').then((m) => m.NewsDetailComponent);
 const AdminHelpdeskComponent = () =>
   import('./helpdesk/admin-helpdesk.component').then((m) => m.AdminHelpdeskComponent);
 const AdminHelpdeskDetailComponent = () =>
@@ -115,6 +117,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'applicability/config', loadComponent: EngineConfigComponent },
       { path: 'branches/:branchId/applicability', loadComponent: BranchApplicabilityComponent },
       { path: 'news', loadComponent: AdminNewsComponent },
+      { path: 'news/:newsId', loadComponent: NewsDetailComponent },
       { path: 'helpdesk', loadComponent: AdminHelpdeskComponent },
       { path: 'helpdesk/:id', loadComponent: AdminHelpdeskDetailComponent },
       { path: 'client-contacts', loadComponent: AdminClientContactsComponent },
