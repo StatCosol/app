@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { EmployeeEntity } from '../employees/entities/employee.entity';
+import { BiometricPunchEntity } from '../biometric/entities/biometric-punch.entity';
 import { BiometricService } from '../biometric/biometric.service';
 
 @Injectable()
@@ -470,6 +471,37 @@ export class AttendanceService {
     }
     await this.repo.save(records);
     return { rejected: records.length };
+  }
+
+  /** Delete wrong attendance records and their source biometric/face punches. */
+  async deleteRecords(clientId: string, ids: string[]) {
+    const records = await this.repo.find({
+      where: { clientId, id: In(ids) },
+    });
+    if (!records.length) throw new NotFoundException('No records found');
+
+    const recordIds = records.map((r) => r.id);
+
+    return this.ds.transaction(async (manager) => {
+      const punchDelete = await manager
+        .getRepository(BiometricPunchEntity)
+        .delete({
+          clientId,
+          attendanceId: In(recordIds),
+        });
+
+      const attendanceDelete = await manager
+        .getRepository(AttendanceEntity)
+        .delete({
+          clientId,
+          id: In(recordIds),
+        });
+
+      return {
+        deleted: attendanceDelete.affected ?? 0,
+        deletedPunches: punchDelete.affected ?? 0,
+      };
+    });
   }
 
   /** Approval stats for a given day */

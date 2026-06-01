@@ -121,8 +121,11 @@ const ATTENDANCE_STATUSES = [
             <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='reject'" (clicked)="bulkReject()">
               Reject Selected
             </ui-button>
+            <ui-button size="sm" variant="danger" [disabled]="actionBusy" [loading]="actionBusy && actionType==='delete'" (clicked)="bulkDelete()">
+              Delete Selected
+            </ui-button>
             <ui-button size="sm" variant="ghost" [disabled]="actionBusy" (clicked)="clearSelection()">
-              Clear
+              Clear Selection
             </ui-button>
           </div>
         </section>
@@ -216,6 +219,11 @@ const ATTENDANCE_STATUSES = [
                       [disabled]="actionBusy"
                       (clicked)="rejectSingle(row.id)">
                       Reject
+                    </ui-button>
+                    <ui-button size="sm" variant="danger"
+                      [disabled]="actionBusy"
+                      (clicked)="deleteSingle(row.id)">
+                      Delete
                     </ui-button>
                   </td>
                 </tr>
@@ -557,6 +565,34 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
       });
   }
 
+  bulkDelete(): void {
+    const ids = [...this.selectedIds];
+    if (!ids.length) return;
+    if (!window.confirm(`Delete ${ids.length} selected attendance record(s)? This also removes linked face/biometric punches so they will not return after refresh.`)) {
+      return;
+    }
+    this.actionBusy = true;
+    this.actionType = 'delete';
+    this.svc
+      .deleteRecords(ids)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (res) => {
+          this.toast.success(`${res.deleted} record(s) deleted.`);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.toast.error('Failed to delete records.'),
+      });
+  }
+
   rejectAllPending(): void {
     const ids = this.pendingRecords.map((r) => r.id);
     if (!ids.length) return;
@@ -622,6 +658,32 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
           this.load();
         },
         error: () => this.toast.error('Failed to reject.'),
+      });
+  }
+
+  deleteSingle(id: string): void {
+    if (!window.confirm('Delete this attendance record? Linked face/biometric punches will also be removed so it will not return after refresh.')) {
+      return;
+    }
+    this.actionBusy = true;
+    this.actionType = 'delete';
+    this.svc
+      .deleteRecords([id])
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.actionBusy = false;
+          this.actionType = '';
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success('Record deleted.');
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.toast.error('Failed to delete.'),
       });
   }
 

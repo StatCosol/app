@@ -126,6 +126,10 @@ export class ClientAttendanceService {
   rejectRecords(ids: string[], reason?: string): Observable<{ rejected: number }> {
     return this.http.post<{ rejected: number }>(`${this.base}/reject`, { ids, reason });
   }
+
+  deleteRecords(ids: string[]): Observable<{ deleted: number; deletedPunches: number }> {
+    return this.http.post<{ deleted: number; deletedPunches: number }>(`${this.base}/delete`, { ids });
+  }
 }
 
 export interface DailyAttendanceRecord {
