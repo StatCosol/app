@@ -555,6 +555,14 @@ export class EssService {
         'Face ID attendance is available only in the StatCo ESS app.',
       );
     }
+    if (
+      method === 'GEOLOCATION' &&
+      (body.latitude == null || body.longitude == null)
+    ) {
+      throw new BadRequestException(
+        'Location coordinates are required for geolocation attendance.',
+      );
+    }
 
     if (existing.length) {
       // Update existing record (e.g. admin-seeded WEEK_OFF or HOLIDAY shouldn't be overwritten)
@@ -682,6 +690,14 @@ export class EssService {
     ) {
       throw new BadRequestException(
         'Face ID attendance is available only in the StatCo ESS app.',
+      );
+    }
+    if (
+      method === 'GEOLOCATION' &&
+      (body.latitude == null || body.longitude == null)
+    ) {
+      throw new BadRequestException(
+        'Location coordinates are required for geolocation attendance.',
       );
     }
 

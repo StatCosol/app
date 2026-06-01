@@ -776,7 +776,12 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
       return;
     }
     this.checkingIn = true;
-    this.resolveLocation().then(() => {
+    this.resolveLocation().then((locationOk) => {
+      if (!locationOk) {
+        this.checkingIn = false;
+        this.toast.error('Location is required for geolocation attendance.');
+        return;
+      }
       const payload: CheckInOutPayload = {
         captureMethod: this.selectedCapture,
         latitude: this.currentLat ?? undefined,
@@ -813,7 +818,12 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
       return;
     }
     this.checkingOut = true;
-    this.resolveLocation().then(() => {
+    this.resolveLocation().then((locationOk) => {
+      if (!locationOk) {
+        this.checkingOut = false;
+        this.toast.error('Location is required for geolocation attendance.');
+        return;
+      }
       const payload: CheckInOutPayload = {
         captureMethod: this.selectedCapture,
         latitude: this.currentLat ?? undefined,
@@ -987,14 +997,16 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     this.todayFormatted = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  private resolveLocation(): Promise<void> {
+  private resolveLocation(): Promise<boolean> {
     if (this.selectedCapture !== 'GEOLOCATION') {
       this.geoStatus = '';
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
     if (!navigator.geolocation) {
       this.geoStatus = 'Geolocation not supported';
-      return Promise.resolve();
+      this.currentLat = null;
+      this.currentLng = null;
+      return Promise.resolve(false);
     }
     this.geoStatus = 'Acquiring location...';
     return new Promise((resolve) => {
@@ -1003,13 +1015,13 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
           this.currentLat = pos.coords.latitude;
           this.currentLng = pos.coords.longitude;
           this.geoStatus = `Location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-          resolve();
+          resolve(true);
         },
         () => {
           this.geoStatus = 'Location access denied';
           this.currentLat = null;
           this.currentLng = null;
-          resolve();
+          resolve(false);
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );

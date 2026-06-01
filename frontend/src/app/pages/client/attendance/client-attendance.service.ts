@@ -149,6 +149,10 @@ export interface DailyAttendanceRecord {
   source: string;
   captureMethod: string;
   selfMarked: boolean;
+  checkInLat: string | null;
+  checkInLng: string | null;
+  checkOutLat: string | null;
+  checkOutLng: string | null;
   shortWorkReason: string | null;
   approvalStatus: string;
   approvedByUserId: string | null;

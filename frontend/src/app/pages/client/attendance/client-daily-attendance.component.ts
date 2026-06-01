@@ -175,6 +175,7 @@ const ATTENDANCE_STATUSES = [
                   <th>Hours</th>
                   <th>OT</th>
                   <th>Source</th>
+                  <th>Location</th>
                   <th>Approval</th>
                   <th>Actions</th>
                 </tr>
@@ -200,6 +201,15 @@ const ATTENDANCE_STATUSES = [
                     <span class="source-chip" [class.self]="row.selfMarked">
                       {{ displaySource(row) }}
                     </span>
+                  </td>
+                  <td class="location-cell">
+                    <a *ngIf="hasLocation(row)"
+                      [href]="locationMapUrl(row)"
+                      target="_blank"
+                      rel="noopener">
+                      {{ displayLocation(row) }}
+                    </a>
+                    <span *ngIf="!hasLocation(row)">-</span>
                   </td>
                   <td>
                     <span class="approval-chip" [attr.data-approval]="row.approvalStatus">
@@ -307,7 +317,7 @@ const ATTENDANCE_STATUSES = [
       .bulk-bar { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
       .bulk-bar span { font-weight: 600; color: #111827; font-size: .84rem; }
       .table-wrap { overflow: auto; }
-      table { width: 100%; min-width: 1000px; border-collapse: collapse; }
+      table { width: 100%; min-width: 1120px; border-collapse: collapse; }
       th, td { border-bottom: 1px solid #e5e7eb; text-align: left; padding: .5rem .45rem; font-size: .8rem; color: #1f2937; }
       th { color: #6b7280; text-transform: uppercase; letter-spacing: .02em; font-size: .7rem; font-weight: 700; white-space: nowrap; }
       .col-check { width: 36px; text-align: center; }
@@ -322,6 +332,9 @@ const ATTENDANCE_STATUSES = [
       .att-chip[data-status=WEEK_OFF] { border-color: #d1d5db; color: #6b7280; background: #f3f4f6; }
       .source-chip { font-size: .7rem; font-weight: 600; color: #4b5563; }
       .source-chip.self { color: #0369a1; }
+      .location-cell { font-size: .72rem; white-space: nowrap; }
+      .location-cell a { color: #0369a1; font-weight: 600; text-decoration: none; }
+      .location-cell a:hover { text-decoration: underline; }
       .approval-chip { border: 1px solid #d1d5db; background: #f9fafb; color: #374151; border-radius: 999px; font-size: .68rem; font-weight: 700; padding: .1rem .5rem; white-space: nowrap; }
       .approval-chip[data-approval=PENDING] { border-color: #fcd34d; color: #92400e; background: #fffbeb; }
       .approval-chip[data-approval=APPROVED] { border-color: #86efac; color: #166534; background: #f0fdf4; }
@@ -746,6 +759,40 @@ export class ClientDailyAttendanceComponent implements OnInit, OnDestroy {
     // them apart from fingerprint biometric devices.
     if (row.captureMethod === 'FACE') return 'FACE';
     return row.source;
+  }
+
+  hasLocation(row: DailyAttendanceRecord): boolean {
+    return this.locationPair(row) !== null;
+  }
+
+  displayLocation(row: DailyAttendanceRecord): string {
+    const pair = this.locationPair(row);
+    if (!pair) return '-';
+    return `${pair.label}: ${pair.lat.toFixed(5)}, ${pair.lng.toFixed(5)}`;
+  }
+
+  locationMapUrl(row: DailyAttendanceRecord): string {
+    const pair = this.locationPair(row);
+    if (!pair) return '#';
+    return `https://www.google.com/maps?q=${pair.lat},${pair.lng}`;
+  }
+
+  private locationPair(row: DailyAttendanceRecord): { label: string; lat: number; lng: number } | null {
+    const inLat = this.toNumberOrNull(row.checkInLat);
+    const inLng = this.toNumberOrNull(row.checkInLng);
+    if (inLat != null && inLng != null) return { label: 'IN', lat: inLat, lng: inLng };
+
+    const outLat = this.toNumberOrNull(row.checkOutLat);
+    const outLng = this.toNumberOrNull(row.checkOutLng);
+    if (outLat != null && outLng != null) return { label: 'OUT', lat: outLat, lng: outLng };
+
+    return null;
+  }
+
+  private toNumberOrNull(value: string | number | null | undefined): number | null {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
   }
 
   private todayStr(): string {
