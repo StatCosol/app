@@ -556,11 +556,11 @@ export class EssService {
       );
     }
     if (
-      method === 'GEOLOCATION' &&
+      (method === 'GEOLOCATION' || method === 'FACE') &&
       (body.latitude == null || body.longitude == null)
     ) {
       throw new BadRequestException(
-        'Location coordinates are required for geolocation attendance.',
+        'Location coordinates are required for this attendance method.',
       );
     }
 
@@ -693,11 +693,11 @@ export class EssService {
       );
     }
     if (
-      method === 'GEOLOCATION' &&
+      (method === 'GEOLOCATION' || method === 'FACE') &&
       (body.latitude == null || body.longitude == null)
     ) {
       throw new BadRequestException(
-        'Location coordinates are required for geolocation attendance.',
+        'Location coordinates are required for this attendance method.',
       );
     }
 

@@ -216,8 +216,9 @@ const ATTENDANCE_STATUSES = [
                       {{ row.approvalStatus }}
                     </span>
                   </td>
-                  <td class="actions-cell">
-                    <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
+                  <td>
+                    <div class="actions-cell">
+                      <ui-button size="sm" variant="ghost" (clicked)="openEdit(row)">Edit</ui-button>
                     <ui-button size="sm" variant="primary"
                       *ngIf="row.approvalStatus !== 'APPROVED'"
                       [disabled]="actionBusy"
@@ -235,6 +236,7 @@ const ATTENDANCE_STATUSES = [
                       (clicked)="deleteSingle(row.id)">
                       Delete
                     </ui-button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -341,7 +343,8 @@ const ATTENDANCE_STATUSES = [
       .approval-chip[data-approval=REJECTED] { border-color: #fca5a5; color: #991b1b; background: #fef2f2; }
       .row-pending { background: #fffbeb; }
       .row-rejected { background: #fef2f2; }
-      .actions-cell { white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: .3rem; }
+      .actions-cell { width: 88px; margin: 0 auto; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: .35rem; }
+      .actions-cell ui-button { display: block; width: 100%; }
       .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
       .modal-card { background: #fff; border-radius: 16px; padding: 1.2rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
       .modal-card h3 { margin: 0 0 .3rem; font-size: 1rem; color: #111827; }

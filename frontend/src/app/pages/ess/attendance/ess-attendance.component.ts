@@ -779,7 +779,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     this.resolveLocation().then((locationOk) => {
       if (!locationOk) {
         this.checkingIn = false;
-        this.toast.error('Location is required for geolocation attendance.');
+        this.toast.error('Location is required for this attendance method.');
         return;
       }
       const payload: CheckInOutPayload = {
@@ -821,7 +821,7 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
     this.resolveLocation().then((locationOk) => {
       if (!locationOk) {
         this.checkingOut = false;
-        this.toast.error('Location is required for geolocation attendance.');
+        this.toast.error('Location is required for this attendance method.');
         return;
       }
       const payload: CheckInOutPayload = {
@@ -998,7 +998,8 @@ export class EssAttendanceComponent implements OnInit, OnDestroy {
   }
 
   private resolveLocation(): Promise<boolean> {
-    if (this.selectedCapture !== 'GEOLOCATION') {
+    const requiresLocation = this.selectedCapture === 'GEOLOCATION' || this.selectedCapture === 'FACE';
+    if (!requiresLocation) {
       this.geoStatus = '';
       return Promise.resolve(true);
     }
