@@ -2545,7 +2545,7 @@ export class PayrollService {
 
     // Determine allowed clientIds
     let allowedClientIds: string[] = [];
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+    if (['ADMIN', 'CRM', 'CEO', 'CCO'].includes(user.roleCode)) {
       const all = await this.clientRepo
         .createQueryBuilder('c')
         .select('c.id', 'id')
