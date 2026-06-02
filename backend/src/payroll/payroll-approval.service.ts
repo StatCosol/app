@@ -16,7 +16,7 @@ import { AccessScopeService, ReqUser } from '../access/access-scope.service';
  * Status flow: DRAFT → PROCESSED → SUBMITTED → APPROVED / REJECTED
  *
  * - Payroll processor (PAYROLL role) processes and submits
- * - Approver (CLIENT/ADMIN) approves or rejects with comments
+ * - Approver (CCO role) approves or rejects with comments
  * - Rejected runs can be reprocessed and resubmitted
  */
 @Injectable()
@@ -125,17 +125,15 @@ export class PayrollApprovalService {
       );
     }
 
-    if (user?.roleCode !== 'CCO' && user?.roleCode !== 'ADMIN') {
+    if (user?.roleCode !== 'CCO') {
       throw new ForbiddenException(
-        'Only CCO or ADMIN users can approve payroll runs.',
+        'Only CCO users can approve payroll runs.',
       );
     }
 
-    // PD-H3: maker-checker — the user who submitted (prepared) a run cannot
-    // also approve it. ADMIN is allowed to override (emergency / single-admin
-    // tenants) since it already has full payroll privileges.
+    // PD-H3: maker-checker - the user who submitted (prepared) a run cannot
+    // also approve it.
     if (
-      user?.roleCode !== 'ADMIN' &&
       run.submittedByUserId &&
       run.submittedByUserId === approvedByUserId
     ) {
@@ -185,9 +183,9 @@ export class PayrollApprovalService {
       );
     }
 
-    if (user?.roleCode !== 'CCO' && user?.roleCode !== 'ADMIN') {
+    if (user?.roleCode !== 'CCO') {
       throw new ForbiddenException(
-        'Only CCO or ADMIN users can reject payroll runs.',
+        'Only CCO users can reject payroll runs.',
       );
     }
 

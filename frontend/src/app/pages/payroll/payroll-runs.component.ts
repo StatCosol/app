@@ -1424,10 +1424,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     if (action === 'APPROVE') {
       if (status !== 'SUBMITTED') return 'Only submitted runs can be approved.';
       if (!this.canApprovePayrollRunRole()) {
-        return 'Only CCO or ADMIN can approve payroll runs.';
+        return 'Only CCO can approve payroll runs.';
       }
       if (this.isSelfSubmittedRun(run)) {
-        return 'You submitted this run; a different CCO or ADMIN must approve it.';
+        return 'You submitted this run; a different CCO must approve it.';
       }
       return null;
     }
@@ -1600,11 +1600,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
   }
 
   private canApprovePayrollRunRole(): boolean {
-    return this.currentRoleCode() === 'CCO' || this.currentRoleCode() === 'ADMIN';
+    return this.currentRoleCode() === 'CCO';
   }
 
   private isSelfSubmittedRun(run: PayrollRunItem): boolean {
-    if (this.currentRoleCode() === 'ADMIN') return false;
     const approval = this.runApprovalStatusByRunId[run.id];
     const submittedBy = String(approval?.submittedByUserId || run.submittedByUserId || '').trim();
     const currentUser = this.currentUserId();
