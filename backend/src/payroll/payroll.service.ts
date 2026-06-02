@@ -59,6 +59,7 @@ import { PayrollFnfDocumentEntity } from './entities/payroll-fnf-document.entity
 import { PayrollRunItemEntity } from './entities/payroll-run-item.entity';
 import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
+import { LeavePolicyEntity } from '../ess/entities/leave-policy.entity';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ReqUser } from '../access/access-scope.service';
 import { evaluateFormula } from './engine/expression';
@@ -118,6 +119,8 @@ export class PayrollService {
     private readonly leaveLedgerRepo: Repository<LeaveLedgerEntity>,
     @InjectRepository(LeaveBalanceEntity)
     private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
+    @InjectRepository(LeavePolicyEntity)
+    private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
     private readonly notificationsSvc: NotificationsService,
     private readonly attendanceService: AttendanceService,
   ) {}
@@ -138,8 +141,22 @@ export class PayrollService {
     clientId: string,
     year: number,
     month: number,
+    dateOfJoining?: string | Date | null,
   ): Promise<void> {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const joinedInPayslipMonth = (() => {
+      if (!dateOfJoining) return false;
+      const doj = new Date(dateOfJoining);
+      return (
+        !Number.isNaN(doj.getTime()) &&
+        doj.getFullYear() === year &&
+        doj.getMonth() + 1 === month
+      );
+    })();
+    const hasSlPolicy =
+      (await this.leavePolicyRepo.count({
+        where: { clientId, leaveType: 'SL', isActive: true },
+      })) > 0;
 
     // ── EL_ACCRUED: read from ledger if available, else compute from WORKED_DAYS / 20 ──
     if (employeeId) {
@@ -151,23 +168,30 @@ export class PayrollService {
         for (const entry of elEntries) {
           if (
             entry.refType === 'EL_ACCRUAL' &&
+            !joinedInPayslipMonth &&
             entry.remarks?.includes(monthStr)
           ) {
             accrued += Math.abs(Number(entry.qty) || 0);
           }
         }
-        cv['EL_ACCRUED'] = Math.round(accrued * 100) / 100;
+        cv['EL_ACCRUED'] = joinedInPayslipMonth
+          ? 0
+          : Math.round(accrued * 100) / 100;
       } catch {
         // Fallback to formula
         if (cv['WORKED_DAYS'] !== undefined) {
-          cv['EL_ACCRUED'] = Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
+          cv['EL_ACCRUED'] = joinedInPayslipMonth
+            ? 0
+            : Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
         } else if (cv['EL_ACCRUED'] === undefined) {
           cv['EL_ACCRUED'] = 0;
         }
       }
     } else {
       if (cv['WORKED_DAYS'] !== undefined) {
-        cv['EL_ACCRUED'] = Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
+        cv['EL_ACCRUED'] = joinedInPayslipMonth
+          ? 0
+          : Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
       } else if (cv['EL_ACCRUED'] === undefined) {
         cv['EL_ACCRUED'] = 0;
       }
@@ -224,7 +248,9 @@ export class PayrollService {
           if (entryYear !== year) continue;
           if (entryMonth > month) continue;
           const qty = Math.abs(Number(entry.qty) || 0);
-          if (entry.refType === 'EL_ACCRUAL') accrual += qty;
+          if (entry.refType === 'EL_ACCRUAL' && !joinedInPayslipMonth) {
+            accrual += qty;
+          }
           else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
         }
         cv['EL_BALANCE'] = Math.max(
@@ -237,6 +263,12 @@ export class PayrollService {
     } else {
       if (cv['EL_PAID_LEAVE_DAYS'] === undefined) cv['EL_PAID_LEAVE_DAYS'] = 0;
       if (cv['EL_BALANCE'] === undefined) cv['EL_BALANCE'] = 0;
+    }
+
+    if (!hasSlPolicy && !Number(cv['SL_DAYS'] || 0)) {
+      cv['SL_ACCRUED'] = 0;
+      cv['SL_BALANCE'] = 0;
+      cv['SL_DAYS'] = 0;
     }
 
     // ── HOLIDAYS: always recompute from attendance ──
@@ -2800,6 +2832,7 @@ export class PayrollService {
       run.clientId,
       run.periodYear,
       run.periodMonth,
+      employee?.dateOfJoining ?? null,
     );
 
     // Load client logo
@@ -2903,6 +2936,7 @@ export class PayrollService {
         run.clientId,
         run.periodYear,
         run.periodMonth,
+        employee?.dateOfJoining ?? null,
       );
 
       const buffer = await generatePayslipPdfBuffer({

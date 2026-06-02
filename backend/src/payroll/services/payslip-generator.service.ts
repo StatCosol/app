@@ -15,6 +15,7 @@ import { ClientEntity } from '../../clients/entities/client.entity';
 import { EmployeeEntity } from '../../employees/entities/employee.entity';
 import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
+import { LeavePolicyEntity } from '../../ess/entities/leave-policy.entity';
 import { AttendanceService } from '../../attendance/attendance.service';
 import {
   createDoc,
@@ -48,6 +49,8 @@ export class PayslipGeneratorService {
     private readonly leaveLedgerRepo: Repository<LeaveLedgerEntity>,
     @InjectRepository(LeaveBalanceEntity)
     private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
+    @InjectRepository(LeavePolicyEntity)
+    private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
     private readonly attendanceService: AttendanceService,
   ) {}
 
@@ -347,6 +350,7 @@ export class PayslipGeneratorService {
     const slEarned = valueMap.get('SL_ACCRUED') ?? 0;
     const plBalance = Math.max(valueMap.get('EL_BALANCE') ?? 0, 0);
     const slBalance = Math.max(valueMap.get('SL_BALANCE') ?? 0, 0);
+    const showSlSummary = slAvailed !== 0 || slEarned !== 0 || slBalance !== 0;
     doc
       .fontSize(infoFontSize)
       .fillColor('#000000')
@@ -409,33 +413,38 @@ export class PayslipGeneratorService {
       .fontSize(infoFontSize)
       .fillColor('#000000')
       .text(String(plBalance), leftCol + infoLabelWidth, infoY);
-    doc
-      .fontSize(infoFontSize)
-      .fillColor('#000000')
-      .text('SL Availed:', rightCol, infoY);
-    doc
-      .fontSize(infoFontSize)
-      .fillColor('#000000')
-      .text(String(slAvailed), rightCol + 100, infoY);
+    if (showSlSummary) {
+      doc
+        .fontSize(infoFontSize)
+        .fillColor('#000000')
+        .text('SL Availed:', rightCol, infoY);
+      doc
+        .fontSize(infoFontSize)
+        .fillColor('#000000')
+        .text(String(slAvailed), rightCol + 100, infoY);
+    }
     infoY += 18;
 
-    doc
-      .fontSize(infoFontSize)
-      .fillColor('#000000')
-      .text('SL Earned:', leftCol, infoY);
-    doc
-      .fontSize(infoFontSize)
-      .fillColor('#000000')
-      .text(String(slEarned), leftCol + infoLabelWidth, infoY);
-    doc
-      .fontSize(infoFontSize)
-      .fillColor('#000000')
-      .text('SL Balance:', rightCol, infoY);
-    doc
-      .fontSize(infoFontSize)
-      .fillColor('#000000')
-      .text(String(slBalance), rightCol + 100, infoY);
-    infoY += 24;
+    if (showSlSummary) {
+      doc
+        .fontSize(infoFontSize)
+        .fillColor('#000000')
+        .text('SL Earned:', leftCol, infoY);
+      doc
+        .fontSize(infoFontSize)
+        .fillColor('#000000')
+        .text(String(slEarned), leftCol + infoLabelWidth, infoY);
+      doc
+        .fontSize(infoFontSize)
+        .fillColor('#000000')
+        .text('SL Balance:', rightCol, infoY);
+      doc
+        .fontSize(infoFontSize)
+        .fillColor('#000000')
+        .text(String(slBalance), rightCol + 100, infoY);
+      infoY += 18;
+    }
+    infoY += 6;
 
     doc.y = infoY;
 
@@ -804,6 +813,22 @@ export class PayslipGeneratorService {
     month: number,
   ): Promise<void> {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const employee = employeeId
+      ? await this.empRepo.findOne({ where: { id: employeeId } })
+      : null;
+    const joinedInPayslipMonth = (() => {
+      if (!employee?.dateOfJoining) return false;
+      const doj = new Date(employee.dateOfJoining);
+      return (
+        !Number.isNaN(doj.getTime()) &&
+        doj.getFullYear() === year &&
+        doj.getMonth() + 1 === month
+      );
+    })();
+    const hasSlPolicy =
+      (await this.leavePolicyRepo.count({
+        where: { clientId, leaveType: 'SL', isActive: true },
+      })) > 0;
 
     // ── EL_ACCRUED: read from ledger if available, else compute from WORKED_DAYS / 20 ──
     if (employeeId) {
@@ -815,16 +840,25 @@ export class PayslipGeneratorService {
         for (const entry of allElEntries) {
           if (
             entry.refType === 'EL_ACCRUAL' &&
+            !joinedInPayslipMonth &&
             entry.remarks?.includes(monthStr)
           ) {
             accrued += Math.abs(Number(entry.qty) || 0);
           }
         }
-        valueMap.set('EL_ACCRUED', Math.round(accrued * 100) / 100);
+        valueMap.set(
+          'EL_ACCRUED',
+          joinedInPayslipMonth ? 0 : Math.round(accrued * 100) / 100,
+        );
       } catch {
         if (valueMap.has('WORKED_DAYS')) {
           const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
-          valueMap.set('EL_ACCRUED', Math.round((workedDays / 20) * 100) / 100);
+          valueMap.set(
+            'EL_ACCRUED',
+            joinedInPayslipMonth
+              ? 0
+              : Math.round((workedDays / 20) * 100) / 100,
+          );
         } else if (!valueMap.has('EL_ACCRUED')) {
           valueMap.set('EL_ACCRUED', 0);
         }
@@ -832,7 +866,12 @@ export class PayslipGeneratorService {
     } else {
       if (valueMap.has('WORKED_DAYS')) {
         const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
-        valueMap.set('EL_ACCRUED', Math.round((workedDays / 20) * 100) / 100);
+        valueMap.set(
+          'EL_ACCRUED',
+          joinedInPayslipMonth
+            ? 0
+            : Math.round((workedDays / 20) * 100) / 100,
+        );
       } else if (!valueMap.has('EL_ACCRUED')) {
         valueMap.set('EL_ACCRUED', 0);
       }
@@ -893,8 +932,9 @@ export class PayslipGeneratorService {
           if (entryYear !== year) continue;
           if (entryMonth > month) continue;
           const qty = Math.abs(Number(entry.qty) || 0);
-          if (entry.refType === 'EL_ACCRUAL') accrual += qty;
-          else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
+          if (entry.refType === 'EL_ACCRUAL' && !joinedInPayslipMonth) {
+            accrual += qty;
+          } else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
         }
         const balance = Math.max(
           Math.round((opening + accrual - used) * 100) / 100,
@@ -908,6 +948,12 @@ export class PayslipGeneratorService {
       if (!valueMap.has('EL_PAID_LEAVE_DAYS'))
         valueMap.set('EL_PAID_LEAVE_DAYS', 0);
       if (!valueMap.has('EL_BALANCE')) valueMap.set('EL_BALANCE', 0);
+    }
+
+    if (!hasSlPolicy && !Number(valueMap.get('SL_DAYS') || 0)) {
+      valueMap.set('SL_ACCRUED', 0);
+      valueMap.set('SL_BALANCE', 0);
+      valueMap.set('SL_DAYS', 0);
     }
 
     // ── HOLIDAYS: always recompute from attendance ──

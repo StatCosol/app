@@ -24,6 +24,7 @@ import { TdsCalculatorService } from '../services/tds-calculator.service';
 import { AttendanceService } from '../../attendance/attendance.service';
 import { LeaveLedgerEntity } from '../../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../../ess/entities/leave-balance.entity';
+import { LeavePolicyEntity } from '../../ess/entities/leave-policy.entity';
 
 interface SlabEntry {
   from: number;
@@ -80,6 +81,8 @@ export class PayrollEngineService {
     private readonly _leaveLedgerRepo: Repository<LeaveLedgerEntity>,
     @InjectRepository(LeaveBalanceEntity)
     private readonly leaveBalanceRepo: Repository<LeaveBalanceEntity>,
+    @InjectRepository(LeavePolicyEntity)
+    private readonly leavePolicyRepo: Repository<LeavePolicyEntity>,
   ) {}
 
   async processWithEngine(runId: string): Promise<ProcessResult> {
@@ -1047,16 +1050,29 @@ export class PayrollEngineService {
       // ── Sick Leave (SL) accrual ──────────────────────────────────
       // Per-client divisor: SL_ACCRUED = WORKED_DAYS / divisor.
       // Default 60 (≈0.5 day per 30 worked days). Skip in joining month.
-      const slDivisorRaw = Number((setup as any).slAccrualDivisor);
-      const slDivisor = slDivisorRaw && slDivisorRaw > 0 ? slDivisorRaw : 60;
-      const slAccrued = skipEL
-        ? 0
-        : Math.round((workedDays / slDivisor) * 100) / 100;
-      values['SL_ACCRUED'] = slAccrued;
-
       let slUsed = 0;
       let slBalanceAfter = 0;
-      if (emp.employeeId) {
+      const uploadedSlDays = uploadedCodes.has('SL_DAYS')
+        ? values['SL_DAYS'] || 0
+        : 0;
+      const hasSlPolicy =
+        (await this.leavePolicyRepo.count({
+          where: {
+            clientId: run.clientId,
+            leaveType: 'SL',
+            isActive: true,
+          },
+        })) > 0;
+      const slEnabled = hasSlPolicy || uploadedSlDays > 0;
+      const slDivisorRaw = Number((setup as any).slAccrualDivisor);
+      const slDivisor = slDivisorRaw && slDivisorRaw > 0 ? slDivisorRaw : 60;
+      const slAccrued =
+        slEnabled && !skipEL
+          ? Math.round((workedDays / slDivisor) * 100) / 100
+          : 0;
+      values['SL_ACCRUED'] = slAccrued;
+
+      if (emp.employeeId && slEnabled) {
         const slBalBefore = await qr.manager.findOne(LeaveBalanceEntity, {
           where: {
             employeeId: emp.employeeId,
@@ -1068,9 +1084,6 @@ export class PayrollEngineService {
           ? parseFloat(slBalBefore.available) || 0
           : 0;
 
-        const uploadedSlDays = uploadedCodes.has('SL_DAYS')
-          ? values['SL_DAYS'] || 0
-          : 0;
         if (uploadedSlDays > 0 && slAvailableBefore > 0) {
           slUsed = Math.min(uploadedSlDays, slAvailableBefore);
           slUsed = Math.round(slUsed * 100) / 100;

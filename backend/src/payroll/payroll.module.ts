@@ -109,6 +109,7 @@ import { PayrollStatutoryConfigEntity } from './entities/payroll-statutory-confi
 import { LeaveLedgerEntity } from '../ess/entities/leave-ledger.entity';
 import { LeaveBalanceEntity } from '../ess/entities/leave-balance.entity';
 import { LeaveApplicationEntity } from '../ess/entities/leave-application.entity';
+import { LeavePolicyEntity } from '../ess/entities/leave-policy.entity';
 import { AttendanceEntity } from '../attendance/entities/attendance.entity';
 import { ClientStructuresService } from './client-structures.service';
 import { ClientPayrollCalculationService } from './client-payroll-calculation.service';
@@ -172,6 +173,7 @@ import { AccessModule } from '../access/access.module';
       LeaveLedgerEntity,
       LeaveBalanceEntity,
       LeaveApplicationEntity,
+      LeavePolicyEntity,
       AttendanceEntity,
     ]),
     NotificationsModule,
