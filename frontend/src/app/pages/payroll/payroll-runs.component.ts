@@ -22,6 +22,7 @@ import { ClientContextStripComponent } from '../../shared/ui/client-context-stri
 import { ToastService } from '../../shared/toast/toast.service';
 import { ConfirmDialogService } from '../../shared/ui/confirm-dialog/confirm-dialog.service';
 import { PayrollApiService, PayrollClient } from './payroll-api.service';
+import { AuthService } from '../../core/auth.service';
 
 interface PayrollRunItem {
   id: string;
@@ -33,6 +34,7 @@ interface PayrollRunItem {
   employeeCount?: number;
   createdAt?: string;
   submittedAt?: string;
+  submittedByUserId?: string | null;
   approvedAt?: string;
   rejectedAt?: string;
   rejectionReason?: string;
@@ -286,6 +288,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     private readonly toast: ToastService,
     private readonly dialog: ConfirmDialogService,
     private readonly payrollApi: PayrollApiService,
+    private readonly auth: AuthService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
   ) {}
@@ -329,6 +332,7 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             employeeCount: Number(row?.employeeCount || 0),
             createdAt: row?.createdAt || row?.created_at || null,
             submittedAt: row?.submittedAt || row?.submitted_at || null,
+            submittedByUserId: row?.submittedByUserId || row?.submitted_by_user_id || null,
             approvedAt: row?.approvedAt || row?.approved_at || null,
             rejectedAt: row?.rejectedAt || row?.rejected_at || null,
             rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
@@ -1363,9 +1367,20 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
     // and the wrapping *ngIf). Cache by run+selectedRun+exception count so
     // repeated lookups inside the same CD pass don't re-run the cascade.
     const status = this.statusKey(run);
+    const approval = this.runApprovalStatusByRunId[run.id];
     const exCount =
       this.selectedRun?.id === run.id ? this.validationExceptions().length : 0;
-    const cacheKey = `${run.id}|${status}|${run.employeeCount || 0}|${this.selectedRun?.id || ''}|${exCount}|${action}`;
+    const cacheKey = [
+      run.id,
+      status,
+      run.employeeCount || 0,
+      this.selectedRun?.id || '',
+      exCount,
+      action,
+      approval?.submittedByUserId || run.submittedByUserId || '',
+      this.currentUserId(),
+      this.currentRoleCode(),
+    ].join('|');
     const cached = this._guardCache.get(cacheKey);
     if (cached !== undefined) return cached;
     const reason = this._actionGuardReasonImpl(run, action, status, exCount);
@@ -1408,6 +1423,9 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     if (action === 'APPROVE') {
       if (status !== 'SUBMITTED') return 'Only submitted runs can be approved.';
+      if (this.isSelfSubmittedRun(run)) {
+        return 'You submitted this run; a different user or ADMIN must approve it.';
+      }
       return null;
     }
 
@@ -1539,9 +1557,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
             rejectedAt: row?.rejectedAt || row?.rejected_at || null,
             rejectionReason: row?.rejectionReason || row?.rejection_reason || null,
           };
+          this._guardCache.clear();
         },
         error: () => {
           delete this.runApprovalStatusByRunId[runId];
+          this._guardCache.clear();
           if (toastOnError) {
             this.toast.error('Could not load approval status for this run.');
           }
@@ -1565,6 +1585,23 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
       const text = `${row.clientName || ''} ${row.status || ''} ${row.periodMonth}/${row.periodYear}`.toLowerCase();
       return text.includes(q);
     });
+  }
+
+  private currentUserId(): string {
+    const user = this.auth.getUser() || {};
+    return String(user?.id ?? user?.userId ?? user?.sub ?? '').trim();
+  }
+
+  private currentRoleCode(): string {
+    return String(this.auth.getRoleCode() || this.auth.getUser()?.roleCode || '').toUpperCase();
+  }
+
+  private isSelfSubmittedRun(run: PayrollRunItem): boolean {
+    if (this.currentRoleCode() === 'ADMIN') return false;
+    const approval = this.runApprovalStatusByRunId[run.id];
+    const submittedBy = String(approval?.submittedByUserId || run.submittedByUserId || '').trim();
+    const currentUser = this.currentUserId();
+    return !!submittedBy && !!currentUser && submittedBy === currentUser;
   }
 
   private toArray(payload: any): any[] {
