@@ -84,6 +84,8 @@ export class EmployeesService {
     stateCode?: string | null;
     skillCategory?: string | null;
     monthlyGross: number | null | undefined;
+    override?: boolean | null;
+    overrideReason?: string | null;
   }): Promise<void> {
     const gross = Number(params.monthlyGross);
     if (!gross || isNaN(gross) || gross <= 0) return;
@@ -160,6 +162,13 @@ export class EmployeesService {
     if (isNaN(minWage) || minWage <= 0) return;
 
     if (gross < minWage) {
+      const reason = String(params.overrideReason || '').trim();
+      if (params.override === true && reason.length >= 8) {
+        this.logger.warn(
+          `Minimum wage override accepted for client=${params.clientId} branch=${params.branchId || 'n/a'} state=${stateCode} skill=${skill} gross=${gross} min=${minWage} reason="${reason}"`,
+        );
+        return;
+      }
       const schedNote = sched ? ` under "${sched}" schedule of employment` : '';
       throw new BadRequestException(
         `Monthly gross ₹${gross.toLocaleString('en-IN')} is below the statutory minimum wage ₹${minWage.toLocaleString('en-IN')} for ${skill} workers in ${stateCode}${schedNote} (effective from ${row.effective_from}). Please correct the wage or update the minimum-wage master.`,
@@ -280,6 +289,8 @@ export class EmployeesService {
       stateCode: dto.stateCode,
       skillCategory: (dto as any).skillCategory,
       monthlyGross: dto.monthlyGross,
+      override: (dto as any).minimumWageOverride,
+      overrideReason: (dto as any).minimumWageOverrideReason,
     });
 
     // Wrap code generation + save in a transaction so sequence is not wasted on failure
@@ -316,8 +327,13 @@ export class EmployeesService {
       const seq = result[0]?.last_seq || 1;
       const code = `${prefix}${String(seq).padStart(4, '0')}`;
 
+      const {
+        minimumWageOverride: _createMwo,
+        minimumWageOverrideReason: _createMwor,
+        ...createDto
+      } = dto as any;
       const emp = manager.create(EmployeeEntity, {
-        ...dto,
+        ...createDto,
         clientId,
         branchId: effectiveBranchId,
         employeeCode: code,
@@ -446,6 +462,8 @@ export class EmployeesService {
       id: _id,
       clientId: _cid,
       employeeCode: _ec,
+      minimumWageOverride: _mwo,
+      minimumWageOverrideReason: _mwor,
       ...safeDto
     } = dto as any;
     Object.assign(emp, safeDto);
@@ -465,6 +483,8 @@ export class EmployeesService {
         stateCode: emp.stateCode,
         skillCategory: (emp as any).skillCategory,
         monthlyGross: emp.monthlyGross,
+        override: (dto as any).minimumWageOverride,
+        overrideReason: (dto as any).minimumWageOverrideReason,
       });
     }
 
