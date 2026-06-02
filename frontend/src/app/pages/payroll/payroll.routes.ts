@@ -59,7 +59,7 @@ export const PAYROLL_ROUTES: Routes = [
   {
     path: 'payroll',
     loadComponent: PayrollLayoutComponent,
-    canActivate: [roleGuard(['PAYROLL'])],
+    canActivate: [roleGuard(['PAYROLL', 'CCO'])],
     children: [
       { path: 'dashboard', loadComponent: PayrollDashboardComponent },
       {

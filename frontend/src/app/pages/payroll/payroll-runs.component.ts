@@ -1423,8 +1423,11 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
     if (action === 'APPROVE') {
       if (status !== 'SUBMITTED') return 'Only submitted runs can be approved.';
+      if (!this.canApprovePayrollRunRole()) {
+        return 'Only CCO or ADMIN can approve payroll runs.';
+      }
       if (this.isSelfSubmittedRun(run)) {
-        return 'You submitted this run; a different user or ADMIN must approve it.';
+        return 'You submitted this run; a different CCO or ADMIN must approve it.';
       }
       return null;
     }
@@ -1594,6 +1597,10 @@ export class PayrollRunsComponent implements OnInit, OnDestroy {
 
   private currentRoleCode(): string {
     return String(this.auth.getRoleCode() || this.auth.getUser()?.roleCode || '').toUpperCase();
+  }
+
+  private canApprovePayrollRunRole(): boolean {
+    return this.currentRoleCode() === 'CCO' || this.currentRoleCode() === 'ADMIN';
   }
 
   private isSelfSubmittedRun(run: PayrollRunItem): boolean {

@@ -125,6 +125,12 @@ export class PayrollApprovalService {
       );
     }
 
+    if (user?.roleCode !== 'CCO' && user?.roleCode !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Only CCO or ADMIN users can approve payroll runs.',
+      );
+    }
+
     // PD-H3: maker-checker — the user who submitted (prepared) a run cannot
     // also approve it. ADMIN is allowed to override (emergency / single-admin
     // tenants) since it already has full payroll privileges.
@@ -176,6 +182,12 @@ export class PayrollApprovalService {
     if (run.status !== 'SUBMITTED') {
       throw new BadRequestException(
         `Cannot reject: run is "${run.status}". Only SUBMITTED runs can be rejected.`,
+      );
+    }
+
+    if (user?.roleCode !== 'CCO' && user?.roleCode !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Only CCO or ADMIN users can reject payroll runs.',
       );
     }
 

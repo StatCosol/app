@@ -1879,7 +1879,11 @@ export class PayrollService {
 
   /** Helper: get assigned client IDs for user */
   private async getAssignedClientIds(user: ReqUser): Promise<string[]> {
-    if (user.roleCode === 'ADMIN' || user.roleCode === 'CRM') {
+    if (
+      user.roleCode === 'ADMIN' ||
+      user.roleCode === 'CRM' ||
+      user.roleCode === 'CCO'
+    ) {
       const clients = await this.clientRepo
         .createQueryBuilder('c')
         .select('c.id')

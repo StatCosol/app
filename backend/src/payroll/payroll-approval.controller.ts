@@ -35,7 +35,7 @@ export class PayrollApprovalController {
 
   @ApiOperation({ summary: 'Approve' })
   @Post(':runId/approve')
-  @Roles('PAYROLL', 'ADMIN', 'CLIENT')
+  @Roles('CCO', 'ADMIN')
   approve(
     @Param('runId', ParseUUIDPipe) runId: string,
     @Body('comments') comments: string | undefined,
@@ -46,7 +46,7 @@ export class PayrollApprovalController {
 
   @ApiOperation({ summary: 'Reject' })
   @Post(':runId/reject')
-  @Roles('ADMIN', 'CLIENT')
+  @Roles('CCO', 'ADMIN')
   reject(
     @Param('runId', ParseUUIDPipe) runId: string,
     @Body('reason') reason: string,
@@ -67,7 +67,7 @@ export class PayrollApprovalController {
 
   @ApiOperation({ summary: 'Status' })
   @Get(':runId/approval-status')
-  @Roles('PAYROLL', 'ADMIN', 'CLIENT')
+  @Roles('PAYROLL', 'CCO', 'ADMIN')
   status(
     @Param('runId', ParseUUIDPipe) runId: string,
     @CurrentUser() user: ReqUser,
