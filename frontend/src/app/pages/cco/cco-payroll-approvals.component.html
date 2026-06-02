@@ -60,7 +60,7 @@
   </div>
 
   <div *ngIf="mode === 'RUNS' && runsLoading" class="loader">Loading payroll runs...</div>
-  <section *ngIf="mode === 'RUNS' && !runsLoading" class="grid">
+  <section *ngIf="mode === 'RUNS' && !runsLoading" class="grid" [class.grid--with-detail]="selectedRun">
     <article class="card list-pane">
       <header class="section-head">
         <div>
@@ -145,7 +145,7 @@
   </section>
 
   <div *ngIf="mode === 'STRUCTURES' && loading" class="loader">Loading structures...</div>
-  <section *ngIf="mode === 'STRUCTURES' && !loading" class="grid">
+  <section *ngIf="mode === 'STRUCTURES' && !loading" class="grid" [class.grid--with-detail]="selected">
     <article class="card list-pane">
       <header class="section-head">
         <div>
