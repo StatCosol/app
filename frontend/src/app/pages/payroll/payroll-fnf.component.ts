@@ -296,16 +296,27 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
 
   onCreateClientChange(): void {
     this.createModel.employeeId = '';
+    this.createModel.separationDate = '';
+    this.createModel.lastWorkingDay = '';
     this.modalEmployees = [];
     if (this.createModel.clientId) {
       this.loadModalEmployees(this.createModel.clientId);
     }
   }
 
+  onCreateEmployeeChange(): void {
+    const emp = this.modalEmployees.find((row) => row.id === this.createModel.employeeId);
+    const exitDate = emp?.dateOfExit || '';
+    if (exitDate) {
+      this.createModel.separationDate = exitDate;
+      this.createModel.lastWorkingDay = exitDate;
+    }
+  }
+
   private loadModalEmployees(clientId: string): void {
     this.modalEmployeesLoading = true;
     this.payrollApi
-      .getEmployees({ clientId, status: 'ACTIVE', limit: 1000 })
+      .getEmployees({ clientId, status: 'EXITED', limit: 1000 })
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -316,7 +327,8 @@ export class PayrollFnfComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.modalEmployees = (res.data || []).slice().sort((a, b) =>
-            (a.employeeCode || '').localeCompare(b.employeeCode || ''),
+            (a.dateOfExit || '').localeCompare(b.dateOfExit || '') ||
+              (a.employeeCode || '').localeCompare(b.employeeCode || ''),
           );
         },
         error: () => {

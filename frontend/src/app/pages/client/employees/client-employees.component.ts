@@ -193,9 +193,9 @@ import {
             <button
               *ngIf="row.isActive && row.approvalStatus !== 'PENDING'"
               class="employee-action text-red-600 hover:underline"
-              title="Deactivate employee"
+              title="Mark employee exit"
               (click)="$event.stopPropagation(); confirmDeactivate(row)">
-              Deactivate
+              Mark Exit
             </button>
           </div>
         </ng-template>
@@ -371,18 +371,36 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   }
 
   async confirmDeactivate(emp: Employee): Promise<void> {
-    const result = await this.dialog.prompt('Exit Employee', `Exit ${emp.name}? Please provide a reason:`, {
-      placeholder: 'e.g. Resignation, Termination, Contract End...',
+    const dateResult = await this.dialog.prompt('Mark Employee Exit', `Enter exit date for ${emp.name}:`, {
+      placeholder: 'YYYY-MM-DD',
+      defaultValue: this.todayIsoDate(),
+      confirmText: 'Next',
+    });
+    if (!dateResult.confirmed) return;
+    const dateOfExit = (dateResult.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfExit)) {
+      this.toast.error('Exit date must be in YYYY-MM-DD format');
+      return;
+    }
+
+    const result = await this.dialog.prompt('Exit Reason', `Enter reason for exiting ${emp.name}:`, {
+      placeholder: 'e.g. Resignation, Termination, Contract End',
       confirmText: 'Confirm Exit',
     });
     if (!result.confirmed || !result.value?.trim()) {
       if (result.confirmed) this.toast.error('Exit reason is required');
       return;
     }
-    this.svc.deactivate(emp.id, { exitReason: result.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => { this.toast.success('Employee exited'); this.load(); },
-      error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
+    this.svc.markExit(emp.id, { dateOfExit, exitReason: result.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Employee exit marked'); this.load(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to mark exit'),
     });
+  }
+
+  private todayIsoDate(): string {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
   }
 
   async approveEmployee(emp: Employee): Promise<void> {

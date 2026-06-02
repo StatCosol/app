@@ -611,6 +611,9 @@ export class EmployeesService {
     dateOfExit?: string,
   ): Promise<EmployeeEntity> {
     const emp = await this.findById(clientId, id);
+    if (dateOfExit && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfExit)) {
+      throw new BadRequestException('dateOfExit must be in YYYY-MM-DD format');
+    }
     emp.isActive = false;
     emp.dateOfExit = dateOfExit || new Date().toISOString().split('T')[0];
     emp.exitReason = exitReason || null;

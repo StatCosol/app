@@ -1936,10 +1936,14 @@ export class PayrollService {
     if (q?.clientId) {
       qb.andWhere('e.client_id = :cid', { cid: q.clientId });
     }
-    if (q?.status === 'ACTIVE') {
+    const statusFilter = String(q?.status || '').toUpperCase();
+    if (statusFilter === 'ACTIVE') {
       qb.andWhere('e.is_active = TRUE');
-    } else if (q?.status === 'INACTIVE') {
+    } else if (statusFilter === 'INACTIVE') {
       qb.andWhere('e.is_active = FALSE');
+    } else if (statusFilter === 'EXITED') {
+      qb.andWhere('e.is_active = FALSE');
+      qb.andWhere('e.date_of_exit IS NOT NULL');
     }
     if (q?.search) {
       qb.andWhere(

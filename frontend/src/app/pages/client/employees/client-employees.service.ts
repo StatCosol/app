@@ -25,6 +25,7 @@ export type Employee = {
   department: string | null;
   dateOfJoining: string | null;
   dateOfExit: string | null;
+  exitReason: string | null;
   stateCode: string | null;
   ctc: number | null;
   monthlyGross: number | null;
@@ -102,6 +103,10 @@ export class ClientEmployeesService {
 
   deactivate(id: string, body?: { exitReason?: string; dateOfExit?: string }): Observable<Employee> {
     return this.http.put<any>(`${this.base}/${id}/deactivate`, body || {}).pipe(map((r) => this.mapEmployee(r)));
+  }
+
+  markExit(id: string, body: { dateOfExit: string; exitReason?: string }): Observable<Employee> {
+    return this.deactivate(id, body);
   }
 
   listNominations(employeeId: string): Observable<EmployeeNomination[]> {
@@ -188,6 +193,7 @@ export class ClientEmployeesService {
       department: r?.department ?? null,
       dateOfJoining: r?.dateOfJoining ?? r?.date_of_joining ?? null,
       dateOfExit: r?.dateOfExit ?? r?.date_of_exit ?? null,
+      exitReason: r?.exitReason ?? r?.exit_reason ?? null,
       stateCode: r?.stateCode ?? r?.state_code ?? null,
       ctc: r?.ctc != null ? Number(r.ctc) : null,
       monthlyGross: r?.monthlyGross != null ? Number(r.monthlyGross) : (r?.monthly_gross != null ? Number(r.monthly_gross) : null),

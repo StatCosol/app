@@ -11,6 +11,7 @@ import { ClientEmployeesService, Employee } from '../../client/employees/client-
 import { AuthService } from '../../../core/auth.service';
 import { environment } from '../../../../environments/environment';
 import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-dialog.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-branch-employees',
@@ -170,7 +171,15 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                   </span>
                 </td>
                 <td>
-                  <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                  <div class="row-actions">
+                    <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
+                    <button
+                      *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'"
+                      (click)="markExit(emp)"
+                      class="text-red-600 hover:text-red-800 text-xs font-medium">
+                      Mark Exit
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr *ngIf="employees.length === 0">
@@ -227,6 +236,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
     .data-table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.6875rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; border-bottom: 2px solid #f1f5f9; }
     .data-table td { padding: 0.75rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid #f8fafc; }
     .data-row:hover { background: #f8fafc; }
+    .row-actions { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; }
     .badge { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
     .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -259,6 +269,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     private router: Router,
     private http: HttpClient,
     private dialog: ConfirmDialogService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -299,6 +310,43 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
 
   editEmployee(id: string): void {
     this.router.navigate(['/branch/employees', id, 'edit']);
+  }
+
+  async markExit(emp: Employee): Promise<void> {
+    const dateResult = await this.dialog.prompt('Mark Employee Exit', `Enter exit date for ${emp.name}:`, {
+      placeholder: 'YYYY-MM-DD',
+      defaultValue: this.todayIsoDate(),
+      confirmText: 'Next',
+    });
+    if (!dateResult.confirmed) return;
+    const dateOfExit = (dateResult.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfExit)) {
+      this.toast.error('Exit date must be in YYYY-MM-DD format');
+      return;
+    }
+
+    const reasonResult = await this.dialog.prompt('Exit Reason', `Enter reason for exiting ${emp.name}:`, {
+      placeholder: 'e.g. Resignation, Termination, Contract End',
+      confirmText: 'Confirm Exit',
+    });
+    if (!reasonResult.confirmed || !reasonResult.value?.trim()) {
+      if (reasonResult.confirmed) this.toast.error('Exit reason is required');
+      return;
+    }
+
+    this.empService.markExit(emp.id, { dateOfExit, exitReason: reasonResult.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.toast.success('Employee exit marked');
+        this.loadEmployees();
+      },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to mark exit'),
+    });
+  }
+
+  private todayIsoDate(): string {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
   }
 
   trackById(_: number, emp: Employee): string { return emp.id; }

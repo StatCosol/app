@@ -69,7 +69,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
                 [title]="hasValidEmail() ? 'Create ESS login for this employee' : 'Add a valid employee email first to create ESS login'">
                 {{ provisioningEss ? 'Creating...' : 'Create ESS Login' }}
               </ui-button>
-              <ui-button *ngIf="emp.isActive" variant="danger" (clicked)="confirmDeactivate()">Deactivate</ui-button>
+              <ui-button *ngIf="emp.isActive" variant="danger" (clicked)="confirmDeactivate()">Mark Exit</ui-button>
             </div>
           </div>
         </div>
@@ -155,6 +155,7 @@ import { ConfirmDialogService } from '../../../shared/ui/confirm-dialog/confirm-
               <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department || '-' }}</span></div>
               <div class="info-row"><span class="info-label">Date of Joining</span><span class="info-value">{{ emp.dateOfJoining ? (emp.dateOfJoining | date:'dd/MM/yyyy') : '-' }}</span></div>
               <div *ngIf="emp.dateOfExit" class="info-row"><span class="info-label">Date of Exit</span><span class="info-value text-red-600">{{ emp.dateOfExit }}</span></div>
+              <div *ngIf="emp.exitReason" class="info-row"><span class="info-label">Exit Reason</span><span class="info-value text-red-600">{{ emp.exitReason }}</span></div>
               <div class="info-row"><span class="info-label">State</span><span class="info-value">{{ emp.stateCode || '-' }}</span></div>
             </div>
           </div>
@@ -391,16 +392,37 @@ export class BranchEmployeeDetailComponent implements OnInit, OnDestroy {
 
   async confirmDeactivate(): Promise<void> {
     if (!this.emp) return;
-    const confirmed = await this.dialog.confirm(
-      'Deactivate Employee',
-      `Deactivate ${this.emp.name}?`,
-      { variant: 'danger', confirmText: 'Deactivate' },
-    );
-    if (!confirmed) return;
-    this.svc.deactivate(this.employeeId).pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => this.loadEmployee(),
-      error: (e) => this.toast.error(e?.error?.message || 'Failed to deactivate'),
+    const dateResult = await this.dialog.prompt('Mark Employee Exit', `Enter exit date for ${this.emp.name}:`, {
+      placeholder: 'YYYY-MM-DD',
+      defaultValue: this.todayIsoDate(),
+      confirmText: 'Next',
     });
+    if (!dateResult.confirmed) return;
+    const dateOfExit = (dateResult.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfExit)) {
+      this.toast.error('Exit date must be in YYYY-MM-DD format');
+      return;
+    }
+
+    const reasonResult = await this.dialog.prompt('Exit Reason', `Enter reason for exiting ${this.emp.name}:`, {
+      placeholder: 'e.g. Resignation, Termination, Contract End',
+      confirmText: 'Confirm Exit',
+    });
+    if (!reasonResult.confirmed || !reasonResult.value?.trim()) {
+      if (reasonResult.confirmed) this.toast.error('Exit reason is required');
+      return;
+    }
+
+    this.svc.markExit(this.employeeId, { dateOfExit, exitReason: reasonResult.value.trim() }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.toast.success('Employee exit marked'); this.loadEmployee(); },
+      error: (e) => this.toast.error(e?.error?.message || 'Failed to mark exit'),
+    });
+  }
+
+  private todayIsoDate(): string {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
   }
 
   hasValidEmail(): boolean {
