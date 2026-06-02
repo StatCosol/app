@@ -68,6 +68,7 @@ export class ClientEmployeesService {
   list(q?: {
     branchId?: string;
     isActive?: string;
+    employmentStatus?: string;
     approvalStatus?: string;
     search?: string;
     limit?: number;
@@ -76,6 +77,7 @@ export class ClientEmployeesService {
     let p = new HttpParams();
     if (q?.branchId) p = p.set('branchId', q.branchId);
     if (q?.isActive) p = p.set('isActive', q.isActive);
+    if (q?.employmentStatus) p = p.set('employmentStatus', q.employmentStatus);
     if (q?.approvalStatus) p = p.set('approvalStatus', q.approvalStatus);
     if (q?.search) p = p.set('search', q.search);
     if (q?.limit) p = p.set('limit', String(q.limit));

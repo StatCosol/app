@@ -113,6 +113,7 @@ export class ClientEmployeesController {
           : query.isActive === 'false'
             ? false
             : undefined,
+      employmentStatus: query.employmentStatus || undefined,
       approvalStatus: query.approvalStatus || undefined,
       search: query.search,
       limit: query.limit ? Number(query.limit) : undefined,
@@ -150,6 +151,7 @@ export class ClientEmployeesController {
           : query.isActive === 'false'
             ? false
             : undefined,
+      employmentStatus: query.employmentStatus || undefined,
       approvalStatus: query.approvalStatus || undefined,
       search: query.search,
       limit: 10000,

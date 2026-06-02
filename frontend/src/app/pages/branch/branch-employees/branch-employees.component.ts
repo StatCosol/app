@@ -28,11 +28,12 @@ import { ToastService } from '../../../shared/toast/toast.service';
         <div class="flex items-center gap-3">
           <label for="emp-search" class="sr-only">Search employees</label>
           <input autocomplete="off" id="emp-search" name="searchQuery" type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search employees..." class="search-input" />
-          <label for="emp-status-filter" class="sr-only">Status filter</label>
-          <select id="emp-status-filter" name="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="onSearch()" class="filter-select">
+          <label for="emp-status-filter" class="sr-only">Employment filter</label>
+          <select id="emp-status-filter" name="employmentFilter" [(ngModel)]="employmentFilter" (ngModelChange)="onSearch()" class="filter-select">
+            <option value="ACTIVE">Active</option>
+            <option value="EXITED">Exited</option>
+            <option value="INACTIVE">Inactive</option>
             <option value="">All</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
           </select>
           <button (click)="showImportDialog = !showImportDialog" class="btn-secondary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,15 +105,15 @@ import { ToastService } from '../../../shared/toast/toast.service';
       <div class="summary-strip">
         <div class="summary-card">
           <span class="summary-value text-blue-600">{{ total }}</span>
-          <span class="summary-label">Total Employees</span>
+          <span class="summary-label">{{ currentListLabel }}</span>
         </div>
         <div class="summary-card">
           <span class="summary-value text-emerald-600">{{ activeCount }}</span>
           <span class="summary-label">Active</span>
         </div>
         <div class="summary-card">
-          <span class="summary-value text-gray-500">{{ total - activeCount }}</span>
-          <span class="summary-label">Inactive</span>
+          <span class="summary-value text-gray-500">{{ exitedCount }}</span>
+          <span class="summary-label">Exited</span>
         </div>
       </div>
 
@@ -159,8 +160,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
                 <td>
                   <span class="badge" [class.bg-emerald-100]="emp.isActive" [class.text-emerald-700]="emp.isActive"
                         [class.bg-red-100]="!emp.isActive" [class.text-red-700]="!emp.isActive">
-                    {{ emp.isActive ? 'Active' : 'Inactive' }}
+                    {{ emp.dateOfExit ? 'Exited' : (emp.isActive ? 'Active' : 'Inactive') }}
                   </span>
+                  <div *ngIf="emp.dateOfExit" class="text-[10px] text-slate-400 mt-1">
+                    {{ emp.dateOfExit | date:'dd/MM/yyyy' }}
+                  </div>
                 </td>
                 <td>
                   <span class="badge"
@@ -174,7 +178,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
                   <div class="row-actions">
                     <button (click)="editEmployee(emp.id)" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Edit</button>
                     <button
-                      *ngIf="emp.isActive && emp.approvalStatus !== 'PENDING'"
+                      *ngIf="emp.isActive && !emp.dateOfExit && emp.approvalStatus !== 'PENDING'"
                       (click)="markExit(emp)"
                       class="text-red-600 hover:text-red-800 text-xs font-medium">
                       Mark Exit
@@ -245,10 +249,11 @@ import { ToastService } from '../../../shared/toast/toast.service';
 export class BranchEmployeesComponent implements OnInit, OnDestroy {
   loading = true;
   searchQuery = '';
-  statusFilter = '';
+  employmentFilter = 'ACTIVE';
   employees: Employee[] = [];
   total = 0;
   activeCount = 0;
+  exitedCount = 0;
   err = '';
   showImportDialog = false;
   importFile: File | null = null;
@@ -282,7 +287,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
     const branchId = this.authService.getBranchIds()?.[0] || undefined;
     this.empService.list({
       branchId,
-      isActive: this.statusFilter || undefined,
+      employmentStatus: this.employmentFilter || undefined,
       search: this.searchQuery?.trim() || undefined,
       limit: 500,
     }).pipe(
@@ -293,6 +298,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
         this.employees = res.data;
         this.total = res.total;
         this.activeCount = res.data.filter(e => e.isActive).length;
+        this.exitedCount = res.data.filter(e => !!e.dateOfExit).length;
       },
       error: (e) => {
         this.err = e?.error?.message || 'Failed to load employees';
@@ -456,7 +462,7 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
   downloadEmployees(): void {
     const params = new URLSearchParams();
     if (this.searchQuery) params.set('search', this.searchQuery);
-    if (this.statusFilter) params.set('isActive', this.statusFilter);
+    if (this.employmentFilter) params.set('employmentStatus', this.employmentFilter);
     const branchId = this.authService.getBranchIds()?.[0];
     if (branchId) params.set('branchId', branchId);
     const qs = params.toString();
@@ -491,5 +497,12 @@ export class BranchEmployeesComponent implements OnInit, OnDestroy {
       },
       error: () => { this.importResult = 'Failed to download appointment letters'; this.importHasError = true; this.cdr.markForCheck(); },
     });
+  }
+
+  get currentListLabel(): string {
+    if (this.employmentFilter === 'EXITED') return 'Exited Employees';
+    if (this.employmentFilter === 'INACTIVE') return 'Inactive Employees';
+    if (this.employmentFilter === 'ACTIVE') return 'Active Employees';
+    return 'Total Employees';
   }
 }

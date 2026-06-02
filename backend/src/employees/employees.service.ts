@@ -371,6 +371,7 @@ export class EmployeesService {
       branchId?: string;
       branchIds?: string[];
       isActive?: boolean;
+      employmentStatus?: string;
       approvalStatus?: string;
       search?: string;
       limit?: number;
@@ -390,6 +391,16 @@ export class EmployeesService {
     }
     if (filters.isActive !== undefined) {
       qb.andWhere('e.isActive = :isActive', { isActive: filters.isActive });
+    }
+    const employmentStatus = (filters.employmentStatus || '')
+      .toUpperCase()
+      .trim();
+    if (employmentStatus === 'ACTIVE') {
+      qb.andWhere('e.isActive = true').andWhere('e.dateOfExit IS NULL');
+    } else if (employmentStatus === 'EXITED') {
+      qb.andWhere('e.dateOfExit IS NOT NULL');
+    } else if (employmentStatus === 'INACTIVE') {
+      qb.andWhere('e.isActive = false').andWhere('e.dateOfExit IS NULL');
     }
     if (filters.approvalStatus) {
       qb.andWhere('e.approvalStatus = :approvalStatus', {

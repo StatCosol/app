@@ -89,9 +89,9 @@ import {
           (ngModelChange)="onSearch()">
         </ui-form-input>
         <ui-form-select
-          label="Status"
-          [options]="statusOptions"
-          [(ngModel)]="activeFilter"
+          label="Employment"
+          [options]="employmentOptions"
+          [(ngModel)]="employmentFilter"
           (ngModelChange)="load()">
         </ui-form-select>
         <ui-form-select
@@ -127,7 +127,7 @@ import {
 
       <!-- Total Badge -->
       <div *ngIf="!loading && !error && employees.length > 0" class="total-badge">
-        {{ total }} employee{{ total !== 1 ? 's' : '' }}
+        {{ total }} {{ currentListLabel.toLowerCase() }}{{ total !== 1 ? 's' : '' }}
       </div>
 
       <!-- Employee Table -->
@@ -163,7 +163,10 @@ import {
         </ng-template>
 
         <ng-template uiTableCell="status" let-row>
-          <ui-status-badge [status]="row.isActive ? 'ACTIVE' : 'INACTIVE'"></ui-status-badge>
+          <ui-status-badge [status]="row.dateOfExit ? 'EXITED' : (row.isActive ? 'ACTIVE' : 'INACTIVE')"></ui-status-badge>
+          <div *ngIf="row.dateOfExit" class="text-[10px] text-gray-400 mt-1">
+            {{ row.dateOfExit | date:'dd/MM/yyyy' }}
+          </div>
         </ng-template>
 
         <ng-template uiTableCell="approval" let-row>
@@ -191,7 +194,7 @@ import {
               Reject
             </button>
             <button
-              *ngIf="row.isActive && row.approvalStatus !== 'PENDING'"
+              *ngIf="row.isActive && !row.dateOfExit && row.approvalStatus !== 'PENDING'"
               class="employee-action text-red-600 hover:underline"
               title="Mark employee exit"
               (click)="$event.stopPropagation(); confirmDeactivate(row)">
@@ -269,7 +272,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   loading = false;
   error = '';
   searchTerm = '';
-  activeFilter = '';
+  employmentFilter = 'ACTIVE';
 
   columns: TableColumn[] = [
     { key: 'name', header: 'Employee', sortable: true, width: '220px' },
@@ -281,10 +284,11 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
     { key: 'actions', header: 'Actions', width: '230px', align: 'center' },
   ];
 
-  statusOptions = [
+  employmentOptions = [
+    { label: 'Active', value: 'ACTIVE' },
+    { label: 'Exited', value: 'EXITED' },
+    { label: 'Inactive', value: 'INACTIVE' },
     { label: 'All', value: '' },
-    { label: 'Active', value: 'true' },
-    { label: 'Inactive', value: 'false' },
   ];
 
   approvalOptions = [
@@ -334,7 +338,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
     this.svc
       .list({
         search: this.searchTerm || undefined,
-        isActive: this.activeFilter || undefined,
+        employmentStatus: this.employmentFilter || undefined,
         approvalStatus: this.approvalFilter || undefined,
       })
       .pipe(takeUntil(this.destroy$), finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
@@ -521,7 +525,7 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
   downloadEmployees(): void {
     const params = new URLSearchParams();
     if (this.searchTerm) params.set('search', this.searchTerm);
-    if (this.activeFilter) params.set('isActive', this.activeFilter);
+    if (this.employmentFilter) params.set('employmentStatus', this.employmentFilter);
     if (this.approvalFilter) params.set('approvalStatus', this.approvalFilter);
     const qs = params.toString();
     this.http.get(`${environment.apiBaseUrl}/api/v1/client/employees/export${qs ? '?' + qs : ''}`, {
@@ -555,5 +559,12 @@ export class ClientEmployeesComponent implements OnInit, OnDestroy {
       },
       error: () => this.toast.error('Failed to download appointment letters'),
     });
+  }
+
+  get currentListLabel(): string {
+    if (this.employmentFilter === 'EXITED') return 'Exited employee';
+    if (this.employmentFilter === 'INACTIVE') return 'Inactive employee';
+    if (this.employmentFilter === 'ACTIVE') return 'Active employee';
+    return 'Employee';
   }
 }
