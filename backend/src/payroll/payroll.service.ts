@@ -141,18 +141,8 @@ export class PayrollService {
     clientId: string,
     year: number,
     month: number,
-    dateOfJoining?: string | Date | null,
   ): Promise<void> {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-    const joinedInPayslipMonth = (() => {
-      if (!dateOfJoining) return false;
-      const doj = new Date(dateOfJoining);
-      return (
-        !Number.isNaN(doj.getTime()) &&
-        doj.getFullYear() === year &&
-        doj.getMonth() + 1 === month
-      );
-    })();
     const hasSlPolicy =
       (await this.leavePolicyRepo.count({
         where: { clientId, leaveType: 'SL', isActive: true },
@@ -168,30 +158,23 @@ export class PayrollService {
         for (const entry of elEntries) {
           if (
             entry.refType === 'EL_ACCRUAL' &&
-            !joinedInPayslipMonth &&
             entry.remarks?.includes(monthStr)
           ) {
             accrued += Math.abs(Number(entry.qty) || 0);
           }
         }
-        cv['EL_ACCRUED'] = joinedInPayslipMonth
-          ? 0
-          : Math.round(accrued * 100) / 100;
+        cv['EL_ACCRUED'] = Math.round(accrued * 100) / 100;
       } catch {
         // Fallback to formula
         if (cv['WORKED_DAYS'] !== undefined) {
-          cv['EL_ACCRUED'] = joinedInPayslipMonth
-            ? 0
-            : Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
+          cv['EL_ACCRUED'] = Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
         } else if (cv['EL_ACCRUED'] === undefined) {
           cv['EL_ACCRUED'] = 0;
         }
       }
     } else {
       if (cv['WORKED_DAYS'] !== undefined) {
-        cv['EL_ACCRUED'] = joinedInPayslipMonth
-          ? 0
-          : Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
+        cv['EL_ACCRUED'] = Math.round((cv['WORKED_DAYS'] / 20) * 100) / 100;
       } else if (cv['EL_ACCRUED'] === undefined) {
         cv['EL_ACCRUED'] = 0;
       }
@@ -248,7 +231,7 @@ export class PayrollService {
           if (entryYear !== year) continue;
           if (entryMonth > month) continue;
           const qty = Math.abs(Number(entry.qty) || 0);
-          if (entry.refType === 'EL_ACCRUAL' && !joinedInPayslipMonth) {
+          if (entry.refType === 'EL_ACCRUAL') {
             accrual += qty;
           }
           else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
@@ -2832,7 +2815,6 @@ export class PayrollService {
       run.clientId,
       run.periodYear,
       run.periodMonth,
-      employee?.dateOfJoining ?? null,
     );
 
     // Load client logo
@@ -2936,7 +2918,6 @@ export class PayrollService {
         run.clientId,
         run.periodYear,
         run.periodMonth,
-        employee?.dateOfJoining ?? null,
       );
 
       const buffer = await generatePayslipPdfBuffer({

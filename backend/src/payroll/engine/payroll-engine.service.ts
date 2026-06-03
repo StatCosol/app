@@ -886,28 +886,10 @@ export class PayrollEngineService {
       // payroll_client_setup.el_accrual_divisor (e.g. 22 for some factories).
       const elDivisorRaw = Number(setup.elAccrualDivisor);
       const elDivisor = elDivisorRaw && elDivisorRaw > 0 ? elDivisorRaw : 20;
-      // Skip EL for employees who joined in the same month as the payroll run
       const workedDays =
         values['WORKED_DAYS'] ?? (emp.daysPresent || WORKING_DAYS_IN_MONTH);
-      let skipEL = false;
-      if (emp.employeeId) {
-        const masterEmpForEL = await this.empRepo.findOne({
-          where: { id: emp.employeeId },
-        });
-        if (masterEmpForEL?.dateOfJoining) {
-          const doj = new Date(masterEmpForEL.dateOfJoining);
-          if (
-            doj.getFullYear() === run.periodYear &&
-            doj.getMonth() + 1 === run.periodMonth
-          ) {
-            skipEL = true;
-          }
-        }
-      }
 
-      const elAccrued = skipEL
-        ? 0
-        : Math.round((workedDays / elDivisor) * 100) / 100;
+      const elAccrued = Math.round((workedDays / elDivisor) * 100) / 100;
       values['EL_ACCRUED'] = elAccrued;
 
       let paidLeaveDays = 0;
@@ -915,38 +897,9 @@ export class PayrollEngineService {
       let elBalanceAfter = 0;
 
       if (emp.employeeId) {
-        // Look up current EL balance
-        const elBalance = await this.leaveBalanceRepo.findOne({
-          where: {
-            employeeId: emp.employeeId,
-            year: run.periodYear,
-            leaveType: 'EL',
-          },
-        });
-        elBalanceBefore = elBalance ? parseFloat(elBalance.available) || 0 : 0;
-
-        // Paid leave is ONLY honored when explicitly approved on the attendance
-        // sheet (UPLOADED via EL_PAID_LEAVE_DAYS) or via ESS approval flow.
-        // The engine must NOT auto-deduct EL balance for plain absences —
-        // those become LOP, not paid leave. Capping by available balance still
-        // applies so we never go negative.
-        const uploadedPaidLeave = uploadedCodes.has('EL_PAID_LEAVE_DAYS')
-          ? values['EL_PAID_LEAVE_DAYS'] || 0
-          : 0;
-        if (uploadedPaidLeave > 0 && elBalanceBefore > 0) {
-          paidLeaveDays = Math.min(uploadedPaidLeave, elBalanceBefore);
-          paidLeaveDays = Math.round(paidLeaveDays * 100) / 100;
-        }
-
-        // New balance = old balance - paid leave + accrued this month
-        elBalanceAfter =
-          Math.round((elBalanceBefore - paidLeaveDays + elAccrued) * 100) / 100;
-
-        // ── Write ledger entries & update balance (inside the transaction) ──
         const monthStr = `${run.periodYear}-${String(run.periodMonth).padStart(2, '0')}`;
         const entryDate = `${monthStr}-01`;
 
-        // Delete any existing EL entries for this month (idempotent re-processing)
         await qr.manager
           .createQueryBuilder()
           .delete()
@@ -956,6 +909,64 @@ export class PayrollEngineService {
           .andWhere('remarks LIKE :m', { m: `%${monthStr}%` })
           .execute();
 
+        // Look up current EL balance
+        const elBalance = await this.leaveBalanceRepo.findOne({
+          where: {
+            employeeId: emp.employeeId,
+            year: run.periodYear,
+            leaveType: 'EL',
+          },
+        });
+        const opening = elBalance ? parseFloat(elBalance.opening) || 0 : 0;
+        const priorElEntries = await qr.manager.find(LeaveLedgerEntity, {
+          where: { employeeId: emp.employeeId, leaveType: 'EL' },
+        });
+        const tagRe = /(\d{4})-(\d{2})/;
+        let priorAccrued = 0;
+        let priorUsed = 0;
+        for (const entry of priorElEntries) {
+          const m = entry.remarks?.match(tagRe);
+          let entryYear: number;
+          let entryMonth: number;
+          if (m) {
+            entryYear = Number(m[1]);
+            entryMonth = Number(m[2]);
+          } else {
+            const d = new Date(entry.entryDate as unknown as string);
+            entryYear = d.getUTCFullYear();
+            entryMonth = d.getUTCMonth() + 1;
+          }
+          if (entryYear !== run.periodYear) continue;
+          if (entryMonth >= run.periodMonth) continue;
+          const qty = Math.abs(Number(entry.qty) || 0);
+          if (entry.refType === 'EL_ACCRUAL') priorAccrued += qty;
+          else if (entry.refType === 'EL_PAID_LEAVE') priorUsed += qty;
+        }
+        elBalanceBefore = Math.max(
+          Math.round((opening + priorAccrued - priorUsed) * 100) / 100,
+          0,
+        );
+
+        // Paid leave is ONLY honored when explicitly approved on the attendance
+        // sheet (UPLOADED via EL_PAID_LEAVE_DAYS) or via ESS approval flow.
+        // The engine must NOT auto-deduct EL balance for plain absences —
+        // those become LOP, not paid leave. Capping by available balance still
+        // applies so we never go negative.
+        const uploadedPaidLeave = uploadedCodes.has('EL_PAID_LEAVE_DAYS')
+          ? values['EL_PAID_LEAVE_DAYS'] || 0
+          : 0;
+        const currentMonthAvailable =
+          Math.round((elBalanceBefore + elAccrued) * 100) / 100;
+        if (uploadedPaidLeave > 0 && currentMonthAvailable > 0) {
+          paidLeaveDays = Math.min(uploadedPaidLeave, currentMonthAvailable);
+          paidLeaveDays = Math.round(paidLeaveDays * 100) / 100;
+        }
+
+        // Closing balance = previous balance + earned this month - availed.
+        elBalanceAfter =
+          Math.round((elBalanceBefore + elAccrued - paidLeaveDays) * 100) / 100;
+
+        // ── Write ledger entries & update balance (inside the transaction) ──
         // Ledger entry: EL accrual (credit)
         if (elAccrued > 0) {
           const accrualEntry = qr.manager.create(LeaveLedgerEntity, {
@@ -1003,17 +1014,7 @@ export class PayrollEngineService {
                            WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
                              AND EXTRACT(YEAR FROM entry_date::date) = $3
                          ), 0),
-                         available = leave_balances.opening
-                           + COALESCE((
-                               SELECT SUM(ABS(qty)) FROM leave_ledger
-                               WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_ACCRUAL'
-                                 AND EXTRACT(YEAR FROM entry_date::date) = $3
-                             ), 0)
-                           - COALESCE((
-                               SELECT SUM(ABS(qty)) FROM leave_ledger
-                               WHERE employee_id = $1 AND leave_type = 'EL' AND ref_type = 'EL_PAID_LEAVE'
-                                 AND EXTRACT(YEAR FROM entry_date::date) = $3
-                             ), 0),
+                         available = $6,
                          last_updated_at = NOW()`,
           [
             emp.employeeId,
@@ -1021,21 +1022,9 @@ export class PayrollEngineService {
             run.periodYear,
             elAccrued,
             paidLeaveDays,
-            elAccrued - paidLeaveDays,
+            elBalanceAfter,
           ],
         );
-
-        // Re-read updated balance for component value
-        const updatedBal = await qr.manager.findOne(LeaveBalanceEntity, {
-          where: {
-            employeeId: emp.employeeId,
-            year: run.periodYear,
-            leaveType: 'EL',
-          },
-        });
-        elBalanceAfter = updatedBal
-          ? parseFloat(updatedBal.available) || 0
-          : elBalanceAfter;
       }
 
       // EL_PAID_LEAVE_DAYS represents leave approved on the attendance sheet.
@@ -1067,9 +1056,7 @@ export class PayrollEngineService {
       const slDivisorRaw = Number((setup as any).slAccrualDivisor);
       const slDivisor = slDivisorRaw && slDivisorRaw > 0 ? slDivisorRaw : 60;
       const slAccrued =
-        slEnabled && !skipEL
-          ? Math.round((workedDays / slDivisor) * 100) / 100
-          : 0;
+        slEnabled ? Math.round((workedDays / slDivisor) * 100) / 100 : 0;
       values['SL_ACCRUED'] = slAccrued;
 
       if (emp.employeeId && slEnabled) {

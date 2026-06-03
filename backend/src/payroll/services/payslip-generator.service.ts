@@ -813,18 +813,6 @@ export class PayslipGeneratorService {
     month: number,
   ): Promise<void> {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-    const employee = employeeId
-      ? await this.empRepo.findOne({ where: { id: employeeId } })
-      : null;
-    const joinedInPayslipMonth = (() => {
-      if (!employee?.dateOfJoining) return false;
-      const doj = new Date(employee.dateOfJoining);
-      return (
-        !Number.isNaN(doj.getTime()) &&
-        doj.getFullYear() === year &&
-        doj.getMonth() + 1 === month
-      );
-    })();
     const hasSlPolicy =
       (await this.leavePolicyRepo.count({
         where: { clientId, leaveType: 'SL', isActive: true },
@@ -840,24 +828,18 @@ export class PayslipGeneratorService {
         for (const entry of allElEntries) {
           if (
             entry.refType === 'EL_ACCRUAL' &&
-            !joinedInPayslipMonth &&
             entry.remarks?.includes(monthStr)
           ) {
             accrued += Math.abs(Number(entry.qty) || 0);
           }
         }
-        valueMap.set(
-          'EL_ACCRUED',
-          joinedInPayslipMonth ? 0 : Math.round(accrued * 100) / 100,
-        );
+        valueMap.set('EL_ACCRUED', Math.round(accrued * 100) / 100);
       } catch {
         if (valueMap.has('WORKED_DAYS')) {
           const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
           valueMap.set(
             'EL_ACCRUED',
-            joinedInPayslipMonth
-              ? 0
-              : Math.round((workedDays / 20) * 100) / 100,
+            Math.round((workedDays / 20) * 100) / 100,
           );
         } else if (!valueMap.has('EL_ACCRUED')) {
           valueMap.set('EL_ACCRUED', 0);
@@ -868,9 +850,7 @@ export class PayslipGeneratorService {
         const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
         valueMap.set(
           'EL_ACCRUED',
-          joinedInPayslipMonth
-            ? 0
-            : Math.round((workedDays / 20) * 100) / 100,
+          Math.round((workedDays / 20) * 100) / 100,
         );
       } else if (!valueMap.has('EL_ACCRUED')) {
         valueMap.set('EL_ACCRUED', 0);
@@ -932,7 +912,7 @@ export class PayslipGeneratorService {
           if (entryYear !== year) continue;
           if (entryMonth > month) continue;
           const qty = Math.abs(Number(entry.qty) || 0);
-          if (entry.refType === 'EL_ACCRUAL' && !joinedInPayslipMonth) {
+          if (entry.refType === 'EL_ACCRUAL') {
             accrual += qty;
           } else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
         }
