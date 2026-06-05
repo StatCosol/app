@@ -126,17 +126,12 @@ export class PayrollApprovalService {
     }
 
     if (user?.roleCode !== 'CCO') {
-      throw new ForbiddenException(
-        'Only CCO users can approve payroll runs.',
-      );
+      throw new ForbiddenException('Only CCO users can approve payroll runs.');
     }
 
     // PD-H3: maker-checker - the user who submitted (prepared) a run cannot
     // also approve it.
-    if (
-      run.submittedByUserId &&
-      run.submittedByUserId === approvedByUserId
-    ) {
+    if (run.submittedByUserId && run.submittedByUserId === approvedByUserId) {
       throw new ForbiddenException(
         'You submitted this run; a different user must approve it.',
       );
@@ -184,9 +179,7 @@ export class PayrollApprovalService {
     }
 
     if (user?.roleCode !== 'CCO') {
-      throw new ForbiddenException(
-        'Only CCO users can reject payroll runs.',
-      );
+      throw new ForbiddenException('Only CCO users can reject payroll runs.');
     }
 
     if (!reason || !reason.trim()) {

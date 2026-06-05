@@ -233,8 +233,7 @@ export class PayrollService {
           const qty = Math.abs(Number(entry.qty) || 0);
           if (entry.refType === 'EL_ACCRUAL') {
             accrual += qty;
-          }
-          else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
+          } else if (entry.refType === 'EL_PAID_LEAVE') used += qty;
         }
         cv['EL_BALANCE'] = Math.max(
           Math.round((opening + accrual - used) * 100) / 100,

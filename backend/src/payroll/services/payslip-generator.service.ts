@@ -837,10 +837,7 @@ export class PayslipGeneratorService {
       } catch {
         if (valueMap.has('WORKED_DAYS')) {
           const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
-          valueMap.set(
-            'EL_ACCRUED',
-            Math.round((workedDays / 20) * 100) / 100,
-          );
+          valueMap.set('EL_ACCRUED', Math.round((workedDays / 20) * 100) / 100);
         } else if (!valueMap.has('EL_ACCRUED')) {
           valueMap.set('EL_ACCRUED', 0);
         }
@@ -848,10 +845,7 @@ export class PayslipGeneratorService {
     } else {
       if (valueMap.has('WORKED_DAYS')) {
         const workedDays = valueMap.get('WORKED_DAYS') ?? 0;
-        valueMap.set(
-          'EL_ACCRUED',
-          Math.round((workedDays / 20) * 100) / 100,
-        );
+        valueMap.set('EL_ACCRUED', Math.round((workedDays / 20) * 100) / 100);
       } else if (!valueMap.has('EL_ACCRUED')) {
         valueMap.set('EL_ACCRUED', 0);
       }

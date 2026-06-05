@@ -1055,8 +1055,9 @@ export class PayrollEngineService {
       const slEnabled = hasSlPolicy || uploadedSlDays > 0;
       const slDivisorRaw = Number((setup as any).slAccrualDivisor);
       const slDivisor = slDivisorRaw && slDivisorRaw > 0 ? slDivisorRaw : 60;
-      const slAccrued =
-        slEnabled ? Math.round((workedDays / slDivisor) * 100) / 100 : 0;
+      const slAccrued = slEnabled
+        ? Math.round((workedDays / slDivisor) * 100) / 100
+        : 0;
       values['SL_ACCRUED'] = slAccrued;
 
       if (emp.employeeId && slEnabled) {
