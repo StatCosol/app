@@ -937,16 +937,17 @@ class KioskActivity : AppCompatActivity() {
                         refreshRosterNow(showEmptyMessage = false)
                     }.getOrNull()
                     runOnUiThread {
-                        binding.statusText.text =
+                        val successMessage =
                             getString(R.string.kiosk_enroll_success, t.subjectName)
-                        speak(getString(R.string.kiosk_enroll_success, t.subjectName))
+                        binding.statusText.text = successMessage
+                        speak(successMessage)
                     }
                     startFastRosterRefresh()
                     clearKioskEnrollmentState()
                     runOnUiThread {
                         mainHandler.postDelayed({
                             binding.statusText.text = getString(R.string.kiosk_look_at_camera)
-                        }, 3_000L)
+                        }, 5_000L)
                     }
                     if (rosterSize == null) {
                         mainHandler.removeCallbacks(rosterRefreshRunnable)

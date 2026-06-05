@@ -93,7 +93,7 @@
     <string name="kiosk_enroll_ready_message">Ready to enroll %1$s. Tap Register to complete enrollment.</string>
     <string name="kiosk_enroll_register_btn">Register</string>
     <string name="kiosk_enroll_cancel_btn">Cancel</string>
-    <string name="kiosk_enroll_success">%1$s enrolled successfully</string>
+    <string name="kiosk_enroll_success">%1$s enrolled successfully. Thank you.</string>
     <string name="kiosk_enroll_failed">Enrollment failed: %1$s</string>
     <string name="kiosk_enroll_uploading">Uploading enrollment…</string>
     <string name="kiosk_enroll_inconsistent">Frames inconsistent — please retry</string>
