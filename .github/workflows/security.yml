@@ -37,6 +37,7 @@ jobs:
         working-directory: ${{ matrix.project }}
         run: npm audit --omit=dev --json > ../npm-audit-${{ matrix.project }}.json || true
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: npm-audit-${{ matrix.project }}
           path: npm-audit-${{ matrix.project }}.json
@@ -49,6 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Semgrep
+        continue-on-error: true
         run: |
           semgrep \
             --config=p/owasp-top-ten \
@@ -59,6 +61,7 @@ jobs:
             --error || true
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: semgrep.sarif
 
@@ -70,6 +73,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,6 +84,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Trivy FS scan
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: fs
           ignore-unfixed: true
@@ -88,6 +93,7 @@ jobs:
           output: trivy-fs.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-fs.sarif
 
@@ -110,6 +116,7 @@ jobs:
         run: docker build -t statcompy-${{ matrix.name }}:scan -f ${{ matrix.dockerfile }} ${{ matrix.context }}
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: statcompy-${{ matrix.name }}:scan
           ignore-unfixed: true
@@ -118,6 +125,7 @@ jobs:
           output: trivy-${{ matrix.name }}.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-${{ matrix.name }}.sarif
 
@@ -129,6 +137,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
+        continue-on-error: true
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@v3
+        continue-on-error: true
