@@ -39,6 +39,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - name: Validate Azure credentials secret
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          if [ -z "$AZURE_CREDENTIALS" ]; then
+            echo "::error title=Missing AZURE_CREDENTIALS secret::Add AZURE_CREDENTIALS in Settings > Secrets and variables > Actions before running this workflow."
+            exit 1
+          fi
+
       - name: Azure login
         uses: azure/login@v2
         with:
