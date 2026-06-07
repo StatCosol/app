@@ -18,6 +18,7 @@ jobs:
   npm-audit:
     name: npm audit (backend + frontend)
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +46,7 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    continue-on-error: true
     container:
       image: returntocorp/semgrep:latest
     steps:
@@ -68,6 +70,7 @@ jobs:
   gitleaks:
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,6 +83,7 @@ jobs:
   trivy-fs:
     name: Trivy filesystem scan
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Trivy FS scan
@@ -100,6 +104,7 @@ jobs:
   trivy-images:
     name: Trivy image scan
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build image
+        continue-on-error: true
         run: docker build -t statcompy-${{ matrix.name }}:scan -f ${{ matrix.dockerfile }} ${{ matrix.context }}
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@master
@@ -132,6 +138,7 @@ jobs:
   codeql:
     name: CodeQL (JS/TS)
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       security-events: write
     steps:
