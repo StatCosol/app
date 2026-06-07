@@ -15,7 +15,6 @@ import { AuthService } from '../../../core/auth.service';
 import { ClientEmployeesService, Employee } from '../../client/employees/client-employees.service';
 import {
   ContractorEmployee,
-  ContractorEmployeeDeleteRequest,
   ContractorEmployeesApiService,
 } from '../../../core/contractor-employees-api.service';
 import {
@@ -301,51 +300,6 @@ interface EnrollForm {
              class="text-sm text-gray-500">No {{ subjectType === 'contractor' ? 'contractor employees' : 'employees' }} found in your branch.</div>
       </div>
 
-      <!-- Contractor worker deletion approvals -->
-      <div *ngIf="subjectType === 'contractor'" class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <h3 class="font-semibold text-gray-900">Contractor Employee Delete Requests</h3>
-            <p class="text-xs text-gray-500">ConTrack delete requests require BranchDesk approval before the worker is removed from active roster and kiosk matching.</p>
-          </div>
-          <button type="button"
-            class="px-3 py-1 rounded-lg text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
-            (click)="loadContractorDeleteRequests()" [disabled]="loadingContractorDeleteRequests">Refresh</button>
-        </div>
-
-        <ui-loading-spinner *ngIf="loadingContractorDeleteRequests"></ui-loading-spinner>
-        <div *ngIf="!loadingContractorDeleteRequests && contractorDeleteRequests.length === 0"
-             class="text-sm text-gray-500">No contractor employee delete requests pending.</div>
-
-        <div *ngIf="!loadingContractorDeleteRequests && contractorDeleteRequests.length > 0" class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="text-xs uppercase text-gray-500 border-b border-gray-200">
-              <tr>
-                <th class="text-left py-2 pr-3">Employee</th>
-                <th class="text-left py-2 pr-3">Contractor</th>
-                <th class="text-left py-2 pr-3">Reason</th>
-                <th class="text-left py-2 pr-3">Requested</th>
-                <th class="text-right py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let r of contractorDeleteRequests" class="border-b border-gray-100 last:border-0">
-                <td class="py-2 pr-3 font-medium text-gray-900">{{ r.contractorEmployeeName }}</td>
-                <td class="py-2 pr-3 text-gray-700">{{ r.contractorName || '-' }}</td>
-                <td class="py-2 pr-3 text-gray-700">{{ r.reason || '-' }}</td>
-                <td class="py-2 pr-3 text-xs text-gray-700">{{ r.createdAt | date:'medium' }}</td>
-                <td class="py-2 text-right whitespace-nowrap">
-                  <button type="button" class="text-xs text-emerald-700 hover:underline mr-3"
-                    (click)="approveContractorDeleteRequest(r)">Approve Delete</button>
-                  <button type="button" class="text-xs text-red-700 hover:underline"
-                    (click)="rejectContractorDeleteRequest(r)">Reject</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <!-- Kiosk-enroll ticket history -->
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -542,8 +496,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   loadingEnrollments = false;
   statusFilter: 'all' | 'pending' | 'enrolled' | 'deactivated' = 'all';
   statusSearch = '';
-  contractorDeleteRequests: ContractorEmployeeDeleteRequest[] = [];
-  loadingContractorDeleteRequests = false;
 
   // Kiosk-supervised enrollment modal state
   kioskModalOpen = false;
@@ -599,7 +551,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadSubjects();
     this.loadEnrollments();
-    this.loadContractorDeleteRequests();
     this.loadKioskTickets();
     this.startLiveRefresh();
   }
@@ -682,69 +633,6 @@ export class BranchFaceEnrollmentComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (r) => { this.contractors = r?.data ?? []; this.cdr.markForCheck(); },
         error: (e) => { this.toast.error(e?.error?.message || 'Failed to load contractor employees'); },
-      });
-  }
-
-  loadContractorDeleteRequests(): void {
-    this.loadingContractorDeleteRequests = true;
-    this.contractorEmpSvc
-      .listDeleteRequests()
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.loadingContractorDeleteRequests = false;
-          this.cdr.markForCheck();
-        }),
-      )
-      .subscribe({
-        next: (rows) => {
-          this.contractorDeleteRequests = rows || [];
-        },
-        error: (e) => {
-          this.toast.error(e?.error?.message || 'Failed to load delete requests');
-        },
-      });
-  }
-
-  async approveContractorDeleteRequest(r: ContractorEmployeeDeleteRequest): Promise<void> {
-    const ok = await this.dialog.confirm(
-      'Approve Contractor Employee Delete',
-      `Approve deletion of ${r.contractorEmployeeName}? The worker will be removed from active roster and kiosk face matching will be disabled.`,
-      { variant: 'danger', confirmText: 'Approve Delete' },
-    );
-    if (!ok) return;
-    this.contractorEmpSvc
-      .reviewDeleteRequest(r.id, 'APPROVED', 'Approved by BranchDesk')
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toast.success('Contractor employee deleted');
-          this.loadContractorDeleteRequests();
-          this.loadContractors();
-          this.loadEnrollments();
-        },
-        error: (e) => this.toast.error(e?.error?.message || 'Approval failed'),
-      });
-  }
-
-  async rejectContractorDeleteRequest(r: ContractorEmployeeDeleteRequest): Promise<void> {
-    const result = await this.dialog.prompt(
-      'Reject Contractor Employee Delete',
-      `Reject deletion request for ${r.contractorEmployeeName}?`,
-      { placeholder: 'Reason', confirmText: 'Reject' },
-    );
-    if (!result.confirmed) return;
-    this.contractorEmpSvc
-      .reviewDeleteRequest(r.id, 'REJECTED', result.value?.trim() || 'Rejected by BranchDesk')
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toast.success('Delete request rejected');
-          this.loadContractorDeleteRequests();
-          this.loadContractors();
-          this.loadEnrollments();
-        },
-        error: (e) => this.toast.error(e?.error?.message || 'Rejection failed'),
       });
   }
 

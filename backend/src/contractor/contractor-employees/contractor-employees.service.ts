@@ -625,7 +625,10 @@ export class ContractorEmployeesService {
       );
       await mgr.query(
         `UPDATE contractor_face_reenrollment_requests
-            SET status = 'CANCELLED', reviewed_by = $2, reviewed_at = NOW(), notes = COALESCE(notes, $3)
+            SET status = 'CANCELLED',
+                reviewed_by = $2,
+                reviewed_at = NOW(),
+                review_notes = COALESCE(review_notes, $3)
           WHERE contractor_employee_id = $1::uuid
             AND status = 'PENDING'`,
         [
@@ -641,7 +644,7 @@ export class ContractorEmployeesService {
                 cancelled_by = $2,
                 reviewed_at = COALESCE(reviewed_at, NOW()),
                 reviewed_by = COALESCE(reviewed_by, $2),
-                review_notes = COALESCE(review_notes, $3)
+                notes = COALESCE(notes, $3)
           WHERE contractor_employee_id = $1::uuid
             AND status IN ('PENDING', 'REVIEW_PENDING')`,
         [
