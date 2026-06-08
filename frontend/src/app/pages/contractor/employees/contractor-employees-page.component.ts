@@ -1287,6 +1287,24 @@ export class ContractorEmployeesPageComponent implements OnInit, OnDestroy {
     if (!raw) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
 
+    const indianDate = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})$/);
+    if (indianDate) {
+      const day = Number(indianDate[1]);
+      const month = Number(indianDate[2]);
+      const year =
+        indianDate[3].length === 2
+          ? 2000 + Number(indianDate[3])
+          : Number(indianDate[3]);
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+      if (
+        parsed.getUTCFullYear() === year &&
+        parsed.getUTCMonth() === month - 1 &&
+        parsed.getUTCDate() === day
+      ) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+
     const serial = Number(raw);
     if (Number.isFinite(serial) && serial > 0 && serial < 80000) {
       const parsed = XLSX.SSF.parse_date_code(serial);
