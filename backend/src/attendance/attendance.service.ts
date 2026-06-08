@@ -379,23 +379,16 @@ export class AttendanceService {
         'a.approved_by_user_id AS "approvedByUserId"',
         'a.approved_at   AS "approvedAt"',
         'a.rejection_reason AS "rejectionReason"',
-        'bp.photo_url     AS "photoUrl"',
+        `(SELECT p.photo_url
+            FROM biometric_punches p
+           WHERE p.attendance_id = a.id
+             AND p.photo_url IS NOT NULL
+           ORDER BY p.punch_time DESC, p.created_at DESC
+           LIMIT 1) AS "photoUrl"`,
         'e.name          AS "employeeName"',
         'b.branchname    AS "branchName"',
       ])
       .from('attendance_records', 'a')
-      .leftJoin(
-        `LATERAL (
-          SELECT p.photo_url
-          FROM biometric_punches p
-          WHERE p.attendance_id = a.id
-            AND p.photo_url IS NOT NULL
-          ORDER BY p.punch_time DESC, p.created_at DESC
-          LIMIT 1
-        )`,
-        'bp',
-        'TRUE',
-      )
       .leftJoin('employees', 'e', 'e.id = a.employee_id')
       .leftJoin('client_branches', 'b', 'b.id = a.branch_id')
       .where('a.client_id = :clientId', { clientId: params.clientId })
