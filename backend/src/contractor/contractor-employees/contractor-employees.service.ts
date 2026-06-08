@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -44,6 +45,18 @@ function toNumberOrNull(value: any): number | null {
   if (value == null || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function normalizePersonName(value: any): string {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeAadhaar(value: any): string | null {
+  if (value == null || value === '') return null;
+  const digits = String(value).replace(/\D/g, '');
+  return digits || null;
 }
 
 export interface BulkRowResult {
@@ -121,6 +134,7 @@ export class ContractorEmployeesService {
     if (status !== undefined && status !== null) out.status = status;
     if (monthlySalary !== undefined) out.monthlySalary = monthlySalary;
     if (dailyWage !== undefined) out.dailyWage = dailyWage;
+    if (dto.aadhaar !== undefined) out.aadhaar = normalizeAadhaar(dto.aadhaar);
     // Tenancy fields must NEVER be mutated by the caller through update().
     // create() supplies them via explicit args; strip them defensively here
     // so that an Object.assign() in update() can't move an employee across
@@ -132,6 +146,52 @@ export class ContractorEmployeesService {
     return out;
   }
 
+  private async assertNoDuplicateRegistration(params: {
+    clientId: string;
+    branchId: string;
+    contractorUserId: string;
+    name: string;
+    aadhaar?: string | null;
+    excludeId?: string;
+  }): Promise<void> {
+    const name = normalizePersonName(params.name);
+    const aadhaar = normalizeAadhaar(params.aadhaar);
+    const activeStatuses = ['ACTIVE', 'PENDING_DELETE'];
+
+    const qb = this.repo
+      .createQueryBuilder('ce')
+      .where('ce.clientId = :clientId', { clientId: params.clientId })
+      .andWhere('(ce.isActive = true OR ce.status IN (:...activeStatuses))', {
+        activeStatuses,
+      });
+
+    if (params.excludeId) {
+      qb.andWhere('ce.id <> :excludeId', { excludeId: params.excludeId });
+    }
+
+    if (aadhaar) {
+      qb.andWhere(
+        "regexp_replace(COALESCE(ce.aadhaar, ''), '\\D', '', 'g') = :aadhaar",
+        { aadhaar },
+      );
+    } else {
+      qb.andWhere('ce.branchId = :branchId', { branchId: params.branchId })
+        .andWhere('ce.contractorUserId = :contractorUserId', {
+          contractorUserId: params.contractorUserId,
+        })
+        .andWhere('LOWER(TRIM(ce.name)) = LOWER(TRIM(:name))', { name });
+    }
+
+    const duplicate = await qb.select(['ce.id', 'ce.name']).getOne();
+    if (duplicate) {
+      throw new ConflictException(
+        aadhaar
+          ? 'A contractor employee with this Aadhaar is already registered'
+          : 'A contractor employee with this name is already registered for this contractor and branch',
+      );
+    }
+  }
+
   async create(
     clientId: string,
     branchId: string,
@@ -141,6 +201,15 @@ export class ContractorEmployeesService {
     if (!dto.name?.trim()) throw new BadRequestException('Name is required');
     await this.assertContractorBranch(clientId, branchId, contractorUserId);
     const prepared = this.prepare(dto);
+    const name = normalizePersonName(dto.name);
+
+    await this.assertNoDuplicateRegistration({
+      clientId,
+      branchId,
+      contractorUserId,
+      name,
+      aadhaar: prepared.aadhaar,
+    });
 
     // Item #4b: hard-validate against state+skill+schedule min wage.
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
@@ -156,7 +225,7 @@ export class ContractorEmployeesService {
       clientId,
       branchId,
       contractorUserId,
-      name: dto.name.trim(),
+      name,
       isActive: true,
       status: prepared.status ?? 'ACTIVE',
     });
@@ -185,6 +254,7 @@ export class ContractorEmployeesService {
     const results: BulkRowResult[] = [];
     let created = 0;
     let failed = 0;
+    const batchKeys = new Set<string>();
 
     // Pre-load this contractor's allowed branches in this client so each
     // row's branchId can be validated cheaply (no per-row DB roundtrip).
@@ -199,7 +269,7 @@ export class ContractorEmployeesService {
 
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i] || {};
-      const name = String(raw.name || '').trim();
+      const name = normalizePersonName(raw.name);
       const branchId = String(raw.branchId || defaultBranchId || '').trim();
 
       if (!name) {
@@ -236,6 +306,26 @@ export class ContractorEmployeesService {
 
       try {
         const prepared = this.prepare({ ...raw, skillCategory: skill });
+        const aadhaar = normalizeAadhaar(prepared.aadhaar);
+        const normalizedName = name.toLowerCase();
+        const keys = [
+          `name:${branchId}:${normalizedName}`,
+          ...(aadhaar ? [`aadhaar:${aadhaar}`] : []),
+        ];
+        if (keys.some((key) => batchKeys.has(key))) {
+          throw new ConflictException(
+            'Duplicate contractor employee in upload',
+          );
+        }
+        keys.forEach((key) => batchKeys.add(key));
+
+        await this.assertNoDuplicateRegistration({
+          clientId,
+          branchId,
+          contractorUserId,
+          name,
+          aadhaar,
+        });
 
         // Item #4b: per-row min-wage soft check (warning, not abort).
         const wageWarning = await this.minWage.checkSalary({
@@ -356,6 +446,18 @@ export class ContractorEmployeesService {
     const emp = await this.findById(id, contractorUserId);
     const prepared = this.prepare(dto);
     Object.assign(emp, prepared);
+
+    if (dto.name !== undefined) {
+      emp.name = normalizePersonName(dto.name);
+    }
+    await this.assertNoDuplicateRegistration({
+      clientId: emp.clientId,
+      branchId: emp.branchId,
+      contractorUserId: emp.contractorUserId,
+      name: emp.name,
+      aadhaar: emp.aadhaar,
+      excludeId: emp.id,
+    });
 
     // Item #4b: re-validate against min-wage using merged state+skill+salary.
     const scheduledEmployment = await this.resolveSchedule(contractorUserId);
