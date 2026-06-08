@@ -820,7 +820,7 @@ export class MobileAttendanceService implements OnModuleInit {
       // Branch-scoped user with no branches → see nothing.
       return [];
     }
-    return this.faceRepo.manager.query(
+    const rows = await this.faceRepo.manager.query(
       `SELECT r.id, r.employee_id AS "employeeId",
               e.employee_code AS "employeeCode", e.name AS "employeeName",
               r.branch_id AS "branchId",
@@ -839,6 +839,7 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT 500`,
       params,
     );
+    return this.withViewPhotos(rows);
   }
 
   async reviewReenrollRequest(
@@ -3052,7 +3053,7 @@ export class MobileAttendanceService implements OnModuleInit {
 
     const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 500);
 
-    return this.contractorPunchRepo.manager.query(
+    const rows = await this.contractorPunchRepo.manager.query(
       `SELECT p.id,
               p.contractor_employee_id AS "contractorEmployeeId",
               ce.name AS "contractorEmployeeName",
@@ -3075,6 +3076,7 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT ${limit}`,
       params,
     );
+    return this.withViewPhotos(rows);
   }
 
   /**
@@ -3652,7 +3654,7 @@ export class MobileAttendanceService implements OnModuleInit {
     } else if (allowedBranchIds && allowedBranchIds.length === 0) {
       return [];
     }
-    return this.contractorFaceRepo.manager.query(
+    const rows = await this.contractorFaceRepo.manager.query(
       `SELECT r.id,
               r.contractor_employee_id AS "contractorEmployeeId",
               ce.name AS "contractorName",
@@ -3672,6 +3674,7 @@ export class MobileAttendanceService implements OnModuleInit {
         LIMIT 500`,
       params,
     );
+    return this.withViewPhotos(rows);
   }
 
   async reviewContractorReenrollRequest(
@@ -4376,7 +4379,18 @@ export class MobileAttendanceService implements OnModuleInit {
       qb.andWhere('t.branch_id = ANY(:bids)', { bids: allowedBranchIds });
     }
     qb.orderBy('t.created_at', 'DESC').limit(100);
-    return qb.getMany();
+    const rows = await qb.getMany();
+    return rows.map((row) => ({
+      ...row,
+      photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
+    }));
+  }
+
+  private withViewPhotos<T extends { photoUrl: string | null }>(rows: T[]): T[] {
+    return rows.map((row) => ({
+      ...row,
+      photoUrl: this.facePhotos.toViewUrl(row.photoUrl),
+    }));
   }
 }
 

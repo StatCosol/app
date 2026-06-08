@@ -158,6 +158,7 @@ export interface DailyAttendanceRecord {
   approvedByUserId: string | null;
   approvedAt: string | null;
   rejectionReason: string | null;
+  photoUrl: string | null;
 }
 
 export interface ApprovalStats {
