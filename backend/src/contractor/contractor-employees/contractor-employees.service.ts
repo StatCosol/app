@@ -59,6 +59,31 @@ function normalizeAadhaar(value: any): string | null {
   return digits || null;
 }
 
+function normalizeDateInput(value: any): string | null {
+  if (value == null || value === '') return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const serial = Number(raw);
+  if (Number.isFinite(serial) && serial > 0 && serial < 80000) {
+    const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+  return raw;
+}
+
 export interface BulkRowResult {
   index: number;
   ok: boolean;
@@ -135,6 +160,12 @@ export class ContractorEmployeesService {
     if (monthlySalary !== undefined) out.monthlySalary = monthlySalary;
     if (dailyWage !== undefined) out.dailyWage = dailyWage;
     if (dto.aadhaar !== undefined) out.aadhaar = normalizeAadhaar(dto.aadhaar);
+    if (dto.dateOfBirth !== undefined)
+      out.dateOfBirth = normalizeDateInput(dto.dateOfBirth);
+    if (dto.dateOfJoining !== undefined)
+      out.dateOfJoining = normalizeDateInput(dto.dateOfJoining);
+    if (dto.dateOfExit !== undefined)
+      out.dateOfExit = normalizeDateInput(dto.dateOfExit);
     // Tenancy fields must NEVER be mutated by the caller through update().
     // create() supplies them via explicit args; strip them defensively here
     // so that an Object.assign() in update() can't move an employee across
@@ -270,7 +301,10 @@ export class ContractorEmployeesService {
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i] || {};
       const name = normalizePersonName(raw.name);
-      const branchId = String(raw.branchId || defaultBranchId || '').trim();
+      let branchId = String(raw.branchId || defaultBranchId || '').trim();
+      if (!branchId && allowedBranchIds.size === 1) {
+        branchId = Array.from(allowedBranchIds)[0];
+      }
 
       if (!name) {
         failed++;
