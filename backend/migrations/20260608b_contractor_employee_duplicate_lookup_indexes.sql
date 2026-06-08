@@ -13,7 +13,8 @@ CREATE INDEX IF NOT EXISTS idx_contractor_emp_active_name_lookup
 CREATE INDEX IF NOT EXISTS idx_contractor_emp_active_aadhaar_lookup
   ON contractor_employees (
     client_id,
-    regexp_replace(COALESCE(aadhaar, ''), '\D', '', 'g')
+    aadhaar
   )
-  WHERE regexp_replace(COALESCE(aadhaar, ''), '\D', '', 'g') <> ''
+  WHERE aadhaar IS NOT NULL
+    AND btrim(aadhaar) <> ''
     AND (is_active IS TRUE OR status IN ('ACTIVE', 'PENDING_DELETE'));
